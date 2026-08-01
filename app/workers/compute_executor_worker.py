@@ -7,7 +7,7 @@ from contextlib import contextmanager
 from dataclasses import dataclass
 from threading import Event
 from typing import Any, Callable, Coroutine, Iterator
-from uuid import UUID
+from uuid import UUID, uuid4
 
 from pydantic import ValidationError
 
@@ -258,11 +258,7 @@ def _materialize_workspace_summary_lineage_before_success_publication(
 ) -> None:
     if job.analytics_type != ANALYTICS_WORKFLOW_WORKSPACE_SUMMARY:
         return
-    runtime.job_store.renew_lease(
-        job.calculation_id,
-        worker_id=runtime.worker_id,
-        lease_seconds=runtime.lease_seconds,
-    )
+    _renew_workspace_summary_compute_lease(job, runtime)
     lineage_worker_id = _workspace_summary_inline_lineage_worker_id(
         compute_worker_id=runtime.worker_id,
         calculation_id=job.calculation_id,
@@ -275,10 +271,19 @@ def _materialize_workspace_summary_lineage_before_success_publication(
         raise WorkspaceSummaryLineageNotReadyError(
             f"Workspace-summary lineage was not complete before async result publication: {job.calculation_id}"
         )
+    _renew_workspace_summary_compute_lease(job, runtime)
+
+
+def _renew_workspace_summary_compute_lease(job: ComputeJobRecord, runtime: _ComputeJobRuntime) -> None:
+    runtime.job_store.renew_lease(
+        job.calculation_id,
+        worker_id=runtime.worker_id,
+        lease_seconds=runtime.lease_seconds,
+    )
 
 
 def _workspace_summary_inline_lineage_worker_id(*, compute_worker_id: str, calculation_id: UUID) -> str:
-    return f"{compute_worker_id}:workspace-summary-lineage:{calculation_id}"
+    return f"{compute_worker_id}:workspace-summary-lineage:{calculation_id}:{uuid4()}"
 
 
 def _build_compute_job_runtime(

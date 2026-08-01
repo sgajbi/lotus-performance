@@ -23,7 +23,7 @@ python scripts/python_test_taxonomy_inventory.py --limit 30 --min-api-runtime-te
 | Metric | Value |
 | --- | ---: |
 | Test modules inventoried | 309 |
-| Test functions inventoried | 3553 |
+| Test functions inventoried | 3554 |
 | Integration/API/runtime test functions | 690 |
 | Contract/governance test functions | 154 |
 
@@ -34,7 +34,7 @@ python scripts/python_test_taxonomy_inventory.py --limit 30 --min-api-runtime-te
 | benchmarks | 9 | 18 |
 | e2e | 1 | 21 |
 | integration | 28 | 341 |
-| unit | 271 | 3173 |
+| unit | 271 | 3174 |
 
 ## Test Functions By Family
 
@@ -45,7 +45,7 @@ python scripts/python_test_taxonomy_inventory.py --limit 30 --min-api-runtime-te
 | contract_or_governance | 154 |
 | observability_or_readiness | 361 |
 | quality_or_security | 169 |
-| uncategorized | 966 |
+| uncategorized | 967 |
 
 ## Largest Test Modules
 
@@ -63,7 +63,7 @@ python scripts/python_test_taxonomy_inventory.py --limit 30 --min-api-runtime-te
 | 10 | `tests/unit/app/test_contribution_endpoint_helpers.py` | unit | 52 | analytics_domain, api_or_runtime |
 | 11 | `tests/unit/services/test_twr_inspection_calculation_consistency.py` | unit | 51 | analytics_domain |
 | 12 | `tests/unit/services/test_workspace_summary_service.py` | unit | 50 | uncategorized |
-| 13 | `tests/unit/services/test_compute_executor_worker.py` | unit | 48 | uncategorized |
+| 13 | `tests/unit/services/test_compute_executor_worker.py` | unit | 49 | uncategorized |
 | 14 | `tests/unit/services/test_stateful_input_service.py` | unit | 47 | analytics_domain |
 | 15 | `tests/unit/services/test_twr_mode_service.py` | unit | 45 | analytics_domain |
 | 16 | `tests/unit/engine/test_mwr.py` | unit | 44 | analytics_domain |
@@ -199,9 +199,9 @@ The canonical identity and missing-benchmark readiness review fixes added two re
 raising source test functions to `3542` and uncategorized tests to `962` while staying below the same
 ceiling.
 Issue #467 workspace-summary lineage terminality coverage added initial same-calculation
-materialization and result-publication tests. The review fix added five more lease-renewal,
+materialization and result-publication tests. The review fix added six more lease-renewal,
 active-lineage-lease wait, and execution-stage terminality regressions, raising source test
-functions to `3553`, observability/readiness tests to `361`, and uncategorized tests to `966` while
+functions to `3554`, observability/readiness tests to `361`, and uncategorized tests to `967` while
 preserving the existing `969` uncategorized ceiling.
 
 This slice promotes the stable part of the taxonomy from report-only measurement to a
