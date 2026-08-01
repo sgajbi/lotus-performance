@@ -188,16 +188,6 @@ async def calculate_workspace_summary_async(
             "workspace_summary_portfolio_daily_results_gross.csv": gross_artifacts.daily_results_df,
         },
     )
-    execution_registry.complete_stage(
-        request.calculation_id,
-        EXECUTION_STAGE_EXECUTION,
-        details={
-            "report_end_date": str(request.report_end_date),
-            "requested_periods": [item.period.value for item in request.periods],
-            "input_mode": request.input_mode.value,
-            "include_benchmark": request.include_benchmark,
-        },
-    )
     return response
 
 

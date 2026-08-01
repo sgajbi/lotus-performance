@@ -238,9 +238,63 @@ def test_lineage_metadata_store_payload_queue_roundtrip(tmp_path):
     assert leased[0].attempt_count == 1
     assert leased[0].worker_id == "lineage-worker-1"
 
+
+def test_lineage_metadata_store_leases_one_pending_payload_by_calculation_id(tmp_path):
+    store = LineageMetadataStore(f"sqlite:///{tmp_path / 'lineage.db'}")
+    store.create_schema()
+    target_id = uuid4()
+    other_id = uuid4()
+
+    for calculation_id in (other_id, target_id):
+        store.enqueue_lineage_payload(
+            calculation_id=calculation_id,
+            calculation_type="WORKSPACE_SUMMARY",
+            request_json="{}",
+            response_json="{}",
+            details={"details.csv": "a,b\n1,2\n"},
+        )
+
+    leased = store.lease_pending_payload(
+        calculation_id=target_id,
+        worker_id="workspace-summary-inline-lineage",
+        lease_seconds=60,
+    )
+
+    assert leased is not None
+    assert leased.calculation_id == target_id
+    assert leased.worker_id == "workspace-summary-inline-lineage"
+    assert leased.attempt_count == 1
+
+    still_pending = {payload.calculation_id: payload for payload in store.list_pending_payloads(limit=10)}
+    assert still_pending[other_id].attempt_count == 0
+    assert still_pending[target_id].attempt_count == 1
+
+
+def test_lineage_metadata_store_does_not_lease_completed_payload_by_calculation_id(tmp_path):
+    store = LineageMetadataStore(f"sqlite:///{tmp_path / 'lineage.db'}")
+    store.create_schema()
+    calculation_id = uuid4()
+    store.enqueue_lineage_payload(
+        calculation_id=calculation_id,
+        calculation_type="WORKSPACE_SUMMARY",
+        request_json="{}",
+        response_json="{}",
+        details={"details.csv": "a,b\n1,2\n"},
+    )
+    store.mark_complete(calculation_id, artifact_names=["request.json"])
+
+    assert (
+        store.lease_pending_payload(
+            calculation_id=calculation_id,
+            worker_id="workspace-summary-inline-lineage",
+            lease_seconds=60,
+        )
+        is None
+    )
+
     payload = store.get_payload(calculation_id)
     assert payload is not None
-    assert payload.attempt_count == 1
+    assert payload.attempt_count == 0
 
     store.delete_payload(calculation_id)
     assert store.list_pending_payloads(limit=10) == []

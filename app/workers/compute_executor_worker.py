@@ -63,6 +63,7 @@ from app.services.returns_series_service import calculate_returns_series, to_dat
 from app.services.twr_mode_service import resolve_twr_request
 from app.services.twr_service import calculate_twr_response
 from app.services.workspace_summary_service import calculate_workspace_summary
+from app.workers.lineage_worker import process_pending_calculation as process_pending_lineage_calculation
 from core.errors import APIError
 from core.repro import generate_canonical_hash, generate_canonical_hash_from_value
 from engine.exceptions import EngineCalculationError, InvalidEngineInputError
@@ -71,6 +72,10 @@ logger = logging.getLogger(__name__)
 
 _WORKER_NAME = "compute_executor_worker"
 _QUEUE_NAME = "compute"
+
+
+class WorkspaceSummaryLineageNotReadyError(RuntimeError):
+    """Raised when workspace-summary lineage is not complete before result publication."""
 
 
 @dataclass(frozen=True)
@@ -83,6 +88,7 @@ class _ComputeJobExecutionContext:
     benchmark_calculator: Callable[..., Any]
     twr_calculator: Callable[..., Any]
     workspace_summary_calculator: Callable[..., Any]
+    workspace_summary_lineage_materializer: Callable[..., bool]
     inspection_calculator: Callable[[TWRInspectionRequest], Any]
 
 
@@ -119,6 +125,7 @@ class _ComputeJobCalculators:
     benchmark_calculator: Callable[..., Any]
     twr_calculator: Callable[..., Any]
     workspace_summary_calculator: Callable[..., Any]
+    workspace_summary_lineage_materializer: Callable[..., bool]
     inspection_calculator: Callable[[TWRInspectionRequest], Any]
 
 
@@ -140,6 +147,7 @@ def _process_pending_jobs(
     benchmark_calculator: Callable[..., Any] | None = None,
     twr_calculator: Callable[..., Any] | None = None,
     workspace_summary_calculator: Callable[..., Any] | None = None,
+    workspace_summary_lineage_materializer: Callable[..., bool] | None = None,
     inspection_calculator: Callable[[TWRInspectionRequest], Any] | None = None,
     settings=None,
 ) -> int:
@@ -156,6 +164,7 @@ def _process_pending_jobs(
         benchmark_calculator=benchmark_calculator,
         twr_calculator=twr_calculator,
         workspace_summary_calculator=workspace_summary_calculator,
+        workspace_summary_lineage_materializer=workspace_summary_lineage_materializer,
         inspection_calculator=inspection_calculator,
         settings=settings,
     )
@@ -256,6 +265,7 @@ def _build_compute_job_runtime(
     benchmark_calculator: Callable[..., Any] | None,
     twr_calculator: Callable[..., Any] | None,
     workspace_summary_calculator: Callable[..., Any] | None,
+    workspace_summary_lineage_materializer: Callable[..., bool] | None,
     inspection_calculator: Callable[[TWRInspectionRequest], Any] | None,
     settings,
 ) -> _ComputeJobRuntime:
@@ -284,6 +294,7 @@ def _build_compute_job_runtime(
             benchmark_calculator=benchmark_calculator,
             twr_calculator=twr_calculator,
             workspace_summary_calculator=workspace_summary_calculator,
+            workspace_summary_lineage_materializer=workspace_summary_lineage_materializer,
             inspection_calculator=inspection_calculator,
         ),
     )
@@ -325,6 +336,7 @@ def _build_compute_job_execution_context(
     benchmark_calculator: Callable[..., Any] | None,
     twr_calculator: Callable[..., Any] | None,
     workspace_summary_calculator: Callable[..., Any] | None,
+    workspace_summary_lineage_materializer: Callable[..., bool] | None,
     inspection_calculator: Callable[[TWRInspectionRequest], Any] | None,
 ) -> _ComputeJobExecutionContext:
     calculators = _resolve_compute_job_calculators(
@@ -334,6 +346,7 @@ def _build_compute_job_execution_context(
         benchmark_calculator=benchmark_calculator,
         twr_calculator=twr_calculator,
         workspace_summary_calculator=workspace_summary_calculator,
+        workspace_summary_lineage_materializer=workspace_summary_lineage_materializer,
         inspection_calculator=inspection_calculator,
     )
     return _ComputeJobExecutionContext(
@@ -345,6 +358,7 @@ def _build_compute_job_execution_context(
         benchmark_calculator=calculators.benchmark_calculator,
         twr_calculator=calculators.twr_calculator,
         workspace_summary_calculator=calculators.workspace_summary_calculator,
+        workspace_summary_lineage_materializer=calculators.workspace_summary_lineage_materializer,
         inspection_calculator=calculators.inspection_calculator,
     )
 
@@ -357,6 +371,7 @@ def _resolve_compute_job_calculators(
     benchmark_calculator: Callable[..., Any] | None,
     twr_calculator: Callable[..., Any] | None,
     workspace_summary_calculator: Callable[..., Any] | None,
+    workspace_summary_lineage_materializer: Callable[..., bool] | None,
     inspection_calculator: Callable[[TWRInspectionRequest], Any] | None,
 ) -> _ComputeJobCalculators:
     return _ComputeJobCalculators(
@@ -368,6 +383,10 @@ def _resolve_compute_job_calculators(
         workspace_summary_calculator=_truthy_or_default(
             workspace_summary_calculator,
             calculate_workspace_summary,
+        ),
+        workspace_summary_lineage_materializer=_truthy_or_default(
+            workspace_summary_lineage_materializer,
+            process_pending_lineage_calculation,
         ),
         inspection_calculator=_truthy_or_default(inspection_calculator, run_twr_inspection),
     )
@@ -559,7 +578,12 @@ def _execute_workspace_summary_job(job: ComputeJobRecord, context: _ComputeJobEx
         _payload_without_async_observability_context(job.request_payload)
     )
     _update_execution_identity(job, context, workspace_request)
-    return context.workspace_summary_calculator(workspace_request, settings=context.settings)
+    response = context.workspace_summary_calculator(workspace_request, settings=context.settings)
+    if not context.workspace_summary_lineage_materializer(job.calculation_id, settings=context.settings):
+        raise WorkspaceSummaryLineageNotReadyError(
+            f"Workspace-summary lineage was not complete before async result publication: {job.calculation_id}"
+        )
+    return response
 
 
 def _execute_twr_inspection_job(job: ComputeJobRecord, context: _ComputeJobExecutionContext) -> Any:

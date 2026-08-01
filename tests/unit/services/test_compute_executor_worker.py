@@ -176,6 +176,9 @@ def test_compute_executor_worker_runtime_builder_preserves_explicit_overrides(tm
     def _calculator(*args, **kwargs):  # noqa: ANN202, ARG001
         return None
 
+    def _lineage_materializer(*args, **kwargs):  # noqa: ANN202, ARG001
+        return True
+
     runtime = compute_executor_worker._build_compute_job_runtime(
         limit=3,
         job_store=job_store,
@@ -189,6 +192,7 @@ def test_compute_executor_worker_runtime_builder_preserves_explicit_overrides(tm
         benchmark_calculator=_calculator,
         twr_calculator=_calculator,
         workspace_summary_calculator=_calculator,
+        workspace_summary_lineage_materializer=_lineage_materializer,
         inspection_calculator=_calculator,
         settings=settings,
     )
@@ -202,6 +206,7 @@ def test_compute_executor_worker_runtime_builder_preserves_explicit_overrides(tm
     assert runtime.execution_context.settings is settings
     assert runtime.execution_context.returns_series_calculator is _returns_series_calculator
     assert runtime.execution_context.contribution_calculator is _calculator
+    assert runtime.execution_context.workspace_summary_lineage_materializer is _lineage_materializer
 
 
 def test_compute_executor_worker_process_leased_job_records_success_before_completion(monkeypatch):
@@ -604,6 +609,9 @@ def test_compute_executor_worker_execution_context_preserves_all_calculator_over
     def _calculator(*args, **kwargs):  # noqa: ANN202, ARG001
         return None
 
+    def _lineage_materializer(*args, **kwargs):  # noqa: ANN202, ARG001
+        return True
+
     context = compute_executor_worker._build_compute_job_execution_context(
         settings=settings,
         execution_store=execution_store,
@@ -613,6 +621,7 @@ def test_compute_executor_worker_execution_context_preserves_all_calculator_over
         benchmark_calculator=_calculator,
         twr_calculator=_calculator,
         workspace_summary_calculator=_calculator,
+        workspace_summary_lineage_materializer=_lineage_materializer,
         inspection_calculator=_calculator,
     )
 
@@ -624,6 +633,7 @@ def test_compute_executor_worker_execution_context_preserves_all_calculator_over
     assert context.benchmark_calculator is _calculator
     assert context.twr_calculator is _calculator
     assert context.workspace_summary_calculator is _calculator
+    assert context.workspace_summary_lineage_materializer is _lineage_materializer
     assert context.inspection_calculator is _calculator
 
 
@@ -635,6 +645,7 @@ def test_compute_executor_worker_calculator_options_use_default_calculators():
         benchmark_calculator=None,
         twr_calculator=None,
         workspace_summary_calculator=None,
+        workspace_summary_lineage_materializer=None,
         inspection_calculator=None,
     )
 
@@ -644,6 +655,10 @@ def test_compute_executor_worker_calculator_options_use_default_calculators():
     assert calculators.benchmark_calculator is compute_executor_worker.calculate_benchmark_response
     assert calculators.twr_calculator is compute_executor_worker.calculate_twr_response
     assert calculators.workspace_summary_calculator is compute_executor_worker.calculate_workspace_summary
+    assert (
+        calculators.workspace_summary_lineage_materializer
+        is compute_executor_worker.process_pending_lineage_calculation
+    )
     assert calculators.inspection_calculator is compute_executor_worker.run_twr_inspection
 
 
@@ -664,6 +679,7 @@ def test_compute_executor_worker_calculator_options_preserve_truthy_default_poli
         benchmark_calculator=falsy_calculator,
         twr_calculator=falsy_calculator,
         workspace_summary_calculator=falsy_calculator,
+        workspace_summary_lineage_materializer=falsy_calculator,
         inspection_calculator=falsy_calculator,
     )
 
@@ -673,6 +689,10 @@ def test_compute_executor_worker_calculator_options_preserve_truthy_default_poli
     assert calculators.benchmark_calculator is compute_executor_worker.calculate_benchmark_response
     assert calculators.twr_calculator is compute_executor_worker.calculate_twr_response
     assert calculators.workspace_summary_calculator is compute_executor_worker.calculate_workspace_summary
+    assert (
+        calculators.workspace_summary_lineage_materializer
+        is compute_executor_worker.process_pending_lineage_calculation
+    )
     assert calculators.inspection_calculator is compute_executor_worker.run_twr_inspection
 
 
@@ -825,6 +845,7 @@ def test_compute_executor_worker_dispatches_benchmark_job_and_updates_execution_
         benchmark_calculator=_benchmark_calculator,
         twr_calculator=_unused,
         workspace_summary_calculator=_unused,
+        workspace_summary_lineage_materializer=_unused,
         inspection_calculator=_unused,
     )
     job = _compute_job_record(
@@ -1237,9 +1258,11 @@ def test_compute_executor_worker_processes_pending_workspace_summary_job(tmp_pat
     )
 
     captured: dict[str, str] = {}
+    calls: list[str] = []
 
     def _workspace_summary_calculator(workspace_request, *, settings):
         captured["input_mode"] = workspace_request.input_mode.value
+        calls.append("calculate")
         return type(
             "WorkspaceSummaryResponseStub",
             (),
@@ -1253,10 +1276,15 @@ def test_compute_executor_worker_processes_pending_workspace_summary_job(tmp_pat
             },
         )()
 
+    def _workspace_summary_lineage_materializer(materialized_calculation_id, *, settings):
+        calls.append(f"materialize:{materialized_calculation_id}:{settings.APP_VERSION}")
+        return True
+
     assert (
         compute_executor_worker._process_pending_jobs(
             limit=10,
             workspace_summary_calculator=_workspace_summary_calculator,
+            workspace_summary_lineage_materializer=_workspace_summary_lineage_materializer,
             settings=_worker_settings(APP_VERSION="test-version"),
         )
         == 1
@@ -1266,6 +1294,7 @@ def test_compute_executor_worker_processes_pending_workspace_summary_job(tmp_pat
     assert job is not None
     assert job.job_status == ComputeJobStatus.COMPLETE
     assert captured["input_mode"] == "stateless"
+    assert calls == ["calculate", f"materialize:{calculation_id}:test-version"]
 
     execution = execution_store.get_execution(calculation_id)
     assert execution is not None
@@ -1276,6 +1305,77 @@ def test_compute_executor_worker_processes_pending_workspace_summary_job(tmp_pat
     assert result is not None
     assert result.result_status == AsyncResultStatus.COMPLETE
     assert result.response_payload["portfolio_id"] == "P1"
+
+
+def test_compute_executor_worker_blocks_workspace_summary_success_until_lineage_complete(tmp_path, monkeypatch):
+    execution_store = ExecutionRegistry(f"sqlite:///{tmp_path / 'execution.db'}")
+    execution_store.create_schema()
+    monkeypatch.setattr(compute_executor_worker, "execution_registry", execution_store)
+    result_store = AsyncResultStore(f"sqlite:///{tmp_path / 'results.db'}")
+    result_store.create_schema()
+    monkeypatch.setattr(compute_executor_worker, "async_result_store", result_store)
+    job_store = ComputeJobStore(f"sqlite:///{tmp_path / 'jobs.db'}")
+    job_store.create_schema()
+    monkeypatch.setattr(compute_executor_worker, "compute_job_store", job_store)
+    calculation_id = uuid4()
+    request_payload = {
+        "calculation_id": str(calculation_id),
+        "portfolio_id": "P1",
+        "report_end_date": "2026-03-31",
+        "performance_start_date": "2025-12-31",
+        "input_mode": "stateless",
+        "periods": [{"period": "1M", "frequencies": ["daily"]}],
+        "stateless_input": {
+            "valuation_points": [
+                {"perf_date": "2026-03-31", "begin_mv": 1000.0, "end_mv": 1010.0},
+            ]
+        },
+    }
+
+    execution_store.create_execution(
+        calculation_id=calculation_id,
+        analytics_type=ANALYTICS_WORKFLOW_WORKSPACE_SUMMARY,
+        portfolio_id="P1",
+        execution_mode="async",
+        requested_window={},
+    )
+    job_store.enqueue_job(
+        calculation_id=calculation_id,
+        analytics_type=ANALYTICS_WORKFLOW_WORKSPACE_SUMMARY,
+        request_payload=request_payload,
+        max_attempts=1,
+    )
+
+    def _workspace_summary_calculator(workspace_request, *, settings):  # noqa: ARG001
+        return type(
+            "WorkspaceSummaryResponseStub",
+            (),
+            {
+                "model_dump": lambda self, mode="json": {
+                    "calculation_id": str(workspace_request.calculation_id),
+                    "portfolio_id": workspace_request.portfolio_id,
+                }
+            },
+        )()
+
+    assert (
+        compute_executor_worker._process_pending_jobs(
+            limit=10,
+            workspace_summary_calculator=_workspace_summary_calculator,
+            workspace_summary_lineage_materializer=lambda *_args, **_kwargs: False,
+            settings=_worker_settings(APP_VERSION="test-version"),
+        )
+        == 1
+    )
+
+    job = job_store.get_job(calculation_id)
+    assert job is not None
+    assert job.job_status == ComputeJobStatus.FAILED
+    assert job.error_type == "WorkspaceSummaryLineageNotReadyError"
+    result = result_store.get_result(calculation_id)
+    assert result is not None
+    assert result.result_status == AsyncResultStatus.FAILED
+    assert result.response_payload is None
 
 
 def test_compute_executor_worker_updates_identity_for_stateful_contribution_job(tmp_path, monkeypatch):

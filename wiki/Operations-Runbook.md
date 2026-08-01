@@ -195,6 +195,13 @@ failed; stale-job reconciliation should then emit `success_finalization_recovere
 compute job complete from the persisted result. Late failure writes must not replace an existing
 successful async result for the same calculation id.
 
+Workspace-summary async success is lineage-bound. When investigating a workspace-summary incident,
+join the compute job, async result, execution stages, and lineage metadata by the same
+`calculation_id`. A retrievable workspace-summary result should not be treated as ready unless the
+`lineage_materialization` stage is complete; if same-calculation lineage cannot complete within the
+governed retry budget, the compute worker should follow the terminal failure path rather than
+publishing partial evidence as a ready result.
+
 Stale-owner finalization is intentionally a no-op. A `stale_owner_success_publication_skipped`
 event means a compute worker finished after another worker reclaimed the calculation lease; it must
 not publish the stale async result or mark the compute job complete. A
