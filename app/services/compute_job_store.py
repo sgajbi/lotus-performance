@@ -757,6 +757,34 @@ class ComputeJobStore:
             )
             row.completed_at_utc = None
 
+    def mark_running_acquired(
+        self,
+        calculation_id: UUID,
+        *,
+        current_worker_id: str,
+        acquisition_worker_id: str,
+        lease_seconds: int,
+    ) -> None:
+        with self._session() as session:
+            row = self._get_model(session, calculation_id)
+            now = datetime.now(timezone.utc)
+            _ensure_compute_job_active_lease_owner(
+                row,
+                calculation_id=calculation_id,
+                worker_id=current_worker_id,
+                transition="acquire running lease for",
+                now=now,
+            )
+            row.job_status = ComputeJobStatus.RUNNING.value
+            row.worker_id = acquisition_worker_id
+            row.attempt_count += 1
+            row.error_message = None
+            row.error_type = None
+            row.started_at_utc = row.started_at_utc or now
+            row.leased_at_utc = now
+            row.lease_expires_at_utc = now + timedelta(seconds=lease_seconds)
+            row.completed_at_utc = None
+
     def renew_lease(self, calculation_id: UUID, *, worker_id: str | None, lease_seconds: int) -> None:
         with self._session() as session:
             row = self._get_model(session, calculation_id)

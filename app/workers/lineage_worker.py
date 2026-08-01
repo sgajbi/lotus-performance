@@ -11,7 +11,7 @@ from app.core.config import get_settings
 from app.observability import setup_worker_logging, worker_log_extra
 from app.services.durable_metadata_bootstrap import bootstrap_durable_metadata_stores
 from app.services.durable_store_runtime import RuntimeStoreProxy
-from app.services.execution_registry import ExecutionRegistry, execution_registry
+from app.services.execution_registry import ExecutionRegistry, ExecutionStageStatus, execution_registry
 from app.services.lineage_metadata_store import (
     LineageMetadataStore,
     LineagePayload,
@@ -206,7 +206,12 @@ def _lineage_terminal_status(
     if record.status == LineageStatus.PENDING:
         return None
     stage_name = resolve_artifact_stage_name(calculation_type=record.calculation_type)
-    return execution_store.stage_is_complete(calculation_id, stage_name)
+    stage_status = execution_store.stage_status(calculation_id, stage_name)
+    if stage_status == ExecutionStageStatus.COMPLETE:
+        return True
+    if stage_status == ExecutionStageStatus.FAILED:
+        return False
+    return None
 
 
 def _lineage_worker_runtime(

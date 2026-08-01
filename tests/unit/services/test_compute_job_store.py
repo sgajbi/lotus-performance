@@ -557,6 +557,63 @@ def test_compute_job_store_renew_lease_preserves_attempt_count(tmp_path):
     assert after.lease_expires_at_utc != before.lease_expires_at_utc
 
 
+def test_compute_job_store_mark_running_acquired_replaces_queue_owner_with_acquisition_owner(tmp_path):
+    store = ComputeJobStore(f"sqlite:///{tmp_path / 'compute.db'}")
+    store.create_schema()
+    calculation_id = uuid4()
+
+    store.enqueue_job(
+        calculation_id=calculation_id,
+        analytics_type="WorkspaceSummary",
+        request_payload={"portfolio_id": "P1"},
+        max_attempts=3,
+    )
+    store.lease_pending_jobs(worker_id="queue-worker", limit=10, lease_seconds=30)
+
+    store.mark_running_acquired(
+        calculation_id,
+        current_worker_id="queue-worker",
+        acquisition_worker_id="queue-worker:cj:abc123:acquisition",
+        lease_seconds=90,
+    )
+
+    running = store.get_job(calculation_id)
+    assert running is not None
+    assert running.job_status == ComputeJobStatus.RUNNING
+    assert running.worker_id == "queue-worker:cj:abc123:acquisition"
+    assert running.attempt_count == 1
+    assert running.started_at_utc is not None
+    assert running.lease_expires_at_utc is not None
+
+
+def test_compute_job_store_mark_running_acquired_rejects_stale_queue_owner(tmp_path):
+    store = ComputeJobStore(f"sqlite:///{tmp_path / 'compute.db'}")
+    store.create_schema()
+    calculation_id = uuid4()
+
+    store.enqueue_job(
+        calculation_id=calculation_id,
+        analytics_type="WorkspaceSummary",
+        request_payload={"portfolio_id": "P1"},
+        max_attempts=3,
+    )
+    store.lease_pending_jobs(worker_id="queue-worker", limit=10, lease_seconds=30)
+
+    with pytest.raises(ComputeJobLeaseOwnershipError, match="lease owner mismatch"):
+        store.mark_running_acquired(
+            calculation_id,
+            current_worker_id="stale-worker",
+            acquisition_worker_id="stale-worker:cj:abc123:acquisition",
+            lease_seconds=90,
+        )
+
+    leased = store.get_job(calculation_id)
+    assert leased is not None
+    assert leased.job_status == ComputeJobStatus.LEASED
+    assert leased.worker_id == "queue-worker"
+    assert leased.attempt_count == 0
+
+
 def test_compute_job_store_rejects_renew_lease_from_stale_worker(tmp_path):
     store = ComputeJobStore(f"sqlite:///{tmp_path / 'compute.db'}")
     store.create_schema()

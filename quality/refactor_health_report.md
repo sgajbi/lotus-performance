@@ -81,7 +81,7 @@ link the commit, command, or CI artifact that proves the change.
 | Branch coverage | unknown | 98.00% | measured | `quality/coverage_inventory.md` via `make branch-coverage-baseline` (`3,013` unit, `308` integration, and `21` e2e tests under branch coverage; `4,318` covered branches of `4,406`, `88` missing branches, `88` partial branches) |
 | Integration/API/runtime test functions | unknown | 690 | enforced | `quality/test_taxonomy_inventory.md`; `make quality-test-taxonomy-gate` |
 | Contract/governance test functions | unknown | 154 | enforced | `quality/test_taxonomy_inventory.md`; `make quality-test-taxonomy-gate` |
-| Uncategorized test functions | unknown | 967 | enforced ceiling | `quality/test_taxonomy_inventory.md`; `make quality-test-taxonomy-gate`; RFC-0002 Idea opportunity source-proof tests stay below the uncategorized ceiling |
+| Uncategorized test functions | unknown | 968 | enforced ceiling | `quality/test_taxonomy_inventory.md`; `make quality-test-taxonomy-gate`; RFC-0002 Idea opportunity source-proof tests stay below the uncategorized ceiling |
 
 ## Security And Dependencies
 
@@ -113,7 +113,7 @@ link the commit, command, or CI artifact that proves the change.
 | Metrics markers | unknown | 6 | measured | `metrics` family in `quality/observability_readiness_inventory.md` |
 | Health/readiness markers | unknown | 6 | measured | `health_readiness` family in `quality/observability_readiness_inventory.md` |
 | Health/metrics endpoint markers | unknown | 4 | measured | `health_metrics_endpoints` family in `quality/observability_readiness_inventory.md` |
-| Mapped observability/readiness test functions | unknown | 473 | measured | family-mapped test-function count in `quality/observability_readiness_inventory.md`; counts can overlap across families |
+| Mapped observability/readiness test functions | unknown | 477 | measured | family-mapped test-function count in `quality/observability_readiness_inventory.md`; counts can overlap across families |
 | Demo API certification command | unknown | 1 | enforced | `make quality-evaluation-gate` delegates to `make demo-api-certification`, which runs `scripts/demo_api_certification.py` and writes reviewed JSON evidence under ignored `output/demo-api-certification/latest.json` |
 | Test taxonomy gate | unknown | 1 | enforced | `make quality-evaluation-gate` delegates to `make quality-test-taxonomy-gate`, which blocks API/runtime and contract/governance test breadth regressions and uncategorized-test growth |
 
