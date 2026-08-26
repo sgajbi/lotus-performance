@@ -1,7 +1,7 @@
 # Lotus Performance Enterprise Backend Refactor Baseline
 
 Baseline date: 2026-08-26
-Branch: `fix/475-classify-workspace-analytics`
+Branch: `main`
 Mode: report-only baseline; no new blocking quality gate is introduced by this artifact.
 
 ## Purpose
