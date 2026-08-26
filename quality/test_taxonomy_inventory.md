@@ -15,7 +15,7 @@ and quality family without executing tests or requiring coverage data.
 
 ```powershell
 python scripts/python_test_taxonomy_inventory.py --limit 30
-python scripts/python_test_taxonomy_inventory.py --limit 30 --min-api-runtime-tests 656 --min-contract-governance-tests 136 --max-uncategorized-tests 969
+python scripts/python_test_taxonomy_inventory.py --limit 30 --min-api-runtime-tests 656 --min-contract-governance-tests 136 --max-uncategorized-tests 879
 ```
 
 ## Summary
@@ -23,7 +23,7 @@ python scripts/python_test_taxonomy_inventory.py --limit 30 --min-api-runtime-te
 | Metric | Value |
 | --- | ---: |
 | Test modules inventoried | 310 |
-| Test functions inventoried | 3568 |
+| Test functions inventoried | 3573 |
 | Integration/API/runtime test functions | 690 |
 | Contract/governance test functions | 155 |
 
@@ -34,7 +34,7 @@ python scripts/python_test_taxonomy_inventory.py --limit 30 --min-api-runtime-te
 | benchmarks | 9 | 18 |
 | e2e | 1 | 21 |
 | integration | 28 | 341 |
-| unit | 272 | 3188 |
+| unit | 272 | 3193 |
 
 ## Test Functions By Family
 
@@ -44,7 +44,7 @@ python scripts/python_test_taxonomy_inventory.py --limit 30 --min-api-runtime-te
 | api_or_runtime | 690 |
 | contract_or_governance | 155 |
 | observability_or_readiness | 366 |
-| quality_or_security | 175 |
+| quality_or_security | 180 |
 | uncategorized | 879 |
 
 ## Largest Test Modules
@@ -88,8 +88,10 @@ The AST inventory counts test function definitions, while `pytest --collect-only
 pytest items including parametrized cases. The two values are intentionally different and
 complementary: collected tests show execution breadth, while this report shows source test-module
 and test-function distribution. The current suite has meaningful API/runtime and
-contract/governance coverage, but 969 test functions remain uncategorized by the first-wave
-taxonomy and should be reduced through normal refactor slices rather than allowed to grow.
+contract/governance coverage, but 879 test functions remain uncategorized by the first-wave
+taxonomy and should be reduced through normal refactor slices rather than allowed to grow. The
+largest remaining groups are `runtime` (190) and `operator` (145), which have no family mapping
+yet - see issue #478 for why one was not invented to move the number.
 
 The runtime recovery queue-result boundary slice kept the promoted gate stable by classifying
 `tests/unit/services/test_runtime_recovery_service.py` as observability/readiness coverage. The
@@ -232,10 +234,29 @@ red, and the only way to go green was to edit a governance threshold. Adding `wo
 `analytics_domain` tokens moves those 90 tests to the family they always belonged to, taking
 uncategorized from `969` to `879` and analytics-domain tests from `1571` to `1662`. The ceiling is
 re-banked to `879` in the same change: leaving it at `969` would have converted a classification
-fix into 90 tests of unearned slack. Two guard tests were added under `tests/unit/scripts/`, raising
-inventoried modules from `309` to `310`, source test functions from `3566` to `3568`, and
-quality/security tests from `173` to `175`. `runtime` (190) and `operator` (145) are deliberately
-left unclassified: neither maps to one family without a judgement that deserves its own evidence.
+fix into 90 tests of unearned slack. Note the token matches four modules, not the three that were
+uncategorized; `tests/unit/app/test_workspace_summary_openapi_contract.py` was already classified
+and now carries `analytics_domain` as well, which is why analytics-domain rose `+91` while
+uncategorized fell `-90`.
+
+Review then found the guard covered four tokens by hand against thirty-nine in the classifier, so
+thirty-five could rot into vacuous truth unchecked. The token list is now derived from
+`_families_for_path` by AST, and deriving it immediately found two tokens - `logging` and
+`correlation` - that matched no module at all and were removed; family counts were unchanged by
+their removal, confirming they classified nothing. Review also found the documented ceiling still
+stated `969` in this report's `Command` block and in `REPOSITORY-ENGINEERING-CONTEXT.md` - looser
+than the enforced `879`, so anyone running the documented command got exactly the slack the change
+removed, and no gate could see it. The context file no longer restates the thresholds at all, and a
+new check asserts no document states a threshold the gate does not enforce, excluding only
+`docs/architecture/CODEBASE-REVIEW-LEDGER.md`, whose dated rows are historical evidence that would
+be falsified by rewriting. Guard tests under `tests/unit/scripts/` raised inventoried modules from
+`309` to `310`, source test functions from `3566` to `3573`, and quality/security tests from `173`
+to `180`.
+
+`runtime` (190) and `operator` (145) are deliberately left unclassified: neither maps to one family
+without a judgement that deserves its own evidence. Together they are 38% of the remaining ceiling,
+so the defect fixed here is still live for both surfaces - recorded as issue #478 rather than left
+as an unexplained gap.
 
 This slice promotes the stable part of the taxonomy from report-only measurement to a
 regression-blocking evaluation gate. `make quality-test-taxonomy-gate` fails if API/runtime tests

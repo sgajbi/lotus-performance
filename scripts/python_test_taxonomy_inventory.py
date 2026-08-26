@@ -98,8 +98,10 @@ def _families_for_path(path: str) -> tuple[str, ...]:
             "metric",
             "metrics",
             "observability",
-            "logging",
-            "correlation",
+            # `logging` and `correlation` were here and matched no module at all - see #475. A token
+            # that matches nothing is a classification rule reduced to decoration, and it hid behind
+            # a guard that only checked four tokens by hand. Re-add either one alongside the module
+            # it is meant to classify.
             "health",
             "readiness",
             "resilience",
