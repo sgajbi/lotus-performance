@@ -24,6 +24,9 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[3]
 BASELINE = ROOT / "quality" / "baseline_report.md"
 
+# Accepts a leading sign, so a reduction is checked rather than skipped.
+_SIGNED_INTEGER = re.compile(r"[+-]?\d+")
+
 # Curated documents and the row label they restate from the baseline.
 RESTATING_REPORTS = (
     ("quality/refactor_health_report.md", "Collected tests"),
@@ -76,11 +79,61 @@ def test_a_stated_delta_equals_the_difference_of_the_figures_beside_it() -> None
     wrong = []
     for row in re.findall(r"^\|([^|]+)\|([^|]+)\|([^|]+)\|([^|]+)\|", scorecard, re.M):
         label, baseline_cell, current_cell, delta_cell = (cell.strip() for cell in row)
-        cells = [baseline_cell.replace(",", ""), current_cell.replace(",", ""), delta_cell.replace(",", "")]
-        if not all(cell.isdigit() for cell in cells):
+        cells = [
+            baseline_cell.replace(",", ""),
+            current_cell.replace(",", ""),
+            delta_cell.replace(",", ""),
+        ]
+        # `isdigit()` is false for "-100", so an earlier version silently skipped every row where
+        # a metric had been *reduced* - which is precisely what a refactor scorecard exists to
+        # track. A guard blind to the direction it cares about is not a guard.
+        if not all(_SIGNED_INTEGER.fullmatch(cell) for cell in cells):
             continue
         baseline, current, delta = (int(cell) for cell in cells)
         if current - baseline != delta:
             wrong.append(f"{label}: {current} - {baseline} = {current - baseline}, stated {delta}")
 
     assert wrong == [], f"These scorecard deltas are not the difference of the figures beside them: {wrong}"
+
+
+def test_a_negative_delta_is_checked_rather_than_skipped() -> None:
+    """A reduction is exactly what a refactor scorecard tracks, so it must not be skipped.
+
+    An earlier version gated on `cell.isdigit()`, which is false for "-100". Every row where a
+    metric had been reduced was silently ignored - the guard was blind in the one direction the
+    document exists to record.
+    """
+
+    assert _SIGNED_INTEGER.fullmatch("-100") is not None
+    assert _SIGNED_INTEGER.fullmatch("+12") is not None
+    assert _SIGNED_INTEGER.fullmatch("3861") is not None
+    assert _SIGNED_INTEGER.fullmatch("n/a") is None
+    assert _SIGNED_INTEGER.fullmatch("") is None
+    assert not "-100".isdigit()  # the reason the earlier form skipped it
+
+
+def test_the_generated_inventory_explains_that_family_counts_overlap() -> None:
+    """The caveat must be emitted by the generator, not carried by the curated file.
+
+    It lived in the document, and a mechanical regeneration of that block deleted it - leaving a
+    family table whose values sum to more than the stated total with no explanation, which reads as
+    an internally inconsistent report. Generated output has to carry its own caveats, because the
+    thing that rewrites it does not know they were there.
+    """
+
+    import subprocess
+    import sys
+
+    completed = subprocess.run(
+        [sys.executable, "scripts/python_test_taxonomy_inventory.py", "--limit", "5"],
+        cwd=ROOT,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+
+    assert completed.returncode == 0, completed.stderr
+    assert "overlap by design and do not sum to the total" in completed.stdout
+
+    published = (ROOT / "quality" / "test_taxonomy_inventory.md").read_text(encoding="utf-8")
+    assert "overlap by design and do not sum to the total" in published
