@@ -292,8 +292,12 @@ Important validation expectations:
     `make test-coverage-shard` and combined coverage enforcement through `make coverage-combine-gate`
     so workflow YAML does not become a second source of truth for pytest or coverage behavior.
     `make quality-test-taxonomy-gate` now enforces the current measured preservation baseline
-    directly: at least `656` API/runtime test functions, at least `136` contract/governance test
-    functions, and no more than `969` uncategorized test functions.
+    directly. The exact API/runtime and contract/governance floors and the uncategorized ceiling
+    are declared once, in that Makefile target, and are deliberately not restated here: a
+    hand-maintained second copy is what drifted looser than the gate during issue #475, where the
+    documented ceiling stated the exact slack the change existed to remove.
+    `tests/unit/scripts/test_test_taxonomy_classification.py` asserts the ceiling equals the
+    measured tree and that no document states a threshold the gate does not enforce.
 15. `make container-supply-chain-evidence` is the repo-native container release-evidence command.
     It builds `lotus-performance:ci` from the production Dockerfile `runtime` target with non-secret
     build metadata for Git SHA, branch, build timestamp, repository URL, CI run id, and image digest
