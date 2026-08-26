@@ -148,9 +148,11 @@ Current repository posture:
 21. Every durable store must route schema creation through
     `app.services.durable_schema_creation.create_durable_schema`; direct `MetaData.create_all`
     calls can reintroduce concurrent PostgreSQL catalog races. All stores share one
-    transaction-scoped advisory-lock key. Advisory-lock acquisition temporarily disables the
-    durable engine's short `lock_timeout`, restores it before DDL, and remains bounded by the
-    configured statement timeout.
+    transaction-scoped advisory-lock key, and every store-specific column/index upgrade must be
+    passed through the helper's `schema_upgrades` boundary so the lock remains held until all DDL
+    completes. Advisory-lock acquisition temporarily disables the durable engine's short
+    `lock_timeout`, applies an explicit 30-second acquisition statement timeout even when the
+    runtime statement timeout is disabled, and restores both configured timeouts before DDL.
 
 ## Architecture And Module Map
 

@@ -10,6 +10,7 @@ from typing import Any, Iterator
 from uuid import UUID
 
 from sqlalchemy import DateTime, ForeignKey, Index, String, Text, delete, select, text
+from sqlalchemy.engine import Connection
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import DeclarativeBase, Mapped, Session, mapped_column, relationship, sessionmaker
 
@@ -348,8 +349,11 @@ class ExecutionRegistry:
         self._session_factory = sessionmaker(bind=self._engine, future=True)
 
     def create_schema(self) -> None:
-        create_durable_schema(self._engine, Base.metadata)
-        self._ensure_runtime_indexes()
+        create_durable_schema(
+            self._engine,
+            Base.metadata,
+            schema_upgrades=(self._ensure_runtime_indexes,),
+        )
 
     def ping(self) -> None:
         with self._engine.connect() as connection:
@@ -767,21 +771,20 @@ class ExecutionRegistry:
             raise KeyError(f"Execution stage not found: {calculation_id}/{stage_name}")
         return stage
 
-    def _ensure_runtime_indexes(self) -> None:
-        with self._engine.begin() as connection:
-            connection.execute(text("DROP INDEX IF EXISTS ix_analytics_upstream_snapshot_calculation_id"))
-            connection.execute(
-                text(
-                    "CREATE INDEX IF NOT EXISTS ix_upstream_snapshot_calculation_created_at "
-                    "ON analytics_upstream_snapshot (calculation_id, created_at_utc)"
-                )
+    def _ensure_runtime_indexes(self, connection: Connection) -> None:
+        connection.execute(text("DROP INDEX IF EXISTS ix_analytics_upstream_snapshot_calculation_id"))
+        connection.execute(
+            text(
+                "CREATE INDEX IF NOT EXISTS ix_upstream_snapshot_calculation_created_at "
+                "ON analytics_upstream_snapshot (calculation_id, created_at_utc)"
             )
-            connection.execute(
-                text(
-                    "CREATE INDEX IF NOT EXISTS ix_execution_terminal_retention "
-                    "ON analytics_execution (status, completed_at_utc, created_at_utc)"
-                )
+        )
+        connection.execute(
+            text(
+                "CREATE INDEX IF NOT EXISTS ix_execution_terminal_retention "
+                "ON analytics_execution (status, completed_at_utc, created_at_utc)"
             )
+        )
 
     def _registration_result_for_duplicate_execution(
         self,

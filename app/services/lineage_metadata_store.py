@@ -23,6 +23,7 @@ from sqlalchemy import (
     select,
     text,
 )
+from sqlalchemy.engine import Connection
 from sqlalchemy.orm import DeclarativeBase, Mapped, Session, mapped_column, sessionmaker
 
 from app.services.calculation_id_filtering import apply_calculation_id_prefix_filter
@@ -219,8 +220,11 @@ class LineageMetadataStore:
         self._session_factory = sessionmaker(bind=self._engine, future=True)
 
     def create_schema(self) -> None:
-        create_durable_schema(self._engine, Base.metadata)
-        self._ensure_payload_lease_columns()
+        create_durable_schema(
+            self._engine,
+            Base.metadata,
+            schema_upgrades=(self._ensure_payload_lease_columns,),
+        )
 
     @contextmanager
     def _session(self) -> Iterator[Session]:
@@ -1173,8 +1177,13 @@ class LineageMetadataStore:
             active_since=payload.created_at_utc,
         )
 
-    def _ensure_payload_lease_columns(self) -> None:
-        inspector = inspect(self._engine)
+    def _ensure_payload_lease_columns(self, connection: Connection | None = None) -> None:
+        if connection is None:
+            with self._engine.begin() as standalone_connection:
+                self._ensure_payload_lease_columns(standalone_connection)
+            return
+
+        inspector = inspect(connection)
         if "lineage_payloads" not in inspector.get_table_names():
             return
 
@@ -1185,56 +1194,55 @@ class LineageMetadataStore:
             "lease_expires_at_utc": "ALTER TABLE lineage_payloads ADD COLUMN lease_expires_at_utc DATETIME",
         }
 
-        with self._engine.begin() as connection:
-            for column_name, statement in missing_columns.items():
-                if column_name not in existing_columns:
-                    connection.execute(text(statement))
-            connection.execute(
-                text(
-                    "CREATE INDEX IF NOT EXISTS ix_lineage_payloads_lease_expires_at "
-                    "ON lineage_payloads (lease_expires_at_utc)"
-                )
+        for column_name, statement in missing_columns.items():
+            if column_name not in existing_columns:
+                connection.execute(text(statement))
+        connection.execute(
+            text(
+                "CREATE INDEX IF NOT EXISTS ix_lineage_payloads_lease_expires_at "
+                "ON lineage_payloads (lease_expires_at_utc)"
             )
-            connection.execute(
-                text("CREATE INDEX IF NOT EXISTS ix_lineage_payloads_created_at ON lineage_payloads (created_at_utc)")
+        )
+        connection.execute(
+            text("CREATE INDEX IF NOT EXISTS ix_lineage_payloads_created_at ON lineage_payloads (created_at_utc)")
+        )
+        connection.execute(text("CREATE INDEX IF NOT EXISTS ix_lineage_records_status ON lineage_records (status)"))
+        connection.execute(
+            text(
+                "CREATE INDEX IF NOT EXISTS ix_lineage_records_terminal_retention "
+                "ON lineage_records (status, timestamp_utc, calculation_id)"
             )
-            connection.execute(text("CREATE INDEX IF NOT EXISTS ix_lineage_records_status ON lineage_records (status)"))
-            connection.execute(
-                text(
-                    "CREATE INDEX IF NOT EXISTS ix_lineage_records_terminal_retention "
-                    "ON lineage_records (status, timestamp_utc, calculation_id)"
-                )
+        )
+        connection.execute(
+            text(
+                "CREATE INDEX IF NOT EXISTS ix_lineage_records_status_type_timestamp "
+                "ON lineage_records (status, calculation_type, timestamp_utc, calculation_id)"
             )
-            connection.execute(
-                text(
-                    "CREATE INDEX IF NOT EXISTS ix_lineage_records_status_type_timestamp "
-                    "ON lineage_records (status, calculation_type, timestamp_utc, calculation_id)"
-                )
+        )
+        connection.execute(
+            text(
+                "CREATE INDEX IF NOT EXISTS ix_lineage_records_type_timestamp "
+                "ON lineage_records (calculation_type, timestamp_utc, calculation_id)"
             )
-            connection.execute(
-                text(
-                    "CREATE INDEX IF NOT EXISTS ix_lineage_records_type_timestamp "
-                    "ON lineage_records (calculation_type, timestamp_utc, calculation_id)"
-                )
+        )
+        connection.execute(
+            text(
+                "CREATE INDEX IF NOT EXISTS ix_lineage_payloads_calculation_created_at "
+                "ON lineage_payloads (calculation_id, created_at_utc)"
             )
-            connection.execute(
-                text(
-                    "CREATE INDEX IF NOT EXISTS ix_lineage_payloads_calculation_created_at "
-                    "ON lineage_payloads (calculation_id, created_at_utc)"
-                )
+        )
+        connection.execute(
+            text(
+                "CREATE INDEX IF NOT EXISTS ix_lineage_payloads_type_created_at "
+                "ON lineage_payloads (calculation_type, created_at_utc, calculation_id)"
             )
-            connection.execute(
-                text(
-                    "CREATE INDEX IF NOT EXISTS ix_lineage_payloads_type_created_at "
-                    "ON lineage_payloads (calculation_type, created_at_utc, calculation_id)"
-                )
+        )
+        connection.execute(
+            text(
+                "CREATE INDEX IF NOT EXISTS ix_lineage_payloads_lease_expires_created_at "
+                "ON lineage_payloads (lease_expires_at_utc, created_at_utc, calculation_id)"
             )
-            connection.execute(
-                text(
-                    "CREATE INDEX IF NOT EXISTS ix_lineage_payloads_lease_expires_created_at "
-                    "ON lineage_payloads (lease_expires_at_utc, created_at_utc, calculation_id)"
-                )
-            )
+        )
 
 
 _store_cache: dict[str, LineageMetadataStore] = {}
