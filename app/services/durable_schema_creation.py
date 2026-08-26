@@ -20,6 +20,11 @@ it acquires the lock after the first commits, runs `create_all`, finds everythin
 nothing. The lock is released by the transaction, so a process that dies mid-bootstrap cannot leave
 it held.
 
+The shared durable engine configures a short PostgreSQL `lock_timeout` for ordinary database work.
+Schema-lock acquisition is exempt from that timeout so a healthy, slower first bootstrap does not
+turn the second starter's wait back into a crash. The configured timeout is restored before DDL,
+and the separate statement timeout remains the overall bound on a stuck acquisition.
+
 Single-owner schema creation - a bootstrap step that runs before any worker, with workers verifying
 and failing closed - remains the better end state and is tracked on #480. This closes the crash
 without requiring every deployment surface to guarantee step ordering first.
@@ -50,10 +55,20 @@ def create_durable_schema(engine: Engine, metadata: MetaData) -> None:
         return
 
     with engine.begin() as connection:
+        configured_lock_timeout = connection.execute(text("SELECT current_setting('lock_timeout')")).scalar_one()
+        connection.execute(
+            text("SELECT set_config('lock_timeout', :lock_timeout, true)"),
+            {"lock_timeout": "0"},
+        )
         connection.execute(
             text("SELECT pg_advisory_xact_lock(:lock_key)"),
             {"lock_key": DURABLE_SCHEMA_ADVISORY_LOCK_KEY},
         )
+        connection.execute(
+            text("SELECT set_config('lock_timeout', :lock_timeout, true)"),
+            {"lock_timeout": configured_lock_timeout},
+        )
         # Bound to the locked connection on purpose: the DDL and the lock share one transaction, so
-        # the lock cannot be released before the tables it protects exist.
+        # the lock cannot be released before the tables it protects exist. The ordinary configured
+        # lock timeout is back in force for the DDL itself.
         metadata.create_all(connection)

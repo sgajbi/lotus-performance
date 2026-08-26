@@ -145,6 +145,12 @@ Current repository posture:
     counts, and treats absent lifecycle identity as explicit supportability posture. Dietz
     annualization honors explicit `periods_per_year` first, then day-count conventions including
     `BUS/252`.
+21. Every durable store must route schema creation through
+    `app.services.durable_schema_creation.create_durable_schema`; direct `MetaData.create_all`
+    calls can reintroduce concurrent PostgreSQL catalog races. All stores share one
+    transaction-scoped advisory-lock key. Advisory-lock acquisition temporarily disables the
+    durable engine's short `lock_timeout`, restores it before DDL, and remains bounded by the
+    configured statement timeout.
 
 ## Architecture And Module Map
 
