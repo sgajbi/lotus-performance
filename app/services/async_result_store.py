@@ -13,6 +13,7 @@ from sqlalchemy import DateTime, Index, String, Text, delete, func, select, text
 from sqlalchemy.orm import DeclarativeBase, Mapped, Session, mapped_column, sessionmaker
 
 from app.services.durable_database_engine import create_durable_database_engine
+from app.services.durable_schema_creation import create_durable_schema
 from app.services.durable_store_json import load_json_object_or_none
 from app.services.durable_store_runtime import RuntimeStoreProxy, resolve_runtime_store
 from app.services.durable_store_time import format_timestamp, normalize_filter_datetime
@@ -72,7 +73,7 @@ class AsyncResultStore:
         self._session_factory = sessionmaker(bind=self._engine, future=True)
 
     def create_schema(self) -> None:
-        Base.metadata.create_all(self._engine)
+        create_durable_schema(self._engine, Base.metadata)
         self._ensure_runtime_indexes()
 
     @contextmanager

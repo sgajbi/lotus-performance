@@ -27,6 +27,7 @@ from sqlalchemy.orm import DeclarativeBase, Mapped, Session, mapped_column, sess
 
 from app.services.calculation_id_filtering import apply_calculation_id_prefix_filter
 from app.services.durable_database_engine import create_durable_database_engine
+from app.services.durable_schema_creation import create_durable_schema
 from app.services.durable_store_inspection import (
     INSPECTION_STATUS_ACTIVE,
     INSPECTION_STATUS_ALL,
@@ -218,7 +219,7 @@ class LineageMetadataStore:
         self._session_factory = sessionmaker(bind=self._engine, future=True)
 
     def create_schema(self) -> None:
-        Base.metadata.create_all(self._engine)
+        create_durable_schema(self._engine, Base.metadata)
         self._ensure_payload_lease_columns()
 
     @contextmanager
