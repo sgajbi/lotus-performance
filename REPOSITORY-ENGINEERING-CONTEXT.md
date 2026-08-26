@@ -163,7 +163,9 @@ Current repository posture:
 23. `requirements.txt` and `requirements-dev.txt` are governed clean-install inputs and every
     direct dependency must use an exact `==` version pin. The license-compliance gate validates
     that installed metadata matches those pins before accepting or regenerating the reviewed
-    inventory, so local package drift cannot silently rewrite compliance evidence.
+    inventory, so local package drift cannot silently rewrite compliance evidence. Overlapping
+    Poetry declarations must carry the same exact versions, and `poetry.lock` must remain current,
+    so the supported Poetry workflow cannot resolve a different runtime or omit governed tools.
 
 ## Architecture And Module Map
 

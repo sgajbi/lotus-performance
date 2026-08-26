@@ -30,3 +30,4 @@ and operational automation used by Make targets and CI lanes.
   `tests/unit/scripts/`.
 - Dependency license generation assumes exact direct-dependency pins and fails when the active
   environment does not match them; never refresh compliance evidence from a drifting environment.
+  Keep overlapping `pyproject.toml` declarations and `poetry.lock` aligned to the same exact pins.
