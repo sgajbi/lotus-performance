@@ -2275,3 +2275,45 @@ def test_recovery_drill_control_plane_is_governed():
     assert "make runtime-retention-smoke" in api_reference
     assert "lotus_performance_runtime_retention_preview_availability" in api_reference
     assert "lotus_performance_runtime_retention_prunable_items" in api_reference
+
+
+def test_current_inventory_prose_carries_no_stale_totals():
+    """The existing assertion finds the correct string; it cannot see a stale one beside it.
+
+    `test_quality_reports_publish_current_test_taxonomy_counts` asserts the measured summary
+    appears *somewhere* in `ci_quality_gates.md`. It was satisfied by the regenerated table
+    row while the hand-written "Current governed inventory" paragraph below it still carried
+    a superseded total — the document mixes regenerated figures with prose, so a refresh
+    updates some occurrences and not others. Existence checks cannot catch that; this one
+    reads the present-tense paragraph and compares every total it states.
+    """
+
+    import re
+
+    summary = summarize_test_taxonomy(collect_test_modules(("tests",)))
+    text = _read("quality/ci_quality_gates.md")
+
+    # Normalise wrapping first: these totals wrap mid-phrase, across a line break, which is
+    # which is exactly how a stale one survived a refresh that used exact-phrase replacement.
+    flattened = " ".join(text.split())
+    match = re.search(
+        r"Current governed inventory:.*?uncategorized test functions\.",
+        flattened,
+    )
+    assert match is not None, "Expected a present-tense 'Current governed inventory' paragraph"
+    paragraph = match.group(0)
+
+    stated_totals = {int(value.replace(",", "")) for value in re.findall(r"([\d,]+) source test functions", paragraph)}
+    assert stated_totals, "Expected the paragraph to state a source-test-function total"
+    assert stated_totals == {summary.test_count}, (
+        "The 'Current governed inventory' paragraph states superseded totals "
+        f"{sorted(stated_totals)}; the measured count is {summary.test_count}. Historical "
+        "baselines elsewhere in this document are untouched by this check."
+    )
+
+    stated_modules = {int(value) for value in re.findall(r"(\d+) test modules", paragraph)} | {
+        int(value) for value in re.findall(r"(\d+) modules", paragraph)
+    }
+    assert stated_modules == {summary.module_count}, (
+        f"Paragraph states module counts {sorted(stated_modules)}; measured " f"{summary.module_count}"
+    )
