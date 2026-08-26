@@ -82,19 +82,23 @@ def test_sqlite_does_not_attempt_an_advisory_lock() -> None:
     assert not any("advisory" in statement.lower() for statement in statements)
 
 
-def test_postgresql_takes_a_transaction_scoped_advisory_lock_before_the_ddl() -> None:
+def test_postgresql_exempts_only_advisory_acquisition_from_lock_timeout() -> None:
     """The whole point: the lock must be taken, and taken *before* the CREATE.
 
     A transaction-scoped lock is required rather than a session lock - a process that dies
     mid-bootstrap must not leave the schema lock held for the next starter.
     """
 
-    executed: list[str] = []
+    executed: list[tuple[str, object]] = []
+
+    class _FakeResult:
+        def scalar_one(self) -> str:
+            return "5s"
 
     class _FakeConnection:
         def execute(self, statement, parameters=None):  # type: ignore[no-untyped-def]
-            executed.append(str(statement))
-            return None
+            executed.append((str(statement), parameters))
+            return _FakeResult()
 
         def __enter__(self) -> _FakeConnection:
             return self
@@ -113,13 +117,18 @@ def test_postgresql_takes_a_transaction_scoped_advisory_lock_before_the_ddl() ->
 
     class _RecordingMetadata:
         def create_all(self, bind: object) -> None:
-            executed.append("CREATE_ALL")
+            executed.append(("CREATE_ALL", None))
 
     create_durable_schema(_FakeEngine(), _RecordingMetadata())  # type: ignore[arg-type]
 
-    assert len(executed) == 2, executed
-    assert "pg_advisory_xact_lock" in executed[0]
-    assert executed[1] == "CREATE_ALL", "the DDL ran before the lock was taken"
+    assert len(executed) == 5, executed
+    assert "current_setting('lock_timeout')" in executed[0][0]
+    assert "set_config('lock_timeout'" in executed[1][0]
+    assert executed[1][1] == {"lock_timeout": "0"}
+    assert "pg_advisory_xact_lock" in executed[2][0]
+    assert "set_config('lock_timeout'" in executed[3][0]
+    assert executed[3][1] == {"lock_timeout": "5s"}
+    assert executed[4] == ("CREATE_ALL", None), "the DDL ran before the lock timeout was restored"
 
 
 def test_the_lock_key_is_a_stable_constant() -> None:
