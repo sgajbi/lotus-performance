@@ -33,6 +33,8 @@ CLASSIFIED_SURFACES = (
     ("twr", "analytics_domain"),
     ("contribution", "analytics_domain"),
     ("attribution", "analytics_domain"),
+    ("durable_schema_apply", "observability_or_readiness"),
+    ("durable_schema_inventory_check", "contract_or_governance"),
 )
 
 
@@ -95,7 +97,7 @@ def test_the_token_set_is_large_enough_to_be_the_real_one() -> None:
         assert expected in tokens, f"{expected!r} missing from the extracted token set: {tokens}"
 
 
-def test_named_analytics_surfaces_are_classified() -> None:
+def test_named_surfaces_are_classified_by_their_actual_evidence_role() -> None:
     modules = collect_test_modules(("tests",))
 
     unclassified = []
@@ -107,7 +109,7 @@ def test_named_analytics_surfaces_are_classified() -> None:
         )
 
     assert unclassified == [], (
-        "These modules belong to a named analytics surface but carry no matching family, so their "
+        "These modules belong to a named evidence surface but carry no matching family, so their "
         f"tests inflate the uncategorized ceiling: {unclassified}. See issue #475."
     )
 
