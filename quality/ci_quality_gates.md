@@ -73,7 +73,7 @@ No gate should move from one phase to the next until it has:
 | mypy typecheck | Blocking in feature, PR, and main lanes | Keep blocking; expand typed boundary cleanup through normal refactor slices. |
 | Unit tests | Blocking in feature, PR, and main lanes | Keep blocking; add focused tests when refactoring hotspots. |
 | Integration and e2e tests | Blocking in PR and main lanes | Keep blocking at merge/release lanes; use targeted local subsets during slices. |
-| Test taxonomy | Blocking through `make quality-test-taxonomy-gate`, which runs `scripts/python_test_taxonomy_inventory.py --limit 30 --min-api-runtime-tests 656 --min-contract-governance-tests 136 --max-uncategorized-tests 876`; current AST inventory shows 312 modules, 3,588 source test functions, 690 integration/API/runtime test functions, 158 contract/governance test functions, 368 observability/readiness test functions, 186 quality/security test functions, 1,671 analytics-domain test functions, and 876 uncategorized test functions | Keep the current measured preservation baseline blocking. Classify domain tests through stable taxonomy rules instead of allowing uncategorized growth. Issue #475 classified the workspace analytics surface and re-banked the ceiling from `969` to the measured `879`; `runtime` and `operator` remain the two largest unclassified groups. |
+| Test taxonomy | Blocking through `make quality-test-taxonomy-gate`, which runs `scripts/python_test_taxonomy_inventory.py --limit 30 --min-api-runtime-tests 656 --min-contract-governance-tests 136 --max-uncategorized-tests 876`; current AST inventory shows 313 modules, 3,596 source test functions, 690 integration/API/runtime test functions, 159 contract/governance test functions, 375 observability/readiness test functions, 186 quality/security test functions, 1,672 analytics-domain test functions, and 876 uncategorized test functions | Keep the current measured preservation baseline blocking. Classify domain tests through stable taxonomy rules instead of allowing uncategorized growth. Issue #475 classified the workspace analytics surface and re-banked the ceiling from `969` to the measured `879`; `runtime` and `operator` remain the two largest unclassified groups. |
 | License compliance | Blocking through `make license-compliance-gate`, which validates `contracts/license-compliance-policy.v1.json` against `quality/license_compliance_inventory.md`; current inventory covers 45 runtime/development packages, with 43 allowed packages, 2 review-required packages covered by active exceptions, 0 blocked packages, and 0 missing-exception findings | Keep blocking. Regenerate with `python scripts/license_compliance_inventory.py --write` after dependency changes, and keep exceptions owner-bound and time-bound before release. |
 | Combined line coverage | Blocking at 99 percent in PR and main lanes; local full coverage runs use `make test-coverage`, split CI test jobs use `make test-coverage-shard`, and artifact aggregation uses `make coverage-combine-gate`; branch coverage is preserved separately by `make branch-coverage-baseline` evidence | Keep blocking and preserve the local coverage inventory as scorecard evidence. Do not embed raw pytest or coverage commands in workflow YAML for governed test lanes. |
 | Branch coverage | Measured report-only in `quality/coverage_inventory.md` through `make branch-coverage-baseline`; current baseline is 98.00 percent across 4,406 branches, with 88 missing and 88 partial branches | Keep report-only until repeated runs, exception policy, remediation guidance, and CI lane placement are agreed. Review the top branch gaps before proposing any threshold. |
@@ -111,14 +111,14 @@ checked by `test_current_inventory_prose_carries_no_stale_totals`, which normali
 compares every total the present-tense paragraph states. Historical baselines elsewhere in this
 document are intentionally outside that check.
 
-Current governed inventory: `quality/test_taxonomy_inventory.md` records 312 test modules, 3,588
-source test functions, 690 API/runtime test functions, 158 contract/governance test functions, and
-876 uncategorized test functions. The full family summary is 312 modules, 3,588 source test
-functions, 690 integration/API/runtime test functions, 158 contract/governance test functions, 368
-observability/readiness test functions, 186 quality/security test functions, 1,671 analytics-domain
+Current governed inventory: `quality/test_taxonomy_inventory.md` records 313 test modules, 3,596
+source test functions, 690 API/runtime test functions, 159 contract/governance test functions, and
+876 uncategorized test functions. The full family summary is 313 modules, 3,596 source test
+functions, 690 integration/API/runtime test functions, 159 contract/governance test functions, 375
+observability/readiness test functions, 186 quality/security test functions, 1,672 analytics-domain
 test functions, and 876 uncategorized test functions.
 
-`quality/test_taxonomy_inventory.md` records 312 test modules, 3,588 source test functions, 690 API/runtime test functions, 158 contract/governance test functions, and 876 uncategorized test functions.
+`quality/test_taxonomy_inventory.md` records 313 test modules, 3,596 source test functions, 690 API/runtime test functions, 159 contract/governance test functions, and 876 uncategorized test functions.
 
 ## LP-CR-1603 Container Supply-Chain Intake
 

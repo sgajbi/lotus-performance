@@ -1,7 +1,7 @@
 # Lotus Performance Enterprise Backend Refactor Baseline
 
 Baseline date: 2026-08-26
-Branch: `fix/478-classify-durable-schema`
+Branch: `fix/480-serialize-durable-schema`
 Mode: report-only baseline; no new blocking quality gate is introduced by this artifact.
 
 ## Purpose
@@ -16,11 +16,11 @@ snapshots are written under ignored `output/quality-baseline/`; curated source r
 
 | Area | Current value | Evidence |
 | --- | ---: | --- |
-| Python files | 658 | `rg --files -g '*.py'` equivalent excluding local caches |
+| Python files | 660 | `rg --files -g '*.py'` equivalent excluding local caches |
 | Python package markers | 22 | recursive `__init__.py` count |
-| Python LOC | 197,151 | recursive `.py` line count |
-| Test modules | 312 | `tests/**/test_*.py` |
-| Collected tests | 3875 tests | `python -m pytest --collect-only -q` |
+| Python LOC | 197,461 | recursive `.py` line count |
+| Test modules | 313 | `tests/**/test_*.py` |
+| Collected tests | 3887 tests | `python -m pytest --collect-only -q` |
 | Configured CI workflows | 6 | `.github/workflows/*.yml` |
 | Repo-native baseline command | 1 | `make quality-baseline` |
 
@@ -42,7 +42,7 @@ snapshots are written under ignored `output/quality-baseline/`; curated source r
 | 12 | `tests/unit/services/test_twr_inspection_source_economics.py` | 1992 |
 | 13 | `tests/unit/services/test_compute_job_store.py` | 1849 |
 | 14 | `tests/integration/test_attribution_api.py` | 1795 |
-| 15 | `app/services/compute_job_store.py` | 1712 |
+| 15 | `app/services/compute_job_store.py` | 1713 |
 
 ## Required Inventory Outputs
 
