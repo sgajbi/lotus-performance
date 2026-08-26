@@ -2278,42 +2278,75 @@ def test_recovery_drill_control_plane_is_governed():
 
 
 def test_current_inventory_prose_carries_no_stale_totals():
-    """The existing assertion finds the correct string; it cannot see a stale one beside it.
+    """Every governed current-state total must match the measurement, in both documents.
 
     `test_quality_reports_publish_current_test_taxonomy_counts` asserts the measured summary
     appears *somewhere* in `ci_quality_gates.md`. It was satisfied by the regenerated table
     row while the hand-written "Current governed inventory" paragraph below it still carried
     a superseded total — the document mixes regenerated figures with prose, so a refresh
-    updates some occurrences and not others. Existence checks cannot catch that; this one
-    reads the present-tense paragraph and compares every total it states.
+    updates some occurrences and not others. Existence checks cannot catch that.
+
+    Nor is it enough to compare only the headline totals: a stale API/runtime, observability,
+    quality, analytics or uncategorized figure leaves the artifact self-contradictory while
+    the source-function count is still right. Every category stated is compared here, and the
+    inventory report's own suite and family tables are compared against the same measurement,
+    because selectively updating a headline row leaves those internally inconsistent.
     """
 
     import re
 
     summary = summarize_test_taxonomy(collect_test_modules(("tests",)))
-    text = _read("quality/ci_quality_gates.md")
-
-    # Normalise wrapping first: these totals wrap mid-phrase, across a line break, which is
-    # which is exactly how a stale one survived a refresh that used exact-phrase replacement.
-    flattened = " ".join(text.split())
-    match = re.search(
-        r"Current governed inventory:.*?uncategorized test functions\.",
-        flattened,
-    )
-    assert match is not None, "Expected a present-tense 'Current governed inventory' paragraph"
-    paragraph = match.group(0)
-
-    stated_totals = {int(value.replace(",", "")) for value in re.findall(r"([\d,]+) source test functions", paragraph)}
-    assert stated_totals, "Expected the paragraph to state a source-test-function total"
-    assert stated_totals == {summary.test_count}, (
-        "The 'Current governed inventory' paragraph states superseded totals "
-        f"{sorted(stated_totals)}; the measured count is {summary.test_count}. Historical "
-        "baselines elsewhere in this document are untouched by this check."
-    )
-
-    stated_modules = {int(value) for value in re.findall(r"(\d+) test modules", paragraph)} | {
-        int(value) for value in re.findall(r"(\d+) modules", paragraph)
+    measured = {
+        "test modules": summary.module_count,
+        "modules": summary.module_count,
+        "source test functions": summary.test_count,
+        "API/runtime test functions": summary.api_or_runtime_tests,
+        "integration/API/runtime test functions": summary.api_or_runtime_tests,
+        "contract/governance test functions": summary.contract_or_governance_tests,
+        "observability/readiness test functions": summary.family_counts["observability_or_readiness"],
+        "quality/security test functions": summary.family_counts["quality_or_security"],
+        "analytics-domain test functions": summary.family_counts["analytics_domain"],
+        "uncategorized test functions": summary.family_counts["uncategorized"],
     }
-    assert stated_modules == {summary.module_count}, (
-        f"Paragraph states module counts {sorted(stated_modules)}; measured " f"{summary.module_count}"
+
+    # Select the paragraph on blank lines, then flatten it. Matching a flattened whole
+    # document with a non-greedy pattern silently stops at the first sentence and drops the
+    # family summary — the `checked` floor below exists because that happened here.
+    blocks = [
+        block
+        for block in _read("quality/ci_quality_gates.md").split("\n\n")
+        if block.lstrip().startswith("Current governed inventory:")
+    ]
+    assert len(blocks) == 1, (
+        f"Expected exactly one present-tense 'Current governed inventory' paragraph, " f"found {len(blocks)}"
     )
+    # Totals wrap mid-phrase across line breaks, which is exactly how a stale one survived a
+    # refresh that used exact-phrase replacement.
+    paragraph = " ".join(blocks[0].split())
+
+    checked = 0
+    for label, expected in measured.items():
+        # "integration/API/runtime" also matches the "API/runtime" pattern, so anchor on a
+        # non-slash boundary to keep the two labels distinct.
+        pattern = rf"([\d,]+) (?<![/\w-]){re.escape(label)}"
+        stated = {int(value.replace(",", "")) for value in re.findall(pattern, paragraph)}
+        if not stated:
+            continue
+        checked += 1
+        assert stated == {expected}, (
+            f"'Current governed inventory' states {sorted(stated)} for {label!r}; measured "
+            f"{expected}. Historical baselines elsewhere in that document are untouched."
+        )
+    assert checked >= 6, (
+        f"Only matched {checked} governed categories in the paragraph; the phrasing changed "
+        "and this check has stopped covering what it claims to."
+    )
+
+    inventory = _read("quality/test_taxonomy_inventory.md")
+    for family, count in summary.family_counts.items():
+        assert f"| {family} | {count} |" in inventory, f"Inventory family table is stale for {family}: measured {count}"
+    for suite, count in summary.suite_counts.items():
+        modules = summary.suite_module_counts[suite]
+        assert f"| {suite} | {modules} | {count} |" in inventory, (
+            f"Inventory suite table is stale for {suite}: measured {modules} modules, " f"{count} test functions"
+        )

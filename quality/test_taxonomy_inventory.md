@@ -34,7 +34,7 @@ python scripts/python_test_taxonomy_inventory.py --limit 30 --min-api-runtime-te
 | benchmarks | 9 | 18 |
 | e2e | 1 | 21 |
 | integration | 28 | 341 |
-| unit | 271 | 3182 |
+| unit | 271 | 3186 |
 
 ## Test Functions By Family
 
@@ -42,7 +42,7 @@ python scripts/python_test_taxonomy_inventory.py --limit 30 --min-api-runtime-te
 | --- | ---: |
 | analytics_domain | 1571 |
 | api_or_runtime | 690 |
-| contract_or_governance | 154 |
+| contract_or_governance | 155 |
 | observability_or_readiness | 366 |
 | quality_or_security | 173 |
 | uncategorized | 969 |
