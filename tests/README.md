@@ -26,6 +26,7 @@ This pack contains unit, integration, e2e, benchmark, docs-contract, and script 
 python -m pytest tests/unit/<area> -q
 python -m pytest tests/integration/<file>.py -q
 make test-unit
+make test-unit-order-stability
 make test-integration
 make test-e2e
 ```
@@ -36,3 +37,6 @@ make test-e2e
 - Update docs-contract tests when README, wiki, or public guide truth changes.
 - Keep test taxonomy in mind; do not hide important API/runtime or contract proof in uncategorized
   test files.
+- Keep mutable payload fixtures function-scoped. Use the order-stability target to compare the
+  collected unit-test node-id set and exercise the contribution regression surface under three
+  deterministic random seeds.

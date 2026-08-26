@@ -182,6 +182,17 @@ test functions, and 876 uncategorized test functions.
 
 ## Recommended Lane Placement For New Gates
 
+`make test-unit-order-stability` is the repo-native diagnostic for test-order incidents. It uses
+the pinned `pytest-randomly` plugin to compare the complete unit-test node-id set under seeds 1, 2,
+and 3, then runs the historically contaminated contribution module under each seed. It is kept out
+of the blocking fast lane because it performs three full collections; issue-owned validation must
+run it before claiming an order-dependence fix.
+
+The blocking license-compliance gate requires exact `==` pins for every direct runtime and
+development requirement and validates the active installed version against each pin. This makes
+inventory regeneration repeatable from the governed clean-install inputs and fails closed when an
+engineer's environment has drifted.
+
 | Gate class | First report-only lane | First blocking lane | Strict lane |
 | --- | --- | --- | --- |
 | Fast static checks | Remote Feature Lane | Remote Feature Lane | PR Merge Gate and Main Releasability Gate |
