@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import logging
 from typing import NoReturn
 
 from app.core.application_responses import ApplicationHttpResponse
@@ -22,10 +23,17 @@ from app.services.submission_fencing_service import (
     register_sync_execution_or_raise,
 )
 from app.services.workspace_summary_service import (
+    MissingWindowBoundaryError,
     calculate_workspace_summary,
     workspace_longest_requested_window_days,
 )
-from core.errors import APIInternalServerError
+from core.errors import APIInternalServerError, APIUnprocessableEntityError
+
+logger = logging.getLogger(__name__)
+
+# A determinate data-coverage outcome: the requested window contains no published observations.
+# Non-retryable by construction - APIUnprocessableEntityError leaves `retryable` unset.
+OBSERVATIONS_UNAVAILABLE_FOR_WINDOW = "OBSERVATIONS_UNAVAILABLE_FOR_WINDOW"
 
 
 def accepted_workspace_summary_response(calculation_id) -> WorkspaceSummaryAcceptedResponse:
@@ -120,7 +128,29 @@ def _raise_workspace_summary_workflow_error(*, calculation_id, exc: Exception) -
         record_execution_failure(calculation_id=calculation_id, message=str(getattr(exc, "detail")))
         raise exc
 
+    if isinstance(exc, MissingWindowBoundaryError):
+        # A requested window that lies outside the published observation range is a determinate
+        # property of the request, not a service fault. Reaching the catch-all below reported it as
+        # INTERNAL_SERVER_ERROR with retryable: true, so a caller retried a request that could never
+        # succeed and no message named the cause. See issue #469.
+        detail = str(exc)
+        record_execution_failure(calculation_id=calculation_id, message=detail)
+        raise APIUnprocessableEntityError(detail=detail, error_code=OBSERVATIONS_UNAVAILABLE_FOR_WINDOW) from exc
+
     detail = safe_unexpected_failure_message("Workspace summary calculation")
+    # The public detail is deliberately sanitised, which previously meant the recorded failure named
+    # no cause at all: a correlation id resolved to "failed unexpectedly" and nothing else. Log the
+    # exception type under `extra_fields`, which is the only key `JsonFormatter` merges - a bare
+    # `extra=` mapping is dropped on the floor.
+    logger.exception(
+        "Workspace summary calculation failed unexpectedly",
+        extra={
+            "extra_fields": {
+                "calculation_id": str(calculation_id),
+                "exception_type": type(exc).__qualname__,
+            }
+        },
+    )
     record_execution_failure(calculation_id=calculation_id, message=detail)
     raise APIInternalServerError(detail=detail) from exc
 

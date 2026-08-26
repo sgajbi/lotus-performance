@@ -83,3 +83,76 @@ def test_a_leaked_nat_boundary_produces_an_unattributable_error_downstream() -> 
     assert "period" not in message
     # The message names neither the field nor the condition — it is unattributable.
     assert "integer" in message
+
+
+class _StubRegistry:
+    def __init__(self) -> None:
+        self.failures: list[tuple[object, str]] = []
+
+
+def test_a_missing_boundary_becomes_a_typed_non_retryable_outcome(monkeypatch) -> None:
+    """Issue #469 step 2: the condition must be reported as what it is.
+
+    Reaching the catch-all mapped a determinate data-coverage condition to
+    `INTERNAL_SERVER_ERROR` with `retryable: true`, so a caller retried a request that could never
+    succeed. `APIUnprocessableEntityError` leaves `retryable` unset, which is what makes this
+    non-retryable rather than merely differently numbered.
+    """
+
+    from app.services import workspace_summary_calculation_workflow_service as workflow
+    from core.errors import APIUnprocessableEntityError
+
+    recorded: list[str] = []
+    monkeypatch.setattr(workflow, "record_execution_failure", lambda **kw: recorded.append(kw["message"]))
+
+    with pytest.raises(APIUnprocessableEntityError) as excinfo:
+        workflow._raise_workspace_summary_workflow_error(
+            calculation_id="c-1",
+            exc=MissingWindowBoundaryError("Window boundary is missing because ... observations."),
+        )
+
+    error = excinfo.value
+    assert error.status_code == 422
+    assert error.error_code == workflow.OBSERVATIONS_UNAVAILABLE_FOR_WINDOW
+    assert error.retryable is not True
+    assert "observations" in str(error.detail)
+    # The recorded failure carries the cause, not a sanitised placeholder.
+    assert recorded and "observations" in recorded[0]
+
+
+def test_an_unexpected_failure_still_maps_to_a_retryable_server_error(monkeypatch) -> None:
+    """The typed branch must not swallow genuine faults."""
+
+    from app.services import workspace_summary_calculation_workflow_service as workflow
+    from core.errors import APIInternalServerError
+
+    monkeypatch.setattr(workflow, "record_execution_failure", lambda **kw: None)
+
+    with pytest.raises(APIInternalServerError) as excinfo:
+        workflow._raise_workspace_summary_workflow_error(calculation_id="c-2", exc=RuntimeError("disk on fire"))
+
+    assert excinfo.value.retryable is True
+    assert "disk on fire" not in str(excinfo.value.detail)
+
+
+def test_the_catch_all_logs_the_exception_class_under_extra_fields(monkeypatch, caplog) -> None:
+    """Issue #469 step 3: a correlation id must resolve to a cause.
+
+    The public detail is deliberately sanitised, so before this the recorded failure named nothing
+    at all. `JsonFormatter` merges only `record.extra_fields`; a bare `extra=` mapping is dropped,
+    so asserting on the nested key is what proves the identifiers actually survive to the log.
+    """
+
+    from app.services import workspace_summary_calculation_workflow_service as workflow
+    from core.errors import APIInternalServerError
+
+    monkeypatch.setattr(workflow, "record_execution_failure", lambda **kw: None)
+
+    with caplog.at_level("ERROR"), pytest.raises(APIInternalServerError):
+        workflow._raise_workspace_summary_workflow_error(calculation_id="c-3", exc=ValueError("boom"))
+
+    records = [r for r in caplog.records if hasattr(r, "extra_fields")]
+    assert records, "no record carried extra_fields, so nothing reaches JsonFormatter"
+    fields = records[-1].extra_fields
+    assert fields["exception_type"] == "ValueError"
+    assert fields["calculation_id"] == "c-3"
