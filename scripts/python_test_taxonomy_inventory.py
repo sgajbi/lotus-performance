@@ -117,11 +117,12 @@ def _families_for_path(path: str) -> tuple[str, ...]:
             "compute_job_store",
             "lineage_worker",
             "runtime_recovery",
-            # The executable schema-apply surface is a startup-readiness concern: it decides
-            # whether a worker replica reaches a healthy state at all. Keep this narrower than
-            # `durable_schema`, which would misclassify the Markdown inventory checks above as
-            # runtime evidence. See #478 for the wider unmapped groups.
+            # Executable schema-apply and schema-creation surfaces are startup-readiness concerns:
+            # they decide whether a worker replica reaches a healthy state at all. Keep these
+            # narrower than `durable_schema`, which would misclassify the Markdown inventory
+            # checks above as runtime evidence. See #478 for the wider unmapped groups.
             "durable_schema_apply",
+            "durable_schema_creation",
         )
     ):
         families.add("observability_or_readiness")

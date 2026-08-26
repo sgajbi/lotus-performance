@@ -34,6 +34,7 @@ CLASSIFIED_SURFACES = (
     ("contribution", "analytics_domain"),
     ("attribution", "analytics_domain"),
     ("durable_schema_apply", "observability_or_readiness"),
+    ("durable_schema_creation", "observability_or_readiness"),
     ("durable_schema_inventory_check", "contract_or_governance"),
 )
 
