@@ -108,6 +108,10 @@ def _families_for_path(path: str) -> tuple[str, ...]:
             "compute_job_store",
             "lineage_worker",
             "runtime_recovery",
+            # Durable-store schema creation is a startup-readiness surface: it decides whether a
+            # worker replica reaches a healthy state at all. `compute_job_store` is already in this
+            # family for the same reason. See #478 for the wider unmapped groups.
+            "durable_schema",
         )
     ):
         families.add("observability_or_readiness")
