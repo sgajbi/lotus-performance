@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import re
 import sys
@@ -15,6 +16,7 @@ ROOT = Path(__file__).resolve().parents[1]
 POLICY_PATH = ROOT / "contracts" / "license-compliance-policy.v1.json"
 OUTPUT_PATH = ROOT / "quality" / "license_compliance_inventory.md"
 PYPROJECT_PATH = ROOT / "pyproject.toml"
+POETRY_LOCK_PATH = ROOT / "poetry.lock"
 LICENSE_PATH = ROOT / "LICENSE"
 REQUIREMENT_FILES = {
     "runtime": ROOT / "requirements.txt",
@@ -93,6 +95,42 @@ def _pyproject_license(path: Path | None = None) -> str:
     if isinstance(poetry_license, str):
         return poetry_license
     return ""
+
+
+def _poetry_content_hash(pyproject: dict[str, Any]) -> str:
+    project = pyproject.get("project", {})
+    poetry = pyproject.get("tool", {}).get("poetry", {})
+    legacy_keys = ["dependencies", "source", "extras", "dev-dependencies"]
+    project_content = {
+        key: project[key]
+        for key in ["requires-python", "dependencies", "optional-dependencies"]
+        if key in project
+    }
+    poetry_content = {}
+    for key in [*legacy_keys, "group"]:
+        value = poetry.get(key)
+        if value is None and (key not in legacy_keys or project_content):
+            continue
+        poetry_content[key] = value
+    relevant_content = (
+        {"project": project_content, "tool": {"poetry": poetry_content}}
+        if project_content
+        else poetry_content
+    )
+    payload = json.dumps(relevant_content, sort_keys=True).encode()
+    return hashlib.sha256(payload).hexdigest()
+
+
+def _poetry_lock_issues() -> list[str]:
+    if not POETRY_LOCK_PATH.exists():
+        return ["poetry.lock is missing"]
+    pyproject = tomllib.loads(PYPROJECT_PATH.read_text(encoding="utf-8"))
+    lock = tomllib.loads(POETRY_LOCK_PATH.read_text(encoding="utf-8"))
+    actual_hash = lock.get("metadata", {}).get("content-hash")
+    expected_hash = _poetry_content_hash(pyproject)
+    if actual_hash != expected_hash:
+        return ["poetry.lock is stale; run poetry lock"]
+    return []
 
 
 def _first_party_license_issues(policy: dict) -> list[str]:
@@ -228,7 +266,7 @@ def _exact_pin(entry: RequirementEntry) -> str | None:
 def build_inventory(policy: dict | None = None) -> tuple[list[PackageLicense], list[str]]:
     policy = policy or _load_policy()
     packages: list[PackageLicense] = []
-    issues: list[str] = _first_party_license_issues(policy)
+    issues: list[str] = [*_first_party_license_issues(policy), *_poetry_lock_issues()]
 
     for _normalized_name, entries in _merged_requirements(_load_requirements()):
         representative = entries[0]

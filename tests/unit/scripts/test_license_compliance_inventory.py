@@ -12,6 +12,7 @@ from scripts.license_compliance_inventory import (
     _load_policy,
     _load_requirements,
     _normalize_name,
+    _poetry_lock_issues,
     build_inventory,
     render_inventory,
 )
@@ -99,6 +100,18 @@ def test_poetry_manifest_and_lock_match_governed_exact_pins() -> None:
         for package in tomllib.loads((ROOT / "poetry.lock").read_text(encoding="utf-8"))["package"]
     }
     assert {name: locked_packages[name] for name in declared_pins} == declared_pins
+    assert _poetry_lock_issues() == []
+
+
+def test_poetry_lock_content_hash_detects_stale_manifest(tmp_path, monkeypatch) -> None:
+    pyproject = tmp_path / "pyproject.toml"
+    lock = tmp_path / "poetry.lock"
+    pyproject.write_text('[tool.poetry.dependencies]\npython = "^3.13"\nfastapi = "1.0"\n', encoding="utf-8")
+    lock.write_text('[metadata]\ncontent-hash = "stale"\n', encoding="utf-8")
+    monkeypatch.setattr(license_inventory, "PYPROJECT_PATH", pyproject)
+    monkeypatch.setattr(license_inventory, "POETRY_LOCK_PATH", lock)
+
+    assert _poetry_lock_issues() == ["poetry.lock is stale; run poetry lock"]
 
 
 def test_review_required_license_without_exception_fails_policy() -> None:
