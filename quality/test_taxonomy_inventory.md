@@ -25,7 +25,7 @@ python scripts/python_test_taxonomy_inventory.py --limit 30 --min-api-runtime-te
 | Test modules inventoried | 312 |
 | Test functions inventoried | 3588 |
 | Integration/API/runtime test functions | 690 |
-| Contract/governance test functions | 155 |
+| Contract/governance test functions | 158 |
 
 ## Test Functions By Suite
 
@@ -46,8 +46,8 @@ above does sum to it, because a module belongs to exactly one suite.
 | --- | ---: |
 | analytics_domain | 1671 |
 | api_or_runtime | 690 |
-| contract_or_governance | 155 |
-| observability_or_readiness | 371 |
+| contract_or_governance | 158 |
+| observability_or_readiness | 368 |
 | quality_or_security | 186 |
 | uncategorized | 876 |
 
@@ -96,6 +96,12 @@ contract/governance coverage, but 876 test functions remain uncategorized by the
 taxonomy and should be reduced through normal refactor slices rather than allowed to grow. The
 largest remaining groups are `runtime` (190) and `operator` (145), which have no family mapping
 yet - see issue #478 for why one was not invented to move the number.
+
+The durable-schema correction classifies executable `durable_schema_apply` tests as
+observability/readiness evidence and the `durable_schema_inventory_check` Markdown validation tests
+as contract/governance evidence. The three inventory checks therefore leave `uncategorized`
+without being presented as runtime proof; the two executable apply tests carry both their existing
+quality/security role and the readiness role they exercise.
 
 The runtime recovery queue-result boundary slice kept the promoted gate stable by classifying
 `tests/unit/services/test_runtime_recovery_service.py` as observability/readiness coverage. The

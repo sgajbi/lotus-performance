@@ -82,7 +82,16 @@ def _families_for_path(path: str) -> tuple[str, ...]:
         families.add("api_or_runtime")
     if any(
         token in lower_path
-        for token in ("contract", "vocabulary", "domain_data_product", "trust_telemetry", "legal_hold")
+        for token in (
+            "contract",
+            "vocabulary",
+            "domain_data_product",
+            "trust_telemetry",
+            "legal_hold",
+            # This suite validates the governed Markdown inventory and rollback/restore phrases;
+            # it does not execute worker startup or schema creation.
+            "durable_schema_inventory_check",
+        )
     ):
         families.add("contract_or_governance")
     if lower_path.startswith("tests/unit/docs/") or "docs_contract" in lower_path:
@@ -108,10 +117,11 @@ def _families_for_path(path: str) -> tuple[str, ...]:
             "compute_job_store",
             "lineage_worker",
             "runtime_recovery",
-            # Durable-store schema creation is a startup-readiness surface: it decides whether a
-            # worker replica reaches a healthy state at all. `compute_job_store` is already in this
-            # family for the same reason. See #478 for the wider unmapped groups.
-            "durable_schema",
+            # The executable schema-apply surface is a startup-readiness concern: it decides
+            # whether a worker replica reaches a healthy state at all. Keep this narrower than
+            # `durable_schema`, which would misclassify the Markdown inventory checks above as
+            # runtime evidence. See #478 for the wider unmapped groups.
+            "durable_schema_apply",
         )
     ):
         families.add("observability_or_readiness")
