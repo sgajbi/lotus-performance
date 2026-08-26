@@ -1366,7 +1366,29 @@ def _run_sync_compat(coroutine: Coroutine[Any, Any, _T]) -> _T:
         return executor.submit(asyncio.run, coroutine).result()
 
 
+class MissingWindowBoundaryError(ValueError):
+    """A breakdown window resolved to no observations, so it has no start or end date.
+
+    Deterministic and non-retryable: it means the requested window lies outside the published
+    observation range, not that the service failed.
+    """
+
+
 def _date_from_boundary(value: object) -> date:
+    """Resolve a window boundary to a concrete date, refusing a missing one.
+
+    `NaT` must be rejected before the `date` check: `NaTType` subclasses `datetime`, so an
+    empty slice's `.min()`/`.max()` satisfies `isinstance(value, date)` and would be returned
+    as though it were a real boundary. It then travels into the response models and surfaces
+    as a bare `TypeError: 'float' object cannot be interpreted as an integer`, which the
+    workflow catch-all maps to a generic retryable 500 — see issue #469. The guard looked
+    fail-closed and was not, for the one bad value that actually occurs.
+    """
+
+    if value is pd.NaT or (isinstance(value, float) and value != value):
+        raise MissingWindowBoundaryError(
+            "Window boundary is missing because the requested window contains no published " "observations."
+        )
     if isinstance(value, pd.Timestamp):
         return value.date()
     if isinstance(value, date):
