@@ -102,9 +102,7 @@ def _poetry_content_hash(pyproject: dict[str, Any]) -> str:
     poetry = pyproject.get("tool", {}).get("poetry", {})
     legacy_keys = ["dependencies", "source", "extras", "dev-dependencies"]
     project_content = {
-        key: project[key]
-        for key in ["requires-python", "dependencies", "optional-dependencies"]
-        if key in project
+        key: project[key] for key in ["requires-python", "dependencies", "optional-dependencies"] if key in project
     }
     poetry_content = {}
     for key in [*legacy_keys, "group"]:
@@ -113,9 +111,7 @@ def _poetry_content_hash(pyproject: dict[str, Any]) -> str:
             continue
         poetry_content[key] = value
     relevant_content = (
-        {"project": project_content, "tool": {"poetry": poetry_content}}
-        if project_content
-        else poetry_content
+        {"project": project_content, "tool": {"poetry": poetry_content}} if project_content else poetry_content
     )
     payload = json.dumps(relevant_content, sort_keys=True).encode()
     return hashlib.sha256(payload).hexdigest()
