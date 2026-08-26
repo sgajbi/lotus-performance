@@ -1,15 +1,22 @@
 from __future__ import annotations
 
 import copy
+import tomllib
+from pathlib import Path
 
 import scripts.license_compliance_inventory as license_inventory
 from scripts.license_compliance_inventory import (
     _classify_license,
+    _exact_pin,
     _first_party_license_issues,
     _load_policy,
+    _load_requirements,
+    _normalize_name,
     build_inventory,
     render_inventory,
 )
+
+ROOT = Path(__file__).resolve().parents[3]
 
 
 def test_license_compliance_inventory_matches_policy() -> None:
@@ -63,6 +70,32 @@ def test_conflicting_exact_pins_fail_policy(tmp_path, monkeypatch) -> None:
     _packages, issues = build_inventory(_load_policy())
 
     assert "pytest: conflicting exact version pins ['9.0.3', '9.0.4']" in issues
+
+
+def test_poetry_manifest_and_lock_match_governed_exact_pins() -> None:
+    requirement_pins = {
+        entry.normalized_name: pin for entry in _load_requirements() if (pin := _exact_pin(entry)) is not None
+    }
+    pyproject = tomllib.loads((ROOT / "pyproject.toml").read_text(encoding="utf-8"))
+    poetry = pyproject["tool"]["poetry"]
+    declared = {
+        **poetry["dependencies"],
+        **poetry["group"]["dev"]["dependencies"],
+    }
+    declared.pop("python")
+
+    declared_pins = {}
+    for package_name, declaration in declared.items():
+        normalized_name = _normalize_name(package_name)
+        version = declaration["version"] if isinstance(declaration, dict) else declaration
+        assert version == requirement_pins[normalized_name], package_name
+        declared_pins[normalized_name] = version
+
+    locked_packages = {
+        _normalize_name(package["name"]): package["version"]
+        for package in tomllib.loads((ROOT / "poetry.lock").read_text(encoding="utf-8"))["package"]
+    }
+    assert {name: locked_packages[name] for name in declared_pins} == declared_pins
 
 
 def test_review_required_license_without_exception_fails_policy() -> None:
