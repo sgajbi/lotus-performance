@@ -84,6 +84,9 @@ def test_poetry_manifest_and_lock_match_governed_exact_pins() -> None:
     }
     declared.pop("python")
 
+    declared_names = {_normalize_name(package_name) for package_name in declared}
+    assert declared_names == set(requirement_pins)
+
     declared_pins = {}
     for package_name, declaration in declared.items():
         normalized_name = _normalize_name(package_name)
