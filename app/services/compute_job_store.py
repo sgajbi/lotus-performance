@@ -10,6 +10,7 @@ from typing import Any, Iterable, Iterator, cast
 from uuid import UUID
 
 from sqlalchemy import DateTime, Index, Integer, String, Text, case, delete, func, inspect, select, text
+from sqlalchemy.engine import Connection
 from sqlalchemy.exc import IntegrityError, OperationalError, ProgrammingError
 from sqlalchemy.orm import DeclarativeBase, Mapped, Session, mapped_column, sessionmaker
 
@@ -553,9 +554,11 @@ class ComputeJobStore:
         self._session_factory = sessionmaker(bind=self._engine, future=True)
 
     def create_schema(self) -> None:
-        create_durable_schema(self._engine, Base.metadata)
-        self._ensure_lease_owner_column()
-        self._ensure_runtime_indexes()
+        create_durable_schema(
+            self._engine,
+            Base.metadata,
+            schema_upgrades=(self._ensure_lease_owner_column, self._ensure_runtime_indexes),
+        )
 
     @contextmanager
     def _session(self) -> Iterator[Session]:
@@ -613,14 +616,13 @@ class ComputeJobStore:
             result = session.execute(delete(ComputeJobModel).where(retention_filter))
             return int(result.rowcount or 0)
 
-    def _ensure_runtime_indexes(self) -> None:
-        with self._engine.begin() as connection:
-            connection.execute(
-                text(
-                    "CREATE INDEX IF NOT EXISTS ix_compute_job_terminal_retention "
-                    "ON analytics_compute_job (job_status, completed_at_utc, created_at_utc)"
-                )
+    def _ensure_runtime_indexes(self, connection: Connection) -> None:
+        connection.execute(
+            text(
+                "CREATE INDEX IF NOT EXISTS ix_compute_job_terminal_retention "
+                "ON analytics_compute_job (job_status, completed_at_utc, created_at_utc)"
             )
+        )
 
     def enqueue_job(
         self,
@@ -1474,8 +1476,8 @@ class ComputeJobStore:
             raise KeyError(f"Compute job not found: {calculation_id}")
         return row
 
-    def _ensure_lease_owner_column(self) -> None:
-        inspector = inspect(self._engine)
+    def _ensure_lease_owner_column(self, connection: Connection) -> None:
+        inspector = inspect(connection)
         if "analytics_compute_job" not in inspector.get_table_names():
             return
 
@@ -1483,13 +1485,12 @@ class ComputeJobStore:
         if "lease_owner_id" in existing_columns:
             return
 
-        with self._engine.begin() as connection:
-            try:
-                connection.execute(text(_lease_owner_column_add_statement(connection.dialect.name)))
-            except (OperationalError, ProgrammingError) as exc:
-                if _is_duplicate_lease_owner_column_error(exc):
-                    return
-                raise
+        try:
+            connection.execute(text(_lease_owner_column_add_statement(connection.dialect.name)))
+        except (OperationalError, ProgrammingError) as exc:
+            if _is_duplicate_lease_owner_column_error(exc):
+                return
+            raise
 
     def _to_record(self, row: ComputeJobModel) -> ComputeJobRecord:
         request_payload = _load_request_payload(row)

@@ -8,6 +8,7 @@ from datetime import date as dt_date
 from typing import Any, Iterator
 
 from sqlalchemy import Date, Index, String, Text, select, text
+from sqlalchemy.engine import Connection
 from sqlalchemy.orm import DeclarativeBase, Mapped, Session, mapped_column, sessionmaker
 
 from app.models.composites import CompositeDefinition, CompositeMemberReturnFact, CompositeMembership
@@ -112,22 +113,24 @@ class CompositeMetadataStore:
         self._engine.dispose()
 
     def create_schema(self) -> None:
-        create_durable_schema(self._engine, Base.metadata)
-        self._upgrade_member_return_fact_schema()
+        create_durable_schema(
+            self._engine,
+            Base.metadata,
+            schema_upgrades=(self._upgrade_member_return_fact_schema,),
+        )
 
-    def _upgrade_member_return_fact_schema(self) -> None:
-        if self._engine.dialect.name != "sqlite":
+    def _upgrade_member_return_fact_schema(self, connection: Connection) -> None:
+        if connection.dialect.name != "sqlite":
             return
-        with self._engine.begin() as connection:
-            existing_columns = {
-                row[1] for row in connection.exec_driver_sql("PRAGMA table_info(composite_member_return_facts)")
-            }
-            for column_name, column_definition in _missing_member_return_fact_schema_upgrade_columns(
-                existing_columns
-            ).items():
-                connection.execute(
-                    text(f"ALTER TABLE composite_member_return_facts ADD COLUMN {column_name} {column_definition}")
-                )
+        existing_columns = {
+            row[1] for row in connection.exec_driver_sql("PRAGMA table_info(composite_member_return_facts)")
+        }
+        for column_name, column_definition in _missing_member_return_fact_schema_upgrade_columns(
+            existing_columns
+        ).items():
+            connection.execute(
+                text(f"ALTER TABLE composite_member_return_facts ADD COLUMN {column_name} {column_definition}")
+            )
 
     @contextmanager
     def _session(self) -> Iterator[Session]:

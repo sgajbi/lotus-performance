@@ -10,6 +10,7 @@ from typing import Any, Iterator
 from uuid import UUID
 
 from sqlalchemy import DateTime, Index, String, Text, delete, func, select, text
+from sqlalchemy.engine import Connection
 from sqlalchemy.orm import DeclarativeBase, Mapped, Session, mapped_column, sessionmaker
 
 from app.services.durable_database_engine import create_durable_database_engine
@@ -73,8 +74,11 @@ class AsyncResultStore:
         self._session_factory = sessionmaker(bind=self._engine, future=True)
 
     def create_schema(self) -> None:
-        create_durable_schema(self._engine, Base.metadata)
-        self._ensure_runtime_indexes()
+        create_durable_schema(
+            self._engine,
+            Base.metadata,
+            schema_upgrades=(self._ensure_runtime_indexes,),
+        )
 
     @contextmanager
     def _session(self) -> Iterator[Session]:
@@ -182,11 +186,10 @@ class AsyncResultStore:
                 return None
             return _async_result_record_from_row(row)
 
-    def _ensure_runtime_indexes(self) -> None:
-        with self._engine.begin() as connection:
-            connection.execute(
-                text("CREATE INDEX IF NOT EXISTS ix_async_result_updated_at ON analytics_async_result (updated_at_utc)")
-            )
+    def _ensure_runtime_indexes(self, connection: Connection) -> None:
+        connection.execute(
+            text("CREATE INDEX IF NOT EXISTS ix_async_result_updated_at ON analytics_async_result (updated_at_utc)")
+        )
 
 
 def _load_response_payload(row: AsyncResultModel) -> dict[str, Any] | None:

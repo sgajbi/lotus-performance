@@ -5,9 +5,10 @@ Two workers starting together both see a table as absent and both issue `CREATE 
 dies with a `UniqueViolation` on `pg_type_typname_nsp_index` - the implicit composite type, not the
 table, which is why `checkfirst` does not close it.
 
-A real two-process proof needs PostgreSQL and lives in `make lineage-volume-recovery-smoke`. These
-tests pin the two things that can regress silently without one: that the lock is actually taken on
-PostgreSQL, and that no durable store goes back to calling `create_all` directly.
+A real concurrent proof needs PostgreSQL and lives in the PostgreSQL concurrency contracts plus
+`make lineage-volume-recovery-smoke`. These unit tests pin the things that can regress silently:
+the acquisition and timeout ordering, the full store-upgrade lock boundary, and the rule that no
+durable store goes back to calling `create_all` directly.
 """
 
 from __future__ import annotations
@@ -20,6 +21,7 @@ from sqlalchemy import Column, MetaData, String, Table, create_engine, inspect
 
 from app.services.durable_schema_creation import (
     DURABLE_SCHEMA_ADVISORY_LOCK_KEY,
+    DURABLE_SCHEMA_LOCK_ACQUISITION_TIMEOUT_MS,
     create_durable_schema,
 )
 
@@ -82,7 +84,7 @@ def test_sqlite_does_not_attempt_an_advisory_lock() -> None:
     assert not any("advisory" in statement.lower() for statement in statements)
 
 
-def test_postgresql_exempts_only_advisory_acquisition_from_lock_timeout() -> None:
+def test_postgresql_bounds_advisory_acquisition_and_restores_runtime_timeouts() -> None:
     """The whole point: the lock must be taken, and taken *before* the CREATE.
 
     A transaction-scoped lock is required rather than a session lock - a process that dies
@@ -92,18 +94,23 @@ def test_postgresql_exempts_only_advisory_acquisition_from_lock_timeout() -> Non
     executed: list[tuple[str, object]] = []
 
     class _FakeResult:
+        def __init__(self, value: str):
+            self._value = value
+
         def scalar_one(self) -> str:
-            return "5s"
+            return self._value
 
     class _FakeConnection:
         def execute(self, statement, parameters=None):  # type: ignore[no-untyped-def]
             executed.append((str(statement), parameters))
-            return _FakeResult()
+            value = "0" if "statement_timeout" in str(statement) else "5s"
+            return _FakeResult(value)
 
         def __enter__(self) -> _FakeConnection:
             return self
 
         def __exit__(self, *_: object) -> None:
+            executed.append(("TRANSACTION_EXIT", None))
             return None
 
     class _FakeDialect:
@@ -119,16 +126,30 @@ def test_postgresql_exempts_only_advisory_acquisition_from_lock_timeout() -> Non
         def create_all(self, bind: object) -> None:
             executed.append(("CREATE_ALL", None))
 
-    create_durable_schema(_FakeEngine(), _RecordingMetadata())  # type: ignore[arg-type]
+    def _upgrade_schema(_connection: object) -> None:
+        executed.append(("UPGRADE_SCHEMA", None))
 
-    assert len(executed) == 5, executed
+    create_durable_schema(  # type: ignore[arg-type]
+        _FakeEngine(),
+        _RecordingMetadata(),
+        schema_upgrades=(_upgrade_schema,),
+    )
+
+    assert len(executed) == 10, executed
     assert "current_setting('lock_timeout')" in executed[0][0]
-    assert "set_config('lock_timeout'" in executed[1][0]
-    assert executed[1][1] == {"lock_timeout": "0"}
-    assert "pg_advisory_xact_lock" in executed[2][0]
-    assert "set_config('lock_timeout'" in executed[3][0]
-    assert executed[3][1] == {"lock_timeout": "5s"}
-    assert executed[4] == ("CREATE_ALL", None), "the DDL ran before the lock timeout was restored"
+    assert "current_setting('statement_timeout')" in executed[1][0]
+    assert "set_config('lock_timeout'" in executed[2][0]
+    assert executed[2][1] == {"lock_timeout": "0"}
+    assert "set_config('statement_timeout'" in executed[3][0]
+    assert executed[3][1] == {"statement_timeout": f"{DURABLE_SCHEMA_LOCK_ACQUISITION_TIMEOUT_MS}ms"}
+    assert "pg_advisory_xact_lock" in executed[4][0]
+    assert "set_config('statement_timeout'" in executed[5][0]
+    assert executed[5][1] == {"statement_timeout": "0"}
+    assert "set_config('lock_timeout'" in executed[6][0]
+    assert executed[6][1] == {"lock_timeout": "5s"}
+    assert executed[7] == ("CREATE_ALL", None), "the DDL ran before the runtime timeouts were restored"
+    assert executed[8] == ("UPGRADE_SCHEMA", None)
+    assert executed[9] == ("TRANSACTION_EXIT", None), "the schema lock was released before store-specific DDL"
 
 
 def test_the_lock_key_is_a_stable_constant() -> None:
@@ -136,6 +157,7 @@ def test_the_lock_key_is_a_stable_constant() -> None:
 
     assert isinstance(DURABLE_SCHEMA_ADVISORY_LOCK_KEY, int)
     assert DURABLE_SCHEMA_ADVISORY_LOCK_KEY == 0x10D55CDB
+    assert DURABLE_SCHEMA_LOCK_ACQUISITION_TIMEOUT_MS > 0
 
 
 @pytest.mark.parametrize("module_name", DURABLE_STORE_MODULES)
@@ -163,12 +185,31 @@ def test_no_durable_store_calls_create_all_directly(module_name: str) -> None:
 
 
 def test_every_durable_store_uses_the_guarded_helper() -> None:
-    """The list above is only a real check while each entry actually imports the helper."""
+    """Every store must keep its store-specific DDL inside the guarded transaction."""
 
-    missing = [
-        module_name
-        for module_name in DURABLE_STORE_MODULES
-        if "create_durable_schema" not in (SERVICES / module_name).read_text(encoding="utf-8")
-    ]
+    missing_helper: list[str] = []
+    missing_upgrade_boundary: list[str] = []
+    for module_name in DURABLE_STORE_MODULES:
+        tree = ast.parse((SERVICES / module_name).read_text(encoding="utf-8"))
+        guarded_calls = [
+            node
+            for node in ast.walk(tree)
+            if isinstance(node, ast.Call)
+            and isinstance(node.func, ast.Name)
+            and node.func.id == "create_durable_schema"
+        ]
+        if not guarded_calls:
+            missing_helper.append(module_name)
+            continue
+        if not any(
+            keyword.arg == "schema_upgrades" and isinstance(keyword.value, ast.Tuple) and bool(keyword.value.elts)
+            for call in guarded_calls
+            for keyword in call.keywords
+        ):
+            missing_upgrade_boundary.append(module_name)
 
-    assert missing == [], f"These durable stores do not use the guarded creator: {missing}"
+    assert missing_helper == [], f"These durable stores do not use the guarded creator: {missing_helper}"
+    assert missing_upgrade_boundary == [], (
+        "These durable stores release the shared startup lock before their store-specific DDL: "
+        f"{missing_upgrade_boundary}"
+    )

@@ -37,6 +37,7 @@ def test_postgres_schema_creator_waits_past_configured_lock_timeout():
     lock_holder_engine = create_durable_database_engine(postgres_database_url, policy=policy)
     schema_creator_engine = create_durable_database_engine(postgres_database_url, policy=policy)
     holder_ready = Event()
+    upgrade_lock_states: list[bool] = []
     metadata = MetaData()
     Table("schema_lock_timeout_probe", metadata, Column("probe_id", String(16), primary_key=True))
 
@@ -49,17 +50,31 @@ def test_postgres_schema_creator_waits_past_configured_lock_timeout():
             holder_ready.set()
             connection.execute(text("SELECT pg_sleep(0.3)"))
 
+    def _prove_upgrade_keeps_lock(_connection) -> None:  # type: ignore[no-untyped-def]
+        with lock_holder_engine.connect() as observer:
+            acquired = observer.execute(
+                text("SELECT pg_try_advisory_xact_lock(:lock_key)"),
+                {"lock_key": DURABLE_SCHEMA_ADVISORY_LOCK_KEY},
+            ).scalar_one()
+            upgrade_lock_states.append(bool(acquired))
+
     try:
         with ThreadPoolExecutor(max_workers=2) as executor:
             holder = executor.submit(_hold_schema_lock)
             assert holder_ready.wait(timeout=3), "lock holder did not acquire the schema advisory lock"
             started_at = monotonic()
-            creator = executor.submit(create_durable_schema, schema_creator_engine, metadata)
+            creator = executor.submit(
+                create_durable_schema,
+                schema_creator_engine,
+                metadata,
+                schema_upgrades=(_prove_upgrade_keeps_lock,),
+            )
             creator.result(timeout=5)
             waited_seconds = monotonic() - started_at
             holder.result(timeout=5)
 
         assert waited_seconds >= 0.2
+        assert upgrade_lock_states == [False], "store-specific DDL ran after the shared lock was released"
         assert inspect(schema_creator_engine).has_table("schema_lock_timeout_probe")
     finally:
         lock_holder_engine.dispose()
