@@ -208,19 +208,61 @@ def test_no_document_states_a_taxonomy_threshold_the_gate_does_not_enforce() -> 
     )
 
 
-def test_the_repository_context_does_not_restate_the_thresholds_as_a_second_copy() -> None:
-    """The durable fix for the drift above is one source, not two that are checked against it.
+def _taxonomy_context_entry() -> str:
+    """The whole numbered entry describing the taxonomy gate, not one sentence of it.
 
-    REPOSITORY-ENGINEERING-CONTEXT.md previously restated all three thresholds in prose, so every
-    re-bank had to be mirrored by hand in a file no gate reads. It now points at the Makefile
-    target instead.
+    An earlier version matched the gate's name followed by anything up to the first period, so it
+    read one sentence. Prose reintroducing a threshold *after* that sentence would satisfy the guard
+    while the context drifted from the Makefile in exactly the form this test claims to prevent -
+    and the flag-form drift check cannot see it either, because prose carries no command-line flag.
     """
 
     context = (ROOT / "REPOSITORY-ENGINEERING-CONTEXT.md").read_text(encoding="utf-8")
-    paragraph = re.search(r"`make quality-test-taxonomy-gate`[^.]*\.", context, re.S)
-    assert paragraph is not None, "The taxonomy gate is no longer described in the repository context."
+    lines = context.splitlines()
+    anchors = [index for index, line in enumerate(lines) if "quality-test-taxonomy-gate" in line]
+    assert anchors, "The taxonomy gate is no longer described in the repository context."
 
-    assert not re.search(r"`\d{3}`", paragraph.group(0)), (
+    entry_start = anchors[0]
+    while entry_start > 0 and not re.match(r"^\d+\. ", lines[entry_start]):
+        entry_start -= 1
+
+    entry_end = entry_start + 1
+    while entry_end < len(lines) and not re.match(r"^\d+\. ", lines[entry_end]):
+        entry_end += 1
+
+    entry = chr(10).join(lines[entry_start:entry_end])
+    assert "quality-test-taxonomy-gate" in entry, entry
+    return entry
+
+
+def test_the_repository_context_does_not_restate_the_thresholds_as_a_second_copy() -> None:
+    """The durable fix for documented-vs-enforced drift is one source, not two kept in step.
+
+    REPOSITORY-ENGINEERING-CONTEXT.md previously restated all three thresholds in prose, so every
+    re-bank had to be mirrored by hand in a file no gate reads. It now points at the Makefile
+    target instead. This reads the entire numbered entry, so a threshold reintroduced anywhere in
+    it is caught - including in prose, which the flag-form drift check cannot see.
+    """
+
+    entry = _taxonomy_context_entry()
+
+    literals = re.findall(r"`(\d{2,})`", entry)
+    assert literals == [], (
         "The repository context restates a taxonomy threshold. Cite the Makefile target instead - "
-        f"a second hand-maintained copy is what drifted in the first place: {paragraph.group(0)!r}"
+        f"a second hand-maintained copy is what drifted in the first place: {literals}"
     )
+
+    bare_numbers = re.findall(r"(?<![\w`#])(\d{3,})(?![\w`])", entry)
+    assert bare_numbers == [], (
+        "The repository context states a bare three-digit number in the taxonomy entry, which is "
+        f"almost certainly a threshold copy: {bare_numbers}"
+    )
+
+
+def test_the_context_entry_extraction_finds_a_real_entry() -> None:
+    """Guards the extractor: an empty entry would make the check above vacuously pass."""
+
+    entry = _taxonomy_context_entry()
+
+    assert entry.count(chr(10)) >= 3, f"Extracted entry is implausibly short: {entry!r}"
+    assert "Makefile" in entry or "make " in entry, entry

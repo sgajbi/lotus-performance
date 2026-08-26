@@ -23,7 +23,7 @@ python scripts/python_test_taxonomy_inventory.py --limit 30 --min-api-runtime-te
 | Metric | Value |
 | --- | ---: |
 | Test modules inventoried | 310 |
-| Test functions inventoried | 3573 |
+| Test functions inventoried | 3574 |
 | Integration/API/runtime test functions | 690 |
 | Contract/governance test functions | 155 |
 
@@ -34,7 +34,7 @@ python scripts/python_test_taxonomy_inventory.py --limit 30 --min-api-runtime-te
 | benchmarks | 9 | 18 |
 | e2e | 1 | 21 |
 | integration | 28 | 341 |
-| unit | 272 | 3193 |
+| unit | 272 | 3194 |
 
 ## Test Functions By Family
 
@@ -44,7 +44,7 @@ python scripts/python_test_taxonomy_inventory.py --limit 30 --min-api-runtime-te
 | api_or_runtime | 690 |
 | contract_or_governance | 155 |
 | observability_or_readiness | 366 |
-| quality_or_security | 180 |
+| quality_or_security | 181 |
 | uncategorized | 879 |
 
 ## Largest Test Modules
@@ -250,8 +250,8 @@ removed, and no gate could see it. The context file no longer restates the thres
 new check asserts no document states a threshold the gate does not enforce, excluding only
 `docs/architecture/CODEBASE-REVIEW-LEDGER.md`, whose dated rows are historical evidence that would
 be falsified by rewriting. Guard tests under `tests/unit/scripts/` raised inventoried modules from
-`309` to `310`, source test functions from `3566` to `3573`, and quality/security tests from `173`
-to `180`.
+`309` to `310`, source test functions from `3566` to `3574`, and quality/security tests from `173`
+to `181`.
 
 `runtime` (190) and `operator` (145) are deliberately left unclassified: neither maps to one family
 without a judgement that deserves its own evidence. Together they are 38% of the remaining ceiling,
