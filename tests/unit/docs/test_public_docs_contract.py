@@ -2348,7 +2348,16 @@ def test_current_inventory_prose_carries_no_stale_totals():
     # invisible to the loop above — no match, no increment, no failure. The taxonomy grows by
     # adding families, and the first thing a new family does is appear in prose. Scoped to
     # "... test functions" labels; the two module labels are covered by `measured` above.
-    stated_labels = {label.strip() for label in re.findall(r"[\d,]+ ([a-z][a-z/\- ]*?test functions)", paragraph)}
+    # Case-insensitive on purpose: the dominant naming style in this taxonomy is exactly the
+    # one a lowercase-only pattern is blind to. "API/runtime" was already invisible, and a
+    # future "SLO" or "API/governance" family would be too, while "resilience" was caught.
+    stated_labels = {
+        label.strip()
+        for label in re.findall(
+            r"[\d,]+ ([A-Za-z][A-Za-z/\- ]*?test functions)",
+            paragraph,
+        )
+    }
     unknown = sorted(stated_labels - set(measured))
     assert unknown == [], (
         f"The paragraph states totals under labels this check does not compare: {unknown}. "
