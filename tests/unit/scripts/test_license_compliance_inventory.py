@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import copy
+import sys
 import tomllib
 from pathlib import Path
 
@@ -112,6 +113,17 @@ def test_poetry_lock_content_hash_detects_stale_manifest(tmp_path, monkeypatch) 
     monkeypatch.setattr(license_inventory, "POETRY_LOCK_PATH", lock)
 
     assert _poetry_lock_issues() == ["poetry.lock is stale; run poetry lock"]
+
+
+def test_write_mode_rejects_drift_before_overwriting_inventory(tmp_path, monkeypatch) -> None:
+    output = tmp_path / "license_compliance_inventory.md"
+    output.write_text("reviewed evidence", encoding="utf-8")
+    monkeypatch.setattr(license_inventory, "OUTPUT_PATH", output)
+    monkeypatch.setattr(license_inventory, "build_inventory", lambda policy: ([], ["dependency drift"]))
+    monkeypatch.setattr(sys, "argv", ["license_compliance_inventory.py", "--write"])
+
+    assert license_inventory.main() == 1
+    assert output.read_text(encoding="utf-8") == "reviewed evidence"
 
 
 def test_review_required_license_without_exception_fails_policy() -> None:

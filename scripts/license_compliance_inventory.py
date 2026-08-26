@@ -382,14 +382,15 @@ def main() -> int:
     packages, issues = build_inventory(policy)
     rendered = render_inventory(packages, policy)
 
+    if (args.write or args.check) and issues:
+        for issue in issues:
+            print(issue)
+        return 1
+
     if args.write:
         OUTPUT_PATH.write_text(rendered, encoding="utf-8")
 
     if args.check:
-        if issues:
-            for issue in issues:
-                print(issue)
-            return 1
         if not OUTPUT_PATH.exists():
             print(f"{OUTPUT_PATH}: inventory file is missing")
             return 1
