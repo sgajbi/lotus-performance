@@ -13,6 +13,7 @@ from __future__ import annotations
 
 import ast
 import re
+import subprocess
 from pathlib import Path
 
 from scripts.python_test_taxonomy_inventory import (
@@ -127,6 +128,30 @@ def test_the_uncategorized_ceiling_is_banked_at_the_measured_value() -> None:
     )
 
 
+def _tracked_markdown() -> tuple[str, ...]:
+    """Markdown files git actually tracks, not whatever Markdown happens to be on disk.
+
+    An earlier version walked `ROOT.rglob("*.md")`, which reads ignored and untracked content -
+    `.pytest_cache/`, build byproducts, an in-tree dependency checkout. A stale command in any of
+    them would fail `make check` for a developer whose tracked documents were all correct, making
+    the gate's verdict depend on the ambient filesystem rather than on the repository. That is the
+    same defect class this check exists to catch, so it must not be how the check is implemented.
+    """
+
+    # `-z` matters: without it git C-escapes any path containing a non-ASCII character, and this
+    # repository has one - "RFC 006 - Multi‑Level Performance Attribution API.md" - which then
+    # arrives quoted and cannot be opened.
+    completed = subprocess.run(
+        ["git", "ls-files", "-z", "*.md"],
+        check=True,
+        capture_output=True,
+        cwd=ROOT,
+    )
+    tracked = tuple(entry.decode("utf-8") for entry in completed.stdout.split(b"\0") if entry.strip())
+    assert tracked, "git tracks no Markdown files; the drift check would inspect nothing."
+    return tracked
+
+
 # Append-only historical records. Every row states the command as it was run against a dated
 # commit, so rewriting those thresholds to today's values would falsify the evidence the record
 # exists to preserve. `test_excluded_records_are_actually_dated_histories` keeps this list from
@@ -165,11 +190,10 @@ def test_no_document_states_a_taxonomy_threshold_the_gate_does_not_enforce() -> 
     assert enforced, "The taxonomy gate declares no thresholds in the Makefile."
 
     drift = []
-    for document in sorted(ROOT.rglob("*.md")):
-        if any(part in {".git", "node_modules", "output", ".venv"} for part in document.parts):
+    for relative_path in _tracked_markdown():
+        if relative_path in HISTORICAL_RECORDS:
             continue
-        if document.relative_to(ROOT).as_posix() in HISTORICAL_RECORDS:
-            continue
+        document = ROOT / relative_path
         text = document.read_text(encoding="utf-8", errors="ignore")
         for flag, value in re.findall(r"--(m(?:in|ax)-[a-z-]+-tests) (\d+)", text):
             if flag in enforced and int(value) != enforced[flag]:
