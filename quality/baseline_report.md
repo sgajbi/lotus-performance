@@ -1,7 +1,7 @@
 # Lotus Performance Enterprise Backend Refactor Baseline
 
 Baseline date: 2026-08-26
-Branch: `fix/469-pin-empty-window-boundary`
+Branch: `fix/478-classify-durable-schema`
 Mode: report-only baseline; no new blocking quality gate is introduced by this artifact.
 
 ## Purpose
@@ -18,9 +18,9 @@ snapshots are written under ignored `output/quality-baseline/`; curated source r
 | --- | ---: | --- |
 | Python files | 658 | `rg --files -g '*.py'` equivalent excluding local caches |
 | Python package markers | 22 | recursive `__init__.py` count |
-| Python LOC | 197,093 | recursive `.py` line count |
+| Python LOC | 197,139 | recursive `.py` line count |
 | Test modules | 312 | `tests/**/test_*.py` |
-| Collected tests | 3874 tests | `python -m pytest --collect-only -q` |
+| Collected tests | 3875 tests | `python -m pytest --collect-only -q` |
 | Configured CI workflows | 6 | `.github/workflows/*.yml` |
 | Repo-native baseline command | 1 | `make quality-baseline` |
 
