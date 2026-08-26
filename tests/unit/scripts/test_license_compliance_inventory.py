@@ -19,12 +19,34 @@ def test_license_compliance_inventory_matches_policy() -> None:
     packages_by_name = {package.normalized_name: package for package in packages}
 
     assert issues == []
-    assert len(packages) == 45
+    assert len(packages) == 46
+    assert packages_by_name["pytest-randomly"].review_status == "allowed"
     assert packages_by_name["certifi"].review_status == "review_required_exception"
     assert packages_by_name["psycopg"].review_status == "review_required_exception"
     assert packages_by_name["psycopg"].exception_owner == "platform-security"
     assert "Blocked packages | 0" in rendered
     assert "Review-required packages missing exception | 0" in rendered
+
+
+def test_non_exact_requirement_pin_fails_policy(tmp_path, monkeypatch) -> None:
+    requirements = tmp_path / "requirements-dev.txt"
+    requirements.write_text("pytest>=9.0.3,<10.0.0\n", encoding="utf-8")
+    monkeypatch.setattr(license_inventory, "REQUIREMENT_FILES", {"development": requirements})
+
+    _packages, issues = build_inventory(_load_policy())
+
+    assert "pytest: every governed requirement must use an exact == version pin" in issues
+
+
+def test_installed_version_must_match_exact_pin(tmp_path, monkeypatch) -> None:
+    requirements = tmp_path / "requirements-dev.txt"
+    requirements.write_text("pytest==9.0.3\n", encoding="utf-8")
+    monkeypatch.setattr(license_inventory, "REQUIREMENT_FILES", {"development": requirements})
+    monkeypatch.setattr(license_inventory, "_installed_version", lambda package_name: "9.0.4")
+
+    _packages, issues = build_inventory(_load_policy())
+
+    assert "pytest: installed version '9.0.4' does not match exact pin '9.0.3'" in issues
 
 
 def test_review_required_license_without_exception_fails_policy() -> None:

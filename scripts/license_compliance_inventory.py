@@ -220,6 +220,11 @@ def _merged_requirements(entries: list[RequirementEntry]) -> list[tuple[str, lis
     return sorted(grouped.items())
 
 
+def _exact_pin(entry: RequirementEntry) -> str | None:
+    match = re.fullmatch(r"[^=]+==([^,;\s]+)", entry.specifier)
+    return match.group(1) if match else None
+
+
 def build_inventory(policy: dict | None = None) -> tuple[list[PackageLicense], list[str]]:
     policy = policy or _load_policy()
     packages: list[PackageLicense] = []
@@ -227,6 +232,18 @@ def build_inventory(policy: dict | None = None) -> tuple[list[PackageLicense], l
 
     for _normalized_name, entries in _merged_requirements(_load_requirements()):
         representative = entries[0]
+        pins = {_exact_pin(entry) for entry in entries}
+        if None in pins:
+            issues.append(f"{representative.name}: every governed requirement must use an exact == version pin")
+        exact_pins = {pin for pin in pins if pin is not None}
+        if len(exact_pins) > 1:
+            issues.append(f"{representative.name}: conflicting exact version pins {sorted(exact_pins)}")
+        installed_version = _installed_version(representative.name)
+        if len(exact_pins) == 1 and installed_version not in exact_pins:
+            expected_version = next(iter(exact_pins))
+            issues.append(
+                f"{representative.name}: installed version {installed_version!r} does not match exact pin {expected_version!r}"
+            )
         license_text, license_source = _license_text(representative.name)
         review_status, exception_owner, exception_expires_on = _classify_license(
             representative.name,
@@ -241,7 +258,7 @@ def build_inventory(policy: dict | None = None) -> tuple[list[PackageLicense], l
                 normalized_name=representative.normalized_name,
                 specifier="; ".join(sorted({entry.specifier for entry in entries})),
                 sources=tuple(sorted({entry.source for entry in entries})),
-                installed_version=_installed_version(representative.name),
+                installed_version=installed_version,
                 license_text=license_text,
                 license_source=license_source,
                 review_status=review_status,

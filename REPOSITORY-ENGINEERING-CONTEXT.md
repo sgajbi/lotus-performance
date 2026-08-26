@@ -153,6 +153,14 @@ Current repository posture:
     completes. Advisory-lock acquisition temporarily disables the durable engine's short
     `lock_timeout`, applies an explicit 30-second acquisition statement timeout even when the
     runtime statement timeout is disabled, and restores both configured timeouts before DDL.
+22. Mutable test payload fixtures must be function-scoped. `make test-unit-order-stability`
+    verifies that `pytest-randomly` seeds `1`, `2`, and `3` collect the same unit-test node-id set
+    and executes the contribution regression surface under all three orders; disabling randomized
+    order is not accepted as a fix for shared-state contamination.
+23. `requirements.txt` and `requirements-dev.txt` are governed clean-install inputs and every
+    direct dependency must use an exact `==` version pin. The license-compliance gate validates
+    that installed metadata matches those pins before accepting or regenerating the reviewed
+    inventory, so local package drift cannot silently rewrite compliance evidence.
 
 ## Architecture And Module Map
 
@@ -238,6 +246,8 @@ Use these commands as the primary local contract:
    `make test-coverage-shard SUITE=<unit|integration|e2e> TEST_PATH=<tests/path>`
 16. CI coverage artifact combine gate
    `make coverage-combine-gate COVERAGE_INPUTS=<coverage-paths> COVERAGE_FAIL_UNDER=99`
+17. deterministic unit collection and contribution order check
+   `make test-unit-order-stability`
 
 ## Validation And CI Expectations
 

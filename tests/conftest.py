@@ -10,9 +10,9 @@ from app.workers.compute_executor_worker import process_pending_jobs as process_
 from app.workers.lineage_worker import process_pending_jobs
 
 
-@pytest.fixture(scope="module")
+@pytest.fixture
 def happy_path_payload():
-    """Provides a standard, valid snake_case payload for contribution tests."""
+    """Provide a fresh, valid snake_case payload for every contribution test."""
     return {
         "portfolio_id": "CONTRIB_TEST_01",
         "report_start_date": "2025-01-01",
