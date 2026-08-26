@@ -1,7 +1,7 @@
 # Lotus Performance Test Taxonomy Inventory
 
 Report date: 2026-08-26
-Branch: `fix/481-concurrency-per-commit`
+Branch: `fix/478-classify-durable-schema`
 Mode: regression-blocking test taxonomy inventory; `make quality-test-taxonomy-gate` enforces
 minimum API/runtime and contract/governance breadth plus the current uncategorized-test ceiling.
 
@@ -15,7 +15,7 @@ and quality family without executing tests or requiring coverage data.
 
 ```powershell
 python scripts/python_test_taxonomy_inventory.py --limit 30
-python scripts/python_test_taxonomy_inventory.py --limit 30 --min-api-runtime-tests 656 --min-contract-governance-tests 136 --max-uncategorized-tests 879
+python scripts/python_test_taxonomy_inventory.py --limit 30 --min-api-runtime-tests 656 --min-contract-governance-tests 136 --max-uncategorized-tests 876
 ```
 
 ## Summary
@@ -47,9 +47,9 @@ above does sum to it, because a module belongs to exactly one suite.
 | analytics_domain | 1671 |
 | api_or_runtime | 690 |
 | contract_or_governance | 155 |
-| observability_or_readiness | 366 |
+| observability_or_readiness | 371 |
 | quality_or_security | 186 |
-| uncategorized | 879 |
+| uncategorized | 876 |
 
 ## Largest Test Modules
 
@@ -92,7 +92,7 @@ The AST inventory counts test function definitions, while `pytest --collect-only
 pytest items including parametrized cases. The two values are intentionally different and
 complementary: collected tests show execution breadth, while this report shows source test-module
 and test-function distribution. The current suite has meaningful API/runtime and
-contract/governance coverage, but 879 test functions remain uncategorized by the first-wave
+contract/governance coverage, but 876 test functions remain uncategorized by the first-wave
 taxonomy and should be reduced through normal refactor slices rather than allowed to grow. The
 largest remaining groups are `runtime` (190) and `operator` (145), which have no family mapping
 yet - see issue #478 for why one was not invented to move the number.
