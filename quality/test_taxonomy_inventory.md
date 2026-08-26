@@ -1,7 +1,7 @@
 # Lotus Performance Test Taxonomy Inventory
 
-Report date: 2026-08-02
-Branch: `issue-467-workspace-summary-lineage-terminality`
+Report date: 2026-08-26
+Branch: `fix/472-monetary-float-allowlist-dispositions`
 Mode: regression-blocking test taxonomy inventory; `make quality-test-taxonomy-gate` enforces
 minimum API/runtime and contract/governance breadth plus the current uncategorized-test ceiling.
 
@@ -37,6 +37,10 @@ python scripts/python_test_taxonomy_inventory.py --limit 30 --min-api-runtime-te
 | unit | 271 | 3186 |
 
 ## Test Functions By Family
+
+A module can belong to more than one family - `_families_for_path` returns every family a path
+matches - so these counts **overlap by design and do not sum to the total**. The suite table
+above does sum to it, because a module belongs to exactly one suite.
 
 | Family | Test functions |
 | --- | ---: |
@@ -135,7 +139,7 @@ observability/readiness, quality/security, and uncategorized counts unchanged. I
 lineage artifact classification/minimization route and service coverage, raising source test
 functions to `3461`, API/runtime tests to `663`, and uncategorized tests to `959` while preserving
 the existing `969` uncategorized ceiling.
-Issue #472 also added a docs-contract check that the present-tense governed-inventory paragraph in `quality/ci_quality_gates.md` states no superseded total - the existing check asserts the measured summary appears somewhere in that document, which a regenerated table row satisfied while hand-written prose below it stayed stale - raising source test functions to `3566` and contract/governance tests to `155` without moving any enforced floor or ceiling. Issue #472 added monetary-float allowlist governance tests - an orphan-retirement check, a check that the two reviewed entries name their specific finding and migration issue, and a check that the `annualize_return` ratio is not re-added as a dated allowance - raising source test functions to `3566` and quality/security tests to `173` without growing the uncategorized backlog or moving the API/runtime and contract/governance floors. Issue #444 added runtime-retention restart-safety, failure-resume, and failed-replay tests, raising
+Issue #444 added runtime-retention restart-safety, failure-resume, and failed-replay tests, raising
 source test functions to `3465` and uncategorized tests to `963` while preserving the existing
 `969` uncategorized ceiling. Issue #443 added docs-contract coverage for the async SLO/capacity
 contract, raising source test functions to `3466` and contract/governance tests to `134` without
@@ -213,6 +217,17 @@ The final PR review fix added queued-batch lease-expiry, PostgreSQL idempotent s
 Docker stderr diagnostic regressions, raising source test functions to `3562`,
 observability/readiness tests to `366`, quality/security tests to `170`, and uncategorized tests to
 `969` while preserving the existing uncategorized ceiling.
+Issue #472 added monetary-float allowlist governance tests - an orphan-retirement check, a check
+that the two reviewed entries name their specific finding and migration issue, and a check that the
+`annualize_return` ratio is not re-added as a dated allowance - raising source test functions from
+`3562` to `3565` and quality/security tests from `170` to `173` without growing the uncategorized
+backlog or moving the API/runtime and contract/governance floors.
+The same issue then added a docs-contract check that the present-tense governed-inventory paragraph
+in `quality/ci_quality_gates.md` states no superseded total, and that this report's own family and
+suite tables match the measurement - the earlier check asserted the measured summary appeared
+somewhere in that document, which a regenerated table row satisfied while hand-written prose below
+it stayed stale - raising source test functions from `3565` to `3566` and contract/governance tests
+from `154` to `155`, again without moving any enforced floor or ceiling.
 
 This slice promotes the stable part of the taxonomy from report-only measurement to a
 regression-blocking evaluation gate. `make quality-test-taxonomy-gate` fails if API/runtime tests
