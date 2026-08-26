@@ -32,7 +32,9 @@ WORKDIR /app
 
 COPY requirements.txt ./
 RUN pip install --no-cache-dir --root-user-action=ignore --upgrade pip && \
-    pip install --no-cache-dir --root-user-action=ignore -r requirements.txt
+    pip install --no-cache-dir --root-user-action=ignore -r requirements.txt && \
+    pip uninstall --yes --root-user-action=ignore pip setuptools wheel && \
+    rm -rf /usr/local/lib/python3.11/ensurepip
 
 RUN groupadd --system --gid 10001 lotus && \
     useradd --system --uid 10001 --gid lotus --home-dir /app --shell /usr/sbin/nologin lotus && \

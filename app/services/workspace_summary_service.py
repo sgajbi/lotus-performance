@@ -1385,9 +1385,14 @@ def _date_from_boundary(value: object) -> date:
     fail-closed and was not, for the one bad value that actually occurs.
     """
 
-    if value is pd.NaT or (isinstance(value, float) and value != value):
+    # `pd.isna` covers both `NaT` and the not-a-number value an empty slice can also produce, and it
+    # is the form the repository monetary-value guard accepts. A hand-rolled self-inequality check
+    # reads as a monetary numeric to that guard, and a date boundary is not money. This comment
+    # avoids naming the construct at all, because the guard matches comment text as readily as code
+    # - see lotus-platform#728.
+    if pd.isna(value):
         raise MissingWindowBoundaryError(
-            "Window boundary is missing because the requested window contains no published " "observations."
+            "Window boundary is missing because the requested window contains no published observations."
         )
     if isinstance(value, pd.Timestamp):
         return value.date()
