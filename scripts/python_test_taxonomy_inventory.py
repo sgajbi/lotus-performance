@@ -121,6 +121,11 @@ def _families_for_path(path: str) -> tuple[str, ...]:
             "attribution",
             "contribution",
             "benchmark",
+            # The workspace summary surface resolves observation windows and builds period
+            # breakdowns over published performance results — the same material the tokens above
+            # classify. It was absent from this list, so all of its tests fell to `uncategorized`
+            # and the ceiling below made the surface untestable without a governance edit. See #475.
+            "workspace",
         )
     ):
         families.add("analytics_domain")

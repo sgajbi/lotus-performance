@@ -1,7 +1,7 @@
 # Lotus Performance Test Taxonomy Inventory
 
 Report date: 2026-08-26
-Branch: `fix/472-monetary-float-allowlist-dispositions`
+Branch: `fix/475-classify-workspace-analytics`
 Mode: regression-blocking test taxonomy inventory; `make quality-test-taxonomy-gate` enforces
 minimum API/runtime and contract/governance breadth plus the current uncategorized-test ceiling.
 
@@ -22,8 +22,8 @@ python scripts/python_test_taxonomy_inventory.py --limit 30 --min-api-runtime-te
 
 | Metric | Value |
 | --- | ---: |
-| Test modules inventoried | 309 |
-| Test functions inventoried | 3566 |
+| Test modules inventoried | 310 |
+| Test functions inventoried | 3568 |
 | Integration/API/runtime test functions | 690 |
 | Contract/governance test functions | 155 |
 
@@ -34,22 +34,18 @@ python scripts/python_test_taxonomy_inventory.py --limit 30 --min-api-runtime-te
 | benchmarks | 9 | 18 |
 | e2e | 1 | 21 |
 | integration | 28 | 341 |
-| unit | 271 | 3186 |
+| unit | 272 | 3188 |
 
 ## Test Functions By Family
 
-A module can belong to more than one family - `_families_for_path` returns every family a path
-matches - so these counts **overlap by design and do not sum to the total**. The suite table
-above does sum to it, because a module belongs to exactly one suite.
-
 | Family | Test functions |
 | --- | ---: |
-| analytics_domain | 1571 |
+| analytics_domain | 1662 |
 | api_or_runtime | 690 |
 | contract_or_governance | 155 |
 | observability_or_readiness | 366 |
-| quality_or_security | 173 |
-| uncategorized | 969 |
+| quality_or_security | 175 |
+| uncategorized | 879 |
 
 ## Largest Test Modules
 
@@ -58,8 +54,8 @@ above does sum to it, because a module belongs to exactly one suite.
 | 1 | `tests/unit/services/test_returns_series_service.py` | unit | 96 | analytics_domain |
 | 2 | `tests/unit/app/test_enterprise_readiness_additional.py` | unit | 87 | observability_or_readiness |
 | 3 | `tests/unit/services/test_stateful_attribution_input_service.py` | unit | 70 | analytics_domain |
-| 4 | `tests/unit/services/test_compute_job_store.py` | unit | 67 | observability_or_readiness |
-| 5 | `tests/unit/docs/test_public_docs_contract.py` | unit | 66 | contract_or_governance |
+| 4 | `tests/unit/docs/test_public_docs_contract.py` | unit | 67 | contract_or_governance |
+| 5 | `tests/unit/services/test_compute_job_store.py` | unit | 67 | observability_or_readiness |
 | 6 | `tests/unit/app/test_openapi_enrichment.py` | unit | 61 | api_or_runtime |
 | 7 | `tests/unit/services/test_lineage_metadata_store.py` | unit | 60 | uncategorized |
 | 8 | `tests/unit/engine/test_attribution.py` | unit | 57 | analytics_domain |
@@ -67,7 +63,7 @@ above does sum to it, because a module belongs to exactly one suite.
 | 10 | `tests/unit/app/test_contribution_endpoint_helpers.py` | unit | 52 | analytics_domain, api_or_runtime |
 | 11 | `tests/unit/services/test_compute_executor_worker.py` | unit | 51 | uncategorized |
 | 12 | `tests/unit/services/test_twr_inspection_calculation_consistency.py` | unit | 51 | analytics_domain |
-| 13 | `tests/unit/services/test_workspace_summary_service.py` | unit | 50 | uncategorized |
+| 13 | `tests/unit/services/test_workspace_summary_service.py` | unit | 50 | analytics_domain |
 | 14 | `tests/unit/services/test_stateful_input_service.py` | unit | 47 | analytics_domain |
 | 15 | `tests/unit/services/test_twr_mode_service.py` | unit | 45 | analytics_domain |
 | 16 | `tests/unit/engine/test_mwr.py` | unit | 44 | analytics_domain |
@@ -82,7 +78,7 @@ above does sum to it, because a module belongs to exactly one suite.
 | 25 | `tests/unit/services/test_twr_inspection_reconciliation.py` | unit | 32 | analytics_domain |
 | 26 | `tests/integration/test_returns_series_api.py` | integration | 31 | analytics_domain, api_or_runtime |
 | 27 | `tests/unit/app/test_enterprise_readiness.py` | unit | 31 | observability_or_readiness |
-| 28 | `tests/unit/models/test_workspace_summary_models.py` | unit | 31 | uncategorized |
+| 28 | `tests/unit/models/test_workspace_summary_models.py` | unit | 31 | analytics_domain |
 | 29 | `tests/unit/services/test_twr_inspection_service.py` | unit | 31 | analytics_domain |
 | 30 | `tests/unit/services/test_operator_action_replay_service.py` | unit | 30 | uncategorized |
 
@@ -228,11 +224,23 @@ suite tables match the measurement - the earlier check asserted the measured sum
 somewhere in that document, which a regenerated table row satisfied while hand-written prose below
 it stayed stale - raising source test functions from `3565` to `3566` and contract/governance tests
 from `154` to `155`, again without moving any enforced floor or ceiling.
+Issue #475 then found the ceiling was measuring the classifier rather than the tree. The workspace
+analytics surface had no token in `_families_for_path`, so all of its tests fell to
+`uncategorized` - 90 across three modules, the third-largest contributor behind `runtime` and
+`operator`. Because the gate caps uncategorized tests, adding any test to that surface turned it
+red, and the only way to go green was to edit a governance threshold. Adding `workspace` to the
+`analytics_domain` tokens moves those 90 tests to the family they always belonged to, taking
+uncategorized from `969` to `879` and analytics-domain tests from `1571` to `1662`. The ceiling is
+re-banked to `879` in the same change: leaving it at `969` would have converted a classification
+fix into 90 tests of unearned slack. Two guard tests were added under `tests/unit/scripts/`, raising
+inventoried modules from `309` to `310`, source test functions from `3566` to `3568`, and
+quality/security tests from `173` to `175`. `runtime` (190) and `operator` (145) are deliberately
+left unclassified: neither maps to one family without a judgement that deserves its own evidence.
 
 This slice promotes the stable part of the taxonomy from report-only measurement to a
 regression-blocking evaluation gate. `make quality-test-taxonomy-gate` fails if API/runtime tests
 drop below `656`, contract/governance tests drop below `136`, or uncategorized tests rise above
-`969`. `make quality-evaluation-gate` now runs both deterministic demo API certification and this
+`879`. `make quality-evaluation-gate` now runs both deterministic demo API certification and this
 taxonomy gate, so existing Feature Lane, PR Merge Gate, Main Releasability, local `make check`,
 local `make ci`, and Quality Baseline workflow enforcement pick it up without duplicating workflow
 logic.
@@ -241,6 +249,10 @@ logic.
 
 This is a Phase 2 regression-blocking quality gate for stable taxonomy breadth. It is intentionally
 not a strict maturity score: branch coverage, uncategorized-test remediation, and finer taxonomy
-labels remain planned improvements. Exceptions should not be soft-failed in CI; if a supported API
+labels remain planned improvements. The uncategorized ceiling is banked at the measured value with
+no headroom and is asserted as such by
+`tests/unit/scripts/test_test_taxonomy_classification.py`, so it cannot be raised to absorb new
+unclassified tests; a surface that genuinely belongs to a family is classified instead, and the
+ceiling is re-banked downward in the same change. Exceptions should not be soft-failed in CI; if a supported API
 or governance test category is intentionally removed, update the gate threshold, scorecard, and
 review ledger in the same PR with explicit rationale.

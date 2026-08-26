@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import re
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[3]
@@ -34,7 +35,11 @@ def test_test_taxonomy_quality_gate_has_ci_thresholds() -> None:
     assert "scripts/python_test_taxonomy_inventory.py" in target
     assert "--min-api-runtime-tests 656" in target
     assert "--min-contract-governance-tests 136" in target
-    assert "--max-uncategorized-tests 969" in target
+    # This asserts only that a ceiling is *declared*. Its value is owned by
+    # tests/unit/scripts/test_test_taxonomy_classification.py, which compares it against the
+    # measured tree. Repeating the literal here made every legitimate re-bank fail a test about
+    # wiring, which is how a threshold ends up copied rather than measured. See issue #475.
+    assert re.search(r"--max-uncategorized-tests \d+", target) is not None
 
 
 def test_license_compliance_gate_is_repo_native_blocking_target() -> None:

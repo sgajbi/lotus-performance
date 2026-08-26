@@ -1,7 +1,7 @@
 # Lotus Performance Enterprise Backend Refactor Baseline
 
 Baseline date: 2026-08-26
-Branch: `fix/472-monetary-float-allowlist-dispositions`
+Branch: `fix/475-classify-workspace-analytics`
 Mode: report-only baseline; no new blocking quality gate is introduced by this artifact.
 
 ## Purpose
@@ -16,11 +16,11 @@ snapshots are written under ignored `output/quality-baseline/`; curated source r
 
 | Area | Current value | Evidence |
 | --- | ---: | --- |
-| Python files | 655 | `rg --files -g '*.py'` equivalent excluding local caches |
+| Python files | 656 | `rg --files -g '*.py'` equivalent excluding local caches |
 | Python package markers | 22 | recursive `__init__.py` count |
-| Python LOC | 196,347 | recursive `.py` line count |
-| Test modules | 309 | `tests/**/test_*.py` |
-| Collected tests | 3852 tests | `python -m pytest --collect-only -q` |
+| Python LOC | 196,520 | recursive `.py` line count |
+| Test modules | 310 | `tests/**/test_*.py` |
+| Collected tests | 3855 tests | `python -m pytest --collect-only -q` |
 | Configured CI workflows | 6 | `.github/workflows/*.yml` |
 | Repo-native baseline command | 1 | `make quality-baseline` |
 
@@ -32,9 +32,9 @@ snapshots are written under ignored `output/quality-baseline/`; curated source r
 | 2 | `tests/unit/services/test_compute_executor_worker.py` | 2676 |
 | 3 | `tests/unit/services/test_runtime_status_service.py` | 2637 |
 | 4 | `app/services/stateful_input_service.py` | 2409 |
-| 5 | `tests/unit/services/test_stateful_input_service.py` | 2361 |
-| 6 | `app/services/returns_series_service.py` | 2324 |
-| 7 | `tests/unit/docs/test_public_docs_contract.py` | 2277 |
+| 5 | `tests/unit/docs/test_public_docs_contract.py` | 2374 |
+| 6 | `tests/unit/services/test_stateful_input_service.py` | 2361 |
+| 7 | `app/services/returns_series_service.py` | 2324 |
 | 8 | `tests/unit/app/test_request_path_runtime_settings.py` | 2276 |
 | 9 | `tests/unit/services/test_stateful_attribution_input_service.py` | 2159 |
 | 10 | `tests/integration/test_performance_api.py` | 2075 |
