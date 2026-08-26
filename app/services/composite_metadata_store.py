@@ -12,6 +12,7 @@ from sqlalchemy.orm import DeclarativeBase, Mapped, Session, mapped_column, sess
 
 from app.models.composites import CompositeDefinition, CompositeMemberReturnFact, CompositeMembership
 from app.services.durable_database_engine import create_durable_database_engine
+from app.services.durable_schema_creation import create_durable_schema
 from app.services.durable_store_json import load_json_object_or_none, load_json_string_list_or_default
 from app.services.durable_store_runtime import RuntimeStoreProxy, resolve_runtime_store
 
@@ -111,7 +112,7 @@ class CompositeMetadataStore:
         self._engine.dispose()
 
     def create_schema(self) -> None:
-        Base.metadata.create_all(self._engine)
+        create_durable_schema(self._engine, Base.metadata)
         self._upgrade_member_return_fact_schema()
 
     def _upgrade_member_return_fact_schema(self) -> None:
