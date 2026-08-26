@@ -274,6 +274,14 @@ labels remain planned improvements. The uncategorized ceiling is banked at the m
 no headroom and is asserted as such by
 `tests/unit/scripts/test_test_taxonomy_classification.py`, so it cannot be raised to absorb new
 unclassified tests; a surface that genuinely belongs to a family is classified instead, and the
-ceiling is re-banked downward in the same change. Exceptions should not be soft-failed in CI; if a supported API
+ceiling is re-banked downward in the same change.
+
+**Wiki disposition for the #475 change: no wiki update required, recorded explicitly rather than
+omitted.** The repo-local wiki carries no statement of the taxonomy gate, its thresholds, or the
+uncategorized count - `grep -n "taxonomy\|uncategoriz\|969\|879" wiki/*.md` returns nothing across
+all 21 pages, including `Validation-and-CI.md` and `Development-Workflow.md`. The gate is a
+contributor-facing CI threshold, not operator-facing runtime behaviour: no command an operator runs,
+no API response, and no runbook step changes. Wiki truth would need updating if the wiki began
+publishing gate thresholds, which is a separate decision from this change. Exceptions should not be soft-failed in CI; if a supported API
 or governance test category is intentionally removed, update the gate threshold, scorecard, and
 review ledger in the same PR with explicit rationale.
