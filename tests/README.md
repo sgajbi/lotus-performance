@@ -39,4 +39,5 @@ make test-e2e
   test files.
 - Keep mutable payload fixtures function-scoped. Use the order-stability target to compare the
   collected unit-test node-id set and exercise the contribution regression surface under three
-  deterministic random seeds.
+  deterministic random seeds. Threaded timeout tests must explicitly release their workers and
+  avoid sub-scheduler timing margins that can make the shared executor order-dependent.

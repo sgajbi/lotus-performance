@@ -156,7 +156,9 @@ Current repository posture:
 22. Mutable test payload fixtures must be function-scoped. `make test-unit-order-stability`
     verifies that `pytest-randomly` seeds `1`, `2`, and `3` collect the same unit-test node-id set
     and executes the contribution regression surface under all three orders; disabling randomized
-    order is not accepted as a fix for shared-state contamination.
+    order is not accepted as a fix for shared-state contamination. Threaded timeout tests must
+    release blocked workers and allow realistic executor-scheduling margin so one test cannot
+    starve a later probe.
 23. `requirements.txt` and `requirements-dev.txt` are governed clean-install inputs and every
     direct dependency must use an exact `==` version pin. The license-compliance gate validates
     that installed metadata matches those pins before accepting or regenerating the reviewed

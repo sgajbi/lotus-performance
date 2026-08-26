@@ -75,8 +75,8 @@ link the commit, command, or CI artifact that proves the change.
 
 | Metric | Baseline | Current | Status | Evidence |
 | --- | ---: | ---: | --- | --- |
-| Test modules | 228 | 313 | measured | `rg --files tests -g 'test_*.py'` |
-| Collected tests | 2,035 | 3,887 | measured | `python -m pytest --collect-only -q` |
+| Test modules | 228 | 314 | measured | `rg --files tests -g 'test_*.py'` |
+| Collected tests | 2,035 | 3,894 | measured | `python -m pytest --collect-only -q` |
 | Line coverage | unknown | 99.58% | measured | `quality/coverage_inventory.md` via `make branch-coverage-baseline` (`3,013` unit, `308` integration, and `21` e2e tests under branch coverage; `21,154` covered lines of `21,244` statements) |
 | Branch coverage | unknown | 98.00% | measured | `quality/coverage_inventory.md` via `make branch-coverage-baseline` (`3,013` unit, `308` integration, and `21` e2e tests under branch coverage; `4,318` covered branches of `4,406`, `88` missing branches, `88` partial branches) |
 | Integration/API/runtime test functions | unknown | 690 | enforced | `quality/test_taxonomy_inventory.md`; `make quality-test-taxonomy-gate` |
@@ -92,7 +92,7 @@ link the commit, command, or CI artifact that proves the change.
 | Bandit low findings | unknown | 0 | enforced | `quality/python_security_inventory.md`; `make python-security-gate` |
 | Dependency vulnerabilities | unknown | 0 | measured | `quality/dependency_security_report.md` via repo-native dependency-health audit |
 | Dependency hygiene findings | unknown | 0 | measured | `quality/dependency_hygiene_report.md` via `scripts/python_dependency_hygiene_inventory.py` |
-| Third-party packages inventoried | unknown | 45 | enforced | `quality/license_compliance_inventory.md`; `make license-compliance-gate` |
+| Third-party packages inventoried | unknown | 46 | enforced | `quality/license_compliance_inventory.md`; `make license-compliance-gate` |
 | Review-required license exceptions | unknown | 2 | enforced | `contracts/license-compliance-policy.v1.json`; `quality/license_compliance_inventory.md` |
 | Blocked or missing-exception license findings | unknown | 0 | enforced | `make license-compliance-gate` |
 | Container SBOM artifact | unknown | 1 | measured | `quality/container_supply_chain_report.md`; `make container-supply-chain-evidence`; PR/Main artifact upload |

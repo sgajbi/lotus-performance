@@ -6,7 +6,7 @@
 | Expected implementation markers | 28 |
 | Present implementation markers | 28 |
 | Missing implementation markers | 0 |
-| Mapped observability/readiness test functions | 477 |
+| Mapped observability/readiness test functions | 481 |
 | Deployable monitoring alert rules | 14 |
 | Deployable monitoring dashboard panels | 12 |
 | Monitoring artifact violations | 0 |
@@ -18,10 +18,10 @@ Mapped test functions are counted per readiness family and can overlap when one 
 | Family | Present markers | Expected markers | Test functions | Missing markers |
 | --- | ---: | ---: | ---: | ---: |
 | `health_metrics_endpoints` | 4 | 4 | 56 | 0 |
-| `correlation_propagation` | 6 | 6 | 189 | 0 |
-| `structured_logging` | 6 | 6 | 57 | 0 |
+| `correlation_propagation` | 6 | 6 | 191 | 0 |
+| `structured_logging` | 6 | 6 | 58 | 0 |
 | `metrics` | 6 | 6 | 46 | 0 |
-| `health_readiness` | 6 | 6 | 129 | 0 |
+| `health_readiness` | 6 | 6 | 130 | 0 |
 
 ## Missing Markers
 
