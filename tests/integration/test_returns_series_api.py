@@ -1,6 +1,7 @@
 from decimal import Decimal
 from uuid import UUID, uuid4
 
+import pytest
 from fastapi.testclient import TestClient
 
 from app.core.config import get_settings
@@ -9,6 +10,9 @@ from app.models.returns_series import InputMode, ReturnsSeriesRequest
 from app.services.analytics_workflow_types import ANALYTICS_WORKFLOW_BENCHMARK
 from app.services.async_result_store import async_result_store
 from app.services.calculation_engine_version import calculation_engine_version
+from app.services.compute_job_store import compute_job_store
+from app.services.durable_metadata_bootstrap import bootstrap_durable_metadata_stores
+from app.services.execution_registry import execution_registry
 from app.services.returns_series_service import ResolvedStatefulReturnsSeriesRequest
 from app.services.stateful_benchmark_input_service import StatefulBenchmarkNormalizedInput
 from core.repro import generate_canonical_hash
@@ -16,6 +20,23 @@ from main import app
 from tests.conftest import drain_compute_queue
 
 settings = get_settings()
+
+
+@pytest.fixture(autouse=True)
+def isolate_returns_series_durable_state():
+    """Keep randomized integration order from leaking durable async work between tests."""
+    bootstrap_durable_metadata_stores(
+        execution_store=execution_registry,
+        compute_store=compute_job_store,
+        async_result_store_=async_result_store,
+    )
+    execution_registry.clear_all_records()
+    compute_job_store.clear_all_records()
+    async_result_store.clear_all_records()
+    yield
+    async_result_store.clear_all_records()
+    compute_job_store.clear_all_records()
+    execution_registry.clear_all_records()
 
 
 def _daily_points():
@@ -773,8 +794,6 @@ def test_returns_series_async_result_retrieval_uses_durable_store(monkeypatch):
 
             assert drain_compute_queue() == 1
 
-            from app.services.compute_job_store import compute_job_store
-
             compute_job_store.clear_all_records()
             result = async_result_store.get_result(UUID(calculation_id))
             assert result is not None
@@ -824,8 +843,6 @@ def test_returns_series_async_result_not_found_and_failed(monkeypatch):
             accepted = client.post("/integration/returns/series", json=payload)
             calculation_id = accepted.json()["calculation_id"]
 
-            from app.services.compute_job_store import compute_job_store
-
             compute_job_store.mark_failed(UUID(calculation_id), error_message="executor boom")
             failed = client.get(f"/integration/returns/series/results/{calculation_id}")
             assert failed.status_code == 409
@@ -835,8 +852,6 @@ def test_returns_series_async_result_not_found_and_failed(monkeypatch):
 
 
 def test_returns_series_result_hides_cross_endpoint_calculation_id():
-    from app.services.compute_job_store import compute_job_store
-
     calculation_id = uuid4()
     compute_job_store.create_schema()
     compute_job_store.clear_all_records()

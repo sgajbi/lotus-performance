@@ -158,7 +158,8 @@ Current repository posture:
     and executes the contribution regression surface under all three orders; disabling randomized
     order is not accepted as a fix for shared-state contamination. Threaded timeout tests must
     release blocked workers and allow realistic executor-scheduling margin so one test cannot
-    starve a later probe.
+    starve a later probe. Integration modules that exercise durable queues must clear their
+    execution, compute-job, and async-result stores per test instead of depending on file order.
 23. `requirements.txt` and `requirements-dev.txt` are governed clean-install inputs and every
     direct dependency must use an exact `==` version pin. The license-compliance gate validates
     that installed metadata matches those pins before accepting or regenerating the reviewed
