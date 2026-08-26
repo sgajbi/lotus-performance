@@ -248,7 +248,22 @@ def render_markdown(modules: Sequence[TestModuleInventory], *, limit: int) -> st
     for suite in sorted(summary.suite_module_counts):
         lines.append(f"| {suite} | {summary.suite_module_counts[suite]} | {summary.suite_counts[suite]} |")
 
-    lines.extend(["", "## Test Functions By Family", "", "| Family | Test functions |", "| --- | ---: |"])
+    # Emitted rather than hand-written: this note lived in the curated document and a mechanical
+    # regeneration of this block silently deleted it, leaving a table summing to more than the
+    # stated total with no explanation. Generated output must carry its own caveats. See #475.
+    lines.extend(
+        [
+            "",
+            "## Test Functions By Family",
+            "",
+            "A module can belong to more than one family - `_families_for_path` returns every " "family a path",
+            "matches - so these counts **overlap by design and do not sum to the total**. The " "suite table",
+            "above does sum to it, because a module belongs to exactly one suite.",
+            "",
+            "| Family | Test functions |",
+            "| --- | ---: |",
+        ]
+    )
     for family, count in sorted(summary.family_counts.items()):
         lines.append(f"| {family} | {count} |")
 
