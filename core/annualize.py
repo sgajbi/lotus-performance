@@ -18,7 +18,15 @@ def periods_per_year_for_basis(*, basis: BasisType, periods_per_year: float | No
     return 365.0
 
 
-def annualize_return(period_return: float, num_periods: int, periods_per_year: float, basis: BasisType) -> float:
+# monetary-float-allow: period_return is a dimensionless ratio and periods_per_year is a
+# day-count divisor (252.0 / 365.25 / 365.0). Neither is a monetary amount, so this is
+# outside the monetary-float rule rather than deferred debt. See docs/standards/rounding-precision.md.
+def annualize_return(
+    period_return: float,  # monetary-float-allow
+    num_periods: int,
+    periods_per_year: float,  # monetary-float-allow
+    basis: BasisType,
+) -> float:  # monetary-float-allow
     """
     Annualizes a period return using geometric compounding.
 

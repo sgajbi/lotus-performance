@@ -23,7 +23,7 @@ python scripts/python_test_taxonomy_inventory.py --limit 30 --min-api-runtime-te
 | Metric | Value |
 | --- | ---: |
 | Test modules inventoried | 309 |
-| Test functions inventoried | 3562 |
+| Test functions inventoried | 3565 |
 | Integration/API/runtime test functions | 690 |
 | Contract/governance test functions | 154 |
 
@@ -44,7 +44,7 @@ python scripts/python_test_taxonomy_inventory.py --limit 30 --min-api-runtime-te
 | api_or_runtime | 690 |
 | contract_or_governance | 154 |
 | observability_or_readiness | 366 |
-| quality_or_security | 170 |
+| quality_or_security | 173 |
 | uncategorized | 969 |
 
 ## Largest Test Modules
@@ -135,7 +135,7 @@ observability/readiness, quality/security, and uncategorized counts unchanged. I
 lineage artifact classification/minimization route and service coverage, raising source test
 functions to `3461`, API/runtime tests to `663`, and uncategorized tests to `959` while preserving
 the existing `969` uncategorized ceiling.
-Issue #444 added runtime-retention restart-safety, failure-resume, and failed-replay tests, raising
+Issue #472 added monetary-float allowlist governance tests - an orphan-retirement check, a check that the two reviewed entries name their specific finding and migration issue, and a check that the `annualize_return` ratio is not re-added as a dated allowance - raising source test functions to `3565` and quality/security tests to `173` without growing the uncategorized backlog or moving the API/runtime and contract/governance floors. Issue #444 added runtime-retention restart-safety, failure-resume, and failed-replay tests, raising
 source test functions to `3465` and uncategorized tests to `963` while preserving the existing
 `969` uncategorized ceiling. Issue #443 added docs-contract coverage for the async SLO/capacity
 contract, raising source test functions to `3466` and contract/governance tests to `134` without
