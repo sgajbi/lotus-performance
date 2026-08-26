@@ -6,7 +6,12 @@ on:
   workflow_dispatch:
 
 concurrency:
-  group: ${{ github.workflow }}-${{ github.ref }}
+  # Keyed on the commit, not the ref. On `main` `github.ref` is always `refs/heads/main`, so every
+  # run shared one group and `cancel-in-progress` cancelled runs that were validating *different*
+  # commits - silently, because a cancelled run is not a failure. Merge commit 5402692 lost two gate
+  # runs that way. See issue #481. `cancel-in-progress` stays true: superseding an earlier attempt at
+  # the same revision is correct; the defect was the grouping.
+  group: ${{ github.workflow }}-${{ github.sha }}
   cancel-in-progress: true
 
 permissions:

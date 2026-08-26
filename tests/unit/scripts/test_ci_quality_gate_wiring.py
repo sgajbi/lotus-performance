@@ -200,3 +200,45 @@ def test_auto_merge_uses_governed_merge_actor_token() -> None:
     assert "contents: write" not in workflow
     assert "pull-requests: write" not in workflow
     assert "gh pr merge" in workflow
+
+
+def test_main_releasability_concurrency_is_keyed_per_commit_not_per_branch() -> None:
+    """A gate run must not be cancelled by a later commit.
+
+    The group was keyed on `github.ref`. On `main` that ref is constant, so every run shared one
+    group and `cancel-in-progress: true` cancelled runs validating *different* commits. The
+    cancellation is silent - a cancelled run is not a failure - so a commit could lose its
+    releasability evidence with nothing reporting it. Merge commit `5402692` lost two runs that way
+    before this was found. See issue #481.
+
+    `cancel-in-progress` stays `true` and is asserted here too: superseding an earlier attempt at the
+    *same* revision is correct, and this fix must not be mistaken for disabling cancellation.
+    """
+
+    workflow = _workflow_text("main-releasability.yml")
+
+    lines = workflow.splitlines()
+    start = lines.index("concurrency:")
+    concurrency_lines = [lines[start]]
+    for line in lines[start + 1 :]:
+        if line and not line.startswith((" ", "\t")):
+            break
+        concurrency_lines.append(line)
+
+    # Read the `group:` value alone rather than the whole block. The workflow carries a comment
+    # explaining why `github.ref` is wrong, and a substring search over the block matches that
+    # explanation and fails for the wrong reason. A guard that cannot tell configuration from prose
+    # about the configuration is not checking configuration.
+    group_lines = [line for line in concurrency_lines if line.strip().startswith("group:")]
+    assert len(group_lines) == 1, f"Expected exactly one `group:` line, got {group_lines}"
+    group = group_lines[0].strip()
+
+    assert "github.ref" not in group, (
+        "The concurrency group is keyed on `github.ref`, which is constant on `main`, so a later "
+        f"commit cancels the run validating an earlier one: {group}"
+    )
+    assert "github.sha" in group, f"The concurrency group must be keyed on the commit under validation: {group}"
+    assert "cancel-in-progress: true" in "\n".join(concurrency_lines), (
+        "Cancellation within a single revision is correct and must stay enabled; the defect was the "
+        "grouping, not the cancellation."
+    )
