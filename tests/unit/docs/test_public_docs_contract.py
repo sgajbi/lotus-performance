@@ -2337,9 +2337,22 @@ def test_current_inventory_prose_carries_no_stale_totals():
             f"'Current governed inventory' states {sorted(stated)} for {label!r}; measured "
             f"{expected}. Historical baselines elsewhere in that document are untouched."
         )
-    assert checked >= 6, (
-        f"Only matched {checked} governed categories in the paragraph; the phrasing changed "
-        "and this check has stopped covering what it claims to."
+    assert checked == len(measured), (
+        f"Matched {checked} of {len(measured)} governed categories. Exact equality, not a floor: "
+        "a floor is unbanked slack in the guard itself, and this repository sets "
+        "baseline == threshold on every ratchet for that reason. If a label legitimately "
+        "disappears from the paragraph, remove it from `measured` in the same change."
+    )
+
+    # The reverse direction: a total stated under a label this check does not know about is
+    # invisible to the loop above — no match, no increment, no failure. The taxonomy grows by
+    # adding families, and the first thing a new family does is appear in prose. Scoped to
+    # "... test functions" labels; the two module labels are covered by `measured` above.
+    stated_labels = {label.strip() for label in re.findall(r"[\d,]+ ([a-z][a-z/\- ]*?test functions)", paragraph)}
+    unknown = sorted(stated_labels - set(measured))
+    assert unknown == [], (
+        f"The paragraph states totals under labels this check does not compare: {unknown}. "
+        "Add them to `measured` so they are verified rather than decorative."
     )
 
     inventory = _read("quality/test_taxonomy_inventory.md")
