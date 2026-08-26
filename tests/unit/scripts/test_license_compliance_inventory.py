@@ -49,6 +49,22 @@ def test_installed_version_must_match_exact_pin(tmp_path, monkeypatch) -> None:
     assert "pytest: installed version '9.0.4' does not match exact pin '9.0.3'" in issues
 
 
+def test_conflicting_exact_pins_fail_policy(tmp_path, monkeypatch) -> None:
+    runtime_requirements = tmp_path / "requirements.txt"
+    development_requirements = tmp_path / "requirements-dev.txt"
+    runtime_requirements.write_text("pytest==9.0.3\n", encoding="utf-8")
+    development_requirements.write_text("pytest==9.0.4\n", encoding="utf-8")
+    monkeypatch.setattr(
+        license_inventory,
+        "REQUIREMENT_FILES",
+        {"runtime": runtime_requirements, "development": development_requirements},
+    )
+
+    _packages, issues = build_inventory(_load_policy())
+
+    assert "pytest: conflicting exact version pins ['9.0.3', '9.0.4']" in issues
+
+
 def test_review_required_license_without_exception_fails_policy() -> None:
     policy = copy.deepcopy(_load_policy())
     policy["exceptions"] = [exception for exception in policy["exceptions"] if exception["package"] != "psycopg"]

@@ -17,6 +17,7 @@ def collect_node_ids(test_path: str, seed: int) -> frozenset[str]:
         test_path,
         "--collect-only",
         "-q",
+        "--disable-warnings",
         f"--randomly-seed={seed}",
     ]
     result = subprocess.run(command, capture_output=True, check=False, text=True)

@@ -201,13 +201,18 @@ async def test_async_lineage_storage_readiness_times_out_after_metadata_ready(mo
         lambda: durability_health_service.DurabilityHealthStatus(is_ready=True, status="ready", reason=None),
     )
 
+    release_probe = threading.Event()
+
     def _slow_lineage_probe():
-        threading.Event().wait(timeout=1)
+        release_probe.wait(timeout=1)
         return durability_health_service.DurabilityHealthStatus(is_ready=True, status="ready", reason=None)
 
     monkeypatch.setattr(durability_health_service, "check_lineage_storage_ready", _slow_lineage_probe)
 
-    status = await durability_health_service.check_durable_metadata_store_ready_async(timeout_seconds=0.01)
+    try:
+        status = await durability_health_service.check_durable_metadata_store_ready_async(timeout_seconds=0.2)
+    finally:
+        release_probe.set()
 
     assert status.is_ready is False
     assert status.status == "unavailable"

@@ -1,7 +1,7 @@
 # Lotus Performance Enterprise Backend Refactor Baseline
 
 Baseline date: 2026-08-26
-Branch: `fix/480-serialize-durable-schema`
+Branch: `fix/483-test-order-isolation`
 Mode: report-only baseline; no new blocking quality gate is introduced by this artifact.
 
 ## Purpose
@@ -16,11 +16,11 @@ snapshots are written under ignored `output/quality-baseline/`; curated source r
 
 | Area | Current value | Evidence |
 | --- | ---: | --- |
-| Python files | 660 | `rg --files -g '*.py'` equivalent excluding local caches |
+| Python files | 662 | `rg --files -g '*.py'` equivalent excluding local caches |
 | Python package markers | 22 | recursive `__init__.py` count |
-| Python LOC | 197,559 | recursive `.py` line count |
-| Test modules | 313 | `tests/**/test_*.py` |
-| Collected tests | 3887 tests | `python -m pytest --collect-only -q` |
+| Python LOC | 197,741 | recursive `.py` line count |
+| Test modules | 314 | `tests/**/test_*.py` |
+| Collected tests | 3894 tests | `python -m pytest --collect-only -q` |
 | Configured CI workflows | 6 | `.github/workflows/*.yml` |
 | Repo-native baseline command | 1 | `make quality-baseline` |
 
