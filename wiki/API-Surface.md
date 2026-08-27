@@ -55,9 +55,16 @@ Async and supportability routes:
 - `GET /performance/lineage/{calculation_id}/artifacts/{artifact_name}`
 
 The two `…/artifacts/{artifact_name}` routes are how an artifact is actually retrieved: call the
-listing route first, then request one of the artifact links it returns. Only artifacts declared by
-durable lineage or inspection metadata are downloadable, and the manifest must still match durable
-evidence, so an undeclared or drifted artifact name is refused rather than served.
+listing route first, then request one of the artifact links it returns. Both refuse an artifact
+name that durable metadata does not declare, so an undeclared name is never served.
+
+Their integrity guarantees differ, and the difference matters when interpreting a failure:
+
+- **Lineage** additionally loads and validates the manifest against the durable lineage record. A
+  manifest that is unreadable, invalid, or inconsistent with durable metadata fails the download
+  rather than serving a drifted artifact.
+- **Inspection** validates the completed metadata record and the declared artifact name only. There
+  is no manifest check on this route, so it does not carry the lineage route's drift guarantee.
 
 ## Integration surfaces
 
