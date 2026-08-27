@@ -58,13 +58,18 @@ The two `…/artifacts/{artifact_name}` routes are how an artifact is actually r
 listing route first, then request one of the artifact links it returns. Both refuse an artifact
 name that durable metadata does not declare, so an undeclared name is never served.
 
-Their integrity guarantees differ, and the difference matters when interpreting a failure:
+What each route checks differs, and the difference matters when interpreting a failure:
 
-- **Lineage** additionally loads and validates the manifest against the durable lineage record. A
-  manifest that is unreadable, invalid, or inconsistent with durable metadata fails the download
-  rather than serving a drifted artifact.
+- **Lineage** additionally loads the manifest and compares it to the durable lineage record on
+  calculation type, timestamp, status, and the declared artifact-name list. A manifest that is
+  unreadable, invalid, or inconsistent with that record fails the download.
 - **Inspection** validates the completed metadata record and the declared artifact name only. There
-  is no manifest check on this route, so it does not carry the lineage route's drift guarantee.
+  is no manifest check on this route.
+
+Neither route verifies artifact **content**. No digest or checksum is recorded or compared, so an
+artifact file altered in place — same filename, unchanged durable record — is still served. These
+are metadata-consistency and declaration checks, not tamper-evidence. Treat the storage layer as
+the integrity boundary.
 
 ## Integration surfaces
 
