@@ -64,7 +64,7 @@ For first response:
 The initializer repairs ownership without deleting retained evidence. Escalate storage-driver,
 mount, or host-filesystem failures separately when the exact owner/mode verification still fails.
 The detailed proof and remediation boundaries are in
-[Lineage Volume Recovery](../docs/runbooks/lineage-volume-recovery.md).
+[Lineage Volume Recovery](https://github.com/sgajbi/lotus-performance/blob/main/docs/runbooks/lineage-volume-recovery.md).
 
 ## Error response triage
 
@@ -302,30 +302,30 @@ allowed canonical data warnings.
 ## First-response documents
 
 - alert handling:
-  [docs/runbooks/runtime-alerts.md](../docs/runbooks/runtime-alerts.md)
+  [docs/runbooks/runtime-alerts.md](https://github.com/sgajbi/lotus-performance/blob/main/docs/runbooks/runtime-alerts.md)
 - deployable monitoring artifacts:
-  [monitoring/prometheus/lotus-performance-alerts.prometheusrule.json](../monitoring/prometheus/lotus-performance-alerts.prometheusrule.json)
+  [monitoring/prometheus/lotus-performance-alerts.prometheusrule.json](https://github.com/sgajbi/lotus-performance/blob/main/monitoring/prometheus/lotus-performance-alerts.prometheusrule.json)
   and
-  [monitoring/grafana/lotus-performance-operability-dashboard.json](../monitoring/grafana/lotus-performance-operability-dashboard.json)
+  [monitoring/grafana/lotus-performance-operability-dashboard.json](https://github.com/sgajbi/lotus-performance/blob/main/monitoring/grafana/lotus-performance-operability-dashboard.json)
 - durable recovery:
-  [docs/runbooks/durable-metadata-recovery.md](../docs/runbooks/durable-metadata-recovery.md)
+  [docs/runbooks/durable-metadata-recovery.md](https://github.com/sgajbi/lotus-performance/blob/main/docs/runbooks/durable-metadata-recovery.md)
   Use the synthetic recovery drill for fast local/CI assurance, and use
   `scripts/durable_recovery_drill.py --validation-mode restore-validation` against a restored,
   non-primary durable metadata database target when certifying real backup restore RPO/RTO evidence.
 - retention cleanup:
-  [docs/runbooks/runtime-retention-cleanup.md](../docs/runbooks/runtime-retention-cleanup.md)
+  [docs/runbooks/runtime-retention-cleanup.md](https://github.com/sgajbi/lotus-performance/blob/main/docs/runbooks/runtime-retention-cleanup.md)
   Runtime-retention legal holds use `RUNTIME_RETENTION_LEGAL_HOLD_PATH`; place an approved hold
   before cleanup for client disputes, regulatory records, audit freezes, model validation,
   incidents, or investigations, and verify protected counts in dry-run evidence before apply.
 - returns-series source-quality triage:
-  [docs/runbooks/returns-series-operator-triage.md](../docs/runbooks/returns-series-operator-triage.md)
+  [docs/runbooks/returns-series-operator-triage.md](https://github.com/sgajbi/lotus-performance/blob/main/docs/runbooks/returns-series-operator-triage.md)
   and the `Returns-series stale/degraded rate` plus `Returns-series supportability volume` panels
   in the Lotus Performance Operability dashboard.
 - MWR support:
-  [docs/operations/mwr-production-support-playbook.md](../docs/operations/mwr-production-support-playbook.md)
+  [docs/operations/mwr-production-support-playbook.md](https://github.com/sgajbi/lotus-performance/blob/main/docs/operations/mwr-production-support-playbook.md)
   and `lotus_performance_mwr_solver_outcome_total` for fallback, no-root, and multiple-root rates.
 - MWR alert and dashboard templates:
-  [docs/operations/mwr-alert-rule-templates.md](../docs/operations/mwr-alert-rule-templates.md)
+  [docs/operations/mwr-alert-rule-templates.md](https://github.com/sgajbi/lotus-performance/blob/main/docs/operations/mwr-alert-rule-templates.md)
 
 The `monitoring/` artifacts are the deployable adoption source. The Markdown alert-template pages
 explain the expressions and support response, and `make quality-observability-readiness-gate`
@@ -336,9 +336,9 @@ dashboard coverage, and sensitive-label safety.
 
 Threshold policy and compose overlays live in:
 
-- [docs/standards/runtime-alert-policy.md](../docs/standards/runtime-alert-policy.md)
-- [docs/standards/runtime-threshold-profiles.md](../docs/standards/runtime-threshold-profiles.md)
-- [docs/examples](../docs/examples/)
+- [docs/standards/runtime-alert-policy.md](https://github.com/sgajbi/lotus-performance/blob/main/docs/standards/runtime-alert-policy.md)
+- [docs/standards/runtime-threshold-profiles.md](https://github.com/sgajbi/lotus-performance/blob/main/docs/standards/runtime-threshold-profiles.md)
+- [docs/examples](https://github.com/sgajbi/lotus-performance/tree/main/docs/examples)
 
 Production-like profiles fail startup when governed runtime-status thresholds remain disabled at
 `0`; use local mode only for diagnostic threshold-disable scenarios. Runtime worker, retention,

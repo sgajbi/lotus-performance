@@ -45,6 +45,6 @@
 
 ## Full local RFC estate
 
-- [docs/RFCs/RFC-INDEX.md](../docs/RFCs/RFC-INDEX.md)
-- [docs/RFCs/RFC_IMPLEMENTATION_STATUS.md](../docs/RFCs/RFC_IMPLEMENTATION_STATUS.md)
-- [docs/RFCs/RFC-DELTA-BACKLOG.md](../docs/RFCs/RFC-DELTA-BACKLOG.md)
+- [docs/RFCs/RFC-INDEX.md](https://github.com/sgajbi/lotus-performance/blob/main/docs/RFCs/RFC-INDEX.md)
+- [docs/RFCs/RFC_IMPLEMENTATION_STATUS.md](https://github.com/sgajbi/lotus-performance/blob/main/docs/RFCs/RFC_IMPLEMENTATION_STATUS.md)
+- [docs/RFCs/RFC-DELTA-BACKLOG.md](https://github.com/sgajbi/lotus-performance/blob/main/docs/RFCs/RFC-DELTA-BACKLOG.md)

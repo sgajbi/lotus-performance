@@ -102,7 +102,7 @@ Single-currency stateful responses emit `not_required_single_currency_inputs` wh
 reporting currencies match. Cross-currency stateful responses keep the explicit
 `upstream_preconverted_missing_per_input_fx_metadata` posture.
 Stateful upstream FX-aware MWR is still contract-gated by
-[docs/technical/mwr-fx-contract-design.md](../docs/technical/mwr-fx-contract-design.md), and
+[docs/technical/mwr-fx-contract-design.md](https://github.com/sgajbi/lotus-performance/blob/main/docs/technical/mwr-fx-contract-design.md), and
 downstream consumers must not infer missing FX rates or conversion policy when those fields are
 absent.
 
@@ -122,7 +122,7 @@ reconstructing attribution downstream. Period `status`, `reason_codes`, `residua
 `supportability_evidence` are part of the contract, including invalid linked-return-chain posture
 when linked attribution is requested across a period return less than or equal to `-100%`. See
 [Attribution Analytics](Attribution-Analytics) and
-[docs/technical/attribution-documentation-map.md](../docs/technical/attribution-documentation-map.md)
+[docs/technical/attribution-documentation-map.md](https://github.com/sgajbi/lotus-performance/blob/main/docs/technical/attribution-documentation-map.md)
 for the implementation-backed product boundary and documentation routing.
 
 `POST /performance/composites/twr` calculates asset-weighted composite TWR from persisted
@@ -130,7 +130,7 @@ member-return facts. It is intentionally not an ad hoc request-time member-retur
 does not fan out into hidden member portfolio TWR calculations. `POST /performance/composites/inspect`
 uses the same persisted facts to generate supportability findings and classified artifacts for
 operations, audit, and client-evidence preparation. See [Composite Performance](Composite-Performance)
-and [docs/technical/composite-performance-documentation-map.md](../docs/technical/composite-performance-documentation-map.md)
+and [docs/technical/composite-performance-documentation-map.md](https://github.com/sgajbi/lotus-performance/blob/main/docs/technical/composite-performance-documentation-map.md)
 for the implementation-backed boundary.
 
 `GET /integration/capabilities` advertises `composite_twr` as a separate persisted-member-facts
@@ -169,24 +169,24 @@ schema, so they appear in neither the document nor this page's counts.
 
 - TWR product and methodology navigation:
   [Time-Weighted Return](Time-Weighted-Return),
-  [docs/technical/twr-documentation-map.md](../docs/technical/twr-documentation-map.md)
+  [docs/technical/twr-documentation-map.md](https://github.com/sgajbi/lotus-performance/blob/main/docs/technical/twr-documentation-map.md)
 - Attribution product and methodology navigation:
   [Attribution Analytics](Attribution-Analytics),
-  [docs/technical/attribution-documentation-map.md](../docs/technical/attribution-documentation-map.md)
+  [docs/technical/attribution-documentation-map.md](https://github.com/sgajbi/lotus-performance/blob/main/docs/technical/attribution-documentation-map.md)
 - Composite product and methodology navigation:
   [Composite Performance](Composite-Performance),
-  [docs/technical/composite-performance-documentation-map.md](../docs/technical/composite-performance-documentation-map.md)
+  [docs/technical/composite-performance-documentation-map.md](https://github.com/sgajbi/lotus-performance/blob/main/docs/technical/composite-performance-documentation-map.md)
 - contract and payload detail:
-  [docs/guides/api_reference.md](../docs/guides/api_reference.md)
+  [docs/guides/api_reference.md](https://github.com/sgajbi/lotus-performance/blob/main/docs/guides/api_reference.md)
 - full examples and config inventory:
-  [docs/guides/complete_service_reference.md](../docs/guides/complete_service_reference.md)
+  [docs/guides/complete_service_reference.md](https://github.com/sgajbi/lotus-performance/blob/main/docs/guides/complete_service_reference.md)
 - demo API certification:
   `make demo-api-certification`,
-  [docs/guides/demo_readiness.md](../docs/guides/demo_readiness.md)
+  [docs/guides/demo_readiness.md](https://github.com/sgajbi/lotus-performance/blob/main/docs/guides/demo_readiness.md)
 - Lotus MWR production controls and review findings:
-  [docs/guides/mwr-lotus-production-controls.md](../docs/guides/mwr-lotus-production-controls.md),
-  [docs/technical/mwr-industry-review-findings.md](../docs/technical/mwr-industry-review-findings.md),
-  [docs/technical/mwr-fx-contract-design.md](../docs/technical/mwr-fx-contract-design.md)
+  [docs/guides/mwr-lotus-production-controls.md](https://github.com/sgajbi/lotus-performance/blob/main/docs/guides/mwr-lotus-production-controls.md),
+  [docs/technical/mwr-industry-review-findings.md](https://github.com/sgajbi/lotus-performance/blob/main/docs/technical/mwr-industry-review-findings.md),
+  [docs/technical/mwr-fx-contract-design.md](https://github.com/sgajbi/lotus-performance/blob/main/docs/technical/mwr-fx-contract-design.md)
 - runtime behavior and readiness:
   [Operations Runbook](Operations-Runbook)
 - upstream contract boundary:

@@ -10,13 +10,13 @@ repo, links to deeper evidence, and separates supported product claims from road
 
 | Need | Start with |
 | --- | --- |
-| Repository orientation | [README.md](../README.md), [Overview](Overview) |
-| Engineering and agent context | [AGENTS.md](../AGENTS.md), [REPOSITORY-ENGINEERING-CONTEXT.md](../REPOSITORY-ENGINEERING-CONTEXT.md), [Development Workflow](Development-Workflow) |
-| Repository pack indexes | [app](../app/README.md), [docs](../docs/README.md), [contracts](../contracts/README.md), [quality](../quality/README.md), [scripts](../scripts/README.md), [tests](../tests/README.md), [monitoring](../monitoring/README.md), [wiki source](../wiki/README.md) |
-| Runtime architecture | [Architecture](Architecture), [docs/technical/runtime_topology.md](../docs/technical/runtime_topology.md) |
-| API and contracts | [API Surface](API-Surface), [docs/guides/api_reference.md](../docs/guides/api_reference.md) |
+| Repository orientation | [README.md](https://github.com/sgajbi/lotus-performance/blob/main/README.md), [Overview](Overview) |
+| Engineering and agent context | [AGENTS.md](https://github.com/sgajbi/lotus-performance/blob/main/AGENTS.md), [REPOSITORY-ENGINEERING-CONTEXT.md](https://github.com/sgajbi/lotus-performance/blob/main/REPOSITORY-ENGINEERING-CONTEXT.md), [Development Workflow](Development-Workflow) |
+| Repository pack indexes | [app](https://github.com/sgajbi/lotus-performance/blob/main/app/README.md), [docs](https://github.com/sgajbi/lotus-performance/blob/main/docs/README.md), [contracts](https://github.com/sgajbi/lotus-performance/blob/main/contracts/README.md), [quality](https://github.com/sgajbi/lotus-performance/blob/main/quality/README.md), [scripts](https://github.com/sgajbi/lotus-performance/blob/main/scripts/README.md), [tests](https://github.com/sgajbi/lotus-performance/blob/main/tests/README.md), [monitoring](https://github.com/sgajbi/lotus-performance/blob/main/monitoring/README.md), [wiki source](./README.md) |
+| Runtime architecture | [Architecture](Architecture), [docs/technical/runtime_topology.md](https://github.com/sgajbi/lotus-performance/blob/main/docs/technical/runtime_topology.md) |
+| API and contracts | [API Surface](API-Surface), [docs/guides/api_reference.md](https://github.com/sgajbi/lotus-performance/blob/main/docs/guides/api_reference.md) |
 | Operations and support | [Operations Runbook](Operations-Runbook), [Troubleshooting](Troubleshooting) |
-| Demo and sales boundaries | [Supported Features](Supported-Features), [docs/guides/demo_readiness.md](../docs/guides/demo_readiness.md) |
+| Demo and sales boundaries | [Supported Features](Supported-Features), [docs/guides/demo_readiness.md](https://github.com/sgajbi/lotus-performance/blob/main/docs/guides/demo_readiness.md) |
 
 ## Repo role
 
@@ -71,18 +71,18 @@ make demo-api-certification
 
 | Audience | Start with | Why |
 | --- | --- | --- |
-| Business, sales, and demo teams | [Supported Features](Supported-Features), [Demo Readiness Guide](../docs/guides/demo_readiness.md) | Understand which analytics claims are implementation-backed and how to review repeatable demo evidence. |
+| Business, sales, and demo teams | [Supported Features](Supported-Features), [Demo Readiness Guide](https://github.com/sgajbi/lotus-performance/blob/main/docs/guides/demo_readiness.md) | Understand which analytics claims are implementation-backed and how to review repeatable demo evidence. |
 | Operators and support | [Operations Runbook](Operations-Runbook), [Troubleshooting](Troubleshooting), [Validation and CI](Validation-and-CI) | Review runtime posture, readiness, recovery, retention, metrics, and support triage paths. |
-| Engineers and agents | [AGENTS.md](../AGENTS.md), [Development Workflow](Development-Workflow), [REPOSITORY-ENGINEERING-CONTEXT.md](../REPOSITORY-ENGINEERING-CONTEXT.md), [API Surface](API-Surface) | Follow the governed operating contract before repo-local context, then keep API contracts, docs, tests, and repo-native gates synchronized with implementation truth. |
+| Engineers and agents | [AGENTS.md](https://github.com/sgajbi/lotus-performance/blob/main/AGENTS.md), [Development Workflow](Development-Workflow), [REPOSITORY-ENGINEERING-CONTEXT.md](https://github.com/sgajbi/lotus-performance/blob/main/REPOSITORY-ENGINEERING-CONTEXT.md), [API Surface](API-Surface) | Follow the governed operating contract before repo-local context, then keep API contracts, docs, tests, and repo-native gates synchronized with implementation truth. |
 
 ## Repository pack indexes
 
 | Pack | Use |
 | --- | --- |
-| [app](../app/README.md), [engine](../engine/README.md), [core](../core/README.md), [adapters](../adapters/README.md), [common](../common/README.md) | Choose the right source layer and dependency direction before editing code. |
-| [docs](../docs/README.md), [wiki source](../wiki/README.md) | Find deep documentation, current wiki truth, and publication rules. |
-| [contracts](../contracts/README.md), [quality](../quality/README.md), [monitoring](../monitoring/README.md) | Trace governed data-product, quality, alert, and dashboard evidence. |
-| [scripts](../scripts/README.md), [tests](../tests/README.md) | Choose repo-native commands and focused test coverage for each slice. |
+| [app](https://github.com/sgajbi/lotus-performance/blob/main/app/README.md), [engine](https://github.com/sgajbi/lotus-performance/blob/main/engine/README.md), [core](https://github.com/sgajbi/lotus-performance/blob/main/core/README.md), [adapters](https://github.com/sgajbi/lotus-performance/blob/main/adapters/README.md), [common](https://github.com/sgajbi/lotus-performance/blob/main/common/README.md) | Choose the right source layer and dependency direction before editing code. |
+| [docs](https://github.com/sgajbi/lotus-performance/blob/main/docs/README.md), [wiki source](./README.md) | Find deep documentation, current wiki truth, and publication rules. |
+| [contracts](https://github.com/sgajbi/lotus-performance/blob/main/contracts/README.md), [quality](https://github.com/sgajbi/lotus-performance/blob/main/quality/README.md), [monitoring](https://github.com/sgajbi/lotus-performance/blob/main/monitoring/README.md) | Trace governed data-product, quality, alert, and dashboard evidence. |
+| [scripts](https://github.com/sgajbi/lotus-performance/blob/main/scripts/README.md), [tests](https://github.com/sgajbi/lotus-performance/blob/main/tests/README.md) | Choose repo-native commands and focused test coverage for each slice. |
 
 ## Navigation
 

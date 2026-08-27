@@ -44,6 +44,6 @@ For a local host-port run, set `PERFORMANCE_BASE_URL` to the API service URL and
 
 ## Where startup details live
 
-- [docs/technical/runtime_topology.md](../docs/technical/runtime_topology.md)
-- [docs/examples](../docs/examples/)
+- [docs/technical/runtime_topology.md](https://github.com/sgajbi/lotus-performance/blob/main/docs/technical/runtime_topology.md)
+- [docs/examples](https://github.com/sgajbi/lotus-performance/tree/main/docs/examples)
 - [Troubleshooting](Troubleshooting)

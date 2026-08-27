@@ -154,10 +154,10 @@ Current governed boundaries:
 
 ## References
 
-- [TWR guide](../docs/guides/twr.md)
-- [TWR documentation map](../docs/technical/twr-documentation-map.md)
-- [TWR endpoint certification](../docs/technical/twr-endpoint-certification.md)
-- [TWR inspection checks](../docs/guides/twr_inspection_checks.md)
-- [TWR inspection endpoint certification](../docs/technical/twr-inspection-endpoint-certification.md)
-- [Performance reset scenarios](../docs/technical/performance-reset-scenarios.md)
-- [Metric methodology index](../docs/methodologies/metrics/master-index.md)
+- [TWR guide](https://github.com/sgajbi/lotus-performance/blob/main/docs/guides/twr.md)
+- [TWR documentation map](https://github.com/sgajbi/lotus-performance/blob/main/docs/technical/twr-documentation-map.md)
+- [TWR endpoint certification](https://github.com/sgajbi/lotus-performance/blob/main/docs/technical/twr-endpoint-certification.md)
+- [TWR inspection checks](https://github.com/sgajbi/lotus-performance/blob/main/docs/guides/twr_inspection_checks.md)
+- [TWR inspection endpoint certification](https://github.com/sgajbi/lotus-performance/blob/main/docs/technical/twr-inspection-endpoint-certification.md)
+- [Performance reset scenarios](https://github.com/sgajbi/lotus-performance/blob/main/docs/technical/performance-reset-scenarios.md)
+- [Metric methodology index](https://github.com/sgajbi/lotus-performance/blob/main/docs/methodologies/metrics/master-index.md)

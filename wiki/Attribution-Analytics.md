@@ -195,9 +195,9 @@ page should be updated only with implementation-backed outcomes as RFC 048 slice
 
 | Need | Reference |
 | --- | --- |
-| API usage and examples | [docs/guides/attribution.md](../docs/guides/attribution.md) |
-| Endpoint certification | [docs/technical/attribution-endpoint-certification.md](../docs/technical/attribution-endpoint-certification.md) |
-| Documentation ownership map | [docs/technical/attribution-documentation-map.md](../docs/technical/attribution-documentation-map.md) |
-| Metric formulas | [docs/methodologies/metrics/master-index.md](../docs/methodologies/metrics/master-index.md) |
+| API usage and examples | [docs/guides/attribution.md](https://github.com/sgajbi/lotus-performance/blob/main/docs/guides/attribution.md) |
+| Endpoint certification | [docs/technical/attribution-endpoint-certification.md](https://github.com/sgajbi/lotus-performance/blob/main/docs/technical/attribution-endpoint-certification.md) |
+| Documentation ownership map | [docs/technical/attribution-documentation-map.md](https://github.com/sgajbi/lotus-performance/blob/main/docs/technical/attribution-documentation-map.md) |
+| Metric formulas | [docs/methodologies/metrics/master-index.md](https://github.com/sgajbi/lotus-performance/blob/main/docs/methodologies/metrics/master-index.md) |
 | Supported feature ledger | [Supported Features](Supported-Features) |
 | Data-product posture | [Mesh Data Products](Mesh-Data-Products) |

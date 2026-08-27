@@ -88,9 +88,9 @@ Gateway should preserve calculation-quality fields (`status`, `reason_codes`, `w
 client-facing number is annualized XIRR, a labeled Modified Dietz fallback, a Simple Dietz result,
 or not calculable.
 The implementation-backed Lotus production control guide is maintained at
-[docs/guides/mwr-lotus-production-controls.md](../docs/guides/mwr-lotus-production-controls.md).
+[docs/guides/mwr-lotus-production-controls.md](https://github.com/sgajbi/lotus-performance/blob/main/docs/guides/mwr-lotus-production-controls.md).
 The stateful upstream FX-aware MWR gate is maintained at
-[docs/technical/mwr-fx-contract-design.md](../docs/technical/mwr-fx-contract-design.md).
+[docs/technical/mwr-fx-contract-design.md](https://github.com/sgajbi/lotus-performance/blob/main/docs/technical/mwr-fx-contract-design.md).
 
 ```mermaid
 flowchart LR
@@ -166,7 +166,7 @@ flowchart LR
 
 ## References
 
-- [docs/technical/RFC-0082-upstream-contract-family-map.md](../docs/technical/RFC-0082-upstream-contract-family-map.md)
-- [docs/technical/twr-documentation-map.md](../docs/technical/twr-documentation-map.md)
-- [docs/technical/composite-performance-documentation-map.md](../docs/technical/composite-performance-documentation-map.md)
-- [docs/guides/api_reference.md](../docs/guides/api_reference.md)
+- [docs/technical/RFC-0082-upstream-contract-family-map.md](https://github.com/sgajbi/lotus-performance/blob/main/docs/technical/RFC-0082-upstream-contract-family-map.md)
+- [docs/technical/twr-documentation-map.md](https://github.com/sgajbi/lotus-performance/blob/main/docs/technical/twr-documentation-map.md)
+- [docs/technical/composite-performance-documentation-map.md](https://github.com/sgajbi/lotus-performance/blob/main/docs/technical/composite-performance-documentation-map.md)
+- [docs/guides/api_reference.md](https://github.com/sgajbi/lotus-performance/blob/main/docs/guides/api_reference.md)
