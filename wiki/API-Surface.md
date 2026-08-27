@@ -23,6 +23,12 @@ Authoritative analytics routes:
 - `POST /performance/composites/twr`
 - `POST /performance/composites/inspect`
 - `POST /performance/inspections/twr`
+- `POST /performance/mandate-health-context`
+
+`POST /performance/mandate-health-context` evaluates a bounded mandate performance health context
+from source-owned active-return interpretation. It preserves threshold posture and methodology
+ownership; it does not grant mandate authority. lotus-gateway composes it with Lotus Manage mandate
+evidence for the Workbench risk review.
 
 `POST /performance/twr` is the supported portfolio-level TWR contract. RFC-046 response evidence
 includes daily calculation evidence, source-quality supportability, and benchmark supportability.
@@ -44,7 +50,14 @@ Async and supportability routes:
 - `GET /performance/contribution/results/{calculation_id}`
 - `GET /performance/attribution/results/{calculation_id}`
 - `GET /performance/inspections/{inspection_id}`
+- `GET /performance/inspections/{inspection_id}/artifacts/{artifact_name}`
 - `GET /performance/lineage/{calculation_id}`
+- `GET /performance/lineage/{calculation_id}/artifacts/{artifact_name}`
+
+The two `…/artifacts/{artifact_name}` routes are how an artifact is actually retrieved: call the
+listing route first, then request one of the artifact links it returns. Only artifacts declared by
+durable lineage or inspection metadata are downloadable, and the manifest must still match durable
+evidence, so an undeclared or drifted artifact name is refused rather than served.
 
 ## Integration surfaces
 
@@ -117,6 +130,8 @@ structures.
 
 Runtime and supportability routes:
 
+- `GET /`
+- `GET /version`
 - `GET /health`
 - `GET /health/live`
 - `GET /health/ready`
@@ -128,6 +143,15 @@ Runtime and supportability routes:
 - `POST /integration/recovery-drills/run`
 - `GET /integration/runtime-retention-cleanups`
 - `POST /integration/runtime-retention-cleanups/run`
+
+`GET /version` returns support-safe build metadata for correlating the running service to its Git
+commit, OCI image labels, SBOM, vulnerability and provenance evidence — the first call when
+confirming which build is actually serving traffic. `GET /` returns the service entry message and
+the same build identity, and points callers to `/docs`.
+
+The service serves **37 routes** in the generated OpenAPI document. `/docs`,
+`/docs/oauth2-redirect`, `/openapi.json` and `/redoc` are served but deliberately excluded from the
+schema, so they appear in neither the document nor this page's counts.
 
 ## Where to go next
 
