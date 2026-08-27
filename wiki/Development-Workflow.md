@@ -42,5 +42,5 @@ python -m pytest tests/unit/docs/test_public_docs_contract.py -q
 
 ## References
 
-- [docs/operations/development-workflow-and-ci-strategy.md](../docs/operations/development-workflow-and-ci-strategy.md)
+- [docs/operations/development-workflow-and-ci-strategy.md](https://github.com/sgajbi/lotus-performance/blob/main/docs/operations/development-workflow-and-ci-strategy.md)
 - [Validation and CI](Validation-and-CI)

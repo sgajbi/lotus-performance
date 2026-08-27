@@ -14,8 +14,8 @@ Check:
 
 References:
 
-- [docs/technical/runtime_topology.md](../docs/technical/runtime_topology.md)
-- [docs/runbooks/durable-metadata-recovery.md](../docs/runbooks/durable-metadata-recovery.md)
+- [docs/technical/runtime_topology.md](https://github.com/sgajbi/lotus-performance/blob/main/docs/technical/runtime_topology.md)
+- [docs/runbooks/durable-metadata-recovery.md](https://github.com/sgajbi/lotus-performance/blob/main/docs/runbooks/durable-metadata-recovery.md)
 
 ## Stateful requests fail against upstream sources
 
@@ -27,7 +27,7 @@ Check:
 
 Reference:
 
-- [docs/technical/RFC-0082-upstream-contract-family-map.md](../docs/technical/RFC-0082-upstream-contract-family-map.md)
+- [docs/technical/RFC-0082-upstream-contract-family-map.md](https://github.com/sgajbi/lotus-performance/blob/main/docs/technical/RFC-0082-upstream-contract-family-map.md)
 
 ## Async workflows stall
 
@@ -55,8 +55,8 @@ Escalate with:
 
 References:
 
-- [docs/runbooks/runtime-alerts.md](../docs/runbooks/runtime-alerts.md)
-- [docs/technical/runtime-status-endpoint-certification.md](../docs/technical/runtime-status-endpoint-certification.md)
+- [docs/runbooks/runtime-alerts.md](https://github.com/sgajbi/lotus-performance/blob/main/docs/runbooks/runtime-alerts.md)
+- [docs/technical/runtime-status-endpoint-certification.md](https://github.com/sgajbi/lotus-performance/blob/main/docs/technical/runtime-status-endpoint-certification.md)
 
 ## Demo certification fails
 
@@ -71,7 +71,7 @@ Check:
 
 References:
 
-- [docs/guides/demo_readiness.md](../docs/guides/demo_readiness.md)
+- [docs/guides/demo_readiness.md](https://github.com/sgajbi/lotus-performance/blob/main/docs/guides/demo_readiness.md)
 - [Supported Features](Supported-Features)
 
 ## README or public-guide edits fail validation

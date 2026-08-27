@@ -173,5 +173,5 @@ integration behavior.
 - [Supported Features](Supported-Features)
 - [Mesh Data Products](Mesh-Data-Products)
 - [API Surface](API-Surface)
-- [docs/guides/contribution.md](../docs/guides/contribution.md)
-- [docs/technical/contribution-endpoint-certification.md](../docs/technical/contribution-endpoint-certification.md)
+- [docs/guides/contribution.md](https://github.com/sgajbi/lotus-performance/blob/main/docs/guides/contribution.md)
+- [docs/technical/contribution-endpoint-certification.md](https://github.com/sgajbi/lotus-performance/blob/main/docs/technical/contribution-endpoint-certification.md)

@@ -213,9 +213,9 @@ The current implementation does not support:
 
 ## References
 
-- [Composite performance guide](../docs/guides/composite_performance.md)
-- [Composite TWR methodology](../docs/methodologies/metrics/metric-composite-twr.md)
-- [Composite endpoint certification](../docs/technical/composite-twr-endpoint-certification.md)
-- [Composite documentation map](../docs/technical/composite-performance-documentation-map.md)
+- [Composite performance guide](https://github.com/sgajbi/lotus-performance/blob/main/docs/guides/composite_performance.md)
+- [Composite TWR methodology](https://github.com/sgajbi/lotus-performance/blob/main/docs/methodologies/metrics/metric-composite-twr.md)
+- [Composite endpoint certification](https://github.com/sgajbi/lotus-performance/blob/main/docs/technical/composite-twr-endpoint-certification.md)
+- [Composite documentation map](https://github.com/sgajbi/lotus-performance/blob/main/docs/technical/composite-performance-documentation-map.md)
 - [Supported Features](Supported-Features)
 - [Mesh Data Products](Mesh-Data-Products)

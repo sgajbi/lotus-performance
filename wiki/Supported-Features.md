@@ -77,7 +77,7 @@ runtime health, and downstream-consumption boundaries.
 
 Use these implementation-backed stories in client demos and presentations:
 
-Before presenting, use the [Demo Readiness Guide](../docs/guides/demo_readiness.md) to run and
+Before presenting, use the [Demo Readiness Guide](https://github.com/sgajbi/lotus-performance/blob/main/docs/guides/demo_readiness.md) to run and
 review `make demo-api-certification`. The guide explains the `checks=8`, `api_calls=12` evidence,
 which routes and figures are asserted, and why report-only CI evidence is not the same as final
 demo sign-off without review.
@@ -209,10 +209,10 @@ repo-owned trust telemetry snapshot or a machine-readable exception policy.
 - [Contribution Analytics](Contribution-Analytics)
 - [Attribution Analytics](Attribution-Analytics)
 - [Mesh Data Products](Mesh-Data-Products)
-- [docs/guides/mandate_performance_health_context.md](../docs/guides/mandate_performance_health_context.md)
-- [docs/guides/twr.md](../docs/guides/twr.md)
-- [docs/technical/twr-documentation-map.md](../docs/technical/twr-documentation-map.md)
-- [docs/technical/twr-endpoint-certification.md](../docs/technical/twr-endpoint-certification.md)
-- [docs/guides/twr_inspection_checks.md](../docs/guides/twr_inspection_checks.md)
-- [docs/guides/attribution.md](../docs/guides/attribution.md)
-- [docs/technical/attribution-documentation-map.md](../docs/technical/attribution-documentation-map.md)
+- [docs/guides/mandate_performance_health_context.md](https://github.com/sgajbi/lotus-performance/blob/main/docs/guides/mandate_performance_health_context.md)
+- [docs/guides/twr.md](https://github.com/sgajbi/lotus-performance/blob/main/docs/guides/twr.md)
+- [docs/technical/twr-documentation-map.md](https://github.com/sgajbi/lotus-performance/blob/main/docs/technical/twr-documentation-map.md)
+- [docs/technical/twr-endpoint-certification.md](https://github.com/sgajbi/lotus-performance/blob/main/docs/technical/twr-endpoint-certification.md)
+- [docs/guides/twr_inspection_checks.md](https://github.com/sgajbi/lotus-performance/blob/main/docs/guides/twr_inspection_checks.md)
+- [docs/guides/attribution.md](https://github.com/sgajbi/lotus-performance/blob/main/docs/guides/attribution.md)
+- [docs/technical/attribution-documentation-map.md](https://github.com/sgajbi/lotus-performance/blob/main/docs/technical/attribution-documentation-map.md)

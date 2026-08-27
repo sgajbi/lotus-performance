@@ -17,7 +17,7 @@ The current implementation-backed feature ledger is maintained in
 conversation boundaries; use [Roadmap](Roadmap) for target-state material.
 
 For demo preparation, run `make demo-api-certification` and review the generated evidence with the
-[Demo Readiness Guide](../docs/guides/demo_readiness.md). That guide explains the supported
+[Demo Readiness Guide](https://github.com/sgajbi/lotus-performance/blob/main/docs/guides/demo_readiness.md). That guide explains the supported
 request-level API sweep, expected calculation assertions, report-only CI posture, and boundaries
 between backend API proof and broader Gateway or Workbench product-surface proof.
 
@@ -26,7 +26,7 @@ between backend API proof and broader Gateway or Workbench product-surface proof
 | Reader | What this repo proves | Where to continue |
 | --- | --- | --- |
 | Business and product | Which performance analytics are implemented, where supportability evidence appears, and which claims are not yet supported. | [Supported Features](Supported-Features), [Roadmap](Roadmap) |
-| Sales and demo teams | Which stories can be presented with repeatable backend evidence and which require Gateway or Workbench proof. | [Supported Features](Supported-Features), [docs/guides/demo_readiness.md](../docs/guides/demo_readiness.md) |
+| Sales and demo teams | Which stories can be presented with repeatable backend evidence and which require Gateway or Workbench proof. | [Supported Features](Supported-Features), [docs/guides/demo_readiness.md](https://github.com/sgajbi/lotus-performance/blob/main/docs/guides/demo_readiness.md) |
 | Operations and support | Which runtime surfaces show readiness, execution state, lineage, recovery, retention, and degraded posture. | [Operations Runbook](Operations-Runbook), [Troubleshooting](Troubleshooting) |
 | Engineers and agents | Which contracts, routers, tests, quality gates, and docs must move together when implementation truth changes. | [API Surface](API-Surface), [Validation and CI](Validation-and-CI), [Development Workflow](Development-Workflow) |
 
@@ -59,5 +59,5 @@ This repo does not own:
 - [Architecture](Architecture)
 - [Integrations](Integrations)
 - [Supported Features](Supported-Features)
-- [Demo Readiness Guide](../docs/guides/demo_readiness.md)
+- [Demo Readiness Guide](https://github.com/sgajbi/lotus-performance/blob/main/docs/guides/demo_readiness.md)
 - [Operations Runbook](Operations-Runbook)

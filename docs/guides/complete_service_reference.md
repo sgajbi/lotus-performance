@@ -1760,6 +1760,17 @@ same positive timeout and non-negative retry/backoff constraints apply to Lotus 
 settings `LOTUS_AI_TIMEOUT_SECONDS`, `LOTUS_AI_MAX_RETRIES`, and
 `LOTUS_AI_RETRY_BACKOFF_SECONDS`.
 
+Two further Lotus AI settings complete that group:
+
+| Setting | Default | Purpose |
+| --- | --- | --- |
+| `LOTUS_AI_BASE_URL` | *(unset)* | base URL for the Lotus AI support-brief upstream. Unset means the integration is not configured; no Lotus AI call is attempted. |
+| `LOTUS_AI_WORKFLOW_PACK_ENVIRONMENT` | `DEVELOPMENT` | workflow-pack environment declared to Lotus AI on support-brief requests |
+
+Note that these five settings are named in `lotus-ai`'s environment namespace while belonging to
+`lotus-performance`. See [#491](https://github.com/sgajbi/lotus-performance/issues/491) for the
+settings-namespace question this raises.
+
 ### Compute executor
 
 | Variable | Default | Purpose |

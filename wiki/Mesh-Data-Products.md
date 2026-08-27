@@ -39,7 +39,7 @@
   RFC-046. Gateway and Workbench can publish the emitted evidence, but must not recompute TWR or
   redefine benchmark supportability downstream. Current feature truth is summarized in
   [Supported Features](Supported-Features) and detailed in
-  [docs/guides/twr.md](../docs/guides/twr.md).
+  [docs/guides/twr.md](https://github.com/sgajbi/lotus-performance/blob/main/docs/guides/twr.md).
 - MWR product evidence: `POST /performance/mwr` emits source-owned calculation quality through
   `status`, `reason_codes`, `warnings`, `fallback_reason`, `holding_period_return`,
   `convergence`, `reporting_currency`, `currency_evidence`, `calculation_supportability`,
@@ -60,11 +60,11 @@
   supportability posture. Stateful single-currency MWR emits `not_required_single_currency_inputs`
   when source and reporting currencies match. Stateful upstream cross-currency FX-aware MWR remains
   gated by
-  [docs/technical/mwr-fx-contract-design.md](../docs/technical/mwr-fx-contract-design.md).
+  [docs/technical/mwr-fx-contract-design.md](https://github.com/sgajbi/lotus-performance/blob/main/docs/technical/mwr-fx-contract-design.md).
   Production controls and review findings are maintained in
-  [docs/guides/mwr-lotus-production-controls.md](../docs/guides/mwr-lotus-production-controls.md)
+  [docs/guides/mwr-lotus-production-controls.md](https://github.com/sgajbi/lotus-performance/blob/main/docs/guides/mwr-lotus-production-controls.md)
   and
-  [docs/technical/mwr-industry-review-findings.md](../docs/technical/mwr-industry-review-findings.md).
+  [docs/technical/mwr-industry-review-findings.md](https://github.com/sgajbi/lotus-performance/blob/main/docs/technical/mwr-industry-review-findings.md).
 - Returns-series product evidence: `POST /integration/returns/series` and
   `GET /integration/returns/series/results/{calculation_id}` emit governed portfolio,
   benchmark, and risk-free return observations with lineage, coverage diagnostics, and bounded

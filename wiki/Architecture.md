@@ -13,7 +13,7 @@ This page is written for mixed audiences:
 
 ## Runtime shape
 
-The implemented topology is documented in [docs/technical/runtime_topology.md](../docs/technical/runtime_topology.md):
+The implemented topology is documented in [docs/technical/runtime_topology.md](https://github.com/sgajbi/lotus-performance/blob/main/docs/technical/runtime_topology.md):
 
 1. `performance-analytics`
 2. `performance-compute-executor`
@@ -86,7 +86,7 @@ flowchart TD
 
 ## Public surface groups
 
-Router grouping in [main.py](../main.py):
+Router grouping in [main.py](https://github.com/sgajbi/lotus-performance/blob/main/main.py):
 
 - `/performance`
   TWR, benchmark, contribution, executions, inspections, lineage, workspace summary, attribution,
@@ -229,9 +229,9 @@ Implemented boundaries that should remain clear in architecture, demos, and clie
 
 ## Deeper docs
 
-- [docs/technical/architecture.md](../docs/technical/architecture.md)
-- [docs/technical/runtime_topology.md](../docs/technical/runtime_topology.md)
-- [docs/technical/RFC-0082-upstream-contract-family-map.md](../docs/technical/RFC-0082-upstream-contract-family-map.md)
+- [docs/technical/architecture.md](https://github.com/sgajbi/lotus-performance/blob/main/docs/technical/architecture.md)
+- [docs/technical/runtime_topology.md](https://github.com/sgajbi/lotus-performance/blob/main/docs/technical/runtime_topology.md)
+- [docs/technical/RFC-0082-upstream-contract-family-map.md](https://github.com/sgajbi/lotus-performance/blob/main/docs/technical/RFC-0082-upstream-contract-family-map.md)
 - [Supported Features](Supported-Features)
 - [Integrations](Integrations)
 - [Operations Runbook](Operations-Runbook)

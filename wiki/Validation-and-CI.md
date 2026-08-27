@@ -124,7 +124,7 @@ make demo-api-certification
 The command calls the supported demo-critical API routes, checks expected domain figures, verifies
 enabled capability publication, and writes JSON evidence to
 `output/demo-api-certification/latest.json`. Review the output with
-[docs/guides/demo_readiness.md](../docs/guides/demo_readiness.md) before presenting.
+[docs/guides/demo_readiness.md](https://github.com/sgajbi/lotus-performance/blob/main/docs/guides/demo_readiness.md) before presenting.
 
 The Quality Baseline Snapshot workflow uploads this evidence as report-only CI output. It is not a
 blocking readiness gate until CI-enforcement governance proves the signal is deterministic,
@@ -192,5 +192,5 @@ path.
 
 ## References
 
-- [docs/operations/development-workflow-and-ci-strategy.md](../docs/operations/development-workflow-and-ci-strategy.md)
-- [docs/technical/runtime_topology.md](../docs/technical/runtime_topology.md)
+- [docs/operations/development-workflow-and-ci-strategy.md](https://github.com/sgajbi/lotus-performance/blob/main/docs/operations/development-workflow-and-ci-strategy.md)
+- [docs/technical/runtime_topology.md](https://github.com/sgajbi/lotus-performance/blob/main/docs/technical/runtime_topology.md)

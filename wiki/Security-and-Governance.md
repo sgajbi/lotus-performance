@@ -12,18 +12,18 @@ The most relevant current governance for this repo includes:
 ## Local governance surfaces
 
 - enterprise readiness:
-  [docs/standards/enterprise-readiness.md](../docs/standards/enterprise-readiness.md)
+  [docs/standards/enterprise-readiness.md](https://github.com/sgajbi/lotus-performance/blob/main/docs/standards/enterprise-readiness.md)
 - durability consistency:
-  [docs/standards/durability-consistency.md](../docs/standards/durability-consistency.md)
+  [docs/standards/durability-consistency.md](https://github.com/sgajbi/lotus-performance/blob/main/docs/standards/durability-consistency.md)
 - durable schema inventory:
-  [docs/standards/durable-schema-inventory.md](../docs/standards/durable-schema-inventory.md)
+  [docs/standards/durable-schema-inventory.md](https://github.com/sgajbi/lotus-performance/blob/main/docs/standards/durable-schema-inventory.md)
 - migration contract:
-  [docs/standards/migration-contract.md](../docs/standards/migration-contract.md)
+  [docs/standards/migration-contract.md](https://github.com/sgajbi/lotus-performance/blob/main/docs/standards/migration-contract.md)
 - runtime alerts:
-  [docs/standards/runtime-alert-policy.md](../docs/standards/runtime-alert-policy.md)
+  [docs/standards/runtime-alert-policy.md](https://github.com/sgajbi/lotus-performance/blob/main/docs/standards/runtime-alert-policy.md)
 - license compliance:
-  [contracts/license-compliance-policy.v1.json](../contracts/license-compliance-policy.v1.json)
-  and [quality/license_compliance_inventory.md](../quality/license_compliance_inventory.md)
+  [contracts/license-compliance-policy.v1.json](https://github.com/sgajbi/lotus-performance/blob/main/contracts/license-compliance-policy.v1.json)
+  and [quality/license_compliance_inventory.md](https://github.com/sgajbi/lotus-performance/blob/main/quality/license_compliance_inventory.md)
 
 ## Production runtime authorization
 
