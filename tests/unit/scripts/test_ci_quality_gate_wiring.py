@@ -173,11 +173,15 @@ def test_container_supply_chain_evidence_is_repo_native_and_published() -> None:
     assert "--exit-code 0" in vulnerability_report_target
     assert "--exit-code 1" in vulnerability_gate_target
 
-    for workflow_name in ["pr-merge-gate.yml", "main-releasability.yml"]:
+    branch_identity_by_workflow = {
+        "pr-merge-gate.yml": "${{ github.ref_name }}",
+        "main-releasability.yml": "main",
+    }
+    for workflow_name, branch_identity in branch_identity_by_workflow.items():
         workflow = _workflow_text(workflow_name)
 
         assert "CONTAINER_GIT_SHA: ${{ github.sha }}" in workflow
-        assert "CONTAINER_GIT_BRANCH: ${{ github.ref_name }}" in workflow
+        assert f"CONTAINER_GIT_BRANCH: {branch_identity}" in workflow
         assert "CONTAINER_REPOSITORY_URL: ${{ github.server_url }}/${{ github.repository }}" in workflow
         assert "CONTAINER_CI_PIPELINE_RUN_ID: ${{ github.run_id }}" in workflow
         assert 'CONTAINER_BUILD_TIMESTAMP="$(date -u' in workflow
@@ -218,6 +222,8 @@ def test_merged_pr_dispatch_binds_main_releasability_to_exact_sha() -> None:
     parsed = yaml.safe_load(main_gate)
     roots = {name for name, job in parsed["jobs"].items() if name != "exact-revision-assertion" and "needs" not in job}
     assert roots == set()
+    assert "CONTAINER_GIT_BRANCH: main" in main_gate
+    assert "CONTAINER_GIT_BRANCH: ${{ github.ref_name }}" not in main_gate
 
 
 def test_main_releasability_concurrency_is_keyed_per_commit_not_per_branch() -> None:

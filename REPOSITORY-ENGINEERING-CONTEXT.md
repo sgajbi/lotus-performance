@@ -353,6 +353,13 @@ Important validation expectations:
 17. `PR Auto Merge` must use `LOTUS_AUTOMERGE_TOKEN` as the merge actor. If that governed token is
     absent, the workflow skips with a warning instead of merging with `GITHUB_TOKEN`, so the merged
     mainline commit can receive normal Main Releasability evidence from an authorized merge actor.
+    `.github/workflows/merged-pr-main-releasability.yml` owns automatic post-merge dispatch. It
+    creates or verifies the immutable `main-releasability-<merge_sha>` tag and supplies
+    `expected_sha` plus the originating PR number. Main Releasability has no automatic `push`
+    trigger: it asserts the dispatched checkout before other release jobs can start, while manual
+    operator dispatch remains supported. The synthetic checkout tag must not leak into build
+    identity; release containers retain `main` as `CONTAINER_GIT_BRANCH` and the exact merge commit
+    as `CONTAINER_GIT_SHA`.
 18. `ENTERPRISE_RUNTIME_PROFILE=production`, `prod`, or `staging` is production-like and fails
     startup when enterprise write authz, privileged-read authz, runtime-config enforcement, or
     `ENTERPRISE_PRIMARY_KEY_ID` is missing, or when governed runtime-status degradation thresholds
