@@ -13,6 +13,12 @@ Canonical standard:
 5. Merge only with green required checks.
 6. Always finish with `local = remote = main`.
 
+Automatic Main Releasability is initiated by the merged-PR dispatcher, not a `main` push trigger.
+The dispatcher creates or verifies an immutable `main-releasability-<merge_sha>` tag and supplies
+that SHA to the gate, which rejects a different checkout before release jobs start. Manual operator
+dispatch remains available. The tag is checkout identity only: container provenance records the
+exact merge SHA with `main` as the source branch.
+
 ## Repository-specific quality gates
 
 `make check`, `make ci`, and the GitHub quality lanes enforce the repo-native quality gates. In

@@ -15,6 +15,13 @@ make quality measurable and repeatable, not to treat CI as a ceremonial final st
 2. `Pull Request Merge Gate`
 3. `Main Releasability Gate`
 
+After a PR merges to `main`, the merged-PR dispatcher creates or verifies an immutable
+`main-releasability-<merge_sha>` tag and dispatches Main Releasability with the expected SHA and PR
+number. The gate asserts that checkout before any other release job starts. Direct non-PR pushes do
+not automatically launch Main Releasability; manual operator dispatch remains supported. The
+synthetic tag identifies the immutable checkout only—container build identity remains branch
+`main` at the exact merged SHA.
+
 ## Local command mapping
 
 - `make check`
