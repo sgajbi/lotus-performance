@@ -59,6 +59,7 @@ jobs:
 
   workflow-lint:
     name: Main Releasability / Workflow Lint
+    needs: [exact-revision-assertion]
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
@@ -69,6 +70,7 @@ jobs:
 
   static-quality-gates:
     name: Main Releasability / Static Quality Gates
+    needs: [exact-revision-assertion]
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
@@ -102,6 +104,7 @@ jobs:
 
   contract-security-gates:
     name: Main Releasability / Contract Security Gates
+    needs: [exact-revision-assertion]
     runs-on: ubuntu-latest
     timeout-minutes: 35
     steps:
@@ -136,6 +139,7 @@ jobs:
 
   lineage-volume-recovery:
     name: Main Releasability / Lineage Volume Recovery
+    needs: [exact-revision-assertion]
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
