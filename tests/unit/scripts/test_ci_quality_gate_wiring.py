@@ -202,6 +202,19 @@ def test_auto_merge_uses_governed_merge_actor_token() -> None:
     assert "gh pr merge" in workflow
 
 
+def test_merged_pr_dispatch_binds_main_releasability_to_exact_sha() -> None:
+    dispatcher = _workflow_text("merged-pr-main-releasability.yml")
+    main_gate = _workflow_text("main-releasability.yml")
+
+    assert "MERGE_COMMIT_SHA: ${{ github.event.pull_request.merge_commit_sha }}" in dispatcher
+    assert 'dispatch_ref="main-releasability-${MERGE_COMMIT_SHA}"' in dispatcher
+    assert '-f expected_sha="$MERGE_COMMIT_SHA"' in dispatcher
+    assert "expected_sha:" in main_gate
+    assert 'actual_sha="$(git rev-parse HEAD)"' in main_gate
+    assert "inputs.expected_sha || github.sha" in main_gate
+    assert "push:" not in main_gate.split("concurrency:", maxsplit=1)[0]
+
+
 def test_main_releasability_concurrency_is_keyed_per_commit_not_per_branch() -> None:
     """A gate run must not be cancelled by a later commit.
 

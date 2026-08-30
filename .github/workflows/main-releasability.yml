@@ -1,17 +1,22 @@
 name: Main Releasability Gate
 
 on:
-  push:
-    branches: [ "main" ]
   workflow_dispatch:
+    inputs:
+      expected_sha:
+        description: "Optional merged pull-request SHA that this run must validate."
+        required: false
+        type: string
+      triggering_pr:
+        description: "Optional pull request number that dispatched this mainline validation."
+        required: false
+        type: string
 
 concurrency:
-  # Keyed on the commit, not the ref. On `main` `github.ref` is always `refs/heads/main`, so every
-  # run shared one group and `cancel-in-progress` cancelled runs that were validating *different*
-  # commits - silently, because a cancelled run is not a failure. Merge commit 5402692 lost two gate
-  # runs that way. See issue #481. `cancel-in-progress` stays true: superseding an earlier attempt at
-  # the same revision is correct; the defect was the grouping.
-  group: ${{ github.workflow }}-${{ github.sha }}
+  # Keyed on the immutable merge SHA supplied by the dispatcher, with github.sha retained for
+  # operator-dispatched runs. This prevents different revisions from cancelling one another while
+  # still allowing a later attempt for the same revision to supersede an earlier attempt (#481).
+  group: ${{ github.workflow }}-${{ inputs.expected_sha || github.sha }}
   cancel-in-progress: true
 
 permissions:
@@ -25,6 +30,33 @@ env:
   COVERAGE_FAIL_UNDER: "99"
 
 jobs:
+  exact-revision-assertion:
+    name: Main Releasability / Exact Revision Assertion
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v6
+      - name: Assert expected merged PR SHA
+        shell: bash
+        env:
+          EXPECTED_SHA: ${{ inputs.expected_sha }}
+          TRIGGERING_PR: ${{ inputs.triggering_pr }}
+        run: |
+          actual_sha="$(git rev-parse HEAD)"
+          if [ -z "$EXPECTED_SHA" ]; then
+            echo "No expected_sha input supplied; treating this as an operator-dispatched main releasability run."
+            exit 0
+          fi
+          if [ "$actual_sha" != "$EXPECTED_SHA" ]; then
+            echo "::error::Main releasability checkout SHA $actual_sha does not match expected merged PR SHA $EXPECTED_SHA for PR ${TRIGGERING_PR:-unknown}."
+            exit 1
+          fi
+          git fetch --no-tags origin main:refs/remotes/origin/main
+          if ! git merge-base --is-ancestor "$EXPECTED_SHA" origin/main; then
+            echo "::error::Expected SHA $EXPECTED_SHA for PR ${TRIGGERING_PR:-unknown} is not reachable from origin/main."
+            exit 1
+          fi
+
   workflow-lint:
     name: Main Releasability / Workflow Lint
     runs-on: ubuntu-latest
