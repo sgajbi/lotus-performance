@@ -175,7 +175,7 @@ def test_container_supply_chain_evidence_is_repo_native_and_published() -> None:
 
     branch_identity_by_workflow = {
         "pr-merge-gate.yml": "${{ github.ref_name }}",
-        "main-releasability.yml": "main",
+        "main-releasability.yml": "${{ inputs.expected_sha && 'main' || github.ref_name }}",
     }
     for workflow_name, branch_identity in branch_identity_by_workflow.items():
         workflow = _workflow_text(workflow_name)
@@ -222,8 +222,7 @@ def test_merged_pr_dispatch_binds_main_releasability_to_exact_sha() -> None:
     parsed = yaml.safe_load(main_gate)
     roots = {name for name, job in parsed["jobs"].items() if name != "exact-revision-assertion" and "needs" not in job}
     assert roots == set()
-    assert "CONTAINER_GIT_BRANCH: main" in main_gate
-    assert "CONTAINER_GIT_BRANCH: ${{ github.ref_name }}" not in main_gate
+    assert "CONTAINER_GIT_BRANCH: ${{ inputs.expected_sha && 'main' || github.ref_name }}" in main_gate
 
 
 def test_main_releasability_concurrency_is_keyed_per_commit_not_per_branch() -> None:
