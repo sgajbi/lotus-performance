@@ -16,8 +16,9 @@ Canonical standard:
 Automatic Main Releasability is initiated by the merged-PR dispatcher, not a `main` push trigger.
 The dispatcher creates or verifies an immutable `main-releasability-<merge_sha>` tag and supplies
 that SHA to the gate, which rejects a different checkout before release jobs start. Manual operator
-dispatch remains available. The tag is checkout identity only: container provenance records the
-exact merge SHA with `main` as the source branch.
+dispatch remains available. The automatic tag is checkout identity only: exact merged-PR container
+provenance records the merge SHA with `main` as the source branch. A manual dispatch instead keeps
+its selected branch or tag as container branch identity.
 
 ## Repository-specific quality gates
 

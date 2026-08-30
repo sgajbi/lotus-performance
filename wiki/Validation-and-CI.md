@@ -19,8 +19,8 @@ After a PR merges to `main`, the merged-PR dispatcher creates or verifies an imm
 `main-releasability-<merge_sha>` tag and dispatches Main Releasability with the expected SHA and PR
 number. The gate asserts that checkout before any other release job starts. Direct non-PR pushes do
 not automatically launch Main Releasability; manual operator dispatch remains supported. The
-synthetic tag identifies the immutable checkout only—container build identity remains branch
-`main` at the exact merged SHA.
+synthetic tag identifies the immutable checkout only—automatic container build identity remains
+branch `main` at the exact merged SHA, while manual dispatch retains its selected branch or tag.
 
 ## Local command mapping
 
