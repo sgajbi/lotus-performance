@@ -3,6 +3,8 @@ from __future__ import annotations
 import re
 from pathlib import Path
 
+import yaml
+
 ROOT = Path(__file__).resolve().parents[3]
 
 
@@ -213,6 +215,9 @@ def test_merged_pr_dispatch_binds_main_releasability_to_exact_sha() -> None:
     assert 'actual_sha="$(git rev-parse HEAD)"' in main_gate
     assert "inputs.expected_sha || github.sha" in main_gate
     assert "push:" not in main_gate.split("concurrency:", maxsplit=1)[0]
+    parsed = yaml.safe_load(main_gate)
+    roots = {name for name, job in parsed["jobs"].items() if name != "exact-revision-assertion" and "needs" not in job}
+    assert roots == set()
 
 
 def test_main_releasability_concurrency_is_keyed_per_commit_not_per_branch() -> None:
