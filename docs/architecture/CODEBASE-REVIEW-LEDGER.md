@@ -2,6 +2,12 @@
 
 This ledger tracks systematic review work across `lotus-performance`.
 
+Entries are a RECORD OF WHAT WAS RUN, not instructions to follow. Paths, hosts and machine names
+appearing in an entry describe the environment that produced the evidence at that date; they are
+deliberately left as written, because rewriting them would make the record say something that did
+not happen. Do not treat them as reproducible commands, and exclude this file from portability
+checks that assume documented paths are meant to be followed.
+
 Companion process document:
 
 - [CODEBASE-REVIEW-PLAYBOOK.md](./CODEBASE-REVIEW-PLAYBOOK.md)

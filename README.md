@@ -164,8 +164,11 @@ Resolved from `PATH`. Nothing here assumes an operating system, drive or workspa
 ### Install
 
 `make install` runs `pip install` directly rather than into a managed environment, so create and
-activate a virtualenv FIRST. On a clean Linux or macOS machine a PEP 668 distribution refuses a
-system-wide `pip install` outright, and the step will fail before anything else runs:
+activate a virtualenv FIRST. PEP 668 distributions — most current Linux packages, and Homebrew
+Python on macOS — mark the system interpreter externally managed and refuse a system-wide
+`pip install`, so on such a machine the documented first step fails before anything else runs.
+This has not been reproduced here: it is the specified behaviour of PEP 668 plus the observation
+below, not an error anyone on this project has hit.
 
 ```bash
 python -m venv .venv
