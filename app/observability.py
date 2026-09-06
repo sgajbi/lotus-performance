@@ -22,6 +22,9 @@ from app.services.queue_metrics_service import DurableQueueCollector
 correlation_id_var: ContextVar[str] = ContextVar("correlation_id", default="")
 request_id_var: ContextVar[str] = ContextVar("request_id", default="")
 trace_id_var: ContextVar[str] = ContextVar("trace_id", default="")
+#: The caller-admitted tenant for this request. Empty means ABSENT, which is a
+#: refusal at the Core boundary rather than a value to be defaulted.
+tenant_id_var: ContextVar[str] = ContextVar("tenant_id", default="")
 
 PERFORMANCE_CALCULATION_SUPPORTABILITY_TOTAL = Counter(
     "lotus_performance_calculation_supportability_total",
@@ -169,6 +172,17 @@ def resolve_request_id(request: Request) -> str:
     return incoming if incoming else f"req_{uuid4().hex[:12]}"
 
 
+def resolve_tenant_id(request: Request) -> str:
+    """The caller's tenant, or empty. Deliberately without a generated fallback.
+
+    resolve_correlation_id and resolve_request_id synthesise a value when the
+    header is absent, because an invented correlation id costs nothing. An
+    invented tenant is a cross-tenant read, so absence is preserved as absence
+    and refused later at the Core boundary."""
+
+    return _nonblank_header(request, "X-Tenant-Id") or ""
+
+
 def resolve_trace_id(request: Request) -> str:
     traceparent_trace_id = _trace_id_from_traceparent(_nonblank_header(request, "traceparent"))
     if traceparent_trace_id is not None:
@@ -286,10 +300,12 @@ def setup_observability(app: FastAPI, *, log_level: str = "INFO") -> None:
         correlation_id = resolve_correlation_id(request)
         request_id = resolve_request_id(request)
         trace_id = resolve_trace_id(request)
+        tenant_id = resolve_tenant_id(request)
 
         correlation_token = correlation_id_var.set(correlation_id)
         request_token = request_id_var.set(request_id)
         trace_token = trace_id_var.set(trace_id)
+        tenant_token = tenant_id_var.set(tenant_id)
         try:
             response = await call_next(request)
         finally:
@@ -301,6 +317,10 @@ def setup_observability(app: FastAPI, *, log_level: str = "INFO") -> None:
             correlation_id_var.reset(correlation_token)
             request_id_var.reset(request_token)
             trace_id_var.reset(trace_token)
+            # Resetting the tenant matters more than the ids above it: a leaked
+            # correlation id mislabels a log line, a leaked tenant lets the next
+            # request read under the previous caller's authority.
+            tenant_id_var.reset(tenant_token)
 
         response.headers["X-Correlation-Id"] = correlation_id
         response.headers["X-Request-Id"] = request_id
