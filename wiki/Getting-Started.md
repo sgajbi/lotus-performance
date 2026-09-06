@@ -91,19 +91,24 @@ if ((Get-Command python).Source -ne (Resolve-Path .\.venv\Scripts\python.exe).Pa
 make install
 ```
 
-On Windows from Git Bash, MSYS2 or WSL, which is the route the POSIX-shell requirement above
-recommends. Note `Scripts`, not `bin`: a virtualenv created by Windows Python uses the
-Windows layout whatever shell you activate it from, so the Linux block above does not apply.
+From any POSIX shell on Windows -- Git Bash, MSYS2 or WSL, the route the POSIX-shell
+requirement above recommends:
 
 ```bash
 python -m venv .venv
-. .venv/Scripts/activate && make install
+. .venv/Scripts/activate 2>/dev/null || . .venv/bin/activate
+python -c "import sys; sys.exit(0 if sys.prefix.endswith('.venv') else 1)" && make install
 ```
 
-The `&&` is deliberate in both Windows blocks. `make install` runs `pip install` directly, so
-an activation that failed silently would install into the system interpreter -- the outcome
-the paragraph above exists to prevent. Under WSL, use the Linux block instead: a WSL
-virtualenv is a Linux one and uses `bin`.
+The layout is chosen rather than assumed, because **the interpreter decides it, not the
+shell**. Windows CPython creates `.venv/Scripts/activate`; MSYS2's own `python` package is a
+POSIX build and creates `.venv/bin/activate`, as does WSL. Naming one of them would break the
+other, and naming them per shell would still be wrong for a Git Bash session that has MSYS2's
+python first on PATH.
+
+The second line is the fail-closed step, and it checks the state rather than an exit code:
+`make install` runs `pip install` directly, so an activation that failed silently would
+install into the system interpreter -- the outcome the paragraph above exists to prevent.
 
 ## Run locally
 
