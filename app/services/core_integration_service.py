@@ -2,6 +2,7 @@ from datetime import date
 from typing import Any
 
 from app.observability import propagation_headers
+from app.services.core_tenant_authority import TenantAuthority, require_tenant_authority
 from app.services.http_resilience import get_with_retry, post_with_retry
 
 PERFORMANCE_COMPONENT_ECONOMICS_PAGE_SIZE = 1000
@@ -14,21 +15,36 @@ class CoreIntegrationService:
         timeout_seconds: float,
         max_retries: int = 2,
         retry_backoff_seconds: float = 0.2,
+        *,
+        tenant_authority: TenantAuthority | None = None,
     ):
         self._base_url = base_url.rstrip("/")
         self._timeout = timeout_seconds
         self._max_retries = max_retries
         self._retry_backoff_seconds = retry_backoff_seconds
+        # Held as given, including None. A service constructed without tenant
+        # authority is not broken -- it simply cannot perform a Core read, and
+        # says so at the point of the read rather than inventing one here.
+        self._tenant_authority = tenant_authority
 
     def _url(self, path: str) -> str:
         return f"{self._base_url}{path}"
+
+    def _core_headers(self, *, operation: str) -> dict[str, str]:
+        """Trace propagation plus the admitted tenant, or a refusal.
+
+        Every Core-bound request passes through here, so there is one place
+        where a read without tenant authority is stopped."""
+
+        authority = require_tenant_authority(self._tenant_authority, operation=operation)
+        return {**propagation_headers(), **authority.headers()}
 
     async def _post_json(self, *, path: str, payload: dict[str, Any]) -> tuple[int, dict[str, Any]]:
         return await post_with_retry(
             url=self._url(path),
             timeout_seconds=self._timeout,
             json_body=payload,
-            headers=propagation_headers(),
+            headers=self._core_headers(operation=f"POST {path}"),
             max_retries=self._max_retries,
             backoff_seconds=self._retry_backoff_seconds,
         )
@@ -38,7 +54,7 @@ class CoreIntegrationService:
             url=self._url(path),
             timeout_seconds=self._timeout,
             query_params=query_params,
-            headers=propagation_headers(),
+            headers=self._core_headers(operation=f"GET {path}"),
             max_retries=self._max_retries,
             backoff_seconds=self._retry_backoff_seconds,
         )
