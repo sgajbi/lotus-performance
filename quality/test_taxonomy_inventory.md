@@ -22,9 +22,9 @@ python scripts/python_test_taxonomy_inventory.py --limit 30 --min-api-runtime-te
 
 | Metric | Value |
 | --- | ---: |
-| Test modules inventoried | 316 |
-| Test functions inventoried | 3625 |
-| Integration/API/runtime test functions | 690 |
+| Test modules inventoried | 317 |
+| Test functions inventoried | 3630 |
+| Integration/API/runtime test functions | 695 |
 | Contract/governance test functions | 177 |
 
 ## Test Functions By Suite
@@ -34,7 +34,7 @@ python scripts/python_test_taxonomy_inventory.py --limit 30 --min-api-runtime-te
 | benchmarks | 9 | 19 |
 | e2e | 1 | 21 |
 | integration | 28 | 341 |
-| unit | 278 | 3244 |
+| unit | 279 | 3249 |
 
 ## Test Functions By Family
 
@@ -45,7 +45,7 @@ above does sum to it, because a module belongs to exactly one suite.
 | Family | Test functions |
 | --- | ---: |
 | analytics_domain | 1672 |
-| api_or_runtime | 690 |
+| api_or_runtime | 695 |
 | contract_or_governance | 177 |
 | observability_or_readiness | 375 |
 | quality_or_security | 197 |
@@ -295,3 +295,5 @@ no API response, and no runbook step changes. Wiki truth would need updating if 
 publishing gate thresholds, which is a separate decision from this change. Exceptions should not be soft-failed in CI; if a supported API
 or governance test category is intentionally removed, update the gate threshold, scorecard, and
 review ledger in the same PR with explicit rationale.
+
+The #502 request-path proof added a module driving the real application over HTTP for tenant admission - admitted, absent, blank and concurrent two-tenant requests, each asserting the outbound Core call - raising inventoried modules to `317`, source test functions to `3630`, and API/runtime tests to `695`. Uncategorized tests are unchanged at `876`: the module classifies as api_or_runtime, so the ceiling this gate governs was neither approached nor raised.
