@@ -1,7 +1,7 @@
 # Lotus Performance Enterprise Backend Refactor Baseline
 
-Baseline date: 2026-08-26
-Branch: `fix/483-test-order-isolation`
+Baseline date: 2026-09-06
+Branch: `feat/497-tenant-authority-at-the-core-boundary`
 Mode: report-only baseline; no new blocking quality gate is introduced by this artifact.
 
 ## Purpose
@@ -16,12 +16,12 @@ snapshots are written under ignored `output/quality-baseline/`; curated source r
 
 | Area | Current value | Evidence |
 | --- | ---: | --- |
-| Python files | 662 | `rg --files -g '*.py'` equivalent excluding local caches |
+| Python files | 666 | `rg --files -g '*.py'` equivalent excluding local caches |
 | Python package markers | 22 | recursive `__init__.py` count |
-| Python LOC | 197,789 | recursive `.py` line count |
-| Test modules | 316 | `tests/**/test_*.py` |
-| Collected tests | 3895 tests | `python -m pytest --collect-only -q` |
-| Configured CI workflows | 6 | `.github/workflows/*.yml` |
+| Python LOC | 198,776 | recursive `.py` line count |
+| Test modules | 317 | `tests/**/test_*.py` |
+| Collected tests | 3930 tests | `python -m pytest --collect-only -q` |
+| Configured CI workflows | 7 | `.github/workflows/*.yml` |
 | Repo-native baseline command | 1 | `make quality-baseline` |
 
 ## Largest Python Files By LOC
@@ -31,10 +31,10 @@ snapshots are written under ignored `output/quality-baseline/`; curated source r
 | 1 | `tests/unit/services/test_returns_series_service.py` | 3074 |
 | 2 | `tests/unit/services/test_compute_executor_worker.py` | 2676 |
 | 3 | `tests/unit/services/test_runtime_status_service.py` | 2637 |
-| 4 | `app/services/stateful_input_service.py` | 2409 |
-| 5 | `tests/unit/docs/test_public_docs_contract.py` | 2374 |
+| 4 | `tests/unit/docs/test_public_docs_contract.py` | 2438 |
+| 5 | `app/services/stateful_input_service.py` | 2409 |
 | 6 | `tests/unit/services/test_stateful_input_service.py` | 2361 |
-| 7 | `app/services/returns_series_service.py` | 2324 |
+| 7 | `app/services/returns_series_service.py` | 2337 |
 | 8 | `tests/unit/app/test_request_path_runtime_settings.py` | 2276 |
 | 9 | `tests/unit/services/test_stateful_attribution_input_service.py` | 2159 |
 | 10 | `tests/integration/test_performance_api.py` | 2075 |

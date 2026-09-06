@@ -43,6 +43,7 @@ from app.observability import (
 from app.services.analytics_numeric import numeric_value
 from app.services.analytics_observation_dates import observation_timestamp_series
 from app.services.calculation_engine_version import calculation_engine_version
+from app.services.core_tenant_authority import TenantAuthorityError
 from app.services.error_details import (
     insufficient_data_detail,
     invalid_request_detail,
@@ -2313,6 +2314,18 @@ async def _retrieve_stateful_returns_series_portfolio_source(
             consumer_system=LOTUS_PERFORMANCE_CONSUMER_SYSTEM,
         )
     except APIError as exc:
+        # A tenant-authority outcome is a statement about the caller, never about
+        # the source data. Rewriting it to INSUFFICIENT_DATA told a caller with no
+        # admitted tenant that its data was thin, hid the deliberately chosen
+        # status, and invited a retry of a request that can never succeed.
+        #
+        # Exempted by the authority base class rather than by status: 401 and 403
+        # would be safe to pass through, but the padded-header refusal is a 400,
+        # and a blanket 400 exemption would also change how a genuine bad request
+        # to Core is reported. The base class names exactly the errors that are
+        # about admission, and covers the next one added beside them.
+        if isinstance(exc, TenantAuthorityError):
+            raise
         if exc.status_code == HTTP_503_SERVICE_UNAVAILABLE:
             raise _returns_series_api_error(
                 status_code=HTTP_503_SERVICE_UNAVAILABLE,
