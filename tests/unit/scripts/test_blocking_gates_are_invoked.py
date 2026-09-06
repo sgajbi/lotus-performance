@@ -84,6 +84,24 @@ def test_the_report_and_the_gate_differ_only_in_whether_they_can_fail() -> None:
     assert "--exit-code 0" not in gate, "a gate that cannot fail is not a gate"
 
 
+def test_the_gate_does_not_exclude_what_the_promotion_policy_requires_recorded() -> None:
+    """`--ignore-unfixed` belongs to the report, not the gate.
+
+    `quality/container_supply_chain_report.md` scopes that option to the
+    report-only baseline phase, and its promotion policy requires every
+    high/critical finding to be zero or explicitly accepted with owner, expiry
+    and remediation path. A gate that silently drops unfixable advisories
+    enforces something narrower than the policy it is promoted under, and the
+    difference is invisible in a green run."""
+
+    assert "--ignore-unfixed" in _makefile_target(
+        "container-vulnerability-report"
+    ), "the report observes the baseline and may exclude unfixed findings"
+    assert "--ignore-unfixed" not in _makefile_target("container-vulnerability-gate"), (
+        "the blocking gate must not exclude findings the promotion policy requires " "to be zero or explicitly accepted"
+    )
+
+
 @pytest.mark.parametrize("workflow_name", GOVERNED_WORKFLOWS)
 def test_diagnostics_survive_a_failing_scan(workflow_name: str) -> None:
     """The gate must run AFTER the upload, and the upload must not be skipped.

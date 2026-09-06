@@ -37,7 +37,8 @@ COPY requirements.txt ./
 # tooling rather than runtime dependencies, so they are upgraded rather than
 # pinned in requirements.txt, which governs what the service imports.
 RUN pip install --no-cache-dir --root-user-action=ignore --upgrade pip setuptools wheel && \
-    pip install --no-cache-dir --root-user-action=ignore -r requirements.txt
+    pip install --no-cache-dir --root-user-action=ignore -r requirements.txt && \
+    find /usr/local/lib/python3.11/ensurepip -name '*.whl' -delete
 
 RUN groupadd --system --gid 10001 lotus && \
     useradd --system --uid 10001 --gid lotus --home-dir /app --shell /usr/sbin/nologin lotus && \

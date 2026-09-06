@@ -234,5 +234,9 @@ container-vulnerability-report:
 	python -c "from pathlib import Path; Path('$(CONTAINER_SECURITY_OUTPUT_DIR)').mkdir(parents=True, exist_ok=True)"
 	docker run --rm -v /var/run/docker.sock:/var/run/docker.sock -v "$(CURDIR)/$(CONTAINER_SECURITY_OUTPUT_DIR):/output" $(TRIVY_IMAGE) image --scanners vuln --severity $(TRIVY_SEVERITY) --ignore-unfixed --format json --output /output/lotus-performance-image-vulnerabilities.json --exit-code 0 $(CONTAINER_IMAGE)
 
+# No --ignore-unfixed here, unlike the report target above. The promotion policy in
+# quality/container_supply_chain_report.md requires every high/critical finding to be zero or
+# explicitly accepted; silently excluding the unfixable ones would let the gate pass on
+# advisories the policy says must be recorded.
 container-vulnerability-gate:
-	docker run --rm -v /var/run/docker.sock:/var/run/docker.sock $(TRIVY_IMAGE) image --scanners vuln --severity $(TRIVY_SEVERITY) --ignore-unfixed --exit-code 1 $(CONTAINER_IMAGE)
+	docker run --rm -v /var/run/docker.sock:/var/run/docker.sock $(TRIVY_IMAGE) image --scanners vuln --severity $(TRIVY_SEVERITY) --exit-code 1 $(CONTAINER_IMAGE)
