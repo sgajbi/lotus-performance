@@ -156,7 +156,7 @@ Resolved from `PATH`. Nothing here assumes an operating system, drive or workspa
 
 | tool | version | source of the claim |
 |---|---|---|
-| Python | 3.11 | every CI lane pins `PYTHON_VERSION: "3.11"`; note that `pyproject.toml` declares no `requires-python`, so CI is the only authority |
+| Python | 3.11 to 3.13 supported; **3.11 is what CI runs** | `pyproject.toml` declares `python = ">=3.11,<3.14"` under `[tool.poetry.dependencies]`; every workflow lane pins `PYTHON_VERSION: "3.11"`, so 3.12 and 3.13 are supported but ungated — match CI if you want local runs to mean what CI means |
 | `make` | any | every gate and lane is a make target |
 | Docker | any recent | compose overlays and `make ci`'s `docker-build` |
 | `git` | any recent | version control |
