@@ -19,11 +19,34 @@ but **whether it lands on the PATH of the shell you run these commands in**.
   exposed to PowerShell, so the PowerShell flow below still fails at `make install`. Run these
   commands from the MSYS2 shell instead, or add its binary directory to PATH.
 
-Confirm before continuing, in the shell you intend to use:
+### Make also needs a POSIX shell for the coverage targets
+
+Finding make is necessary but not sufficient. GNU Make runs each recipe through
+`$(SHELL)`, which on Windows resolves to `SHELL` if set, otherwise `sh.exe` if one is on PATH,
+and otherwise `cmd.exe`. Several recipes here begin with a POSIX-only environment assignment
+(`COVERAGE_FILE=... python -m pytest ...`), which `cmd.exe` cannot parse. On a machine with make
+but no `sh.exe`, those targets fail while `make --version` reports success.
+
+Affected: `test-coverage-shard` (`Makefile:45`), and therefore `test-coverage`, `coverage-gate`
+and `ci`; `ci-local` (`Makefile:85`); `branch-coverage-baseline` (`Makefile:52-54`). Not
+affected: `lint`, `typecheck` and `test-unit`, which use no leading assignments.
+
+Confirm before continuing, in the shell you intend to use, that make is present **and** that a
+POSIX shell backs it:
 
 ```powershell
 make --version
+Get-Command sh.exe
 ```
+
+If `sh.exe` does not resolve, install Git for Windows (which supplies one at
+`C:\Program Files\Git\usr\bin\sh.exe`) and confirm it is on PATH, or set `SHELL` to a POSIX
+shell before invoking make. Running the commands from Git Bash or MSYS2 satisfies this too.
+
+This is where the earlier PowerShell verification on a maintainer workstation was misleading:
+Git for Windows was already installed there, so make resolved
+`SHELL=C:/Program Files/Git/usr/bin/sh.exe` and the assignment prefixes worked. The check
+succeeded in an environment where the failure could not occur.
 
 ## Install
 
