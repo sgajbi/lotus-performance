@@ -143,9 +143,9 @@ interactive workspace use.
 This RFC should therefore be read together with the repository’s broader vocabulary-governance
 direction, especially:
 
-1. [RFC 038 - lotus-performance Domain Vocabulary Alignment with Platform Glossary](C:/Users/Sandeep/projects/lotus-performance/docs/RFCs/RFC%20038%20-%20PA%20Domain%20Vocabulary%20Alignment%20with%20Platform%20Glossary.md)
+1. [RFC 038 - lotus-performance Domain Vocabulary Alignment with Platform Glossary](../../docs/RFCs/RFC%20038%20-%20PA%20Domain%20Vocabulary%20Alignment%20with%20Platform%20Glossary.md)
 2. the API vocabulary inventory under
-   [docs/standards/api-vocabulary](C:/Users/Sandeep/projects/lotus-performance/docs/standards/api-vocabulary)
+   [docs/standards/api-vocabulary](../../docs/standards/api-vocabulary)
 
 ## Decision Direction
 

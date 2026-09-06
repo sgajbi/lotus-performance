@@ -12,7 +12,7 @@ Optional ops profile:
 
 5. `performance-runtime-retention-worker`
 
-Source of truth for the local topology is [docker-compose.yml](/C:/Users/Sandeep/projects/lotus-performance/docker-compose.yml).
+Source of truth for the local topology is [docker-compose.yml](../../docker-compose.yml).
 
 ## Service roles
 
@@ -180,26 +180,26 @@ Queue-pressure metrics are exposed from the API process by reading durable store
 - `lotus_performance_runtime_retention_reclaimed_actions`
 
 Operator first response for these breach gauges is governed in
-[runtime-alerts.md](/C:/Users/Sandeep/projects/lotus-performance/docs/runbooks/runtime-alerts.md).
+[runtime-alerts.md](../../docs/runbooks/runtime-alerts.md).
 Deployable alert rules for the same gauges are governed in
-[lotus-performance-alerts.prometheusrule.json](/C:/Users/Sandeep/projects/lotus-performance/monitoring/prometheus/lotus-performance-alerts.prometheusrule.json),
+[lotus-performance-alerts.prometheusrule.json](../../monitoring/prometheus/lotus-performance-alerts.prometheusrule.json),
 with explanatory templates in
-[runtime-alert-rule-templates.md](/C:/Users/Sandeep/projects/lotus-performance/docs/operations/runtime-alert-rule-templates.md).
+[runtime-alert-rule-templates.md](../../docs/operations/runtime-alert-rule-templates.md).
 MWR fallback, no-root, multiple-root, and source-data rejection alert and panel expressions are
 also included in the deployable alert artifact and
-[lotus-performance-operability-dashboard.json](/C:/Users/Sandeep/projects/lotus-performance/monitoring/grafana/lotus-performance-operability-dashboard.json),
+[lotus-performance-operability-dashboard.json](../../monitoring/grafana/lotus-performance-operability-dashboard.json),
 with explanatory notes in
-[mwr-alert-rule-templates.md](/C:/Users/Sandeep/projects/lotus-performance/docs/operations/mwr-alert-rule-templates.md).
+[mwr-alert-rule-templates.md](../../docs/operations/mwr-alert-rule-templates.md).
 `make quality-observability-readiness-gate` validates the deployable monitoring artifacts against
 service-owned metrics, labels, links, and sensitive-label policy.
 Severity and response defaults for those rules are governed in
-[runtime-alert-policy.md](/C:/Users/Sandeep/projects/lotus-performance/docs/standards/runtime-alert-policy.md).
+[runtime-alert-policy.md](../../docs/standards/runtime-alert-policy.md).
 Recommended dev, staging, and production threshold values are governed in
-[runtime-threshold-profiles.md](/C:/Users/Sandeep/projects/lotus-performance/docs/standards/runtime-threshold-profiles.md).
+[runtime-threshold-profiles.md](../../docs/standards/runtime-threshold-profiles.md).
 Concrete `.env` overlays for those profiles live under
-[`docs/examples/`](/C:/Users/Sandeep/projects/lotus-performance/docs/examples).
+[`docs/examples/`](../../docs/examples).
 Compose override examples for the same profiles also live there and can be layered over
-[`docker-compose.yml`](/C:/Users/Sandeep/projects/lotus-performance/docker-compose.yml).
+[`docker-compose.yml`](../../docker-compose.yml).
 
 For point-in-time operator drill-down, `GET /integration/runtime-status` exposes the same
 durable queue state as a JSON control-plane snapshot, including the oldest pending, leased,

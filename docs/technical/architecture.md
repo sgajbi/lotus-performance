@@ -41,19 +41,19 @@ request orchestration, heavy compute, and lineage materialization operationally.
 
 ### 1. API orchestrator
 
-- FastAPI application in [main.py](/C:/Users/Sandeep/projects/lotus-performance/main.py)
+- FastAPI application in [main.py](../../main.py)
 - owns request validation, sync/async execution decisioning, execution registry writes, and readiness endpoints
 
 ### 2. Compute executor
 
-- worker process in [compute_executor_worker.py](/C:/Users/Sandeep/projects/lotus-performance/app/workers/compute_executor_worker.py)
+- worker process in [compute_executor_worker.py](../../app/workers/compute_executor_worker.py)
 - leases pending jobs from durable storage
 - executes returns-series, contribution, and attribution workloads
 - writes durable async results and terminal execution state
 
 ### 3. Lineage worker
 
-- worker process in [lineage_worker.py](/C:/Users/Sandeep/projects/lotus-performance/app/workers/lineage_worker.py)
+- worker process in [lineage_worker.py](../../app/workers/lineage_worker.py)
 - materializes lineage artifacts from durable payload metadata after request/compute completion
 
 ### 4. Durable metadata database

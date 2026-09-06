@@ -39,7 +39,7 @@ vectorized path with unique dates.
 
 - Metric: median wall-clock runtime across 5 measured runs after one warm-up run
 - Budget: `<= 0.50s`
-- Test owner: [test_engine_performance.py](/C:/Users/Sandeep/projects/lotus-performance/tests/benchmarks/test_engine_performance.py)
+- Test owner: [test_engine_performance.py](../../tests/benchmarks/test_engine_performance.py)
 
 This is a characterization contract, not a theoretical peak claim. If the engine changes
 materially, we should refresh the budget using measured evidence and record that change in the
@@ -57,14 +57,14 @@ These characterize the control-plane query path behind:
 - Workload: `5,000` durable compute jobs
 - Metric: median wall-clock runtime across 10 reads
 - Budget: `<= 15ms`
-- Test owner: [test_runtime_store_performance.py](/C:/Users/Sandeep/projects/lotus-performance/tests/benchmarks/test_runtime_store_performance.py)
+- Test owner: [test_runtime_store_performance.py](../../tests/benchmarks/test_runtime_store_performance.py)
 
 ### Lineage queue stats
 
 - Workload: `1,000` durable lineage payloads
 - Metric: median wall-clock runtime across 10 reads
 - Budget: `<= 10ms`
-- Test owner: [test_runtime_store_performance.py](/C:/Users/Sandeep/projects/lotus-performance/tests/benchmarks/test_runtime_store_performance.py)
+- Test owner: [test_runtime_store_performance.py](../../tests/benchmarks/test_runtime_store_performance.py)
 
 ## Execution polling budget
 
@@ -75,7 +75,7 @@ These characterize the control-plane query path behind:
   - durable async-result metadata
 - Metric: median wall-clock runtime across 20 reads
 - Budget: `<= 20ms`
-- Test owner: [test_execution_polling_performance.py](/C:/Users/Sandeep/projects/lotus-performance/tests/benchmarks/test_execution_polling_performance.py)
+- Test owner: [test_execution_polling_performance.py](../../tests/benchmarks/test_execution_polling_performance.py)
 
 ## Stateful returns-series orchestration budget
 
@@ -88,7 +88,7 @@ These characterize the control-plane query path behind:
   - canonical normalization and response shaping
 - Metric: median wall-clock runtime across 5 reads after warm-up
 - Budget: `<= 7000ms`
-- Test owner: [test_returns_series_orchestration_performance.py](/C:/Users/Sandeep/projects/lotus-performance/tests/benchmarks/test_returns_series_orchestration_performance.py)
+- Test owner: [test_returns_series_orchestration_performance.py](../../tests/benchmarks/test_returns_series_orchestration_performance.py)
 
 ## Stateful retrieval budget
 
@@ -100,7 +100,7 @@ These characterize the control-plane query path behind:
   - canonical deduped merge of returned observations
 - Metric: median wall-clock runtime across 5 reads after warm-up
 - Budget: `<= 250ms`
-- Test owner: [test_stateful_input_performance.py](/C:/Users/Sandeep/projects/lotus-performance/tests/benchmarks/test_stateful_input_performance.py)
+- Test owner: [test_stateful_input_performance.py](../../tests/benchmarks/test_stateful_input_performance.py)
 
 ## Stateful reference retrieval budgets
 
@@ -113,7 +113,7 @@ These characterize the control-plane query path behind:
   - canonical deduped merge of returned points
 - Metric: median wall-clock runtime across 5 reads after warm-up
 - Budget: `<= 25ms`
-- Test owner: [test_stateful_input_performance.py](/C:/Users/Sandeep/projects/lotus-performance/tests/benchmarks/test_stateful_input_performance.py)
+- Test owner: [test_stateful_input_performance.py](../../tests/benchmarks/test_stateful_input_performance.py)
 
 ### Risk-free series
 
@@ -124,7 +124,7 @@ These characterize the control-plane query path behind:
   - canonical deduped merge of returned points
 - Metric: median wall-clock runtime across 5 reads after warm-up
 - Budget: `<= 25ms`
-- Test owner: [test_stateful_input_performance.py](/C:/Users/Sandeep/projects/lotus-performance/tests/benchmarks/test_stateful_input_performance.py)
+- Test owner: [test_stateful_input_performance.py](../../tests/benchmarks/test_stateful_input_performance.py)
 
 ## Stateful calculated benchmark normalization budget
 
@@ -141,7 +141,7 @@ These characterize the control-plane query path behind:
   - `3` FX pairs normalized into benchmark currency
 - Metric: median wall-clock runtime across 5 reads after warm-up
 - Budget: `<= 2800ms`
-- Test owner: [test_stateful_input_performance.py](/C:/Users/Sandeep/projects/lotus-performance/tests/benchmarks/test_stateful_input_performance.py)
+- Test owner: [test_stateful_input_performance.py](../../tests/benchmarks/test_stateful_input_performance.py)
 
 ## Stateful benchmark orchestration budget
 
@@ -159,7 +159,7 @@ These characterize the control-plane query path behind:
   - `3` FX pairs normalized into benchmark currency
 - Metric: median wall-clock runtime across 5 runs after warm-up
 - Budget: `<= 42000ms`
-- Test owner: [test_benchmark_orchestration_performance.py](/C:/Users/Sandeep/projects/lotus-performance/tests/benchmarks/test_benchmark_orchestration_performance.py)
+- Test owner: [test_benchmark_orchestration_performance.py](../../tests/benchmarks/test_benchmark_orchestration_performance.py)
 
 ## Stateful benchmark-inclusive TWR orchestration budget
 
@@ -177,7 +177,7 @@ These characterize the control-plane query path behind:
   - `SI` request with monthly breakdown output
 - Metric: median wall-clock runtime across 5 runs after warm-up
 - Budget: `<= 8500ms`
-- Test owner: [test_twr_orchestration_performance.py](/C:/Users/Sandeep/projects/lotus-performance/tests/benchmarks/test_twr_orchestration_performance.py)
+- Test owner: [test_twr_orchestration_performance.py](../../tests/benchmarks/test_twr_orchestration_performance.py)
 
 ## PostgreSQL plan verification
 
@@ -192,7 +192,7 @@ based on realistic table statistics rather than empty-table defaults.
   - root aggregate plan over `analytics_compute_job`
   - no explicit `Sort`
   - no planner regression into multi-query application-side aggregation
-- Test owner: [test_postgres_query_plans.py](/C:/Users/Sandeep/projects/lotus-performance/tests/benchmarks/test_postgres_query_plans.py)
+- Test owner: [test_postgres_query_plans.py](../../tests/benchmarks/test_postgres_query_plans.py)
 
 ### Lineage queue stats
 
@@ -201,7 +201,7 @@ based on realistic table statistics rather than empty-table defaults.
   - root aggregate plan over the `lineage_payloads` / `lineage_records` join
   - no explicit `Sort`
   - join/aggregate remains in SQL rather than application-side row walks
-- Test owner: [test_postgres_query_plans.py](/C:/Users/Sandeep/projects/lotus-performance/tests/benchmarks/test_postgres_query_plans.py)
+- Test owner: [test_postgres_query_plans.py](../../tests/benchmarks/test_postgres_query_plans.py)
 
 ### Execution snapshot polling
 
@@ -213,7 +213,7 @@ based on realistic table statistics rather than empty-table defaults.
   - PostgreSQL may still choose a bitmap-heap-plus-sort plan at this cardinality after `ANALYZE`
     because the query returns all snapshots for one calculation and the sort is cheap; the governed
     contract is index participation plus no sequential scan, not a brittle “never sort” rule.
-- Test owner: [test_postgres_query_plans.py](/C:/Users/Sandeep/projects/lotus-performance/tests/benchmarks/test_postgres_query_plans.py)
+- Test owner: [test_postgres_query_plans.py](../../tests/benchmarks/test_postgres_query_plans.py)
 
 ## Running the characterization suite
 
@@ -250,7 +250,7 @@ These are live multi-worker claim contracts against PostgreSQL, not SQLite compi
   - claims are disjoint across workers
   - all available jobs are claimed exactly once
   - a third worker sees no additional pending claims
-- Test owner: [test_postgres_concurrency_contracts.py](/C:/Users/Sandeep/projects/lotus-performance/tests/benchmarks/test_postgres_concurrency_contracts.py)
+- Test owner: [test_postgres_concurrency_contracts.py](../../tests/benchmarks/test_postgres_concurrency_contracts.py)
 
 ### Lineage payload claims
 
@@ -259,4 +259,4 @@ These are live multi-worker claim contracts against PostgreSQL, not SQLite compi
   - claims are disjoint across workers
   - all available payloads are claimed exactly once
   - a third worker sees no additional pending claims
-- Test owner: [test_postgres_concurrency_contracts.py](/C:/Users/Sandeep/projects/lotus-performance/tests/benchmarks/test_postgres_concurrency_contracts.py)
+- Test owner: [test_postgres_concurrency_contracts.py](../../tests/benchmarks/test_postgres_concurrency_contracts.py)
