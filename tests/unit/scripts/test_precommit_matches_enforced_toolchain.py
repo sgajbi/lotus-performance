@@ -82,3 +82,40 @@ def test_precommit_runs_the_version_ci_enforces(hook_repository: str, distributi
         f"repository will disagree about what 'formatted' means and each will call the other's "
         f"result a failure. Bump both pins together."
     )
+
+
+def test_the_guard_actually_covers_the_hooks_it_claims_to() -> None:
+    """A parametrized guard over an empty map is green while checking nothing.
+
+    Emptying `_PINNED_TOOLCHAIN` makes the test above collect zero cases and
+    report `1 skipped`, which is a passing CI lane that compared no versions at
+    all. lotus-platform-51 hit the same shape in gateway's equivalent guard,
+    where a range-shaped pin made its lookup return nothing and the comparison
+    loop iterated zero times.
+
+    So the map's contents are asserted rather than assumed, and coverage is
+    derived from the config: any hook repository whose name identifies a tool we
+    pin must be in the map. Adding a fourth pinned tool to `.pre-commit-config.yaml`
+    and forgetting it here fails, instead of quietly narrowing what is checked.
+    """
+
+    assert _PINNED_TOOLCHAIN, (
+        "_PINNED_TOOLCHAIN is empty, so the version comparison above collects no cases and "
+        "passes without comparing anything."
+    )
+
+    configured = set(_precommit_revisions())
+    assert configured, ".pre-commit-config.yaml parsed to no repositories at all"
+
+    pinned_tools = {"ruff", "mypy", "black", "isort"}
+    should_be_covered = {
+        repository
+        for repository in configured
+        if any(tool in repository.rsplit("/", 1)[-1].lower() for tool in pinned_tools)
+    }
+    missing = should_be_covered - set(_PINNED_TOOLCHAIN)
+    assert not missing, (
+        f"these pinned-tool hooks are in .pre-commit-config.yaml but not compared against a "
+        f"requirements pin: {sorted(missing)}. Add each to _PINNED_TOOLCHAIN with the "
+        f"distribution it must match."
+    )
