@@ -31,7 +31,12 @@ ENV APP_VERSION="${APP_VERSION}" \
 WORKDIR /app
 
 COPY requirements.txt ./
-RUN pip install --no-cache-dir --root-user-action=ignore --upgrade pip && \
+# setuptools and wheel ship with the base image and carry fixable HIGH
+# advisories there (path traversal in setuptools, privilege escalation in
+# wheel, path traversal in setuptools' vendored jaraco.context). They are build
+# tooling rather than runtime dependencies, so they are upgraded rather than
+# pinned in requirements.txt, which governs what the service imports.
+RUN pip install --no-cache-dir --root-user-action=ignore --upgrade pip setuptools wheel && \
     pip install --no-cache-dir --root-user-action=ignore -r requirements.txt
 
 RUN groupadd --system --gid 10001 lotus && \
