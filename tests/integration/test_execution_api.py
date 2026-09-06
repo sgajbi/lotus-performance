@@ -451,7 +451,16 @@ def test_execution_api_tracks_contribution_stateful_stages(client, monkeypatch):
         "stateful_input": {},
     }
 
-    response = client.post("/performance/contribution", json=payload)
+    # A stateful contribution reads component economics from Core, and Core admits
+    # that read on X-Tenant-Id. The two mocks above cover the portfolio and position
+    # timeseries but not the economics call, so this request makes a real Core read
+    # and must carry an admitted tenant. The refusal is pinned as its own contract
+    # in test_a_stateful_calculation_without_a_tenant_is_refused_before_reaching_core.
+    response = client.post(
+        "/performance/contribution",
+        json=payload,
+        headers={"X-Tenant-Id": "tenant-private-bank"},
+    )
 
     assert response.status_code == 200
     calculation_id = response.json()["calculation_id"]
@@ -1246,3 +1255,43 @@ def test_execution_api_exposes_terminal_async_result_metadata(client, monkeypatc
     finally:
         settings.RETURNS_SERIES_EXECUTOR_WINDOW_DAYS = original_threshold
         settings.COMPUTE_EXECUTOR_MAX_ATTEMPTS = original_attempts
+
+
+def test_a_stateful_calculation_without_a_tenant_is_refused_before_reaching_core(client, monkeypatch):
+    """A stateful calculation reads from Core, so it needs an admitted tenant.
+
+    This is the contract behind the header added to the contribution test above,
+    pinned rather than left as an incidental detail of that test's setup. A
+    stateful contribution reads component economics from Core, Core admits that
+    read on `X-Tenant-Id`, and this service refuses rather than reading under no
+    established authority.
+
+    Two things are asserted together and both matter. The status is 401 -- a
+    caller-authority outcome, not the 500 an unmapped refusal used to produce.
+    And `outbound` stays empty: the refusal happens before any Core call, so the
+    read is never attempted under an authority nobody established. A 401 alone
+    would also be produced by refusing after the request had gone out.
+    """
+
+    outbound: list[dict] = []
+
+    async def _record_instead_of_calling(**kwargs):
+        outbound.append(kwargs)
+        return 200, {}
+
+    monkeypatch.setattr("app.services.core_integration_service.post_with_retry", _record_instead_of_calling)
+    monkeypatch.setattr("app.services.core_integration_service.get_with_retry", _record_instead_of_calling)
+
+    payload = {
+        "portfolio_id": "CONTRIB_STATEFUL_NO_TENANT",
+        "report_start_date": "2025-01-01",
+        "report_end_date": "2025-01-02",
+        "analyses": [{"period": "SI", "frequencies": ["daily"]}],
+        "input_mode": "stateful",
+        "stateful_input": {},
+    }
+
+    response = client.post("/performance/contribution", json=payload)
+
+    assert response.status_code == 401
+    assert outbound == [], "no Core read may be attempted without an admitted tenant"
