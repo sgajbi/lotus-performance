@@ -6,8 +6,10 @@ Agent and engineer orientation:
 
 1. Start with `AGENTS.md`; it is the governed operating contract and mandatory reading-order
    source.
-2. Treat this file as step 4 in that sequence: repo-local implementation truth after platform
-   quickstart and engineering context are loaded.
+2. Treat this file as step 3 in that sequence: repo-local implementation truth, loaded after
+   the platform quickstart and before the skill routing map.
+   `LOTUS-ENGINEERING-CONTEXT.md` is task-relevant depth, not a prerequisite for this file;
+   loading it first would defeat the progressive discovery the sequence exists to enforce.
 3. Use `../lotus-platform/context/CONTEXT-REFERENCE-MAP.md` to find relevant standards, RFCs,
    runbooks, and registries without loading broad context blindly.
 4. Use `../lotus-platform/context/PROCEDURAL-MEMORY-INDEX.md` when the task is primarily about

@@ -78,6 +78,78 @@ def test_readme_enterprise_readiness_evidence_is_grounded():
     assert "target deployment, entitlement model, SLOs" in readme_flat
 
 
+_MANDATORY_ORDER_HEADING = "Before substantial work, load this small starting set:"
+_NUMBERED_ITEM = re.compile(r"^(\d+)\. (.+)$")
+_BACKTICKED_MARKDOWN = re.compile(r"`([^`]+\.md)`")
+
+
+def _mandatory_reading_order(agents: str) -> list[tuple[int, str]]:
+    """The numbered mandatory list in AGENTS.md, as (position, text) pairs."""
+
+    body = agents.split(_MANDATORY_ORDER_HEADING, 1)[1]
+    items: list[tuple[int, str]] = []
+    for line in body.splitlines():
+        match = _NUMBERED_ITEM.match(line.strip())
+        if match is None:
+            if items and not line.strip().startswith(("`", "commands")) and not line.startswith(" "):
+                break
+            continue
+        items.append((int(match.group(1)), match.group(2)))
+    return items
+
+
+def _assert_repo_context_states_its_position_in_agents_reading_order(
+    repository_context: str,
+) -> None:
+    """The repo context must claim the step AGENTS.md actually gives it.
+
+    Pinning a literal step number here is what let the two drift apart: when
+    AGENTS.md moved this file from fourth to third, a hardcoded assertion could
+    only freeze the stale wording, never report it. Reading the position out of
+    AGENTS.md means the next reordering fails this test instead of surviving it.
+    """
+
+    order = _mandatory_reading_order(_read("AGENTS.md"))
+    positions = [position for position, text in order if "REPOSITORY-ENGINEERING-CONTEXT.md" in text]
+    assert len(positions) == 1, (
+        f"AGENTS.md must place REPOSITORY-ENGINEERING-CONTEXT.md exactly once in its mandatory "
+        f"reading order; found {positions} in {order}."
+    )
+    expected = f"Treat this file as step {positions[0]}"
+    assert expected in repository_context, (
+        f"AGENTS.md loads REPOSITORY-ENGINEERING-CONTEXT.md as step {positions[0]}, but that file "
+        f"does not say so. An agent following the repo-local orientation would be sent back to the "
+        f"superseded order, which is what progressive discovery exists to prevent."
+    )
+
+
+def _assert_agents_context_paths_resolve(agents: str) -> None:
+    """Every context document AGENTS.md names must be findable from this repo.
+
+    A bare `SOMETHING.md` is repository-relative by the convention AGENTS.md
+    itself declares, so it resolves inside lotus-performance. For the shared
+    context documents that is a path to nothing, and the reader is left to guess
+    that the file lives in a sibling checkout.
+    """
+
+    # lstrip first: the heading is followed immediately by a blank line, so splitting the
+    # remainder on a blank line without it yields "" and the loop below inspects nothing.
+    remainder = agents.split("Then load only task-relevant depth:", 1)[1].lstrip("\n")
+    depth_section = remainder.split("\n\n", 1)[0]
+    assert depth_section.strip(), (
+        "AGENTS.md task-relevant depth list not found; an empty section would make every "
+        "check below pass without inspecting anything."
+    )
+    for referenced in _BACKTICKED_MARKDOWN.findall(depth_section):
+        if referenced.startswith("lotus-platform/") or referenced.startswith("<lotus-platform>/"):
+            continue
+        assert (REPO_ROOT / referenced).is_file(), (
+            f"AGENTS.md references `{referenced}` as a repository-relative path, but no such file "
+            f"exists in this repository. Qualify it as `lotus-platform/context/{referenced}` so it "
+            f"is reachable from a standalone checkout."
+        )
+
+
 def test_agent_reading_order_is_discoverable_from_primary_context_surfaces():
     readme = _read("README.md")
     repository_context = _read("REPOSITORY-ENGINEERING-CONTEXT.md")
@@ -90,7 +162,8 @@ def test_agent_reading_order_is_discoverable_from_primary_context_surfaces():
     assert "governed reading order" in readme
     assert "skill-routing" in readme
     assert "wiki publication rule" in readme
-    assert "Treat this file as step 4" in repository_context
+    _assert_repo_context_states_its_position_in_agents_reading_order(repository_context)
+    _assert_agents_context_paths_resolve(_read("AGENTS.md"))
     assert "../lotus-platform/context/CONTEXT-REFERENCE-MAP.md" in repository_context
     assert "../lotus-platform/context/PROCEDURAL-MEMORY-INDEX.md" in repository_context
     assert "../lotus-platform/context/LOTUS-SKILL-ROUTING-MAP.md" in repository_context
