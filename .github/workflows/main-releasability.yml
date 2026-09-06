@@ -251,6 +251,7 @@ jobs:
       - name: Container Vulnerability Gate
         run: make container-vulnerability-gate
       - name: Attest SBOM provenance
+        if: always()
         uses: actions/attest-build-provenance@v3
         with:
           subject-path: output/container-security/lotus-performance-image-sbom.cdx.json
