@@ -173,14 +173,25 @@ def resolve_request_id(request: Request) -> str:
 
 
 def resolve_tenant_id(request: Request) -> str:
-    """The caller's tenant, or empty. Deliberately without a generated fallback.
+    """The caller's tenant exactly as presented, or empty.
 
-    resolve_correlation_id and resolve_request_id synthesise a value when the
-    header is absent, because an invented correlation id costs nothing. An
-    invented tenant is a cross-tenant read, so absence is preserved as absence
-    and refused later at the Core boundary."""
+    Deliberately without a generated fallback: resolve_correlation_id and
+    resolve_request_id synthesise a value when the header is absent, because an
+    invented correlation id costs nothing. An invented tenant is a cross-tenant
+    read, so absence is preserved as absence and refused at the Core boundary.
 
-    return _nonblank_header(request, "X-Tenant-Id") or ""
+    Also deliberately without normalization. This used to strip, which made
+    `TenantAuthority.__post_init__` unreachable: that invariant says a padded
+    value is a different tenant to Core, and it could never fire because the
+    padding was gone before it ran. Stripping does not fix a malformed header,
+    it changes which tenant the caller asked for. A wholly blank header still
+    resolves to "" -- that is absence, not a value -- and anything else is
+    returned byte for byte for the factory to accept or refuse."""
+
+    presented = request.headers.get("X-Tenant-Id")
+    if presented is None or not presented.strip():
+        return ""
+    return presented
 
 
 def resolve_trace_id(request: Request) -> str:

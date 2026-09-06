@@ -8,7 +8,7 @@ from uuid import UUID
 from app.core.config import Settings
 from app.observability import tenant_id_var
 from app.services.core_integration_service import CoreIntegrationService
-from app.services.core_tenant_authority import TenantAuthority
+from app.services.core_tenant_authority import admitted_tenant_authority
 from app.services.stateful_input_service import StatefulInputService
 
 _DEFAULT_STATEFUL_INPUT_MAX_PAGES_PER_CHUNK = 25
@@ -26,13 +26,15 @@ def build_stateful_input_service(*, settings: Settings) -> StatefulInputService:
     # The tenant admitted for this request, or None. None is not a failure here:
     # it becomes a refusal at the Core boundary, which is where the operation being
     # refused can be named. Nothing is defaulted.
-    admitted_tenant = tenant_id_var.get()
+    # Absent, padded and exact are three different outcomes; see
+    # admitted_tenant_authority. Nothing is defaulted and nothing is normalized.
+    admitted_authority = admitted_tenant_authority(tenant_id_var.get())
     core_service = CoreIntegrationService(
         base_url=settings.resolved_core_control_plane_base_url,
         timeout_seconds=settings.CORE_TIMEOUT_SECONDS,
         max_retries=settings.CORE_MAX_RETRIES,
         retry_backoff_seconds=settings.CORE_RETRY_BACKOFF_SECONDS,
-        tenant_authority=TenantAuthority(tenant_id=admitted_tenant) if admitted_tenant else None,
+        tenant_authority=admitted_authority,
     )
     return StatefulInputService(
         core_service=core_service,

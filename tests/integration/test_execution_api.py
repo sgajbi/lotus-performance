@@ -1295,3 +1295,48 @@ def test_a_stateful_calculation_without_a_tenant_is_refused_before_reaching_core
 
     assert response.status_code == 401
     assert outbound == [], "no Core read may be attempted without an admitted tenant"
+
+
+def test_returns_series_reports_a_tenant_refusal_as_authority_not_thin_data(client, monkeypatch):
+    """A refusal must survive the source-retrieval error remapping.
+
+    `_retrieve_stateful_returns_series_portfolio_source` rewrites every non-503
+    APIError into a 422 INSUFFICIENT_DATA. Making the tenant refusal an APIError
+    was the right fix for it surfacing as a 500, and it put the refusal in reach
+    of a handler that means something else -- so a caller with no admitted tenant
+    was told its data was insufficient, on a request that can never succeed no
+    matter how much data exists.
+
+    Asserting the status alone would be too weak: 422 and 401 are both "not 500".
+    The error code is asserted too, because that is what a client would branch on
+    to decide whether retrying could ever help.
+    """
+
+    outbound: list[dict] = []
+
+    async def _record_instead_of_calling(**kwargs):
+        outbound.append(kwargs)
+        return 200, {}
+
+    monkeypatch.setattr("app.services.core_integration_service.post_with_retry", _record_instead_of_calling)
+    monkeypatch.setattr("app.services.core_integration_service.get_with_retry", _record_instead_of_calling)
+
+    payload = {
+        "portfolio_id": "DEMO_DPM_EUR_001",
+        "as_of_date": "2026-02-25",
+        "window": {"mode": "EXPLICIT", "from_date": "2026-02-23", "to_date": "2026-02-25"},
+        "frequency": "DAILY",
+        "metric_basis": "NET",
+        "series_selection": {"include_portfolio": True, "include_benchmark": False},
+        "input_mode": "stateful",
+        "stateful_input": {},
+    }
+
+    response = client.post("/integration/returns/series", json=payload)
+
+    assert response.status_code == 401, (
+        "a missing tenant is a caller-authority outcome; reporting it as 422 "
+        "INSUFFICIENT_DATA invites a retry that can never succeed"
+    )
+    assert response.json()["error_code"] == "TENANT_AUTHORITY_REQUIRED"
+    assert outbound == [], "no Core read may be attempted without an admitted tenant"

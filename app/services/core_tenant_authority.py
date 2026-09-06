@@ -15,14 +15,24 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
-from core.errors import HTTP_401_UNAUTHORIZED, APIError
+from core.errors import HTTP_400_BAD_REQUEST, HTTP_401_UNAUTHORIZED, APIError
 
 #: Core's admission contract. `X-Actor-Id`, `X-Role` and `X-Service-Identity`
 #: are optional there and are not minted here.
 TENANT_HEADER = "X-Tenant-Id"
 
 
-class MissingTenantAuthorityError(APIError):
+class TenantAuthorityError(APIError):
+    """Base for refusals about the caller's admitted tenant.
+
+    Exists so callers can exempt admission outcomes from their own error
+    handling by naming one class. Source-retrieval code that rewrites APIErrors
+    into data-quality outcomes must let these through: a caller that was refused
+    has not been given thin data.
+    """
+
+
+class MissingTenantAuthorityError(TenantAuthorityError):
     """Raised when a Core-bound read has no admitted tenant to travel under.
 
     This is a refusal, not a failure to look one up. It carries the operation
@@ -80,6 +90,49 @@ class TenantAuthority:
 
     def headers(self) -> dict[str, str]:
         return {TENANT_HEADER: self.tenant_id}
+
+
+class PaddedTenantAuthorityError(TenantAuthorityError):
+    """The caller presented a tenant we must neither use nor quietly repair.
+
+    Core compares `X-Tenant-Id` exactly, so `"tenant-a "` and `"tenant-a"` are
+    different tenants to it. Trimming would substitute a tenant the caller did
+    not present, which is the one thing this module exists to prevent; refusing
+    tells the caller their header is malformed and leaves the choice with them.
+
+    400 rather than 401: the caller did present authority, and the problem is
+    the shape of what they sent.
+    """
+
+    def __init__(self, presented: str) -> None:
+        super().__init__(
+            status_code=HTTP_400_BAD_REQUEST,
+            detail=(
+                f"X-Tenant-Id {presented!r} has surrounding whitespace. Core compares the "
+                "header exactly, so a padded value names a different tenant; this service "
+                "refuses rather than trimming, because trimming would read as a tenant the "
+                "caller did not present."
+            ),
+            error_code="TENANT_AUTHORITY_MALFORMED",
+            retryable=False,
+        )
+        self.presented = presented
+
+
+def admitted_tenant_authority(presented: str) -> TenantAuthority | None:
+    """Turn the presented header into authority, absence, or a refusal.
+
+    The three cases are decided here rather than left to fall through, because
+    each has a different correct outcome: absence must reach the Core boundary
+    so the refusal can name the operation, padding must be refused before any
+    read, and only an exact value becomes authority.
+    """
+
+    if not presented.strip():
+        return None
+    if presented != presented.strip():
+        raise PaddedTenantAuthorityError(presented)
+    return TenantAuthority(tenant_id=presented)
 
 
 def require_tenant_authority(authority: TenantAuthority | None, *, operation: str) -> TenantAuthority:
