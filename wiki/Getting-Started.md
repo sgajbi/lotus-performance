@@ -95,20 +95,30 @@ From any POSIX shell on Windows -- Git Bash, MSYS2 or WSL, the route the POSIX-s
 requirement above recommends:
 
 ```bash
-python -m venv .venv
+PY="$(command -v python3 || command -v python)"
+"$PY" -m venv .venv
 . .venv/Scripts/activate 2>/dev/null || . .venv/bin/activate
-python -c "import sys; sys.exit(0 if sys.prefix.endswith('.venv') else 1)" && make install
+python -c "import pathlib, sys; sys.exit(0 if pathlib.Path(sys.prefix).resolve() == pathlib.Path('.venv').resolve() else 1)" && make install
 ```
 
-The layout is chosen rather than assumed, because **the interpreter decides it, not the
-shell**. Windows CPython creates `.venv/Scripts/activate`; MSYS2's own `python` package is a
-POSIX build and creates `.venv/bin/activate`, as does WSL. Naming one of them would break the
-other, and naming them per shell would still be wrong for a Git Bash session that has MSYS2's
-python first on PATH.
+Three things are selected rather than assumed here, because each varies by machine and none
+of them varies by shell.
 
-The second line is the fail-closed step, and it checks the state rather than an exit code:
-`make install` runs `pip install` directly, so an activation that failed silently would
-install into the system interpreter -- the outcome the paragraph above exists to prevent.
+**The interpreter name.** Ubuntu and Debian, including under WSL, expose Python as `python3`
+and ship no `python`. Git Bash on Windows usually has `python`. `command -v` picks whichever
+exists instead of the page guessing.
+
+**The virtualenv layout.** Windows CPython creates `.venv/Scripts/activate`; MSYS2's own
+`python` package is a POSIX build and creates `.venv/bin/activate`, as does WSL. The
+interpreter decides this, not the shell -- naming them per shell would still be wrong for a
+Git Bash session that has MSYS2's python first on PATH.
+
+**That the venv actually in use is this one.** The last line is the fail-closed step, and it
+compares the resolved `sys.prefix` against this checkout's `.venv` rather than testing that
+the path merely ends in `.venv`. A suffix test passes while *any* project's `.venv` is active,
+so with another project's environment already loaded and this checkout's activation failing,
+`make install` would have pip-installed into that other project. `make install` runs
+`pip install` directly, which is why this section checks state rather than an exit code.
 
 ## Run locally
 
