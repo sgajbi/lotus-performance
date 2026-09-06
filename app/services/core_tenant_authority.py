@@ -15,24 +15,42 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
+from core.errors import HTTP_401_UNAUTHORIZED, APIError
+
 #: Core's admission contract. `X-Actor-Id`, `X-Role` and `X-Service-Identity`
 #: are optional there and are not minted here.
 TENANT_HEADER = "X-Tenant-Id"
 
 
-class MissingTenantAuthorityError(RuntimeError):
+class MissingTenantAuthorityError(APIError):
     """Raised when a Core-bound read has no admitted tenant to travel under.
 
     This is a refusal, not a failure to look one up. It carries the operation
     so an operator can see which read was refused rather than only that one
     was.
+
+    It also carries its HTTP mapping. Without one it subclassed `RuntimeError`
+    and nothing mapped it, so through the real application this refusal reached
+    the caller as an unhandled 500: an internal-fault shape for what is a
+    caller-authority condition, and retryable-looking to anything that reads
+    status classes. `APIError` is this codebase's existing seam for that, and
+    `core_api_error_exception_handler` is already registered in `main.py`, so
+    the outcome comes from wiring that already exists.
+
+    401 is deliberate: it is what Core answers for the same missing header on
+    its own protected routes, so a caller hears one story from both services.
     """
 
     def __init__(self, operation: str) -> None:
         super().__init__(
-            f"No admitted tenant authority for Core read {operation!r}. "
-            "The caller's tenant must be carried to Core; this service does not mint or "
-            "default one, because a defaulted tenant can return another tenant's data."
+            status_code=HTTP_401_UNAUTHORIZED,
+            detail=(
+                f"No admitted tenant authority for Core read {operation!r}. "
+                "The caller's tenant must be carried to Core; this service does not mint or "
+                "default one, because a defaulted tenant can return another tenant's data."
+            ),
+            error_code="TENANT_AUTHORITY_REQUIRED",
+            retryable=False,
         )
         self.operation = operation
 

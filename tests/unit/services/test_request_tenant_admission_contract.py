@@ -6,13 +6,15 @@ proved the boundary and not the path: the only production constructor,
 `build_stateful_input_service`, passed nothing, so outside tests the authority
 was always None and every production Core read would have raised.
 
-These tests exercise the production path instead -- request header, through the
-middleware's request-scoped variable, into the factory, out as the header Core
-admits on.
+These tests cover the pieces of that path at unit level -- header resolution,
+the factory's wiring, and the refusal when authority is absent.
 
-The leak test is the one that matters. A stale correlation id mislabels a log
-line; a stale tenant lets the next request read under the previous caller's
-authority, and no downstream check would see it.
+They are not the request-path proof, and an earlier version of this docstring
+claimed more than they deliver. Each builds a stand-in request, manages its own
+context tokens, or reads source text; all of that can pass while the real path
+is broken. The proof that a request actually carries its tenant to Core lives
+in `tests/unit/api/test_tenant_admission_request_path.py`, which drives the
+real application over HTTP.
 """
 
 from __future__ import annotations
@@ -82,16 +84,21 @@ class TestTheFactoryCarriesTheAdmittedTenant:
             tenant_id_var.reset(token)
 
     def test_the_middleware_resets_every_context_variable_it_sets(self) -> None:
-        """The guard for the bug I actually made.
+        """Symmetry check on the middleware's own source: every set has a reset.
 
-        The test below proves that set/reset clears the value -- which is
-        contextvar semantics, not evidence the middleware calls reset. I set
-        the tenant token and omitted the reset, and no behavioural test could
-        have caught it, because each test manages its own token.
+        Corrected claim. This previously said an unreset tenant would leak the
+        previous caller's authority into the next request. That is not true of
+        this middleware, and the request-path tests in
+        `tests/unit/api/test_tenant_admission_request_path.py` demonstrate it:
+        deleting the reset leaves them all green, because Starlette's
+        `BaseHTTPMiddleware` runs the handler in its own task and asyncio copies
+        the context per task, so the value never escapes the request that set it.
 
-        So this reads the middleware itself: every `<var>.set(` must have a
-        matching `<var>.reset(`. An unreset tenant leaks the previous caller's
-        authority into the next request."""
+        The check is still worth keeping, for what it actually is -- a symmetry
+        rule on context handling, which would become load-bearing if this ever
+        moved to a pure-ASGI middleware that set the variable in the caller's
+        own context. It is not evidence of tenant isolation, and it is no longer
+        described as such."""
 
         from pathlib import Path
 
@@ -100,17 +107,23 @@ class TestTheFactoryCarriesTheAdmittedTenant:
         for variable in ("correlation_id_var", "request_id_var", "trace_id_var", "tenant_id_var"):
             assert f"{variable}.set(" in source, f"{variable} is never set"
             assert f"{variable}.reset(" in source, (
-                f"{variable} is set but never reset; its value survives into the next request "
-                "handled on the same context"
+                f"{variable} is set without a matching reset. This middleware isolates "
+                "requests through per-task context copying rather than through this "
+                "reset, so the symmetry is hygiene, not the isolation guarantee."
             )
 
     def test_one_request_tenant_does_not_survive_into_the_next(self) -> None:
-        """Proves the middleware's reset is load-bearing.
+        """Set then reset restores the refusal, at the unit level.
 
-        Setting and resetting mirrors what the request middleware does around
-        `call_next`. If the reset were omitted, this would read `tenant-a`
-        after that request finished -- the next caller reading under the
-        previous caller's authority, invisibly."""
+        Corrected claim: this does not prove the middleware's reset is
+        load-bearing. It exercises ContextVar semantics with tokens this test
+        owns, which would hold whatever the middleware did. The request-path
+        proof lives in `tests/unit/api/test_tenant_admission_request_path.py`,
+        where two tenants are genuinely in flight and each reaches Core under
+        its own.
+
+        What it does show is worth keeping: once authority is out of scope, the
+        very next read is refused rather than falling back to anything."""
 
         first = tenant_id_var.set("tenant-a")
         assert self._core_service()._core_headers(operation="GET /x")[TENANT_HEADER] == "tenant-a"
