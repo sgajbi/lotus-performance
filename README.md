@@ -173,7 +173,7 @@ below, not an error anyone on this project has hit.
 On Linux or macOS:
 
 ```bash
-python -m venv .venv
+python3 -m venv .venv
 . .venv/bin/activate
 make install
 ```

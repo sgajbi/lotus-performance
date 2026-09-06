@@ -19,7 +19,7 @@ is why the requirement stays invisible in a green pipeline.
 On Linux or macOS:
 
 ```bash
-python -m venv .venv
+python3 -m venv .venv
 . .venv/bin/activate
 make install
 ```
