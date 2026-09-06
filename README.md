@@ -170,13 +170,19 @@ Python on macOS — mark the system interpreter externally managed and refuse a 
 This has not been reproduced here: it is the specified behaviour of PEP 668 plus the observation
 below, not an error anyone on this project has hit.
 
+On Linux or macOS:
+
 ```bash
 python -m venv .venv
-# POSIX
 . .venv/bin/activate
-# Windows
-# .venv\Scripts\activate
+make install
+```
 
+On Windows PowerShell:
+
+```powershell
+python -m venv .venv
+.venv\Scripts\Activate.ps1
 make install
 ```
 
