@@ -2,6 +2,8 @@
 
 ## Prerequisites
 
+On Windows, GNU Make is not present by default and must be installed separately. winget, Chocolatey, Scoop and MSYS2 all provide it; pick whichever package manager the machine already uses.
+
 - Python environment compatible with the repo toolchain
 - local access to any required upstream Lotus services when exercising stateful flows
 - optional Docker if you want topology-parity or threshold-overlay runs
