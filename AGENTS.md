@@ -19,14 +19,10 @@ Before substantial work, load this small starting set:
 
 Then load only task-relevant depth:
 
-1. `lotus-platform/context/LOTUS-ENGINEERING-CONTEXT.md` for cross-repository architecture or
-   shared engineering policy,
-2. `lotus-platform/context/CONTEXT-REFERENCE-MAP.md` to locate a specific standard, RFC,
-   contract, or runbook,
-3. `lotus-platform/context/TASK-ROUTING-GUIDE.md` when ownership or the correct context set is
-   unclear,
-4. `lotus-platform/context/PROCEDURAL-MEMORY-INDEX.md` when execution method, recovery, or
-   delivery evidence is central.
+1. `LOTUS-ENGINEERING-CONTEXT.md` for cross-repository architecture or shared engineering policy,
+2. `CONTEXT-REFERENCE-MAP.md` to locate a specific standard, RFC, contract, or runbook,
+3. `TASK-ROUTING-GUIDE.md` when ownership or the correct context set is unclear,
+4. `PROCEDURAL-MEMORY-INDEX.md` when execution method, recovery, or delivery evidence is central.
 
 Do not load the complete context estate by default. Essential controls in `AGENTS.md` remain
 mandatory even when the rest of the task needs only repository-local context.

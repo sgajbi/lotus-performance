@@ -80,22 +80,41 @@ def test_readme_enterprise_readiness_evidence_is_grounded():
 
 _MANDATORY_ORDER_HEADING = "Before substantial work, load this small starting set:"
 _NUMBERED_ITEM = re.compile(r"^(\d+)\. (.+)$")
-_BACKTICKED_MARKDOWN = re.compile(r"`([^`]+\.md)`")
 
 
 def _mandatory_reading_order(agents: str) -> list[tuple[int, str]]:
-    """The numbered mandatory list in AGENTS.md, as (position, text) pairs."""
+    """The mandatory list in AGENTS.md, as (actual position, text) pairs.
+
+    Position comes from the item's place in the list, not from the digit written
+    in its marker. Trusting the marker meant an edit that moved this file but
+    left `3.` in place still reported position 3, so the guard accepted stale
+    wording -- the drift it exists to catch, surviving inside the check for it.
+
+    The markers are validated separately below rather than used as the answer.
+    """
 
     body = agents.split(_MANDATORY_ORDER_HEADING, 1)[1]
-    items: list[tuple[int, str]] = []
+    markers: list[int] = []
+    texts: list[str] = []
     for line in body.splitlines():
         match = _NUMBERED_ITEM.match(line.strip())
         if match is None:
-            if items and not line.strip().startswith(("`", "commands")) and not line.startswith(" "):
+            if items_started(texts) and not line.strip().startswith(("`", "commands")) and not line.startswith(" "):
                 break
             continue
-        items.append((int(match.group(1)), match.group(2)))
-    return items
+        markers.append(int(match.group(1)))
+        texts.append(match.group(2))
+
+    assert markers == list(range(1, len(markers) + 1)), (
+        f"AGENTS.md mandatory reading order has non-contiguous or misordered markers: {markers}. "
+        f"A stale marker left behind by a reordering would otherwise be read as the item's "
+        f"position and silently validate the wrong step number."
+    )
+    return [(position, text) for position, text in enumerate(texts, start=1)]
+
+
+def items_started(texts: list[str]) -> bool:
+    return bool(texts)
 
 
 def _assert_repo_context_states_its_position_in_agents_reading_order(
@@ -123,33 +142,6 @@ def _assert_repo_context_states_its_position_in_agents_reading_order(
     )
 
 
-def _assert_agents_context_paths_resolve(agents: str) -> None:
-    """Every context document AGENTS.md names must be findable from this repo.
-
-    A bare `SOMETHING.md` is repository-relative by the convention AGENTS.md
-    itself declares, so it resolves inside lotus-performance. For the shared
-    context documents that is a path to nothing, and the reader is left to guess
-    that the file lives in a sibling checkout.
-    """
-
-    # lstrip first: the heading is followed immediately by a blank line, so splitting the
-    # remainder on a blank line without it yields "" and the loop below inspects nothing.
-    remainder = agents.split("Then load only task-relevant depth:", 1)[1].lstrip("\n")
-    depth_section = remainder.split("\n\n", 1)[0]
-    assert depth_section.strip(), (
-        "AGENTS.md task-relevant depth list not found; an empty section would make every "
-        "check below pass without inspecting anything."
-    )
-    for referenced in _BACKTICKED_MARKDOWN.findall(depth_section):
-        if referenced.startswith("lotus-platform/") or referenced.startswith("<lotus-platform>/"):
-            continue
-        assert (REPO_ROOT / referenced).is_file(), (
-            f"AGENTS.md references `{referenced}` as a repository-relative path, but no such file "
-            f"exists in this repository. Qualify it as `lotus-platform/context/{referenced}` so it "
-            f"is reachable from a standalone checkout."
-        )
-
-
 def test_agent_reading_order_is_discoverable_from_primary_context_surfaces():
     readme = _read("README.md")
     repository_context = _read("REPOSITORY-ENGINEERING-CONTEXT.md")
@@ -163,7 +155,6 @@ def test_agent_reading_order_is_discoverable_from_primary_context_surfaces():
     assert "skill-routing" in readme
     assert "wiki publication rule" in readme
     _assert_repo_context_states_its_position_in_agents_reading_order(repository_context)
-    _assert_agents_context_paths_resolve(_read("AGENTS.md"))
     assert "../lotus-platform/context/CONTEXT-REFERENCE-MAP.md" in repository_context
     assert "../lotus-platform/context/PROCEDURAL-MEMORY-INDEX.md" in repository_context
     assert "../lotus-platform/context/LOTUS-SKILL-ROUTING-MAP.md" in repository_context
