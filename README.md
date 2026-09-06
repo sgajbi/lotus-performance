@@ -150,11 +150,35 @@ Grouped public surfaces are derived from the router layout in [main.py](main.py)
 
 ## Quick Start
 
-Install dependencies:
+### Prerequisites
+
+Resolved from `PATH`. Nothing here assumes an operating system, drive or workspace layout:
+
+| tool | version | source of the claim |
+|---|---|---|
+| Python | 3.11 | every CI lane pins `PYTHON_VERSION: "3.11"`; note that `pyproject.toml` declares no `requires-python`, so CI is the only authority |
+| `make` | any | every gate and lane is a make target |
+| Docker | any recent | compose overlays and `make ci`'s `docker-build` |
+| `git` | any recent | version control |
+
+### Install
+
+`make install` runs `pip install` directly rather than into a managed environment, so create and
+activate a virtualenv FIRST. On a clean Linux or macOS machine a PEP 668 distribution refuses a
+system-wide `pip install` outright, and the step will fail before anything else runs:
 
 ```bash
+python -m venv .venv
+# POSIX
+. .venv/bin/activate
+# Windows
+# .venv\Scripts\activate
+
 make install
 ```
+
+CI does not need this step because `actions/setup-python` supplies an isolated interpreter, which
+is why the requirement is invisible in a green pipeline and only appears on a developer machine.
 
 Run the API locally:
 
@@ -162,7 +186,13 @@ Run the API locally:
 make run
 ```
 
-Then open `/docs` or `/openapi.json`.
+This serves on port **8000** (`uvicorn --port 8000`, matching the container, which EXPOSEs and
+listens on 8000). Then open `/docs` or `/openapi.json`.
+
+Under Docker Compose the same service is reachable on the HOST at `${PA_HOST_PORT:-8002}`, which
+maps to 8000 in the container. Examples further down this file use `127.0.0.1:8002` because they
+assume the compose path; if you started the service with `make run`, use `127.0.0.1:8000`
+instead.
 
 For topology-parity local runs, the governed runtime overlays live in
 [docs/examples/](docs/examples). The production-profile compose overlay command remains:

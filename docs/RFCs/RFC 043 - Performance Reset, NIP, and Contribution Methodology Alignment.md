@@ -71,17 +71,17 @@ The original asks preserved from the review loop were:
 
 Code and review evidence indicate that the following core behaviors are already materially present:
 
-- daily rate-of-return calculation in [engine/ror.py](C:/Users/Sandeep/projects/lotus-performance/engine/ror.py)
+- daily rate-of-return calculation in [engine/ror.py](../../engine/ror.py)
 - sign-aware long/short cumulative return compounding in
-  [engine/ror.py](C:/Users/Sandeep/projects/lotus-performance/engine/ror.py)
+  [engine/ror.py](../../engine/ror.py)
 - sign derivation from `begin_mv + bod_cf` with flip events in
-  [engine/rules.py](C:/Users/Sandeep/projects/lotus-performance/engine/rules.py)
+  [engine/rules.py](../../engine/rules.py)
 - reset controls `NCTRL_1`, `NCTRL_2`, `NCTRL_3`, `NCTRL_4` in
-  [engine/rules.py](C:/Users/Sandeep/projects/lotus-performance/engine/rules.py)
+  [engine/rules.py](../../engine/rules.py)
 - contribution calculation and Carino smoothing in
-  [engine/contribution.py](C:/Users/Sandeep/projects/lotus-performance/engine/contribution.py)
+  [engine/contribution.py](../../engine/contribution.py)
 - cross-surface consistency proofing in
-  [tests/e2e/test_workflow_journeys.py](C:/Users/Sandeep/projects/lotus-performance/tests/e2e/test_workflow_journeys.py)
+  [tests/e2e/test_workflow_journeys.py](../../tests/e2e/test_workflow_journeys.py)
 
 ### What appears materially incomplete or simplified
 
@@ -90,7 +90,7 @@ The formula review and code inspection indicate likely methodology gaps in these
 - `performance_reset` currently aggregates `NCTRL_1..4`, but does not explicitly include
   `sod_reset` or `account_performance_reset`
 - reset diagnostics already expose partial reason codes for `NCTRL_1..4` in
-  [engine/compute.py](C:/Users/Sandeep/projects/lotus-performance/engine/compute.py), but not a
+  [engine/compute.py](../../engine/compute.py), but not a
   canonical reset-reason model spanning all intended reset sources
 - `NIP` has two rule variants, and the current default rule is looser than the stricter reference
   formulation
@@ -126,17 +126,17 @@ drivers of output correctness.
 
 | Requirement / domain question | Current implementation evidence | Current assessment | RFC decision |
 | --- | --- | --- | --- |
-| Daily RoR formula should remain economically correct for NET/GROSS basis | [engine/ror.py](C:/Users/Sandeep/projects/lotus-performance/engine/ror.py) `calculate_daily_ror(...)` | Covered | Keep current base formula |
-| Long/short cumulative return state should compound geometrically and remain sign-aware | [engine/ror.py](C:/Users/Sandeep/projects/lotus-performance/engine/ror.py) `_compound_ror(...)` | Covered | Keep current long/short engine foundation |
-| Reset thresholds `NCTRL_1..3` should guard invalid cumulative return states | [engine/rules.py](C:/Users/Sandeep/projects/lotus-performance/engine/rules.py) `calculate_initial_resets(...)` | Mostly aligned | Retain concept; validate exact gating |
-| Reset aggregation should include all intended reset sources | [engine/ror.py](C:/Users/Sandeep/projects/lotus-performance/engine/ror.py), [engine/rules.py](C:/Users/Sandeep/projects/lotus-performance/engine/rules.py) | Partially implemented | Add explicit canonical reset-reason model |
-| `NCTRL_4` should be justified by boundary semantics, not historical accident | [engine/rules.py](C:/Users/Sandeep/projects/lotus-performance/engine/rules.py) `calculate_nctrl4_reset(...)` | Needs deeper review | Keep provisionally, then rebaseline by characterization |
-| Sign propagation should remain stable around zero-sign and reset boundary transitions | [engine/rules.py](C:/Users/Sandeep/projects/lotus-performance/engine/rules.py) `calculate_sign(...)` | Mostly aligned | Characterize explicitly; change only if reset/NIP slices reveal a real mismatch |
-| `NIP` should reflect true no-investment semantics | [engine/rules.py](C:/Users/Sandeep/projects/lotus-performance/engine/rules.py) `calculate_nip(...)` | Partially implemented | Move to stricter canonical rule after shadow validation |
-| `NIP` days and valid days should be reset-aware | [engine/compute.py](C:/Users/Sandeep/projects/lotus-performance/engine/compute.py) diagnostics | Gap | Add reset-relative `nip_days_since_reset` / `valid_days` |
-| Contribution average weight should respect reset boundaries and `NIP` days | [engine/contribution.py](C:/Users/Sandeep/projects/lotus-performance/engine/contribution.py), [app/services/contribution_service.py](C:/Users/Sandeep/projects/lotus-performance/app/services/contribution_service.py) | Gap | Implement phased methodology alignment |
-| Contribution/group return should reconcile to performance using the same reset logic | [engine/contribution.py](C:/Users/Sandeep/projects/lotus-performance/engine/contribution.py), [tests/e2e/test_workflow_journeys.py](C:/Users/Sandeep/projects/lotus-performance/tests/e2e/test_workflow_journeys.py) | Partially implemented | Add grouped-return alignment slice with explicit account-reset / next-reset characterization |
-| Smoothing should match the exact rich reference framework | [engine/contribution.py](C:/Users/Sandeep/projects/lotus-performance/engine/contribution.py) | Gap, but not first-order blocker | Defer until base methodology is aligned |
+| Daily RoR formula should remain economically correct for NET/GROSS basis | [engine/ror.py](../../engine/ror.py) `calculate_daily_ror(...)` | Covered | Keep current base formula |
+| Long/short cumulative return state should compound geometrically and remain sign-aware | [engine/ror.py](../../engine/ror.py) `_compound_ror(...)` | Covered | Keep current long/short engine foundation |
+| Reset thresholds `NCTRL_1..3` should guard invalid cumulative return states | [engine/rules.py](../../engine/rules.py) `calculate_initial_resets(...)` | Mostly aligned | Retain concept; validate exact gating |
+| Reset aggregation should include all intended reset sources | [engine/ror.py](../../engine/ror.py), [engine/rules.py](../../engine/rules.py) | Partially implemented | Add explicit canonical reset-reason model |
+| `NCTRL_4` should be justified by boundary semantics, not historical accident | [engine/rules.py](../../engine/rules.py) `calculate_nctrl4_reset(...)` | Needs deeper review | Keep provisionally, then rebaseline by characterization |
+| Sign propagation should remain stable around zero-sign and reset boundary transitions | [engine/rules.py](../../engine/rules.py) `calculate_sign(...)` | Mostly aligned | Characterize explicitly; change only if reset/NIP slices reveal a real mismatch |
+| `NIP` should reflect true no-investment semantics | [engine/rules.py](../../engine/rules.py) `calculate_nip(...)` | Partially implemented | Move to stricter canonical rule after shadow validation |
+| `NIP` days and valid days should be reset-aware | [engine/compute.py](../../engine/compute.py) diagnostics | Gap | Add reset-relative `nip_days_since_reset` / `valid_days` |
+| Contribution average weight should respect reset boundaries and `NIP` days | [engine/contribution.py](../../engine/contribution.py), [app/services/contribution_service.py](../../app/services/contribution_service.py) | Gap | Implement phased methodology alignment |
+| Contribution/group return should reconcile to performance using the same reset logic | [engine/contribution.py](../../engine/contribution.py), [tests/e2e/test_workflow_journeys.py](../../tests/e2e/test_workflow_journeys.py) | Partially implemented | Add grouped-return alignment slice with explicit account-reset / next-reset characterization |
+| Smoothing should match the exact rich reference framework | [engine/contribution.py](../../engine/contribution.py) | Gap, but not first-order blocker | Defer until base methodology is aligned |
 
 ## Design Reasoning and Trade-offs
 
@@ -379,7 +379,7 @@ Changes:
   - `nip_days_since_last_reset`
   - `valid_days_since_last_reset`
 - extend the existing reset-event diagnostic model in
-  [engine/compute.py](C:/Users/Sandeep/projects/lotus-performance/engine/compute.py) rather than
+  [engine/compute.py](../../engine/compute.py) rather than
   replacing it from scratch
 - add scenario-based unit tests that characterize:
   - boundary returns
@@ -738,12 +738,12 @@ Decision rule:
 
 Current evidence reviewed for this RFC:
 
-- [docs/technical/formula-mapping-review-notes.md](C:/Users/Sandeep/projects/lotus-performance/docs/technical/formula-mapping-review-notes.md)
-- [engine/rules.py](C:/Users/Sandeep/projects/lotus-performance/engine/rules.py)
-- [engine/ror.py](C:/Users/Sandeep/projects/lotus-performance/engine/ror.py)
-- [engine/contribution.py](C:/Users/Sandeep/projects/lotus-performance/engine/contribution.py)
-- [app/services/contribution_service.py](C:/Users/Sandeep/projects/lotus-performance/app/services/contribution_service.py)
-- [tests/e2e/test_workflow_journeys.py](C:/Users/Sandeep/projects/lotus-performance/tests/e2e/test_workflow_journeys.py)
+- [docs/technical/formula-mapping-review-notes.md](../../docs/technical/formula-mapping-review-notes.md)
+- [engine/rules.py](../../engine/rules.py)
+- [engine/ror.py](../../engine/ror.py)
+- [engine/contribution.py](../../engine/contribution.py)
+- [app/services/contribution_service.py](../../app/services/contribution_service.py)
+- [tests/e2e/test_workflow_journeys.py](../../tests/e2e/test_workflow_journeys.py)
 - platform-level cross-app validators in `lotus-platform/automation/`
 
 Required new validation evidence by slice:

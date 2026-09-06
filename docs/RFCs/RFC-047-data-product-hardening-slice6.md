@@ -58,7 +58,7 @@ Mesh access policies validated
 $env:PYTHONPATH='automation'; python -c "from generate_mesh_evidence_pack import validate_mesh_evidence_policies; ..."
 Mesh evidence policies validated
 
-python automation/mesh_certification_gate.py --mode advisory --generated-at-utc 2026-05-10T00:00:00Z --telemetry-path C:/Users/Sandeep/projects/lotus-performance/contracts/trust-telemetry --skip-publication-checks
+python automation/mesh_certification_gate.py --mode advisory --generated-at-utc 2026-05-10T00:00:00Z --telemetry-path contracts/trust-telemetry --skip-publication-checks
 Mesh certification certified_with_warnings in advisory mode; 0 error(s), 5 warning(s), 0 info issue(s).
 ```
 

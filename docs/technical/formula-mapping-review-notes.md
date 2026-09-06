@@ -32,15 +32,15 @@ Short summary from supplied formula:
 
 Primary engine path:
 
-- [engine/ror.py](C:/Users/Sandeep/projects/lotus-performance/engine/ror.py)
+- [engine/ror.py](../../engine/ror.py)
   - `calculate_cumulative_ror(...)`
   - `_compound_ror(..., leg="long")`
 
 Related consumption paths:
 
-- [app/services/twr_service.py](C:/Users/Sandeep/projects/lotus-performance/app/services/twr_service.py)
-- [app/services/returns_series_service.py](C:/Users/Sandeep/projects/lotus-performance/app/services/returns_series_service.py)
-- [engine/contribution.py](C:/Users/Sandeep/projects/lotus-performance/engine/contribution.py)
+- [app/services/twr_service.py](../../app/services/twr_service.py)
+- [app/services/returns_series_service.py](../../app/services/returns_series_service.py)
+- [engine/contribution.py](../../engine/contribution.py)
 
 ### Assessment
 
@@ -77,15 +77,15 @@ Short summary from supplied formula:
 
 Primary engine path:
 
-- [engine/ror.py](C:/Users/Sandeep/projects/lotus-performance/engine/ror.py)
+- [engine/ror.py](../../engine/ror.py)
   - `calculate_cumulative_ror(...)`
   - `_compound_ror(..., leg="short")`
 
 Related consumption paths:
 
-- [app/services/twr_service.py](C:/Users/Sandeep/projects/lotus-performance/app/services/twr_service.py)
-- [app/services/returns_series_service.py](C:/Users/Sandeep/projects/lotus-performance/app/services/returns_series_service.py)
-- [engine/contribution.py](C:/Users/Sandeep/projects/lotus-performance/engine/contribution.py)
+- [app/services/twr_service.py](../../app/services/twr_service.py)
+- [app/services/returns_series_service.py](../../app/services/returns_series_service.py)
+- [engine/contribution.py](../../engine/contribution.py)
 
 ### Assessment
 
@@ -127,9 +127,9 @@ In percentage terms, this means:
 
 Primary engine path:
 
-- [engine/rules.py](C:/Users/Sandeep/projects/lotus-performance/engine/rules.py)
+- [engine/rules.py](../../engine/rules.py)
   - `calculate_initial_resets(...)`
-- [engine/ror.py](C:/Users/Sandeep/projects/lotus-performance/engine/ror.py)
+- [engine/ror.py](../../engine/ror.py)
   - `calculate_cumulative_ror(...)`
 
 Relevant fields:
@@ -203,9 +203,9 @@ Short summary from supplied formula:
 
 Primary engine / service paths:
 
-- [engine/contribution.py](C:/Users/Sandeep/projects/lotus-performance/engine/contribution.py)
-- [app/services/contribution_service.py](C:/Users/Sandeep/projects/lotus-performance/app/services/contribution_service.py)
-- [app/services/stateful_contribution_input_service.py](C:/Users/Sandeep/projects/lotus-performance/app/services/stateful_contribution_input_service.py)
+- [engine/contribution.py](../../engine/contribution.py)
+- [app/services/contribution_service.py](../../app/services/contribution_service.py)
+- [app/services/stateful_contribution_input_service.py](../../app/services/stateful_contribution_input_service.py)
 
 Related supporting paths:
 
@@ -270,9 +270,9 @@ Short summary from supplied formula:
 
 Primary contribution / performance paths:
 
-- [engine/contribution.py](C:/Users/Sandeep/projects/lotus-performance/engine/contribution.py)
-- [engine/ror.py](C:/Users/Sandeep/projects/lotus-performance/engine/ror.py)
-- [engine/rules.py](C:/Users/Sandeep/projects/lotus-performance/engine/rules.py)
+- [engine/contribution.py](../../engine/contribution.py)
+- [engine/ror.py](../../engine/ror.py)
+- [engine/rules.py](../../engine/rules.py)
 
 ### Assessment
 
@@ -342,9 +342,9 @@ Short summary from supplied formula:
 
 Primary engine paths:
 
-- [engine/ror.py](C:/Users/Sandeep/projects/lotus-performance/engine/ror.py)
-- [engine/rules.py](C:/Users/Sandeep/projects/lotus-performance/engine/rules.py)
-- [engine/compute.py](C:/Users/Sandeep/projects/lotus-performance/engine/compute.py)
+- [engine/ror.py](../../engine/ror.py)
+- [engine/rules.py](../../engine/rules.py)
+- [engine/compute.py](../../engine/compute.py)
 
 ### Assessment
 
@@ -406,10 +406,10 @@ Short summary from supplied formula:
 
 Primary contribution / grouped-return paths:
 
-- [engine/contribution.py](C:/Users/Sandeep/projects/lotus-performance/engine/contribution.py)
+- [engine/contribution.py](../../engine/contribution.py)
 - supporting TWR paths in:
-  - [engine/ror.py](C:/Users/Sandeep/projects/lotus-performance/engine/ror.py)
-  - [engine/rules.py](C:/Users/Sandeep/projects/lotus-performance/engine/rules.py)
+  - [engine/ror.py](../../engine/ror.py)
+  - [engine/rules.py](../../engine/rules.py)
 
 ### Assessment
 
@@ -462,8 +462,8 @@ Short summary from supplied formula:
 
 Primary contribution-related paths:
 
-- [engine/contribution.py](C:/Users/Sandeep/projects/lotus-performance/engine/contribution.py)
-- [app/services/contribution_service.py](C:/Users/Sandeep/projects/lotus-performance/app/services/contribution_service.py)
+- [engine/contribution.py](../../engine/contribution.py)
+- [app/services/contribution_service.py](../../app/services/contribution_service.py)
 
 ### Assessment
 
@@ -508,8 +508,8 @@ Short summary from supplied formula:
 
 Primary service / model paths:
 
-- [app/services/contribution_service.py](C:/Users/Sandeep/projects/lotus-performance/app/services/contribution_service.py)
-- contribution request models in [app/models/contribution_requests.py](C:/Users/Sandeep/projects/lotus-performance/app/models/contribution_requests.py)
+- [app/services/contribution_service.py](../../app/services/contribution_service.py)
+- contribution request models in [app/models/contribution_requests.py](../../app/models/contribution_requests.py)
 - request routing / endpoint handling
 
 ### Assessment
@@ -569,9 +569,9 @@ Detailed intent:
 
 Primary engine path:
 
-- [engine/rules.py](C:/Users/Sandeep/projects/lotus-performance/engine/rules.py)
+- [engine/rules.py](../../engine/rules.py)
   - `calculate_nctrl4_reset(...)`
-- [engine/ror.py](C:/Users/Sandeep/projects/lotus-performance/engine/ror.py)
+- [engine/ror.py](../../engine/ror.py)
   - `calculate_cumulative_ror(...)`
 
 Relevant fields:
@@ -642,9 +642,9 @@ This is a strict zero-capital / zero-cash-flow rule.
 
 Primary engine path:
 
-- [engine/rules.py](C:/Users/Sandeep/projects/lotus-performance/engine/rules.py)
+- [engine/rules.py](../../engine/rules.py)
   - `calculate_nip(...)`
-- [engine/config.py](C:/Users/Sandeep/projects/lotus-performance/engine/config.py)
+- [engine/config.py](../../engine/config.py)
   - `FeatureFlags.use_nip_v2_rule`
 
 Relevant field:
@@ -710,7 +710,7 @@ The supplied implementation makes `will_reset_performance(...)` explicitly:
 
 Primary engine path:
 
-- [engine/rules.py](C:/Users/Sandeep/projects/lotus-performance/engine/rules.py)
+- [engine/rules.py](../../engine/rules.py)
   - `calculate_initial_resets(...)`
 
 Current engine equivalent:
@@ -775,7 +775,7 @@ Short summary from supplied formula:
 
 Primary engine path:
 
-- [engine/compute.py](C:/Users/Sandeep/projects/lotus-performance/engine/compute.py)
+- [engine/compute.py](../../engine/compute.py)
   - `run_calculations(...)`
 
 Current diagnostics output:
@@ -853,11 +853,11 @@ This supplied implementation defines contribution average weight using several l
 
 Primary engine path:
 
-- [engine/contribution.py](C:/Users/Sandeep/projects/lotus-performance/engine/contribution.py)
-- [engine/contribution_smoothing.py](C:/Users/Sandeep/projects/lotus-performance/engine/contribution_smoothing.py)
+- [engine/contribution.py](../../engine/contribution.py)
+- [engine/contribution_smoothing.py](../../engine/contribution_smoothing.py)
   - `_calculate_daily_instrument_contributions(...)`
   - `build_hierarchical_contribution_result(...)`
-- [app/services/contribution_service.py](C:/Users/Sandeep/projects/lotus-performance/app/services/contribution_service.py)
+- [app/services/contribution_service.py](../../app/services/contribution_service.py)
 
 Relevant response fields:
 
@@ -957,7 +957,7 @@ This is more than a simple “on/off smoothing”; it is a governed smoothing-da
 
 Primary engine path:
 
-- [engine/contribution.py](C:/Users/Sandeep/projects/lotus-performance/engine/contribution.py)
+- [engine/contribution.py](../../engine/contribution.py)
 
 Relevant current behavior:
 
@@ -1028,8 +1028,8 @@ It also archives intermediate daily smoothing data.
 
 Primary engine path:
 
-- [engine/contribution.py](C:/Users/Sandeep/projects/lotus-performance/engine/contribution.py)
-- [app/services/contribution_service.py](C:/Users/Sandeep/projects/lotus-performance/app/services/contribution_service.py)
+- [engine/contribution.py](../../engine/contribution.py)
+- [app/services/contribution_service.py](../../app/services/contribution_service.py)
 
 ### Assessment
 
@@ -1116,7 +1116,7 @@ This is a full smoothing math framework, not just a generic Carino adjustment.
 
 Primary engine path:
 
-- [engine/contribution.py](C:/Users/Sandeep/projects/lotus-performance/engine/contribution.py)
+- [engine/contribution.py](../../engine/contribution.py)
 
 Current smoothing implementation:
 
@@ -1178,8 +1178,8 @@ and a factory that resolves each metric name to its implementation class.
 
 Primary current implementation paths:
 
-- [engine/contribution.py](C:/Users/Sandeep/projects/lotus-performance/engine/contribution.py)
-- [app/services/contribution_service.py](C:/Users/Sandeep/projects/lotus-performance/app/services/contribution_service.py)
+- [engine/contribution.py](../../engine/contribution.py)
+- [app/services/contribution_service.py](../../app/services/contribution_service.py)
 
 ### Assessment
 
@@ -1239,10 +1239,10 @@ The supplied implementation is a richer portfolio return orchestration model wit
 
 Primary current engine paths:
 
-- [engine/compute.py](C:/Users/Sandeep/projects/lotus-performance/engine/compute.py)
-- [engine/ror.py](C:/Users/Sandeep/projects/lotus-performance/engine/ror.py)
-- [engine/rules.py](C:/Users/Sandeep/projects/lotus-performance/engine/rules.py)
-- [engine/runtime.py](C:/Users/Sandeep/projects/lotus-performance/engine/runtime.py)
+- [engine/compute.py](../../engine/compute.py)
+- [engine/ror.py](../../engine/ror.py)
+- [engine/rules.py](../../engine/rules.py)
+- [engine/runtime.py](../../engine/runtime.py)
 
 ### Assessment
 
@@ -1301,8 +1301,8 @@ This is a reusable portfolio-parameter object, not just a local intermediate.
 
 Primary current related paths:
 
-- [engine/contribution.py](C:/Users/Sandeep/projects/lotus-performance/engine/contribution.py)
-- [engine/ror.py](C:/Users/Sandeep/projects/lotus-performance/engine/ror.py)
+- [engine/contribution.py](../../engine/contribution.py)
+- [engine/ror.py](../../engine/ror.py)
 
 ### Assessment
 
@@ -1354,10 +1354,10 @@ So this is the master reset aggregator.
 
 Primary engine paths:
 
-- [engine/ror.py](C:/Users/Sandeep/projects/lotus-performance/engine/ror.py)
+- [engine/ror.py](../../engine/ror.py)
   - initializes `PERF_RESET` from initial reset controls
   - then overlays `NCTRL_4`
-- [engine/compute.py](C:/Users/Sandeep/projects/lotus-performance/engine/compute.py)
+- [engine/compute.py](../../engine/compute.py)
   - emits diagnostics and reset events from `PERF_RESET`
 
 Current implementation shape:
@@ -1419,7 +1419,7 @@ Short summary from supplied formula:
 
 Primary engine path:
 
-- [engine/ror.py](C:/Users/Sandeep/projects/lotus-performance/engine/ror.py)
+- [engine/ror.py](../../engine/ror.py)
   - `calculate_daily_ror(...)`
 
 ### Assessment
@@ -1468,7 +1468,7 @@ Short summary from supplied formula:
 
 Primary engine path:
 
-- [engine/rules.py](C:/Users/Sandeep/projects/lotus-performance/engine/rules.py)
+- [engine/rules.py](../../engine/rules.py)
   - `calculate_sign(...)`
 
 ### Assessment
@@ -1533,9 +1533,9 @@ So this is a specific forward-looking reset contributor.
 
 Primary engine paths inspected:
 
-- [engine/rules.py](C:/Users/Sandeep/projects/lotus-performance/engine/rules.py)
-- [engine/ror.py](C:/Users/Sandeep/projects/lotus-performance/engine/ror.py)
-- [engine/compute.py](C:/Users/Sandeep/projects/lotus-performance/engine/compute.py)
+- [engine/rules.py](../../engine/rules.py)
+- [engine/ror.py](../../engine/ror.py)
+- [engine/compute.py](../../engine/compute.py)
 
 ### Assessment
 
@@ -1588,9 +1588,9 @@ In percentage terms, this means:
 
 Primary engine path:
 
-- [engine/rules.py](C:/Users/Sandeep/projects/lotus-performance/engine/rules.py)
+- [engine/rules.py](../../engine/rules.py)
   - `calculate_initial_resets(...)`
-- [engine/ror.py](C:/Users/Sandeep/projects/lotus-performance/engine/ror.py)
+- [engine/ror.py](../../engine/ror.py)
   - `calculate_cumulative_ror(...)`
 
 Relevant fields:
@@ -1645,9 +1645,9 @@ In percentage terms, this means:
 
 Primary engine path:
 
-- [engine/rules.py](C:/Users/Sandeep/projects/lotus-performance/engine/rules.py)
+- [engine/rules.py](../../engine/rules.py)
   - `calculate_initial_resets(...)`
-- [engine/ror.py](C:/Users/Sandeep/projects/lotus-performance/engine/ror.py)
+- [engine/ror.py](../../engine/ror.py)
   - `calculate_cumulative_ror(...)`
 
 Relevant fields:
