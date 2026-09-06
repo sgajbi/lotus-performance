@@ -2,11 +2,28 @@
 
 ## Prerequisites
 
-On Windows, GNU Make is not present by default and must be installed separately. winget, Chocolatey, Scoop and MSYS2 all provide it; pick whichever package manager the machine already uses.
-
+- **GNU Make** — every command below is a make target
 - Python environment compatible with the repo toolchain
 - local access to any required upstream Lotus services when exercising stateful flows
 - optional Docker if you want topology-parity or threshold-overlay runs
+
+### Obtaining GNU Make on Windows
+
+Make is not present by default on Windows. What matters is not which package manager supplies it,
+but **whether it lands on the PATH of the shell you run these commands in**.
+
+- winget, Chocolatey and Scoop install onto the system PATH, so make is available from PowerShell.
+  Verified on one maintainer workstation only: `winget install ezwinports.make` yields GNU Make
+  4.4.1 resolving from PowerShell. The other two are not tested here.
+- **MSYS2 is different.** Its `make` package installs inside the MSYS2 prefix and is not normally
+  exposed to PowerShell, so the PowerShell flow below still fails at `make install`. Run these
+  commands from the MSYS2 shell instead, or add its binary directory to PATH.
+
+Confirm before continuing, in the shell you intend to use:
+
+```powershell
+make --version
+```
 
 ## Install
 
