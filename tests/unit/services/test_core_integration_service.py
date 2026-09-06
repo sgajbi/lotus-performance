@@ -4,6 +4,7 @@ import httpx
 import pytest
 
 from app.services.core_integration_service import CoreIntegrationService, _index_catalog_filter_payload
+from app.services.core_tenant_authority import TenantAuthority
 from app.services.http_resilience import close_upstream_http_client_pool, configure_upstream_http_client_pool
 
 
@@ -57,7 +58,11 @@ def _patch_async_client(monkeypatch):
 
 @pytest.mark.asyncio
 async def test_core_service_reuses_managed_client_for_stateful_chunk_requests():
-    service = CoreIntegrationService(base_url="http://core-control", timeout_seconds=2.0)
+    service = CoreIntegrationService(
+        base_url="http://core-control",
+        timeout_seconds=2.0,
+        tenant_authority=TenantAuthority(tenant_id="tenant-sg"),
+    )
     _FakeAsyncClient.queue_json(200, {"observations": []})
     _FakeAsyncClient.queue_json(200, {"rows": []})
     configure_upstream_http_client_pool(
@@ -95,7 +100,11 @@ async def test_core_service_reuses_managed_client_for_stateful_chunk_requests():
 
 @pytest.mark.asyncio
 async def test_get_portfolio_analytics_timeseries_posts_contract_payload():
-    service = CoreIntegrationService(base_url="http://core-control", timeout_seconds=2.0)
+    service = CoreIntegrationService(
+        base_url="http://core-control",
+        timeout_seconds=2.0,
+        tenant_authority=TenantAuthority(tenant_id="tenant-sg"),
+    )
     _FakeAsyncClient.queue_json(200, {"observations": []})
 
     status_code, payload = await service.get_portfolio_analytics_timeseries(
@@ -120,7 +129,11 @@ async def test_get_portfolio_analytics_timeseries_posts_contract_payload():
 
 @pytest.mark.asyncio
 async def test_get_benchmark_assignment_posts_contract_payload():
-    service = CoreIntegrationService(base_url="http://core-control", timeout_seconds=2.0)
+    service = CoreIntegrationService(
+        base_url="http://core-control",
+        timeout_seconds=2.0,
+        tenant_authority=TenantAuthority(tenant_id="tenant-sg"),
+    )
     _FakeAsyncClient.queue_json(200, {"benchmark_id": "BMK_1"})
 
     status_code, payload = await service.get_benchmark_assignment(
@@ -137,7 +150,11 @@ async def test_get_benchmark_assignment_posts_contract_payload():
 
 @pytest.mark.asyncio
 async def test_get_portfolio_analytics_reference_posts_contract_payload():
-    service = CoreIntegrationService(base_url="http://core-control", timeout_seconds=2.0)
+    service = CoreIntegrationService(
+        base_url="http://core-control",
+        timeout_seconds=2.0,
+        tenant_authority=TenantAuthority(tenant_id="tenant-sg"),
+    )
     _FakeAsyncClient.queue_json(200, {"portfolio_open_date": "2024-01-01"})
 
     status_code, payload = await service.get_portfolio_analytics_reference(
@@ -153,7 +170,11 @@ async def test_get_portfolio_analytics_reference_posts_contract_payload():
 
 @pytest.mark.asyncio
 async def test_get_benchmark_return_series_posts_contract_payload():
-    service = CoreIntegrationService(base_url="http://core", timeout_seconds=2.0)
+    service = CoreIntegrationService(
+        base_url="http://core",
+        timeout_seconds=2.0,
+        tenant_authority=TenantAuthority(tenant_id="tenant-sg"),
+    )
     _FakeAsyncClient.queue_json(200, {"points": []})
 
     status_code, payload = await service.get_benchmark_return_series(
@@ -170,7 +191,11 @@ async def test_get_benchmark_return_series_posts_contract_payload():
 
 @pytest.mark.asyncio
 async def test_get_position_analytics_timeseries_posts_contract_payload():
-    service = CoreIntegrationService(base_url="http://core-control", timeout_seconds=2.0)
+    service = CoreIntegrationService(
+        base_url="http://core-control",
+        timeout_seconds=2.0,
+        tenant_authority=TenantAuthority(tenant_id="tenant-sg"),
+    )
     _FakeAsyncClient.queue_json(200, {"rows": []})
 
     status_code, payload = await service.get_position_analytics_timeseries(
@@ -201,7 +226,11 @@ async def test_get_position_analytics_timeseries_posts_contract_payload():
 
 @pytest.mark.asyncio
 async def test_get_performance_component_economics_posts_contract_payload():
-    service = CoreIntegrationService(base_url="http://core-control", timeout_seconds=2.0)
+    service = CoreIntegrationService(
+        base_url="http://core-control",
+        timeout_seconds=2.0,
+        tenant_authority=TenantAuthority(tenant_id="tenant-sg"),
+    )
     _FakeAsyncClient.queue_json(200, {"product_name": "PerformanceComponentEconomics"})
 
     status_code, payload = await service.get_performance_component_economics(
@@ -230,7 +259,11 @@ async def test_get_performance_component_economics_posts_contract_payload():
 
 @pytest.mark.asyncio
 async def test_get_benchmark_definition_posts_contract_payload():
-    service = CoreIntegrationService(base_url="http://core", timeout_seconds=2.0)
+    service = CoreIntegrationService(
+        base_url="http://core",
+        timeout_seconds=2.0,
+        tenant_authority=TenantAuthority(tenant_id="tenant-sg"),
+    )
     _FakeAsyncClient.queue_json(200, {"benchmark_id": "BMK_2"})
 
     status_code, payload = await service.get_benchmark_definition(
@@ -246,7 +279,11 @@ async def test_get_benchmark_definition_posts_contract_payload():
 
 @pytest.mark.asyncio
 async def test_get_benchmark_composition_window_posts_contract_payload():
-    service = CoreIntegrationService(base_url="http://core", timeout_seconds=2.0)
+    service = CoreIntegrationService(
+        base_url="http://core",
+        timeout_seconds=2.0,
+        tenant_authority=TenantAuthority(tenant_id="tenant-sg"),
+    )
     _FakeAsyncClient.queue_json(200, {"segments": []})
 
     status_code, payload = await service.get_benchmark_composition_window(
@@ -263,7 +300,11 @@ async def test_get_benchmark_composition_window_posts_contract_payload():
 
 @pytest.mark.asyncio
 async def test_get_benchmark_market_series_posts_contract_payload():
-    service = CoreIntegrationService(base_url="http://core", timeout_seconds=2.0)
+    service = CoreIntegrationService(
+        base_url="http://core",
+        timeout_seconds=2.0,
+        tenant_authority=TenantAuthority(tenant_id="tenant-sg"),
+    )
     _FakeAsyncClient.queue_json(200, {"component_series": []})
 
     status_code, payload = await service.get_benchmark_market_series(
@@ -284,7 +325,11 @@ async def test_get_benchmark_market_series_posts_contract_payload():
 
 @pytest.mark.asyncio
 async def test_get_benchmark_market_series_uses_default_series_fields_when_not_overridden():
-    service = CoreIntegrationService(base_url="http://core", timeout_seconds=2.0)
+    service = CoreIntegrationService(
+        base_url="http://core",
+        timeout_seconds=2.0,
+        tenant_authority=TenantAuthority(tenant_id="tenant-sg"),
+    )
     _FakeAsyncClient.queue_json(200, {"component_series": []})
 
     status_code, payload = await service.get_benchmark_market_series(
@@ -302,7 +347,11 @@ async def test_get_benchmark_market_series_uses_default_series_fields_when_not_o
 
 @pytest.mark.asyncio
 async def test_get_index_catalog_posts_contract_payload():
-    service = CoreIntegrationService(base_url="http://core", timeout_seconds=2.0)
+    service = CoreIntegrationService(
+        base_url="http://core",
+        timeout_seconds=2.0,
+        tenant_authority=TenantAuthority(tenant_id="tenant-sg"),
+    )
     _FakeAsyncClient.queue_json(200, {"records": []})
 
     status_code, payload = await service.get_index_catalog(
@@ -343,7 +392,11 @@ async def test_get_fx_rates_uses_query_params_contract(monkeypatch):
         return 200, {"points": []}
 
     monkeypatch.setattr("app.services.core_integration_service.get_with_retry", _fake_get_with_retry)
-    service = CoreIntegrationService(base_url="http://core", timeout_seconds=2.0)
+    service = CoreIntegrationService(
+        base_url="http://core",
+        timeout_seconds=2.0,
+        tenant_authority=TenantAuthority(tenant_id="tenant-sg"),
+    )
 
     status_code, payload = await service.get_fx_rates(
         from_currency="EUR",
@@ -365,7 +418,11 @@ async def test_get_fx_rates_uses_query_params_contract(monkeypatch):
 
 @pytest.mark.asyncio
 async def test_get_index_price_series_posts_contract_payload():
-    service = CoreIntegrationService(base_url="http://core", timeout_seconds=2.0)
+    service = CoreIntegrationService(
+        base_url="http://core",
+        timeout_seconds=2.0,
+        tenant_authority=TenantAuthority(tenant_id="tenant-sg"),
+    )
     _FakeAsyncClient.queue_json(200, {"points": []})
 
     status_code, payload = await service.get_index_price_series(
@@ -384,7 +441,11 @@ async def test_get_index_price_series_posts_contract_payload():
 
 @pytest.mark.asyncio
 async def test_get_risk_free_series_posts_contract_payload():
-    service = CoreIntegrationService(base_url="http://core", timeout_seconds=2.0)
+    service = CoreIntegrationService(
+        base_url="http://core",
+        timeout_seconds=2.0,
+        tenant_authority=TenantAuthority(tenant_id="tenant-sg"),
+    )
     _FakeAsyncClient.queue_json(200, {"points": []})
 
     status_code, payload = await service.get_risk_free_series(
@@ -401,7 +462,11 @@ async def test_get_risk_free_series_posts_contract_payload():
 
 @pytest.mark.asyncio
 async def test_get_risk_free_series_supports_series_mode_override():
-    service = CoreIntegrationService(base_url="http://core", timeout_seconds=2.0)
+    service = CoreIntegrationService(
+        base_url="http://core",
+        timeout_seconds=2.0,
+        tenant_authority=TenantAuthority(tenant_id="tenant-sg"),
+    )
     _FakeAsyncClient.queue_json(200, {"points": []})
 
     await service.get_risk_free_series(
