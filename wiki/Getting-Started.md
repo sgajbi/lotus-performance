@@ -16,8 +16,10 @@ but **whether it lands on the PATH of the shell you run these commands in**.
   Verified on one maintainer workstation only: `winget install ezwinports.make` yields GNU Make
   4.4.1 resolving from PowerShell. The other two are not tested here.
 - **MSYS2 is different.** Its `make` package installs inside the MSYS2 prefix and is not normally
-  exposed to PowerShell, so the PowerShell flow below still fails at `make install`. Run these
-  commands from the MSYS2 shell instead, or add its binary directory to PATH.
+  exposed to PowerShell, so the PowerShell flow below still fails at `make install`. Either add
+  its binary directory to PATH, or run everything from the MSYS2 shell using the POSIX commands
+  given alongside the PowerShell ones below -- `Get-Command` and `Activate.ps1` are PowerShell
+  syntax and will not run there.
 
 ### Make also needs a POSIX shell for the coverage targets
 
@@ -31,17 +33,29 @@ Affected: `test-coverage-shard` (`Makefile:45`), and therefore `test-coverage`, 
 and `ci`; `ci-local` (`Makefile:85`); `branch-coverage-baseline` (`Makefile:52-54`). Not
 affected: `lint`, `typecheck` and `test-unit`, which use no leading assignments.
 
-Confirm before continuing, in the shell you intend to use, that make is present **and** that a
-POSIX shell backs it:
+Confirm before continuing, in the shell you intend to use, that make is present and that a
+POSIX shell actually backs it:
 
-```powershell
+```
 make --version
-Get-Command sh.exe
+make shell-check
 ```
 
-If `sh.exe` does not resolve, install Git for Windows (which supplies one at
-`C:\Program Files\Git\usr\bin\sh.exe`) and confirm it is on PATH, or set `SHELL` to a POSIX
-shell before invoking make. Running the commands from Git Bash or MSYS2 satisfies this too.
+Both commands are shell-neutral and work from PowerShell, Git Bash, MSYS2 and WSL alike.
+
+`make shell-check` prints the `SHELL` make is really using and then runs a recipe line with a
+leading `VAR=value` assignment, checking in Python that the variable arrived. That is the
+construct the coverage targets depend on, so the check exercises the real thing.
+
+Testing for `sh.exe` on PATH would not be enough: make prefers an explicitly set `SHELL` over
+any `sh.exe` it can find, so on a machine with `SHELL` pointing at `cmd.exe` the file exists,
+the check passes, and the recipes still fail. A prerequisite check that passes in the failing
+case is the same defect this section documents.
+
+If `make shell-check` fails, install Git for Windows (which supplies a POSIX shell at
+`C:\Program Files\Git\usr\bin\sh.exe`), ensure it is on PATH, and clear or repoint any
+`SHELL` you have set to a non-POSIX shell. Running the commands from Git Bash, MSYS2 or WSL
+satisfies the requirement directly.
 
 This is where the earlier PowerShell verification on a maintainer workstation was misleading:
 Git for Windows was already installed there, so make resolved
@@ -71,8 +85,25 @@ On Windows PowerShell:
 ```powershell
 python -m venv .venv
 .\.venv\Scripts\Activate.ps1
+if ((Get-Command python).Source -ne (Resolve-Path .\.venv\Scripts\python.exe).Path) {
+    throw "venv is not active - do not run make install, it would install globally"
+}
 make install
 ```
+
+On Windows from Git Bash, MSYS2 or WSL, which is the route the POSIX-shell requirement above
+recommends. Note `Scripts`, not `bin`: a virtualenv created by Windows Python uses the
+Windows layout whatever shell you activate it from, so the Linux block above does not apply.
+
+```bash
+python -m venv .venv
+. .venv/Scripts/activate && make install
+```
+
+The `&&` is deliberate in both Windows blocks. `make install` runs `pip install` directly, so
+an activation that failed silently would install into the system interpreter -- the outcome
+the paragraph above exists to prevent. Under WSL, use the Linux block instead: a WSL
+virtualenv is a Linux one and uses `bin`.
 
 ## Run locally
 

@@ -1,4 +1,4 @@
-.PHONY: install install-ci verify-dependencies check check-all test test-unit test-unit-order-stability test-integration test-e2e test-all test-coverage test-coverage-shard coverage-combine-gate branch-coverage-baseline coverage-gate ci ci-local ci-local-docker ci-local-docker-down typecheck lint quality-baseline quality-complexity-gate quality-architecture-gate quality-router-thinness-gate quality-duplicate-code-gate quality-observability-readiness-gate quality-test-taxonomy-gate quality-evaluation-gate license-compliance-gate python-security-gate calculation-engine-version-gate github-action-runtime-guard monetary-float-guard repository-hygiene-gate demo-api-certification idea-opportunity-evidence-gate idea-opportunity-runtime-evidence format clean run check-deps security-audit openapi-gate api-vocabulary-gate no-alias-gate domain-product-validate migration-smoke migration-apply recovery-drill-smoke runtime-retention-smoke lineage-volume-recovery-smoke performance-characterization performance-characterization-postgres pre-commit docker-up docker-down docker-build container-supply-chain-evidence container-sbom container-vulnerability-report container-vulnerability-gate
+.PHONY: shell-check install install-ci verify-dependencies check check-all test test-unit test-unit-order-stability test-integration test-e2e test-all test-coverage test-coverage-shard coverage-combine-gate branch-coverage-baseline coverage-gate ci ci-local ci-local-docker ci-local-docker-down typecheck lint quality-baseline quality-complexity-gate quality-architecture-gate quality-router-thinness-gate quality-duplicate-code-gate quality-observability-readiness-gate quality-test-taxonomy-gate quality-evaluation-gate license-compliance-gate python-security-gate calculation-engine-version-gate github-action-runtime-guard monetary-float-guard repository-hygiene-gate demo-api-certification idea-opportunity-evidence-gate idea-opportunity-runtime-evidence format clean run check-deps security-audit openapi-gate api-vocabulary-gate no-alias-gate domain-product-validate migration-smoke migration-apply recovery-drill-smoke runtime-retention-smoke lineage-volume-recovery-smoke performance-characterization performance-characterization-postgres pre-commit docker-up docker-down docker-build container-supply-chain-evidence container-sbom container-vulnerability-report container-vulnerability-gate
 
 SUITE ?= unit
 TEST_PATH ?= tests/unit
@@ -141,6 +141,11 @@ performance-characterization-postgres:
 
 migration-apply:
 	python scripts/durable_schema_apply.py --output-dir artifacts/durable-schema-apply
+
+shell-check:
+	@echo "make is running recipes through SHELL=$(SHELL)"
+	LOTUS_SHELL_PROBE=posix python -c "import os,sys; sys.exit(0 if os.environ.get('LOTUS_SHELL_PROBE')=='posix' else 1)"
+	@echo "Leading VAR=value assignments work, so the coverage targets will run."
 
 lint:
 	python -m ruff check .
