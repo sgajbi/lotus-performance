@@ -8,7 +8,23 @@
 
 ## Install
 
+`make install` runs `pip install` directly rather than into a managed environment, so create and
+activate a virtualenv FIRST. PEP 668 distributions (most current Linux packages, and Homebrew
+Python on macOS) mark the system interpreter externally managed and refuse a system-wide
+`pip install`, so on such a machine this step fails before anything else runs. This has not been
+reproduced by the maintainers: it is the specified behaviour of PEP 668, not an observed error.
+CI does not need the step because `actions/setup-python` supplies an isolated interpreter, which
+is why the requirement stays invisible in a green pipeline.
+
 ```bash
+python -m venv .venv
+
+# POSIX
+. .venv/bin/activate
+
+# Windows PowerShell
+# .venv/Scripts/Activate.ps1
+
 make install
 ```
 
