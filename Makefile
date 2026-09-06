@@ -144,7 +144,7 @@ migration-apply:
 
 shell-check:
 	@echo "make is running recipes through SHELL=$(SHELL)"
-	LOTUS_SHELL_PROBE=posix python -c "import os,sys; sys.exit(0 if os.environ.get('LOTUS_SHELL_PROBE')=='posix' else 1)"
+	LOTUS_SHELL_PROBE=posix $$(command -v python3 || command -v python) -c "import os,sys; sys.exit(0 if os.environ.get('LOTUS_SHELL_PROBE')=='posix' else 1)"
 	@echo "Leading VAR=value assignments work, so the coverage targets will run."
 
 lint:
