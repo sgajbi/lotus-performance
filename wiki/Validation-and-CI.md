@@ -192,10 +192,13 @@ and creates `output/container-security/lotus-performance-image-vulnerabilities.j
 `GET /version` exposes the same support-safe metadata shape for release audit. PR Merge Gate and
 Main Releasability upload those artifacts. Main Releasability also attests SBOM provenance.
 
-The vulnerability report is currently report-only while the first artifacts are reviewed. Promote
-`make container-vulnerability-gate` to blocking only after high/critical findings are either zero
-or explicitly accepted with owner, expiry, advisory identity, affected version, and remediation
-path.
+`make container-vulnerability-gate` is blocking. It ran report-only until the first artifacts were
+reviewed,
+and promotion required every high/critical finding to be zero or explicitly accepted with owner,
+expiry, advisory identity, affected version, and remediation path. The accepted set is
+`quality/container_vulnerability_acceptances.v1.json`; `make container-acceptance-gate` validates
+it against the live scan and refuses an acceptance that has gained an upstream fix, lost its
+package match after a base image change, or passed its expiry.
 
 ## References
 

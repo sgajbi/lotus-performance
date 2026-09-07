@@ -92,6 +92,8 @@ jobs:
         run: make quality-evaluation-gate
       - name: Migration Contract Smoke
         run: make migration-smoke
+      - name: License Compliance Gate
+        run: make license-compliance-gate
       - name: Security Audit
         run: make security-audit
       - name: Python Security Gate
@@ -208,8 +210,11 @@ jobs:
         run: |
           CONTAINER_BUILD_TIMESTAMP="$(date -u +'%Y-%m-%dT%H:%M:%SZ')" make container-supply-chain-evidence
       - name: Upload container supply-chain evidence
+        if: always()
         uses: actions/upload-artifact@v7
         with:
           name: pr-merge-container-supply-chain-evidence
           path: output/container-security/*.json
           if-no-files-found: error
+      - name: Container Vulnerability Gate
+        run: make container-vulnerability-gate

@@ -351,10 +351,12 @@ The local mapping is:
   CycloneDX SBOM and high/critical Trivy vulnerability report under `output/container-security/`,
   and is published by PR/Main workflows. Main Releasability also attests the SBOM artifact. Runtime
   `GET /version` exposes the same support-safe metadata shape so operators can correlate a live
-  service to image labels and release evidence. The vulnerability report is report-only until the
-  first PR/main baseline is reviewed; promotion to strict blocking uses
-  `make container-vulnerability-gate` and the exception policy in
-  [quality/container_supply_chain_report.md](quality/container_supply_chain_report.md).
+  service to image labels and release evidence. `make container-vulnerability-gate` is blocking in
+  PR Merge Gate and Main Releasability. Unfixable base-image advisories are accepted individually
+  under the exception policy in
+  [quality/container_supply_chain_report.md](quality/container_supply_chain_report.md), each bound
+  to package identity, affected version, owner, expiry and remediation path; anything with an
+  upstream fix must be fixed rather than accepted.
 - `make license-compliance-gate`
   validates that `LICENSE`, dependency license policy, and generated first-/third-party inventory
   remain aligned before release. Run `python scripts/license_compliance_inventory.py --write` after

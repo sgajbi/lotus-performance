@@ -1,4 +1,4 @@
-.PHONY: install install-ci verify-dependencies check check-all test test-unit test-unit-order-stability test-integration test-e2e test-all test-coverage test-coverage-shard coverage-combine-gate branch-coverage-baseline coverage-gate ci ci-local ci-local-docker ci-local-docker-down typecheck lint quality-baseline quality-complexity-gate quality-architecture-gate quality-router-thinness-gate quality-duplicate-code-gate quality-observability-readiness-gate quality-test-taxonomy-gate quality-evaluation-gate license-compliance-gate python-security-gate calculation-engine-version-gate github-action-runtime-guard monetary-float-guard repository-hygiene-gate demo-api-certification idea-opportunity-evidence-gate idea-opportunity-runtime-evidence format clean run check-deps security-audit openapi-gate api-vocabulary-gate no-alias-gate domain-product-validate migration-smoke migration-apply recovery-drill-smoke runtime-retention-smoke lineage-volume-recovery-smoke performance-characterization performance-characterization-postgres pre-commit docker-up docker-down docker-build container-supply-chain-evidence container-sbom container-vulnerability-report container-vulnerability-gate
+.PHONY: container-acceptance-gate install install-ci verify-dependencies check check-all test test-unit test-unit-order-stability test-integration test-e2e test-all test-coverage test-coverage-shard coverage-combine-gate branch-coverage-baseline coverage-gate ci ci-local ci-local-docker ci-local-docker-down typecheck lint quality-baseline quality-complexity-gate quality-architecture-gate quality-router-thinness-gate quality-duplicate-code-gate quality-observability-readiness-gate quality-test-taxonomy-gate quality-evaluation-gate license-compliance-gate python-security-gate calculation-engine-version-gate github-action-runtime-guard monetary-float-guard repository-hygiene-gate demo-api-certification idea-opportunity-evidence-gate idea-opportunity-runtime-evidence format clean run check-deps security-audit openapi-gate api-vocabulary-gate no-alias-gate domain-product-validate migration-smoke migration-apply recovery-drill-smoke runtime-retention-smoke lineage-volume-recovery-smoke performance-characterization performance-characterization-postgres pre-commit docker-up docker-down docker-build container-supply-chain-evidence container-sbom container-vulnerability-report container-vulnerability-gate
 
 SUITE ?= unit
 TEST_PATH ?= tests/unit
@@ -232,7 +232,22 @@ container-sbom:
 
 container-vulnerability-report:
 	python -c "from pathlib import Path; Path('$(CONTAINER_SECURITY_OUTPUT_DIR)').mkdir(parents=True, exist_ok=True)"
-	docker run --rm -v /var/run/docker.sock:/var/run/docker.sock -v "$(CURDIR)/$(CONTAINER_SECURITY_OUTPUT_DIR):/output" $(TRIVY_IMAGE) image --scanners vuln --severity $(TRIVY_SEVERITY) --ignore-unfixed --format json --output /output/lotus-performance-image-vulnerabilities.json --exit-code 0 $(CONTAINER_IMAGE)
+	docker run --rm -v /var/run/docker.sock:/var/run/docker.sock -v "$(CURDIR)/$(CONTAINER_SECURITY_OUTPUT_DIR):/output" $(TRIVY_IMAGE) image --scanners vuln --severity $(TRIVY_SEVERITY) --ignore-unfixed --format json --output /output/lotus-performance-image-fixable.json --exit-code 0 $(CONTAINER_IMAGE)
+	docker run --rm -v /var/run/docker.sock:/var/run/docker.sock -v "$(CURDIR)/$(CONTAINER_SECURITY_OUTPUT_DIR):/output" $(TRIVY_IMAGE) image --scanners vuln --severity $(TRIVY_SEVERITY) --format json --output /output/lotus-performance-image-vulnerabilities.json --exit-code 0 $(CONTAINER_IMAGE)
 
-container-vulnerability-gate:
-	docker run --rm -v /var/run/docker.sock:/var/run/docker.sock $(TRIVY_IMAGE) image --scanners vuln --severity $(TRIVY_SEVERITY) --ignore-unfixed --exit-code 1 $(CONTAINER_IMAGE)
+# Still no --ignore-unfixed, unlike the report target above: the promotion policy in
+# quality/container_supply_chain_report.md requires every high/critical finding to be zero or
+# explicitly accepted, and silently excluding the unfixable ones would let the gate pass on
+# advisories the policy says must be recorded.
+#
+# The acceptances are now supplied, which is the half that was missing. Without them the gate
+# failed on 18 base-image advisories that carry no upstream fix, so no change this repository
+# could make would ever have cleared it -- a gate with no passing state blocks everything and
+# enforces nothing. .trivyignore.yaml records each one with a statement and an expiry, and
+# tests/unit/scripts/test_container_vulnerability_acceptances.py refuses to let anything
+# fixable be accepted or an acceptance outlive its date.
+container-acceptance-gate:
+	python scripts/container_acceptance_gate.py
+
+container-vulnerability-gate: container-vulnerability-report container-acceptance-gate
+	docker run --rm -v /var/run/docker.sock:/var/run/docker.sock -v "$(CURDIR)/.trivyignore.yaml:/tmp/.trivyignore.yaml:ro" $(TRIVY_IMAGE) image --scanners vuln --severity $(TRIVY_SEVERITY) --ignorefile /tmp/.trivyignore.yaml --exit-code 1 $(CONTAINER_IMAGE)
