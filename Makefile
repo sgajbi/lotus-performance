@@ -144,7 +144,7 @@ migration-apply:
 
 shell-check:
 	@echo "make is running recipes through SHELL=$(SHELL)"
-	LOTUS_SHELL_PROBE=posix sh -c 'test "$$LOTUS_SHELL_PROBE" = posix'
+	LOTUS_SHELL_PROBE=posix eval 'test "$$LOTUS_SHELL_PROBE" = posix'
 	@echo "Leading VAR=value assignments work, so the coverage targets will run."
 
 lint:
