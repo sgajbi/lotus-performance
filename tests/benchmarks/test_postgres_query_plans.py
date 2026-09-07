@@ -122,6 +122,7 @@ def test_postgres_compute_queue_stats_plan_contract():
         store.enqueue_job(
             calculation_id=uuid4(),
             analytics_type="ReturnsSeries",
+            tenant_id="tenant-test",
             request_payload={"row_index": row_index},
         )
 
