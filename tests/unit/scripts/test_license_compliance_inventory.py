@@ -28,7 +28,14 @@ def test_license_compliance_inventory_matches_policy() -> None:
     packages_by_name = {package.normalized_name: package for package in packages}
 
     assert issues == []
-    assert len(packages) == 46
+    assert len(packages) == 47
+    # setuptools is the 47th. It is not imported by application code, but the runtime
+    # image installs and retains it, so a licence gate that inventoried only the two
+    # requirements files never evaluated a package the image actually ships. It is
+    # declared once in requirements-image.txt, which both the Dockerfile and the
+    # development environment install from, so the pin has a single authority.
+    assert packages_by_name["setuptools"].review_status == "allowed"
+    assert packages_by_name["setuptools"].sources == ("image",)
     assert packages_by_name["pytest-randomly"].review_status == "allowed"
     assert packages_by_name["certifi"].review_status == "review_required_exception"
     assert packages_by_name["psycopg"].review_status == "review_required_exception"
@@ -75,8 +82,15 @@ def test_conflicting_exact_pins_fail_policy(tmp_path, monkeypatch) -> None:
 
 
 def test_poetry_manifest_and_lock_match_governed_exact_pins() -> None:
+    # Application dependencies only. Packages declared in requirements-image.txt ship
+    # inside the runtime image but are never imported by application code, so poetry has
+    # no reason to declare them -- and this assertion exists to keep poetry and the
+    # application requirement pins in step, not to require poetry to own the image's
+    # build tooling. Their exact-pin discipline is checked by the inventory itself.
     requirement_pins = {
-        entry.normalized_name: pin for entry in _load_requirements() if (pin := _exact_pin(entry)) is not None
+        entry.normalized_name: pin
+        for entry in _load_requirements()
+        if entry.source != "image" and (pin := _exact_pin(entry)) is not None
     }
     pyproject = tomllib.loads((ROOT / "pyproject.toml").read_text(encoding="utf-8"))
     poetry = pyproject["tool"]["poetry"]

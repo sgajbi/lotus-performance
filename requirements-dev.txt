@@ -1,3 +1,8 @@
+# Packages the runtime image ships but application code never imports. Installed here
+# too so the licence gate can read their metadata from one governed pin rather than
+# carrying a second copy of the version.
+-r requirements-image.txt
+
 pytest==9.0.3
 pytest-cov==4.1.0
 httpx==0.28.1
