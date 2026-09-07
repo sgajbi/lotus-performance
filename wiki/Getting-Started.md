@@ -33,15 +33,18 @@ Affected: `test-coverage-shard` (`Makefile:45`), and therefore `test-coverage`, 
 and `ci`; `ci-local` (`Makefile:85`); `branch-coverage-baseline` (`Makefile:52-54`). Not
 affected: `lint`, `typecheck` and `test-unit`, which use no leading assignments.
 
-Confirm before continuing, in the shell you intend to use, that make is present and that a
-POSIX shell actually backs it:
+Confirm before continuing, **from the `lotus-performance` repository root** and in the shell you
+intend to use, that make is present and that a POSIX shell actually backs it:
 
 ```
 make --version
 make shell-check
 ```
 
-Both commands are shell-neutral and work from PowerShell, Git Bash, MSYS2 and WSL alike.
+The working directory matters: `make shell-check` is a target in this repository's Makefile, so
+run from anywhere else it fails with "No rule to make target" on a machine that is configured
+correctly. Both commands are otherwise shell-neutral and work from PowerShell, Git Bash, MSYS2 and
+WSL alike.
 
 `make shell-check` prints the `SHELL` make is really using and then runs a recipe line with a
 leading `VAR=value` assignment, checking in Python that the variable arrived. That is the
