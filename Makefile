@@ -249,5 +249,5 @@ container-vulnerability-report:
 # in quality/container_vulnerability_acceptances.v1.json, with owner, expiry, package
 # identity and severity, and validated against that scan. That is the difference between
 # a recorded decision and a hidden one.
-container-vulnerability-gate: container-vulnerability-report
-	python scripts/container_acceptance_gate.py
+container-vulnerability-gate: docker-build container-vulnerability-report
+	python scripts/container_acceptance_gate.py --scan $(CONTAINER_SECURITY_OUTPUT_DIR)/lotus-performance-image-vulnerabilities.json

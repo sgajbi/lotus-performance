@@ -2436,3 +2436,53 @@ def test_current_inventory_prose_carries_no_stale_totals():
         assert f"| {suite} | {modules} | {count} |" in inventory, (
             f"Inventory suite table is stale for {suite}: measured {modules} modules, " f"{count} test functions"
         )
+
+
+def test_every_documented_make_target_exists() -> None:
+    """A command a reader is told to run must be a command that runs.
+
+    Review of #500 found seven documents directing operators to
+    `make container-acceptance-gate`, which has no rule. They were written while
+    the design still had a separate acceptance target, and consolidating it into
+    `container-vulnerability-gate` left every sentence behind. The gate wiring was
+    reviewed; the sentences telling an operator how to invoke it were not.
+
+    The obvious repair is to grep for the old name whenever a target is renamed.
+    That works only for renames you remember to sweep, and it cannot find a
+    reference to a target that never existed -- a plausible-looking name in a new
+    document reads exactly like a correct one. This asserts the invariant instead:
+    *every* `make X` in the documentation resolves against the Makefile, which
+    needs no knowledge of which targets were renamed and covers a document added
+    six months from now.
+
+    Flags are skipped because `make --version` and `make -n` are not targets.
+    """
+
+    makefile = (REPO_ROOT / "Makefile").read_text(encoding="utf-8")
+    targets = set(re.findall(r"^([A-Za-z0-9_.-]+)\s*:(?!=)", makefile, re.M))
+    for declared in re.findall(r"^\.PHONY:\s*(.+)$", makefile, re.M):
+        targets.update(declared.split())
+
+    referenced: dict[str, set[str]] = {}
+    for document in sorted(REPO_ROOT.rglob("*.md")):
+        relative = document.relative_to(REPO_ROOT).as_posix()
+        if relative.startswith((".venv/", "node_modules/", "output/")):
+            continue
+        for match in re.finditer(r"`make\s+([A-Za-z0-9_.-]+)", document.read_text(encoding="utf-8")):
+            referenced.setdefault(match.group(1), set()).add(relative)
+
+    assert len(referenced) > 20, (
+        f"only {len(referenced)} documented make targets found; the reference pattern has stopped "
+        f"matching and this check would pass over nothing"
+    )
+
+    missing = {
+        target: sorted(documents)
+        for target, documents in referenced.items()
+        if not target.startswith("-") and target not in targets
+    }
+    assert missing == {}, (
+        f"documentation directs operators to make targets that do not exist: "
+        f"{ {target: documents[:3] for target, documents in sorted(missing.items())} }. "
+        f"Either add the rule or name the target that does the work."
+    )
