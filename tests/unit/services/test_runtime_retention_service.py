@@ -105,6 +105,7 @@ def test_runtime_retention_cleanup_dry_run_and_apply(tmp_path, mocker):
         compute_store.enqueue_job(
             calculation_id=calculation_id,
             analytics_type="ReturnsSeries",
+            tenant_id="tenant-test",
             request_payload={"calculation_id": str(calculation_id)},
         )
         compute_store.mark_complete(calculation_id, response_payload={"ok": True})
