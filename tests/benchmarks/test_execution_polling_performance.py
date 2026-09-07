@@ -44,6 +44,7 @@ def test_execution_polling_characterization_contract(tmp_path):
     compute_store.enqueue_job(
         calculation_id=calculation_id,
         analytics_type="ReturnsSeries",
+        tenant_id="tenant-test",
         request_payload={"portfolio_id": "PF-CHAR"},
     )
     compute_store.mark_complete(calculation_id, response_payload={"status": "complete"})
