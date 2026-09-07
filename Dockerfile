@@ -47,12 +47,18 @@ COPY requirements.txt ./
 # are declarations inside pip. Deleting the manifest would have hidden the
 # finding; removing the installer removes the thing the manifest describes.
 #
+# All three build tools are pinned, not only the one that survives. Removing pip and
+# wheel from the runtime image stops them being scanned; it does not make the build
+# reproducible, because an unpinned pip still resolves whatever PyPI serves at build
+# time and that pip decides how every other dependency resolves. The same commit could
+# then produce a different image with nothing in this repository to point at.
+#
 # setuptools stays, and is pinned. It remains importable through pkg_resources for
 # libraries that still expect it, and an unpinned upgrade would resolve whatever PyPI
 # serves at build time -- so the same commit could produce a different SBOM, or start
 # failing this now-blocking gate, with no change in this repository to point at. pip and
 # wheel need no pin because they do not survive into the image.
-RUN pip install --no-cache-dir --root-user-action=ignore --upgrade pip 'setuptools==84.0.0' wheel && \
+RUN pip install --no-cache-dir --root-user-action=ignore --upgrade 'pip==26.2.1' 'setuptools==84.0.0' 'wheel==0.48.0' && \
     pip install --no-cache-dir --root-user-action=ignore -r requirements.txt && \
     find /usr/local/lib/python3.11/ensurepip -name '*.whl' -delete && \
     python -m pip uninstall --yes pip wheel
