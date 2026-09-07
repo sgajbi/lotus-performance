@@ -1,85 +1,140 @@
-"""Refuse to accept a container finding that has an upstream fix.
+"""Hold container vulnerability acceptances to what the promotion policy demands.
 
-`.trivyignore.yaml` exists so the vulnerability gate can pass on base-image
-advisories with no published fix. It is also the easiest place in the repository
-to make a real, fixable finding disappear, so the rule that keeps it honest is
-that nothing fixable may be accepted.
+`quality/container_supply_chain_report.md` requires each accepted exception to be
+"narrow, time-bound, and tied to image package identity, severity, CVE/advisory
+identifier, affected version, fixed version if available, and owner". Trivy's
+ignore file carries an id, a sentence and a date, and nothing else -- so it can
+express the suppression but not the policy. The governed record in
+`quality/container_vulnerability_acceptances.v1.json` carries the rest, and this
+gate is what keeps the two honest against a live scan.
 
-That check needs the fixable scan report, which only exists in the lane that
-scans the image. It started life as a unit test with a `skipif` on the report's
-absence -- which would have skipped in every lane that runs unit tests, and run
-in none of them. A check that is always skipped is reported as green and
-enforces nothing, so it lives here instead, in the lane that has the evidence.
+Four rules, each for a way an acceptance file goes wrong:
 
-Reads the report produced by `make container-vulnerability-report`, which scans
-with --ignore-unfixed: everything it lists therefore has a fix available.
+  * nothing with an upstream fix may be accepted -- otherwise this becomes the
+    cheapest place in the repository to make a real finding disappear
+  * every suppressed id must have a governed record, and every governed record
+    every required field, so a bare id cannot silently suppress anything
+  * an acceptance must still describe the image: the base tag floats, so the same
+    CVE can reappear in a different package or version, and a record naming the
+    old one would keep suppressing a finding nobody has looked at
+  * an expired acceptance fails, so the base image decision is revisited rather
+    than inherited by whoever is on duty
+
+Every check reads a scan of the current image. A missing or empty report is a
+refusal rather than a pass: this gate must never conclude "nothing to answer for"
+from having nothing to read.
 """
 
 from __future__ import annotations
 
 import argparse
+import datetime as dt
 import json
 import re
 import sys
 from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
-DEFAULT_ACCEPTANCES = REPO_ROOT / ".trivyignore.yaml"
-DEFAULT_REPORT = REPO_ROOT / "output" / "container-security" / "lotus-performance-image-vulnerabilities.json"
+DEFAULT_IGNOREFILE = REPO_ROOT / ".trivyignore.yaml"
+DEFAULT_RECORDS = REPO_ROOT / "quality" / "container_vulnerability_acceptances.v1.json"
+SECURITY_OUTPUT = REPO_ROOT / "output" / "container-security"
+DEFAULT_FIXABLE = SECURITY_OUTPUT / "lotus-performance-image-fixable.json"
+DEFAULT_FULL = SECURITY_OUTPUT / "lotus-performance-image-vulnerabilities.json"
 
-_ACCEPTED_ID = re.compile(r"^  - id:\s*(\S+)\s*$", re.M)
+REQUIRED_FIELDS = ("advisory_id", "severity", "packages", "owner", "expires_on", "remediation_path")
+_IGNORED_ID = re.compile(r"^  - id:\s*(\S+)\s*$", re.M)
 
 
-def accepted_ids(path: Path) -> set[str]:
-    ids = set(_ACCEPTED_ID.findall(path.read_text(encoding="utf-8")))
-    if not ids:
+def _fail(message: str) -> None:
+    print(message, file=sys.stderr)
+
+
+def _findings(path: Path, *, description: str) -> list[dict]:
+    if not path.exists():
         raise SystemExit(
-            f"No acceptances parsed from {path}. Either the file is empty, in which case this "
-            f"gate has nothing to check and should not be running, or its shape changed and "
-            f"every acceptance is now unchecked while still suppressing findings."
+            f"{path} does not exist. Run `make container-vulnerability-report` first; this gate "
+            f"must not pass by finding no {description} to read."
         )
-    return ids
-
-
-def fixable_ids(path: Path) -> set[str]:
     report = json.loads(path.read_text(encoding="utf-8"))
-    results = report.get("Results")
-    if results is None:
+    if report.get("Results") is None:
         raise SystemExit(
-            f"{path} has no Results key. An empty or malformed report would make every " f"acceptance look justified."
+            f"{path} has no Results key. A malformed {description} report would make every "
+            f"acceptance look justified."
         )
-    return {
-        vulnerability["VulnerabilityID"] for result in results for vulnerability in result.get("Vulnerabilities") or []
-    }
+    return [vulnerability for result in report["Results"] for vulnerability in result.get("Vulnerabilities") or []]
 
 
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--acceptances", type=Path, default=DEFAULT_ACCEPTANCES)
-    parser.add_argument("--report", type=Path, default=DEFAULT_REPORT)
+    parser.add_argument("--ignorefile", type=Path, default=DEFAULT_IGNOREFILE)
+    parser.add_argument("--records", type=Path, default=DEFAULT_RECORDS)
+    parser.add_argument("--fixable-report", type=Path, default=DEFAULT_FIXABLE)
+    parser.add_argument("--full-report", type=Path, default=DEFAULT_FULL)
     args = parser.parse_args()
 
-    if not args.report.exists():
+    suppressed = set(_IGNORED_ID.findall(args.ignorefile.read_text(encoding="utf-8")))
+    if not suppressed:
         raise SystemExit(
-            f"{args.report} does not exist. Run `make container-vulnerability-report` first; "
-            f"this gate must not pass by finding nothing to read."
+            f"No suppressions parsed from {args.ignorefile}. Either it is empty, in which case "
+            f"this gate has nothing to check, or its shape changed and every suppression is now "
+            f"unchecked while still hiding findings."
         )
 
-    accepted = accepted_ids(args.acceptances)
-    fixable = fixable_ids(args.report)
-    wrongly_accepted = sorted(accepted & fixable)
+    records = json.loads(args.records.read_text(encoding="utf-8"))["acceptances"]
+    by_id = {record["advisory_id"]: record for record in records}
+    failures: list[str] = []
 
-    if wrongly_accepted:
-        print(
-            "These container findings have an upstream fix and must be fixed rather than "
-            f"accepted: {', '.join(wrongly_accepted)}",
-            file=sys.stderr,
-        )
+    # 1. Nothing fixable may be accepted.
+    fixable = {finding["VulnerabilityID"] for finding in _findings(args.fixable_report, description="fixable")}
+    if wrongly := sorted(suppressed & fixable):
+        failures.append(f"these have an upstream fix and must be fixed rather than accepted: {wrongly}")
+
+    # 2. Every suppression is governed, and every record is complete.
+    if ungoverned := sorted(suppressed - set(by_id)):
+        failures.append(f"suppressed with no governed acceptance record: {ungoverned}")
+    if orphaned := sorted(set(by_id) - suppressed):
+        failures.append(f"governed records for advisories nothing suppresses; remove them: {orphaned}")
+    for advisory_id, record in sorted(by_id.items()):
+        if missing := [field for field in REQUIRED_FIELDS if not record.get(field)]:
+            failures.append(f"{advisory_id} is missing required policy fields: {missing}")
+
+    # 3. Each record must still describe the image that is actually being scanned.
+    present: dict[str, set[tuple[str, str]]] = {}
+    for finding in _findings(args.full_report, description="unfiltered"):
+        present.setdefault(finding["VulnerabilityID"], set()).add((finding["PkgName"], finding["InstalledVersion"]))
+    for advisory_id, record in sorted(by_id.items()):
+        scanned = present.get(advisory_id)
+        if scanned is None:
+            failures.append(
+                f"{advisory_id} is accepted but no longer present in the image. The base tag "
+                f"floats, so a stale acceptance suppresses nothing today and will silently cover "
+                f"whatever reappears under that id tomorrow; remove it."
+            )
+            continue
+        recorded = {(package["name"], package["affected_version"]) for package in record["packages"]}
+        if drifted := sorted(scanned - recorded):
+            failures.append(
+                f"{advisory_id} now affects package versions this acceptance does not name: "
+                f"{drifted}. The acceptance was reviewed against different packages, so it must "
+                f"be re-reviewed rather than carried forward."
+            )
+
+    # 4. Acceptance is time-bound.
+    today = dt.date.today()
+    if expired := sorted(
+        advisory_id for advisory_id, record in by_id.items() if dt.date.fromisoformat(record["expires_on"]) < today
+    ):
+        failures.append(f"these acceptances have lapsed and must be re-decided, not extended: {expired}")
+
+    if failures:
+        _fail("Container acceptance gate failed:")
+        for failure in failures:
+            _fail(f"  - {failure}")
         return 1
 
     print(
-        f"Container acceptance gate passed: {len(accepted)} accepted advisories, "
-        f"{len(fixable)} fixable findings, no overlap."
+        f"Container acceptance gate passed: {len(suppressed)} governed acceptances, all present "
+        f"in the scanned image with matching package versions, none fixable, none expired."
     )
     return 0
 

@@ -232,7 +232,8 @@ container-sbom:
 
 container-vulnerability-report:
 	python -c "from pathlib import Path; Path('$(CONTAINER_SECURITY_OUTPUT_DIR)').mkdir(parents=True, exist_ok=True)"
-	docker run --rm -v /var/run/docker.sock:/var/run/docker.sock -v "$(CURDIR)/$(CONTAINER_SECURITY_OUTPUT_DIR):/output" $(TRIVY_IMAGE) image --scanners vuln --severity $(TRIVY_SEVERITY) --ignore-unfixed --format json --output /output/lotus-performance-image-vulnerabilities.json --exit-code 0 $(CONTAINER_IMAGE)
+	docker run --rm -v /var/run/docker.sock:/var/run/docker.sock -v "$(CURDIR)/$(CONTAINER_SECURITY_OUTPUT_DIR):/output" $(TRIVY_IMAGE) image --scanners vuln --severity $(TRIVY_SEVERITY) --ignore-unfixed --format json --output /output/lotus-performance-image-fixable.json --exit-code 0 $(CONTAINER_IMAGE)
+	docker run --rm -v /var/run/docker.sock:/var/run/docker.sock -v "$(CURDIR)/$(CONTAINER_SECURITY_OUTPUT_DIR):/output" $(TRIVY_IMAGE) image --scanners vuln --severity $(TRIVY_SEVERITY) --format json --output /output/lotus-performance-image-vulnerabilities.json --exit-code 0 $(CONTAINER_IMAGE)
 
 # Still no --ignore-unfixed, unlike the report target above: the promotion policy in
 # quality/container_supply_chain_report.md requires every high/critical finding to be zero or
@@ -248,5 +249,5 @@ container-vulnerability-report:
 container-acceptance-gate:
 	python scripts/container_acceptance_gate.py
 
-container-vulnerability-gate: container-acceptance-gate
+container-vulnerability-gate: container-vulnerability-report container-acceptance-gate
 	docker run --rm -v /var/run/docker.sock:/var/run/docker.sock -v "$(CURDIR)/.trivyignore.yaml:/tmp/.trivyignore.yaml:ro" $(TRIVY_IMAGE) image --scanners vuln --severity $(TRIVY_SEVERITY) --ignorefile /tmp/.trivyignore.yaml --exit-code 1 $(CONTAINER_IMAGE)
