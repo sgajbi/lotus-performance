@@ -221,6 +221,10 @@ def run_recovery_drill(
             job_store.enqueue_job(
                 calculation_id=compute_calculation_id,
                 analytics_type="ReturnsSeries",
+                # The drill exercises durable recovery, not admission. It states its own
+                # tenant explicitly rather than inheriting one, so a drill row is
+                # distinguishable from real work in the same table.
+                tenant_id="durable-recovery-drill",
                 request_payload=compute_request.model_dump(mode="json"),
             )
             execution_store.start_stage(compute_calculation_id, "execution")

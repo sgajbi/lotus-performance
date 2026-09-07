@@ -174,6 +174,7 @@ def test_compute_job_store_lifecycle(tmp_path):
     store.enqueue_job(
         calculation_id=calculation_id,
         analytics_type="ReturnsSeries",
+        tenant_id="tenant-test",
         request_payload={"portfolio_id": "P1"},
     )
     pending = store.get_job(calculation_id)
@@ -211,6 +212,7 @@ def test_compute_job_store_fails_closed_on_invalid_response_json(tmp_path, caplo
     store.enqueue_job(
         calculation_id=calculation_id,
         analytics_type="ReturnsSeries",
+        tenant_id="tenant-test",
         request_payload={"portfolio_id": "P1"},
     )
     with store._session() as session:
@@ -240,6 +242,7 @@ def test_compute_job_store_preserves_existing_error_details_on_invalid_response_
     store.enqueue_job(
         calculation_id=calculation_id,
         analytics_type="ReturnsSeries",
+        tenant_id="tenant-test",
         request_payload={"portfolio_id": "P1"},
     )
     with store._session() as session:
@@ -270,6 +273,7 @@ def test_compute_job_store_fails_closed_on_invalid_request_json(tmp_path, caplog
     store.enqueue_job(
         calculation_id=calculation_id,
         analytics_type="ReturnsSeries",
+        tenant_id="tenant-test",
         request_payload={"portfolio_id": "P1"},
     )
     with store._session() as session:
@@ -296,6 +300,7 @@ def test_compute_job_store_fails_closed_on_non_object_request_json(tmp_path, cap
     store.enqueue_job(
         calculation_id=calculation_id,
         analytics_type="ReturnsSeries",
+        tenant_id="tenant-test",
         request_payload={"portfolio_id": "P1"},
     )
     with store._session() as session:
@@ -321,6 +326,7 @@ def test_compute_job_store_marks_invalid_request_payload_failed_during_lease(tmp
     store.enqueue_job(
         calculation_id=calculation_id,
         analytics_type="ReturnsSeries",
+        tenant_id="tenant-test",
         request_payload={"portfolio_id": "P1"},
     )
     with store._session() as session:
@@ -351,6 +357,7 @@ def test_compute_job_store_fails_closed_on_non_object_response_json(tmp_path, ca
     store.enqueue_job(
         calculation_id=calculation_id,
         analytics_type="ReturnsSeries",
+        tenant_id="tenant-test",
         request_payload={"portfolio_id": "P1"},
     )
     with store._session() as session:
@@ -376,8 +383,12 @@ def test_compute_job_store_failure_and_filters(tmp_path):
     calc_one = uuid4()
     calc_two = uuid4()
 
-    store.enqueue_job(calculation_id=calc_one, analytics_type="ReturnsSeries", request_payload={"a": 1})
-    store.enqueue_job(calculation_id=calc_two, analytics_type="OtherAnalytics", request_payload={"b": 2})
+    store.enqueue_job(
+        calculation_id=calc_one, analytics_type="ReturnsSeries", tenant_id="tenant-test", request_payload={"a": 1}
+    )
+    store.enqueue_job(
+        calculation_id=calc_two, analytics_type="OtherAnalytics", tenant_id="tenant-test", request_payload={"b": 2}
+    )
 
     leased = store.lease_pending_jobs(worker_id="worker-a", analytics_type="ReturnsSeries", limit=1, lease_seconds=30)
     assert len(leased) == 1
@@ -402,8 +413,12 @@ def test_compute_job_store_lists_pending_jobs_without_analytics_filter(tmp_path)
     first_id = uuid4()
     second_id = uuid4()
 
-    store.enqueue_job(calculation_id=first_id, analytics_type="ReturnsSeries", request_payload={"p": "1"})
-    store.enqueue_job(calculation_id=second_id, analytics_type="Attribution", request_payload={"p": "2"})
+    store.enqueue_job(
+        calculation_id=first_id, analytics_type="ReturnsSeries", tenant_id="tenant-test", request_payload={"p": "1"}
+    )
+    store.enqueue_job(
+        calculation_id=second_id, analytics_type="Attribution", tenant_id="tenant-test", request_payload={"p": "2"}
+    )
 
     pending = store.list_pending_jobs(limit=10)
 
@@ -416,8 +431,12 @@ def test_compute_job_store_lists_pending_jobs_with_analytics_filter(tmp_path):
     first_id = uuid4()
     second_id = uuid4()
 
-    store.enqueue_job(calculation_id=first_id, analytics_type="ReturnsSeries", request_payload={"p": "1"})
-    store.enqueue_job(calculation_id=second_id, analytics_type="Attribution", request_payload={"p": "2"})
+    store.enqueue_job(
+        calculation_id=first_id, analytics_type="ReturnsSeries", tenant_id="tenant-test", request_payload={"p": "1"}
+    )
+    store.enqueue_job(
+        calculation_id=second_id, analytics_type="Attribution", tenant_id="tenant-test", request_payload={"p": "2"}
+    )
 
     pending = store.list_pending_jobs(analytics_type="Attribution", limit=10)
 
@@ -432,6 +451,7 @@ def test_compute_job_store_retry_and_expired_lease_reclaim(tmp_path):
     store.enqueue_job(
         calculation_id=calculation_id,
         analytics_type="ReturnsSeries",
+        tenant_id="tenant-test",
         request_payload={"portfolio_id": "P1"},
         max_attempts=2,
     )
@@ -474,6 +494,7 @@ def test_compute_job_store_retry_and_expired_lease_reclaim(tmp_path):
     store.enqueue_job(
         calculation_id=another_id,
         analytics_type="ReturnsSeries",
+        tenant_id="tenant-test",
         request_payload={"portfolio_id": "P2"},
     )
     store.lease_pending_jobs(worker_id="worker-a", limit=10, lease_seconds=30)
@@ -493,6 +514,7 @@ def test_compute_job_store_reconciles_stale_running_job(tmp_path):
     store.enqueue_job(
         calculation_id=calculation_id,
         analytics_type="ReturnsSeries",
+        tenant_id="tenant-test",
         request_payload={"portfolio_id": "P1"},
         max_attempts=2,
     )
@@ -538,6 +560,7 @@ def test_compute_job_store_renew_lease_preserves_attempt_count(tmp_path):
     store.enqueue_job(
         calculation_id=calculation_id,
         analytics_type="WorkspaceSummary",
+        tenant_id="tenant-test",
         request_payload={"portfolio_id": "P1"},
         max_attempts=3,
     )
@@ -566,6 +589,7 @@ def test_compute_job_store_mark_running_acquired_preserves_worker_identity_and_s
     store.enqueue_job(
         calculation_id=calculation_id,
         analytics_type="WorkspaceSummary",
+        tenant_id="tenant-test",
         request_payload={"portfolio_id": "P1"},
         max_attempts=3,
     )
@@ -616,6 +640,7 @@ def test_compute_job_store_mark_running_acquired_rejects_stale_queue_owner(tmp_p
     store.enqueue_job(
         calculation_id=calculation_id,
         analytics_type="WorkspaceSummary",
+        tenant_id="tenant-test",
         request_payload={"portfolio_id": "P1"},
         max_attempts=3,
     )
@@ -644,6 +669,7 @@ def test_compute_job_store_rejects_renew_lease_from_stale_worker(tmp_path):
     store.enqueue_job(
         calculation_id=calculation_id,
         analytics_type="WorkspaceSummary",
+        tenant_id="tenant-test",
         request_payload={"portfolio_id": "P1"},
         max_attempts=3,
     )
@@ -662,6 +688,7 @@ def test_compute_job_store_rejects_finalization_from_stale_worker_after_reclaim(
     store.enqueue_job(
         calculation_id=calculation_id,
         analytics_type="ReturnsSeries",
+        tenant_id="tenant-test",
         request_payload={"portfolio_id": "P1"},
         max_attempts=3,
     )
@@ -737,6 +764,7 @@ def test_compute_job_store_reconciles_stale_leased_job_without_exhausting_retrie
     store.enqueue_job(
         calculation_id=calculation_id,
         analytics_type="Attribution",
+        tenant_id="tenant-test",
         request_payload={"portfolio_id": "P1"},
         max_attempts=3,
     )
@@ -807,6 +835,7 @@ def test_compute_job_store_queue_stats(tmp_path):
         store.enqueue_job(
             calculation_id=calculation_id,
             analytics_type="ReturnsSeries",
+            tenant_id="tenant-test",
             request_payload={"portfolio_id": str(calculation_id)},
             max_attempts=2,
         )
@@ -946,6 +975,7 @@ def test_compute_job_store_queue_inspection_anchors(tmp_path):
         store.enqueue_job(
             calculation_id=calculation_id,
             analytics_type="ReturnsSeries",
+            tenant_id="tenant-test",
             request_payload={"portfolio_id": str(calculation_id)},
             max_attempts=2,
         )
@@ -988,6 +1018,7 @@ def test_compute_job_store_lists_active_and_failed_inspection_items(tmp_path):
         store.enqueue_job(
             calculation_id=calculation_id,
             analytics_type="ReturnsSeries",
+            tenant_id="tenant-test",
             request_payload={"portfolio_id": str(calculation_id)},
             max_attempts=3,
         )
@@ -1032,9 +1063,24 @@ def test_compute_job_store_filters_inspection_items_by_analytics_type_and_calcul
     store.create_schema()
     ids = [uuid4() for _ in range(3)]
 
-    store.enqueue_job(calculation_id=ids[0], analytics_type="ReturnsSeries", request_payload={"portfolio_id": "A"})
-    store.enqueue_job(calculation_id=ids[1], analytics_type="Attribution", request_payload={"portfolio_id": "B"})
-    store.enqueue_job(calculation_id=ids[2], analytics_type="ReturnsSeries", request_payload={"portfolio_id": "C"})
+    store.enqueue_job(
+        calculation_id=ids[0],
+        analytics_type="ReturnsSeries",
+        tenant_id="tenant-test",
+        request_payload={"portfolio_id": "A"},
+    )
+    store.enqueue_job(
+        calculation_id=ids[1],
+        analytics_type="Attribution",
+        tenant_id="tenant-test",
+        request_payload={"portfolio_id": "B"},
+    )
+    store.enqueue_job(
+        calculation_id=ids[2],
+        analytics_type="ReturnsSeries",
+        tenant_id="tenant-test",
+        request_payload={"portfolio_id": "C"},
+    )
 
     filtered = store.list_inspection_items(
         status_filter="all",
@@ -1054,8 +1100,15 @@ def test_compute_job_store_lists_reclaimable_items_with_expired_leases(tmp_path)
     reclaimable_id = uuid4()
     active_id = uuid4()
 
-    store.enqueue_job(calculation_id=reclaimable_id, analytics_type="ReturnsSeries", request_payload={"p": "1"})
-    store.enqueue_job(calculation_id=active_id, analytics_type="ReturnsSeries", request_payload={"p": "2"})
+    store.enqueue_job(
+        calculation_id=reclaimable_id,
+        analytics_type="ReturnsSeries",
+        tenant_id="tenant-test",
+        request_payload={"p": "1"},
+    )
+    store.enqueue_job(
+        calculation_id=active_id, analytics_type="ReturnsSeries", tenant_id="tenant-test", request_payload={"p": "2"}
+    )
 
     with store._session() as session:
         reclaimable_row = store._get_model(session, reclaimable_id)
@@ -1189,7 +1242,12 @@ def test_compute_job_store_queue_stats_include_reclaimable_count(tmp_path):
     now = datetime.now(timezone.utc)
     reclaimable_id = uuid4()
 
-    store.enqueue_job(calculation_id=reclaimable_id, analytics_type="ReturnsSeries", request_payload={"p": "1"})
+    store.enqueue_job(
+        calculation_id=reclaimable_id,
+        analytics_type="ReturnsSeries",
+        tenant_id="tenant-test",
+        request_payload={"p": "1"},
+    )
 
     with store._session() as session:
         reclaimable_row = store._get_model(session, reclaimable_id)
@@ -1216,6 +1274,7 @@ def test_compute_job_store_queue_inspection_anchors_include_latest_recovered(tmp
         store.enqueue_job(
             calculation_id=calculation_id,
             analytics_type="ReturnsSeries",
+            tenant_id="tenant-test",
             request_payload={"portfolio_id": str(calculation_id)},
             max_attempts=3,
         )
@@ -1262,6 +1321,7 @@ def test_compute_job_store_lists_recent_recoveries_in_descending_order(tmp_path)
         store.enqueue_job(
             calculation_id=calculation_id,
             analytics_type="ReturnsSeries",
+            tenant_id="tenant-test",
             request_payload={"portfolio_id": str(calculation_id)},
             max_attempts=3,
         )
@@ -1290,9 +1350,15 @@ def test_compute_job_store_lists_recent_recoveries_with_filters_and_offset(tmp_p
     now = datetime(2026, 3, 14, 12, 0, tzinfo=timezone.utc)
     ids = [uuid4() for _ in range(3)]
 
-    store.enqueue_job(calculation_id=ids[0], analytics_type="ReturnsSeries", request_payload={"p": "1"})
-    store.enqueue_job(calculation_id=ids[1], analytics_type="Attribution", request_payload={"p": "2"})
-    store.enqueue_job(calculation_id=ids[2], analytics_type="ReturnsSeries", request_payload={"p": "3"})
+    store.enqueue_job(
+        calculation_id=ids[0], analytics_type="ReturnsSeries", tenant_id="tenant-test", request_payload={"p": "1"}
+    )
+    store.enqueue_job(
+        calculation_id=ids[1], analytics_type="Attribution", tenant_id="tenant-test", request_payload={"p": "2"}
+    )
+    store.enqueue_job(
+        calculation_id=ids[2], analytics_type="ReturnsSeries", tenant_id="tenant-test", request_payload={"p": "3"}
+    )
 
     with store._session() as session:
         first = store._get_model(session, ids[0])
@@ -1324,7 +1390,12 @@ def test_compute_job_store_lists_recent_recoveries_with_time_filters_and_next_of
     ids = [uuid4() for _ in range(3)]
 
     for calculation_id in ids:
-        store.enqueue_job(calculation_id=calculation_id, analytics_type="ReturnsSeries", request_payload={"p": "1"})
+        store.enqueue_job(
+            calculation_id=calculation_id,
+            analytics_type="ReturnsSeries",
+            tenant_id="tenant-test",
+            request_payload={"p": "1"},
+        )
 
     with store._session() as session:
         for seconds_ago, calculation_id in zip([30, 15, 5], ids, strict=True):
@@ -1353,7 +1424,12 @@ def test_compute_job_store_lists_recent_recoveries_with_seek_cursor(tmp_path):
     ids = [uuid4() for _ in range(3)]
 
     for calculation_id in ids:
-        store.enqueue_job(calculation_id=calculation_id, analytics_type="ReturnsSeries", request_payload={"p": "1"})
+        store.enqueue_job(
+            calculation_id=calculation_id,
+            analytics_type="ReturnsSeries",
+            tenant_id="tenant-test",
+            request_payload={"p": "1"},
+        )
 
     with store._session() as session:
         for seconds_ago, calculation_id in zip([30, 20, 10], ids, strict=True):
@@ -1378,7 +1454,12 @@ def test_compute_job_store_formats_sqlite_recovery_timestamps_as_utc(tmp_path):
     calculation_id = uuid4()
     recovery_time = datetime(2026, 3, 14, 12, 0, tzinfo=timezone.utc)
 
-    store.enqueue_job(calculation_id=calculation_id, analytics_type="ReturnsSeries", request_payload={"p": "1"})
+    store.enqueue_job(
+        calculation_id=calculation_id,
+        analytics_type="ReturnsSeries",
+        tenant_id="tenant-test",
+        request_payload={"p": "1"},
+    )
     with store._session() as session:
         row = store._get_model(session, calculation_id)
         row.attempt_count = 1
@@ -1469,6 +1550,7 @@ def test_compute_job_store_prunes_terminal_jobs_older_than_cutoff(tmp_path):
         store.enqueue_job(
             calculation_id=calculation_id,
             analytics_type="ReturnsSeries",
+            tenant_id="tenant-test",
             request_payload={"calculation_id": str(calculation_id)},
         )
         store.mark_complete(calculation_id, response_payload={"ok": True})
@@ -1497,6 +1579,7 @@ def test_compute_job_store_prune_uses_count_and_set_based_delete(tmp_path):
         store.enqueue_job(
             calculation_id=calculation_id,
             analytics_type="ReturnsSeries",
+            tenant_id="tenant-test",
             request_payload={"calculation_id": str(calculation_id)},
         )
         store.mark_complete(calculation_id, response_payload={"ok": True})
@@ -1821,6 +1904,7 @@ def test_compute_job_store_get_queue_stats_uses_single_aggregate_query(tmp_path)
     store.enqueue_job(
         calculation_id=calculation_id,
         analytics_type="ReturnsSeries",
+        tenant_id="tenant-test",
         request_payload={"portfolio_id": "P1"},
     )
 

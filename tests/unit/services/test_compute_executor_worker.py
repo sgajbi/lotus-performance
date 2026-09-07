@@ -86,6 +86,7 @@ def _running_compute_job(
     job_store.enqueue_job(
         calculation_id=active_calculation_id,
         analytics_type=ANALYTICS_WORKFLOW_RETURNS_SERIES,
+        tenant_id="tenant-test",
         request_payload={"portfolio_id": "P1"},
         max_attempts=max_attempts,
     )
@@ -106,6 +107,7 @@ def _compute_job_record(
     return ComputeJobRecord(
         calculation_id=calculation_id,
         analytics_type=analytics_type,
+        tenant_id="tenant-test",
         job_status=ComputeJobStatus.RUNNING,
         request_payload=request_payload,
         response_payload=None,
@@ -528,6 +530,7 @@ def test_compute_executor_worker_skips_stale_owner_success_after_reclaim(tmp_pat
     job_store.enqueue_job(
         calculation_id=calculation_id,
         analytics_type=ANALYTICS_WORKFLOW_RETURNS_SERIES,
+        tenant_id="tenant-test",
         request_payload={"portfolio_id": "P1"},
         max_attempts=2,
     )
@@ -964,6 +967,7 @@ def test_compute_executor_worker_processes_pending_returns_series_job(tmp_path, 
     job_store.enqueue_job(
         calculation_id=calculation_id,
         analytics_type=ANALYTICS_WORKFLOW_RETURNS_SERIES,
+        tenant_id="tenant-test",
         request_payload={
             **request.model_dump(mode="json"),
             "observability_context": {
@@ -1110,6 +1114,7 @@ def test_compute_executor_worker_processes_resolved_stateful_returns_series_job(
     job_store.enqueue_job(
         calculation_id=calculation_id,
         analytics_type=ANALYTICS_WORKFLOW_RETURNS_SERIES,
+        tenant_id="tenant-test",
         request_payload={
             "resolved_request": resolved_request.model_dump(mode="json"),
             "source_input_mode": "stateful",
@@ -1231,6 +1236,7 @@ def test_compute_executor_worker_processes_resolved_benchmark_job(tmp_path, monk
     job_store.enqueue_job(
         calculation_id=calculation_id,
         analytics_type=ANALYTICS_WORKFLOW_BENCHMARK,
+        tenant_id="tenant-test",
         request_payload={
             "resolved_request": resolved_request.model_dump(mode="json"),
             "source_input_mode": "stateful",
@@ -1310,6 +1316,7 @@ def test_compute_executor_worker_processes_resolved_twr_job(tmp_path, monkeypatc
     job_store.enqueue_job(
         calculation_id=calculation_id,
         analytics_type=ANALYTICS_WORKFLOW_TWR,
+        tenant_id="tenant-test",
         request_payload={
             "resolved_request": resolved_request.model_dump(mode="json"),
             "source_input_mode": "stateful",
@@ -1396,6 +1403,7 @@ def test_compute_executor_worker_processes_pending_contribution_job(tmp_path, mo
     job_store.enqueue_job(
         calculation_id=calculation_id,
         analytics_type=ANALYTICS_WORKFLOW_CONTRIBUTION,
+        tenant_id="tenant-test",
         request_payload=request.model_dump(mode="json"),
     )
 
@@ -1454,6 +1462,7 @@ def test_compute_executor_worker_processes_pending_workspace_summary_job(tmp_pat
     job_store.enqueue_job(
         calculation_id=calculation_id,
         analytics_type=ANALYTICS_WORKFLOW_WORKSPACE_SUMMARY,
+        tenant_id="tenant-test",
         request_payload=request_payload,
     )
 
@@ -1544,6 +1553,7 @@ def test_compute_executor_worker_blocks_workspace_summary_success_until_lineage_
     job_store.enqueue_job(
         calculation_id=calculation_id,
         analytics_type=ANALYTICS_WORKFLOW_WORKSPACE_SUMMARY,
+        tenant_id="tenant-test",
         request_payload=request_payload,
         max_attempts=1,
     )
@@ -1667,6 +1677,7 @@ def test_compute_executor_worker_updates_identity_for_stateful_contribution_job(
     job_store.enqueue_job(
         calculation_id=calculation_id,
         analytics_type=ANALYTICS_WORKFLOW_CONTRIBUTION,
+        tenant_id="tenant-test",
         request_payload=analytics_request.model_dump(mode="json"),
     )
 
@@ -1741,6 +1752,7 @@ def test_compute_executor_worker_processes_pending_attribution_job(tmp_path, mon
     job_store.enqueue_job(
         calculation_id=calculation_id,
         analytics_type=ANALYTICS_WORKFLOW_ATTRIBUTION,
+        tenant_id="tenant-test",
         request_payload=request.model_dump(mode="json"),
     )
 
@@ -1820,6 +1832,7 @@ def test_compute_executor_worker_processes_resolved_stateful_attribution_job(tmp
     job_store.enqueue_job(
         calculation_id=calculation_id,
         analytics_type=ANALYTICS_WORKFLOW_ATTRIBUTION,
+        tenant_id="tenant-test",
         request_payload={
             "resolved_request": resolved_request.model_dump(mode="json"),
             "source_input_mode": "stateful",
@@ -1922,6 +1935,7 @@ def test_compute_executor_worker_marks_failed_and_handles_missing_execution(tmp_
     job_store.enqueue_job(
         calculation_id=calculation_id,
         analytics_type=ANALYTICS_WORKFLOW_RETURNS_SERIES,
+        tenant_id="tenant-test",
         request_payload=request.model_dump(mode="json"),
         max_attempts=1,
     )
@@ -1978,6 +1992,7 @@ def test_compute_executor_worker_requeues_retryable_failure(tmp_path, monkeypatc
     job_store.enqueue_job(
         calculation_id=calculation_id,
         analytics_type=ANALYTICS_WORKFLOW_RETURNS_SERIES,
+        tenant_id="tenant-test",
         request_payload=request.model_dump(mode="json"),
         max_attempts=2,
     )
@@ -2031,6 +2046,7 @@ def test_compute_executor_worker_marks_failed_after_retry_budget_exhausted(tmp_p
     job_store.enqueue_job(
         calculation_id=calculation_id,
         analytics_type=ANALYTICS_WORKFLOW_RETURNS_SERIES,
+        tenant_id="tenant-test",
         request_payload=request.model_dump(mode="json"),
         max_attempts=1,
     )
@@ -2089,6 +2105,7 @@ def test_compute_executor_worker_reconciles_stale_running_job(tmp_path, monkeypa
     job_store.enqueue_job(
         calculation_id=calculation_id,
         analytics_type=ANALYTICS_WORKFLOW_RETURNS_SERIES,
+        tenant_id="tenant-test",
         request_payload=request.model_dump(mode="json"),
         max_attempts=1,
     )
@@ -2508,6 +2525,7 @@ def test_compute_executor_worker_rejects_unsupported_analytics_type(tmp_path, mo
     job_store.enqueue_job(
         calculation_id=calculation_id,
         analytics_type="Unknown",
+        tenant_id="tenant-test",
         request_payload={"portfolio_id": "P1"},
         max_attempts=1,
     )

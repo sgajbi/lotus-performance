@@ -64,6 +64,7 @@ def _job_record(
     return ComputeJobRecord(
         calculation_id=calculation_id,
         analytics_type=analytics_type,
+        tenant_id="tenant-test",
         job_status=job_status,
         request_payload={"calculation_id": str(calculation_id)},
         response_payload=response_payload,

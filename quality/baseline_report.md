@@ -1,7 +1,7 @@
 # Lotus Performance Enterprise Backend Refactor Baseline
 
 Baseline date: 2026-09-07
-Branch: `chore/sync-governed-agents-contract`
+Branch: `feat/504-durable-tenant-authority`
 Mode: report-only baseline; no new blocking quality gate is introduced by this artifact.
 
 ## Purpose
@@ -18,7 +18,7 @@ snapshots are written under ignored `output/quality-baseline/`; curated source r
 | --- | ---: | --- |
 | Python files | 672 | `rg --files -g '*.py'` equivalent excluding local caches |
 | Python package markers | 22 | recursive `__init__.py` count |
-| Python LOC | 199,938 | recursive `.py` line count |
+| Python LOC | 200,101 | recursive `.py` line count |
 | Test modules | 322 | `tests/**/test_*.py` |
 | Collected tests | 3973 tests | `python -m pytest --collect-only -q` |
 | Configured CI workflows | 7 | `.github/workflows/*.yml` |
@@ -29,7 +29,7 @@ snapshots are written under ignored `output/quality-baseline/`; curated source r
 | Rank | File | Lines |
 | ---: | --- | ---: |
 | 1 | `tests/unit/services/test_returns_series_service.py` | 3074 |
-| 2 | `tests/unit/services/test_compute_executor_worker.py` | 2676 |
+| 2 | `tests/unit/services/test_compute_executor_worker.py` | 2694 |
 | 3 | `tests/unit/services/test_runtime_status_service.py` | 2637 |
 | 4 | `tests/unit/docs/test_public_docs_contract.py` | 2488 |
 | 5 | `app/services/stateful_input_service.py` | 2409 |
@@ -40,9 +40,9 @@ snapshots are written under ignored `output/quality-baseline/`; curated source r
 | 10 | `tests/integration/test_performance_api.py` | 2075 |
 | 11 | `tests/integration/test_contribution_api.py` | 2019 |
 | 12 | `tests/unit/services/test_twr_inspection_source_economics.py` | 1992 |
-| 13 | `tests/unit/services/test_compute_job_store.py` | 1849 |
+| 13 | `tests/unit/services/test_compute_job_store.py` | 1933 |
 | 14 | `tests/integration/test_attribution_api.py` | 1795 |
-| 15 | `app/services/compute_job_store.py` | 1714 |
+| 15 | `app/services/compute_job_store.py` | 1768 |
 
 ## Required Inventory Outputs
 

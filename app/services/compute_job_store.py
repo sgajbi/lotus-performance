@@ -108,6 +108,10 @@ class ComputeJobModel(Base):
     max_attempts: Mapped[int] = mapped_column(Integer, nullable=False, default=1)
     worker_id: Mapped[str | None] = mapped_column(String(128), nullable=True)
     lease_owner_id: Mapped[str | None] = mapped_column(String(128), nullable=True)
+    #: The tenant admitted at submission, persisted as job identity rather than carried
+    #: in the transient observability envelope. Nullable only so rows written before this
+    #: column existed can be read back and refused explicitly; nothing writes null.
+    tenant_id: Mapped[str | None] = mapped_column(String(128), nullable=True)
     leased_at_utc: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     lease_expires_at_utc: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     last_error_at_utc: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
@@ -121,6 +125,10 @@ class ComputeJobRecord:
     calculation_id: UUID
     analytics_type: str
     job_status: ComputeJobStatus
+    #: The tenant this job runs under, read back from durable state rather than
+    #: re-derived. `None` means the row predates the column and carries no authority;
+    #: it is never a value a submission may produce.
+    tenant_id: str | None
     request_payload: dict[str, Any]
     response_payload: dict[str, Any] | None
     error_message: str | None
@@ -557,7 +565,11 @@ class ComputeJobStore:
         create_durable_schema(
             self._engine,
             Base.metadata,
-            schema_upgrades=(self._ensure_lease_owner_column, self._ensure_runtime_indexes),
+            schema_upgrades=(
+                self._ensure_lease_owner_column,
+                self._ensure_tenant_id_column,
+                self._ensure_runtime_indexes,
+            ),
         )
 
     @contextmanager
@@ -629,9 +641,20 @@ class ComputeJobStore:
         *,
         calculation_id: UUID,
         analytics_type: str,
+        tenant_id: str,
         request_payload: dict[str, Any],
         max_attempts: int | None = None,
     ) -> None:
+        # Refusal precedes the write. A job accepted without authority is worse than
+        # one refused: the caller holds a calculation id, a queued job and a wait
+        # before learning it can never execute. Required rather than defaulted --
+        # nothing mints a tenant, and a blank one is missing authority, not a value.
+        admitted_tenant_id = tenant_id.strip()
+        if not admitted_tenant_id:
+            raise ValueError(
+                "A compute job requires an admitted tenant. This service does not mint or "
+                "default one, because a defaulted tenant can return another tenant's data."
+            )
         now = datetime.now(timezone.utc)
         configured_max_attempts = max_attempts or get_settings().COMPUTE_EXECUTOR_MAX_ATTEMPTS
         with self._session() as session:
@@ -640,6 +663,7 @@ class ComputeJobStore:
                     calculation_id=str(calculation_id),
                     analytics_type=analytics_type,
                     job_status=ComputeJobStatus.PENDING.value,
+                    tenant_id=admitted_tenant_id,
                     request_json=json.dumps(request_payload, sort_keys=True),
                     response_json=None,
                     error_message=None,
@@ -1476,6 +1500,22 @@ class ComputeJobStore:
             raise KeyError(f"Compute job not found: {calculation_id}")
         return row
 
+    def _ensure_tenant_id_column(self, connection: Connection) -> None:
+        inspector = inspect(connection)
+        if "analytics_compute_job" not in inspector.get_table_names():
+            return
+
+        existing_columns = {column["name"] for column in inspector.get_columns("analytics_compute_job")}
+        if "tenant_id" in existing_columns:
+            return
+
+        try:
+            connection.execute(text(_tenant_id_column_add_statement(connection.dialect.name)))
+        except (OperationalError, ProgrammingError) as exc:
+            if _is_duplicate_tenant_id_column_error(exc):
+                return
+            raise
+
     def _ensure_lease_owner_column(self, connection: Connection) -> None:
         inspector = inspect(connection)
         if "analytics_compute_job" not in inspector.get_table_names():
@@ -1504,6 +1544,7 @@ class ComputeJobStore:
             calculation_id=UUID(row.calculation_id),
             analytics_type=row.analytics_type,
             job_status=payload_state.job_status,
+            tenant_id=row.tenant_id,
             request_payload=payload_state.request_payload,
             response_payload=payload_state.response_payload,
             error_message=payload_state.error_message,
@@ -1699,6 +1740,19 @@ def _mark_invalid_request_payload(row: ComputeJobModel, *, now: datetime) -> Non
     row.lease_expires_at_utc = None
     row.last_error_at_utc = now
     row.completed_at_utc = now
+
+
+def _tenant_id_column_add_statement(dialect_name: str) -> str:
+    if dialect_name == "postgresql":
+        return "ALTER TABLE analytics_compute_job ADD COLUMN IF NOT EXISTS tenant_id VARCHAR(128)"
+    return "ALTER TABLE analytics_compute_job ADD COLUMN tenant_id VARCHAR(128)"
+
+
+def _is_duplicate_tenant_id_column_error(exc: OperationalError | ProgrammingError) -> bool:
+    message = str(exc).lower()
+    return "tenant_id" in message and (
+        "duplicate column" in message or "already exists" in message or "duplicate_column" in message
+    )
 
 
 def _lease_owner_column_add_statement(dialect_name: str) -> str:
