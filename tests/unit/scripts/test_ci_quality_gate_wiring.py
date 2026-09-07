@@ -171,7 +171,18 @@ def test_container_supply_chain_evidence_is_repo_native_and_published() -> None:
     assert "--format json" in vulnerability_report_target
     assert "lotus-performance-image-vulnerabilities.json" in vulnerability_report_target
     assert "--exit-code 0" in vulnerability_report_target
-    assert "--exit-code 1" in vulnerability_gate_target
+    # The verdict is no longer a Trivy exit code. Three separate scans previously stood
+    # behind one answer -- the uploaded evidence, the acceptance validation and the
+    # blocking decision -- so a database update between them could make the artifact omit
+    # the finding that failed the job. The gate now reads the one scan the report target
+    # produced and decides from it, which is why it depends on that target rather than
+    # scanning again.
+    assert "container-vulnerability-report" in vulnerability_gate_target
+    assert "scripts/container_acceptance_gate.py" in vulnerability_gate_target
+    assert "--ignore-unfixed" not in vulnerability_report_target, (
+        "the retained artifact must contain the findings the gate acts on, including "
+        "unfixable ones, or the evidence cannot answer why the job failed"
+    )
 
     branch_identity_by_workflow = {
         "pr-merge-gate.yml": "${{ github.ref_name }}",

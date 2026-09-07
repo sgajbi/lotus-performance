@@ -69,37 +69,52 @@ def test_the_license_gate_runs_in_a_governed_lane(workflow_name: str) -> None:
     )
 
 
-def test_the_report_and_the_gate_differ_only_in_whether_they_can_fail() -> None:
-    """The defect was a pair of near-identical targets whose exit codes diverge.
+def test_one_scan_produces_the_evidence_and_the_verdict() -> None:
+    """The evidence and the verdict must come from the same snapshot.
 
-    Pinning both directions keeps a future edit from quietly making the gate
-    non-blocking, which is how the original hole was indistinguishable from
-    coverage."""
+    Three separate `docker run --rm` invocations previously stood behind one
+    answer: the uploaded artifact, the acceptance validation, and the blocking
+    decision. With no shared Trivy cache, a vulnerability-database update between
+    them could make the retained artifact omit the finding that failed the job --
+    so the evidence could not explain the verdict it was filed against.
+
+    The report target now produces one unfiltered scan, and the gate depends on
+    it and decides from it. Pinning the dependency is what stops a future edit
+    reintroducing a second scan.
+    """
 
     report = _makefile_target("container-vulnerability-report")
     gate = _makefile_target("container-vulnerability-gate")
 
-    assert "--exit-code 0" in report, "the evidence target must stay non-blocking"
-    assert "--exit-code 1" in gate, "the gate must fail the job when findings exist"
-    assert "--exit-code 0" not in gate, "a gate that cannot fail is not a gate"
-
-
-def test_the_gate_does_not_exclude_what_the_promotion_policy_requires_recorded() -> None:
-    """`--ignore-unfixed` belongs to the report, not the gate.
-
-    `quality/container_supply_chain_report.md` scopes that option to the
-    report-only baseline phase, and its promotion policy requires every
-    high/critical finding to be zero or explicitly accepted with owner, expiry
-    and remediation path. A gate that silently drops unfixable advisories
-    enforces something narrower than the policy it is promoted under, and the
-    difference is invisible in a green run."""
-
-    assert "--ignore-unfixed" in _makefile_target(
-        "container-vulnerability-report"
-    ), "the report observes the baseline and may exclude unfixed findings"
-    assert "--ignore-unfixed" not in _makefile_target("container-vulnerability-gate"), (
-        "the blocking gate must not exclude findings the promotion policy requires " "to be zero or explicitly accepted"
+    assert "--exit-code 0" in report, "the scan itself must not decide; the gate does"
+    assert "lotus-performance-image-vulnerabilities.json" in report
+    assert "container-vulnerability-report" in gate, (
+        "the gate must consume the scan the report produced, or it judges the current image "
+        "by whatever report happens to be on disk"
     )
+    assert "scripts/container_acceptance_gate.py" in gate
+    assert "docker run" not in gate, "a second scan in the gate reintroduces the divergence this consolidation removed"
+
+
+def test_the_retained_evidence_contains_what_the_gate_acts_on() -> None:
+    """`--ignore-unfixed` must not filter the artifact or the verdict.
+
+    `quality/container_supply_chain_report.md` requires every high/critical
+    finding to be zero or explicitly accepted with owner, expiry and remediation
+    path. A scan that drops unfixable advisories enforces something narrower than
+    the policy it is promoted under -- and, once that scan is also the retained
+    evidence, produces an artifact that cannot show why the job failed.
+
+    Unfixable advisories are excluded by acceptance, in
+    `quality/container_vulnerability_acceptances.v1.json`, where each carries an
+    owner and an expiry. That is the difference between a recorded decision and a
+    hidden one.
+    """
+
+    assert "--ignore-unfixed" not in _makefile_target(
+        "container-vulnerability-report"
+    ), "the retained artifact must contain the findings the gate acts on"
+    assert "--ignore-unfixed" not in _makefile_target("container-vulnerability-gate")
 
 
 @pytest.mark.parametrize("workflow_name", GOVERNED_WORKFLOWS)

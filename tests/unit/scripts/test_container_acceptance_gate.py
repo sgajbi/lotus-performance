@@ -69,39 +69,24 @@ def _record(**overrides) -> dict:
 
 
 class _Scenario:
-    """One complete gate input: what is suppressed, what is recorded, what was scanned."""
+    """One complete gate input: what is recorded, and what the single scan found."""
 
-    def __init__(
-        self, tmp_path: Path, *, suppressed: list[str], records: list[dict], fixable: list[dict], full: list[dict]
-    ) -> None:
-        self.ignorefile = tmp_path / ".trivyignore.yaml"
-        lines = ["vulnerabilities:"]
-        for advisory in suppressed:
-            lines += [f"  - id: {advisory}", '    statement: "synthetic"', "    expired_at: 2099-01-01"]
-        self.ignorefile.write_text("\n".join(lines) + "\n", encoding="utf-8")
-
+    def __init__(self, tmp_path: Path, *, records: list[dict], scanned: list[dict]) -> None:
         self.records = tmp_path / "acceptances.json"
         self.records.write_text(json.dumps({"acceptances": records}), encoding="utf-8")
 
-        self.fixable = tmp_path / "fixable.json"
-        self.fixable.write_text(json.dumps(_report(fixable)), encoding="utf-8")
-
-        self.full = tmp_path / "full.json"
-        self.full.write_text(json.dumps(_report(full)), encoding="utf-8")
+        self.scan = tmp_path / "scan.json"
+        self.scan.write_text(json.dumps(_report(scanned)), encoding="utf-8")
 
     def run(self) -> subprocess.CompletedProcess[str]:
         return subprocess.run(
             [
                 sys.executable,
                 str(GATE),
-                "--ignorefile",
-                str(self.ignorefile),
                 "--records",
                 str(self.records),
-                "--fixable-report",
-                str(self.fixable),
-                "--full-report",
-                str(self.full),
+                "--scan",
+                str(self.scan),
             ],
             capture_output=True,
             text=True,
@@ -112,10 +97,10 @@ class _Scenario:
 def test_a_governed_acceptance_matching_the_scan_passes(tmp_path: Path) -> None:
     """The control. Without it every refusal below could be a gate that always fails."""
 
-    result = _Scenario(tmp_path, suppressed=[_ADVISORY], records=[_record()], fixable=[], full=[_finding()]).run()
+    result = _Scenario(tmp_path, records=[_record()], scanned=[_finding()]).run()
 
     assert result.returncode == 0, result.stderr
-    assert "1 governed acceptances" in result.stdout
+    assert "all 1 accepted" in result.stdout
 
 
 def test_an_empty_acceptance_set_passes_for_a_clean_image(tmp_path: Path) -> None:
@@ -125,7 +110,7 @@ def test_an_empty_acceptance_set_passes_for_a_clean_image(tmp_path: Path) -> Non
     keeping it failed the still-present check.
     """
 
-    result = _Scenario(tmp_path, suppressed=[], records=[], fixable=[], full=[]).run()
+    result = _Scenario(tmp_path, records=[], scanned=[]).run()
 
     assert result.returncode == 0, result.stderr
 
@@ -135,29 +120,21 @@ def test_a_fixable_advisory_may_not_be_accepted(tmp_path: Path) -> None:
 
     result = _Scenario(
         tmp_path,
-        suppressed=[_ADVISORY],
         records=[_record()],
-        fixable=[_finding(fixed="1.2.4-1")],
-        full=[_finding(fixed="1.2.4-1")],
+        scanned=[_finding(fixed="1.2.4-1")],
     ).run()
 
     assert result.returncode == 1
     assert "upstream fix" in result.stderr
 
 
-def test_a_suppression_without_a_governed_record_is_refused(tmp_path: Path) -> None:
-    result = _Scenario(tmp_path, suppressed=[_ADVISORY], records=[], fixable=[], full=[_finding()]).run()
+def test_a_finding_with_no_acceptance_blocks(tmp_path: Path) -> None:
+    """The gate's actual job, and the one the previous design delegated to Trivy."""
+
+    result = _Scenario(tmp_path, records=[], scanned=[_finding()]).run()
 
     assert result.returncode == 1
-    assert "no governed acceptance record" in result.stderr
-
-
-def test_a_record_without_a_suppression_is_refused(tmp_path: Path) -> None:
-    """Records outliving their entries, which is different from a clean image."""
-
-    result = _Scenario(tmp_path, suppressed=[], records=[_record()], fixable=[], full=[_finding()]).run()
-
-    assert result.returncode == 1
+    assert "unaccepted high/critical findings" in result.stderr
 
 
 def test_duplicate_advisory_ids_are_refused_before_indexing(tmp_path: Path) -> None:
@@ -169,10 +146,8 @@ def test_duplicate_advisory_ids_are_refused_before_indexing(tmp_path: Path) -> N
 
     result = _Scenario(
         tmp_path,
-        suppressed=[_ADVISORY],
         records=[_record(owner="first"), _record(owner="second")],
-        fixable=[],
-        full=[_finding()],
+        scanned=[_finding()],
     ).run()
 
     assert result.returncode == 1
@@ -183,10 +158,8 @@ def test_duplicate_advisory_ids_are_refused_before_indexing(tmp_path: Path) -> N
 def test_a_record_missing_a_required_policy_field_is_refused(tmp_path: Path, missing: str) -> None:
     result = _Scenario(
         tmp_path,
-        suppressed=[_ADVISORY],
         records=[_record(**{missing: ""})],
-        fixable=[],
-        full=[_finding()],
+        scanned=[_finding()],
     ).run()
 
     assert result.returncode == 1
@@ -198,10 +171,8 @@ def test_a_severity_reclassification_is_refused(tmp_path: Path) -> None:
 
     result = _Scenario(
         tmp_path,
-        suppressed=[_ADVISORY],
         records=[_record(severity="HIGH")],
-        fixable=[],
-        full=[_finding(severity="CRITICAL")],
+        scanned=[_finding(severity="CRITICAL")],
     ).run()
 
     assert result.returncode == 1
@@ -211,10 +182,8 @@ def test_a_severity_reclassification_is_refused(tmp_path: Path) -> None:
 def test_a_package_the_acceptance_does_not_name_is_refused(tmp_path: Path) -> None:
     result = _Scenario(
         tmp_path,
-        suppressed=[_ADVISORY],
         records=[_record()],
-        fixable=[],
-        full=[_finding(), _finding(package="libother2")],
+        scanned=[_finding(), _finding(package="libother2")],
     ).run()
 
     assert result.returncode == 1
@@ -231,7 +200,6 @@ def test_a_recorded_package_absent_from_the_scan_is_refused(tmp_path: Path) -> N
 
     result = _Scenario(
         tmp_path,
-        suppressed=[_ADVISORY],
         records=[
             _record(
                 packages=[
@@ -240,8 +208,7 @@ def test_a_recorded_package_absent_from_the_scan_is_refused(tmp_path: Path) -> N
                 ]
             )
         ],
-        fixable=[],
-        full=[_finding()],
+        scanned=[_finding()],
     ).run()
 
     assert result.returncode == 1
@@ -249,7 +216,7 @@ def test_a_recorded_package_absent_from_the_scan_is_refused(tmp_path: Path) -> N
 
 
 def test_an_accepted_advisory_absent_from_the_image_is_refused(tmp_path: Path) -> None:
-    result = _Scenario(tmp_path, suppressed=[_ADVISORY], records=[_record()], fixable=[], full=[]).run()
+    result = _Scenario(tmp_path, records=[_record()], scanned=[]).run()
 
     assert result.returncode == 1
     assert "no longer present in the image" in result.stderr
@@ -258,10 +225,8 @@ def test_an_accepted_advisory_absent_from_the_image_is_refused(tmp_path: Path) -
 def test_an_expired_acceptance_is_refused(tmp_path: Path) -> None:
     result = _Scenario(
         tmp_path,
-        suppressed=[_ADVISORY],
         records=[_record(expires_on="2020-01-01")],
-        fixable=[],
-        full=[_finding()],
+        scanned=[_finding()],
     ).run()
 
     assert result.returncode == 1
@@ -269,8 +234,8 @@ def test_an_expired_acceptance_is_refused(tmp_path: Path) -> None:
 
 
 def test_a_missing_report_is_refused_rather_than_treated_as_nothing_to_answer_for(tmp_path: Path) -> None:
-    scenario = _Scenario(tmp_path, suppressed=[_ADVISORY], records=[_record()], fixable=[], full=[_finding()])
-    scenario.fixable.unlink()
+    scenario = _Scenario(tmp_path, records=[_record()], scanned=[_finding()])
+    scenario.scan.unlink()
 
     assert scenario.run().returncode == 1
 
@@ -278,8 +243,8 @@ def test_a_missing_report_is_refused_rather_than_treated_as_nothing_to_answer_fo
 def test_a_malformed_report_is_refused(tmp_path: Path) -> None:
     """An empty object would make every acceptance look justified."""
 
-    scenario = _Scenario(tmp_path, suppressed=[_ADVISORY], records=[_record()], fixable=[], full=[_finding()])
-    scenario.full.write_text("{}", encoding="utf-8")
+    scenario = _Scenario(tmp_path, records=[_record()], scanned=[_finding()])
+    scenario.scan.write_text("{}", encoding="utf-8")
 
     result = scenario.run()
     assert result.returncode == 1
