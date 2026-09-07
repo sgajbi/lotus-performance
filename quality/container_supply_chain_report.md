@@ -25,7 +25,7 @@ Runtime image contract:
 | Control | Current posture |
 | --- | --- |
 | Docker target | `runtime`, selected by `CONTAINER_BUILD_TARGET ?= runtime` and Compose `target: runtime`. |
-| Dependency scope | Installs `requirements.txt` only; development/test dependencies from `requirements-dev.txt` are not installed in the runtime image. |
+| Dependency scope | Installs `requirements.txt` and `requirements-image.txt`. The second holds packages that ship inside the image without being imported by application code (pinned `setuptools`), declared there so the build and the licence inventory read one authority rather than two that drift. `pip` and `wheel` are pinned for the build and uninstalled afterwards, so they are not distributed and not scanned. Development/test dependencies from `requirements-dev.txt` are not installed. |
 | Runtime user | Creates and runs as non-root user `lotus` with UID/GID `10001`. |
 | Writable paths | Owns `/app/lineage_data`, `/app/artifacts`, and `/app/output`; source files are copied with `--chown=lotus:lotus`. |
 | API healthcheck | Dockerfile probes `/health/live`; Compose probes `/health/ready` for the API service. |
@@ -52,8 +52,7 @@ Generated artifacts:
 | Artifact | Purpose | Source control posture |
 | --- | --- | --- |
 | `output/container-security/lotus-performance-image-sbom.cdx.json` | CycloneDX SBOM for the production `runtime` image stage. | Ignored generated evidence; uploaded by PR/Main workflows. |
-| `output/container-security/lotus-performance-image-vulnerabilities.json` | Trivy vulnerability report scoped to `HIGH,CRITICAL`, **unfiltered**, so it contains the findings the blocking gate acts on. | Ignored generated evidence; uploaded by PR/Main workflows. |
-| `output/container-security/lotus-performance-image-fixable.json` | The same scan with `--ignore-unfixed`, so everything in it has an upstream fix. Used by `make container-acceptance-gate` to refuse an acceptance for anything fixable. | Ignored generated evidence; uploaded by PR/Main workflows. |
+| `output/container-security/lotus-performance-image-vulnerabilities.json` | Trivy vulnerability report scoped to `HIGH,CRITICAL`, **unfiltered**, so it contains the findings the blocking gate acts on. Fixability is read from each finding's own `FixedVersion` rather than a second filtered scan, so the gate cannot be told two different things about one image. | Ignored generated evidence; uploaded by PR/Main workflows. |
 
 The PR Merge Gate and Main Releasability Gate publish those artifacts. Main Releasability also
 attests SBOM provenance through GitHub artifact attestations using

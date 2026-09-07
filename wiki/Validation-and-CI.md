@@ -196,7 +196,7 @@ Main Releasability upload those artifacts. Main Releasability also attests SBOM 
 reviewed,
 and promotion required every high/critical finding to be zero or explicitly accepted with owner,
 expiry, advisory identity, affected version, and remediation path. The accepted set is
-`quality/container_vulnerability_acceptances.v1.json`; `make container-acceptance-gate` validates
+`quality/container_vulnerability_acceptances.v1.json`; `scripts/container_acceptance_gate.py`, run by that target, validates
 it against the live scan and refuses an acceptance that has gained an upstream fix, lost its
 package match after a base image change, or passed its expiry.
 
