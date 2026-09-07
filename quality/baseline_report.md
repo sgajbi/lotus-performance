@@ -1,7 +1,7 @@
 # Lotus Performance Enterprise Backend Refactor Baseline
 
-Baseline date: 2026-09-06
-Branch: `fix/pin-precommit-toolchain-to-the-enforced-versions`
+Baseline date: 2026-09-07
+Branch: `fix/wire-the-blocking-gates`
 Mode: report-only baseline; no new blocking quality gate is introduced by this artifact.
 
 ## Purpose
@@ -16,11 +16,11 @@ snapshots are written under ignored `output/quality-baseline/`; curated source r
 
 | Area | Current value | Evidence |
 | --- | ---: | --- |
-| Python files | 667 | `rg --files -g '*.py'` equivalent excluding local caches |
+| Python files | 670 | `rg --files -g '*.py'` equivalent excluding local caches |
 | Python package markers | 22 | recursive `__init__.py` count |
-| Python LOC | 198,897 | recursive `.py` line count |
-| Test modules | 318 | `tests/**/test_*.py` |
-| Collected tests | 3933 tests | `python -m pytest --collect-only -q` |
+| Python LOC | 199,205 | recursive `.py` line count |
+| Test modules | 320 | `tests/**/test_*.py` |
+| Collected tests | 3944 tests | `python -m pytest --collect-only -q` |
 | Configured CI workflows | 7 | `.github/workflows/*.yml` |
 | Repo-native baseline command | 1 | `make quality-baseline` |
 
