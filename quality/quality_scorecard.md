@@ -86,7 +86,7 @@ metrics in each section are updated with each meaningful slice.
 | Blocked or missing-exception license findings | unknown | 0 | n/a | enforced | `make license-compliance-gate` |
 | Container SBOM artifact | unknown | 1 | n/a | measured | `quality/container_supply_chain_report.md`; `make container-supply-chain-evidence`; PR/Main artifact upload |
 | Container vulnerability report artifact | unknown | 1 | n/a | measured | `quality/container_supply_chain_report.md`; `make container-supply-chain-evidence`; PR/Main artifact upload |
-| Container vulnerability gate | unknown | 0 | n/a | enforced | `make container-vulnerability-gate` blocks in PR Merge Gate and Main Releasability. Zero unaccepted high/critical findings; 18 base-image advisories with no upstream fix are accepted in `quality/container_vulnerability_acceptances.v1.json` with package identity, affected version, owner, expiry and remediation path, and validated against the live scan by `make container-acceptance-gate` |
+| Container vulnerability gate | unknown | 0 | n/a | enforced | `make container-vulnerability-gate` blocks in PR Merge Gate and Main Releasability. Zero unaccepted high/critical findings; 18 base-image advisories with no upstream fix are accepted in `quality/container_vulnerability_acceptances.v1.json` with package identity, affected version, owner, expiry and remediation path, and validated against the same scan by `scripts/container_acceptance_gate.py`, which `make container-vulnerability-gate` runs |
 | SBOM provenance attestation | unknown | 1 | n/a | measured | `quality/container_supply_chain_report.md`; Main Releasability `actions/attest-build-provenance@v3` |
 
 ### Operational Readiness

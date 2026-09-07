@@ -336,14 +336,14 @@ Important validation expectations:
     build metadata for Git SHA, branch, build timestamp, repository URL, CI run id, and image digest
     placeholder, writes a CycloneDX SBOM and high/critical Trivy vulnerability report under ignored
     `output/container-security/`, and is published by PR Merge Gate and Main Releasability. The
-    production runtime image installs only `requirements.txt`, runs as non-root user `lotus`, owns
+    production runtime image installs `requirements.txt` and `requirements-image.txt` (pinned `setuptools`, retained in the image so the licence inventory covers it; `pip` and `wheel` are pinned for the build and removed afterwards), runs as non-root user `lotus`, owns
     only required writable paths, and carries Docker/Compose healthchecks for the API and worker
     processes. Main Releasability also attests SBOM provenance. Runtime `/version` exposes the same
     support-safe metadata fields so operators can correlate a live service to image labels and
     release evidence. `make container-vulnerability-gate` is promoted and blocking. It generates the
     scans it consumes, so running it bare always evaluates the current image rather than a stale
     report. Unfixable base-image advisories are accepted individually and validated against the
-    live scan by `make container-acceptance-gate`; an acceptance that gains an upstream fix, stops
+    same scan by `scripts/container_acceptance_gate.py`, which that target runs; an acceptance that gains an upstream fix, stops
     matching its recorded package version, or expires is a failure rather than a suppression.
 16. `make performance-characterization` now writes benchmark JUnit, log, and summary artifacts under
     ignored `output/performance-characterization/`. The Performance Characterization Evidence

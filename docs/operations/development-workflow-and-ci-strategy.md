@@ -61,7 +61,7 @@ coverage passes. `make container-supply-chain-evidence` builds `lotus-performanc
 production `runtime` Dockerfile target with non-secret Git SHA, branch, build timestamp, repository
 URL, CI run id, and image-digest metadata fields, generates a CycloneDX SBOM, and writes a
 high/critical Trivy vulnerability report under `output/container-security/`. The runtime target
-installs only `requirements.txt`, runs as non-root user `lotus`, owns only required writable paths,
+installs `requirements.txt` and `requirements-image.txt` (pinned `setuptools`, retained in the image so the licence inventory covers it; `pip` and `wheel` are pinned for the build and removed afterwards), runs as non-root user `lotus`, owns only required writable paths,
 and carries Docker/Compose healthchecks for the API and worker processes. The same support-safe
 metadata shape is exposed by runtime `GET /version` so operators can correlate a live service to
 OCI labels, SBOM, vulnerability, and provenance evidence. The artifacts are uploaded by GitHub
