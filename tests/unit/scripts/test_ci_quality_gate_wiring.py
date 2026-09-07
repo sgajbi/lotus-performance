@@ -164,7 +164,14 @@ def test_container_supply_chain_evidence_is_repo_native_and_published() -> None:
     assert "requirements-dev.txt" not in dockerfile
     assert "USER lotus" in dockerfile
     assert "/health/live" in dockerfile
-    assert "docker-build container-sbom container-vulnerability-report" in evidence_target
+    # The evidence target reaches the build through both scanning targets rather than
+    # naming it beside them: siblings can run concurrently under `make -j`, so a sibling
+    # `docker-build` is not an ordering and a scan could hit a stale image of the same
+    # tag. Reachability and the ordering itself are asserted in
+    # `test_container_scan_composition.py`; what belongs here is that evidence still
+    # produces both artifacts.
+    assert "container-sbom" in evidence_target
+    assert "container-vulnerability-report" in evidence_target
     assert "aquasec/trivy:0.71.2" in (ROOT / "Makefile").read_text(encoding="utf-8")
     assert "--format cyclonedx" in sbom_target
     assert "lotus-performance-image-sbom.cdx.json" in sbom_target

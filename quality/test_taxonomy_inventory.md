@@ -23,7 +23,7 @@ python scripts/python_test_taxonomy_inventory.py --limit 30 --min-api-runtime-te
 | Metric | Value |
 | --- | ---: |
 | Test modules inventoried | 322 |
-| Test functions inventoried | 3663 |
+| Test functions inventoried | 3664 |
 | Integration/API/runtime test functions | 699 |
 | Contract/governance test functions | 178 |
 
@@ -34,7 +34,7 @@ python scripts/python_test_taxonomy_inventory.py --limit 30 --min-api-runtime-te
 | benchmarks | 9 | 19 |
 | e2e | 1 | 21 |
 | integration | 28 | 343 |
-| unit | 284 | 3280 |
+| unit | 284 | 3281 |
 
 ## Test Functions By Family
 
@@ -48,7 +48,7 @@ above does sum to it, because a module belongs to exactly one suite.
 | api_or_runtime | 699 |
 | contract_or_governance | 178 |
 | observability_or_readiness | 375 |
-| quality_or_security | 225 |
+| quality_or_security | 226 |
 | uncategorized | 876 |
 
 ## Largest Test Modules
@@ -88,4 +88,4 @@ above does sum to it, because a module belongs to exactly one suite.
 
 The #502 request-path proof added a module driving the real application over HTTP for tenant admission - admitted, absent, blank and concurrent two-tenant requests, each asserting the outbound Core call - raising inventoried modules to `317`, source test functions to `3634`, and API/runtime tests to `699`. Later review fixes in the same PR added the padded-tenant refusals and the returns-series authority regression, which are counted in those figures. Uncategorized tests are unchanged at `876`: every added module classifies as api_or_runtime, so the ceiling this gate governs was neither approached nor raised.
 
-The container-scan composition proof added one module and one documentation invariant. The module asserts that a workflow job reaches the image scan exactly once and that the judged report is the one produced and uploaded, which is a property of how the lane composes Make targets rather than of any single target. The invariant requires every documented `make` invocation to name a target that exists in the Makefile, so a reference to a target that does not exist fails without anyone having to remember which target was renamed. Inventoried modules rise to `322`, source test functions to `3663`, quality/security tests to `225`, and contract/governance tests to `178`. Uncategorized tests are unchanged at `876`, exactly the ceiling this gate governs: neither addition classifies as uncategorized, so the ceiling was neither approached nor raised.
+The container-scan composition proof added one module and two documentation invariants. The module asserts that a workflow job reaches the image scan exactly once and that the judged report is the one produced and uploaded, which is a property of how the lane composes Make targets rather than of any single target. The invariant requires every documented `make` invocation to name a target that exists in the Makefile, so a reference to a target that does not exist fails without anyone having to remember which target was renamed. Inventoried modules rise to `322`, source test functions to `3664`, quality/security tests to `226`, and contract/governance tests to `178`. Uncategorized tests are unchanged at `876`, exactly the ceiling this gate governs: neither addition classifies as uncategorized, so the ceiling was neither approached nor raised.

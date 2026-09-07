@@ -229,13 +229,13 @@ docker-down:
 docker-build:
 	docker build -f Dockerfile --target $(CONTAINER_BUILD_TARGET) -t $(CONTAINER_IMAGE) --build-arg APP_VERSION=$(CONTAINER_SERVICE_VERSION) --build-arg APP_GIT_COMMIT_SHA=$(CONTAINER_GIT_SHA) --build-arg APP_GIT_BRANCH=$(CONTAINER_GIT_BRANCH) --build-arg APP_BUILD_TIMESTAMP=$(CONTAINER_BUILD_TIMESTAMP) --build-arg APP_REPOSITORY_URL=$(CONTAINER_REPOSITORY_URL) --build-arg APP_IMAGE_DIGEST=$(CONTAINER_IMAGE_DIGEST) --build-arg APP_CI_PIPELINE_RUN_ID=$(CONTAINER_CI_PIPELINE_RUN_ID) .
 
-container-supply-chain-evidence: docker-build container-sbom container-vulnerability-report
+container-supply-chain-evidence: container-sbom container-vulnerability-report
 
-container-sbom:
+container-sbom: docker-build
 	python -c "from pathlib import Path; Path('$(CONTAINER_SECURITY_OUTPUT_DIR)').mkdir(parents=True, exist_ok=True)"
 	docker run --rm -v /var/run/docker.sock:/var/run/docker.sock -v "$(CURDIR)/$(CONTAINER_SECURITY_OUTPUT_DIR):/output" $(TRIVY_IMAGE) image --scanners vuln --format cyclonedx --output /output/lotus-performance-image-sbom.cdx.json $(CONTAINER_IMAGE)
 
-container-vulnerability-report:
+container-vulnerability-report: docker-build
 	python -c "from pathlib import Path; Path('$(CONTAINER_SECURITY_OUTPUT_DIR)').mkdir(parents=True, exist_ok=True)"
 	docker run --rm -v /var/run/docker.sock:/var/run/docker.sock -v "$(CURDIR)/$(CONTAINER_SECURITY_OUTPUT_DIR):/output" $(TRIVY_IMAGE) image --scanners vuln --severity $(TRIVY_SEVERITY) --format json --output /output/lotus-performance-image-vulnerabilities.json --exit-code 0 $(CONTAINER_IMAGE)
 
@@ -249,5 +249,5 @@ container-vulnerability-report:
 # in quality/container_vulnerability_acceptances.v1.json, with owner, expiry, package
 # identity and severity, and validated against that scan. That is the difference between
 # a recorded decision and a hidden one.
-container-vulnerability-gate: docker-build container-vulnerability-report
+container-vulnerability-gate: container-vulnerability-report
 	python scripts/container_acceptance_gate.py --scan $(CONTAINER_SECURITY_OUTPUT_DIR)/lotus-performance-image-vulnerabilities.json

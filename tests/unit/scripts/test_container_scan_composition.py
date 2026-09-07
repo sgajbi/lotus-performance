@@ -156,3 +156,43 @@ def test_the_judged_file_is_the_file_that_was_produced_and_uploaded() -> None:
             f"{workflow.name} judges the scan but does not upload the directory holding it, so "
             f"a failing verdict would have no evidence to explain it"
         )
+
+
+def test_the_image_build_is_ordered_before_every_scan_of_it() -> None:
+    """A sibling prerequisite is not an ordering.
+
+    `container-vulnerability-gate: docker-build container-vulnerability-report`
+    reads as "build, then scan" and is not: siblings may run concurrently under
+    `make -j` or an inherited `MAKEFLAGS`. On a clean machine the scan fails
+    because the tag does not exist yet; on a machine with a previous build it
+    succeeds against the *older* image carrying the same tag, which is the worse
+    outcome because the verdict looks valid.
+
+    Both scanning targets consume the tag, so both must depend on the build
+    rather than sit beside it. Asserted through the prerequisite graph rather
+    than by reading one rule, because the property is reachability -- a target
+    that reaches a scan without reaching the build is broken however the rule is
+    spelled.
+    """
+
+    rules = _prerequisites()
+
+    def reaches(target: str, goal: str, seen: frozenset[str] = frozenset()) -> bool:
+        if target in seen:
+            return False
+        if target == goal:
+            return True
+        return any(reaches(prereq, goal, seen | {target}) for prereq in rules.get(target, []))
+
+    scanning = {"container-sbom", "container-vulnerability-report"}
+    assert scanning <= set(rules), f"a scanning target was renamed; this check now covers {scanning & set(rules)}"
+
+    for scan_target in sorted(scanning):
+        assert reaches(scan_target, "docker-build"), (
+            f"{scan_target} scans the image tag without depending on docker-build, so under "
+            f"`make -j` it can run before the build finishes -- failing on a clean machine, or "
+            f"scanning a stale image of the same tag on one that has built before"
+        )
+
+    for entry_point in ("container-vulnerability-gate", "container-supply-chain-evidence"):
+        assert reaches(entry_point, "docker-build"), f"{entry_point} judges an image it never builds"
