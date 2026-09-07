@@ -15,8 +15,9 @@ Four rules, each for a way an acceptance file goes wrong:
   * every suppressed id must have a governed record, and every governed record
     every required field, so a bare id cannot silently suppress anything
   * an acceptance must still describe the image: the base tag floats, so the same
-    CVE can reappear in a different package or version, and a record naming the
-    old one would keep suppressing a finding nobody has looked at
+    CVE can reappear in a different package or version, or be reclassified to a
+    higher severity, and a record naming the old one would keep suppressing a
+    finding nobody approved in its current form
   * an expired acceptance fails, so the base image decision is revisited rather
     than inherited by whoever is on duty
 
@@ -100,8 +101,10 @@ def main() -> int:
 
     # 3. Each record must still describe the image that is actually being scanned.
     present: dict[str, set[tuple[str, str]]] = {}
+    live_severities: dict[str, set[str]] = {}
     for finding in _findings(args.full_report, description="unfiltered"):
         present.setdefault(finding["VulnerabilityID"], set()).add((finding["PkgName"], finding["InstalledVersion"]))
+        live_severities.setdefault(finding["VulnerabilityID"], set()).add(finding["Severity"])
     for advisory_id, record in sorted(by_id.items()):
         scanned = present.get(advisory_id)
         if scanned is None:
@@ -111,6 +114,15 @@ def main() -> int:
                 f"whatever reappears under that id tomorrow; remove it."
             )
             continue
+        # Severity is part of what was approved, not a label on it. A CVE reclassified
+        # from HIGH to CRITICAL keeps its id, package and version, so a match on those
+        # alone would keep suppressing it under an approval nobody gave for a critical.
+        if unapproved := sorted(live_severities[advisory_id] - {record["severity"]}):
+            failures.append(
+                f"{advisory_id} is now scanned as {unapproved} but was accepted as "
+                f"{record['severity']!r}. Severity is part of what was approved; re-review it "
+                f"rather than inheriting the old decision."
+            )
         recorded = {(package["name"], package["affected_version"]) for package in record["packages"]}
         if drifted := sorted(scanned - recorded):
             failures.append(
