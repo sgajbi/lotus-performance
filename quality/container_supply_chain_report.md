@@ -1,7 +1,8 @@
 # Container Supply-Chain Evidence
 
 Report date: 2026-07-10
-Mode: PR/Main release evidence; vulnerability report is report-only until the baseline is accepted.
+Mode: PR/Main release evidence; the vulnerability gate is blocking, with unfixable base-image
+advisories accepted individually and validated against the live scan.
 
 ## Current Posture
 
@@ -51,7 +52,8 @@ Generated artifacts:
 | Artifact | Purpose | Source control posture |
 | --- | --- | --- |
 | `output/container-security/lotus-performance-image-sbom.cdx.json` | CycloneDX SBOM for the production `runtime` image stage. | Ignored generated evidence; uploaded by PR/Main workflows. |
-| `output/container-security/lotus-performance-image-vulnerabilities.json` | Trivy vulnerability report scoped to `HIGH,CRITICAL` and ignoring unfixed findings during the report-only baseline phase. | Ignored generated evidence; uploaded by PR/Main workflows. |
+| `output/container-security/lotus-performance-image-vulnerabilities.json` | Trivy vulnerability report scoped to `HIGH,CRITICAL`, **unfiltered**, so it contains the findings the blocking gate acts on. | Ignored generated evidence; uploaded by PR/Main workflows. |
+| `output/container-security/lotus-performance-image-fixable.json` | The same scan with `--ignore-unfixed`, so everything in it has an upstream fix. Used by `make container-acceptance-gate` to refuse an acceptance for anything fixable. | Ignored generated evidence; uploaded by PR/Main workflows. |
 
 The PR Merge Gate and Main Releasability Gate publish those artifacts. Main Releasability also
 attests SBOM provenance through GitHub artifact attestations using
@@ -59,7 +61,8 @@ attests SBOM provenance through GitHub artifact attestations using
 
 ## Exception And Promotion Policy
 
-The report-only phase exists to avoid turning an unknown base-image baseline into noisy release
+The gate is promoted and blocking. The report-only phase existed to avoid turning an unknown
+base-image baseline into noisy release
 lane failures. Promote `make container-vulnerability-gate` to blocking when:
 
 1. at least one PR and one main run have produced reviewed artifacts,
