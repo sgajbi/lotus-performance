@@ -24,7 +24,7 @@ def test_dockerfile_uses_minimized_non_root_runtime_image() -> None:
     dockerfile = (ROOT / "Dockerfile").read_text(encoding="utf-8")
 
     assert "FROM python:3.11-slim AS runtime" in dockerfile
-    assert "COPY requirements.txt ./" in dockerfile
+    assert "COPY requirements.txt requirements-image.txt ./" in dockerfile
     assert "requirements-dev.txt" not in dockerfile
     assert "useradd --system --uid 10001" in dockerfile
     assert "USER lotus" in dockerfile

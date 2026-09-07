@@ -30,7 +30,7 @@ ENV APP_VERSION="${APP_VERSION}" \
 
 WORKDIR /app
 
-COPY requirements.txt ./
+COPY requirements.txt requirements-image.txt ./
 # setuptools and wheel ship with the base image and carry fixable HIGH
 # advisories there (path traversal in setuptools, privilege escalation in
 # wheel, path traversal in setuptools' vendored jaraco.context). They are build
@@ -58,7 +58,7 @@ COPY requirements.txt ./
 # serves at build time -- so the same commit could produce a different SBOM, or start
 # failing this now-blocking gate, with no change in this repository to point at. pip and
 # wheel need no pin because they do not survive into the image.
-RUN pip install --no-cache-dir --root-user-action=ignore --upgrade 'pip==26.2.1' 'setuptools==84.0.0' 'wheel==0.48.0' && \
+RUN pip install --no-cache-dir --root-user-action=ignore --upgrade 'pip==26.2.1' 'wheel==0.48.0' -r requirements-image.txt && \
     pip install --no-cache-dir --root-user-action=ignore -r requirements.txt && \
     find /usr/local/lib/python3.11/ensurepip -name '*.whl' -delete && \
     python -m pip uninstall --yes pip wheel

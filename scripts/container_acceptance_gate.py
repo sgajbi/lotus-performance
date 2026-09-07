@@ -75,6 +75,22 @@ def main() -> int:
 
     suppressed = set(_IGNORED_ID.findall(args.ignorefile.read_text(encoding="utf-8")))
     records = json.loads(args.records.read_text(encoding="utf-8"))["acceptances"]
+    # Duplicate ids must be refused before indexing. Building the map first keeps only
+    # the last record for an id, so an earlier one bypasses every check below while the
+    # gate still reports success -- a suppression validated against a record nobody read.
+    duplicates = sorted(
+        {
+            record["advisory_id"]
+            for index, record in enumerate(records)
+            if record["advisory_id"] in {other["advisory_id"] for other in records[:index]}
+        }
+    )
+    if duplicates:
+        raise SystemExit(
+            f"Duplicate advisory ids in {args.records}: {duplicates}. Only one record per "
+            f"advisory can be validated; the others would be silently discarded while still "
+            f"appearing to govern their suppression."
+        )
     by_id = {record["advisory_id"]: record for record in records}
     failures: list[str] = []
 
@@ -140,11 +156,21 @@ def main() -> int:
                 f"rather than inheriting the old decision."
             )
         recorded = {(package["name"], package["affected_version"]) for package in record["packages"]}
-        if drifted := sorted(scanned - recorded):
+        # Both directions. A one-sided `scanned - recorded` check passes when a recorded
+        # package disappears from the scan, leaving it pre-approved: the suppression is
+        # id-wide, so if that package returns at the recorded version it is covered
+        # again with no review. Package identity is only bound if the sets match.
+        if unnamed := sorted(scanned - recorded):
             failures.append(
                 f"{advisory_id} now affects package versions this acceptance does not name: "
-                f"{drifted}. The acceptance was reviewed against different packages, so it must "
+                f"{unnamed}. The acceptance was reviewed against different packages, so it must "
                 f"be re-reviewed rather than carried forward."
+            )
+        if stale := sorted(recorded - scanned):
+            failures.append(
+                f"{advisory_id} records package versions the scan no longer reports: {stale}. "
+                f"Leaving them pre-approves a package that would be suppressed id-wide if it "
+                f"returned; remove them from the record or re-review the acceptance."
             )
 
     # 4. Acceptance is time-bound.

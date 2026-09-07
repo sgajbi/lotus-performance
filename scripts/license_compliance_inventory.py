@@ -21,6 +21,10 @@ LICENSE_PATH = ROOT / "LICENSE"
 REQUIREMENT_FILES = {
     "runtime": ROOT / "requirements.txt",
     "development": ROOT / "requirements-dev.txt",
+    # Installed by the Dockerfile and retained in the image. Nothing imports them, but
+    # they are distributed, so a licence gate that reads only the two files above never
+    # evaluates a package the image actually ships.
+    "image": ROOT / "requirements-image.txt",
 }
 
 

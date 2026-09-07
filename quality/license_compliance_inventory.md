@@ -12,8 +12,8 @@ Mode: generated first-party and third-party dependency license evidence.
 
 | Metric | Value |
 | --- | ---: |
-| Packages inventoried | 46 |
-| Allowed packages | 44 |
+| Packages inventoried | 47 |
+| Allowed packages | 45 |
 | Review-required packages with active exception | 2 |
 | Blocked packages | 0 |
 | Review-required packages missing exception | 0 |
@@ -59,6 +59,7 @@ Mode: generated first-party and third-party dependency license evidence.
 | `pytz` | runtime | `pytz==2025.2` | `2025.2` | MIT | License | allowed | - | - |
 | `radon` | development | `radon==6.0.1` | `6.0.1` | MIT | License | allowed | - | - |
 | `ruff` | development | `ruff==0.6.9` | `0.6.9` | MIT | License | allowed | - | - |
+| `setuptools` | image | `setuptools==84.0.0` | `84.0.0` | MIT | License-Expression | allowed | - | - |
 | `six` | runtime | `six==1.17.0` | `1.17.0` | MIT | License | allowed | - | - |
 | `sniffio` | runtime | `sniffio==1.3.1` | `1.3.1` | MIT OR Apache-2.0 | License | allowed | - | - |
 | `SQLAlchemy` | development, runtime | `SQLAlchemy==2.0.39` | `2.0.39` | MIT | License | allowed | - | - |

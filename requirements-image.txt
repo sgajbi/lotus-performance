@@ -1,0 +1,10 @@
+# Packages installed into the runtime image by the Dockerfile and retained there.
+#
+# They are not runtime *dependencies* -- nothing imports them from application code --
+# but they ship inside the image, so the license gate must evaluate them. Declaring the
+# pin here rather than inline in the Dockerfile gives the version one authority that both
+# the build and the licence inventory read, instead of two that can drift apart.
+#
+# pip and wheel are deliberately absent: they are pinned for the build and removed from
+# the image afterwards, so they are not distributed.
+setuptools==84.0.0
