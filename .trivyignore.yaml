@@ -1,0 +1,72 @@
+# Container vulnerability acceptances for lotus-performance.
+#
+# quality/container_supply_chain_report.md requires every HIGH/CRITICAL finding to be
+# zero OR explicitly accepted. Only the first half was implemented: the gate failed on
+# every finding with no way to record an acceptance, so it had no passing state at all.
+# Every entry below carries no upstream fix, so no change this repository can make would
+# clear it -- which is what made the gate unpassable rather than strict.
+#
+# Rules, enforced by tests/unit/scripts/test_container_vulnerability_acceptances.py:
+#   * an accepted finding must have no fixed version upstream; anything fixable must be
+#     fixed, never accepted here
+#   * every entry states what it is and when the acceptance lapses
+#   * an expired entry fails the gate, so acceptance is revisited rather than inherited
+#
+# These are Debian base-image advisories in python:3.11-slim. Clearing them needs a base
+# image decision, which is tracked separately; it is not a dependency bump.
+
+vulnerabilities:
+  - id: CVE-2025-69720
+    statement: "HIGH in libncursesw6, libtinfo6, ncurses-base, ncurses-bin. ncurses: ncurses: Buffer overflow vulnerability may lead to arbitrary code execution.. No fixed version published for Debian 13.6; accepted pending a base image decision."
+    expired_at: 2026-10-05
+  - id: CVE-2026-11822
+    statement: "HIGH in libsqlite3-0. sqlite: SQLite: Arbitrary code execution via crafted FTS5 full-text search data. No fixed version published for Debian 13.6; accepted pending a base image decision."
+    expired_at: 2026-10-05
+  - id: CVE-2026-11824
+    statement: "HIGH in libsqlite3-0. sqlite: SQLite: Arbitrary code execution and crash via heap-based buffer overflow in FTS5. No fixed version published for Debian 13.6; accepted pending a base image decision."
+    expired_at: 2026-10-05
+  - id: CVE-2026-13221
+    statement: "CRITICAL in perl-base. perl: Perl: Incorrect regular expression processing via large regular expressions. No fixed version published for Debian 13.6; accepted pending a base image decision."
+    expired_at: 2026-10-05
+  - id: CVE-2026-16742
+    statement: "HIGH in libsystemd0, libudev1. systemd: systemd-homed: Local privilege escalation via missing home-record signature verification. No fixed version published for Debian 13.6; accepted pending a base image decision."
+    expired_at: 2026-10-05
+  - id: CVE-2026-41992
+    statement: "HIGH in gzip. gzip: gzip: Information disclosure via global buffer overflow in LZH decompression. No fixed version published for Debian 13.6; accepted pending a base image decision."
+    expired_at: 2026-10-05
+  - id: CVE-2026-42496
+    statement: "CRITICAL in perl-base. perl-archive-tar: perl-archive-tar: Path traversal via crafted symlinks allows arbitrary file access. No fixed version published for Debian 13.6; accepted pending a base image decision."
+    expired_at: 2026-10-05
+  - id: CVE-2026-42497
+    statement: "HIGH in perl-base. perl-Archive-Tar: perl-Archive-Tar: Arbitrary file modification via crafted hardlinks during archive extractio. No fixed version published for Debian 13.6; accepted pending a base image decision."
+    expired_at: 2026-10-05
+  - id: CVE-2026-48962
+    statement: "HIGH in perl-base. perl-IO-Compress: perl-IO-Compress: Arbitrary code execution via attacker-controlled output glob. No fixed version published for Debian 13.6; accepted pending a base image decision."
+    expired_at: 2026-10-05
+  - id: CVE-2026-54369
+    statement: "HIGH in libacl1. acl: Symlink traversal privilege escalation via libacl functions. No fixed version published for Debian 13.6; accepted pending a base image decision."
+    expired_at: 2026-10-05
+  - id: CVE-2026-57432
+    statement: "HIGH in perl-base. perl: Perl: Information disclosure via integer overflow in pack/unpack operations. No fixed version published for Debian 13.6; accepted pending a base image decision."
+    expired_at: 2026-10-05
+  - id: CVE-2026-57433
+    statement: "HIGH in perl-base. Storable: Storable: Denial of Service via signed integer overflow in deserialization. No fixed version published for Debian 13.6; accepted pending a base image decision."
+    expired_at: 2026-10-05
+  - id: CVE-2026-76642
+    statement: "HIGH in bsdutils, libblkid1, liblastlog2-2, libmount1 and others. util-linux: util-linux: failed external mount helper still runs privileged X-mount post-hooks. No fixed version published for Debian 13.6; accepted pending a base image decision."
+    expired_at: 2026-10-05
+  - id: CVE-2026-78408
+    statement: "HIGH in bsdutils, libblkid1, liblastlog2-2, libmount1 and others. util-linux: util-linux: nsenter --join-cgroup leaks root cgroup migration authority. No fixed version published for Debian 13.6; accepted pending a base image decision."
+    expired_at: 2026-10-05
+  - id: CVE-2026-78409
+    statement: "HIGH in bsdutils, libblkid1, liblastlog2-2, libmount1 and others. util-linux: util-linux: X-mount.subdir detached-tree resolution can escape via intermediate symlinks. No fixed version published for Debian 13.6; accepted pending a base image decision."
+    expired_at: 2026-10-05
+  - id: CVE-2026-78410
+    statement: "HIGH in bsdutils, libblkid1, liblastlog2-2, libmount1 and others. util-linux: util-linux: restricted bind mounts do not pin the source, allowing X-mount.owner/group/mode redire. No fixed version published for Debian 13.6; accepted pending a base image decision."
+    expired_at: 2026-10-05
+  - id: CVE-2026-8376
+    statement: "CRITICAL in perl-base. perl: Perl: Heap buffer overflow when compiling regular expressions on 32-bit builds. No fixed version published for Debian 13.6; accepted pending a base image decision."
+    expired_at: 2026-10-05
+  - id: CVE-2026-9538
+    statement: "HIGH in perl-base. perl-Archive-Tar: perl-Archive-Tar: Denial of Service via crafted tar header with large entry size. No fixed version published for Debian 13.6; accepted pending a base image decision."
+    expired_at: 2026-10-05
