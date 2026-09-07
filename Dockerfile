@@ -36,9 +36,23 @@ COPY requirements.txt ./
 # wheel, path traversal in setuptools' vendored jaraco.context). They are build
 # tooling rather than runtime dependencies, so they are upgraded rather than
 # pinned in requirements.txt, which governs what the service imports.
+#
+# pip and wheel are then removed, because a runtime image has no reason to carry
+# a package installer: nothing here installs packages, and one that cannot is a
+# smaller target. It also removes the last HIGH findings the image reported.
+# Both -- msgpack 1.1.2 and setuptools 70.3.0 -- came from pip's own vendored
+# manifest at pip/_vendor/vendor.txt rather than from installed packages:
+# `import setuptools` resolves to the 84.0.0 installed above, and msgpack is not
+# installed at all. No dependency bump could have reached either, because they
+# are declarations inside pip. Deleting the manifest would have hidden the
+# finding; removing the installer removes the thing the manifest describes.
+#
+# setuptools stays: it is the safe 84.0.0 and remains importable through
+# pkg_resources for libraries that still expect it.
 RUN pip install --no-cache-dir --root-user-action=ignore --upgrade pip setuptools wheel && \
     pip install --no-cache-dir --root-user-action=ignore -r requirements.txt && \
-    find /usr/local/lib/python3.11/ensurepip -name '*.whl' -delete
+    find /usr/local/lib/python3.11/ensurepip -name '*.whl' -delete && \
+    python -m pip uninstall --yes pip wheel
 
 RUN groupadd --system --gid 10001 lotus && \
     useradd --system --uid 10001 --gid lotus --home-dir /app --shell /usr/sbin/nologin lotus && \
