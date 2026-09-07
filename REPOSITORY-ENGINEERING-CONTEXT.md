@@ -332,8 +332,11 @@ Important validation expectations:
     only required writable paths, and carries Docker/Compose healthchecks for the API and worker
     processes. Main Releasability also attests SBOM provenance. Runtime `/version` exposes the same
     support-safe metadata fields so operators can correlate a live service to image labels and
-    release evidence. `make container-vulnerability-gate` exists for later strict promotion after
-    the first PR/main image baseline and high/critical exception policy are reviewed.
+    release evidence. `make container-vulnerability-gate` is promoted and blocking. It generates the
+    scans it consumes, so running it bare always evaluates the current image rather than a stale
+    report. Unfixable base-image advisories are accepted individually and validated against the
+    live scan by `make container-acceptance-gate`; an acceptance that gains an upstream fix, stops
+    matching its recorded package version, or expires is a failure rather than a suppression.
 16. `make performance-characterization` now writes benchmark JUnit, log, and summary artifacts under
     ignored `output/performance-characterization/`. The Performance Characterization Evidence
     workflow runs it on pull requests to `main`, pushes to `main`, weekly schedule, and manual

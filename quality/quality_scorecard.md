@@ -86,7 +86,7 @@ metrics in each section are updated with each meaningful slice.
 | Blocked or missing-exception license findings | unknown | 0 | n/a | enforced | `make license-compliance-gate` |
 | Container SBOM artifact | unknown | 1 | n/a | measured | `quality/container_supply_chain_report.md`; `make container-supply-chain-evidence`; PR/Main artifact upload |
 | Container vulnerability report artifact | unknown | 1 | n/a | measured | `quality/container_supply_chain_report.md`; `make container-supply-chain-evidence`; PR/Main artifact upload |
-| Container vulnerability gate | unknown | 0 | n/a | planned-gate | `make container-vulnerability-gate`; promote after first PR/main baseline review and documented exceptions |
+| Container vulnerability gate | unknown | 0 | n/a | enforced | `make container-vulnerability-gate` blocks in PR Merge Gate and Main Releasability. Zero unaccepted high/critical findings; 18 base-image advisories with no upstream fix are accepted in `quality/container_vulnerability_acceptances.v1.json` with package identity, affected version, owner, expiry and remediation path, and validated against the live scan by `make container-acceptance-gate` |
 | SBOM provenance attestation | unknown | 1 | n/a | measured | `quality/container_supply_chain_report.md`; Main Releasability `actions/attest-build-provenance@v3` |
 
 ### Operational Readiness
@@ -121,9 +121,9 @@ metrics in each section are updated with each meaningful slice.
 | Signal | Value | Note |
 | --- | ---: | --- |
 | Total metrics tracked | 55 | All metrics in this file are now measured or explicitly staged, with selected zero-finding, breadth, and release-evidence signals enforced or produced separately. |
-| Measured metrics | 54 | Selected measured metrics are now also enforced or produced through blocking static-quality, security, deterministic API evaluation, test-taxonomy, container evidence, or performance-characterization evidence lanes. Branch coverage and container vulnerability output are measured report-only and are not promoted to strict gates yet. |
+| Measured metrics | 54 | Selected measured metrics are now also enforced or produced through blocking static-quality, security, deterministic API evaluation, test-taxonomy, container evidence, or performance-characterization evidence lanes. Branch coverage output is measured report-only and is not promoted to a strict gate yet. Container vulnerability output is now enforced. |
 | Not-yet-measured metrics | 0 | The scorecard no longer carries an unmeasured branch-coverage entry. OpenAPI Spectral and public-docstring gate decisions remain outside this scorecard until scoped separately. |
-| Planned gates | 1 | `make container-vulnerability-gate` exists but remains unpromoted until first PR/main container artifacts establish a reviewed high/critical image vulnerability baseline and exception policy. |
+| Planned gates | 0 | `make container-vulnerability-gate` is promoted and blocking. The reviewed baseline is zero unaccepted high/critical findings, with 18 unfixable base-image advisories accepted under a policy that binds each to package identity and affected version, expires them, and refuses any advisory that has an upstream fix. |
 | Latest observability signal | 1 | Returns-series supportability alerts now have deployable Grafana coverage for stale/degraded rate and supportability volume. `make quality-observability-readiness-gate` enforces alert-dashboard coverage for expected product supportability alerts instead of relying only on dashboard panel count. |
 
 ## Method Note

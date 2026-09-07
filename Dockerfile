@@ -47,9 +47,12 @@ COPY requirements.txt ./
 # are declarations inside pip. Deleting the manifest would have hidden the
 # finding; removing the installer removes the thing the manifest describes.
 #
-# setuptools stays: it is the safe 84.0.0 and remains importable through
-# pkg_resources for libraries that still expect it.
-RUN pip install --no-cache-dir --root-user-action=ignore --upgrade pip setuptools wheel && \
+# setuptools stays, and is pinned. It remains importable through pkg_resources for
+# libraries that still expect it, and an unpinned upgrade would resolve whatever PyPI
+# serves at build time -- so the same commit could produce a different SBOM, or start
+# failing this now-blocking gate, with no change in this repository to point at. pip and
+# wheel need no pin because they do not survive into the image.
+RUN pip install --no-cache-dir --root-user-action=ignore --upgrade pip 'setuptools==84.0.0' wheel && \
     pip install --no-cache-dir --root-user-action=ignore -r requirements.txt && \
     find /usr/local/lib/python3.11/ensurepip -name '*.whl' -delete && \
     python -m pip uninstall --yes pip wheel
