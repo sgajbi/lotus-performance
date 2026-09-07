@@ -461,6 +461,7 @@ def test_metrics_include_durable_queue_pressure_signals():
     compute_job_store.enqueue_job(
         calculation_id=uuid4(),
         analytics_type="ReturnsSeries",
+        tenant_id="tenant-test",
         request_payload={"portfolio_id": "PF-001"},
     )
     lineage_metadata_store.enqueue_lineage_payload(
@@ -790,21 +791,25 @@ def test_metrics_include_queue_policy_breach_signals():
     compute_job_store.enqueue_job(
         calculation_id=retry_id,
         analytics_type="ReturnsSeries",
+        tenant_id="tenant-test",
         request_payload={"portfolio_id": "PF-RETRY"},
     )
     compute_job_store.enqueue_job(
         calculation_id=leased_id,
         analytics_type="ReturnsSeries",
+        tenant_id="tenant-test",
         request_payload={"portfolio_id": "PF-LEASED"},
     )
     compute_job_store.enqueue_job(
         calculation_id=running_id,
         analytics_type="ReturnsSeries",
+        tenant_id="tenant-test",
         request_payload={"portfolio_id": "PF-RUN"},
     )
     compute_job_store.enqueue_job(
         calculation_id=failed_id,
         analytics_type="ReturnsSeries",
+        tenant_id="tenant-test",
         request_payload={"portfolio_id": "PF-FAIL"},
     )
     lineage_metadata_store.enqueue_lineage_payload(

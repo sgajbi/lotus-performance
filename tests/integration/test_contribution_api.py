@@ -2005,6 +2005,7 @@ def test_contribution_async_conflict_does_not_leave_orphan_execution(client, hap
         compute_job_store.enqueue_job(
             calculation_id=calculation_id,
             analytics_type="Contribution",
+            tenant_id="tenant-test",
             request_payload=drifted_job_payload,
         )
 
