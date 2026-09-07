@@ -26,6 +26,7 @@ def test_runtime_work_items_reports_active_compute_and_lineage_items():
         compute_job_store.enqueue_job(
             calculation_id=calculation_id,
             analytics_type="ReturnsSeries",
+            tenant_id="tenant-test",
             request_payload={"portfolio_id": str(calculation_id)},
             max_attempts=3,
         )
@@ -114,6 +115,7 @@ def test_runtime_work_items_reports_failed_compute_and_lineage_items():
     compute_job_store.enqueue_job(
         calculation_id=compute_failed_id,
         analytics_type="Contribution",
+        tenant_id="tenant-test",
         request_payload={"portfolio_id": "PF-FAIL"},
         max_attempts=2,
     )
@@ -182,12 +184,14 @@ def test_runtime_work_items_exposes_result_paths_for_twr_and_benchmark_jobs():
     compute_job_store.enqueue_job(
         calculation_id=twr_id,
         analytics_type="TWR",
+        tenant_id="tenant-test",
         request_payload={"portfolio_id": "PF-TWR"},
         max_attempts=2,
     )
     compute_job_store.enqueue_job(
         calculation_id=benchmark_id,
         analytics_type="BENCHMARK",
+        tenant_id="tenant-test",
         request_payload={"benchmark_id": "BMK-1"},
         max_attempts=2,
     )
@@ -228,6 +232,7 @@ def test_runtime_work_items_exposes_workspace_summary_result_paths_for_active_an
         compute_job_store.enqueue_job(
             calculation_id=calculation_id,
             analytics_type=ANALYTICS_WORKFLOW_WORKSPACE_SUMMARY,
+            tenant_id="tenant-test",
             request_payload={"portfolio_id": str(calculation_id)},
             max_attempts=2,
         )
@@ -350,6 +355,7 @@ def test_runtime_work_items_supports_queue_offset_and_age_filters():
         compute_job_store.enqueue_job(
             calculation_id=calculation_id,
             analytics_type="ReturnsSeries",
+            tenant_id="tenant-test",
             request_payload={"portfolio_id": str(calculation_id)},
             max_attempts=3,
         )
@@ -401,12 +407,14 @@ def test_runtime_work_items_supports_targeted_type_and_calculation_filters():
     compute_job_store.enqueue_job(
         calculation_id=matching_compute_id,
         analytics_type="Attribution",
+        tenant_id="tenant-test",
         request_payload={"portfolio_id": "PF-1"},
         max_attempts=3,
     )
     compute_job_store.enqueue_job(
         calculation_id=other_compute_id,
         analytics_type="Contribution",
+        tenant_id="tenant-test",
         request_payload={"portfolio_id": "PF-2"},
         max_attempts=3,
     )
@@ -496,6 +504,7 @@ def test_runtime_work_items_supports_reclaimable_filter():
         compute_job_store.enqueue_job(
             calculation_id=calculation_id,
             analytics_type="ReturnsSeries",
+            tenant_id="tenant-test",
             request_payload={"portfolio_id": str(calculation_id)},
             max_attempts=3,
         )
@@ -564,6 +573,7 @@ def test_runtime_work_items_returns_next_offset_for_additional_matching_items():
         compute_job_store.enqueue_job(
             calculation_id=calculation_id,
             analytics_type="ReturnsSeries",
+            tenant_id="tenant-test",
             request_payload={"portfolio_id": str(calculation_id)},
             max_attempts=3,
         )

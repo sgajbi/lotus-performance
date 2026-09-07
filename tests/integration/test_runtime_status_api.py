@@ -129,6 +129,7 @@ def test_runtime_status_reports_durable_queue_state():
     compute_job_store.enqueue_job(
         calculation_id=uuid4(),
         analytics_type="ReturnsSeries",
+        tenant_id="tenant-test",
         request_payload={"portfolio_id": "PF-001"},
     )
     lineage_metadata_store.enqueue_lineage_payload(
@@ -706,6 +707,7 @@ def test_runtime_status_reports_degraded_when_compute_age_threshold_is_exceeded(
         compute_job_store.enqueue_job(
             calculation_id=calculation_id,
             analytics_type="ReturnsSeries",
+            tenant_id="tenant-test",
             request_payload={"portfolio_id": "PF-AGED"},
         )
         with compute_job_store._session() as session:
@@ -742,16 +744,19 @@ def test_runtime_status_exposes_compute_failure_pressure_counts():
     compute_job_store.enqueue_job(
         calculation_id=pending_retry_id,
         analytics_type="ReturnsSeries",
+        tenant_id="tenant-test",
         request_payload={"portfolio_id": "PF-RETRY"},
     )
     compute_job_store.enqueue_job(
         calculation_id=reclaimable_id,
         analytics_type="ReturnsSeries",
+        tenant_id="tenant-test",
         request_payload={"portfolio_id": "PF-RECLAIM"},
     )
     compute_job_store.enqueue_job(
         calculation_id=failed_terminal_id,
         analytics_type="ReturnsSeries",
+        tenant_id="tenant-test",
         request_payload={"portfolio_id": "PF-FAIL"},
     )
 
@@ -833,6 +838,7 @@ def test_runtime_status_exposes_latest_recovered_inspection_anchors():
     compute_job_store.enqueue_job(
         calculation_id=compute_recovered_id,
         analytics_type="ReturnsSeries",
+        tenant_id="tenant-test",
         request_payload={"portfolio_id": "PF-RECOVERED"},
     )
     with compute_job_store._session() as session:
@@ -881,6 +887,7 @@ def test_runtime_status_reports_degraded_when_compute_failure_threshold_is_excee
         compute_job_store.enqueue_job(
             calculation_id=retry_id,
             analytics_type="ReturnsSeries",
+            tenant_id="tenant-test",
             request_payload={"portfolio_id": "PF-RETRY-DEGRADE"},
         )
         with compute_job_store._session() as session:
@@ -980,11 +987,13 @@ def test_runtime_status_reports_all_active_degradation_reasons():
         compute_job_store.enqueue_job(
             calculation_id=retry_id,
             analytics_type="ReturnsSeries",
+            tenant_id="tenant-test",
             request_payload={"portfolio_id": "PF-RUNTIME-DEGRADE"},
         )
         compute_job_store.enqueue_job(
             calculation_id=failed_id,
             analytics_type="ReturnsSeries",
+            tenant_id="tenant-test",
             request_payload={"portfolio_id": "PF-RUNTIME-FAILED"},
         )
         with compute_job_store._session() as session:

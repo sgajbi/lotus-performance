@@ -22,6 +22,7 @@ def test_runtime_recoveries_returns_filtered_events():
     compute_job_store.enqueue_job(
         calculation_id=compute_id,
         analytics_type="ReturnsSeries",
+        tenant_id="tenant-test",
         request_payload={"portfolio_id": "PF-1"},
     )
     with compute_job_store._session() as session:
@@ -88,6 +89,7 @@ def test_runtime_recoveries_supports_governed_calculation_id_prefix_filter():
         compute_job_store.enqueue_job(
             calculation_id=calculation_id,
             analytics_type="ReturnsSeries",
+            tenant_id="tenant-test",
             request_payload={"portfolio_id": str(calculation_id)},
         )
         with compute_job_store._session() as session:
@@ -128,6 +130,7 @@ def test_runtime_recoveries_returns_next_offset_for_additional_matching_events()
         compute_job_store.enqueue_job(
             calculation_id=calculation_id,
             analytics_type="ReturnsSeries",
+            tenant_id="tenant-test",
             request_payload={"portfolio_id": str(calculation_id)},
         )
         with compute_job_store._session() as session:
@@ -165,6 +168,7 @@ def test_runtime_recoveries_exposes_result_paths_for_twr_and_benchmark_jobs():
         compute_job_store.enqueue_job(
             calculation_id=calculation_id,
             analytics_type=analytics_type,
+            tenant_id="tenant-test",
             request_payload={"id": str(calculation_id)},
         )
         with compute_job_store._session() as session:
@@ -205,6 +209,7 @@ def test_runtime_recoveries_exposes_workspace_summary_result_paths_for_compute_e
     compute_job_store.enqueue_job(
         calculation_id=calculation_id,
         analytics_type=ANALYTICS_WORKFLOW_WORKSPACE_SUMMARY,
+        tenant_id="tenant-test",
         request_payload={"portfolio_id": str(calculation_id)},
     )
     with compute_job_store._session() as session:
@@ -332,6 +337,7 @@ def test_runtime_recoveries_supports_seek_cursor_pagination():
         compute_job_store.enqueue_job(
             calculation_id=calculation_id,
             analytics_type="ReturnsSeries",
+            tenant_id="tenant-test",
             request_payload={"portfolio_id": str(calculation_id)},
         )
         with compute_job_store._session() as session:
