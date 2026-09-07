@@ -221,39 +221,47 @@ Boundary rules:
 
 Use these commands as the primary local contract:
 
-1. install
+1. Windows shell prerequisite, before anything else
+   `make shell-check`
+   Prints the `SHELL` make resolves and runs a recipe line with a leading
+   `VAR=value` assignment, which is the construct the coverage targets depend on
+   and the one `cmd.exe` cannot parse. Required on Windows before `make install`,
+   because `make --version` succeeds on a machine where `ci`, `ci-local` and
+   `branch-coverage-baseline` cannot run. Unnecessary on Linux and macOS, where a
+   POSIX shell always backs make.
+2. install
    `make install`
-2. fast local gate
+3. fast local gate
    `make check`
-3. PR-grade local gate
+4. PR-grade local gate
    `make ci`
-4. Docker-parity local gate
+5. Docker-parity local gate
    `make ci-local`
-5. full local test and characterization gate
+6. full local test and characterization gate
    `make test-all`
-6. run locally
+7. run locally
    `make run`
-7. repo-native domain-product declaration validation
+8. repo-native domain-product declaration validation
    `make domain-product-validate`
-8. report-only enterprise refactor quality baseline refresh
+9. report-only enterprise refactor quality baseline refresh
    `make quality-baseline`
-9. demo API certification
+10. demo API certification
    `make demo-api-certification`
-10. RFC-0002 Idea opportunity evidence contract gate
+11. RFC-0002 Idea opportunity evidence contract gate
    `make idea-opportunity-evidence-gate`
-11. RFC-0002 Idea opportunity runtime evidence artifact
+12. RFC-0002 Idea opportunity runtime evidence artifact
    `make idea-opportunity-runtime-evidence`
-12. repo-native observability-readiness marker gate
+13. repo-native observability-readiness marker gate
    `make quality-observability-readiness-gate`
-13. repo-native repository hygiene gate
+14. repo-native repository hygiene gate
    `make repository-hygiene-gate`
-14. report-only branch coverage baseline
+15. report-only branch coverage baseline
    `make branch-coverage-baseline`
-15. CI coverage shard target
+16. CI coverage shard target
    `make test-coverage-shard SUITE=<unit|integration|e2e> TEST_PATH=<tests/path>`
-16. CI coverage artifact combine gate
+17. CI coverage artifact combine gate
    `make coverage-combine-gate COVERAGE_INPUTS=<coverage-paths> COVERAGE_FAIL_UNDER=99`
-17. deterministic unit collection and contribution order check
+18. deterministic unit collection and contribution order check
    `make test-unit-order-stability`
 
 ## Validation And CI Expectations
