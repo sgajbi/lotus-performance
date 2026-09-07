@@ -66,9 +66,11 @@ and carries Docker/Compose healthchecks for the API and worker processes. The sa
 metadata shape is exposed by runtime `GET /version` so operators can correlate a live service to
 OCI labels, SBOM, vulnerability, and provenance evidence. The artifacts are uploaded by GitHub
 Actions; Main Releasability also attests SBOM provenance. `make container-vulnerability-gate` is
-blocking, with no `continue-on-error`. Two scans are retained: an unfiltered one carrying the
-findings the gate acts on, and a `--ignore-unfixed` one used to refuse an acceptance for anything
-that has an upstream fix. Unfixable base-image advisories are accepted individually under the
+blocking, with no `continue-on-error`. One unfiltered scan is retained, and it is what the gate acts on.
+Fixability is read from each finding's own `FixedVersion` rather than a second filtered scan, so
+the evidence and the verdict cannot describe different images. The CI lanes invoke
+`scripts/container_acceptance_gate.py` against the report already produced and uploaded, rather
+than the Make target, which would rebuild it and scan twice. Unfixable base-image advisories are accepted individually under the
 exception policy in `quality/container_supply_chain_report.md`, each bound to package identity,
 affected version, severity, owner, expiry and remediation path.
 

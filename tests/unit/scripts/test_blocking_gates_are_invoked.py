@@ -53,12 +53,46 @@ def _steps_running(workflow: dict, target: str) -> list[tuple[str, list[dict]]]:
     return found
 
 
+def _steps_reaching_the_verdict(workflow: dict) -> list[str]:
+    """Jobs whose steps reach the acceptance decision, by either route.
+
+    A lane may call `make container-vulnerability-gate`, which scans and then
+    decides, or the script directly against a scan the job already produced. Both
+    block on an unaccepted finding; only the second avoids scanning twice in a job
+    that also uploads evidence, which is why the workflows use it and the Makefile
+    target keeps its prerequisite for bare local runs.
+
+    Matching either is not a weakening. The property is that the lane runs the
+    thing that can fail on a CVE, and `container_acceptance_gate.py` *is* that
+    thing -- `make container-vulnerability-gate` only reaches it by calling it.
+    Pinning the earlier spelling would have made this test enforce the double
+    scan.
+    """
+
+    reaching = []
+    for job_name, job in workflow.get("jobs", {}).items():
+        for step in job.get("steps") or []:
+            run = step.get("run") or ""
+            if "make container-vulnerability-gate" in run or "container_acceptance_gate.py" in run:
+                reaching.append(job_name)
+                break
+    return reaching
+
+
 @pytest.mark.parametrize("workflow_name", GOVERNED_WORKFLOWS)
 def test_the_blocking_container_gate_runs_in_a_governed_lane(workflow_name: str) -> None:
-    assert _steps_running(_workflow(workflow_name), "container-vulnerability-gate"), (
-        f"{workflow_name} does not invoke container-vulnerability-gate. The evidence target "
-        "passes regardless of findings, so without the gate this lane cannot fail on a CVE."
+    """The lane must run the decision, not only the evidence that feeds it."""
+
+    workflow = _workflow(workflow_name)
+
+    assert _steps_reaching_the_verdict(workflow), (
+        f"{workflow_name} does not reach the container acceptance decision by either route. "
+        "The evidence target scans with `--exit-code 0` and passes regardless of findings, so "
+        "without the decision this lane cannot fail on a CVE."
     )
+    assert not _steps_running(workflow, "container-supply-chain-evidence") or _steps_reaching_the_verdict(
+        workflow
+    ), "a lane that produces evidence and never judges it publishes a scan nobody acted on"
 
 
 @pytest.mark.parametrize("workflow_name", GOVERNED_WORKFLOWS)
@@ -117,6 +151,29 @@ def test_the_retained_evidence_contains_what_the_gate_acts_on() -> None:
     assert "--ignore-unfixed" not in _makefile_target("container-vulnerability-gate")
 
 
+def _verdict_jobs(workflow: dict) -> list[tuple[str, list[dict]]]:
+    """Jobs whose steps reach the acceptance decision, by either route.
+
+    This must recognise the same two spellings as `_steps_reaching_the_verdict`.
+    It previously matched only `make container-vulnerability-gate`, and when both
+    lanes moved to invoking the script directly it began returning an empty list
+    -- so the ordering test below looped over nothing and passed while asserting
+    nothing. Moving the upload after the verdict, or dropping its `if: always()`,
+    would have stayed green.
+    """
+
+    found = []
+    for job_name, job in workflow.get("jobs", {}).items():
+        steps = job.get("steps") or []
+        if any(
+            "make container-vulnerability-gate" in (step.get("run") or "")
+            or "container_acceptance_gate.py" in (step.get("run") or "")
+            for step in steps
+        ):
+            found.append((job_name, steps))
+    return found
+
+
 @pytest.mark.parametrize("workflow_name", GOVERNED_WORKFLOWS)
 def test_diagnostics_survive_a_failing_scan(workflow_name: str) -> None:
     """The gate must run AFTER the upload, and the upload must not be skipped.
@@ -124,13 +181,22 @@ def test_diagnostics_survive_a_failing_scan(workflow_name: str) -> None:
     A gate placed before the upload destroys the evidence a reader needs to act
     on the failure, so the failure arrives with nothing attached to it."""
 
-    for job_name, steps in _steps_running(_workflow(workflow_name), "container-vulnerability-gate"):
+    jobs = _verdict_jobs(_workflow(workflow_name))
+    assert jobs, (
+        f"{workflow_name} has no job reaching the container acceptance decision, so every "
+        f"assertion below would hold over an empty set and report success while checking nothing"
+    )
+
+    for job_name, steps in jobs:
         upload_index = next(
             (index for index, step in enumerate(steps) if "upload-artifact" in str(step.get("uses", ""))),
             None,
         )
         gate_index = next(
-            index for index, step in enumerate(steps) if "make container-vulnerability-gate" in (step.get("run") or "")
+            index
+            for index, step in enumerate(steps)
+            if "make container-vulnerability-gate" in (step.get("run") or "")
+            or "container_acceptance_gate.py" in (step.get("run") or "")
         )
 
         assert upload_index is not None, f"{workflow_name}:{job_name} uploads no evidence"

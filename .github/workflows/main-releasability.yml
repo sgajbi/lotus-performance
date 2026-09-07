@@ -249,7 +249,13 @@ jobs:
           path: output/container-security/*.json
           if-no-files-found: error
       - name: Container Vulnerability Gate
-        run: make container-vulnerability-gate
+        # Deliberately the script and not `make container-vulnerability-gate`. That target
+        # depends on the phony report target, so invoking it here would scan a second time
+        # and decide from a snapshot the uploaded artifact does not contain -- the exact
+        # split the single-scan consolidation removed inside the Makefile, reintroduced by
+        # the workflow composing two targets that each scan. The script refuses when the
+        # report is absent, so this cannot pass by finding nothing to read.
+        run: python scripts/container_acceptance_gate.py
       - name: Attest SBOM provenance
         if: always()
         uses: actions/attest-build-provenance@v3
