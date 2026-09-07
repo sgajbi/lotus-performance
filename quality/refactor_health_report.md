@@ -92,7 +92,7 @@ link the commit, command, or CI artifact that proves the change.
 | Bandit low findings | unknown | 0 | enforced | `quality/python_security_inventory.md`; `make python-security-gate` |
 | Dependency vulnerabilities | unknown | 0 | measured | `quality/dependency_security_report.md` via repo-native dependency-health audit |
 | Dependency hygiene findings | unknown | 0 | measured | `quality/dependency_hygiene_report.md` via `scripts/python_dependency_hygiene_inventory.py` |
-| Third-party packages inventoried | unknown | 46 | enforced | `quality/license_compliance_inventory.md`; `make license-compliance-gate` |
+| Third-party packages inventoried | unknown | 47 | enforced | `quality/license_compliance_inventory.md`; `make license-compliance-gate` |
 | Review-required license exceptions | unknown | 2 | enforced | `contracts/license-compliance-policy.v1.json`; `quality/license_compliance_inventory.md` |
 | Blocked or missing-exception license findings | unknown | 0 | enforced | `make license-compliance-gate` |
 | Container SBOM artifact | unknown | 1 | measured | `quality/container_supply_chain_report.md`; `make container-supply-chain-evidence`; PR/Main artifact upload |

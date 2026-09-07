@@ -81,7 +81,7 @@ metrics in each section are updated with each meaningful slice.
 | Bandit low findings | unknown | 0 | n/a | enforced | `quality/python_security_inventory.md`; `quality/refactor_health_report.md`; `make python-security-gate` |
 | Dependency vulnerability findings | unknown | 0 | n/a | measured | `quality/dependency_security_report.md`; `quality/refactor_health_report.md` |
 | Dependency hygiene findings | unknown | 0 | n/a | measured | `quality/dependency_hygiene_report.md`; `quality/refactor_health_report.md` |
-| Third-party packages inventoried | unknown | 46 | n/a | enforced | `quality/license_compliance_inventory.md`; `make license-compliance-gate` |
+| Third-party packages inventoried | unknown | 47 | n/a | enforced | `quality/license_compliance_inventory.md`; `make license-compliance-gate` |
 | Review-required license exceptions | unknown | 2 | n/a | enforced | `contracts/license-compliance-policy.v1.json`; `quality/license_compliance_inventory.md` |
 | Blocked or missing-exception license findings | unknown | 0 | n/a | enforced | `make license-compliance-gate` |
 | Container SBOM artifact | unknown | 1 | n/a | measured | `quality/container_supply_chain_report.md`; `make container-supply-chain-evidence`; PR/Main artifact upload |
