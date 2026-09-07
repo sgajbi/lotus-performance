@@ -1500,37 +1500,34 @@ class ComputeJobStore:
             raise KeyError(f"Compute job not found: {calculation_id}")
         return row
 
-    def _ensure_tenant_id_column(self, connection: Connection) -> None:
+    def _ensure_additive_column(self, connection: Connection, column_name: str) -> None:
+        """Add one nullable column if the table exists and the column does not.
+
+        Shared by every additive upgrade on this table. Following the first one's
+        shape by copying it produced a duplicate the code-health gate reported --
+        the second instance is where a pattern becomes a parameter.
+        """
+
         inspector = inspect(connection)
         if "analytics_compute_job" not in inspector.get_table_names():
             return
 
         existing_columns = {column["name"] for column in inspector.get_columns("analytics_compute_job")}
-        if "tenant_id" in existing_columns:
+        if column_name in existing_columns:
             return
 
         try:
-            connection.execute(text(_tenant_id_column_add_statement(connection.dialect.name)))
+            connection.execute(text(_additive_column_statement(connection.dialect.name, column_name)))
         except (OperationalError, ProgrammingError) as exc:
-            if _is_duplicate_tenant_id_column_error(exc):
+            if _is_duplicate_column_error(exc, column_name):
                 return
             raise
+
+    def _ensure_tenant_id_column(self, connection: Connection) -> None:
+        self._ensure_additive_column(connection, "tenant_id")
 
     def _ensure_lease_owner_column(self, connection: Connection) -> None:
-        inspector = inspect(connection)
-        if "analytics_compute_job" not in inspector.get_table_names():
-            return
-
-        existing_columns = {column["name"] for column in inspector.get_columns("analytics_compute_job")}
-        if "lease_owner_id" in existing_columns:
-            return
-
-        try:
-            connection.execute(text(_lease_owner_column_add_statement(connection.dialect.name)))
-        except (OperationalError, ProgrammingError) as exc:
-            if _is_duplicate_lease_owner_column_error(exc):
-                return
-            raise
+        self._ensure_additive_column(connection, "lease_owner_id")
 
     def _to_record(self, row: ComputeJobModel) -> ComputeJobRecord:
         request_payload = _load_request_payload(row)
@@ -1742,27 +1739,20 @@ def _mark_invalid_request_payload(row: ComputeJobModel, *, now: datetime) -> Non
     row.completed_at_utc = now
 
 
-def _tenant_id_column_add_statement(dialect_name: str) -> str:
+def _additive_column_statement(dialect_name: str, column_name: str) -> str:
+    """An additive VARCHAR(128) column, idempotent where the dialect supports it.
+
+    SQLite has no `IF NOT EXISTS` for `ADD COLUMN`, so that case is handled by the
+    duplicate-error predicate below rather than by the statement.
+    """
+
     if dialect_name == "postgresql":
-        return "ALTER TABLE analytics_compute_job ADD COLUMN IF NOT EXISTS tenant_id VARCHAR(128)"
-    return "ALTER TABLE analytics_compute_job ADD COLUMN tenant_id VARCHAR(128)"
+        return f"ALTER TABLE analytics_compute_job ADD COLUMN IF NOT EXISTS {column_name} VARCHAR(128)"
+    return f"ALTER TABLE analytics_compute_job ADD COLUMN {column_name} VARCHAR(128)"
 
 
-def _is_duplicate_tenant_id_column_error(exc: OperationalError | ProgrammingError) -> bool:
+def _is_duplicate_column_error(exc: OperationalError | ProgrammingError, column_name: str) -> bool:
     message = str(exc).lower()
-    return "tenant_id" in message and (
-        "duplicate column" in message or "already exists" in message or "duplicate_column" in message
-    )
-
-
-def _lease_owner_column_add_statement(dialect_name: str) -> str:
-    if dialect_name == "postgresql":
-        return "ALTER TABLE analytics_compute_job ADD COLUMN IF NOT EXISTS lease_owner_id VARCHAR(128)"
-    return "ALTER TABLE analytics_compute_job ADD COLUMN lease_owner_id VARCHAR(128)"
-
-
-def _is_duplicate_lease_owner_column_error(exc: OperationalError | ProgrammingError) -> bool:
-    message = str(exc).lower()
-    return "lease_owner_id" in message and (
+    return column_name in message and (
         "duplicate column" in message or "already exists" in message or "duplicate_column" in message
     )

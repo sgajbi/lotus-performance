@@ -1665,11 +1665,24 @@ def test_compute_job_store_schema_bootstrap_adds_lease_owner_to_legacy_table(tmp
     assert "lease_owner_id" in columns
 
 
-def test_compute_job_store_lease_owner_schema_upgrade_uses_postgres_idempotent_statement() -> None:
-    assert "ADD COLUMN IF NOT EXISTS lease_owner_id" in compute_job_store_module._lease_owner_column_add_statement(
-        "postgresql"
-    )
-    assert "IF NOT EXISTS" not in compute_job_store_module._lease_owner_column_add_statement("sqlite")
+@pytest.mark.parametrize("column_name", ["lease_owner_id", "tenant_id"])
+def test_compute_job_store_additive_schema_upgrade_uses_postgres_idempotent_statement(
+    column_name: str,
+) -> None:
+    """Every additive column must be idempotent on PostgreSQL and not claim to be on SQLite.
+
+    SQLite has no `IF NOT EXISTS` for `ADD COLUMN`, so emitting it there would fail
+    rather than no-op; that case is handled by the duplicate-error predicate instead.
+    Parametrised over both columns because the statement builder is now shared -- a
+    test naming only one would stop covering the other the moment it was added.
+    """
+
+    postgres_statement = compute_job_store_module._additive_column_statement("postgresql", column_name)
+    assert f"ADD COLUMN IF NOT EXISTS {column_name}" in postgres_statement
+
+    sqlite_statement = compute_job_store_module._additive_column_statement("sqlite", column_name)
+    assert "IF NOT EXISTS" not in sqlite_statement
+    assert f"ADD COLUMN {column_name}" in sqlite_statement
 
 
 def test_compute_job_store_register_job_distinguishes_create_replay_and_conflict(tmp_path):
