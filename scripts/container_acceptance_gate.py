@@ -74,16 +74,32 @@ def main() -> int:
     args = parser.parse_args()
 
     suppressed = set(_IGNORED_ID.findall(args.ignorefile.read_text(encoding="utf-8")))
-    if not suppressed:
-        raise SystemExit(
-            f"No suppressions parsed from {args.ignorefile}. Either it is empty, in which case "
-            f"this gate has nothing to check, or its shape changed and every suppression is now "
-            f"unchecked while still hiding findings."
-        )
-
     records = json.loads(args.records.read_text(encoding="utf-8"))["acceptances"]
     by_id = {record["advisory_id"]: record for record in records}
     failures: list[str] = []
+
+    # An empty acceptance set is a legitimate end state, not a broken configuration.
+    # When a base-image refresh clears the last advisory, the correct answer is an
+    # empty ignore file and an empty record list -- and refusing that outright left no
+    # passing configuration at all: keeping the record fails the still-present check,
+    # and removing it used to fail here. The reports are still read first, so this
+    # cannot become a way to pass by having nothing to compare; the blocking Trivy scan
+    # remains the thing that rejects an unaccepted live finding.
+    if not suppressed and not records:
+        _findings(args.fixable_report, description="fixable")
+        _findings(args.full_report, description="unfiltered")
+        print(
+            "Container acceptance gate passed: no acceptances, which is the correct state for an "
+            "image with no unfixable high/critical findings. Both scan reports were read and are "
+            "well formed; the blocking scan decides whether the image is clean."
+        )
+        return 0
+
+    if not suppressed:
+        failures.append(
+            f"{len(records)} governed acceptance record(s) exist while {args.ignorefile} suppresses "
+            f"nothing. Either the ignore file lost its entries, or the records outlived them."
+        )
 
     # 1. Nothing fixable may be accepted.
     fixable = {finding["VulnerabilityID"] for finding in _findings(args.fixable_report, description="fixable")}

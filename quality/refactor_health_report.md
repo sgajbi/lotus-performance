@@ -97,7 +97,7 @@ link the commit, command, or CI artifact that proves the change.
 | Blocked or missing-exception license findings | unknown | 0 | enforced | `make license-compliance-gate` |
 | Container SBOM artifact | unknown | 1 | measured | `quality/container_supply_chain_report.md`; `make container-supply-chain-evidence`; PR/Main artifact upload |
 | Container vulnerability report artifact | unknown | 1 | measured | `quality/container_supply_chain_report.md`; `make container-supply-chain-evidence`; PR/Main artifact upload |
-| Container vulnerability strict gate | unknown | 0 | planned-gate | `make container-vulnerability-gate`; promote after first PR/main artifact baseline and documented high/critical exception policy |
+| Container vulnerability strict gate | unknown | 0 | enforced | `make container-vulnerability-gate` blocks in PR Merge Gate and Main Releasability; zero fixable high/critical findings, with unfixable base-image advisories accepted individually and validated against the live scan by `make container-acceptance-gate` |
 | SBOM provenance attestation | unknown | 1 | measured | `quality/container_supply_chain_report.md`; Main Releasability `actions/attest-build-provenance@v3` |
 
 ## Operational Readiness

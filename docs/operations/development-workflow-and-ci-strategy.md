@@ -65,10 +65,12 @@ installs only `requirements.txt`, runs as non-root user `lotus`, owns only requi
 and carries Docker/Compose healthchecks for the API and worker processes. The same support-safe
 metadata shape is exposed by runtime `GET /version` so operators can correlate a live service to
 OCI labels, SBOM, vulnerability, and provenance evidence. The artifacts are uploaded by GitHub
-Actions; Main Releasability also attests SBOM provenance. The vulnerability report is intentionally
-report-only until the first PR/main baseline artifacts are reviewed. Promotion to a blocking image
-vulnerability gate must use `make container-vulnerability-gate` and the exception policy in
-`quality/container_supply_chain_report.md`.
+Actions; Main Releasability also attests SBOM provenance. `make container-vulnerability-gate` is
+blocking, with no `continue-on-error`. Two scans are retained: an unfiltered one carrying the
+findings the gate acts on, and a `--ignore-unfixed` one used to refuse an acceptance for anything
+that has an upstream fix. Unfixable base-image advisories are accepted individually under the
+exception policy in `quality/container_supply_chain_report.md`, each bound to package identity,
+affected version, severity, owner, expiry and remediation path.
 
 `make lineage-volume-recovery-smoke` is the isolated restart-safety proof for the shared lineage
 artifact volume. It creates only a generated `lotus-performance-lineage-recovery-*` Compose
