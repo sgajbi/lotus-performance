@@ -229,7 +229,13 @@ postgres-concurrency-contracts-local:
 	# the container starts, so a cold start races PostgreSQL accepting connections and
 	# the gate refuses for a reason that has nothing to do with the contracts.
 	docker compose up -d --wait performance-lineage-db
-	python scripts/postgres_concurrency_contracts_gate.py
+	# The compose service publishes `$${PA_LINEAGE_DB_PORT:-5435}`, so a developer who
+	# sets that supported override gets a database on a port the helper's fixed 5435
+	# default cannot reach: every contract skips and the gate refuses for a reason that
+	# has nothing to do with the contracts. Resolved in the shell, not as a Make
+	# variable, because Make expands environment-supplied values recursively. An
+	# explicit DSN still wins. Raised in review of #489.
+	LOTUS_POSTGRES_PLAN_DATABASE_URL="$${LOTUS_POSTGRES_PLAN_DATABASE_URL:-postgresql+psycopg://lotus:lotus@127.0.0.1:$${PA_LINEAGE_DB_PORT:-5435}/lotus_performance}" 	    python scripts/postgres_concurrency_contracts_gate.py
 
 quality-test-taxonomy-gate:
 	python scripts/python_test_taxonomy_inventory.py --limit 30 --min-api-runtime-tests 656 --min-contract-governance-tests 136 --max-uncategorized-tests 825
