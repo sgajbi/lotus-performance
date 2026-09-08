@@ -62,6 +62,11 @@ jobs:
                 echo "::error::Dispatch ref $dispatch_ref points to $existing_ref_sha, expected $revision"
                 exit 1
               fi
+            else
+              # gh writes its 404 response body to stdout. Command substitution retains
+              # that body even when the lookup fails, so clear it before deciding whether
+              # the immutable dispatch tag needs to be created.
+              existing_ref_sha=""
             fi
             if [ -z "$existing_ref_sha" ]; then
               gh api "repos/$GITHUB_REPOSITORY/git/refs" \
