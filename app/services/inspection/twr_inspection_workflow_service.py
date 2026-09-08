@@ -6,10 +6,11 @@ from app.core.application_responses import ApplicationHttpResponse
 from app.core.async_polling import recommended_async_poll_after_seconds
 from app.models.inspection_requests import TWRInspectionRequest
 from app.models.inspection_responses import TWRInspectionAcceptedResponse
+from app.models.twr_requests import TWRInputMode
 from app.services.analytics_workflow_types import ANALYTICS_WORKFLOW_TWR_INSPECTION
 from app.services.async_observability_context import async_observability_request_payload
 from app.services.calculation_engine_version import calculation_engine_version
-from app.services.execution_registry import execution_registry
+from app.services.inspection.subject_resolution import resolve_twr_calculation_execution_for_current_tenant
 from app.services.reproducibility_service import generate_request_fingerprint
 from app.services.submission_fencing_service import register_async_submission_or_raise
 
@@ -28,7 +29,7 @@ def twr_inspection_portfolio_id(request: TWRInspectionRequest) -> str | None:
         return request.request.portfolio_id
     if request.subject_calculation_id is None:
         return None
-    existing = execution_registry.get_execution(request.subject_calculation_id)
+    existing = resolve_twr_calculation_execution_for_current_tenant(request.subject_calculation_id)
     return existing.portfolio_id if existing is not None else None
 
 
@@ -40,6 +41,14 @@ def twr_inspection_requested_window(request: TWRInspectionRequest) -> dict[str, 
             str(request.subject_calculation_id) if request.subject_calculation_id is not None else None
         ),
     }
+
+
+def twr_inspection_requires_tenant_authority(request: TWRInspectionRequest) -> bool:
+    if request.request is not None:
+        return request.request.input_mode == TWRInputMode.STATEFUL
+    if request.subject_calculation_id is None:
+        return False
+    return resolve_twr_calculation_execution_for_current_tenant(request.subject_calculation_id) is None
 
 
 def submit_twr_inspection_workflow(request: TWRInspectionRequest) -> ApplicationHttpResponse:
@@ -54,4 +63,5 @@ def submit_twr_inspection_workflow(request: TWRInspectionRequest) -> Application
         request_payload=async_observability_request_payload(request.model_dump(mode="json")),
         offload_reason="inspection_runtime",
         accepted_response_factory=accepted_twr_inspection_response,
+        requires_tenant_authority=twr_inspection_requires_tenant_authority(request),
     )

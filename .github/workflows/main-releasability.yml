@@ -13,11 +13,10 @@ on:
         type: string
 
 concurrency:
-  # Keyed on the immutable merge SHA supplied by the dispatcher, with github.sha retained for
-  # operator-dispatched runs. This prevents different revisions from cancelling one another while
-  # still allowing a later attempt for the same revision to supersede an earlier attempt (#481).
+  # Releasability runs are immutable evidence. A duplicate or backfill must not cancel the only
+  # verdict-bearing evaluation for a revision.
   group: ${{ github.workflow }}-${{ inputs.expected_sha || github.sha }}
-  cancel-in-progress: true
+  cancel-in-progress: false
 
 permissions:
   actions: read

@@ -20,6 +20,7 @@ from core.errors import HTTP_400_BAD_REQUEST, HTTP_401_UNAUTHORIZED, APIError
 #: Core's admission contract. `X-Actor-Id`, `X-Role` and `X-Service-Identity`
 #: are optional there and are not minted here.
 TENANT_HEADER = "X-Tenant-Id"
+MAX_TENANT_ID_LENGTH = 128
 
 
 class TenantAuthorityError(APIError):
@@ -65,6 +66,21 @@ class MissingTenantAuthorityError(TenantAuthorityError):
         self.operation = operation
 
 
+class MissingStatefulSubmissionTenantAuthorityError(TenantAuthorityError):
+    """Raised before a durable stateful job can be accepted without authority."""
+
+    def __init__(self) -> None:
+        super().__init__(
+            status_code=HTTP_401_UNAUTHORIZED,
+            detail=(
+                "Stateful async submission requires X-Tenant-Id before durable execution is registered. "
+                "This service does not accept a job that cannot perform its authorized Core reads."
+            ),
+            error_code="TENANT_AUTHORITY_REQUIRED",
+            retryable=False,
+        )
+
+
 @dataclass(frozen=True)
 class TenantAuthority:
     """A tenant admitted by the caller, carried to Core unchanged.
@@ -82,57 +98,42 @@ class TenantAuthority:
                 "tenant_id must be a non-empty string; a blank tenant is an absent tenant "
                 "and must be represented by refusing the read, not by an empty header"
             )
-        if self.tenant_id != self.tenant_id.strip():
-            raise ValueError(
-                f"tenant_id {self.tenant_id!r} has surrounding whitespace; Core compares the "
-                "header exactly, so a padded value is a different tenant to it"
-            )
+        normalized = self.tenant_id.strip()
+        if len(normalized) > MAX_TENANT_ID_LENGTH:
+            raise ValueError(f"tenant_id must not exceed {MAX_TENANT_ID_LENGTH} characters")
+        object.__setattr__(self, "tenant_id", normalized)
 
     def headers(self) -> dict[str, str]:
         return {TENANT_HEADER: self.tenant_id}
 
 
-class PaddedTenantAuthorityError(TenantAuthorityError):
-    """The caller presented a tenant we must neither use nor quietly repair.
+class MalformedTenantAuthorityError(TenantAuthorityError):
+    """The normalized caller tenant exceeds Core's canonical identity bound."""
 
-    Core compares `X-Tenant-Id` exactly, so `"tenant-a "` and `"tenant-a"` are
-    different tenants to it. Trimming would substitute a tenant the caller did
-    not present, which is the one thing this module exists to prevent; refusing
-    tells the caller their header is malformed and leaves the choice with them.
-
-    400 rather than 401: the caller did present authority, and the problem is
-    the shape of what they sent.
-    """
-
-    def __init__(self, presented: str) -> None:
+    def __init__(self) -> None:
         super().__init__(
             status_code=HTTP_400_BAD_REQUEST,
-            detail=(
-                f"X-Tenant-Id {presented!r} has surrounding whitespace. Core compares the "
-                "header exactly, so a padded value names a different tenant; this service "
-                "refuses rather than trimming, because trimming would read as a tenant the "
-                "caller did not present."
-            ),
+            detail=f"X-Tenant-Id must not exceed {MAX_TENANT_ID_LENGTH} characters after trimming.",
             error_code="TENANT_AUTHORITY_MALFORMED",
             retryable=False,
         )
-        self.presented = presented
 
 
 def admitted_tenant_authority(presented: str) -> TenantAuthority | None:
     """Turn the presented header into authority, absence, or a refusal.
 
-    The three cases are decided here rather than left to fall through, because
-    each has a different correct outcome: absence must reach the Core boundary
-    so the refusal can name the operation, padding must be refused before any
-    read, and only an exact value becomes authority.
+    The value is normalized exactly as Core's canonical ``TenantId`` does.
+    Absence reaches the Core boundary so the refusal can name the operation;
+    an overlong normalized value is refused locally with the published typed
+    malformed-authority outcome.
     """
 
-    if not presented.strip():
+    normalized = presented.strip()
+    if not normalized:
         return None
-    if presented != presented.strip():
-        raise PaddedTenantAuthorityError(presented)
-    return TenantAuthority(tenant_id=presented)
+    if len(normalized) > MAX_TENANT_ID_LENGTH:
+        raise MalformedTenantAuthorityError()
+    return TenantAuthority(tenant_id=normalized)
 
 
 def require_tenant_authority(authority: TenantAuthority | None, *, operation: str) -> TenantAuthority:

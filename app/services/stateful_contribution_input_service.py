@@ -74,6 +74,7 @@ class _StatefulContributionSourceRequest:
 class StatefulContributionNormalizedInput:
     portfolio_data: PortfolioData
     positions_data: list[PositionData]
+    portfolio_currency: str | None = None
 
 
 @dataclass(frozen=True)
@@ -229,6 +230,7 @@ def build_stateful_contribution_input(
             metric_basis=metric_basis,
         ),
         positions_data=_stateful_contribution_positions_data(position_series),
+        portfolio_currency=getattr(source_input.portfolio_input, "portfolio_currency", None),
     )
 
 
@@ -509,6 +511,9 @@ def _performance_component_economics_context(
         "retrieval_status": status_code,
         "supportability_state": _string_value(supportability.get("state")),
         "supportability_reason": _string_value(supportability.get("reason")),
+        "source_verdicts": supportability.get("source_verdicts")
+        if isinstance(supportability.get("source_verdicts"), list)
+        else [],
         "source_row_count": _non_negative_int(supportability.get("source_row_count")),
         "position_source_row_count": len(source_rows),
         "source_rows": source_rows,

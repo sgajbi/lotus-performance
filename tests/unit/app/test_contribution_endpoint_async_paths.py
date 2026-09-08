@@ -377,6 +377,7 @@ def test_initial_contribution_async_submission_preserves_stateful_submission_con
     assert call_kwargs["input_fingerprint"] == "input-fingerprint"
     assert call_kwargs["calculation_hash"] == "calculation-hash"
     assert call_kwargs["offload_reason"] == "long_window_stateful_contribution"
+    assert call_kwargs["requires_tenant_authority"] is True
     assert call_kwargs["requested_window"]["input_mode"] == "stateful"
     assert call_kwargs["request_payload"]["input_mode"] == "stateful"
     assert call_kwargs["request_payload"]["observability_context"] == {

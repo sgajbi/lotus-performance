@@ -334,6 +334,7 @@ def test_execution_replay_policy_matches_complete_execution_identity():
         portfolio_id="PORT-REPLAY",
         execution_mode="async",
         status="pending",
+        tenant_id="tenant-a",
         requested_window_json='{"report_end_date": "2026-06-16"}',
         input_fingerprint="input-1",
         calculation_hash="calc-1",
@@ -342,6 +343,7 @@ def test_execution_replay_policy_matches_complete_execution_identity():
 
     assert ExecutionRegistry._is_replay_of_existing_execution(
         existing=existing,
+        tenant_id="tenant-a",
         analytics_type="TWR",
         portfolio_id="PORT-REPLAY",
         execution_mode="async",
@@ -351,6 +353,7 @@ def test_execution_replay_policy_matches_complete_execution_identity():
     )
     assert not ExecutionRegistry._is_replay_of_existing_execution(
         existing=existing,
+        tenant_id="tenant-a",
         analytics_type="TWR",
         portfolio_id="PORT-REPLAY",
         execution_mode="async",
@@ -366,6 +369,7 @@ def test_execution_registry_clear_all_records_removes_upstream_snapshots(tmp_pat
     calculation_id = uuid4()
     registry.create_execution(
         calculation_id=calculation_id,
+        tenant_id="tenant-a",
         analytics_type="ReturnsSeries",
         portfolio_id="PORT-5",
     )
@@ -425,12 +429,32 @@ def test_execution_registry_register_execution_distinguishes_create_replay_and_c
     assert conflict.existing_execution_mode == "async"
 
 
+def test_execution_registry_does_not_replay_another_tenants_identifier(tmp_path):
+    registry = ExecutionRegistry(f"sqlite:///{tmp_path / 'execution.db'}")
+    registry.create_schema()
+    calculation_id = uuid4()
+    common = {
+        "calculation_id": calculation_id,
+        "analytics_type": "ReturnsSeries",
+        "portfolio_id": "SHARED",
+        "execution_mode": "async",
+        "requested_window": {"to_date": "2026-02-27"},
+        "input_fingerprint": "sha256:input",
+        "calculation_hash": "sha256:calc",
+    }
+
+    assert registry.register_execution(tenant_id="tenant-a", **common).status == ExecutionRegistrationStatus.CREATED
+    assert registry.register_execution(tenant_id="tenant-b", **common).status == ExecutionRegistrationStatus.CONFLICT
+    assert registry.get_execution(calculation_id).tenant_id == "tenant-a"
+
+
 def test_execution_registration_model_factory_projects_pending_execution_contract():
     calculation_id = uuid4()
     created_at = datetime(2026, 6, 19, 8, 30, tzinfo=timezone.utc)
 
     execution = _execution_model_for_registration(
         calculation_id=calculation_id,
+        tenant_id="tenant-a",
         analytics_type="ReturnsSeries",
         portfolio_id="PORT-FACTORY",
         execution_mode="async",
@@ -441,6 +465,7 @@ def test_execution_registration_model_factory_projects_pending_execution_contrac
     )
 
     assert execution.calculation_id == str(calculation_id)
+    assert execution.tenant_id == "tenant-a"
     assert execution.status == ExecutionStatus.PENDING.value
     assert execution.requested_window_json == '{"from_date": "2026-01-01", "to_date": "2026-06-19"}'
     assert execution.input_fingerprint == "sha256:input"

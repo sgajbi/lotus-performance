@@ -4,6 +4,7 @@ from uuid import uuid4
 import pytest
 from pydantic import BaseModel
 
+from app.observability import tenant_id_var
 from app.services.compute_job_store import ComputeJobRegistrationResult, ComputeJobRegistrationStatus
 from app.services.execution_registry import ExecutionRegistrationResult, ExecutionRegistrationStatus
 from app.services.execution_stage_names import EXECUTION_STAGE_SUBMISSION
@@ -13,6 +14,7 @@ from app.services.submission_fencing_service import (
     _rollback_created_async_execution,
     promote_existing_execution_to_async_submission_or_raise,
     register_async_submission_or_raise,
+    register_sync_execution_or_raise,
 )
 from core.errors import APIError
 
@@ -69,6 +71,109 @@ def test_register_async_submission_does_not_bootstrap_schema_per_request(mocker)
     complete_stage.assert_called_once_with(
         calculation_id, EXECUTION_STAGE_SUBMISSION, details={"offload_reason": "large_input"}
     )
+
+
+def test_stateful_submission_without_tenant_is_refused_before_any_durable_write(mocker):
+    register_execution = mocker.patch("app.services.submission_fencing_service.execution_registry.register_execution")
+    register_job = mocker.patch("app.services.submission_fencing_service.compute_job_store.register_job")
+
+    with pytest.raises(APIError) as exc_info:
+        register_async_submission_or_raise(
+            calculation_id=uuid4(),
+            analytics_type="Contribution",
+            portfolio_id="P1",
+            requested_window={},
+            input_fingerprint=None,
+            calculation_hash=None,
+            request_payload={"portfolio_id": "P1"},
+            offload_reason="large_input",
+            accepted_response_factory=_accepted_response_factory,
+            requires_tenant_authority=True,
+        )
+
+    assert exc_info.value.status_code == 401
+    assert exc_info.value.error_code == "TENANT_AUTHORITY_REQUIRED"
+    register_execution.assert_not_called()
+    register_job.assert_not_called()
+
+
+def test_overlong_tenant_is_refused_before_any_durable_write(mocker):
+    register_execution = mocker.patch("app.services.submission_fencing_service.execution_registry.register_execution")
+    register_job = mocker.patch("app.services.submission_fencing_service.compute_job_store.register_job")
+    tenant_token = tenant_id_var.set("t" * 129)
+
+    try:
+        with pytest.raises(APIError) as exc_info:
+            register_async_submission_or_raise(
+                calculation_id=uuid4(),
+                analytics_type="Contribution",
+                portfolio_id="P1",
+                requested_window={},
+                input_fingerprint=None,
+                calculation_hash=None,
+                request_payload={"portfolio_id": "P1"},
+                offload_reason="large_input",
+                accepted_response_factory=_accepted_response_factory,
+                requires_tenant_authority=True,
+            )
+    finally:
+        tenant_id_var.reset(tenant_token)
+
+    assert exc_info.value.status_code == 400
+    assert exc_info.value.error_code == "TENANT_AUTHORITY_MALFORMED"
+    register_execution.assert_not_called()
+    register_job.assert_not_called()
+
+
+def test_sync_registration_refuses_overlong_tenant_before_durable_write(mocker):
+    register_execution = mocker.patch("app.services.submission_fencing_service.execution_registry.register_execution")
+    tenant_token = tenant_id_var.set("t" * 129)
+
+    try:
+        with pytest.raises(APIError) as exc_info:
+            register_sync_execution_or_raise(
+                calculation_id=uuid4(),
+                analytics_type="TWR",
+                portfolio_id="P1",
+                requested_window={},
+                input_fingerprint=None,
+                calculation_hash=None,
+            )
+    finally:
+        tenant_id_var.reset(tenant_token)
+
+    assert exc_info.value.status_code == 400
+    assert exc_info.value.error_code == "TENANT_AUTHORITY_MALFORMED"
+    register_execution.assert_not_called()
+
+
+def test_stateless_submission_preserves_legitimate_tenant_absence(mocker):
+    register_execution = mocker.patch(
+        "app.services.submission_fencing_service.execution_registry.register_execution",
+        return_value=ExecutionRegistrationResult(status=ExecutionRegistrationStatus.CREATED),
+    )
+    mocker.patch("app.services.submission_fencing_service.execution_registry.start_stage")
+    mocker.patch("app.services.submission_fencing_service.execution_registry.complete_stage")
+    register_job = mocker.patch(
+        "app.services.submission_fencing_service.compute_job_store.register_job",
+        return_value=ComputeJobRegistrationResult(status=ComputeJobRegistrationStatus.CREATED),
+    )
+
+    response = register_async_submission_or_raise(
+        calculation_id=uuid4(),
+        analytics_type="Inspection",
+        portfolio_id=None,
+        requested_window={},
+        input_fingerprint=None,
+        calculation_hash=None,
+        request_payload={},
+        offload_reason="inspection_runtime",
+        accepted_response_factory=_accepted_response_factory,
+    )
+
+    assert response.status_code == 202
+    assert register_execution.call_args.kwargs["tenant_id"] == ""
+    assert register_job.call_args.kwargs["tenant_id"] == ""
 
 
 def test_register_async_submission_replay_does_not_reopen_submission_stage(mocker):

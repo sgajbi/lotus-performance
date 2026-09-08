@@ -20,6 +20,7 @@ from main import app
 from tests.conftest import drain_compute_queue
 
 settings = get_settings()
+_TENANT_HEADERS = {"X-Tenant-Id": "tenant-test"}
 
 
 @pytest.fixture(autouse=True)
@@ -415,7 +416,7 @@ def test_returns_series_stateful_fetches_benchmark_and_risk_free(monkeypatch):
         "stateful_input": {},
     }
 
-    with TestClient(app) as client:
+    with TestClient(app, headers=_TENANT_HEADERS) as client:
         response = client.post("/integration/returns/series", json=payload)
 
     assert response.status_code == 200
@@ -517,7 +518,7 @@ def test_returns_series_stateful_provenance_uses_resolved_series_identity(monkey
         calculation_engine_version(settings),
     )
 
-    with TestClient(app) as client:
+    with TestClient(app, headers=_TENANT_HEADERS) as client:
         response = client.post("/integration/returns/series", json=payload)
 
     assert response.status_code == 200
@@ -587,7 +588,7 @@ def test_returns_series_stateful_vendor_series_override_uses_core_benchmark_seri
         "stateful_input": {},
     }
 
-    with TestClient(app) as client:
+    with TestClient(app, headers=_TENANT_HEADERS) as client:
         response = client.post("/integration/returns/series", json=payload)
 
     assert response.status_code == 200
@@ -645,7 +646,7 @@ def test_returns_series_stateful_long_window_uses_chunked_portfolio_retrieval(mo
     }
 
     try:
-        with TestClient(app) as client:
+        with TestClient(app, headers=_TENANT_HEADERS) as client:
             response = client.post("/integration/returns/series", json=payload)
     finally:
         settings.STATEFUL_INPUT_PORTFOLIO_CHUNK_DAYS = original_chunk_days
@@ -687,7 +688,7 @@ def test_returns_series_stateful_requires_reporting_currency_for_risk_free(monke
         "stateful_input": {},
     }
 
-    with TestClient(app) as client:
+    with TestClient(app, headers=_TENANT_HEADERS) as client:
         response = client.post("/integration/returns/series", json=payload)
 
     assert response.status_code == 400
@@ -697,6 +698,7 @@ def test_returns_series_stateful_requires_reporting_currency_for_risk_free(monke
 def test_returns_series_async_result_retrieval(monkeypatch):
     original_threshold = settings.RETURNS_SERIES_EXECUTOR_WINDOW_DAYS
     settings.RETURNS_SERIES_EXECUTOR_WINDOW_DAYS = 0
+    refused_calculation_id = uuid4()
 
     async def _mock_get_portfolio_analytics_timeseries(self, **kwargs):  # noqa: ARG001
         return (
@@ -721,6 +723,7 @@ def test_returns_series_async_result_retrieval(monkeypatch):
     )
 
     payload = {
+        "calculation_id": str(refused_calculation_id),
         "portfolio_id": "DEMO_DPM_EUR_001",
         "as_of_date": "2026-02-25",
         "window": {"mode": "EXPLICIT", "from_date": "2026-02-23", "to_date": "2026-02-25"},
@@ -732,16 +735,28 @@ def test_returns_series_async_result_retrieval(monkeypatch):
 
     try:
         with TestClient(app) as client:
-            accepted = client.post("/integration/returns/series", json=payload)
+            refused = client.post("/integration/returns/series", json=payload)
+            assert refused.status_code == 401
+            assert refused.json()["error_code"] == "TENANT_AUTHORITY_REQUIRED"
+            assert execution_registry.get_execution(refused_calculation_id) is None
+            assert compute_job_store.list_pending_jobs() == []
+
+            accepted = client.post("/integration/returns/series", json=payload, headers={"X-Tenant-Id": "tenant-test"})
             assert accepted.status_code == 202
             calculation_id = accepted.json()["calculation_id"]
 
-            pending_result = client.get(f"/integration/returns/series/results/{calculation_id}")
+            pending_result = client.get(
+                f"/integration/returns/series/results/{calculation_id}",
+                headers={"X-Tenant-Id": "tenant-test"},
+            )
             assert pending_result.status_code == 202
 
             assert drain_compute_queue() >= 1
 
-            complete_result = client.get(f"/integration/returns/series/results/{calculation_id}")
+            complete_result = client.get(
+                f"/integration/returns/series/results/{calculation_id}",
+                headers={"X-Tenant-Id": "tenant-test"},
+            )
             assert complete_result.status_code == 200
             body = complete_result.json()
             assert body["calculation_id"] == calculation_id
@@ -788,7 +803,11 @@ def test_returns_series_async_result_retrieval_uses_durable_store(monkeypatch):
 
     try:
         with TestClient(app) as client:
-            accepted = client.post("/integration/returns/series", json=payload)
+            accepted = client.post(
+                "/integration/returns/series",
+                json=payload,
+                headers={"X-Tenant-Id": "tenant-a"},
+            )
             assert accepted.status_code == 202
             calculation_id = accepted.json()["calculation_id"]
 
@@ -798,7 +817,25 @@ def test_returns_series_async_result_retrieval_uses_durable_store(monkeypatch):
             result = async_result_store.get_result(UUID(calculation_id))
             assert result is not None
 
-            complete_result = client.get(f"/integration/returns/series/results/{calculation_id}")
+            monkeypatch.setenv("ENTERPRISE_ENFORCE_PRIVILEGED_READ_AUTHZ", "true")
+            common_identity = {
+                "X-Actor-Id": "advisor-1",
+                "X-Role": "advisor",
+                "X-Correlation-Id": "corr-tenant-result",
+                "X-Service-Identity": "lotus-gateway",
+                "X-Portfolio-Id": payload["portfolio_id"],
+            }
+            cross_tenant = client.get(
+                f"/integration/returns/series/results/{calculation_id}",
+                headers={**common_identity, "X-Tenant-Id": "tenant-b"},
+            )
+            assert cross_tenant.status_code == 403
+            assert cross_tenant.json()["reason"] == "result_tenant_authority_mismatch"
+
+            complete_result = client.get(
+                f"/integration/returns/series/results/{calculation_id}",
+                headers={**common_identity, "X-Tenant-Id": "tenant-a"},
+            )
             assert complete_result.status_code == 200
             assert complete_result.json()["calculation_id"] == calculation_id
     finally:
@@ -840,11 +877,14 @@ def test_returns_series_async_result_not_found_and_failed(monkeypatch):
             missing = client.get(f"/integration/returns/series/results/{uuid4()}")
             assert missing.status_code == 404
 
-            accepted = client.post("/integration/returns/series", json=payload)
+            accepted = client.post("/integration/returns/series", json=payload, headers={"X-Tenant-Id": "tenant-test"})
             calculation_id = accepted.json()["calculation_id"]
 
             compute_job_store.mark_failed(UUID(calculation_id), error_message="executor boom")
-            failed = client.get(f"/integration/returns/series/results/{calculation_id}")
+            failed = client.get(
+                f"/integration/returns/series/results/{calculation_id}",
+                headers={"X-Tenant-Id": "tenant-test"},
+            )
             assert failed.status_code == 409
             assert failed.json()["detail"] == "executor boom"
     finally:
@@ -909,8 +949,8 @@ def test_returns_series_async_duplicate_submission_replays_same_request(monkeypa
 
     try:
         with TestClient(app) as client:
-            first = client.post("/integration/returns/series", json=payload)
-            second = client.post("/integration/returns/series", json=payload)
+            first = client.post("/integration/returns/series", json=payload, headers={"X-Tenant-Id": "tenant-test"})
+            second = client.post("/integration/returns/series", json=payload, headers={"X-Tenant-Id": "tenant-test"})
 
         assert first.status_code == 202
         assert second.status_code == 202
@@ -959,8 +999,12 @@ def test_returns_series_async_duplicate_submission_conflicts_on_payload_drift(mo
 
     try:
         with TestClient(app) as client:
-            first = client.post("/integration/returns/series", json=first_payload)
-            second = client.post("/integration/returns/series", json=second_payload)
+            first = client.post(
+                "/integration/returns/series", json=first_payload, headers={"X-Tenant-Id": "tenant-test"}
+            )
+            second = client.post(
+                "/integration/returns/series", json=second_payload, headers={"X-Tenant-Id": "tenant-test"}
+            )
 
         assert first.status_code == 202
         assert second.status_code == 409
@@ -1070,15 +1114,18 @@ def test_returns_series_stateful_short_window_offloads_on_resolved_workload(monk
 
     try:
         with TestClient(app) as client:
-            accepted = client.post("/integration/returns/series", json=payload)
+            accepted = client.post("/integration/returns/series", json=payload, headers={"X-Tenant-Id": "tenant-test"})
             assert accepted.status_code == 202
 
-            replay = client.post("/integration/returns/series", json=payload)
+            replay = client.post("/integration/returns/series", json=payload, headers={"X-Tenant-Id": "tenant-test"})
             assert replay.status_code == 202
 
             assert drain_compute_queue() >= 1
 
-            result = client.get(f"/integration/returns/series/results/{calculation_id}")
+            result = client.get(
+                f"/integration/returns/series/results/{calculation_id}",
+                headers={"X-Tenant-Id": "tenant-test"},
+            )
             assert result.status_code == 200
             body = result.json()
             assert body["provenance"]["input_mode"] == InputMode.STATEFUL.value
@@ -1108,7 +1155,7 @@ def test_returns_series_stateful_source_unavailable(monkeypatch):
         "input_mode": "stateful",
         "stateful_input": {},
     }
-    with TestClient(app) as client:
+    with TestClient(app, headers=_TENANT_HEADERS) as client:
         response = client.post("/integration/returns/series", json=payload)
     assert response.status_code == 503
     assert response.json()["detail"]["code"] == "SOURCE_UNAVAILABLE"
@@ -1131,7 +1178,7 @@ def test_returns_series_stateful_requires_observations(monkeypatch):
         "input_mode": "stateful",
         "stateful_input": {},
     }
-    with TestClient(app) as client:
+    with TestClient(app, headers=_TENANT_HEADERS) as client:
         response = client.post("/integration/returns/series", json=payload)
     assert response.status_code == 422
     assert response.json()["detail"]["code"] == "INSUFFICIENT_DATA"
@@ -1162,7 +1209,7 @@ def test_returns_series_stateful_requires_valid_portfolio_open_date(monkeypatch)
         "input_mode": "stateful",
         "stateful_input": {},
     }
-    with TestClient(app) as client:
+    with TestClient(app, headers=_TENANT_HEADERS) as client:
         response = client.post("/integration/returns/series", json=payload)
     assert response.status_code == 422
     assert response.json()["detail"]["code"] == "INSUFFICIENT_DATA"
@@ -1201,7 +1248,7 @@ def test_returns_series_stateful_benchmark_assignment_error_mapping(monkeypatch)
         "input_mode": "stateful",
         "stateful_input": {},
     }
-    with TestClient(app) as client:
+    with TestClient(app, headers=_TENANT_HEADERS) as client:
         response = client.post("/integration/returns/series", json=payload)
     assert response.status_code == 404
 

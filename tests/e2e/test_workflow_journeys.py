@@ -197,7 +197,8 @@ def test_e2e_platform_readiness_and_capabilities_contract() -> None:
     assert surfaces["attribution"]["stateful_restrictions"] == [
         "mode=by_instrument only",
         "group_by limited to asset_class, sector, country, currency",
-        "currency_mode=BOTH requires report_ccy and fx.rates for mixed-currency positions",
+        "currency_mode=BOTH requires report_ccy and complete positive finite exact prior/current-date EOD fx.rates for mixed-currency positions",
+        "currency_evidence.applied_report_ccy is applied truth; meta.report_ccy is a request echo",
     ]
 
 
@@ -440,7 +441,7 @@ def test_e2e_stateful_analytics_workflow(monkeypatch) -> None:
         "stateful_input": {},
     }
 
-    with TestClient(app) as client:
+    with TestClient(app, headers={"X-Tenant-Id": "tenant-e2e-stateful"}) as client:
         twr_response = client.post("/performance/twr", json=twr_payload)
         mwr_response = client.post("/performance/mwr", json=mwr_payload)
         contribution_response = client.post("/performance/contribution", json=contribution_payload)
@@ -515,7 +516,7 @@ def test_e2e_shared_stateful_benchmark_engine_stays_consistent_across_surfaces(m
         "stateful_input": {},
     }
 
-    with TestClient(app) as client:
+    with TestClient(app, headers={"X-Tenant-Id": "tenant-e2e-benchmark"}) as client:
         benchmark_response = client.post("/performance/benchmark", json=benchmark_payload)
         twr_response = client.post("/performance/twr", json=twr_payload)
         returns_series_response = client.post("/integration/returns/series", json=returns_series_payload)
@@ -660,7 +661,7 @@ def test_e2e_stateful_twr_returns_series_and_contribution_stay_consistent(monkey
         "stateful_input": {},
     }
 
-    with TestClient(app) as client:
+    with TestClient(app, headers={"X-Tenant-Id": "tenant-e2e-consistency"}) as client:
         twr_response = client.post("/performance/twr", json=twr_payload)
         returns_series_response = client.post("/integration/returns/series", json=returns_series_payload)
         contribution_response = client.post("/performance/contribution", json=contribution_payload)

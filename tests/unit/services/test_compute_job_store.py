@@ -1718,6 +1718,31 @@ def test_compute_job_store_register_job_distinguishes_create_replay_and_conflict
     assert conflict.status == ComputeJobRegistrationStatus.CONFLICT
 
 
+def test_compute_job_store_treats_another_tenants_identifier_as_conflict_and_scopes_reads(tmp_path):
+    store = ComputeJobStore(f"sqlite:///{tmp_path / 'compute.db'}")
+    store.create_schema()
+    calculation_id = uuid4()
+    created = store.register_job(
+        calculation_id=calculation_id,
+        analytics_type="Contribution",
+        tenant_id="tenant-a",
+        request_payload={"portfolio_id": "SHARED"},
+        max_attempts=2,
+    )
+    other_tenant = store.register_job(
+        calculation_id=calculation_id,
+        analytics_type="Contribution",
+        tenant_id="tenant-b",
+        request_payload={"portfolio_id": "SHARED"},
+        max_attempts=2,
+    )
+
+    assert created.status == ComputeJobRegistrationStatus.CREATED
+    assert other_tenant.status == ComputeJobRegistrationStatus.CONFLICT
+    assert store.get_job_for_tenant(calculation_id, tenant_id="tenant-a") is not None
+    assert store.get_job_for_tenant(calculation_id, tenant_id="tenant-b") is None
+
+
 def test_compute_job_store_register_job_ignores_transient_observability_context_for_replay(tmp_path):
     store = ComputeJobStore(f"sqlite:///{tmp_path / 'compute.db'}")
     store.create_schema()
@@ -1767,6 +1792,7 @@ def test_matches_existing_compute_job_registration_requires_same_request_and_att
         calculation_id=str(uuid4()),
         analytics_type="Contribution",
         job_status=ComputeJobStatus.PENDING.value,
+        tenant_id="tenant-a",
         request_json='{"portfolio_id": "P1"}',
         response_json=None,
         attempt_count=0,
@@ -1776,24 +1802,28 @@ def test_matches_existing_compute_job_registration_requires_same_request_and_att
 
     assert _matches_existing_compute_job_registration(
         existing,
+        tenant_id="tenant-a",
         analytics_type="Contribution",
         request_identity_json=_compute_job_request_identity_json({"portfolio_id": "P1"}),
         max_attempts=2,
     )
     assert not _matches_existing_compute_job_registration(
         existing,
+        tenant_id="tenant-a",
         analytics_type="Contribution",
         request_identity_json=_compute_job_request_identity_json({"portfolio_id": "P2"}),
         max_attempts=2,
     )
     assert not _matches_existing_compute_job_registration(
         existing,
+        tenant_id="tenant-a",
         analytics_type="Contribution",
         request_identity_json=_compute_job_request_identity_json({"portfolio_id": "P1"}),
         max_attempts=3,
     )
     assert not _matches_existing_compute_job_registration(
         existing,
+        tenant_id="tenant-a",
         analytics_type="Attribution",
         request_identity_json=_compute_job_request_identity_json({"portfolio_id": "P1"}),
         max_attempts=2,
@@ -1805,6 +1835,7 @@ def test_compute_job_registration_result_for_integrity_conflict_replays_matching
         calculation_id=str(uuid4()),
         analytics_type="Contribution",
         job_status=ComputeJobStatus.PENDING.value,
+        tenant_id="tenant-a",
         request_json='{"portfolio_id": "P1"}',
         response_json=None,
         attempt_count=0,
@@ -1814,6 +1845,7 @@ def test_compute_job_registration_result_for_integrity_conflict_replays_matching
 
     result = _compute_job_registration_result_for_integrity_conflict(
         existing,
+        tenant_id="tenant-a",
         integrity_error=IntegrityError("insert", {}, RuntimeError("duplicate")),
         analytics_type="Contribution",
         request_identity_json=_compute_job_request_identity_json({"portfolio_id": "P1"}),
@@ -1829,6 +1861,7 @@ def test_compute_job_registration_result_for_integrity_conflict_reports_conflict
         calculation_id=str(uuid4()),
         analytics_type="Contribution",
         job_status=ComputeJobStatus.RUNNING.value,
+        tenant_id="tenant-a",
         request_json='{"portfolio_id": "P1"}',
         response_json=None,
         attempt_count=1,
@@ -1838,6 +1871,7 @@ def test_compute_job_registration_result_for_integrity_conflict_reports_conflict
 
     result = _compute_job_registration_result_for_integrity_conflict(
         existing,
+        tenant_id="tenant-a",
         integrity_error=IntegrityError("insert", {}, RuntimeError("duplicate")),
         analytics_type="Contribution",
         request_identity_json=_compute_job_request_identity_json({"portfolio_id": "P2"}),
@@ -1854,6 +1888,7 @@ def test_compute_job_registration_result_for_integrity_conflict_reraises_missing
     with pytest.raises(IntegrityError) as exc_info:
         _compute_job_registration_result_for_integrity_conflict(
             None,
+            tenant_id="tenant-a",
             integrity_error=original_error,
             analytics_type="Contribution",
             request_identity_json=_compute_job_request_identity_json({"portfolio_id": "P1"}),

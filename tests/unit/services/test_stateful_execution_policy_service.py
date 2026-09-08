@@ -4,6 +4,7 @@ import pytest
 from pydantic import BaseModel
 
 from app.core.application_responses import accepted_application_response
+from app.observability import tenant_id_var
 from app.services.execution_registry import (
     ExecutionRecord,
     ExecutionStatus,
@@ -13,6 +14,15 @@ from app.services.stateful_execution_policy_service import (
     replay_promoted_stateful_async_execution,
 )
 from core.errors import APIConflictError
+
+
+@pytest.fixture(autouse=True)
+def admitted_tenant_authority():
+    token = tenant_id_var.set("tenant-test")
+    try:
+        yield
+    finally:
+        tenant_id_var.reset(token)
 
 
 class _AcceptedResponse(BaseModel):
@@ -129,6 +139,7 @@ def test_finalize_resolved_stateful_execution_promotes_async_when_requested(mock
         request_payload={"portfolio_id": "P1"},
         offload_reason="large_resolved_stateful_attribution",
         accepted_response_factory=_accepted_response_factory,
+        requires_tenant_authority=True,
     )
 
 
@@ -169,7 +180,7 @@ def test_finalize_resolved_stateful_execution_leaves_execution_unchanged_when_as
 def test_replay_promoted_stateful_async_execution_returns_none_for_non_matching_execution(mocker):
     calculation_id = uuid4()
     get_execution = mocker.patch(
-        "app.services.stateful_execution_policy_service.execution_registry.get_execution",
+        "app.services.stateful_execution_policy_service.execution_registry.get_execution_for_tenant",
         side_effect=[
             None,
             _execution_record(
@@ -238,7 +249,7 @@ def test_replay_promoted_stateful_async_execution_returns_none_for_non_matching_
 def test_replay_promoted_stateful_async_execution_returns_accepted_response_for_matching_execution(mocker):
     calculation_id = uuid4()
     mocker.patch(
-        "app.services.stateful_execution_policy_service.execution_registry.get_execution",
+        "app.services.stateful_execution_policy_service.execution_registry.get_execution_for_tenant",
         return_value=_execution_record(
             calculation_id=calculation_id,
             analytics_type="Contribution",

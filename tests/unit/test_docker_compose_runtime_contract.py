@@ -1,5 +1,7 @@
 from pathlib import Path
 
+from scripts.ci_local_compose_project import compose_project_name
+
 RUNTIME_SERVICES = (
     "performance-analytics",
     "performance-lineage-worker",
@@ -71,3 +73,29 @@ def test_docker_build_context_excludes_generated_runtime_state() -> None:
         "*.sqlite3",
     ):
         assert generated_path in dockerignore
+
+
+def test_ci_local_compose_lifecycle_uses_one_checkout_specific_project() -> None:
+    makefile = Path("Makefile").read_text(encoding="utf-8")
+    compose = Path("docker-compose.ci-local.yml").read_text(encoding="utf-8")
+    project_option = '--project-name "$(CI_LOCAL_COMPOSE_PROJECT)" -f docker-compose.ci-local.yml'
+
+    assert "CI_LOCAL_COMPOSE_PROJECT ?= $(shell python scripts/ci_local_compose_project.py)" in makefile
+    assert makefile.count(project_option) == 2
+    assert "docker compose -f docker-compose.ci-local.yml down" not in makefile
+    assert "apt-get install -y --no-install-recommends git make" in compose
+    assert "git config --global --add safe.directory /workspace" in compose
+    assert "--requirement requirements.txt --requirement requirements-dev.txt" in compose
+    assert "--requirements" not in compose
+    assert "coverage report --fail-under=99" in compose
+
+
+def test_ci_local_compose_project_name_is_stable_and_checkout_specific(tmp_path: Path) -> None:
+    first = tmp_path / "checkout"
+    second = tmp_path / "other" / "checkout"
+    first.mkdir()
+    second.mkdir(parents=True)
+
+    assert compose_project_name(first) == compose_project_name(first)
+    assert compose_project_name(first) != compose_project_name(second)
+    assert compose_project_name(first).startswith("lotus-performance-ci-local-checkout-")

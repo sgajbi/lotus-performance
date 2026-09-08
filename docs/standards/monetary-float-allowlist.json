@@ -532,7 +532,7 @@
       "review_by": "2026-10-27"
     },
     {
-      "finding": "core/envelope.py:13:rate: float",
+      "finding": "core/envelope.py:15:rate: float = Field(..., gt=0, allow_inf_nan=False)",
       "justification": "FXRate.rate multiplies monetary amounts, so representation error propagates into converted money. Declared float while fx_rates are dict[date, Decimal] in stateful_benchmark_input_service.py:665. Genuine deferred debt; migration sized in https://github.com/sgajbi/lotus-performance/issues/473.",
       "owner": "platform-governance",
       "review_by": "2026-11-24"

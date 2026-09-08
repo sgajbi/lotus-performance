@@ -17,33 +17,60 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
-      - name: Dispatch main releasability gate
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+      - name: Dispatch every landed revision
         env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          COMMIT_COUNT: ${{ github.event.pull_request.commits }}
           GH_TOKEN: ${{ github.token }}
           MERGE_COMMIT_SHA: ${{ github.event.pull_request.merge_commit_sha }}
           PR_NUMBER: ${{ github.event.pull_request.number }}
         run: |
-          if [ -z "$MERGE_COMMIT_SHA" ]; then
-            echo "::error::pull_request.merge_commit_sha is required for exact-main releasability dispatch"
+          set -euo pipefail
+          if [ -z "$BASE_SHA" ] || [ -z "$MERGE_COMMIT_SHA" ]; then
+            echo "::error::base.sha and merge_commit_sha are required for exact landed-range dispatch"
             exit 1
           fi
-          dispatch_ref="main-releasability-${MERGE_COMMIT_SHA}"
-          existing_ref_sha=""
-          if existing_ref_sha="$(gh api "repos/$GITHUB_REPOSITORY/git/ref/tags/$dispatch_ref" --jq .object.sha 2>/dev/null)"; then
-            if [ "$existing_ref_sha" != "$MERGE_COMMIT_SHA" ]; then
-              echo "::error::Dispatch ref $dispatch_ref points to $existing_ref_sha, expected $MERGE_COMMIT_SHA"
+          merge_methods="$(gh api "repos/$GITHUB_REPOSITORY" \
+            --jq '[.allow_squash_merge, .allow_merge_commit, .allow_rebase_merge] | @csv')"
+          if [ "$merge_methods" != "false,false,true" ]; then
+            echo "::error::Per-commit enumeration requires rebase-only merges; observed $merge_methods"
+            exit 1
+          fi
+          git fetch origin main --quiet
+          git checkout --quiet --detach FETCH_HEAD
+          if ! git merge-base --is-ancestor "$BASE_SHA" "$MERGE_COMMIT_SHA"; then
+            echo "::error::PR base $BASE_SHA is not an ancestor of landed tip $MERGE_COMMIT_SHA"
+            exit 1
+          fi
+          mapfile -t revisions < <(git rev-list --reverse "$BASE_SHA..$MERGE_COMMIT_SHA")
+          if [ "${#revisions[@]}" -ne "$COMMIT_COUNT" ]; then
+            echo "::error::Landed range has ${#revisions[@]} revision(s), but PR event reports $COMMIT_COUNT"
+            exit 1
+          fi
+          for revision in "${revisions[@]}"; do
+            if ! git merge-base --is-ancestor "$revision" HEAD; then
+              echo "::error::Refusing to dispatch non-main revision $revision"
               exit 1
             fi
-          else
+            dispatch_ref="main-releasability-${revision}"
             existing_ref_sha=""
-          fi
-          if [ -z "$existing_ref_sha" ]; then
-            gh api "repos/$GITHUB_REPOSITORY/git/refs" \
-              -f ref="refs/tags/$dispatch_ref" \
-              -f sha="$MERGE_COMMIT_SHA" >/dev/null
-          fi
-          gh workflow run main-releasability.yml \
-            --repo "$GITHUB_REPOSITORY" \
-            --ref "$dispatch_ref" \
-            -f expected_sha="$MERGE_COMMIT_SHA" \
-            -f triggering_pr="$PR_NUMBER"
+            if existing_ref_sha="$(gh api "repos/$GITHUB_REPOSITORY/git/ref/tags/$dispatch_ref" --jq .object.sha 2>/dev/null)"; then
+              if [ "$existing_ref_sha" != "$revision" ]; then
+                echo "::error::Dispatch ref $dispatch_ref points to $existing_ref_sha, expected $revision"
+                exit 1
+              fi
+            fi
+            if [ -z "$existing_ref_sha" ]; then
+              gh api "repos/$GITHUB_REPOSITORY/git/refs" \
+                -f ref="refs/tags/$dispatch_ref" \
+                -f sha="$revision" >/dev/null
+            fi
+            gh workflow run main-releasability.yml \
+              --repo "$GITHUB_REPOSITORY" \
+              --ref "$dispatch_ref" \
+              -f expected_sha="$revision" \
+              -f triggering_pr="$PR_NUMBER"
+          done

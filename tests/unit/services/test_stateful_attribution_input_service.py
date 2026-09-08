@@ -876,7 +876,12 @@ def test_stateful_attribution_source_alignment_evidence_captures_source_limitati
         source_input=source_input,
         group_by=["sector", "currency"],
         currency_mode="BOTH",
-        fx={"rates": [{"date": "2024-12-31", "ccy": "EUR", "rate": 1.1}]},
+        fx={
+            "rates": [
+                {"date": "2024-12-31", "ccy": "EUR", "rate": 1.1},
+                {"date": "2025-01-01", "ccy": "EUR", "rate": 1.111},
+            ]
+        },
         reporting_currency="USD",
     )
 
@@ -1056,7 +1061,12 @@ def test_build_stateful_attribution_input_supports_currency_mode_both():
         group_by=["currency"],
         metric_basis="NET",
         currency_mode="BOTH",
-        fx={"rates": [{"date": "2024-12-31", "ccy": "EUR", "rate": 1.1}]},
+        fx={
+            "rates": [
+                {"date": "2024-12-31", "ccy": "EUR", "rate": 1.1},
+                {"date": "2025-01-01", "ccy": "EUR", "rate": 1.111},
+            ]
+        },
         reporting_currency="USD",
     )
 

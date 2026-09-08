@@ -75,6 +75,7 @@ class _PerformanceComponentEconomicsAccumulator:
     component_totals: list[dict[str, Any]] = dataclass_field(default_factory=list)
     lineage_values: list[dict[str, Any]] = dataclass_field(default_factory=list)
     request_fingerprints: list[str] = dataclass_field(default_factory=list)
+    source_verdicts: list[dict[str, str]] = dataclass_field(default_factory=list)
     source_row_count: int = 0
     ready_chunk_count: int = 0
     unavailable_chunk_count: int = 0
@@ -1971,6 +1972,7 @@ def _build_performance_component_economics_chunk_payload(
             "supported_component_families": sorted(accumulator.supported_component_families),
             "observed_component_families": sorted(accumulator.observed_component_families),
             "missing_component_families": _performance_component_economics_missing_families(accumulator),
+            "source_verdicts": accumulator.source_verdicts,
         },
         "retrieval_metadata": {"page_count": accumulator.page_count},
     }
@@ -1979,8 +1981,27 @@ def _build_performance_component_economics_chunk_payload(
 def _performance_component_economics_chunk_state_reason(
     accumulator: _PerformanceComponentEconomicsAccumulator,
 ) -> tuple[str, str]:
-    if accumulator.source_row_count > 0:
-        return "READY", "PERFORMANCE_COMPONENT_ECONOMICS_READY"
+    if not accumulator.source_verdicts:
+        return "UNAVAILABLE", "PERFORMANCE_COMPONENT_ECONOMICS_UNAVAILABLE"
+
+    for verdict in accumulator.source_verdicts:
+        if verdict["state"] == "UNAVAILABLE":
+            return "UNAVAILABLE", verdict["reason"]
+
+    final_verdict = accumulator.source_verdicts[-1]
+    preceding_verdicts = accumulator.source_verdicts[:-1]
+    preceding_pages_are_partial = all(
+        verdict
+        == {
+            "state": "DEGRADED",
+            "reason": "PERFORMANCE_COMPONENT_ECONOMICS_PAGE_PARTIAL",
+        }
+        for verdict in preceding_verdicts
+    )
+    if final_verdict["state"] == "READY" and preceding_pages_are_partial:
+        return "READY", final_verdict["reason"]
+    if final_verdict["state"] == "DEGRADED":
+        return "UNAVAILABLE", final_verdict["reason"]
     return "UNAVAILABLE", "PERFORMANCE_COMPONENT_ECONOMICS_UNAVAILABLE"
 
 
@@ -2003,6 +2024,12 @@ def _record_performance_component_economics_payload(
     if not isinstance(supportability, dict):
         accumulator.unavailable_chunk_count += 1
         return
+    state = _string_or_none(supportability.get("state"))
+    reason = _string_or_none(supportability.get("reason"))
+    if state is None or reason is None:
+        accumulator.unavailable_chunk_count += 1
+        return
+    accumulator.source_verdicts.append({"state": state, "reason": reason})
     accumulator.source_row_count += len(rows)
     accumulator.observed_component_families.update(_string_list(supportability.get("observed_component_families")))
     accumulator.supported_component_families.update(_string_list(supportability.get("supported_component_families")))
@@ -2026,6 +2053,16 @@ def _performance_component_economics_accumulator(
             accumulator.unavailable_chunk_count += 1
             continue
         is_ready = supportability.get("state") == "READY"
+        source_verdicts = _dict_list_payload_items_from_payload(supportability, "source_verdicts")
+        accumulator.source_verdicts.extend(
+            {
+                "state": state,
+                "reason": reason,
+            }
+            for verdict in source_verdicts
+            if (state := _string_or_none(verdict.get("state"))) is not None
+            and (reason := _string_or_none(verdict.get("reason"))) is not None
+        )
         if is_ready:
             accumulator.ready_chunk_count += 1
             accumulator.source_row_count += _non_negative_int(supportability.get("source_row_count"))
@@ -2064,6 +2101,7 @@ def _performance_component_economics_supportability(
         "supported_component_families": sorted(accumulator.supported_component_families),
         "observed_component_families": sorted(accumulator.observed_component_families),
         "missing_component_families": _performance_component_economics_missing_families(accumulator),
+        "source_verdicts": accumulator.source_verdicts,
     }
 
 
@@ -2072,11 +2110,33 @@ def _performance_component_economics_supportability_state_reason(
     accumulator: _PerformanceComponentEconomicsAccumulator,
     chunk_count: int,
 ) -> tuple[str, str]:
-    if chunk_count > 0 and accumulator.ready_chunk_count == chunk_count:
+    if _all_performance_component_chunks_ready(accumulator=accumulator, chunk_count=chunk_count):
+        if _all_performance_component_verdicts_are_no_activity(accumulator.source_verdicts):
+            return "READY", "PERFORMANCE_COMPONENT_ECONOMICS_NO_ACTIVITY"
         return "READY", "PERFORMANCE_COMPONENT_ECONOMICS_READY"
+    changed_evidence_reason = _performance_component_changed_evidence_reason(accumulator.source_verdicts)
+    if changed_evidence_reason is not None:
+        return "UNAVAILABLE", changed_evidence_reason
     if accumulator.ready_chunk_count > 0:
         return "UNAVAILABLE", "PERFORMANCE_COMPONENT_ECONOMICS_PARTIAL"
     return "UNAVAILABLE", "PERFORMANCE_COMPONENT_ECONOMICS_UNAVAILABLE"
+
+
+def _all_performance_component_chunks_ready(
+    *, accumulator: _PerformanceComponentEconomicsAccumulator, chunk_count: int
+) -> bool:
+    return chunk_count > 0 and accumulator.ready_chunk_count == chunk_count
+
+
+def _all_performance_component_verdicts_are_no_activity(source_verdicts: list[dict[str, str]]) -> bool:
+    return bool(source_verdicts) and all(
+        verdict["reason"] == "PERFORMANCE_COMPONENT_ECONOMICS_NO_ACTIVITY" for verdict in source_verdicts
+    )
+
+
+def _performance_component_changed_evidence_reason(source_verdicts: list[dict[str, str]]) -> str | None:
+    changed_reason = "PERFORMANCE_COMPONENT_ECONOMICS_PAGE_EVIDENCE_CHANGED"
+    return next((changed_reason for verdict in source_verdicts if verdict["reason"] == changed_reason), None)
 
 
 def _performance_component_economics_missing_families(

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from typing import cast
 from uuid import UUID
 
 from app.core.application_responses import ApplicationHttpResponse
@@ -32,10 +33,11 @@ def get_execution_polling_response(
     access_denial = authorize_calculation_result_access(execution=record, headers=request_headers)
     if access_denial is not None:
         return access_denial
+    admitted_tenant_id = cast(str, record.tenant_id)
     return build_execution_response(
         record=record,
-        job=store.get_job(calculation_id),
-        async_result=store.get_result(calculation_id),
+        job=store.get_job(calculation_id, tenant_id=admitted_tenant_id),
+        async_result=store.get_result(calculation_id, tenant_id=admitted_tenant_id),
     )
 
 

@@ -31,9 +31,11 @@ class _ComputeJobStoreStub:
     def __init__(self, job: ComputeJobRecord | None) -> None:
         self.job = job
         self.requested_calculation_id = None
+        self.requested_tenant_id = None
 
-    def get_job(self, calculation_id):
+    def get_job(self, calculation_id, *, tenant_id):
         self.requested_calculation_id = calculation_id
+        self.requested_tenant_id = tenant_id
         return self.job
 
 
@@ -41,9 +43,11 @@ class _AsyncResultStoreStub:
     def __init__(self, async_result: AsyncResultRecord | None) -> None:
         self.async_result = async_result
         self.requested_calculation_id = None
+        self.requested_tenant_id = None
 
-    def get_result(self, calculation_id):
+    def get_result(self, calculation_id, *, tenant_id):
         self.requested_calculation_id = calculation_id
+        self.requested_tenant_id = tenant_id
         return self.async_result
 
 
@@ -62,11 +66,11 @@ class _ExecutionPollingStoreStub:
     def get_execution(self, calculation_id):
         return self.execution_store.get_execution(calculation_id)
 
-    def get_job(self, calculation_id):
-        return self.compute_store.get_job(calculation_id)
+    def get_job(self, calculation_id, *, tenant_id):
+        return self.compute_store.get_job(calculation_id, tenant_id=tenant_id)
 
-    def get_result(self, calculation_id):
-        return self.result_store.get_result(calculation_id)
+    def get_result(self, calculation_id, *, tenant_id):
+        return self.result_store.get_result(calculation_id, tenant_id=tenant_id)
 
 
 def test_build_execution_response_includes_compute_job_and_async_result():
@@ -113,7 +117,11 @@ def test_get_execution_polling_response_reads_durable_metadata_once():
     async_result = _async_result_record(calculation_id)
     store = _ExecutionPollingStoreStub(record=record, job=job, async_result=async_result)
 
-    response = get_execution_polling_response(calculation_id, store=store)
+    response = get_execution_polling_response(
+        calculation_id,
+        store=store,
+        request_headers={"X-Tenant-Id": "tenant-private-bank"},
+    )
 
     assert response is not None
     assert response.calculation_id == calculation_id
@@ -121,7 +129,9 @@ def test_get_execution_polling_response_reads_durable_metadata_once():
     assert response.async_result is not None
     assert store.execution_store.requested_calculation_id == calculation_id
     assert store.compute_store.requested_calculation_id == calculation_id
+    assert store.compute_store.requested_tenant_id == "tenant-private-bank"
     assert store.result_store.requested_calculation_id == calculation_id
+    assert store.result_store.requested_tenant_id == "tenant-private-bank"
 
 
 def test_get_execution_polling_response_skips_async_stores_when_execution_missing():
@@ -134,6 +144,22 @@ def test_get_execution_polling_response_skips_async_stores_when_execution_missin
     assert store.result_store.requested_calculation_id is None
 
 
+def test_get_execution_polling_response_uses_persisted_empty_tenant_for_stateless_metadata():
+    calculation_id = uuid4()
+    record = _execution_record(calculation_id, tenant_id="")
+    store = _ExecutionPollingStoreStub(record=record)
+
+    response = get_execution_polling_response(
+        calculation_id,
+        store=store,
+        request_headers={"X-Tenant-Id": "tenant-private-bank"},
+    )
+
+    assert response is not None
+    assert store.compute_store.requested_tenant_id == ""
+    assert store.result_store.requested_tenant_id == ""
+
+
 def test_execution_polling_not_found_detail_is_legacy_error_contract():
     assert EXECUTION_POLLING_NOT_FOUND_DETAIL == "Execution data not found for the given calculation_id."
 
@@ -143,6 +169,7 @@ def _execution_record(
     *,
     stages: list[ExecutionStageRecord] | None = None,
     upstream_snapshots: list[UpstreamSnapshotRecord] | None = None,
+    tenant_id: str | None = "tenant-private-bank",
 ) -> ExecutionRecord:
     return ExecutionRecord(
         calculation_id=calculation_id,
@@ -159,6 +186,7 @@ def _execution_record(
         completed_at_utc="2026-03-14T00:00:02Z",
         stages=stages if stages is not None else [_execution_stage()],
         upstream_snapshots=upstream_snapshots if upstream_snapshots is not None else [_upstream_snapshot()],
+        tenant_id=tenant_id,
     )
 
 

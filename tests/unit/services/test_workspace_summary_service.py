@@ -52,6 +52,7 @@ from app.services.workspace_summary_service import (
     _resolve_workspace_inputs,
     _resolve_workspace_portfolio_input,
     _sum_decimal_column,
+    _trim_portfolio_input_to_master_window,
     _workspace_observation_in_master_window,
     _workspace_summary_audit_counts,
     _workspace_summary_diagnostics,
@@ -763,6 +764,29 @@ def test_workspace_observation_in_master_window_rejects_non_string_dates():
     )
 
 
+def test_trim_workspace_portfolio_input_preserves_sourced_currency():
+    portfolio_input = ResolvedWorkspacePortfolioInput(
+        input_mode="stateful",
+        performance_start_date=date(2026, 1, 1),
+        valuation_points=[
+            DailyInputData.model_validate({"perf_date": "2026-01-02", "begin_mv": 100.0, "end_mv": 101.0})
+        ],
+        observations=[{"perf_date": "2026-01-02"}],
+        source_details={"source": "lotus-core"},
+        portfolio_currency="EUR",
+    )
+
+    trimmed = _trim_portfolio_input_to_master_window(
+        portfolio_input=portfolio_input,
+        master_start_date=date(2026, 1, 2),
+        report_end_date=date(2026, 1, 2),
+    )
+
+    assert trimmed.portfolio_currency == "EUR"
+    assert trimmed.valuation_points == portfolio_input.valuation_points
+    assert trimmed.observations == portfolio_input.observations
+
+
 def test_workspace_summary_audit_counts_projects_portfolio_counts_without_benchmark():
     portfolio_input = ResolvedWorkspacePortfolioInput(
         input_mode="stateful",
@@ -953,6 +977,9 @@ def test_build_workspace_summary_response_projects_summary_inputs_and_audit_coun
     assert response.portfolio_id == "PORT-1"
     assert response.input_mode == request.input_mode
     assert response.results_by_period == {"1D": period_result}
+    assert response.currency_evidence.applied_report_ccy == "USD"
+    assert response.currency_evidence.restated is False
+    assert response.currency_evidence.reason == "PORTFOLIO_BASE_CURRENCY_APPLIED"
     assert response.meta.input_fingerprint == "input-fingerprint"
     assert response.meta.calculation_hash == "calculation-hash"
     assert response.diagnostics.notes == ["net-note"]

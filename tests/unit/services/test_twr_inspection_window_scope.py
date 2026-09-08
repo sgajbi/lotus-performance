@@ -45,6 +45,18 @@ def test_scope_request_to_response_master_window_uses_executed_twr_period():
                 "resolved_period_count": 1,
                 "benchmark_row_count": 0,
             },
+            "currency_evidence": {
+                "portfolio_base_currency": "USD",
+                "requested_report_ccy": None,
+                "applied_report_ccy": "USD",
+                "restated": False,
+                "currency_mode_applied": "BASE_ONLY",
+                "fx_source": "none",
+                "fx_coverage": "none",
+                "fixing_policy": "EOD_EXACT_PRIOR_AND_CURRENT",
+                "applied_pairs": [],
+                "reason": "PORTFOLIO_BASE_CURRENCY_APPLIED",
+            },
             "meta": {
                 "calculation_id": str(uuid4()),
                 "engine_version": "1.0.0",

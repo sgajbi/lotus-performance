@@ -1,6 +1,7 @@
 from datetime import datetime, timezone
 from uuid import uuid4
 
+import pytest
 from sqlalchemy import event, inspect
 
 from app.services.async_result_store import (
@@ -9,6 +10,7 @@ from app.services.async_result_store import (
     AsyncResultModel,
     AsyncResultStatus,
     AsyncResultStore,
+    AsyncResultTenantConflictError,
     _async_result_record_payload_state,
     _has_invalid_response_payload,
 )
@@ -42,6 +44,32 @@ def test_async_result_store_records_success_and_failure(tmp_path):
     assert failure.response_payload is None
     assert failure.error_message == "boom"
     assert failure.error_type == "RuntimeError"
+
+
+def test_async_result_store_scopes_reads_and_rejects_cross_tenant_overwrite(tmp_path):
+    store = AsyncResultStore(f"sqlite:///{tmp_path / 'async_results.db'}")
+    store.create_schema()
+    calculation_id = uuid4()
+    store.record_success(
+        calculation_id=calculation_id,
+        tenant_id="tenant-a",
+        analytics_type="ReturnsSeries",
+        response_payload={"owner": "tenant-a"},
+    )
+
+    assert store.get_result_for_tenant(calculation_id, tenant_id="tenant-a") is not None
+    assert store.get_result_for_tenant(calculation_id, tenant_id="tenant-b") is None
+    with pytest.raises(AsyncResultTenantConflictError, match="different tenant"):
+        store.record_failure(
+            calculation_id=calculation_id,
+            tenant_id="tenant-b",
+            analytics_type="ReturnsSeries",
+            error_message="cross-tenant mutation",
+        )
+
+    result = store.get_result_for_tenant(calculation_id, tenant_id="tenant-a")
+    assert result is not None
+    assert result.response_payload == {"owner": "tenant-a"}
 
 
 def test_async_result_store_preserves_success_when_late_failure_is_recorded(tmp_path, caplog):

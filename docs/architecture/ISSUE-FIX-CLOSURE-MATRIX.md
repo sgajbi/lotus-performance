@@ -1,5 +1,24 @@
 # Issue Fix Closure Matrix
 
+## Cycle 5 closure (2026-09-09)
+
+The current Cycle 5 slice supersedes the older batch snapshot retained below as historical
+evidence. GitHub closure still requires the merged revision, green required checks, published wiki
+source, and issue comments that link those facts.
+
+| Issue | Current implementation posture | Closure evidence required |
+| --- | --- | --- |
+| `#504`, `#505`, `#519` | Durable submission, registration, replay, cached-result, job-result, and worker restoration paths are scoped by admitted tenant authority. Stateful work without tenant authority is rejected before job admission; stateless absence remains valid; legacy rows with `NULL` authority retain the terminal refusal. The conditional tenant requirement is published in OpenAPI. | Tenant-reuse HTTP tests, PostgreSQL contention/restart tests, and required PR/Main gates. |
+| `#250` | Core `READY`/`NO_ACTIVITY` and `UNAVAILABLE`/`PAGE_EVIDENCE_CHANGED` verdicts survive page/chunk reduction. Successful empty exhaustion is distinct from lost evidence. Component-economics dedup includes position and evidence identity, making mixed-evidence inputs order independent. | Valid-empty, changed-evidence, partial-page, and reversal tests plus canonical Core-to-Workbench acceptance. |
+| `#507`, `#470` | Applied FX evidence selects the source-currency series, rejects absent/empty/partial/non-positive/non-finite rates, and requires exact prior/current-date coverage under the EOD fixing policy. Requested reporting currency is not used as conversion proof. | Both endpoint contracts, multi-currency independent-number tests, and required gates. |
+| `#471` | CI-local Compose up/down use the same checkout-specific project identity. The Linux/Python 3.11 parity run passed without altering the existing product Compose sentinel. | Required PR/Main gates and recorded before/after Compose provenance. |
+| `#496`, `#509` | Every landed commit is dispatched to the exact revision without cancellation, scheduled coverage audit records passing, failing, and missing evidence distinctly, and quality-baseline freshness is wired into the required PR lane. Historical failing backfills are retained rather than rewritten. | Exact-revision PR/Main runs and a zero-gap coverage audit. |
+| `#514` | Group returns are calculated from genuine group return observations and source weights/dates/currencies; contribution divided by weight is not accepted as an inferred return. Contrasting-series coverage prevents that fallback from returning. | Risk consumer handoff plus endpoint and independent-number tests. |
+| `#463` | Recovery-harness work remains separately scoped; the existing concurrency helper continues to isolate PostgreSQL schemas. | Keep open until its owning slice is delivered. |
+| `#489`, `#511`, `#477` | Previously closed contracts were revalidated; PostgreSQL concurrency remains non-skipped and tenant persistence/restoration and Compose provenance remain intact. | Preserve existing closure evidence. |
+
+## Historical batch snapshot
+
 This matrix records the current local closure posture for the GitHub issue batch on branch
 `feat/performance-architecture-boundary-refactor`.
 

@@ -33,6 +33,7 @@ from app.services.analytics_observation_dates import (
     observation_timestamp_series,
 )
 from app.services.analytics_workflow_types import ANALYTICS_WORKFLOW_TWR
+from app.services.applied_currency_evidence_service import build_applied_currency_evidence
 from app.services.benchmark_calculation_service import BenchmarkCalculationArtifacts, calculate_benchmark_artifacts
 from app.services.calculation_supportability_service import (
     build_calculation_supportability,
@@ -1116,6 +1117,13 @@ def _build_twr_response_model(
         input_mode=input_mode,
         benchmark_context=benchmark_context,
         calculation_supportability=calculation_supportability,
+        currency_evidence=build_applied_currency_evidence(
+            portfolio_base_currency=performance_request.currency,
+            requested_report_ccy=performance_request.report_ccy,
+            currency_mode=performance_request.currency_mode,
+            fx=performance_request.fx,
+            source_currencies=[performance_request.currency],
+        ),
         results_by_period=results_by_period,
         meta=Meta(
             calculation_id=performance_request.calculation_id,

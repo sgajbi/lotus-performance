@@ -13,10 +13,10 @@ contribution totals, source-economics quality, or Carino smoothing state.
 | Capability | Implementation-backed behavior |
 | --- | --- |
 | Position contribution | `POST /performance/contribution` returns position-level contribution, average weight, local contribution, FX contribution, and position return where supported. |
-| Hierarchy contribution | Optional `hierarchy` groups position contribution by dimensions such as `asset_class`, `sector`, `country`, `currency`, and `position_id`. Missing classification is emitted as `Unclassified`; top-N bucketing can emit `Other`. Hierarchy `weight_avg` uses the same active or reset-aware promoted denominator as position `average_weight`. |
+| Hierarchy contribution | Optional `hierarchy` groups position contribution by dimensions such as `asset_class`, `sector`, `country`, `currency`, and `position_id`. Missing classification is emitted as `Unclassified`; top-N bucketing can emit `Other`. Hierarchy `weight_avg` uses the same active or reset-aware promoted denominator as position `average_weight`. Every explicit row also carries `group_return` with aligned source-valuation return, date, applied currency, and beginning-capital weight semantics; it is never inferred from contribution divided by weight. Mixed-local-currency, incomplete-source, and aggregated `Other` cases are explicitly `UNAVAILABLE`. |
 | Stateful source input | `input_mode="stateful"` sources portfolio and position analytics inputs from `lotus-core` and normalizes them into the same calculation contract used by stateless requests. |
 | Carino smoothing | Default `CARINO` smoothing uses `F_t = k_t / K` and emits period-level `smoothing_evidence` with raw, smoothed, final, linked-return, residual, factor, status, and reason-code fields. |
-| Source economics evidence | Top-level `source_economics_evidence` states whether inputs are caller supplied or lotus-core sourced, which source contracts were used, which economics are available, and which component-P&L families remain unsupported or degraded. Stateful contribution includes `PerformanceComponentEconomics:v1` when Core component-economics evidence was retrieved and preserves row-level source evidence before promoting component economics. |
+| Source economics evidence | Top-level `source_economics_evidence` states whether inputs are caller supplied or lotus-core sourced, which source contracts were used, which economics are available, and which component-P&L families remain unsupported or degraded. Stateful contribution includes `PerformanceComponentEconomics:v1`, preserves row-level and per-page verdict evidence, accepts authoritative `READY/NO_ACTIVITY` as valid empty input, and refuses `UNAVAILABLE/PAGE_EVIDENCE_CHANGED` even after a populated partial page. |
 | Async and lineage | Contribution can return `202 Accepted`, exposes execution status, supports result polling, and emits lineage artifacts for reproducibility and support. |
 | Downstream realization | Gateway preserves source-owned contribution return, smoothing evidence, and source-economics evidence. Workbench renders exact source-economics and smoothing statuses in Performance Drivers. |
 
@@ -84,7 +84,7 @@ sequenceDiagram
 | Metrics | Prometheus metrics include contribution supportability and request counters, including success and validation-error classes. |
 | Logs | Structured access logs carry correlation, request, and trace identifiers across Gateway, performance, and upstream source calls. |
 | Lineage | Contribution executions expose retrieval, normalization, execution, and lineage materialization stages plus artifacts such as request, response, daily contribution, and portfolio TWR files. |
-| Error handling | Invalid request shapes and unsupported stateful currency combinations return bounded validation errors. Mixed-currency stateful contribution in `currency_mode="BOTH"` requires `fx.rates` when sourced positions differ from `report_ccy`; unsupported source economics are not treated as fatal when contribution can still be safely calculated. |
+| Error handling | Invalid request shapes and unsupported stateful currency combinations return bounded validation errors. Mixed-currency stateful contribution in `currency_mode="BOTH"` requires complete positive finite exact prior/current-date EOD `fx.rates` for every source/report pair; empty or partial coverage returns `FX_RATES_REQUIRED`. Successful responses publish `currency_evidence`; unsupported source economics are not treated as fatal when contribution can still be safely calculated. |
 | Security posture | Downstream calls require governed caller context at Gateway; contribution evidence avoids exposing restricted customer data in public documentation. |
 
 ## Demo and Sales Narrative
@@ -131,6 +131,8 @@ The RFC-047 QA pack proves these contribution semantics:
 - clean reset-aware average-weight candidate periods promote the same denominator into position and
   hierarchy weights only when the governed rollout mode is enabled;
 - hierarchy, position rows, daily series, and by-position series reconcile to source-owned totals.
+- hierarchy group-return series preserve dated source position valuation returns and weights;
+  consumers must not infer a missing group return from contribution or average weight.
 
 ## Data Mesh Posture
 

@@ -1612,6 +1612,87 @@ async def test_get_performance_component_economics_uses_core_bounded_pages_for_c
     ]
 
 
+@pytest.mark.asyncio
+async def test_get_performance_component_economics_preserves_authoritative_empty_ready_verdict():
+    class _NoActivityCoreService(_CoreServiceStub):
+        async def get_performance_component_economics(self, **kwargs):
+            self.performance_component_economics_calls.append(kwargs)
+            return (
+                200,
+                {
+                    "rows": [],
+                    "supportability": {
+                        "state": "READY",
+                        "reason": "PERFORMANCE_COMPONENT_ECONOMICS_NO_ACTIVITY",
+                        "source_row_count": 0,
+                        "supported_component_families": ["fee"],
+                        "observed_component_families": [],
+                        "missing_component_families": ["fee"],
+                    },
+                },
+            )
+
+    service = StatefulInputService(core_service=_NoActivityCoreService())
+    status_code, payload = await service.get_performance_component_economics(
+        portfolio_id="PORT_1",
+        as_of_date=date(2026, 1, 1),
+        start_date=date(2026, 1, 1),
+        end_date=date(2026, 1, 1),
+    )
+
+    assert status_code == 200
+    assert payload["supportability"]["state"] == "READY"
+    assert payload["supportability"]["reason"] == "PERFORMANCE_COMPONENT_ECONOMICS_NO_ACTIVITY"
+    assert payload["rows"] == []
+
+
+@pytest.mark.asyncio
+async def test_get_performance_component_economics_preserves_changed_evidence_refusal_after_partial_page():
+    class _ChangedEvidenceCoreService(_CoreServiceStub):
+        async def get_performance_component_economics(self, **kwargs):
+            self.performance_component_economics_calls.append(kwargs)
+            if kwargs.get("page_token") is None:
+                return (
+                    200,
+                    {
+                        "rows": [{"security_id": "SEC_1", "transaction_id": "TXN-1"}],
+                        "supportability": {
+                            "state": "DEGRADED",
+                            "reason": "PERFORMANCE_COMPONENT_ECONOMICS_PAGE_PARTIAL",
+                            "source_row_count": 1,
+                        },
+                        "page": {"next_page_token": "page-2"},
+                    },
+                )
+            return (
+                200,
+                {
+                    "rows": [],
+                    "supportability": {
+                        "state": "UNAVAILABLE",
+                        "reason": "PERFORMANCE_COMPONENT_ECONOMICS_PAGE_EVIDENCE_CHANGED",
+                        "source_row_count": 0,
+                    },
+                },
+            )
+
+    service = StatefulInputService(core_service=_ChangedEvidenceCoreService())
+    status_code, payload = await service.get_performance_component_economics(
+        portfolio_id="PORT_1",
+        as_of_date=date(2026, 1, 1),
+        start_date=date(2026, 1, 1),
+        end_date=date(2026, 1, 1),
+    )
+
+    assert status_code == 200
+    assert payload["supportability"]["state"] == "UNAVAILABLE"
+    assert payload["supportability"]["reason"] == "PERFORMANCE_COMPONENT_ECONOMICS_PAGE_EVIDENCE_CHANGED"
+    assert payload["supportability"]["source_verdicts"] == [
+        {"state": "DEGRADED", "reason": "PERFORMANCE_COMPONENT_ECONOMICS_PAGE_PARTIAL"},
+        {"state": "UNAVAILABLE", "reason": "PERFORMANCE_COMPONENT_ECONOMICS_PAGE_EVIDENCE_CHANGED"},
+    ]
+
+
 def test_performance_component_economics_supportability_policy_requires_every_chunk_ready():
     accumulator = _PerformanceComponentEconomicsAccumulator(
         observed_component_families={"fee", "income"},

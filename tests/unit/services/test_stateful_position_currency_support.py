@@ -7,6 +7,7 @@ from app.services.stateful_position_currency_support import (
     stateful_position_currencies,
     validate_stateful_both_currency_support,
 )
+from core.envelope import FXRequestBlock
 from core.errors import APIError
 
 
@@ -87,3 +88,56 @@ def test_validate_stateful_both_currency_support_treats_blank_source_currency_as
             fx=None,
             workflow_name="contribution",
         )
+
+
+def test_stateful_both_currency_support_refuses_empty_and_partial_fx_coverage_with_pairs_and_dates() -> None:
+    rows = [
+        {"position_currency": "EUR", "valuation_date": "2025-01-02"},
+        {"position_currency": "JPY", "valuation_date": "2025-01-02"},
+    ]
+    with pytest.raises(APIError, match=r"EUR/USD dates 2025-01-01, 2025-01-02.*JPY/USD dates"):
+        validate_stateful_both_currency_support(
+            rows=rows,
+            reporting_currency="USD",
+            fx=FXRequestBlock(rates=[]),
+            workflow_name="contribution",
+        )
+
+    partial = FXRequestBlock.model_validate(
+        {
+            "rates": [
+                {"date": "2025-01-01", "ccy": "EUR", "rate": 1.1},
+                {"date": "2025-01-02", "ccy": "EUR", "rate": 1.2},
+            ]
+        }
+    )
+    with pytest.raises(APIError, match=r"JPY/USD dates 2025-01-01, 2025-01-02"):
+        validate_stateful_both_currency_support(
+            rows=rows,
+            reporting_currency="USD",
+            fx=partial,
+            workflow_name="attribution",
+        )
+
+
+def test_stateful_both_currency_support_accepts_complete_multi_currency_exact_eod_coverage() -> None:
+    rows = [
+        {"position_currency": "EUR", "valuation_date": "2025-01-02"},
+        {"position_currency": "JPY", "valuation_date": "2025-01-02"},
+    ]
+    fx = FXRequestBlock.model_validate(
+        {
+            "rates": [
+                {"date": rate_date, "ccy": currency, "rate": rate}
+                for currency, rates in {"EUR": (1.1, 1.2), "JPY": (0.006, 0.0061)}.items()
+                for rate_date, rate in zip(("2025-01-01", "2025-01-02"), rates)
+            ]
+        }
+    )
+
+    validate_stateful_both_currency_support(
+        rows=rows,
+        reporting_currency="USD",
+        fx=fx,
+        workflow_name="contribution",
+    )

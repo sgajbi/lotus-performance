@@ -9,7 +9,7 @@ from enum import StrEnum
 from typing import Any, Iterator
 from uuid import UUID
 
-from sqlalchemy import DateTime, ForeignKey, Index, String, Text, delete, select, text
+from sqlalchemy import DateTime, ForeignKey, Index, String, Text, delete, inspect, select, text
 from sqlalchemy.engine import Connection
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import DeclarativeBase, Mapped, Session, mapped_column, relationship, sessionmaker
@@ -22,7 +22,7 @@ from app.services.durable_store_time import format_timestamp, normalize_filter_d
 
 logger = logging.getLogger(__name__)
 
-_ExecutionReplaySignature = tuple[str, str | None, str, str, str | None, str | None]
+_ExecutionReplaySignature = tuple[str | None, str, str | None, str, str, str | None, str | None]
 
 
 class ExecutionStatus(StrEnum):
@@ -54,6 +54,8 @@ class AnalyticsExecutionModel(Base):
     __table_args__ = (Index("ix_execution_terminal_retention", "status", "completed_at_utc", "created_at_utc"),)
 
     calculation_id: Mapped[str] = mapped_column(String(36), primary_key=True)
+    # Nullable only for rows created before durable tenant identity existed.
+    tenant_id: Mapped[str | None] = mapped_column(String(128), nullable=True)
     analytics_type: Mapped[str] = mapped_column(String(64), nullable=False)
     portfolio_id: Mapped[str | None] = mapped_column(String(255), nullable=True)
     execution_mode: Mapped[str] = mapped_column(String(32), nullable=False)
@@ -153,6 +155,7 @@ class ExecutionRecord:
     completed_at_utc: str | None
     stages: list[ExecutionStageRecord]
     upstream_snapshots: list[UpstreamSnapshotRecord]
+    tenant_id: str | None = None
 
 
 @dataclass(frozen=True)
@@ -165,6 +168,7 @@ class ExecutionRegistrationResult:
 def _execution_model_for_registration(
     *,
     calculation_id: UUID,
+    tenant_id: str,
     analytics_type: str,
     portfolio_id: str | None,
     execution_mode: str,
@@ -175,6 +179,7 @@ def _execution_model_for_registration(
 ) -> AnalyticsExecutionModel:
     return AnalyticsExecutionModel(
         calculation_id=str(calculation_id),
+        tenant_id=tenant_id.strip(),
         analytics_type=analytics_type,
         portfolio_id=portfolio_id,
         execution_mode=execution_mode,
@@ -264,6 +269,7 @@ def _record_missing_upstream_snapshot(
 
 def _existing_execution_replay_signature(existing: AnalyticsExecutionModel) -> _ExecutionReplaySignature:
     return (
+        existing.tenant_id,
         existing.analytics_type,
         existing.portfolio_id,
         existing.execution_mode,
@@ -276,6 +282,7 @@ def _existing_execution_replay_signature(existing: AnalyticsExecutionModel) -> _
 def _requested_execution_replay_signature(
     *,
     analytics_type: str,
+    tenant_id: str,
     portfolio_id: str | None,
     execution_mode: str,
     requested_window_json: str,
@@ -283,6 +290,7 @@ def _requested_execution_replay_signature(
     calculation_hash: str | None,
 ) -> _ExecutionReplaySignature:
     return (
+        tenant_id,
         analytics_type,
         portfolio_id,
         execution_mode,
@@ -322,6 +330,7 @@ def _execution_record_from_model(
     ]
     return ExecutionRecord(
         calculation_id=UUID(execution.calculation_id),
+        tenant_id=execution.tenant_id,
         analytics_type=execution.analytics_type,
         portfolio_id=execution.portfolio_id,
         execution_mode=execution.execution_mode,
@@ -352,7 +361,7 @@ class ExecutionRegistry:
         create_durable_schema(
             self._engine,
             Base.metadata,
-            schema_upgrades=(self._ensure_runtime_indexes,),
+            schema_upgrades=(self._ensure_tenant_id_column, self._ensure_runtime_indexes),
         )
 
     def ping(self) -> None:
@@ -426,6 +435,7 @@ class ExecutionRegistry:
         self,
         *,
         calculation_id: UUID,
+        tenant_id: str = "",
         analytics_type: str,
         portfolio_id: str | None,
         execution_mode: str = "sync",
@@ -437,6 +447,7 @@ class ExecutionRegistry:
         with self._session() as session:
             execution = AnalyticsExecutionModel(
                 calculation_id=str(calculation_id),
+                tenant_id=tenant_id.strip(),
                 analytics_type=analytics_type,
                 portfolio_id=portfolio_id,
                 execution_mode=execution_mode,
@@ -455,6 +466,7 @@ class ExecutionRegistry:
         self,
         *,
         calculation_id: UUID,
+        tenant_id: str = "",
         analytics_type: str,
         portfolio_id: str | None,
         execution_mode: str = "sync",
@@ -462,10 +474,12 @@ class ExecutionRegistry:
         input_fingerprint: str | None = None,
         calculation_hash: str | None = None,
     ) -> ExecutionRegistrationResult:
+        canonical_tenant_id = tenant_id.strip()
         now = datetime.now(timezone.utc)
         requested_window_json = json.dumps(requested_window or {}, sort_keys=True)
         execution = _execution_model_for_registration(
             calculation_id=calculation_id,
+            tenant_id=canonical_tenant_id,
             analytics_type=analytics_type,
             portfolio_id=portfolio_id,
             execution_mode=execution_mode,
@@ -487,6 +501,7 @@ class ExecutionRegistry:
                 calculation_id=calculation_id,
                 integrity_error=exc,
                 analytics_type=analytics_type,
+                tenant_id=canonical_tenant_id,
                 portfolio_id=portfolio_id,
                 execution_mode=execution_mode,
                 requested_window_json=requested_window_json,
@@ -660,6 +675,19 @@ class ExecutionRegistry:
                 upstream_snapshots=self.list_upstream_snapshots(calculation_id),
             )
 
+    def get_execution_for_tenant(self, calculation_id: UUID, *, tenant_id: str) -> ExecutionRecord | None:
+        with self._session() as session:
+            statement = self._build_execution_lookup_statement(calculation_id).where(
+                AnalyticsExecutionModel.tenant_id == tenant_id
+            )
+            execution = session.execute(statement).scalar_one_or_none()
+            if execution is None:
+                return None
+            return _execution_record_from_model(
+                execution=execution,
+                upstream_snapshots=self.list_upstream_snapshots(calculation_id),
+            )
+
     def record_upstream_snapshot(
         self,
         *,
@@ -793,6 +821,7 @@ class ExecutionRegistry:
         calculation_id: UUID,
         integrity_error: IntegrityError,
         analytics_type: str,
+        tenant_id: str,
         portfolio_id: str | None,
         execution_mode: str,
         requested_window_json: str,
@@ -805,6 +834,7 @@ class ExecutionRegistry:
         if self._is_replay_of_existing_execution(
             existing=existing,
             analytics_type=analytics_type,
+            tenant_id=tenant_id,
             portfolio_id=portfolio_id,
             execution_mode=execution_mode,
             requested_window_json=requested_window_json,
@@ -825,6 +855,7 @@ class ExecutionRegistry:
         *,
         existing: AnalyticsExecutionModel,
         analytics_type: str,
+        tenant_id: str,
         portfolio_id: str | None,
         execution_mode: str,
         requested_window_json: str,
@@ -833,12 +864,21 @@ class ExecutionRegistry:
     ) -> bool:
         return _existing_execution_replay_signature(existing) == _requested_execution_replay_signature(
             analytics_type=analytics_type,
+            tenant_id=tenant_id,
             portfolio_id=portfolio_id,
             execution_mode=execution_mode,
             requested_window_json=requested_window_json,
             input_fingerprint=input_fingerprint,
             calculation_hash=calculation_hash,
         )
+
+    def _ensure_tenant_id_column(self, connection: Connection) -> None:
+        inspector = inspect(connection)
+        if "analytics_execution" not in inspector.get_table_names():
+            return
+        if "tenant_id" in {column["name"] for column in inspector.get_columns("analytics_execution")}:
+            return
+        connection.execute(text("ALTER TABLE analytics_execution ADD COLUMN tenant_id VARCHAR(128)"))
 
 
 _store_cache: dict[str, ExecutionRegistry] = {}

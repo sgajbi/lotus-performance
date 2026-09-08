@@ -418,6 +418,18 @@ def _performance_response_payload(*, calculation_id: str) -> dict:
             "resolved_period_count": 1,
             "benchmark_row_count": 0,
         },
+        "currency_evidence": {
+            "portfolio_base_currency": "USD",
+            "requested_report_ccy": None,
+            "applied_report_ccy": "USD",
+            "restated": False,
+            "currency_mode_applied": "BASE_ONLY",
+            "fx_source": "none",
+            "fx_coverage": "none",
+            "fixing_policy": "EOD_EXACT_PRIOR_AND_CURRENT",
+            "applied_pairs": [],
+            "reason": "PORTFOLIO_BASE_CURRENCY_APPLIED",
+        },
         "meta": {
             "calculation_id": calculation_id,
             "engine_version": "test",

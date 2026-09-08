@@ -17,6 +17,7 @@ from app.models.contribution_responses import (
     SinglePeriodContributionResult,
 )
 from app.services.analytics_observation_dates import observation_date_series
+from app.services.applied_currency_evidence_service import build_applied_currency_evidence
 from app.services.calculation_engine_version import calculation_engine_version
 from app.services.calculation_supportability_service import (
     build_calculation_supportability,
@@ -761,6 +762,13 @@ def _build_contribution_response(
         results_by_period=results_by_period,
         calculation_supportability=evidence.calculation_supportability,
         source_economics_evidence=evidence.source_economics_evidence,
+        currency_evidence=build_applied_currency_evidence(
+            portfolio_base_currency=request.currency,
+            requested_report_ccy=request.report_ccy,
+            currency_mode=request.currency_mode,
+            fx=request.fx,
+            source_currencies=[position.meta.get("currency") for position in request.positions_data],
+        ),
         meta=meta,
         diagnostics=evidence.diagnostics,
         audit=evidence.audit,

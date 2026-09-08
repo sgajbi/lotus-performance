@@ -308,8 +308,8 @@ async def test_get_returns_series_guards_stateful_mode_without_input():
     )
     with pytest.raises(APIError) as exc:
         await calculate_returns_series_workflow(request)
-    assert exc.value.status_code == 400
-    assert exc.value.detail["code"] == "INVALID_REQUEST"
+    assert exc.value.status_code == 401
+    assert exc.value.error_code == "TENANT_AUTHORITY_REQUIRED"
 
 
 def test_should_offload_returns_series_uses_runtime_settings(mocker):

@@ -154,6 +154,7 @@ class ReconciledJobRecord:
     max_attempts: int
     error_message: str
     error_type: str
+    tenant_id: str | None = None
 
 
 @dataclass(frozen=True)
@@ -401,11 +402,13 @@ def _matches_existing_compute_job_registration(
     existing: ComputeJobModel,
     *,
     analytics_type: str,
+    tenant_id: str,
     request_identity_json: str,
     max_attempts: int,
 ) -> bool:
     return (
         existing.analytics_type == analytics_type
+        and existing.tenant_id == tenant_id
         and _compute_job_request_identity_json_from_json(existing.request_json) == request_identity_json
         and existing.max_attempts == max_attempts
     )
@@ -470,6 +473,7 @@ def _compute_job_registration_result_for_integrity_conflict(
     *,
     integrity_error: IntegrityError,
     analytics_type: str,
+    tenant_id: str,
     request_identity_json: str,
     max_attempts: int,
 ) -> ComputeJobRegistrationResult:
@@ -478,6 +482,7 @@ def _compute_job_registration_result_for_integrity_conflict(
     if _matches_existing_compute_job_registration(
         existing,
         analytics_type=analytics_type,
+        tenant_id=tenant_id,
         request_identity_json=request_identity_json,
         max_attempts=max_attempts,
     ):
@@ -698,11 +703,12 @@ class ComputeJobStore:
         whose authority is unknowable at execution time. Required-and-possibly-empty
         is what separates "the caller presented nothing" from "nobody asked".
 
-        Stored verbatim, neither stripped nor refused here: the Core boundary decides
-        what an empty or padded tenant means, so an offloaded request is decided
-        exactly as the same request would be inline.
+        Stored in Core's canonical form: surrounding whitespace is stripped, while
+        legitimate stateless absence remains the empty string. Stateful callers must
+        reject that absence before registration.
         """
 
+        canonical_tenant_id = tenant_id.strip()
         now = datetime.now(timezone.utc)
         configured_max_attempts = max_attempts or get_settings().COMPUTE_EXECUTOR_MAX_ATTEMPTS
         request_json = json.dumps(request_payload, sort_keys=True)
@@ -711,7 +717,7 @@ class ComputeJobStore:
             calculation_id=str(calculation_id),
             analytics_type=analytics_type,
             job_status=ComputeJobStatus.PENDING.value,
-            tenant_id=tenant_id,
+            tenant_id=canonical_tenant_id,
             request_json=request_json,
             response_json=None,
             error_message=None,
@@ -740,6 +746,7 @@ class ComputeJobStore:
                 existing,
                 integrity_error=exc,
                 analytics_type=analytics_type,
+                tenant_id=canonical_tenant_id,
                 request_identity_json=request_identity_json,
                 max_attempts=configured_max_attempts,
             )
@@ -975,6 +982,7 @@ class ComputeJobStore:
         return ReconciledJobRecord(
             calculation_id=UUID(row.calculation_id),
             analytics_type=row.analytics_type,
+            tenant_id=row.tenant_id,
             previous_status=previous_status,
             reconciled_status=ComputeJobStatus(row.job_status),
             attempt_count=row.attempt_count,
@@ -1019,6 +1027,21 @@ class ComputeJobStore:
     def get_job(self, calculation_id: UUID) -> ComputeJobRecord | None:
         with self._session() as session:
             row = session.get(ComputeJobModel, str(calculation_id))
+            return None if row is None else self._to_record(row)
+
+    def get_job_for_tenant(self, calculation_id: UUID, *, tenant_id: str) -> ComputeJobRecord | None:
+        """Return a job only when its durable authority matches the caller.
+
+        Empty is a legitimate stateless authority. ``NULL`` is deliberately not
+        equivalent to empty: it denotes a legacy row whose authority was never
+        recorded and remains terminally unavailable to the worker.
+        """
+
+        with self._session() as session:
+            statement = select(ComputeJobModel).where(
+                (ComputeJobModel.calculation_id == str(calculation_id)) & (ComputeJobModel.tenant_id == tenant_id)
+            )
+            row = session.execute(statement).scalar_one_or_none()
             return None if row is None else self._to_record(row)
 
     def get_queue_stats(self, *, now: datetime | None = None) -> ComputeQueueStats:

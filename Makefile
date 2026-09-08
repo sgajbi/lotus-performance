@@ -1,4 +1,4 @@
-.PHONY: shell-check install install-ci verify-dependencies check check-all test test-unit test-unit-order-stability test-integration test-e2e test-all test-coverage test-coverage-shard coverage-combine-gate branch-coverage-baseline coverage-gate ci ci-local ci-local-docker ci-local-docker-down typecheck lint quality-baseline quality-complexity-gate quality-architecture-gate quality-router-thinness-gate quality-duplicate-code-gate quality-observability-readiness-gate quality-test-taxonomy-gate postgres-concurrency-contracts-gate postgres-concurrency-contracts-local quality-evaluation-gate license-compliance-gate python-security-gate calculation-engine-version-gate github-action-runtime-guard monetary-float-guard repository-hygiene-gate demo-api-certification idea-opportunity-evidence-gate idea-opportunity-runtime-evidence format clean run check-deps security-audit openapi-gate api-vocabulary-gate no-alias-gate domain-product-validate migration-smoke migration-apply recovery-drill-smoke runtime-retention-smoke lineage-volume-recovery-smoke performance-characterization performance-characterization-postgres pre-commit docker-up docker-down docker-build container-supply-chain-evidence container-sbom container-vulnerability-report container-vulnerability-gate
+.PHONY: shell-check install install-ci verify-dependencies check check-all test test-unit test-unit-order-stability test-integration test-e2e test-all test-coverage test-coverage-shard coverage-combine-gate branch-coverage-baseline coverage-gate ci ci-local ci-local-docker ci-local-docker-down typecheck lint quality-baseline quality-baseline-check quality-complexity-gate quality-architecture-gate quality-router-thinness-gate quality-duplicate-code-gate quality-observability-readiness-gate quality-test-taxonomy-gate postgres-concurrency-contracts-gate postgres-concurrency-contracts-local quality-evaluation-gate license-compliance-gate python-security-gate calculation-engine-version-gate github-action-runtime-guard monetary-float-guard repository-hygiene-gate demo-api-certification idea-opportunity-evidence-gate idea-opportunity-runtime-evidence format clean run check-deps security-audit openapi-gate api-vocabulary-gate no-alias-gate domain-product-validate migration-smoke migration-apply recovery-drill-smoke runtime-retention-smoke lineage-volume-recovery-smoke performance-characterization performance-characterization-postgres pre-commit docker-up docker-down docker-build container-supply-chain-evidence container-sbom container-vulnerability-report container-vulnerability-gate
 
 SUITE ?= unit
 TEST_PATH ?= tests/unit
@@ -56,6 +56,7 @@ CONTAINER_IMAGE_DIGEST := $(call raw_environment_value,CONTAINER_IMAGE_DIGEST,$(
 CONTAINER_CI_PIPELINE_RUN_ID := $(call raw_environment_value,CONTAINER_CI_PIPELINE_RUN_ID,$(CONTAINER_CI_PIPELINE_RUN_ID))
 
 CONTAINER_BUILD_TARGET ?= runtime
+CI_LOCAL_COMPOSE_PROJECT ?= $(shell python scripts/ci_local_compose_project.py)
 
 install:
 	pip install -r requirements.txt
@@ -132,10 +133,10 @@ ci-local: lint check-deps domain-product-validate
 	$(MAKE) typecheck
 
 ci-local-docker:
-	docker compose -f docker-compose.ci-local.yml up --build --abort-on-container-exit --exit-code-from ci-local ci-local
+	docker compose --project-name "$(CI_LOCAL_COMPOSE_PROJECT)" -f docker-compose.ci-local.yml up --build --abort-on-container-exit --exit-code-from ci-local ci-local
 
 ci-local-docker-down:
-	docker compose -f docker-compose.ci-local.yml down -v --remove-orphans
+	docker compose --project-name "$(CI_LOCAL_COMPOSE_PROJECT)" -f docker-compose.ci-local.yml down -v --remove-orphans
 
 check-all: lint typecheck test-all
 
@@ -201,6 +202,9 @@ calculation-engine-version-gate:
 quality-baseline:
 	python scripts/generate_quality_baseline.py --write
 
+quality-baseline-check:
+	python scripts/generate_quality_baseline.py --check
+
 quality-complexity-gate:
 	python scripts/python_complexity_inventory.py --limit 25 --max-cc 8 --max-high-complexity 0
 
@@ -245,7 +249,7 @@ postgres-concurrency-contracts-local:
 	    python scripts/postgres_concurrency_contracts_gate.py
 
 quality-test-taxonomy-gate:
-	python scripts/python_test_taxonomy_inventory.py --limit 30 --min-api-runtime-tests 656 --min-contract-governance-tests 136 --max-uncategorized-tests 825
+	python scripts/python_test_taxonomy_inventory.py --limit 30 --min-api-runtime-tests 656 --min-contract-governance-tests 136 --max-uncategorized-tests 797
 
 quality-evaluation-gate:
 	$(MAKE) demo-api-certification

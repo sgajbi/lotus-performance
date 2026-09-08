@@ -632,6 +632,7 @@ def test_initial_attribution_async_submission_projects_stateful_offload_reason(m
     assert submission_capture["input_fingerprint"] == "input-fingerprint"
     assert submission_capture["calculation_hash"] == "calculation-hash"
     assert submission_capture["offload_reason"] == "long_window_stateful_attribution"
+    assert submission_capture["requires_tenant_authority"] is True
 
 
 def test_stateful_attribution_replay_or_sync_window_returns_promoted_replay(mocker):

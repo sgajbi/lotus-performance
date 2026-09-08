@@ -56,6 +56,7 @@ def test_twr_response_attributes_tie_to_deterministic_stateless_inputs(client):
         "results_by_period",
         "benchmark_context",
         "calculation_supportability",
+        "currency_evidence",
         "meta",
         "diagnostics",
         "audit",

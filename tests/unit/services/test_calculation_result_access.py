@@ -8,6 +8,8 @@ from app.enterprise_response_envelopes import (
 from app.enterprise_runtime_config import _ENV_ENTERPRISE_ENFORCE_PRIVILEGED_READ_AUTHZ
 from app.services.calculation_result_access import (
     _RESULT_ACCESS_DENIED_REASON,
+    _RESULT_TENANT_ACCESS_DENIED_REASON,
+    _RESULT_TENANT_AUTHORITY_UNAVAILABLE_REASON,
     authorize_calculation_result_access,
 )
 from app.services.execution_registry import ExecutionRecord, ExecutionStatus
@@ -16,6 +18,7 @@ from app.services.execution_registry import ExecutionRecord, ExecutionStatus
 def _execution_record(*, portfolio_id: str | None = "PORT-1") -> ExecutionRecord:
     return ExecutionRecord(
         calculation_id=uuid4(),
+        tenant_id="tenant-private-bank",
         analytics_type="TWR",
         portfolio_id=portfolio_id,
         execution_mode="async",
@@ -50,7 +53,13 @@ def _response_body(response) -> dict[str, str | None]:
 def test_calculation_result_access_is_relaxed_when_privileged_read_authz_disabled(monkeypatch):
     monkeypatch.setenv(_ENV_ENTERPRISE_ENFORCE_PRIVILEGED_READ_AUTHZ, "false")
 
-    assert authorize_calculation_result_access(execution=_execution_record(), headers={}) is None
+    assert (
+        authorize_calculation_result_access(
+            execution=_execution_record(),
+            headers={"X-Tenant-Id": "tenant-private-bank"},
+        )
+        is None
+    )
 
 
 def test_calculation_result_access_requires_enterprise_identity_headers(monkeypatch):
@@ -121,3 +130,41 @@ def test_calculation_result_access_denies_different_portfolio_without_privileged
         _RESPONSE_DETAIL_KEY: _AUTHORIZATION_POLICY_DENIED_DETAIL,
         _RESPONSE_REASON_KEY: _RESULT_ACCESS_DENIED_REASON,
     }
+
+
+def test_calculation_result_access_denies_same_portfolio_to_a_different_tenant(monkeypatch):
+    monkeypatch.setenv(_ENV_ENTERPRISE_ENFORCE_PRIVILEGED_READ_AUTHZ, "true")
+
+    response = authorize_calculation_result_access(
+        execution=_execution_record(portfolio_id="PORT-1"),
+        headers=_identity_headers(**{"X-Tenant-Id": "tenant-other", "X-Portfolio-Id": "PORT-1"}),
+    )
+
+    assert response is not None
+    assert _response_body(response)[_RESPONSE_REASON_KEY] == _RESULT_TENANT_ACCESS_DENIED_REASON
+
+
+def test_calculation_result_access_denies_privileged_reader_from_a_different_tenant(monkeypatch):
+    monkeypatch.setenv(_ENV_ENTERPRISE_ENFORCE_PRIVILEGED_READ_AUTHZ, "true")
+
+    response = authorize_calculation_result_access(
+        execution=_execution_record(),
+        headers=_identity_headers(**{"X-Tenant-Id": "tenant-other", "X-Capabilities": "operations.runtime.read"}),
+    )
+
+    assert response is not None
+    assert _response_body(response)[_RESPONSE_REASON_KEY] == _RESULT_TENANT_ACCESS_DENIED_REASON
+
+
+def test_calculation_result_access_refuses_legacy_execution_without_authority(monkeypatch):
+    monkeypatch.setenv(_ENV_ENTERPRISE_ENFORCE_PRIVILEGED_READ_AUTHZ, "true")
+    execution = _execution_record()
+    object.__setattr__(execution, "tenant_id", None)
+
+    response = authorize_calculation_result_access(
+        execution=execution,
+        headers=_identity_headers(**{"X-Capabilities": "operations.runtime.read"}),
+    )
+
+    assert response is not None
+    assert _response_body(response)[_RESPONSE_REASON_KEY] == _RESULT_TENANT_AUTHORITY_UNAVAILABLE_REASON

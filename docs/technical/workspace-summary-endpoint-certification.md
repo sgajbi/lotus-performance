@@ -47,7 +47,9 @@ The certified request contract covers:
 - sync response and async accepted/result response;
 - `mwr_method=XIRR`, `MODIFIED_DIETZ`, or `DIETZ`;
 - annualization metadata and uniform annualized-return output shape;
-- `report_ccy` and `currency_mode` forwarding for stateful source reads.
+- `report_ccy`, `currency_mode`, and exact EOD FX coverage for the portfolio calculation path;
+- top-level `currency_evidence.applied_report_ccy` as applied truth, while `meta.report_ccy`
+  remains a compatibility request echo.
 
 ## Output Figure Tie-Outs
 

@@ -357,7 +357,8 @@ def _attribution_stateful_restrictions(flags: IntegrationCapabilityFlags) -> lis
     return [
         "mode=by_instrument only",
         "group_by limited to asset_class, sector, country, currency",
-        "currency_mode=BOTH requires report_ccy and fx.rates for mixed-currency positions",
+        "currency_mode=BOTH requires report_ccy and complete positive finite exact prior/current-date EOD fx.rates for mixed-currency positions",
+        "currency_evidence.applied_report_ccy is applied truth; meta.report_ccy is a request echo",
     ]
 
 

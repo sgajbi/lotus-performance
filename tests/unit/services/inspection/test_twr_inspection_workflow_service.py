@@ -17,7 +17,7 @@ def test_twr_inspection_submission_metadata_uses_subject_execution_owner(mocker)
         }
     )
     mocker.patch(
-        "app.services.inspection.twr_inspection_workflow_service.execution_registry.get_execution",
+        "app.services.inspection.twr_inspection_workflow_service.resolve_twr_calculation_execution_for_current_tenant",
         return_value=SimpleNamespace(portfolio_id="PORTFOLIO_001"),
     )
 
@@ -84,11 +84,69 @@ def test_submit_twr_inspection_workflow_registers_async_submission_with_observab
         "subject_calculation_id": None,
     }
     assert register_async.call_args.kwargs["offload_reason"] == "inspection_runtime"
+    assert register_async.call_args.kwargs["requires_tenant_authority"] is False
     assert register_async.call_args.kwargs["request_payload"]["observability_context"] == {
         "correlation_id": "corr-inspection",
         "request_id": "req-inspection",
         "trace_id": "trace-inspection",
     }
+
+
+def test_stateful_embedded_twr_inspection_requires_tenant_authority(mocker):
+    request_payload = _twr_request_payload(portfolio_id="PB_SG_GLOBAL_BAL_001")
+    request_payload["input_mode"] = "stateful"
+    request_payload.pop("valuation_points")
+    request_payload["stateful_input"] = {}
+    request = TWRInspectionRequest.model_validate(
+        {
+            "inspection_id": str(uuid4()),
+            "subject_type": "twr_request",
+            "inspection_profile": "canonical_validation",
+            "request": request_payload,
+        }
+    )
+    register_async = mocker.patch(
+        "app.services.inspection.twr_inspection_workflow_service.register_async_submission_or_raise",
+        return_value=twr_inspection_workflow_service.accepted_twr_inspection_response(request.inspection_id),
+    )
+
+    twr_inspection_workflow_service.submit_twr_inspection_workflow(request)
+
+    assert register_async.call_args.kwargs["requires_tenant_authority"] is True
+
+
+def test_unresolved_calculation_subject_requires_tenant_authority(mocker):
+    request = TWRInspectionRequest.model_validate(
+        {
+            "subject_type": "twr_calculation",
+            "subject_calculation_id": str(uuid4()),
+            "inspection_profile": "support_triage",
+        }
+    )
+    mocker.patch(
+        "app.services.inspection.twr_inspection_workflow_service.resolve_twr_calculation_execution_for_current_tenant",
+        return_value=None,
+    )
+
+    assert twr_inspection_workflow_service.twr_inspection_requires_tenant_authority(request) is True
+
+
+def test_tenantless_calculation_subject_preserves_portfolio_metadata(mocker):
+    request = TWRInspectionRequest.model_validate(
+        {
+            "subject_type": "twr_calculation",
+            "subject_calculation_id": str(uuid4()),
+            "inspection_profile": "support_triage",
+        }
+    )
+    tenantless_execution = SimpleNamespace(portfolio_id="PORTFOLIO_STATELESS")
+    mocker.patch(
+        "app.services.inspection.twr_inspection_workflow_service.resolve_twr_calculation_execution_for_current_tenant",
+        return_value=tenantless_execution,
+    )
+
+    assert twr_inspection_workflow_service.twr_inspection_portfolio_id(request) == "PORTFOLIO_STATELESS"
+    assert twr_inspection_workflow_service.twr_inspection_requires_tenant_authority(request) is False
 
 
 def _twr_request_payload(*, portfolio_id: str) -> dict[str, object]:

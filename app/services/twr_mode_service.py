@@ -245,6 +245,7 @@ def _build_resolved_twr_performance_input(
                 "performance_start_date": resolved_input.performance_start_date,
                 "valuation_points": resolved_input.valuation_points,
                 "source_quality_evidence": resolved_input.source_quality_evidence,
+                "currency": resolved_input.portfolio_currency or request.currency,
             }
         ),
         input_mode=TWRInputMode.STATEFUL,

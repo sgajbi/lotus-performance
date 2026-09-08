@@ -74,6 +74,17 @@ ASYNC_RESULT_ROUTES = (
     ),
 )
 
+STATEFUL_TENANT_ROUTES = (
+    "/performance/attribution",
+    "/performance/benchmark",
+    "/performance/contribution",
+    "/performance/mwr",
+    "/performance/inspections/twr",
+    "/integration/returns/series",
+    "/performance/twr",
+    "/performance/workspace-summary",
+)
+
 
 def test_async_submission_routes_document_accepted_response_contracts() -> None:
     spec = app.openapi()
@@ -100,9 +111,38 @@ def test_async_result_routes_document_pending_and_terminal_error_contracts() -> 
             _assert_error_detail_example(responses[status_code], expected_retryable=False)
 
 
+def test_exactly_stateful_capable_routes_publish_conditional_tenant_authority_contract() -> None:
+    spec = app.openapi()
+
+    for path in STATEFUL_TENANT_ROUTES:
+        operation = spec["paths"][path]["post"]
+        tenant_parameter = next(
+            parameter for parameter in operation["parameters"] if parameter["name"] == "X-Tenant-Id"
+        )
+        assert tenant_parameter["in"] == "header"
+        assert tenant_parameter["required"] is False
+        assert tenant_parameter["schema"]["maxLength"] == 128
+        if path == "/performance/inspections/twr":
+            assert "embedded TWR request selects stateful input" in tenant_parameter["description"]
+            assert "calculation subject cannot be resolved" in tenant_parameter["description"]
+        else:
+            assert "Required when input_mode selects a stateful path" in tenant_parameter["description"]
+        assert _response_schema_name(operation["responses"]["400"]) == "ErrorDetailResponse"
+        assert _response_schema_name(operation["responses"]["401"]) == "ErrorDetailResponse"
+        assert _response_examples(operation["responses"]["400"])["error_code"] == "TENANT_AUTHORITY_MALFORMED"
+        assert _response_examples(operation["responses"]["401"])["error_code"] == "TENANT_AUTHORITY_REQUIRED"
+
+
 def _response_schema_name(response: dict[str, Any]) -> str:
     schema = response["content"]["application/json"]["schema"]
     return schema["$ref"].rpartition("/")[-1]
+
+
+def _response_examples(response: dict[str, Any]) -> dict[str, Any]:
+    content = response["content"]["application/json"]
+    if "example" in content:
+        return content["example"]
+    return content["examples"]["tenant_authority_malformed"]["value"]
 
 
 def _assert_accepted_example(response: dict[str, Any], id_field_name: str, result_path_prefix: str) -> None:

@@ -15,7 +15,10 @@ Current `lotus-performance` TWR supports:
 - asynchronous execution and result polling for larger workloads
 - benchmark-aware TWR when `include_benchmark=true`
 - relative performance against resolved benchmark output
-- multi-currency return decomposition where the request supplies supported FX inputs
+- multi-currency return decomposition where the request supplies positive finite exact
+  prior/current-date EOD rates for the actual source currency
+- top-level `currency_evidence` proving the applied reporting currency, FX pairs, coverage, source,
+  and fixing policy; `meta.report_ccy` remains a request echo
 - reset and no-investment-period diagnostics
 - daily calculation evidence with denominator basis, flow timing, signed adjusted capital,
   performance P&L, calculation status, linkability status, episode status, reason codes, and

@@ -50,7 +50,14 @@ The current stateful public contract is intentionally fenced to:
 - `currency_mode="BOTH"` requires `report_ccy`
 - `currency_mode="BOTH"` requires source position currencies and compares them to `report_ccy`
   after trimming and uppercasing currency codes
-- `currency_mode="BOTH"` requires `fx.rates` when sourced positions include currencies different from `report_ccy`
+- `currency_mode="BOTH"` requires complete positive finite exact prior/current-date EOD
+  `fx.rates` for every source/report pair when sourced positions differ from `report_ccy`; empty or
+  partial coverage returns the typed `FX_RATES_REQUIRED` refusal
+- successful responses publish `currency_evidence.applied_report_ccy`; `meta.report_ccy` remains a request echo
+- `by_group` currency attribution uses source-preconverted `return_base`, `return_local`, and
+  `return_fx` observations rather than applying `fx.rates`; every portfolio and benchmark row must
+  carry all three components, satisfy `return_base = (1 + return_local) * (1 + return_fx) - 1`
+  within `1e-12`, and use a `report_ccy` equal to the declared base `currency`
 
 For cross-endpoint currency vocabulary, use the
 [RFC-020 multi-currency support matrix](../technical/rfc-020-multi-currency-support-matrix.md).

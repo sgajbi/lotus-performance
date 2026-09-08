@@ -35,6 +35,7 @@ def create_engine_config(
         data_policy=request.data_policy,
         currency_mode=request.currency_mode,
         report_ccy=request.report_ccy,
+        source_currency=request.currency,
         fx=request.fx,
         hedging=request.hedging,
     )

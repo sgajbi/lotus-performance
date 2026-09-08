@@ -14,6 +14,7 @@ from app.models.contribution_responses import (
 from app.services.analytics_numeric import numeric_series
 from app.services.analytics_observation_dates import observation_date_series, observation_date_set
 from app.services.contribution_methodology import _as_numeric
+from app.services.currency_code_normalization import normalized_currency_code
 from engine.schema import PortfolioColumns
 
 
@@ -295,6 +296,12 @@ def _daily_hierarchy_metadata(
     for level_name in hierarchy_levels:
         if level_name not in daily_meta.columns:
             daily_meta[level_name] = None
+    if "currency" not in daily_meta.columns:
+        daily_meta["currency"] = None
+    for evidence_column in (PortfolioColumns.DAILY_ROR.value, "capital_inst"):
+        if evidence_column not in daily_meta.columns:
+            daily_meta[evidence_column] = float("nan")
+    _preserve_source_daily_weight(daily_meta)
     daily_meta[PortfolioColumns.PERF_DATE.value] = observation_date_series(daily_meta[PortfolioColumns.PERF_DATE.value])
     if position_average_weights is not None and not position_average_weights.empty:
         selected_weights = position_average_weights.rename(columns={"selected_average_weight": "daily_weight"})
@@ -307,8 +314,28 @@ def _daily_hierarchy_metadata(
     return daily_meta[meta_columns]
 
 
+def _preserve_source_daily_weight(daily_meta: pd.DataFrame) -> None:
+    if "daily_weight" not in daily_meta.columns:
+        daily_meta["source_daily_weight"] = pd.NA
+        return
+    daily_meta["source_daily_weight"] = pd.to_numeric(daily_meta["daily_weight"], errors="coerce")
+
+
+def _source_daily_weights(daily_df: pd.DataFrame) -> pd.Series:
+    column = "source_daily_weight" if "source_daily_weight" in daily_df.columns else "daily_weight"
+    return pd.to_numeric(daily_df[column], errors="coerce")
+
+
 def _hierarchy_metadata_columns(hierarchy_levels: list[str]) -> list[str]:
-    meta_columns = ["position_id", PortfolioColumns.PERF_DATE.value, "daily_weight"]
+    meta_columns = [
+        "position_id",
+        PortfolioColumns.PERF_DATE.value,
+        PortfolioColumns.DAILY_ROR.value,
+        "capital_inst",
+        "daily_weight",
+        "source_daily_weight",
+        "currency",
+    ]
     for level_name in hierarchy_levels:
         if level_name not in meta_columns:
             meta_columns.append(level_name)
@@ -339,13 +366,10 @@ def _build_hierarchy_response_levels(
     hierarchy_levels = request.hierarchy or []
     for index, level_name in enumerate(hierarchy_levels):
         level_keys = hierarchy_levels[: index + 1]
-        level_agg = (
-            merged_df.groupby(level_keys, dropna=False)
-            .agg(
-                contribution=("adjusted_contribution", "sum"),
-                weight_sum=("daily_weight", "sum"),
-            )
-            .reset_index()
+        level_agg = _aggregate_hierarchy_level(
+            merged_df=merged_df,
+            level_keys=level_keys,
+            request=request,
         )
         level_agg["weight_avg"] = level_agg["weight_sum"] / day_count
         rows = _build_hierarchy_rows(level_agg=level_agg, level_keys=level_keys, request=request)
@@ -358,6 +382,80 @@ def _build_hierarchy_response_levels(
             }
         )
     return response_levels
+
+
+def _aggregate_hierarchy_level(
+    *, merged_df: pd.DataFrame, level_keys: list[str], request: ContributionRequest
+) -> pd.DataFrame:
+    records: list[dict[str, Any]] = []
+    for raw_key, group_df in merged_df.groupby(level_keys, dropna=False):
+        key_values = raw_key if isinstance(raw_key, tuple) else (raw_key,)
+        record: dict[str, Any] = {key: value for key, value in zip(level_keys, key_values, strict=True)}
+        record.update(
+            {
+                "contribution": _as_numeric(group_df["adjusted_contribution"].sum()),
+                "weight_sum": _as_numeric(group_df["daily_weight"].sum()),
+                "group_return": _group_return_evidence(group_df=group_df, request=request),
+            }
+        )
+        records.append(record)
+    return pd.DataFrame(records)
+
+
+def _group_return_evidence(*, group_df: pd.DataFrame, request: ContributionRequest) -> dict[str, Any]:
+    currency = _group_return_currency(group_df=group_df, request=request)
+    if currency is None:
+        return {
+            "status": "UNAVAILABLE",
+            "currency": None,
+            "series": [],
+            "reason": "MIXED_LOCAL_CURRENCIES_HAVE_NO_SINGLE_GROUP_RETURN",
+        }
+
+    points: list[dict[str, Any]] = []
+    for observation_date, daily_df in group_df.groupby(PortfolioColumns.PERF_DATE.value, sort=True):
+        capital = numeric_series(daily_df["capital_inst"], default=float("nan"))
+        returns = pd.to_numeric(daily_df[PortfolioColumns.DAILY_ROR.value], errors="coerce")
+        source_weights = _source_daily_weights(daily_df)
+        denominator = _as_numeric(capital.sum())
+        if denominator == 0 or capital.isna().any() or returns.isna().any() or source_weights.isna().any():
+            return {
+                "status": "UNAVAILABLE",
+                "currency": currency,
+                "series": [],
+                "reason": "SOURCE_POSITION_VALUATION_ECONOMICS_INCOMPLETE",
+            }
+        points.append(
+            {
+                "date": observation_date,
+                "return_pct": _as_numeric((capital * returns).sum() / denominator),
+                "portfolio_weight_pct": _as_numeric(source_weights.sum()) * 100,
+            }
+        )
+    linked_growth = 1.0
+    for point in points:
+        linked_growth *= 1.0 + point["return_pct"] / 100
+    return {
+        "status": "READY",
+        "period_return_pct": (linked_growth - 1.0) * 100,
+        "currency": currency,
+        "series": points,
+        "reason": None,
+    }
+
+
+def _group_return_currency(*, group_df: pd.DataFrame, request: ContributionRequest) -> str | None:
+    if request.currency_mode == "BOTH":
+        return normalized_currency_code(request.report_ccy)
+    if request.currency_mode != "LOCAL_ONLY":
+        return normalized_currency_code(request.currency)
+    currencies = {
+        currency
+        for raw_value in group_df["currency"].tolist()
+        for currency in [normalized_currency_code(raw_value)]
+        if currency is not None
+    }
+    return next(iter(currencies)) if len(currencies) == 1 else None
 
 
 def _build_hierarchy_rows(
@@ -408,6 +506,7 @@ def _hierarchy_row_to_response(row: pd.Series, *, level_keys: list[str]) -> dict
         "key": {key: row[key] for key in level_keys},
         "contribution": _as_numeric(row["contribution"]) * 100,
         "weight_avg": _as_numeric(row["weight_avg"]) * 100,
+        "group_return": row["group_return"],
     }
 
 
@@ -423,6 +522,12 @@ def _other_hierarchy_row_for_emission(
         "key": {key: "Other" for key in level_keys},
         "contribution": _as_numeric(overflow_rows["contribution"].sum()) * 100,
         "weight_avg": _as_numeric(overflow_rows["weight_avg"].sum()) * 100,
+        "group_return": {
+            "status": "UNAVAILABLE",
+            "currency": None,
+            "series": [],
+            "reason": "OTHER_BUCKET_COMBINES_MULTIPLE_SOURCE_GROUPS",
+        },
         "children_count": int(len(overflow_rows)),
         "is_other": True,
     }

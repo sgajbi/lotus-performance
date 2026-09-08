@@ -68,6 +68,9 @@ branch `main` at the exact merged SHA, while manual dispatch retains its selecte
 - `make quality-baseline`
   report-only baseline refresh that writes raw scanner snapshots under `output/quality-baseline/`
   and refreshes the baseline report used by the enterprise refactor evidence trail
+- `make quality-baseline-check`
+  blocking freshness assertion used by the PR merge gate; it names stale generated reports and
+  requires an intentional `make quality-baseline` refresh rather than silently rewriting evidence
 - `make performance-characterization`
   benchmark characterization evidence path. It writes JUnit XML, log, and summary JSON artifacts
   under `output/performance-characterization/`. The Performance Characterization Evidence workflow
@@ -75,6 +78,13 @@ branch `main` at the exact merged SHA, while manual dispatch retains its selecte
   review.
 
 ## Why the gates matter here
+
+Rebase merges are evaluated per landed commit. The merged-PR dispatcher verifies the repository is
+rebase-only, enumerates the exact base-to-tip range, cross-checks the event commit count, and pins a
+Main Releasability run to every revision. Those evidence runs use `cancel-in-progress: false`.
+The daily fail-closed coverage audit distinguishes missing or unverifiable evidence from a
+verdict-bearing historical failure; failures stay visible, while only missing/unknown coverage
+fails the coverage invariant.
 
 - downstream product surfaces trust the emitted figures
 - contract drift breaks gateway and operator consumers
@@ -96,7 +106,7 @@ branch `main` at the exact merged SHA, while manual dispatch retains its selecte
 | Container supply-chain | `make container-supply-chain-evidence`, PR/Main container evidence jobs, `GET /version` | production runtime image buildability, non-root/runtime-dependency posture, API and worker healthchecks, runtime-to-image build identity, SBOM inventory, high/critical vulnerability evidence, and main-branch SBOM provenance attestation |
 | Lineage restart recovery | `make lineage-volume-recovery-smoke`, PR/Main Lineage Volume Recovery jobs | first-create or restored-volume ownership repair, UID/GID `10001` workload access, health after restart, retained artifact evidence, and isolated cleanup |
 | Documentation contract | docs regression tests, wiki source check | public contract language, command accuracy, source wiki publication readiness |
-| Baseline evidence | `make quality-baseline`, Quality Baseline Snapshot | before/after scorecard data for the enterprise refactor program |
+| Baseline evidence | `make quality-baseline`, `make quality-baseline-check`, PR Merge Gate, Quality Baseline Snapshot | before/after scorecard data whose committed generated reports cannot drift through a green PR |
 
 ## Documentation contract proof
 
@@ -148,7 +158,13 @@ make quality-baseline
 The command is report-only. It refreshes `quality/baseline_report.md`, while writing raw scanner
 snapshots to ignored `output/quality-baseline/`. The curated health report and scorecard remain
 source documents updated by meaningful refactor slices. The Quality Baseline Snapshot workflow uses
-the same target so local and GitHub evidence stay aligned.
+the same target so local and GitHub evidence stay aligned. Run `make quality-baseline-check` to
+assert freshness without modifying the tree; the required PR gate runs that assertion.
+
+`make ci-local-docker` and `make ci-local-docker-down` use the same checkout-specific Compose
+project derived from the resolved repository path. Set `CI_LOCAL_COMPOSE_PROJECT` only when an
+automation caller needs an explicit project identity. Teardown removes only that isolated CI-local
+project and leaves the ordinary product Compose runtime and parallel checkouts untouched.
 
 ## Branch coverage evidence
 

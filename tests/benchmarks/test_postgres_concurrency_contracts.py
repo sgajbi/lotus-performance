@@ -3,9 +3,11 @@ from threading import Event
 from time import monotonic
 from uuid import UUID, uuid4
 
+import pytest
 from sqlalchemy import Column, MetaData, String, Table, inspect, text
 
-from app.services.compute_job_store import ComputeJobStore
+from app.services.async_result_store import AsyncResultStore, AsyncResultTenantConflictError
+from app.services.compute_job_store import ComputeJobRegistrationStatus, ComputeJobStore
 from app.services.durable_database_engine import (
     DurableDatabaseEnginePolicy,
     create_durable_database_engine,
@@ -14,6 +16,7 @@ from app.services.durable_schema_creation import (
     DURABLE_SCHEMA_ADVISORY_LOCK_KEY,
     create_durable_schema,
 )
+from app.services.execution_registry import ExecutionRegistrationStatus, ExecutionRegistry
 from app.services.lineage_metadata_store import LineageMetadataStore
 from tests.benchmarks.postgres_runtime_helpers import get_postgres_database_url
 
@@ -122,6 +125,90 @@ def test_postgres_compute_queue_claims_are_disjoint_across_workers():
     assert len(claimed_by_b) == POSTGRES_CONCURRENCY_CLAIM_LIMIT
     assert claim_ids_a.isdisjoint(claim_ids_b)
     assert store.lease_pending_jobs(worker_id="postgres-worker-c", limit=1, lease_seconds=60) == []
+
+
+def test_postgres_tenant_identity_survives_contention_and_store_restart():
+    postgres_database_url = get_postgres_database_url()
+    job_store = ComputeJobStore(postgres_database_url)
+    execution_store = ExecutionRegistry(postgres_database_url)
+    result_store = AsyncResultStore(postgres_database_url)
+    job_store.create_schema()
+    execution_store.create_schema()
+    result_store.create_schema()
+    result_store.clear_all_records()
+    job_store.clear_all_records()
+    execution_store.clear_all_records()
+    calculation_id = uuid4()
+
+    def _register(tenant_id: str):
+        return job_store.register_job(
+            calculation_id=calculation_id,
+            analytics_type="ReturnsSeries",
+            tenant_id=tenant_id,
+            request_payload={"portfolio_id": "SHARED"},
+            max_attempts=2,
+        )
+
+    with ThreadPoolExecutor(max_workers=2) as executor:
+        registrations = {
+            tenant_id: future.result(timeout=5)
+            for tenant_id, future in {
+                tenant_id: executor.submit(_register, tenant_id) for tenant_id in ("tenant-a", "tenant-b")
+            }.items()
+        }
+
+    owners = [
+        tenant_id
+        for tenant_id, result in registrations.items()
+        if result.status == ComputeJobRegistrationStatus.CREATED
+    ]
+    conflicts = [
+        tenant_id
+        for tenant_id, result in registrations.items()
+        if result.status == ComputeJobRegistrationStatus.CONFLICT
+    ]
+    assert len(owners) == 1
+    assert len(conflicts) == 1
+    owner, other = owners[0], conflicts[0]
+
+    execution_registration = execution_store.register_execution(
+        calculation_id=calculation_id,
+        tenant_id=owner,
+        analytics_type="ReturnsSeries",
+        portfolio_id="SHARED",
+        execution_mode="async",
+    )
+    assert execution_registration.status == ExecutionRegistrationStatus.CREATED
+    assert (
+        execution_store.register_execution(
+            calculation_id=calculation_id,
+            tenant_id=other,
+            analytics_type="ReturnsSeries",
+            portfolio_id="SHARED",
+            execution_mode="async",
+        ).status
+        == ExecutionRegistrationStatus.CONFLICT
+    )
+    result_store.record_success(
+        calculation_id=calculation_id,
+        tenant_id=owner,
+        analytics_type="ReturnsSeries",
+        response_payload={"owner": owner},
+    )
+    with pytest.raises(AsyncResultTenantConflictError):
+        result_store.record_failure(
+            calculation_id=calculation_id,
+            tenant_id=other,
+            analytics_type="ReturnsSeries",
+            error_message="must not overwrite",
+        )
+
+    restarted_jobs = ComputeJobStore(postgres_database_url)
+    restarted_results = AsyncResultStore(postgres_database_url)
+    assert restarted_jobs.get_job_for_tenant(calculation_id, tenant_id=owner) is not None
+    assert restarted_jobs.get_job_for_tenant(calculation_id, tenant_id=other) is None
+    assert restarted_results.get_result_for_tenant(calculation_id, tenant_id=owner).response_payload == {"owner": owner}
+    assert restarted_results.get_result_for_tenant(calculation_id, tenant_id=other) is None
 
 
 def test_postgres_lineage_claims_are_disjoint_across_workers():

@@ -7,8 +7,12 @@ from uuid import UUID
 from pydantic import BaseModel
 
 from app.core.application_responses import ApplicationHttpResponse, accepted_application_response
+from app.observability import tenant_id_var
 from app.services.execution_registry import execution_registry
-from app.services.submission_fencing_service import promote_existing_execution_to_async_submission_or_raise
+from app.services.submission_fencing_service import (
+    _require_submission_tenant_if_needed,
+    promote_existing_execution_to_async_submission_or_raise,
+)
 
 
 def finalize_resolved_stateful_execution(
@@ -22,6 +26,7 @@ def finalize_resolved_stateful_execution(
     should_offload: bool,
     offload_reason: str,
     accepted_response_factory: Callable[[UUID], BaseModel],
+    requires_tenant_authority: bool = True,
 ) -> ApplicationHttpResponse | None:
     if should_offload:
         return promote_existing_execution_to_async_submission_or_raise(
@@ -33,6 +38,7 @@ def finalize_resolved_stateful_execution(
             request_payload=resolved_request_payload,
             offload_reason=offload_reason,
             accepted_response_factory=accepted_response_factory,
+            requires_tenant_authority=requires_tenant_authority,
         )
     execution_registry.update_execution_contract(
         calculation_id,
@@ -52,8 +58,10 @@ def replay_promoted_stateful_async_execution(
     analytics_type: str,
     source_request_fingerprint: str,
     accepted_response_factory: Callable[[UUID], BaseModel],
+    requires_tenant_authority: bool = True,
 ) -> ApplicationHttpResponse | None:
-    execution = execution_registry.get_execution(calculation_id)
+    _require_submission_tenant_if_needed(requires_tenant_authority=requires_tenant_authority)
+    execution = execution_registry.get_execution_for_tenant(calculation_id, tenant_id=tenant_id_var.get())
     if execution is None:
         return None
     if execution.analytics_type != analytics_type or execution.execution_mode != "async":

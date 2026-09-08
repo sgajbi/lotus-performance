@@ -40,7 +40,7 @@ _FORBIDDEN_METRIC_LABELS = {
 
 @pytest.fixture(scope="module")
 def client():
-    with TestClient(app) as c:
+    with TestClient(app, headers={"X-Tenant-Id": "tenant-a"}) as c:
         yield c
 
 
@@ -690,6 +690,7 @@ def test_calculate_twr_endpoint_multi_currency(client):
     """Tests an end-to-end multi-currency TWR request."""
     payload = {
         "portfolio_id": "MULTI_CCY_API_TEST",
+        "currency": "EUR",
         "performance_start_date": "2024-12-31",
         "metric_basis": "GROSS",
         "report_end_date": "2025-01-02",
@@ -718,6 +719,23 @@ def test_calculate_twr_endpoint_multi_currency(client):
     assert itd_result["portfolio"]["summary"]["period_return"]["fx"] == pytest.approx(1.90476, abs=1e-5)
     assert itd_result["portfolio"]["summary"]["period_return"]["base"] == pytest.approx(4.98228, abs=1e-5)
     assert data["meta"]["report_ccy"] == "USD"
+    assert data["currency_evidence"] == {
+        "portfolio_base_currency": "EUR",
+        "requested_report_ccy": "USD",
+        "applied_report_ccy": "USD",
+        "restated": True,
+        "currency_mode_applied": "BOTH",
+        "fx_source": "caller_supplied",
+        "fx_coverage": "complete",
+        "fixing_policy": "EOD_EXACT_PRIOR_AND_CURRENT",
+        "applied_pairs": ["EUR/USD"],
+        "reason": "CALLER_SUPPLIED_FX_APPLIED",
+    }
+
+    payload.pop("report_ccy")
+    rejected = client.post("/performance/twr", json=payload)
+    assert rejected.status_code == 422
+    assert rejected.json()["error_code"] == "FX_REPORT_CURRENCY_REQUIRED"
 
 
 def test_calculate_twr_endpoint_with_data_policy(client):

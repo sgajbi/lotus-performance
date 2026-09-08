@@ -36,7 +36,7 @@ def client():
     lineage_metadata_store.create_schema()
     lineage_metadata_store.clear_all_records()
 
-    with TestClient(app) as c:
+    with TestClient(app, headers={"X-Tenant-Id": "tenant-private-bank"}) as c:
         yield c
 
     if os.path.exists(settings.LINEAGE_STORAGE_PATH):
@@ -103,6 +103,7 @@ def test_execution_api_preserves_nullable_contract_fields(client):
     calculation_id = uuid4()
     execution_registry.create_execution(
         calculation_id=calculation_id,
+        tenant_id="tenant-private-bank",
         analytics_type="TWR",
         portfolio_id=None,
         execution_mode="sync",
@@ -128,6 +129,7 @@ def test_execution_api_enforces_result_access_when_privileged_read_authz_enabled
     calculation_id = uuid4()
     execution_registry.create_execution(
         calculation_id=calculation_id,
+        tenant_id="tenant-private-bank",
         analytics_type="TWR",
         portfolio_id="PORT-A",
         execution_mode="async",
@@ -840,7 +842,10 @@ def test_execution_api_tracks_async_contribution_job_state(client, happy_path_pa
         assert response.status_code == 202
         calculation_id = response.json()["calculation_id"]
 
-        execution_response = client.get(f"/performance/executions/{calculation_id}")
+        execution_response = client.get(
+            f"/performance/executions/{calculation_id}",
+            headers={"X-Tenant-Id": "tenant-private-bank"},
+        )
         assert execution_response.status_code == 200
         execution_body = execution_response.json()
         assert execution_body["analytics_type"] == "Contribution"
@@ -852,7 +857,10 @@ def test_execution_api_tracks_async_contribution_job_state(client, happy_path_pa
 
         assert drain_compute_queue() == 1
 
-        execution_after_worker = client.get(f"/performance/executions/{calculation_id}")
+        execution_after_worker = client.get(
+            f"/performance/executions/{calculation_id}",
+            headers={"X-Tenant-Id": "tenant-private-bank"},
+        )
         assert execution_after_worker.status_code == 200
         execution_body_after_worker = execution_after_worker.json()
         assert execution_body_after_worker["compute_job"]["job_status"] == "complete"
@@ -1291,7 +1299,11 @@ def test_a_stateful_calculation_without_a_tenant_is_refused_before_reaching_core
         "stateful_input": {},
     }
 
-    response = client.post("/performance/contribution", json=payload)
+    response = client.post(
+        "/performance/contribution",
+        json=payload,
+        headers={"X-Tenant-Id": ""},
+    )
 
     assert response.status_code == 401
     assert outbound == [], "no Core read may be attempted without an admitted tenant"
@@ -1332,7 +1344,11 @@ def test_returns_series_reports_a_tenant_refusal_as_authority_not_thin_data(clie
         "stateful_input": {},
     }
 
-    response = client.post("/integration/returns/series", json=payload)
+    response = client.post(
+        "/integration/returns/series",
+        json=payload,
+        headers={"X-Tenant-Id": ""},
+    )
 
     assert response.status_code == 401, (
         "a missing tenant is a caller-authority outcome; reporting it as 422 "

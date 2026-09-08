@@ -124,6 +124,37 @@ def test_twr_inspection_request_subject_runs_through_async_runtime_and_artifacts
     assert source_quality_artifact.json()["valuation_point_count"] == 1
 
 
+def test_stateful_twr_inspection_refuses_missing_or_malformed_tenant_before_registration(client):
+    inspection_id = uuid4()
+    payload = {
+        "inspection_id": str(inspection_id),
+        "subject_type": "twr_request",
+        "inspection_profile": "canonical_validation",
+        "request": {
+            "input_mode": "stateful",
+            "portfolio_id": "PB_SG_GLOBAL_BAL_001",
+            "metric_basis": "NET",
+            "report_end_date": "2026-01-02",
+            "analyses": [{"period": "YTD", "frequencies": ["daily"]}],
+            "stateful_input": {},
+        },
+    }
+
+    missing = client.post("/performance/inspections/twr", json=payload)
+    malformed = client.post(
+        "/performance/inspections/twr",
+        json=payload,
+        headers={"X-Tenant-Id": "t" * 129},
+    )
+
+    assert missing.status_code == 401
+    assert missing.json()["error_code"] == "TENANT_AUTHORITY_REQUIRED"
+    assert malformed.status_code == 400
+    assert malformed.json()["error_code"] == "TENANT_AUTHORITY_MALFORMED"
+    assert execution_registry.get_execution(inspection_id) is None
+    assert compute_job_store.list_pending_jobs() == []
+
+
 def test_twr_inspection_generates_support_brief_artifact_when_workflow_pack_succeeds(
     client,
     monkeypatch,
@@ -303,6 +334,7 @@ def test_twr_inspection_existing_calculation_subject_links_back_to_twr_lineage(c
     inspection_id = str(uuid4())
     submit = client.post(
         "/performance/inspections/twr",
+        headers={"X-Tenant-Id": "tenant-private-bank"},
         json={
             "inspection_id": inspection_id,
             "subject_type": "twr_calculation",
@@ -314,7 +346,10 @@ def test_twr_inspection_existing_calculation_subject_links_back_to_twr_lineage(c
 
     assert drain_compute_queue() >= 1
 
-    result = client.get(f"/performance/inspections/{inspection_id}")
+    result = client.get(
+        f"/performance/inspections/{inspection_id}",
+        headers={"X-Tenant-Id": "tenant-private-bank"},
+    )
     assert result.status_code == 200
     body = result.json()
     assert body["verdict"] == "supportable_with_warnings"
@@ -328,6 +363,60 @@ def test_twr_inspection_existing_calculation_subject_links_back_to_twr_lineage(c
     assert body["related_lineage"]["calculation_id"] == twr_calculation_id
     assert body["related_lineage"]["lineage_path"] == f"/performance/lineage/{twr_calculation_id}"
     assert body["evidence_summary"]["related_execution_found"] is True
+
+
+def test_tenantless_twr_inspection_preserves_portfolio_for_privileged_polling(client, monkeypatch):
+    monkeypatch.setenv("ENTERPRISE_ENFORCE_PRIVILEGED_READ_AUTHZ", "true")
+    portfolio_id = "PB_SG_GLOBAL_BAL_001"
+    twr_response = client.post(
+        "/performance/twr",
+        json={
+            "portfolio_id": portfolio_id,
+            "performance_start_date": "2026-01-01",
+            "metric_basis": "NET",
+            "report_end_date": "2026-01-02",
+            "analyses": [{"period": "YTD", "frequencies": ["daily"]}],
+            "valuation_points": [
+                {"perf_date": "2026-01-02", "begin_mv": 1000.0, "end_mv": 1005.0},
+            ],
+        },
+    )
+    assert twr_response.status_code == 200
+    twr_calculation_id = twr_response.json()["calculation_id"]
+    identity_headers = {
+        "X-Actor-Id": "advisor-1",
+        "X-Tenant-Id": "tenant-private-bank",
+        "X-Role": "advisor",
+        "X-Correlation-Id": "corr-inspection-tenantless",
+        "X-Service-Identity": "lotus-gateway",
+        "X-Portfolio-Id": portfolio_id,
+    }
+    inspection_id = str(uuid4())
+
+    submit = client.post(
+        "/performance/inspections/twr",
+        headers=identity_headers,
+        json={
+            "inspection_id": inspection_id,
+            "subject_type": "twr_calculation",
+            "subject_calculation_id": twr_calculation_id,
+            "inspection_profile": "support_triage",
+        },
+    )
+    assert submit.status_code == 202
+    assert drain_compute_queue() >= 1
+
+    execution = client.get(f"/performance/executions/{inspection_id}", headers=identity_headers)
+    result = client.get(
+        f"/performance/inspections/{inspection_id}",
+        headers={**identity_headers, "X-Capabilities": "operations.runtime.read"},
+    )
+
+    assert execution.status_code == 200
+    assert execution.json()["portfolio_id"] == portfolio_id
+    assert result.status_code == 200
+    assert result.json()["portfolio_id"] == portfolio_id
+    assert result.json()["subject_calculation_id"] == twr_calculation_id
 
 
 def test_twr_inspection_runs_reconciliation_for_resolved_stateful_subject(client, monkeypatch):
@@ -1047,16 +1136,23 @@ def test_twr_inspection_reports_failure_for_missing_twr_subject(client):
             "subject_calculation_id": str(uuid4()),
             "inspection_profile": "support_triage",
         },
+        headers={"X-Tenant-Id": "tenant-test"},
     )
     assert submit.status_code == 202
 
     assert drain_compute_queue() >= 1
 
-    result = client.get(f"/performance/inspections/{inspection_id}")
+    result = client.get(
+        f"/performance/inspections/{inspection_id}",
+        headers={"X-Tenant-Id": "tenant-test"},
+    )
     assert result.status_code == 409
     assert result.json()["detail"] == "Compute job execution failed unexpectedly. Use the correlation_id for support."
 
-    execution_response = client.get(f"/performance/executions/{inspection_id}")
+    execution_response = client.get(
+        f"/performance/executions/{inspection_id}",
+        headers={"X-Tenant-Id": "tenant-test"},
+    )
     assert execution_response.status_code == 200
     stages = {stage["stage_name"]: stage for stage in execution_response.json()["stages"]}
     assert stages["subject_resolution"]["status"] == "failed"

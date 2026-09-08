@@ -8,7 +8,7 @@
       "openApiVersion": "3.1.0"
     }
   ],
-  "generatedAt": "2026-07-10T15:14:24.519564+00:00",
+  "generatedAt": "2026-09-08T22:19:19.036412+00:00",
   "attributeCatalog": [
     {
       "semanticId": "lotus.access_classification",
@@ -7453,6 +7453,20 @@
       ]
     },
     {
+      "semanticId": "lotus.x_tenant_id",
+      "canonicalTerm": "x_tenant_id",
+      "preferredName": "x_tenant_id",
+      "description": "Canonical x tenant id used by lotus-performance APIs.",
+      "example": null,
+      "type": "string",
+      "locations": [
+        "header"
+      ],
+      "observedTypes": [
+        "string"
+      ]
+    },
+    {
       "semanticId": "lotus.year",
       "canonicalTerm": "year",
       "preferredName": "year",
@@ -7469,16 +7483,16 @@
   ],
   "controlsCatalog": [
     {
-      "name": "calculation_id",
+      "name": "x_tenant_id",
       "kind": "request_option",
-      "location": "path",
-      "required": true,
+      "location": "header",
+      "required": false,
       "type": "string",
-      "description": "Canonical calculation id used by lotus-performance APIs.",
+      "description": "Required when input_mode selects a stateful path. The admitted tenant is canonicalised by trimming surrounding whitespace and is carried to lotus-core; it is never minted or defaulted by lotus-performance.",
       "example": "ENTITY_001",
       "allowedValues": [],
-      "semanticId": "lotus.calculation_id",
-      "attributeRef": "#/attributeCatalog/lotus.calculation_id"
+      "semanticId": "lotus.x_tenant_id",
+      "attributeRef": "#/attributeCatalog/lotus.x_tenant_id"
     },
     {
       "name": "calculation_id",
@@ -7493,16 +7507,16 @@
       "attributeRef": "#/attributeCatalog/lotus.calculation_id"
     },
     {
-      "name": "calculation_id",
+      "name": "x_tenant_id",
       "kind": "request_option",
-      "location": "path",
-      "required": true,
+      "location": "header",
+      "required": false,
       "type": "string",
-      "description": "Canonical calculation id used by lotus-performance APIs.",
+      "description": "Required when input_mode selects a stateful path. The admitted tenant is canonicalised by trimming surrounding whitespace and is carried to lotus-core; it is never minted or defaulted by lotus-performance.",
       "example": "ENTITY_001",
       "allowedValues": [],
-      "semanticId": "lotus.calculation_id",
-      "attributeRef": "#/attributeCatalog/lotus.calculation_id"
+      "semanticId": "lotus.x_tenant_id",
+      "attributeRef": "#/attributeCatalog/lotus.x_tenant_id"
     },
     {
       "name": "calculation_id",
@@ -7515,6 +7529,78 @@
       "allowedValues": [],
       "semanticId": "lotus.calculation_id",
       "attributeRef": "#/attributeCatalog/lotus.calculation_id"
+    },
+    {
+      "name": "x_tenant_id",
+      "kind": "request_option",
+      "location": "header",
+      "required": false,
+      "type": "string",
+      "description": "Required when input_mode selects a stateful path. The admitted tenant is canonicalised by trimming surrounding whitespace and is carried to lotus-core; it is never minted or defaulted by lotus-performance.",
+      "example": "ENTITY_001",
+      "allowedValues": [],
+      "semanticId": "lotus.x_tenant_id",
+      "attributeRef": "#/attributeCatalog/lotus.x_tenant_id"
+    },
+    {
+      "name": "x_tenant_id",
+      "kind": "request_option",
+      "location": "header",
+      "required": false,
+      "type": "string",
+      "description": "Required when input_mode selects a stateful path. The admitted tenant is canonicalised by trimming surrounding whitespace and is carried to lotus-core; it is never minted or defaulted by lotus-performance.",
+      "example": "ENTITY_001",
+      "allowedValues": [],
+      "semanticId": "lotus.x_tenant_id",
+      "attributeRef": "#/attributeCatalog/lotus.x_tenant_id"
+    },
+    {
+      "name": "calculation_id",
+      "kind": "request_option",
+      "location": "path",
+      "required": true,
+      "type": "string",
+      "description": "Canonical calculation id used by lotus-performance APIs.",
+      "example": "ENTITY_001",
+      "allowedValues": [],
+      "semanticId": "lotus.calculation_id",
+      "attributeRef": "#/attributeCatalog/lotus.calculation_id"
+    },
+    {
+      "name": "x_tenant_id",
+      "kind": "request_option",
+      "location": "header",
+      "required": false,
+      "type": "string",
+      "description": "Required when input_mode selects a stateful path. The admitted tenant is canonicalised by trimming surrounding whitespace and is carried to lotus-core; it is never minted or defaulted by lotus-performance.",
+      "example": "ENTITY_001",
+      "allowedValues": [],
+      "semanticId": "lotus.x_tenant_id",
+      "attributeRef": "#/attributeCatalog/lotus.x_tenant_id"
+    },
+    {
+      "name": "calculation_id",
+      "kind": "request_option",
+      "location": "path",
+      "required": true,
+      "type": "string",
+      "description": "Canonical calculation id used by lotus-performance APIs.",
+      "example": "ENTITY_001",
+      "allowedValues": [],
+      "semanticId": "lotus.calculation_id",
+      "attributeRef": "#/attributeCatalog/lotus.calculation_id"
+    },
+    {
+      "name": "x_tenant_id",
+      "kind": "request_option",
+      "location": "header",
+      "required": false,
+      "type": "string",
+      "description": "Required when input_mode selects a stateful path. The admitted tenant is canonicalised by trimming surrounding whitespace and is carried to lotus-core; it is never minted or defaulted by lotus-performance.",
+      "example": "ENTITY_001",
+      "allowedValues": [],
+      "semanticId": "lotus.x_tenant_id",
+      "attributeRef": "#/attributeCatalog/lotus.x_tenant_id"
     },
     {
       "name": "calculation_id",
@@ -7539,6 +7625,18 @@
       "allowedValues": [],
       "semanticId": "lotus.calculation_id",
       "attributeRef": "#/attributeCatalog/lotus.calculation_id"
+    },
+    {
+      "name": "x_tenant_id",
+      "kind": "request_option",
+      "location": "header",
+      "required": false,
+      "type": "string",
+      "description": "Required when the embedded TWR request selects stateful input, or when a referenced calculation subject cannot be resolved without tenant authority. The admitted tenant is canonicalised by trimming surrounding whitespace and is carried to lotus-core; it is never minted or defaulted by lotus-performance.",
+      "example": "ENTITY_001",
+      "allowedValues": [],
+      "semanticId": "lotus.x_tenant_id",
+      "attributeRef": "#/attributeCatalog/lotus.x_tenant_id"
     },
     {
       "name": "inspection_id",
@@ -7670,6 +7768,18 @@
       "allowedValues": [],
       "semanticId": "lotus.workflow_limit",
       "attributeRef": "#/attributeCatalog/lotus.workflow_limit"
+    },
+    {
+      "name": "x_tenant_id",
+      "kind": "request_option",
+      "location": "header",
+      "required": false,
+      "type": "string",
+      "description": "Required when input_mode selects a stateful path. The admitted tenant is canonicalised by trimming surrounding whitespace and is carried to lotus-core; it is never minted or defaulted by lotus-performance.",
+      "example": "ENTITY_001",
+      "allowedValues": [],
+      "semanticId": "lotus.x_tenant_id",
+      "attributeRef": "#/attributeCatalog/lotus.x_tenant_id"
     },
     {
       "name": "calculation_id",
@@ -8128,6 +8238,14 @@
       "request": {
         "fields": [
           {
+            "name": "X-Tenant-Id",
+            "location": "header",
+            "required": false,
+            "type": "string",
+            "semanticId": "lotus.x_tenant_id",
+            "attributeRef": "#/attributeCatalog/lotus.x_tenant_id"
+          },
+          {
             "name": "calculation_id",
             "location": "body",
             "required": false,
@@ -8523,6 +8641,14 @@
       "summary": "Calculate Time-Weighted Return",
       "request": {
         "fields": [
+          {
+            "name": "X-Tenant-Id",
+            "location": "header",
+            "required": false,
+            "type": "string",
+            "semanticId": "lotus.x_tenant_id",
+            "attributeRef": "#/attributeCatalog/lotus.x_tenant_id"
+          },
           {
             "name": "calculation_id",
             "location": "body",
@@ -8935,6 +9061,14 @@
       "summary": "Calculate Money-Weighted Return",
       "request": {
         "fields": [
+          {
+            "name": "X-Tenant-Id",
+            "location": "header",
+            "required": false,
+            "type": "string",
+            "semanticId": "lotus.x_tenant_id",
+            "attributeRef": "#/attributeCatalog/lotus.x_tenant_id"
+          },
           {
             "name": "calculation_id",
             "location": "body",
@@ -9799,6 +9933,14 @@
       "request": {
         "fields": [
           {
+            "name": "X-Tenant-Id",
+            "location": "header",
+            "required": false,
+            "type": "string",
+            "semanticId": "lotus.x_tenant_id",
+            "attributeRef": "#/attributeCatalog/lotus.x_tenant_id"
+          },
+          {
             "name": "calculation_id",
             "location": "body",
             "required": false,
@@ -10202,6 +10344,14 @@
       "summary": "Calculate benchmark performance",
       "request": {
         "fields": [
+          {
+            "name": "X-Tenant-Id",
+            "location": "header",
+            "required": false,
+            "type": "string",
+            "semanticId": "lotus.x_tenant_id",
+            "attributeRef": "#/attributeCatalog/lotus.x_tenant_id"
+          },
           {
             "name": "calculation_id",
             "location": "body",
@@ -10981,6 +11131,14 @@
       "request": {
         "fields": [
           {
+            "name": "X-Tenant-Id",
+            "location": "header",
+            "required": false,
+            "type": "string",
+            "semanticId": "lotus.x_tenant_id",
+            "attributeRef": "#/attributeCatalog/lotus.x_tenant_id"
+          },
+          {
             "name": "calculation_id",
             "location": "body",
             "required": false,
@@ -11687,6 +11845,14 @@
       "summary": "Submit a durable TWR supportability inspection",
       "request": {
         "fields": [
+          {
+            "name": "X-Tenant-Id",
+            "location": "header",
+            "required": false,
+            "type": "string",
+            "semanticId": "lotus.x_tenant_id",
+            "attributeRef": "#/attributeCatalog/lotus.x_tenant_id"
+          },
           {
             "name": "inspection_id",
             "location": "body",
@@ -12509,6 +12675,14 @@
       "summary": "Get canonical return series for downstream analytics",
       "request": {
         "fields": [
+          {
+            "name": "X-Tenant-Id",
+            "location": "header",
+            "required": false,
+            "type": "string",
+            "semanticId": "lotus.x_tenant_id",
+            "attributeRef": "#/attributeCatalog/lotus.x_tenant_id"
+          },
           {
             "name": "calculation_id",
             "location": "body",

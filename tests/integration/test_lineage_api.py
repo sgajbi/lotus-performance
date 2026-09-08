@@ -74,7 +74,7 @@ def client():
     lineage_metadata_store.create_schema()
     lineage_metadata_store.clear_all_records()
 
-    with TestClient(app) as c:
+    with TestClient(app, headers={"X-Tenant-Id": "tenant-lineage-test"}) as c:
         yield c
 
     # Clean up after tests

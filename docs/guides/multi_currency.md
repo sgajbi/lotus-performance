@@ -16,6 +16,17 @@ Where an endpoint supports the RFC-020 decomposition path, requests use these fi
 -   `"report_ccy": "USD"`: Specifies the final, base currency for all top-level reporting.
 -   `"fx": { ... }`: An object containing the daily foreign exchange rates required for the calculation.
 
+Successful TWR, Workspace Summary, Contribution, and Attribution responses publish
+`currency_evidence`. Its `applied_report_ccy`, `restated`, `fx_coverage`, `applied_pairs`, and
+`fixing_policy` fields describe what the engine actually applied. `meta.report_ccy` remains a
+compatibility echo of the request and is not conversion evidence.
+
+The supported fixing policy is `EOD_EXACT_PRIOR_AND_CURRENT`: every converted source currency must
+have a positive finite rate for both the prior calendar date and current valuation date of every
+return observation. Rates are selected by source currency even when several currencies share the
+same dates. Empty, missing, non-positive, non-finite, or partial coverage is refused; rates are not
+fabricated, forward-filled, or converted into a zero FX return.
+
 When in this mode, all monetary values (`begin_mv`, `end_mv`, `bod_cf`, etc.) for each position in `positions_data` or `instruments_data` are assumed to be in that asset's **local currency**, as specified in its `meta.currency` field.
 
 ---

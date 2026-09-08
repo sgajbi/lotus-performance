@@ -51,10 +51,10 @@ Inside the current contract:
 - stateful mode consumes `lotus-core:PerformanceComponentEconomics:v1` when available to enrich
   source-economics evidence for source-authored cashflow, fee, income, tax, realized P&L, and
   FX-context component families without moving contribution methodology out of `lotus-performance`
-- stateful `currency_mode="BOTH"` requires `report_ccy`, source position currencies, and
-  `fx.rates` when any sourced position currency differs from `report_ccy` after trimming and
-  uppercasing currency codes; missing source currency or missing FX coverage is rejected with HTTP
-  `422` before contribution calculation starts
+- stateful `currency_mode="BOTH"` requires `report_ccy`, source position currencies, and complete
+  positive finite exact prior/current-date EOD `fx.rates` for every source/report pair when any
+  sourced position currency differs from `report_ccy`; missing source currency is rejected, and
+  missing FX coverage is rejected with HTTP `422` before contribution calculation starts
 - cross-endpoint currency vocabulary is governed by the
   [RFC-020 multi-currency support matrix](../technical/rfc-020-multi-currency-support-matrix.md)
 - `lookthrough` is accepted as a compatibility request block only; lotus-performance does not
@@ -78,6 +78,15 @@ position contribution series used for position output, so position rows, daily s
 rows tell the same contribution story. In reset-aware average-weight rollout mode, hierarchy
 `levels[].rows[].weight_avg` uses the same selected denominator as
 `position_contributions[].average_weight`.
+
+Each explicit hierarchy row also publishes `group_return`. Its `series` aligns a genuine
+source-valuation group return and beginning-capital portfolio weight on every observation `date`,
+and `period_return_pct` geometrically links that daily return path. The return is calculated from
+the underlying position valuation economics before contribution smoothing or residual allocation;
+it is never reconstructed as contribution divided by `weight_avg`. `currency` names the applied
+reporting or portfolio-base currency. A `LOCAL_ONLY` group spanning multiple local currencies, an
+`Other` rollup that combines distinct source groups, or incomplete source valuation economics is
+published as `UNAVAILABLE` with a bounded reason instead of a fabricated return.
 
 ## Async execution
 
@@ -180,11 +189,11 @@ Current working decision:
 - use the shadow delta note and audit count to identify where a future cutover would actually
   change the contribution story
 
-Grouped-return alignment is also still under characterization:
+Grouped-return evidence keeps reset-alignment diagnostics alongside the source-valuation series:
 
-- contribution now records when portfolio reset days and position reset days do not line up
-- that does not change contribution output yet, but it gives us evidence for the later
-  grouped-return alignment slice
+- contribution records when portfolio reset days and position reset days do not line up
+- the published group series remains source-derived and dated, so consumers can refuse or degrade
+  a join without substituting contribution/weight as a return proxy
 
 ### 7. Carino validity guardrail
 
@@ -305,7 +314,10 @@ Use this block to understand what the contribution result was actually sourced f
   contract; observed `PerformanceComponentEconomics:v1` fee, income, and tax families remove the
   corresponding `fee_pnl`, `income_pnl`, and `tax_pnl` unsupported flags only when Core
   component-economics retrieval has traversed every requested page, every requested chunk is
-  `READY`, and the position context preserves actual Core-authored `source_rows`. Aggregate
+  `READY`, and the position context preserves actual Core-authored `source_rows`. Core's
+  `READY/PERFORMANCE_COMPONENT_ECONOMICS_NO_ACTIVITY` verdict is the explicit valid-empty
+  exception. `UNAVAILABLE/PERFORMANCE_COMPONENT_ECONOMICS_PAGE_EVIDENCE_CHANGED` remains a
+  refusal even if an earlier page returned rows. Aggregate
   supportability family names alone are not enough to promote contribution evidence to
   source-backed. Broader price, FX attribution, corporate-action, derivative, cash, and residual
   P&L buckets remain unsupported unless a precise source contract supplies them.

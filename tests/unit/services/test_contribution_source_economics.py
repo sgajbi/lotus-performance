@@ -8,6 +8,7 @@ from app.models.contribution_requests import ContributionRequest
 from app.services import contribution_evidence
 from app.services.contribution_source_economics import (
     _has_caller_supplied_position_flows,
+    _has_degraded_performance_component_economics,
     _has_non_zero_flow,
     _has_position_currency_metadata,
     _has_stateful_external_flow_economics,
@@ -15,6 +16,7 @@ from app.services.contribution_source_economics import (
     _has_unsupported_cash_flow_types,
     _is_non_zero_flow_field,
     _is_valid_source_cash_flow_type_count,
+    _performance_component_economics_contexts,
     _present_component_pnl_fields,
     _raw_source_cash_flow_type_counts,
     _source_cash_flow_type_counts,
@@ -69,6 +71,70 @@ def _snapshot(endpoint: str) -> UpstreamSnapshotRecord:
         paging_metadata={"page_token": None},
         created_at_utc="2026-03-02T00:00:00Z",
     )
+
+
+def _performance_component_context(*, source_rows: list[dict], reason: str = "PERFORMANCE_COMPONENT_ECONOMICS_READY"):
+    return {
+        "retrieval_status": 200,
+        "supportability_state": "READY",
+        "supportability_reason": reason,
+        "request_fingerprints": ["request-1"],
+        "source_rows": source_rows,
+        "observed_component_families": ["fee"],
+        "missing_component_families": [],
+    }
+
+
+def test_performance_component_economics_contexts_preserve_position_evidence_order_independently():
+    request = _request_with_position_meta(
+        {"_source_economics": {"performance_component_economics": _performance_component_context(source_rows=[])}}
+    )
+    populated_position = request.positions_data[0].model_copy(
+        update={
+            "position_id": "PB_SG_GLOBAL_BAL_001:SEC_B",
+            "meta": {
+                "_source_economics": {
+                    "performance_component_economics": _performance_component_context(
+                        source_rows=[
+                            {
+                                "security_id": "SEC_B",
+                                "transaction_date": "2026-03-01",
+                                "transaction_id": "TXN-B",
+                            }
+                        ]
+                    )
+                }
+            },
+        }
+    )
+
+    forward = request.model_copy(update={"positions_data": [request.positions_data[0], populated_position]})
+    reverse = request.model_copy(update={"positions_data": [populated_position, request.positions_data[0]]})
+
+    forward_contexts = _performance_component_economics_contexts(forward)
+    reverse_contexts = _performance_component_economics_contexts(reverse)
+    assert len(forward_contexts) == len(reverse_contexts) == 2
+    assert _has_degraded_performance_component_economics(forward_contexts)
+    assert _has_degraded_performance_component_economics(reverse_contexts)
+
+
+def test_performance_component_economics_accepts_authoritative_no_activity_without_rows():
+    context = _performance_component_context(
+        source_rows=[],
+        reason="PERFORMANCE_COMPONENT_ECONOMICS_NO_ACTIVITY",
+    )
+
+    assert not _has_degraded_performance_component_economics([context])
+
+
+def test_performance_component_economics_refuses_changed_page_evidence():
+    context = _performance_component_context(
+        source_rows=[{"security_id": "SEC_A", "transaction_id": "TXN-A"}],
+        reason="PERFORMANCE_COMPONENT_ECONOMICS_PAGE_EVIDENCE_CHANGED",
+    )
+    context["supportability_state"] = "UNAVAILABLE"
+
+    assert _has_degraded_performance_component_economics([context])
 
 
 def test_source_economics_evidence_preserves_source_rich_stateful_contract():

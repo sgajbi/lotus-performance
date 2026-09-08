@@ -85,7 +85,7 @@ def client():
     lineage_metadata_store.create_schema()
     lineage_metadata_store.clear_all_records()
 
-    with TestClient(app) as c:
+    with TestClient(app, headers={"X-Tenant-Id": "tenant-a"}) as c:
         yield c
 
     if os.path.exists(settings.LINEAGE_STORAGE_PATH):
@@ -472,6 +472,79 @@ def test_attribution_endpoint_currency_attribution(client):
     assert lineage_response.status_code == 200
     lineage_data = lineage_response.json()
     assert "SI_currency_attribution_effects.csv" in lineage_data["artifacts"]
+
+
+def test_by_group_currency_attribution_publishes_source_preconverted_evidence(client):
+    payload = {
+        "portfolio_id": "FX_GROUP_ATTRIB_01",
+        "mode": "by_group",
+        "group_by": ["currency"],
+        "linking": "none",
+        "frequency": "daily",
+        "currency": "USD",
+        "currency_mode": "BOTH",
+        "report_ccy": "USD",
+        "report_start_date": "2025-01-01",
+        "report_end_date": "2025-01-01",
+        "analyses": [{"period": "SI", "frequencies": ["daily"]}],
+        "portfolio_groups_data": [
+            {
+                "key": {"currency": "EUR"},
+                "observations": [
+                    {
+                        "date": "2025-01-01",
+                        "weight_bop": 1.0,
+                        "return_local": 0.02,
+                        "return_fx": 0.01,
+                        "return_base": 0.0302,
+                    }
+                ],
+            }
+        ],
+        "benchmark_groups_data": [
+            {
+                "key": {"currency": "EUR"},
+                "observations": [
+                    {
+                        "date": "2025-01-01",
+                        "weight_bop": 1.0,
+                        "return_local": 0.015,
+                        "return_fx": 0.01,
+                        "return_base": 0.02515,
+                    }
+                ],
+            }
+        ],
+        "fx": {"rates": []},
+    }
+
+    response = client.post("/performance/attribution", json=payload)
+
+    assert response.status_code == 200
+    evidence = response.json()["currency_evidence"]
+    assert evidence == {
+        "portfolio_base_currency": "USD",
+        "requested_report_ccy": "USD",
+        "applied_report_ccy": "USD",
+        "restated": True,
+        "currency_mode_applied": "BOTH",
+        "fx_source": "source_preconverted",
+        "fx_coverage": "complete",
+        "fixing_policy": "SOURCE_PRECONVERTED_RETURN_COMPONENTS",
+        "applied_pairs": ["EUR/USD"],
+        "reason": "SOURCE_PRECONVERTED_GROUP_RETURNS_APPLIED",
+    }
+
+    payload["portfolio_groups_data"][0]["observations"][0].pop("return_fx")
+    incomplete = client.post("/performance/attribution", json=payload)
+    assert incomplete.status_code == 422
+    assert incomplete.json()["error_code"] == "FX_SOURCE_PRECONVERTED_EVIDENCE_REQUIRED"
+
+    payload["portfolio_groups_data"][0]["observations"][0]["return_fx"] = 0.01
+    payload["report_ccy"] = "SGD"
+    unapplied_report_currency = client.post("/performance/attribution", json=payload)
+    assert unapplied_report_currency.status_code == 422
+    assert unapplied_report_currency.json()["error_code"] == "FX_SOURCE_PRECONVERTED_REPORT_CURRENCY_MISMATCH"
 
 
 @pytest.mark.parametrize(
@@ -1519,7 +1592,7 @@ def test_attribution_stateful_currency_mode_both_supports_mixed_currency_decompo
         "stateful_input": {},
     }
 
-    response = client.post("/performance/attribution", json=payload)
+    response = client.post("/performance/attribution", json=payload, headers={"X-Tenant-Id": "tenant-a"})
 
     assert response.status_code == 200
     body = response.json()
@@ -1532,6 +1605,22 @@ def test_attribution_stateful_currency_mode_both_supports_mixed_currency_decompo
     assert by_currency["eur"]["weight_portfolio_avg"] == pytest.approx(55.0)
     assert by_currency["usd"]["weight_portfolio_avg"] == pytest.approx(45.0)
     assert body["results_by_period"]["SI"]["currency_attribution_totals"]["currency_count"] == 2
+    assert body["currency_evidence"]["applied_report_ccy"] == "USD"
+    assert body["currency_evidence"]["applied_pairs"] == ["EUR/USD"]
+    assert body["currency_evidence"]["restated"] is True
+    assert body["currency_evidence"]["fx_coverage"] == "complete"
+
+    payload["fx"] = {}
+    rejected = client.post("/performance/attribution", json=payload, headers={"X-Tenant-Id": "tenant-a"})
+    assert rejected.status_code == 422
+    assert rejected.json()["error_code"] == "FX_RATES_REQUIRED"
+    assert "fx.rates" in rejected.json()["detail"]
+    assert "EUR/USD" in rejected.json()["detail"]
+
+    payload["fx"] = {"rates": [{"date": "2024-12-31", "ccy": "EUR", "rate": 1.10}]}
+    partial = client.post("/performance/attribution", json=payload, headers={"X-Tenant-Id": "tenant-a"})
+    assert partial.status_code == 422
+    assert "EUR/USD dates 2025-01-01" in partial.json()["detail"]
 
 
 def test_attribution_stateful_hashes_follow_resolved_inputs(client, monkeypatch):

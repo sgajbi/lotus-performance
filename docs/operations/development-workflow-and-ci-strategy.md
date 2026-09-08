@@ -14,11 +14,14 @@ Canonical standard:
 6. Always finish with `local = remote = main`.
 
 Automatic Main Releasability is initiated by the merged-PR dispatcher, not a `main` push trigger.
-The dispatcher creates or verifies an immutable `main-releasability-<merge_sha>` tag and supplies
-that SHA to the gate, which rejects a different checkout before release jobs start. Manual operator
-dispatch remains available. The automatic tag is checkout identity only: exact merged-PR container
-provenance records the merge SHA with `main` as the source branch. A manual dispatch instead keeps
-its selected branch or tag as container branch identity.
+For rebase-only merges, the dispatcher enumerates the exact landed range from the PR base SHA to
+the landed tip, cross-checks that count against the PR event, and creates or verifies one immutable
+`main-releasability-<sha>` tag per revision. Each gate rejects a different checkout before release
+jobs start. Main evidence runs never cancel one another, including duplicate or backfill dispatches.
+The scheduled `main-gate-coverage-audit.yml` fails closed when any recent main commit lacks a
+verdict-bearing run, its run listing is unverifiable, or the requested audit window is truncated;
+historical failures remain reported as evaluated evidence rather than being mislabeled as gaps.
+Manual operator dispatch remains available.
 
 ## Repository-specific quality gates
 
@@ -28,6 +31,7 @@ router-thinness checks, `lotus-performance` now enforces:
 
 ```bash
 make quality-observability-readiness-gate
+make quality-baseline-check
 make domain-product-validate
 make quality-evaluation-gate
 make quality-test-taxonomy-gate
@@ -48,6 +52,17 @@ API/runtime and contract/governance test breadth floors and blocks growth in unc
 These gates must not be soft-failed with `continue-on-error`. Because local `make ci` runs that
 evaluation before `docker-build`, `.dockerignore` excludes generated `output`, `lineage_data`, and
 local SQLite database artifacts from the Docker build context.
+
+`make quality-baseline-check` is a blocking PR assertion against the committed generated quality
+reports. It does not regenerate them: a Python/test-count change that leaves a report stale fails
+and names the drifted file. Refresh intentionally with `make quality-baseline`, review the diff,
+then rerun the check.
+
+The Docker-parity lifecycle derives `CI_LOCAL_COMPOSE_PROJECT` from the resolved checkout path and
+passes that same project name to both `ci-local-docker` and `ci-local-docker-down`. An explicit
+environment override remains available for automation. Cleanup therefore owns only that checkout's
+CI-local containers, networks, and volumes; it must not remove the product runtime started from
+`docker-compose.yml` or a parallel worktree's CI-local project.
 
 License compliance is a blocking release-readiness gate. `make license-compliance-gate` validates
 the repo MIT license declaration, `contracts/license-compliance-policy.v1.json`, and the generated

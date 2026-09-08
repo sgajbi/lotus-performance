@@ -164,6 +164,7 @@ async def _calculate_promoted_stateful_benchmark_workflow(
         analytics_type=ANALYTICS_WORKFLOW_BENCHMARK,
         source_request_fingerprint=input_fingerprint,
         accepted_response_factory=accepted_benchmark_response,
+        requires_tenant_authority=request.input_mode == BenchmarkInputMode.STATEFUL,
     )
     if replay_response is not None:
         return replay_response
@@ -255,6 +256,7 @@ def _initial_benchmark_async_submission(
             else "large_benchmark_input_set"
         ),
         accepted_response_factory=accepted_benchmark_response,
+        requires_tenant_authority=request.input_mode == BenchmarkInputMode.STATEFUL,
     )
 
 

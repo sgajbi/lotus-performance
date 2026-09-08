@@ -31,10 +31,18 @@ Stateful attribution is currently fenced to:
 - `mode="by_instrument"`
 - `group_by` values `asset_class`, `sector`, `country`, and `currency`
 - `currency_mode="BOTH"` only when `report_ccy` is supplied
-- mixed-currency sourced positions only when required FX rates are supplied, using trimmed and
-  uppercased source `position_currency` and `report_ccy` codes for comparison
+- mixed-currency sourced positions only when complete positive finite exact prior/current-date EOD
+  FX rates are supplied for every normalized source/report pair; empty or partial coverage returns
+  `FX_RATES_REQUIRED`
 
 ## Output Checks
+
+The top-level `currency_evidence` block identifies the currency and source/report pairs actually
+applied. Consumers must not interpret compatibility field `meta.report_ccy` as conversion proof.
+For `mode="by_group"`, the engine consumes source-preconverted base/local/FX return components;
+certification therefore requires complete components on every portfolio and benchmark observation,
+reconciles their compounded identity within `1e-12`, reports `fx_source="source_preconverted"`, and
+refuses an unapplied reporting-currency change.
 
 Certification must validate more than headline active return. For every tested period and level:
 

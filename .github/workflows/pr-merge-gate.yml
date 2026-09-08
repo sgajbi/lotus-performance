@@ -58,6 +58,8 @@ jobs:
         run: make quality-duplicate-code-gate
       - name: Quality Observability Readiness Gate
         run: make quality-observability-readiness-gate
+      - name: Quality Baseline Freshness
+        run: make quality-baseline-check
       - name: No-Alias Contract Guard
         run: make no-alias-gate
       - name: Mypy Typecheck

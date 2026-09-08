@@ -5,7 +5,7 @@ from uuid import UUID
 from fastapi import APIRouter, Request
 from fastapi.responses import JSONResponse
 
-from app.api.async_openapi import async_result_responses, async_submission_responses
+from app.api.async_openapi import STATEFUL_TENANT_OPENAPI_EXTRA, async_result_responses, async_submission_responses
 from app.api.http_response_adapter import to_fastapi_response
 from app.api.mappers.analytics_workflow_requests import map_benchmark_request
 from app.models.benchmark_analytics_requests import BenchmarkAnalyticsRequest
@@ -55,7 +55,9 @@ completed benchmark payload.
         accepted_model=BenchmarkAcceptedResponse,
         analytics_name="benchmark performance",
         result_path_template="/performance/benchmark/results/{calculation_id}",
+        stateful_tenant_capable=True,
     ),
+    openapi_extra=STATEFUL_TENANT_OPENAPI_EXTRA,
 )
 async def calculate_benchmark_endpoint(
     request: BenchmarkAnalyticsRequest,

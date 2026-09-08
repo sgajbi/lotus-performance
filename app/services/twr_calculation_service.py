@@ -13,6 +13,7 @@ from app.models.responses import PerformanceResponse, TWRAcceptedResponse
 from app.models.twr_requests import TWRAnalyticsRequest, TWRInputMode, TWRResolvedExecutionRequest
 from app.services.analytics_workflow_commands import TWRWorkflowCommand, workflow_request
 from app.services.analytics_workflow_types import ANALYTICS_WORKFLOW_TWR
+from app.services.applied_currency_evidence_service import require_reporting_currency_for_both
 from app.services.async_observability_context import async_observability_request_payload
 from app.services.calculation_engine_version import calculation_engine_version
 from app.services.engine_exception_mapping_service import map_engine_exception_to_http_error
@@ -295,6 +296,7 @@ def _twr_execution_window_benchmark_id(
 async def calculate_twr_workflow(command: TWRWorkflowCommand) -> PerformanceResponse | ApplicationHttpResponse:
     """Resolve, fence, execute, and map errors for one TWR analytics request."""
     request = workflow_request(command, TWRAnalyticsRequest)
+    require_reporting_currency_for_both(currency_mode=request.currency_mode, requested_report_ccy=request.report_ccy)
     settings = get_settings()
     submission_context = _build_twr_workflow_submission_context(
         request,
@@ -365,6 +367,10 @@ def _register_pre_resolution_twr_submission(
         request_payload=async_observability_request_payload(request.model_dump(mode="json")),
         offload_reason=_twr_pre_resolution_offload_reason(request),
         accepted_response_factory=accepted_twr_response,
+        requires_tenant_authority=(
+            request.input_mode == TWRInputMode.STATEFUL
+            or twr_requested_benchmark_input_mode(request) == BenchmarkInputMode.STATEFUL.value
+        ),
     )
 
 

@@ -40,13 +40,15 @@ TWR FX Return (`portfolio.summary.period_return.fx`)
 - `F_P_pp`: period FX return in pp
 
 ## Methodology and Formulas
-1. Build aligned FX curve from `fx.rates[]`:
+1. Build the source-currency FX curve from `fx.rates[]`:
+- select rows whose `ccy` matches the actual source currency
+- require positive finite values
 - de-duplicate by (`date`,`ccy`) keeping last
-- set index by date and forward-fill over full daily range from `performance_start_date - 1` to max perf date
+- require an exact EOD fixing on each valuation date and its prior calendar date; do not forward-fill
 
 2. Daily FX return (engine):
 - `f_t = (E_t / S_t) - 1`
-- missing values are filled with `0`
+- missing prior/current fixing evidence is refused rather than converted to a zero return
 - if hedge series provided: `f_t_hedged = f_t * (1 - h_t)` else `f_t_hedged = f_t`
 - `f_t_pp = 100 * f_t_hedged`
 
@@ -58,20 +60,20 @@ TWR FX Return (`portfolio.summary.period_return.fx`)
 ## Step-by-Step Computation
 1. Validate base request and resolve periods.
 2. Activate FX path only if `currency_mode != BASE_ONLY` and `fx` block exists.
-3. Construct start/end rates per valuation date from forward-filled rate timeline.
+3. Construct start/end rates from the exact prior/current EOD fixings for each valuation date.
 4. Compute daily `fx_ror` (and apply hedge if provided).
 5. Compute slice-level `portfolio.summary.period_return.base` and `portfolio.summary.period_return.local`.
 6. Derive `portfolio.summary.period_return.fx` from the base/local decomposition identity.
 
 ## Validation and Failure Behavior
 - Same base endpoint validation and error handling.
-- Missing or non-active FX inputs do not error by themselves; FX metric becomes `0.0` because local/fx columns are absent.
-- Missing daily rate points are forward-filled on constructed daily range; unresolved values are treated as zero-return rows.
+- Inactive FX inputs leave local/FX columns absent. An active cross-currency path requires non-empty coverage.
+- Missing, non-positive, non-finite, wrong-currency, or partial daily rate evidence is refused.
 - If local period denominator is zero in decomposition formula, FX period return is forced to `0.0`.
 
 ## Configuration Options
 - `currency_mode`: must be non-`BASE_ONLY` for FX decomposition path.
-- `fx.rates[]`: determines FX leg behavior and continuity via forward-fill.
+- `fx.rates[]`: determines FX leg behavior under exact prior/current-date EOD coverage.
 - `hedging.series[]`: scales FX daily returns by `(1 - hedge_ratio)`.
 - `metric_basis`, `data_policy`, `annualization`, and output flags affect base/local context and breakdowns.
 
@@ -83,6 +85,8 @@ Primary metric field:
 Supporting fields used in decomposition identity:
 - `results_by_period.<period>.portfolio.summary.period_return.base`
 - `results_by_period.<period>.portfolio.summary.period_return.local`
+- top-level `currency_evidence`, including `applied_report_ccy`, `applied_pairs`, `fx_coverage`, and
+  `fixing_policy`; `meta.report_ccy` remains the request echo.
 
 ## Worked Example
 Assume for period `ITD` after linking daily rows:

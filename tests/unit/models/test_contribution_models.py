@@ -76,6 +76,18 @@ def base_response_footer():
             "classification_dimensions": ["sector"],
             "lineage_policy": "caller-supplied stateless payload; no upstream source snapshot is available",
         },
+        "currency_evidence": {
+            "portfolio_base_currency": "USD",
+            "requested_report_ccy": None,
+            "applied_report_ccy": "USD",
+            "restated": False,
+            "currency_mode_applied": "BASE_ONLY",
+            "fx_source": "none",
+            "fx_coverage": "none",
+            "fixing_policy": "EOD_EXACT_PRIOR_AND_CURRENT",
+            "applied_pairs": [],
+            "reason": "PORTFOLIO_BASE_CURRENCY_APPLIED",
+        },
     }
 
 

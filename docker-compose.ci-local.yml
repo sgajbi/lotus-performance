@@ -6,16 +6,20 @@ services:
       - ./:/workspace
     command: >
       bash -lc "
+      apt-get update &&
+      apt-get install -y --no-install-recommends git make &&
+      rm -rf /var/lib/apt/lists/* &&
+      git config --global --add safe.directory /workspace &&
       pip install --upgrade pip &&
       pip install -r requirements.txt -r requirements-dev.txt &&
       ruff check . &&
       ruff format --check . &&
-      python scripts/dependency_health_check.py --requirements requirements.txt &&
+      python scripts/dependency_health_check.py --requirement requirements.txt --requirement requirements-dev.txt &&
       python -m pip check &&
       COVERAGE_FILE=.coverage.unit python -m pytest tests/unit --cov=app --cov=engine --cov=core --cov=adapters --cov-report= &&
       COVERAGE_FILE=.coverage.integration python -m pytest tests/integration --cov=app --cov=engine --cov=core --cov=adapters --cov-report= &&
       COVERAGE_FILE=.coverage.e2e python -m pytest tests/e2e --cov=app --cov=engine --cov=core --cov=adapters --cov-report= &&
       python -m coverage combine .coverage.unit .coverage.integration .coverage.e2e &&
-      python -m coverage report --fail-under=95 &&
+      python -m coverage report --fail-under=99 &&
       mypy --config-file mypy.ini
       "

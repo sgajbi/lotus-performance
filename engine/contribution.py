@@ -1,4 +1,5 @@
 # engine/contribution.py
+from dataclasses import replace
 from datetime import date as dt_date
 from typing import Any, Dict, Mapping, Protocol, Sequence, Tuple
 
@@ -90,6 +91,9 @@ class ContributionRequestLike(Protocol):
 
     @property
     def report_ccy(self) -> str | None: ...
+
+    @property
+    def currency(self) -> str: ...
 
     @property
     def fx(self) -> Any: ...
@@ -196,6 +200,7 @@ def _build_contribution_twr_config(request: ContributionRequestLike) -> EngineCo
         rounding_precision=request.rounding_precision,
         currency_mode=request.currency_mode,
         report_ccy=request.report_ccy,
+        source_currency=request.currency,
         fx=request.fx,
         hedging=request.hedging,
     )
@@ -220,8 +225,10 @@ def _build_position_contribution_results_frame(
     position_ccy = position.meta.get("currency")
     position_results_df = run_engine_for_valuation_points(
         [item.model_dump() for item in position.valuation_points],
-        twr_config,
-        force_base_only=not (request.currency_mode == "BOTH" and position_ccy != request.report_ccy),
+        replace(twr_config, source_currency=str(position_ccy) if position_ccy is not None else None),
+        force_base_only=not (
+            request.currency_mode == "BOTH" and not _currency_values_match(position_ccy, request.report_ccy)
+        ),
     )
     _ensure_same_currency_local_fx_columns(
         position_results_df=position_results_df,
@@ -247,7 +254,7 @@ def _ensure_same_currency_local_fx_columns(
 ) -> None:
     if (
         request.currency_mode != "BOTH"
-        or position_ccy != request.report_ccy
+        or not _currency_values_match(position_ccy, request.report_ccy)
         or "local_ror" in position_results_df.columns
     ):
         return
@@ -269,13 +276,16 @@ def _apply_position_fx_capital_conversion(
     ):
         return position_results_df
     pos_fx_lookup = (
-        fx_rates_df[fx_rates_df["ccy"] == position_ccy][["date", "rate"]]
+        fx_rates_df[
+            fx_rates_df["ccy"].str.strip().str.upper()
+            == (position_ccy.strip().upper() if isinstance(position_ccy, str) else position_ccy)
+        ][["date", "rate"]]
         .drop_duplicates(subset=["date"], keep="last")
         .set_index("date")["rate"]
     )
     converted_df = position_results_df.copy()
     converted_df["prior_date"] = converted_df[PortfolioColumns.PERF_DATE.value] - pd.Timedelta(days=1)
-    conversion_rates = converted_df["prior_date"].map(pos_fx_lookup).ffill()
+    conversion_rates = converted_df["prior_date"].map(pos_fx_lookup)
     for col in [PortfolioColumns.BEGIN_MV.value, PortfolioColumns.BOD_CF.value]:
         converted_df[col] *= conversion_rates
     return converted_df
@@ -287,7 +297,15 @@ def _requires_position_fx_capital_conversion(
     position_ccy: Any,
     fx_rates_df: pd.DataFrame,
 ) -> bool:
-    return request.currency_mode == "BOTH" and position_ccy != request.report_ccy and not fx_rates_df.empty
+    return (
+        request.currency_mode == "BOTH"
+        and not _currency_values_match(position_ccy, request.report_ccy)
+        and not fx_rates_df.empty
+    )
+
+
+def _currency_values_match(left: object, right: object) -> bool:
+    return isinstance(left, str) and isinstance(right, str) and left.strip().upper() == right.strip().upper()
 
 
 def calculate_hierarchical_contribution(request: ContributionRequestLike) -> Tuple[Dict, Dict]:
