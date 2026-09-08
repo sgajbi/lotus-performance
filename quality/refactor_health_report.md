@@ -75,12 +75,12 @@ link the commit, command, or CI artifact that proves the change.
 
 | Metric | Baseline | Current | Status | Evidence |
 | --- | ---: | ---: | --- | --- |
-| Test modules | 228 | 323 | measured | `rg --files tests -g 'test_*.py'` |
-| Collected tests | 2,035 | 3,994 | measured | `python -m pytest --collect-only -q` |
+| Test modules | 228 | 324 | measured | `rg --files tests -g 'test_*.py'` |
+| Collected tests | 2,035 | 4,000 | measured | `python -m pytest --collect-only -q` |
 | Line coverage | unknown | 99.58% | measured | `quality/coverage_inventory.md` via `make branch-coverage-baseline` (`3,013` unit, `308` integration, and `21` e2e tests under branch coverage; `21,154` covered lines of `21,244` statements) |
 | Branch coverage | unknown | 98.00% | measured | `quality/coverage_inventory.md` via `make branch-coverage-baseline` (`3,013` unit, `308` integration, and `21` e2e tests under branch coverage; `4,318` covered branches of `4,406`, `88` missing branches, `88` partial branches) |
-| Integration/API/runtime test functions | unknown | 701 | enforced | `quality/test_taxonomy_inventory.md`; `make quality-test-taxonomy-gate` |
-| Contract/governance test functions | unknown | 178 | enforced | `quality/test_taxonomy_inventory.md`; `make quality-test-taxonomy-gate` |
+| Integration/API/runtime test functions | unknown | 703 | enforced | `quality/test_taxonomy_inventory.md`; `make quality-test-taxonomy-gate` |
+| Contract/governance test functions | unknown | 182 | enforced | `quality/test_taxonomy_inventory.md`; `make quality-test-taxonomy-gate` |
 | Uncategorized test functions | unknown | 825 | enforced ceiling | `quality/test_taxonomy_inventory.md`; `make quality-test-taxonomy-gate`; issue #475 classified the workspace analytics surface, moving 90 tests out of `uncategorized`, and re-banked the ceiling from `969` to the measured `879` in the same change; #504 classified the compute executor worker, which sat outside the token list while its own job store and its sibling lineage worker were inside it, moving 54 tests out of `uncategorized` and re-banking from `876` to the measured `825` |
 
 ## Security And Dependencies

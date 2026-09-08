@@ -138,6 +138,23 @@ jobs:
     needs: [static-quality-gates, contract-security-gates]
     runs-on: ubuntu-latest
     timeout-minutes: 45
+    # PostgreSQL for the advisory-lock and disjoint-claim proofs run in the integration
+    # leg below. Declared on the job because Actions has no per-matrix-leg service
+    # syntax; the unit and e2e legs simply never connect to it.
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_DB: lotus_performance
+          POSTGRES_PASSWORD: lotus
+          POSTGRES_USER: lotus
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U lotus -d lotus_performance"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 10
     strategy:
       fail-fast: false
       matrix:
@@ -160,6 +177,16 @@ jobs:
         run: make install-ci
       - name: Run tests with coverage data
         run: make test-coverage-shard SUITE=${{ matrix.suite }} TEST_PATH=${{ matrix.path }}
+      - name: Prove the PostgreSQL concurrency contracts in a required lane
+        if: matrix.suite == 'integration'
+        env:
+          LOTUS_POSTGRES_PLAN_DATABASE_URL: postgresql+psycopg://lotus:lotus@127.0.0.1:5432/lotus_performance
+        # Repo-native target rather than a `run:` pytest invocation: governed test lanes
+        # must not embed raw pytest in workflow YAML, and a gate nobody can run locally
+        # is one nobody can reproduce before pushing. The script decides from JUnit XML
+        # counts, so it needs no hard-coded number and keeps holding as contracts are
+        # added.
+        run: make postgres-concurrency-contracts-gate
       - name: Upload coverage data
         uses: actions/upload-artifact@v7
         with:

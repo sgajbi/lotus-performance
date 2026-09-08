@@ -263,6 +263,14 @@ Use these commands as the primary local contract:
    `make coverage-combine-gate COVERAGE_INPUTS=<coverage-paths> COVERAGE_FAIL_UNDER=99`
 18. deterministic unit collection and contribution order check
    `make test-unit-order-stability`
+19. PostgreSQL concurrency contracts, blocking inside `PR Merge Gate / Tests (integration)`
+   `make postgres-concurrency-contracts-gate` in CI, where the lane supplies the database;
+   `make postgres-concurrency-contracts-local` on a developer machine, which starts the
+   `performance-lineage-db` compose service first and needs no DSN because that service
+   publishes the port the helper defaults to. The advisory-lock and disjoint-claim proofs
+   `pytest.skip` when no database answers, so the gate decides from JUnit XML counts and
+   refuses a skip, a nonzero pytest exit, an empty collection, or any failure — a skip and a
+   pass are the same colour to a lane, and telling them apart is the whole point (#489)
 
 ## Validation And CI Expectations
 
@@ -324,6 +332,8 @@ Important validation expectations:
 14. PR Merge Gate and Main Releasability route matrix test coverage through
     `make test-coverage-shard` and combined coverage enforcement through `make coverage-combine-gate`
     so workflow YAML does not become a second source of truth for pytest or coverage behavior.
+    `make postgres-concurrency-contracts-gate` runs inside the required `PR Merge Gate / Tests (integration)` leg rather than as its own context: matrix legs become distinct required-context names, so a new leg would have created a context nobody requires. The proofs previously ran only in `Performance Characterization / Benchmarks`, which provisions PostgreSQL and is not required, so a merge never waited for them.
+
     `make quality-test-taxonomy-gate` now enforces the current measured preservation baseline
     directly. The exact API/runtime and contract/governance floors and the uncategorized ceiling
     are declared once, in that Makefile target, and are deliberately not restated here: a

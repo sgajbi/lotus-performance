@@ -1,4 +1,4 @@
-.PHONY: shell-check install install-ci verify-dependencies check check-all test test-unit test-unit-order-stability test-integration test-e2e test-all test-coverage test-coverage-shard coverage-combine-gate branch-coverage-baseline coverage-gate ci ci-local ci-local-docker ci-local-docker-down typecheck lint quality-baseline quality-complexity-gate quality-architecture-gate quality-router-thinness-gate quality-duplicate-code-gate quality-observability-readiness-gate quality-test-taxonomy-gate quality-evaluation-gate license-compliance-gate python-security-gate calculation-engine-version-gate github-action-runtime-guard monetary-float-guard repository-hygiene-gate demo-api-certification idea-opportunity-evidence-gate idea-opportunity-runtime-evidence format clean run check-deps security-audit openapi-gate api-vocabulary-gate no-alias-gate domain-product-validate migration-smoke migration-apply recovery-drill-smoke runtime-retention-smoke lineage-volume-recovery-smoke performance-characterization performance-characterization-postgres pre-commit docker-up docker-down docker-build container-supply-chain-evidence container-sbom container-vulnerability-report container-vulnerability-gate
+.PHONY: shell-check install install-ci verify-dependencies check check-all test test-unit test-unit-order-stability test-integration test-e2e test-all test-coverage test-coverage-shard coverage-combine-gate branch-coverage-baseline coverage-gate ci ci-local ci-local-docker ci-local-docker-down typecheck lint quality-baseline quality-complexity-gate quality-architecture-gate quality-router-thinness-gate quality-duplicate-code-gate quality-observability-readiness-gate quality-test-taxonomy-gate postgres-concurrency-contracts-gate postgres-concurrency-contracts-local quality-evaluation-gate license-compliance-gate python-security-gate calculation-engine-version-gate github-action-runtime-guard monetary-float-guard repository-hygiene-gate demo-api-certification idea-opportunity-evidence-gate idea-opportunity-runtime-evidence format clean run check-deps security-audit openapi-gate api-vocabulary-gate no-alias-gate domain-product-validate migration-smoke migration-apply recovery-drill-smoke runtime-retention-smoke lineage-volume-recovery-smoke performance-characterization performance-characterization-postgres pre-commit docker-up docker-down docker-build container-supply-chain-evidence container-sbom container-vulnerability-report container-vulnerability-gate
 
 SUITE ?= unit
 TEST_PATH ?= tests/unit
@@ -215,6 +215,21 @@ quality-duplicate-code-gate:
 
 quality-observability-readiness-gate:
 	python scripts/python_observability_readiness_inventory.py --limit 30 --max-missing 0
+
+postgres-concurrency-contracts-gate:
+	python scripts/postgres_concurrency_contracts_gate.py
+
+# The developer-facing form: provisions the database first, so the gate can be
+# reproduced before pushing rather than discovered in a required lane. Mirrors
+# `performance-characterization-postgres` rather than inventing a second convention,
+# and needs no DSN because the compose service publishes the port the helper defaults
+# to. A gate that only CI can run is one nobody checks.
+postgres-concurrency-contracts-local:
+	# `--wait` honours the service healthcheck. Without it `up -d` returns as soon as
+	# the container starts, so a cold start races PostgreSQL accepting connections and
+	# the gate refuses for a reason that has nothing to do with the contracts.
+	docker compose up -d --wait performance-lineage-db
+	python scripts/postgres_concurrency_contracts_gate.py
 
 quality-test-taxonomy-gate:
 	python scripts/python_test_taxonomy_inventory.py --limit 30 --min-api-runtime-tests 656 --min-contract-governance-tests 136 --max-uncategorized-tests 825

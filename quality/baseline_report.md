@@ -1,7 +1,7 @@
 # Lotus Performance Enterprise Backend Refactor Baseline
 
 Baseline date: 2026-09-08
-Branch: `fix/511-compose-build-provenance`
+Branch: `fix/489-lock-regression-in-a-required-lane`
 Mode: report-only baseline; no new blocking quality gate is introduced by this artifact.
 
 ## Purpose
@@ -16,11 +16,11 @@ snapshots are written under ignored `output/quality-baseline/`; curated source r
 
 | Area | Current value | Evidence |
 | --- | ---: | --- |
-| Python files | 673 | `rg --files -g '*.py'` equivalent excluding local caches |
+| Python files | 675 | `rg --files -g '*.py'` equivalent excluding local caches |
 | Python package markers | 22 | recursive `__init__.py` count |
-| Python LOC | 200,814 | recursive `.py` line count |
-| Test modules | 323 | `tests/**/test_*.py` |
-| Collected tests | 3994 tests | `python -m pytest --collect-only -q` |
+| Python LOC | 201,124 | recursive `.py` line count |
+| Test modules | 324 | `tests/**/test_*.py` |
+| Collected tests | 4000 tests | `python -m pytest --collect-only -q` |
 | Configured CI workflows | 7 | `.github/workflows/*.yml` |
 | Repo-native baseline command | 1 | `make quality-baseline` |
 
