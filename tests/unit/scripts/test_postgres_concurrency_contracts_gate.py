@@ -7,6 +7,7 @@ what closes it. These tests drive the gate itself on the shapes that must not pa
 
 from __future__ import annotations
 
+import os
 import subprocess
 import sys
 from pathlib import Path
@@ -15,12 +16,16 @@ REPO_ROOT = Path(__file__).resolve().parents[3]
 GATE = "scripts/postgres_concurrency_contracts_gate.py"
 
 
-def _run_gate(target: Path) -> subprocess.CompletedProcess[str]:
+def _run_gate(
+    target: Path, environment_overrides: dict[str, str] | None = None
+) -> subprocess.CompletedProcess[str]:
+    environment = {**os.environ, **(environment_overrides or {})}
     return subprocess.run(
         [sys.executable, GATE, "--target", str(target)],
         cwd=REPO_ROOT,
         capture_output=True,
         text=True,
+        env=environment,
     )
 
 
@@ -99,3 +104,42 @@ def test_collecting_nothing_is_refused(tmp_path: Path) -> None:
 
     assert result.returncode == 1
     assert "no concurrency contracts were collected" in result.stdout
+
+
+TARGET_SOURCE = """
+def test_contract_that_passes():
+    assert True
+
+
+def test_contract_that_fails():
+    raise AssertionError("this contract must not be deselected")
+"""
+
+
+def test_an_inherited_selector_cannot_shrink_what_the_gate_proves(tmp_path: Path) -> None:
+    """A deselected contract is absent from the report, not recorded as skipped.
+
+    Every other refusal here reads a count the report states. This one is about a
+    contract the report never mentions: `-k` deselection leaves JUnit XML that is green,
+    internally consistent and describes a smaller suite, so `skipped`, `failures` and
+    `errors` are all zero and agree with each other. The gate cannot detect from counts
+    alone that it was handed a different question.
+
+    The target holds a passing contract and a failing one, and the inherited selector
+    names only the passing one. If the selector reaches pytest, the gate sees a single
+    green test and reports the run complete; if it does not, the failing contract runs
+    and the gate refuses. The two outcomes are opposite rather than merely different, so
+    a regression here cannot present as a pass. Raised in review of #489.
+    """
+
+    target = tmp_path / "test_contracts_selected.py"
+    target.write_text(TARGET_SOURCE, encoding="utf-8")
+
+    result = _run_gate(target, {"PYTEST_ADDOPTS": "-k test_contract_that_passes"})
+
+    assert result.returncode != 0, (
+        "an inherited -k selected one contract and the gate called the run complete: "
+        + result.stdout
+        + result.stderr
+    )
+    assert "failure(s)" in result.stdout

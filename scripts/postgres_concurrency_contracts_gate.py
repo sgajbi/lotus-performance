@@ -21,6 +21,7 @@ because a gate that cannot be run locally is one nobody can reproduce before pus
 from __future__ import annotations
 
 import argparse
+import os
 import subprocess
 import sys
 import tempfile
@@ -50,6 +51,14 @@ def main() -> int:
 
     with tempfile.TemporaryDirectory() as scratch:
         report = Path(scratch) / "postgres-concurrency-contracts.xml"
+        # A selector reaching this run from outside decides which contracts exist. A
+        # deselected test is absent from the JUnit report entirely -- not recorded as
+        # skipped -- so `PYTEST_ADDOPTS="-k schema_creator"` leaves a report that is
+        # green, complete-looking and describes one contract, and every count this gate
+        # reads agrees with it. `-o addopts=` clears any repository `addopts`, and
+        # PYTEST_ADDOPTS is dropped from the child environment because `-o` does not
+        # override it. Raised in review of #489.
+        environment = {k: v for k, v in os.environ.items() if k != "PYTEST_ADDOPTS"}
         completed = subprocess.run(
             [
                 sys.executable,
@@ -58,9 +67,12 @@ def main() -> int:
                 args.target,
                 "-q",
                 "--no-header",
+                "-o",
+                "addopts=",
                 f"--junitxml={report}",
             ],
             cwd=REPO_ROOT,
+            env=environment,
         )
         if not report.exists():
             raise SystemExit(
