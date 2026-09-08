@@ -1,7 +1,7 @@
 # Lotus Performance Enterprise Backend Refactor Baseline
 
-Baseline date: 2026-09-07
-Branch: `feat/504-durable-tenant-authority`
+Baseline date: 2026-09-08
+Branch: `fix/511-compose-build-provenance`
 Mode: report-only baseline; no new blocking quality gate is introduced by this artifact.
 
 ## Purpose
@@ -16,11 +16,11 @@ snapshots are written under ignored `output/quality-baseline/`; curated source r
 
 | Area | Current value | Evidence |
 | --- | ---: | --- |
-| Python files | 672 | `rg --files -g '*.py'` equivalent excluding local caches |
+| Python files | 673 | `rg --files -g '*.py'` equivalent excluding local caches |
 | Python package markers | 22 | recursive `__init__.py` count |
-| Python LOC | 200,135 | recursive `.py` line count |
-| Test modules | 322 | `tests/**/test_*.py` |
-| Collected tests | 3974 tests | `python -m pytest --collect-only -q` |
+| Python LOC | 200,814 | recursive `.py` line count |
+| Test modules | 323 | `tests/**/test_*.py` |
+| Collected tests | 3994 tests | `python -m pytest --collect-only -q` |
 | Configured CI workflows | 7 | `.github/workflows/*.yml` |
 | Repo-native baseline command | 1 | `make quality-baseline` |
 
@@ -29,7 +29,7 @@ snapshots are written under ignored `output/quality-baseline/`; curated source r
 | Rank | File | Lines |
 | ---: | --- | ---: |
 | 1 | `tests/unit/services/test_returns_series_service.py` | 3074 |
-| 2 | `tests/unit/services/test_compute_executor_worker.py` | 2694 |
+| 2 | `tests/unit/services/test_compute_executor_worker.py` | 2817 |
 | 3 | `tests/unit/services/test_runtime_status_service.py` | 2637 |
 | 4 | `tests/unit/docs/test_public_docs_contract.py` | 2488 |
 | 5 | `app/services/stateful_input_service.py` | 2409 |
@@ -37,12 +37,12 @@ snapshots are written under ignored `output/quality-baseline/`; curated source r
 | 7 | `app/services/returns_series_service.py` | 2337 |
 | 8 | `tests/unit/app/test_request_path_runtime_settings.py` | 2276 |
 | 9 | `tests/unit/services/test_stateful_attribution_input_service.py` | 2159 |
-| 10 | `tests/integration/test_performance_api.py` | 2075 |
-| 11 | `tests/integration/test_contribution_api.py` | 2020 |
+| 10 | `tests/integration/test_contribution_api.py` | 2081 |
+| 11 | `tests/integration/test_performance_api.py` | 2075 |
 | 12 | `tests/unit/services/test_twr_inspection_source_economics.py` | 1992 |
-| 13 | `tests/unit/services/test_compute_job_store.py` | 1946 |
+| 13 | `tests/unit/services/test_compute_job_store.py` | 1951 |
 | 14 | `tests/integration/test_attribution_api.py` | 1795 |
-| 15 | `app/services/compute_job_store.py` | 1758 |
+| 15 | `app/services/compute_job_store.py` | 1773 |
 
 ## Required Inventory Outputs
 

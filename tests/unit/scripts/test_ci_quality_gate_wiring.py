@@ -139,16 +139,22 @@ def test_container_supply_chain_evidence_is_repo_native_and_published() -> None:
     assert "$(CONTAINER_IMAGE)" in docker_build_target
     assert "--target $(CONTAINER_BUILD_TARGET)" in docker_build_target
     assert "CONTAINER_BUILD_TARGET ?= runtime" in (ROOT / "Makefile").read_text(encoding="utf-8")
-    for build_arg in (
-        "APP_VERSION=$(CONTAINER_SERVICE_VERSION)",
-        "APP_GIT_COMMIT_SHA=$(CONTAINER_GIT_SHA)",
-        "APP_GIT_BRANCH=$(CONTAINER_GIT_BRANCH)",
-        "APP_BUILD_TIMESTAMP=$(CONTAINER_BUILD_TIMESTAMP)",
-        "APP_REPOSITORY_URL=$(CONTAINER_REPOSITORY_URL)",
-        "APP_IMAGE_DIGEST=$(CONTAINER_IMAGE_DIGEST)",
-        "APP_CI_PIPELINE_RUN_ID=$(CONTAINER_CI_PIPELINE_RUN_ID)",
+    # Each argument must be passed *and* shell-quoted. The previous form pinned the
+    # raw `$(VAR)` expansion, so it would have gone on passing while a branch name
+    # containing `;` or a backtick became part of the recipe syntax rather than data
+    # (#511). Requiring `$(call shellquote,...)` makes the pin state the property it
+    # was standing in for.
+    for build_arg, variable in (
+        ("APP_VERSION", "CONTAINER_SERVICE_VERSION"),
+        ("APP_GIT_COMMIT_SHA", "CONTAINER_GIT_SHA"),
+        ("APP_GIT_BRANCH", "CONTAINER_GIT_BRANCH"),
+        ("APP_BUILD_TIMESTAMP", "CONTAINER_BUILD_TIMESTAMP"),
+        ("APP_REPOSITORY_URL", "CONTAINER_REPOSITORY_URL"),
+        ("APP_IMAGE_DIGEST", "CONTAINER_IMAGE_DIGEST"),
+        ("APP_CI_PIPELINE_RUN_ID", "CONTAINER_CI_PIPELINE_RUN_ID"),
     ):
-        assert f"--build-arg {build_arg}" in docker_build_target
+        expected = f"--build-arg {build_arg}=$(call shellquote,$({variable}))"
+        assert expected in docker_build_target, f"{build_arg} is not passed shell-quoted"
     for label in (
         "org.opencontainers.image.source",
         "org.opencontainers.image.revision",

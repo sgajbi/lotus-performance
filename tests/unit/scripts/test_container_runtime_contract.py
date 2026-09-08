@@ -3,6 +3,8 @@ from __future__ import annotations
 from pathlib import Path
 from types import SimpleNamespace
 
+import yaml
+
 from app.workers import healthcheck as worker_healthcheck
 
 ROOT = Path(__file__).resolve().parents[3]
@@ -68,7 +70,14 @@ def test_container_build_targets_production_runtime_stage() -> None:
 
 def test_compose_services_build_runtime_target_and_expose_healthchecks() -> None:
     compose = (ROOT / "docker-compose.yml").read_text(encoding="utf-8")
+    parsed = yaml.safe_load(compose)
 
+    # Resolved through the parsed document rather than by counting `target: runtime`
+    # five times in the text. The literal count broke the moment the five identical
+    # build blocks became one YAML anchor (#511) even though every service still built
+    # the runtime target -- it was counting an expression of the fact rather than the
+    # fact. Asserted per service, so a service that stops building the runtime target
+    # fails by name instead of by arithmetic.
     for service_name in (
         "performance-lineage-volume-init",
         "performance-analytics",
@@ -76,8 +85,8 @@ def test_compose_services_build_runtime_target_and_expose_healthchecks() -> None
         "performance-compute-executor",
         "performance-runtime-retention-worker",
     ):
-        assert f"  {service_name}:" in compose
-    assert compose.count("target: runtime") == 5
+        service = parsed["services"][service_name]
+        assert service["build"]["target"] == "runtime", f"{service_name} does not build the runtime target"
     assert "/health/ready" in compose
     assert '["CMD", "python", "-m", "app.workers.healthcheck", "lineage"]' in compose
     assert '["CMD", "python", "-m", "app.workers.healthcheck", "compute-executor"]' in compose

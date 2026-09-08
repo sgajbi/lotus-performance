@@ -8,24 +8,7 @@ ARG APP_REPOSITORY_URL=https://github.com/sgajbi/lotus-performance
 ARG APP_IMAGE_DIGEST=unavailable-before-push
 ARG APP_CI_PIPELINE_RUN_ID=local
 
-LABEL org.opencontainers.image.title="lotus-performance" \
-      org.opencontainers.image.description="Portfolio Performance Analytics API" \
-      org.opencontainers.image.source="${APP_REPOSITORY_URL}" \
-      org.opencontainers.image.revision="${APP_GIT_COMMIT_SHA}" \
-      org.opencontainers.image.ref.name="${APP_GIT_BRANCH}" \
-      org.opencontainers.image.version="${APP_VERSION}" \
-      org.opencontainers.image.created="${APP_BUILD_TIMESTAMP}" \
-      lotus.image.digest="${APP_IMAGE_DIGEST}" \
-      lotus.ci.pipeline_run_id="${APP_CI_PIPELINE_RUN_ID}"
-
-ENV APP_VERSION="${APP_VERSION}" \
-    APP_GIT_COMMIT_SHA="${APP_GIT_COMMIT_SHA}" \
-    APP_GIT_BRANCH="${APP_GIT_BRANCH}" \
-    APP_BUILD_TIMESTAMP="${APP_BUILD_TIMESTAMP}" \
-    APP_REPOSITORY_URL="${APP_REPOSITORY_URL}" \
-    APP_IMAGE_DIGEST="${APP_IMAGE_DIGEST}" \
-    APP_CI_PIPELINE_RUN_ID="${APP_CI_PIPELINE_RUN_ID}" \
-    PYTHONDONTWRITEBYTECODE=1 \
+ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1
 
 WORKDIR /app
@@ -67,6 +50,29 @@ RUN groupadd --system --gid 10001 lotus && \
     useradd --system --uid 10001 --gid lotus --home-dir /app --shell /usr/sbin/nologin lotus && \
     mkdir -p /app/lineage_data /app/artifacts /app/output && \
     chown -R lotus:lotus /app
+
+# Provenance is applied here, after the dependency and user layers, rather than beside
+# the ARG declarations at the top. `APP_BUILD_TIMESTAMP` changes on every invocation,
+# and an ENV referencing it before the pip install below would change that layer's
+# config and defeat the dependency cache on every local build -- an expensive
+# reinstall for metadata that has no bearing on it.
+LABEL org.opencontainers.image.title="lotus-performance" \
+      org.opencontainers.image.description="Portfolio Performance Analytics API" \
+      org.opencontainers.image.source="${APP_REPOSITORY_URL}" \
+      org.opencontainers.image.revision="${APP_GIT_COMMIT_SHA}" \
+      org.opencontainers.image.ref.name="${APP_GIT_BRANCH}" \
+      org.opencontainers.image.version="${APP_VERSION}" \
+      org.opencontainers.image.created="${APP_BUILD_TIMESTAMP}" \
+      lotus.image.digest="${APP_IMAGE_DIGEST}" \
+      lotus.ci.pipeline_run_id="${APP_CI_PIPELINE_RUN_ID}"
+
+ENV APP_VERSION="${APP_VERSION}" \
+    APP_GIT_COMMIT_SHA="${APP_GIT_COMMIT_SHA}" \
+    APP_GIT_BRANCH="${APP_GIT_BRANCH}" \
+    APP_BUILD_TIMESTAMP="${APP_BUILD_TIMESTAMP}" \
+    APP_REPOSITORY_URL="${APP_REPOSITORY_URL}" \
+    APP_IMAGE_DIGEST="${APP_IMAGE_DIGEST}" \
+    APP_CI_PIPELINE_RUN_ID="${APP_CI_PIPELINE_RUN_ID}"
 
 COPY --chown=lotus:lotus . .
 

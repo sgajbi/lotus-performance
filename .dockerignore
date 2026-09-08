@@ -1,3 +1,30 @@
+# Local configuration must never enter the build context. `.env` is gitignored, so
+# `git status --porcelain` does not report it and the tree still measures clean --
+# which means an image could carry uncommitted configuration or secrets while its
+# provenance claimed an exact commit. Excluding it here makes the image right and
+# the claim true for the same reason. Raised in review of #511.
+# Every path git ignores is also kept out of the build context, unless it is
+# deliberately packaged. `git status --porcelain` does not report ignored files, so a
+# checkout carrying any of them still measures clean -- and the image would then ship
+# uncommitted content under a claim of an exact commit. `artifacts/` is the sharpest
+# case: it can hold support or audit evidence.
+#
+# Pinned as an invariant rather than a list by
+# `test_no_ignored_path_can_enter_the_build_context`, so a future `.gitignore` entry
+# cannot silently reopen this. The first fix here covered `.env` alone and left five
+# other ignored paths; a list needs re-checking, an invariant does not.
+.env
+.env.*
+!.env.example
+venv
+ENV
+artifacts
+.idea
+.vscode
+*.pyc
+*.pyo
+*.pyd
+
 .git
 .github
 .venv
