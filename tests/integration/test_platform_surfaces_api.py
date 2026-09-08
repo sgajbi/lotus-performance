@@ -1,3 +1,5 @@
+import os
+
 import pytest
 from fastapi.testclient import TestClient
 
@@ -69,14 +71,19 @@ def test_an_unsupplied_build_reports_the_declared_defaults(
     from app.core.config import Settings
     from app.services.build_metadata_service import build_runtime_metadata
 
-    for variable in (
+    provenance_variables = {
         "APP_GIT_COMMIT_SHA",
         "APP_GIT_BRANCH",
         "APP_BUILD_TIMESTAMP",
         "APP_CI_PIPELINE_RUN_ID",
         "APP_IMAGE_DIGEST",
-    ):
-        monkeypatch.delenv(variable, raising=False)
+    }
+    # Matched case-insensitively, because that is how the settings read them. On POSIX
+    # `app_git_commit_sha` is a distinct key that `delenv` on the uppercase name leaves
+    # in place, and pydantic-settings would still resolve it -- so the defaults this
+    # test is about would silently not be the values under test.
+    for name in [key for key in os.environ if key.upper() in provenance_variables]:
+        monkeypatch.delenv(name, raising=False)
 
     metadata = build_runtime_metadata(Settings(_env_file=None))
 
