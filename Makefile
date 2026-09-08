@@ -226,16 +226,23 @@ postgres-concurrency-contracts-gate:
 # to. A gate that only CI can run is one nobody checks.
 postgres-concurrency-contracts-local:
 	# `--wait` honours the service healthcheck. Without it `up -d` returns as soon as
-	# the container starts, so a cold start races PostgreSQL accepting connections and
-	# the gate refuses for a reason that has nothing to do with the contracts.
+	# the container starts, so a cold start races PostgreSQL accepting connections
+	# and the gate refuses for a reason unrelated to the contracts.
 	docker compose up -d --wait performance-lineage-db
-	# The compose service publishes `$${PA_LINEAGE_DB_PORT:-5435}`, so a developer who
-	# sets that supported override gets a database on a port the helper's fixed 5435
-	# default cannot reach: every contract skips and the gate refuses for a reason that
-	# has nothing to do with the contracts. Resolved in the shell, not as a Make
-	# variable, because Make expands environment-supplied values recursively. An
+	# Ask Compose which port it published rather than re-deriving it. The service
+	# publishes `$${PA_LINEAGE_DB_PORT:-5435}`, and Compose resolves that from the
+	# shell *and* from the repository `.env`. Reproducing that resolution here means
+	# matching every source Compose consults, and reading only the shell is what
+	# left the `.env` case broken after the first fix. `docker compose port` answers
+	# from the running container, so it is right whatever the value came from. An
 	# explicit DSN still wins. Raised in review of #489.
-	LOTUS_POSTGRES_PLAN_DATABASE_URL="$${LOTUS_POSTGRES_PLAN_DATABASE_URL:-postgresql+psycopg://lotus:lotus@127.0.0.1:$${PA_LINEAGE_DB_PORT:-5435}/lotus_performance}" 	    python scripts/postgres_concurrency_contracts_gate.py
+	published="$$(docker compose port performance-lineage-db 5432)"; \
+	if [ -z "$$published" ]; then \
+	  echo "performance-lineage-db published no port for 5432; is it running?" >&2; \
+	  exit 1; \
+	fi; \
+	LOTUS_POSTGRES_PLAN_DATABASE_URL="$${LOTUS_POSTGRES_PLAN_DATABASE_URL:-postgresql+psycopg://lotus:lotus@127.0.0.1:$${published##*:}/lotus_performance}" \
+	    python scripts/postgres_concurrency_contracts_gate.py
 
 quality-test-taxonomy-gate:
 	python scripts/python_test_taxonomy_inventory.py --limit 30 --min-api-runtime-tests 656 --min-contract-governance-tests 136 --max-uncategorized-tests 825
