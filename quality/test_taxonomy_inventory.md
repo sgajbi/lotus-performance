@@ -22,10 +22,10 @@ python scripts/python_test_taxonomy_inventory.py --limit 30 --min-api-runtime-te
 
 | Metric | Value |
 | --- | ---: |
-| Test modules inventoried | 323 |
-| Test functions inventoried | 3680 |
-| Integration/API/runtime test functions | 701 |
-| Contract/governance test functions | 178 |
+| Test modules inventoried | 324 |
+| Test functions inventoried | 3686 |
+| Integration/API/runtime test functions | 703 |
+| Contract/governance test functions | 182 |
 
 ## Test Functions By Suite
 
@@ -33,8 +33,8 @@ python scripts/python_test_taxonomy_inventory.py --limit 30 --min-api-runtime-te
 | --- | ---: | ---: |
 | benchmarks | 9 | 19 |
 | e2e | 1 | 21 |
-| integration | 28 | 345 |
-| unit | 285 | 3295 |
+| integration | 28 | 347 |
+| unit | 286 | 3299 |
 
 ## Test Functions By Family
 
@@ -45,10 +45,10 @@ above does sum to it, because a module belongs to exactly one suite.
 | Family | Test functions |
 | --- | ---: |
 | analytics_domain | 1674 |
-| api_or_runtime | 701 |
-| contract_or_governance | 178 |
+| api_or_runtime | 703 |
+| contract_or_governance | 182 |
 | observability_or_readiness | 429 |
-| quality_or_security | 237 |
+| quality_or_security | 241 |
 | uncategorized | 825 |
 
 ## Largest Test Modules
@@ -97,3 +97,7 @@ The #511 Compose-provenance slice added one module proving both build paths carr
 Review of the same slice added two more: local configuration cannot enter the build context (`.env` is gitignored, so a tree carrying one measures clean and the image would ship it under a claim of an exact commit), and volatile metadata is applied after the expensive layers so a per-second build timestamp does not evict the dependency cache. Source test functions rise to `3,680` and quality/security tests to `237`; uncategorized is unchanged at `825`.
 
 A later review round added the environment-supplied path, which the first hostile-branch test could not reach: GNU Make imports environment variables as recursively expanded, so a branch named `feature/foo$(id)` supplied the way CI supplies it loses `$(id)` before any quoting runs. The original test drove the value through `$(shell git ...)`, whose output Make does not re-expand -- the one door that was already safe. Source test functions rise to `3,680` and quality/security tests to `237`; uncategorized is unchanged at `825`.
+
+Review of #489 added a module driving the concurrency-contracts gate itself: a completed run accepted, and a skip, a nonzero pytest exit over a green report, and an empty collection each refused. Inventoried modules rise to `324`, source test functions to `3,685`, and quality/security tests to `241`; uncategorized is unchanged at `825`.
+
+A later review round replaced five non-emptiness assertions on `/version` with the exact ARG defaults plus a supplied-value case: the old form passed against a response carrying no build identity at all, so it could not catch CI ceasing to supply the values. Source test functions rise to `3,686` and API/runtime tests to `703`.
