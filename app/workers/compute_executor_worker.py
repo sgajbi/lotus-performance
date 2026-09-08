@@ -26,6 +26,7 @@ from app.observability import (
     correlation_id_var,
     request_id_var,
     setup_worker_logging,
+    tenant_id_var,
     trace_id_var,
     worker_log_extra,
 )
@@ -443,10 +444,60 @@ def _resolve_compute_job_calculators(
     )
 
 
+class ComputeJobAuthorityUnavailableError(RuntimeError):
+    """A persisted job does not record the authority it was admitted with.
+
+    Distinct from a calculation failure: nothing about the request is wrong and a
+    retry cannot help, because the row will never grow a tenant it was not written
+    with. Classified non-retryable in `_is_retryable_exception` for exactly that
+    reason: left to that function's default it would burn every attempt before
+    reporting a condition that was already terminal at the first one.
+    """
+
+
+@contextmanager
+def _restored_job_tenant_authority(job: ComputeJobRecord) -> Iterator[None]:
+    """Reinstate exactly the authority this job was admitted with, from durable state.
+
+    Deliberately not from `observability_context`. That envelope carries correlation,
+    request and trace ids -- transient metadata whose loss costs a log line. Authority
+    read from it would be authority whose lifetime is a logging concern.
+
+    Restored verbatim: an empty value stays empty and padding survives. The async path
+    must decide a request exactly as the synchronous path would, and synchronously an
+    absent tenant is preserved as absence and refused at the Core boundary, where the
+    refusal names the operation -- while stateless work that never reaches Core
+    legitimately proceeds. Refusing absence here would make the same request succeed
+    inline and fail offloaded, which is a worse defect than the one being fixed.
+    Padding survives for the same reason: `TenantAuthority.__post_init__` treats a
+    padded value as a different tenant, so normalising here would silently repair a
+    malformed header that the sync path refuses.
+
+    `None` is the one case that is not a value. It means the row predates the column,
+    so what the caller presented was never recorded -- unknowable rather than absent.
+    """
+
+    if job.tenant_id is None:
+        raise ComputeJobAuthorityUnavailableError(
+            f"Compute job {job.calculation_id} predates durable tenant authority: the row does "
+            f"not record what the caller presented, so it cannot be replayed under the authority "
+            f"it was admitted with. Re-submit it, or retire it. Guessing is the one option that "
+            f"is not available."
+        )
+
+    token = tenant_id_var.set(job.tenant_id)
+    try:
+        yield
+    finally:
+        tenant_id_var.reset(token)
+
+
 def _execute_compute_job(job: ComputeJobRecord, context: _ComputeJobExecutionContext) -> Any:
     executor = _compute_job_executor_for(job.analytics_type)
     request_payload = getattr(job, "request_payload", {})
-    with _restored_async_observability_context(request_payload):
+    # Authority first: an unauthorised job must not reach an executor at all, and the
+    # refusal must precede any work the observability scope would otherwise wrap.
+    with _restored_job_tenant_authority(job), _restored_async_observability_context(request_payload):
         return executor(job, context)
 
 
@@ -905,6 +956,7 @@ def _is_retryable_exception(exc: Exception) -> bool:
             ValueError,
             KeyError,
             NotImplementedError,
+            ComputeJobAuthorityUnavailableError,
         ),
     ):
         return False

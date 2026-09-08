@@ -115,6 +115,13 @@ def _families_for_path(path: str) -> tuple[str, ...]:
             "readiness",
             "resilience",
             "compute_job_store",
+            # The compute executor worker sat outside this list while its own job store and
+            # its sibling lineage worker were both inside it. Same class of surface -- it
+            # decides whether an offloaded job reaches execution at all -- so the omission
+            # was an inconsistency, not a judgement. It cost 56 tests to `uncategorized`
+            # and pushed the ceiling up by exactly the amount that hid them. Same shape as
+            # `workspace` below and the dead `logging`/`correlation` tokens above: see #475.
+            "compute_executor_worker",
             "lineage_worker",
             "runtime_recovery",
             # Executable schema-apply and schema-creation surfaces are startup-readiness concerns:

@@ -1693,18 +1693,21 @@ def test_compute_job_store_register_job_distinguishes_create_replay_and_conflict
     created = store.register_job(
         calculation_id=calculation_id,
         analytics_type="Contribution",
+        tenant_id="tenant-test",
         request_payload={"portfolio_id": "P1"},
         max_attempts=2,
     )
     replay = store.register_job(
         calculation_id=calculation_id,
         analytics_type="Contribution",
+        tenant_id="tenant-test",
         request_payload={"portfolio_id": "P1"},
         max_attempts=2,
     )
     conflict = store.register_job(
         calculation_id=calculation_id,
         analytics_type="Contribution",
+        tenant_id="tenant-test",
         request_payload={"portfolio_id": "P2"},
         max_attempts=2,
     )
@@ -1723,6 +1726,7 @@ def test_compute_job_store_register_job_ignores_transient_observability_context_
     created = store.register_job(
         calculation_id=calculation_id,
         analytics_type="ReturnsSeries",
+        tenant_id="tenant-test",
         request_payload={
             "portfolio_id": "P1",
             "observability_context": {"correlation_id": "corr-first"},
@@ -1732,6 +1736,7 @@ def test_compute_job_store_register_job_ignores_transient_observability_context_
     replay = store.register_job(
         calculation_id=calculation_id,
         analytics_type="ReturnsSeries",
+        tenant_id="tenant-test",
         request_payload={
             "portfolio_id": "P1",
             "observability_context": {"correlation_id": "corr-second"},
