@@ -23,9 +23,9 @@ python scripts/python_test_taxonomy_inventory.py --limit 30 --min-api-runtime-te
 | Metric | Value |
 | --- | ---: |
 | Test modules inventoried | 324 |
-| Test functions inventoried | 3686 |
+| Test functions inventoried | 3687 |
 | Integration/API/runtime test functions | 703 |
-| Contract/governance test functions | 182 |
+| Contract/governance test functions | 183 |
 
 ## Test Functions By Suite
 
@@ -34,7 +34,7 @@ python scripts/python_test_taxonomy_inventory.py --limit 30 --min-api-runtime-te
 | benchmarks | 9 | 19 |
 | e2e | 1 | 21 |
 | integration | 28 | 347 |
-| unit | 286 | 3299 |
+| unit | 286 | 3300 |
 
 ## Test Functions By Family
 
@@ -46,9 +46,9 @@ above does sum to it, because a module belongs to exactly one suite.
 | --- | ---: |
 | analytics_domain | 1674 |
 | api_or_runtime | 703 |
-| contract_or_governance | 182 |
+| contract_or_governance | 183 |
 | observability_or_readiness | 429 |
-| quality_or_security | 241 |
+| quality_or_security | 242 |
 | uncategorized | 825 |
 
 ## Largest Test Modules
@@ -100,4 +100,4 @@ A later review round added the environment-supplied path, which the first hostil
 
 Review of #489 added a module driving the concurrency-contracts gate itself: a completed run accepted, and a skip, a nonzero pytest exit over a green report, and an empty collection each refused. Inventoried modules rise to `324`, source test functions to `3,685`, and quality/security tests to `241`; uncategorized is unchanged at `825`.
 
-A later review round replaced five non-emptiness assertions on `/version` with the exact ARG defaults plus a supplied-value case: the old form passed against a response carrying no build identity at all, so it could not catch CI ceasing to supply the values. Source test functions rise to `3,686` and API/runtime tests to `703`.
+A later review round replaced five non-emptiness assertions on `/version` with the exact ARG defaults plus a supplied-value case: the old form passed against a response carrying no build identity at all, so it could not catch CI ceasing to supply the values. Source test functions rise to `3,687` and API/runtime tests to `703`.
