@@ -1,7 +1,13 @@
 from __future__ import annotations
 
 import argparse
+import os
+import shutil
+import subprocess
+import textwrap
 from pathlib import Path
+
+import pytest
 
 from scripts import audit_main_gate_coverage as audit
 
@@ -25,6 +31,69 @@ def test_dispatcher_enumerates_exact_landed_range_under_rebase_only_policy() -> 
     assert '-f expected_sha="$revision"' in workflow
     guard = 'if ! git merge-base --is-ancestor "$revision" HEAD; then'
     assert workflow.index(guard) < workflow.index('dispatch_ref="main-releasability-${revision}"')
+
+
+def _dispatch_ref_resolution_block() -> str:
+    workflow = (WORKFLOWS / "merged-pr-main-releasability.yml").read_text(encoding="utf-8")
+    start_marker = '            existing_ref_sha=""\n            if existing_ref_sha='
+    end_marker = "            gh workflow run main-releasability.yml"
+    start = workflow.index(start_marker)
+    end = workflow.index(end_marker, start)
+    return textwrap.dedent(workflow[start:end])
+
+
+def _run_dispatch_ref_resolution(tmp_path: Path, *, lookup_mode: str) -> list[str]:
+    shell = shutil.which("sh")
+    if shell is None:
+        pytest.skip("POSIX shell is required to execute the workflow ref-resolution contract")
+
+    revision = "a" * 40
+    call_log = tmp_path / "gh-calls.log"
+    bin_dir = tmp_path / "bin"
+    bin_dir.mkdir()
+    gh_stub = bin_dir / "gh"
+    gh_stub.write_text(
+        "#!/bin/sh\n"
+        'case "$*" in\n'
+        "  *git/ref/tags/*)\n"
+        '    if [ "$GH_LOOKUP_MODE" = missing ]; then\n'
+        "      printf '%s\\n' '{\"message\":\"Not Found\"}'\n"
+        "      exit 1\n"
+        "    fi\n"
+        f"    printf '%s\\n' '{revision}'\n"
+        "    ;;\n"
+        "  *git/refs*) printf '%s\\n' create-ref >> \"$GH_CALL_LOG\" ;;\n"
+        "  *) exit 97 ;;\n"
+        "esac\n",
+        encoding="utf-8",
+    )
+    gh_stub.chmod(0o755)
+    env = os.environ.copy()
+    env.update(
+        {
+            "GH_CALL_LOG": str(call_log),
+            "GH_LOOKUP_MODE": lookup_mode,
+            "GITHUB_REPOSITORY": "sgajbi/lotus-performance",
+            "PATH": f"{bin_dir}{os.pathsep}{env['PATH']}",
+            "dispatch_ref": f"main-releasability-{revision}",
+            "revision": revision,
+        }
+    )
+    subprocess.run(
+        [shell, "-eu", "-c", _dispatch_ref_resolution_block()],
+        check=True,
+        env=env,
+        text=True,
+    )
+    return call_log.read_text(encoding="utf-8").splitlines() if call_log.exists() else []
+
+
+def test_dispatcher_creates_ref_after_lookup_returns_404_body(tmp_path: Path) -> None:
+    assert _run_dispatch_ref_resolution(tmp_path, lookup_mode="missing") == ["create-ref"]
+
+
+def test_dispatcher_reuses_matching_existing_ref(tmp_path: Path) -> None:
+    assert _run_dispatch_ref_resolution(tmp_path, lookup_mode="existing") == []
 
 
 def test_releasability_evidence_is_never_cancelled() -> None:
