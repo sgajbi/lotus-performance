@@ -1,5 +1,5 @@
 # engine/attribution.py
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from datetime import date as dt_date
 from typing import Any, Dict, Mapping, Protocol, Sequence, Tuple, TypedDict
 
@@ -312,8 +312,14 @@ def _build_instrument_attribution_panel(
 
     inst_results = run_engine_for_valuation_points(
         [item.model_dump() for item in inst.valuation_points],
-        twr_config,
-        force_base_only=not (request.currency_mode == "BOTH" and inst.meta.get("currency") != request.report_ccy),
+        replace(
+            twr_config,
+            source_currency=str(inst.meta.get("currency")) if inst.meta.get("currency") is not None else None,
+        ),
+        force_base_only=not (
+            request.currency_mode == "BOTH"
+            and not _currency_values_match(inst.meta.get("currency"), request.report_ccy)
+        ),
     )
     inst_results = inst_results.set_index(PortfolioColumns.PERF_DATE.value)
 
@@ -375,12 +381,16 @@ def _backfill_same_currency_return_columns(
     instrument_currency: object,
     report_ccy: object,
 ) -> None:
-    if currency_mode != "BOTH" or instrument_currency != report_ccy:
+    if currency_mode != "BOTH" or not _currency_values_match(instrument_currency, report_ccy):
         return
     if "return_local" not in inst_results.columns:
         inst_results["return_local"] = inst_results["return_base"]
     if "return_fx" not in inst_results.columns:
         inst_results["return_fx"] = 0.0
+
+
+def _currency_values_match(left: object, right: object) -> bool:
+    return isinstance(left, str) and isinstance(right, str) and left.strip().upper() == right.strip().upper()
 
 
 def _build_instrument_group_aggregation(full_df: pd.DataFrame, group_cols: list[str]) -> pd.DataFrame:

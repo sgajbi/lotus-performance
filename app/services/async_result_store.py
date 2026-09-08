@@ -9,7 +9,7 @@ from enum import StrEnum
 from typing import Any, Iterator
 from uuid import UUID
 
-from sqlalchemy import DateTime, Index, String, Text, delete, func, select, text
+from sqlalchemy import DateTime, Index, String, Text, delete, func, inspect, select, text
 from sqlalchemy.engine import Connection
 from sqlalchemy.orm import DeclarativeBase, Mapped, Session, mapped_column, sessionmaker
 
@@ -23,6 +23,10 @@ logger = logging.getLogger(__name__)
 
 INVALID_ASYNC_RESULT_PAYLOAD_ERROR_TYPE = "InvalidAsyncResultPayload"
 INVALID_ASYNC_RESULT_PAYLOAD_MESSAGE = "Stored async result response payload is invalid."
+
+
+class AsyncResultTenantConflictError(RuntimeError):
+    """A result identity is already owned by a different durable authority."""
 
 
 class AsyncResultStatus(StrEnum):
@@ -39,6 +43,8 @@ class AsyncResultModel(Base):
     __table_args__ = (Index("ix_async_result_updated_at", "updated_at_utc"),)
 
     calculation_id: Mapped[str] = mapped_column(String(36), primary_key=True)
+    # Nullable only for legacy results whose authority was never persisted.
+    tenant_id: Mapped[str | None] = mapped_column(String(128), nullable=True)
     analytics_type: Mapped[str] = mapped_column(String(64), nullable=False)
     result_status: Mapped[str] = mapped_column(String(32), nullable=False)
     response_json: Mapped[str | None] = mapped_column(Text, nullable=True)
@@ -58,6 +64,7 @@ class AsyncResultRecord:
     error_type: str | None
     created_at_utc: str
     updated_at_utc: str
+    tenant_id: str | None = None
 
 
 @dataclass(frozen=True)
@@ -77,7 +84,7 @@ class AsyncResultStore:
         create_durable_schema(
             self._engine,
             Base.metadata,
-            schema_upgrades=(self._ensure_runtime_indexes,),
+            schema_upgrades=(self._ensure_tenant_id_column, self._ensure_runtime_indexes),
         )
 
     @contextmanager
@@ -126,12 +133,26 @@ class AsyncResultStore:
             result = session.execute(delete(AsyncResultModel).where(retention_filter))
             return int(result.rowcount or 0)
 
-    def record_success(self, *, calculation_id: UUID, analytics_type: str, response_payload: dict[str, Any]) -> None:
+    def record_success(
+        self,
+        *,
+        calculation_id: UUID,
+        analytics_type: str,
+        response_payload: dict[str, Any],
+        tenant_id: str | None = None,
+    ) -> None:
+        canonical_tenant_id = None if tenant_id is None else tenant_id.strip()
         now = datetime.now(timezone.utc)
         with self._session() as session:
+            self._require_matching_existing_tenant(
+                session,
+                calculation_id=calculation_id,
+                tenant_id=canonical_tenant_id,
+            )
             session.merge(
                 AsyncResultModel(
                     calculation_id=str(calculation_id),
+                    tenant_id=canonical_tenant_id,
                     analytics_type=analytics_type,
                     result_status=AsyncResultStatus.COMPLETE.value,
                     response_json=json.dumps(response_payload, sort_keys=True),
@@ -149,10 +170,18 @@ class AsyncResultStore:
         analytics_type: str,
         error_message: str,
         error_type: str | None = None,
+        tenant_id: str | None = None,
     ) -> None:
+        canonical_tenant_id = None if tenant_id is None else tenant_id.strip()
         now = datetime.now(timezone.utc)
         with self._session() as session:
             existing = session.get(AsyncResultModel, str(calculation_id))
+            self._require_matching_existing_tenant(
+                session,
+                calculation_id=calculation_id,
+                tenant_id=canonical_tenant_id,
+                existing=existing,
+            )
             if existing is not None and existing.result_status == AsyncResultStatus.COMPLETE.value:
                 logger.warning(
                     "Skipped async result failure write because a success result already exists.",
@@ -169,6 +198,7 @@ class AsyncResultStore:
             session.merge(
                 AsyncResultModel(
                     calculation_id=str(calculation_id),
+                    tenant_id=canonical_tenant_id,
                     analytics_type=analytics_type,
                     result_status=AsyncResultStatus.FAILED.value,
                     response_json=None,
@@ -185,6 +215,36 @@ class AsyncResultStore:
             if row is None:
                 return None
             return _async_result_record_from_row(row)
+
+    def get_result_for_tenant(self, calculation_id: UUID, *, tenant_id: str) -> AsyncResultRecord | None:
+        with self._session() as session:
+            statement = select(AsyncResultModel).where(
+                (AsyncResultModel.calculation_id == str(calculation_id)) & (AsyncResultModel.tenant_id == tenant_id)
+            )
+            row = session.execute(statement).scalar_one_or_none()
+            return None if row is None else _async_result_record_from_row(row)
+
+    @staticmethod
+    def _require_matching_existing_tenant(
+        session: Session,
+        *,
+        calculation_id: UUID,
+        tenant_id: str | None,
+        existing: AsyncResultModel | None = None,
+    ) -> None:
+        existing = existing or session.get(AsyncResultModel, str(calculation_id))
+        if existing is not None and existing.tenant_id != tenant_id:
+            raise AsyncResultTenantConflictError(
+                f"Async result {calculation_id} belongs to a different tenant authority."
+            )
+
+    def _ensure_tenant_id_column(self, connection: Connection) -> None:
+        inspector = inspect(connection)
+        if "analytics_async_result" not in inspector.get_table_names():
+            return
+        if "tenant_id" in {column["name"] for column in inspector.get_columns("analytics_async_result")}:
+            return
+        connection.execute(text("ALTER TABLE analytics_async_result ADD COLUMN tenant_id VARCHAR(128)"))
 
     def _ensure_runtime_indexes(self, connection: Connection) -> None:
         connection.execute(
@@ -234,6 +294,7 @@ def _async_result_record_from_row(row: AsyncResultModel) -> AsyncResultRecord:
     payload_state = _async_result_record_payload_state(row, response_payload=_load_response_payload(row))
     return AsyncResultRecord(
         calculation_id=UUID(row.calculation_id),
+        tenant_id=row.tenant_id,
         analytics_type=row.analytics_type,
         result_status=payload_state.result_status,
         response_payload=payload_state.response_payload,

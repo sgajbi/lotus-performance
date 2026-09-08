@@ -1,7 +1,8 @@
 # Lotus Performance Enterprise Backend Refactor Baseline
 
-Baseline date: 2026-09-08
-Branch: `fix/489-lock-regression-in-a-required-lane`
+Generation provenance: Git history for this source-controlled artifact. Volatile branch, date, and
+commit fields are intentionally excluded so freshness is deterministic across local, PR merge-ref,
+and main checkouts.
 Mode: report-only baseline; no new blocking quality gate is introduced by this artifact.
 
 ## Purpose
@@ -16,12 +17,12 @@ snapshots are written under ignored `output/quality-baseline/`; curated source r
 
 | Area | Current value | Evidence |
 | --- | ---: | --- |
-| Python files | 675 | `rg --files -g '*.py'` equivalent excluding local caches |
+| Python files | 682 | `rg --files -g '*.py'` equivalent excluding local caches |
 | Python package markers | 22 | recursive `__init__.py` count |
-| Python LOC | 201,180 | recursive `.py` line count |
-| Test modules | 324 | `tests/**/test_*.py` |
-| Collected tests | 4001 tests | `python -m pytest --collect-only -q` |
-| Configured CI workflows | 7 | `.github/workflows/*.yml` |
+| Python LOC | 204,105 | recursive `.py` line count |
+| Test modules | 327 | `tests/**/test_*.py` |
+| Collected tests | 4057 tests | `python -m pytest --collect-only -q` |
+| Configured CI workflows | 8 | `.github/workflows/*.yml` |
 | Repo-native baseline command | 1 | `make quality-baseline` |
 
 ## Largest Python Files By LOC
@@ -29,20 +30,20 @@ snapshots are written under ignored `output/quality-baseline/`; curated source r
 | Rank | File | Lines |
 | ---: | --- | ---: |
 | 1 | `tests/unit/services/test_returns_series_service.py` | 3074 |
-| 2 | `tests/unit/services/test_compute_executor_worker.py` | 2817 |
+| 2 | `tests/unit/services/test_compute_executor_worker.py` | 2821 |
 | 3 | `tests/unit/services/test_runtime_status_service.py` | 2637 |
 | 4 | `tests/unit/docs/test_public_docs_contract.py` | 2488 |
-| 5 | `app/services/stateful_input_service.py` | 2409 |
-| 6 | `tests/unit/services/test_stateful_input_service.py` | 2361 |
+| 5 | `app/services/stateful_input_service.py` | 2469 |
+| 6 | `tests/unit/services/test_stateful_input_service.py` | 2442 |
 | 7 | `app/services/returns_series_service.py` | 2337 |
 | 8 | `tests/unit/app/test_request_path_runtime_settings.py` | 2276 |
-| 9 | `tests/unit/services/test_stateful_attribution_input_service.py` | 2159 |
-| 10 | `tests/integration/test_contribution_api.py` | 2081 |
-| 11 | `tests/integration/test_performance_api.py` | 2075 |
+| 9 | `tests/unit/services/test_stateful_attribution_input_service.py` | 2169 |
+| 10 | `tests/integration/test_contribution_api.py` | 2119 |
+| 11 | `tests/integration/test_performance_api.py` | 2093 |
 | 12 | `tests/unit/services/test_twr_inspection_source_economics.py` | 1992 |
-| 13 | `tests/unit/services/test_compute_job_store.py` | 1951 |
-| 14 | `tests/integration/test_attribution_api.py` | 1795 |
-| 15 | `app/services/compute_job_store.py` | 1773 |
+| 13 | `tests/unit/services/test_compute_job_store.py` | 1986 |
+| 14 | `tests/integration/test_attribution_api.py` | 1884 |
+| 15 | `app/services/compute_job_store.py` | 1796 |
 
 ## Required Inventory Outputs
 

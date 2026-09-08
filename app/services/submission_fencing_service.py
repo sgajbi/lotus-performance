@@ -14,6 +14,10 @@ from app.services.compute_job_store import (
     ComputeJobRegistrationStatus,
     compute_job_store,
 )
+from app.services.core_tenant_authority import (
+    MissingStatefulSubmissionTenantAuthorityError,
+    admitted_tenant_authority,
+)
 from app.services.execution_registry import (
     ExecutionRegistrationStatus,
     execution_registry,
@@ -33,8 +37,10 @@ def register_sync_execution_or_raise(
     input_fingerprint: str | None,
     calculation_hash: str | None,
 ) -> None:
+    admitted_tenant_authority(tenant_id_var.get())
     registration = execution_registry.register_execution(
         calculation_id=calculation_id,
+        tenant_id=tenant_id_var.get(),
         analytics_type=analytics_type,
         portfolio_id=portfolio_id,
         execution_mode="sync",
@@ -59,9 +65,12 @@ def register_async_submission_or_raise(
     request_payload: dict[str, Any],
     offload_reason: str,
     accepted_response_factory: Callable[[UUID], BaseModel],
+    requires_tenant_authority: bool = False,
 ) -> ApplicationHttpResponse:
+    _require_submission_tenant_if_needed(requires_tenant_authority=requires_tenant_authority)
     registration = execution_registry.register_execution(
         calculation_id=calculation_id,
+        tenant_id=tenant_id_var.get(),
         analytics_type=analytics_type,
         portfolio_id=portfolio_id,
         execution_mode="async",
@@ -194,7 +203,9 @@ def promote_existing_execution_to_async_submission_or_raise(
     request_payload: dict[str, Any],
     offload_reason: str,
     accepted_response_factory: Callable[[UUID], BaseModel],
+    requires_tenant_authority: bool = False,
 ) -> ApplicationHttpResponse:
+    _require_submission_tenant_if_needed(requires_tenant_authority=requires_tenant_authority)
     job_registration = compute_job_store.register_job(
         calculation_id=calculation_id,
         analytics_type=analytics_type,
@@ -223,3 +234,9 @@ def promote_existing_execution_to_async_submission_or_raise(
         details={"offload_reason": offload_reason},
     )
     return accepted_application_response(accepted_response_factory(calculation_id))
+
+
+def _require_submission_tenant_if_needed(*, requires_tenant_authority: bool) -> None:
+    admitted_authority = admitted_tenant_authority(tenant_id_var.get())
+    if requires_tenant_authority and admitted_authority is None:
+        raise MissingStatefulSubmissionTenantAuthorityError()

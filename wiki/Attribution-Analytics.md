@@ -41,7 +41,20 @@ The current stateful public contract is intentionally fenced to:
 1. `mode="by_instrument"`;
 2. `group_by` values `asset_class`, `sector`, `country`, and `currency`;
 3. `currency_mode="BOTH"` only when `report_ccy` is supplied;
-4. mixed-currency sourced positions only when required FX rates are supplied.
+4. mixed-currency sourced positions only when every source/report pair has positive finite exact
+   prior/current-date EOD FX coverage. Empty or partial coverage returns `FX_RATES_REQUIRED`.
+
+Successful responses publish `currency_evidence.applied_report_ccy` and the applied pairs, source,
+coverage, and fixing policy. `meta.report_ccy` is a request echo and must not be used as proof that
+conversion occurred.
+
+For stateless `mode="by_group"`, currency attribution consumes source-preconverted `return_base`,
+`return_local`, and `return_fx` components instead of applying caller `fx.rates`. Every portfolio
+and benchmark observation must carry all three components, every group must identify its currency,
+the components must reconcile under `(1 + local) × (1 + FX) - 1` within `1e-12`, and `report_ccy`
+must equal the base `currency` actually applied. The response reports
+`fx_source="source_preconverted"`; missing components or an unapplied reporting-currency change are
+typed refusals.
 
 During stateful normalization, Lotus records source-alignment evidence for portfolio observation
 count, position row count, resolved benchmark id, benchmark component observation count, index

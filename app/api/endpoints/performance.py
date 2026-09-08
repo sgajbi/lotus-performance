@@ -4,7 +4,12 @@ from uuid import UUID
 from fastapi import APIRouter, Request
 from fastapi.responses import JSONResponse
 
-from app.api.async_openapi import async_result_responses, async_submission_responses
+from app.api.async_openapi import (
+    STATEFUL_TENANT_OPENAPI_EXTRA,
+    async_result_responses,
+    async_submission_responses,
+    stateful_tenant_authority_responses,
+)
 from app.api.http_response_adapter import to_fastapi_response
 from app.api.mappers.analytics_workflow_requests import map_twr_request, map_workspace_summary_request
 from app.core.async_polling import ASYNC_RETRY_AFTER_HEADER, DEFAULT_RECOMMENDED_POLL_AFTER_SECONDS
@@ -64,7 +69,9 @@ router = APIRouter(tags=["Performance"])
         accepted_model=WorkspaceSummaryAcceptedResponse,
         analytics_name="workspace-summary",
         result_path_template="/performance/workspace-summary/results/{calculation_id}",
+        stateful_tenant_capable=True,
     ),
+    openapi_extra=STATEFUL_TENANT_OPENAPI_EXTRA,
 )
 def calculate_workspace_summary_endpoint(
     request: WorkspaceSummaryRequest,
@@ -122,7 +129,9 @@ async def get_workspace_summary_result(
         accepted_model=TWRAcceptedResponse,
         analytics_name="TWR",
         result_path_template="/performance/twr/results/{calculation_id}",
+        stateful_tenant_capable=True,
     ),
+    openapi_extra=STATEFUL_TENANT_OPENAPI_EXTRA,
 )
 async def calculate_twr_endpoint(request: TWRAnalyticsRequest) -> PerformanceResponse | JSONResponse:
     """
@@ -185,6 +194,8 @@ async def get_twr_result(calculation_id: UUID, request: Request) -> PerformanceR
         "`MODIFIED_DIETZ` returns a period return using dated cash-flow weights; `DIETZ` returns "
         "the midpoint Dietz period return."
     ),
+    responses=stateful_tenant_authority_responses(),
+    openapi_extra=STATEFUL_TENANT_OPENAPI_EXTRA,
 )
 async def calculate_mwr_endpoint(request: MoneyWeightedReturnAnalyticsRequest):
     """Calculates the money-weighted return (MWR) for a portfolio over a given period."""
@@ -243,8 +254,20 @@ async def calculate_mwr_endpoint(request: MoneyWeightedReturnAnalyticsRequest):
             "description": (
                 "Invalid attribution request shape, unsupported resolved period window, or invalid engine input."
             ),
-            "content": {"application/json": {"example": {"detail": "Invalid Input: analyses list cannot be empty"}}},
+            "content": {
+                "application/json": {
+                    "examples": {
+                        "invalid_attribution": {"value": {"detail": "Invalid Input: analyses list cannot be empty"}},
+                        "tenant_authority_malformed": {
+                            "value": stateful_tenant_authority_responses()[400]["content"]["application/json"][
+                                "example"
+                            ]
+                        },
+                    }
+                }
+            },
         },
+        401: stateful_tenant_authority_responses()[401],
         409: {
             "model": ErrorDetailResponse,
             "description": "Duplicate attribution submission conflict or failed async execution state.",
@@ -287,6 +310,7 @@ async def calculate_mwr_endpoint(request: MoneyWeightedReturnAnalyticsRequest):
             },
         },
     },
+    openapi_extra=STATEFUL_TENANT_OPENAPI_EXTRA,
 )
 async def calculate_attribution_endpoint(request: AttributionAnalyticsRequest) -> AttributionResponse | JSONResponse:
     """

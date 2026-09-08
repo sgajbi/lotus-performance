@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import Any
 
-CALCULATION_ENGINE_VERSION = "lotus-performance-calculation-engine.v1"
+CALCULATION_ENGINE_VERSION = "lotus-performance-calculation-engine.v2"
 CALCULATION_ENGINE_VERSION_POLICY_VERSION = "calculation-engine-version-policy.v1"
 
 CALCULATION_ENGINE_VERSION_FAMILIES = (

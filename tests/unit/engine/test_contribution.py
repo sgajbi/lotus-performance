@@ -5,6 +5,7 @@ import pandas as pd
 import pytest
 
 from app.models.contribution_requests import ContributionRequest, Smoothing
+from app.services.contribution_series import _group_return_evidence
 from common.enums import WeightingScheme
 from engine.config import EngineConfig, PeriodType, PrecisionMode
 from engine.contribution import (
@@ -847,3 +848,84 @@ def test_base_only_engine_config_preserves_non_currency_settings():
     assert overridden.rounding_precision == 6
     assert overridden.precision_mode == PrecisionMode.DECIMAL_STRICT
     assert overridden.report_ccy == "EUR"
+
+
+def test_group_return_evidence_changes_with_source_returns_not_contribution_weight_proxy(
+    hierarchical_request_fixture,
+):
+    """Identical weights and portfolio returns still preserve contrasting group return paths."""
+    request = hierarchical_request_fixture
+    request.currency = "USD"
+    request.currency_mode = "BASE_ONLY"
+    dates = pd.to_datetime(["2026-01-01", "2026-01-02"])
+
+    first = pd.DataFrame(
+        {
+            "perf_date": dates,
+            "capital_inst": [50.0, 50.0],
+            "daily_ror": [1.0, 3.0],
+            "daily_weight": [0.5, 0.5],
+            "currency": ["USD", "USD"],
+        }
+    )
+    contrasting = first.assign(daily_ror=[0.0, 4.0])
+
+    first_evidence = _group_return_evidence(group_df=first, request=request)
+    contrasting_evidence = _group_return_evidence(group_df=contrasting, request=request)
+
+    assert first_evidence["status"] == "READY"
+    assert first_evidence["currency"] == "USD"
+    assert [point["portfolio_weight_pct"] for point in first_evidence["series"]] == [50.0, 50.0]
+    assert first_evidence["period_return_pct"] == pytest.approx(4.03)
+    assert contrasting_evidence["period_return_pct"] == pytest.approx(4.0)
+    assert first_evidence["period_return_pct"] != contrasting_evidence["period_return_pct"]
+
+
+def test_group_return_evidence_refuses_mixed_local_currency_inference(hierarchical_request_fixture):
+    request = hierarchical_request_fixture
+    request.currency_mode = "LOCAL_ONLY"
+    group_df = pd.DataFrame(
+        {
+            "perf_date": pd.to_datetime(["2026-01-01", "2026-01-01"]),
+            "capital_inst": [50.0, 50.0],
+            "daily_ror": [1.0, 2.0],
+            "daily_weight": [0.5, 0.5],
+            "currency": ["USD", "EUR"],
+        }
+    )
+
+    evidence = _group_return_evidence(group_df=group_df, request=request)
+
+    assert evidence == {
+        "status": "UNAVAILABLE",
+        "currency": None,
+        "series": [],
+        "reason": "MIXED_LOCAL_CURRENCIES_HAVE_NO_SINGLE_GROUP_RETURN",
+    }
+
+
+def test_group_return_evidence_preserves_short_only_group(hierarchical_request_fixture):
+    request = hierarchical_request_fixture
+    request.currency = "USD"
+    request.currency_mode = "BASE_ONLY"
+    group_df = pd.DataFrame(
+        {
+            "perf_date": pd.to_datetime(["2026-01-01", "2026-01-01"]),
+            "capital_inst": [-60.0, -40.0],
+            "daily_ror": [2.0, -1.0],
+            "daily_weight": [-0.6, -0.4],
+            "currency": ["USD", "USD"],
+        }
+    )
+
+    evidence = _group_return_evidence(group_df=group_df, request=request)
+
+    assert evidence["status"] == "READY"
+    assert evidence["period_return_pct"] == pytest.approx(0.8)
+    assert evidence["series"] == [
+        {
+            "date": pd.Timestamp("2026-01-01"),
+            "return_pct": pytest.approx(0.8),
+            "portfolio_weight_pct": pytest.approx(-100.0),
+        }
+    ]

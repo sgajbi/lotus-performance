@@ -35,6 +35,8 @@ class StatefulPortfolioValuationInput:
     observations: list[dict[str, object]]
     valuation_points: list[dict[str, object]]
     source_quality_evidence: PerformanceSourceQualityEvidence
+    portfolio_currency: str | None = None
+    reporting_currency: str | None = None
 
 
 async def retrieve_stateful_portfolio_input(
@@ -145,4 +147,6 @@ def build_stateful_portfolio_valuation_input(
             source_owner="lotus-core",
             source_product="PortfolioTimeseriesInput",
         ),
+        portfolio_currency=source_input.portfolio_currency,
+        reporting_currency=source_input.reporting_currency,
     )

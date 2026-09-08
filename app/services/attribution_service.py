@@ -10,7 +10,12 @@ from app.core.config import get_settings
 from app.models.attribution_analytics_requests import AttributionInputMode
 from app.models.attribution_requests import AttributionRequest
 from app.models.attribution_responses import AttributionResponse
+from app.models.currency_evidence import AppliedCurrencyEvidence
 from app.services.analytics_observation_dates import latest_observation_date
+from app.services.applied_currency_evidence_service import (
+    build_applied_currency_evidence,
+    build_source_preconverted_currency_evidence,
+)
 from app.services.attribution_response_service import build_single_period_attribution_response
 from app.services.calculation_engine_version import calculation_engine_version
 from app.services.calculation_supportability_service import (
@@ -394,10 +399,40 @@ def _build_completed_attribution_response(
             resolved_benchmark_return_source=resolved_benchmark_return_source,
         ),
         calculation_supportability=calculation_supportability,
+        currency_evidence=_attribution_currency_evidence(request),
         meta=meta,
         diagnostics=diagnostics,
         audit=audit,
     )
+
+
+def _attribution_currency_evidence(request: AttributionRequest) -> AppliedCurrencyEvidence:
+    if request.mode.value == "by_group":
+        portfolio_groups = request.portfolio_groups_data or []
+        benchmark_groups = request.benchmark_groups_data
+        return build_source_preconverted_currency_evidence(
+            portfolio_base_currency=request.currency,
+            requested_report_ccy=request.report_ccy,
+            currency_mode=request.currency_mode,
+            source_currencies=_attribution_group_currencies([*portfolio_groups, *benchmark_groups]),
+            portfolio_observations=_attribution_group_observations(portfolio_groups),
+            benchmark_observations=_attribution_group_observations(benchmark_groups),
+        )
+    return build_applied_currency_evidence(
+        portfolio_base_currency=request.currency,
+        requested_report_ccy=request.report_ccy,
+        currency_mode=request.currency_mode,
+        fx=request.fx,
+        source_currencies=[instrument.meta.get("currency") for instrument in (request.instruments_data or [])],
+    )
+
+
+def _attribution_group_currencies(groups: Sequence[Any]) -> list[object]:
+    return [group.key.get("currency") for group in groups]
+
+
+def _attribution_group_observations(groups: Sequence[Any]) -> list[object]:
+    return [row for group in groups for row in group.observations]
 
 
 def _complete_attribution_execution(

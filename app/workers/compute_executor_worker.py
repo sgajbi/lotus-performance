@@ -244,6 +244,7 @@ def _publish_compute_job_success(
             calculation_id=job.calculation_id,
             analytics_type=job.analytics_type,
             response_payload=response_payload,
+            tenant_id=None if job.tenant_id is None else job.tenant_id.strip(),
         )
     except Exception as exc:
         _handle_compute_success_result_publication_failure(
@@ -457,22 +458,19 @@ class ComputeJobAuthorityUnavailableError(RuntimeError):
 
 @contextmanager
 def _restored_job_tenant_authority(job: ComputeJobRecord) -> Iterator[None]:
-    """Reinstate exactly the authority this job was admitted with, from durable state.
+    """Reinstate the canonical authority this job was admitted with, from durable state.
 
     Deliberately not from `observability_context`. That envelope carries correlation,
     request and trace ids -- transient metadata whose loss costs a log line. Authority
     read from it would be authority whose lifetime is a logging concern.
 
-    Restored verbatim: an empty value stays empty and padding survives. The async path
+    An empty value stays empty. Legacy padding is canonicalised just as Core ingress
+    canonicalises it, so the async path
     must decide a request exactly as the synchronous path would, and synchronously an
     absent tenant is preserved as absence and refused at the Core boundary, where the
     refusal names the operation -- while stateless work that never reaches Core
     legitimately proceeds. Refusing absence here would make the same request succeed
     inline and fail offloaded, which is a worse defect than the one being fixed.
-    Padding survives for the same reason: `TenantAuthority.__post_init__` treats a
-    padded value as a different tenant, so normalising here would silently repair a
-    malformed header that the sync path refuses.
-
     `None` is the one case that is not a value. It means the row predates the column,
     so what the caller presented was never recorded -- unknowable rather than absent.
     """
@@ -485,7 +483,7 @@ def _restored_job_tenant_authority(job: ComputeJobRecord) -> Iterator[None]:
             f"is not available."
         )
 
-    token = tenant_id_var.set(job.tenant_id)
+    token = tenant_id_var.set(job.tenant_id.strip())
     try:
         yield
     finally:
@@ -743,6 +741,7 @@ def _handle_compute_job_failure(
         _record_terminal_failure(
             calculation_id=job.calculation_id,
             analytics_type=job.analytics_type,
+            tenant_id=None if job.tenant_id is None else job.tenant_id.strip(),
             error_message=error_message,
             error_type=error_type,
             missing_execution_log_message="Execution record missing for compute job %s",
@@ -763,6 +762,7 @@ def _handle_compute_job_failure(
     _record_terminal_failure(
         calculation_id=job.calculation_id,
         analytics_type=job.analytics_type,
+        tenant_id=None if job.tenant_id is None else job.tenant_id.strip(),
         error_message=error_message,
         error_type=error_type,
         missing_execution_log_message="Execution record missing for compute job %s",
@@ -882,6 +882,7 @@ def _handle_reconciled_stale_job(
         _record_terminal_failure(
             calculation_id=reconciled_job.calculation_id,
             analytics_type=reconciled_job.analytics_type,
+            tenant_id=None if reconciled_job.tenant_id is None else reconciled_job.tenant_id.strip(),
             error_message=reconciled_job.error_message,
             error_type=reconciled_job.error_type,
             missing_execution_log_message="Execution record missing for reconciled compute job %s",
@@ -1176,6 +1177,7 @@ def _record_terminal_failure(
     *,
     calculation_id: UUID,
     analytics_type: str,
+    tenant_id: str | None,
     error_message: str,
     error_type: str,
     missing_execution_log_message: str,
@@ -1187,6 +1189,7 @@ def _record_terminal_failure(
     active_result_store.record_failure(
         calculation_id=calculation_id,
         analytics_type=analytics_type,
+        tenant_id=tenant_id,
         error_message=error_message,
         error_type=error_type,
     )

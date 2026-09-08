@@ -117,6 +117,8 @@ def test_build_hierarchy_from_adjusted_position_series_uses_observation_date_ali
         {
             "position_id": ["SEC_A", "SEC_A"],
             PortfolioColumns.PERF_DATE.value: ["2026-03-30T12:00:00Z", "2026-03-31T12:00:00Z"],
+            PortfolioColumns.DAILY_ROR.value: [1.0, 2.0],
+            "capital_inst": [500.0, 505.0],
             "daily_weight": [0.5, 0.5],
             "sector": ["Technology", "Technology"],
         }
@@ -138,8 +140,16 @@ def test_build_hierarchy_from_adjusted_position_series_uses_observation_date_ali
     )
 
     assert hierarchy["summary"]["portfolio_contribution"] == 3.0
-    assert hierarchy["levels"][0]["rows"] == [
-        {"key": {"sector": "Technology"}, "contribution": 3.0, "weight_avg": 50.0}
+    row = hierarchy["levels"][0]["rows"][0]
+    assert row["key"] == {"sector": "Technology"}
+    assert row["contribution"] == 3.0
+    assert row["weight_avg"] == 50.0
+    assert row["group_return"]["status"] == "READY"
+    assert row["group_return"]["currency"] == "USD"
+    assert row["group_return"]["period_return_pct"] == pytest.approx(3.02)
+    assert row["group_return"]["series"] == [
+        {"date": date(2026, 3, 30), "return_pct": 1.0, "portfolio_weight_pct": 50.0},
+        {"date": date(2026, 3, 31), "return_pct": 2.0, "portfolio_weight_pct": 50.0},
     ]
 
 
@@ -174,7 +184,10 @@ def test_build_hierarchy_from_adjusted_position_series_uses_selected_period_aver
                 date(2026, 3, 30),
                 date(2026, 3, 31),
             ],
+            PortfolioColumns.DAILY_ROR.value: [1.0, 2.0, 3.0, 4.0],
+            "capital_inst": [100.0, 950.0, 900.0, 50.0],
             "daily_weight": [0.10, 0.95, 0.90, 0.05],
+            "currency": ["USD", "USD", "USD", "USD"],
             "sector": ["Technology", "Technology", "Health Care", "Health Care"],
         }
     )
@@ -211,6 +224,12 @@ def test_build_hierarchy_from_adjusted_position_series_uses_selected_period_aver
     rows_by_sector = {row["key"]["sector"]: row for row in hierarchy["levels"][0]["rows"]}
     assert rows_by_sector["Technology"]["weight_avg"] == pytest.approx(95.0)
     assert rows_by_sector["Health Care"]["weight_avg"] == pytest.approx(5.0)
+    assert [
+        point["portfolio_weight_pct"] for point in rows_by_sector["Technology"]["group_return"]["series"]
+    ] == pytest.approx([10.0, 95.0])
+    assert [
+        point["portfolio_weight_pct"] for point in rows_by_sector["Health Care"]["group_return"]["series"]
+    ] == pytest.approx([90.0, 5.0])
 
 
 def test_hierarchy_metadata_helpers_align_dates_and_unclassified_policy():
@@ -273,7 +292,11 @@ def test_hierarchy_metadata_helpers_align_dates_and_unclassified_policy():
     assert list(metadata.columns) == [
         "position_id",
         PortfolioColumns.PERF_DATE.value,
+        PortfolioColumns.DAILY_ROR.value,
+        "capital_inst",
         "daily_weight",
+        "source_daily_weight",
+        "currency",
         "sector",
         "region",
     ]
@@ -306,7 +329,11 @@ def test_hierarchy_metadata_columns_preserves_base_columns_and_unique_levels():
     ) == [
         "position_id",
         PortfolioColumns.PERF_DATE.value,
+        PortfolioColumns.DAILY_ROR.value,
+        "capital_inst",
         "daily_weight",
+        "source_daily_weight",
+        "currency",
         "sector",
         "region",
     ]
@@ -328,6 +355,12 @@ def test_other_hierarchy_row_for_emission_aggregates_overflow_rows_and_suppresse
         "key": {"sector": "Other", "region": "Other"},
         "contribution": 1.0,
         "weight_avg": 20.0,
+        "group_return": {
+            "status": "UNAVAILABLE",
+            "currency": None,
+            "series": [],
+            "reason": "OTHER_BUCKET_COMBINES_MULTIPLE_SOURCE_GROUPS",
+        },
         "children_count": 2,
         "is_other": True,
     }

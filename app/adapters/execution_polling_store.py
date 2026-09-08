@@ -14,11 +14,11 @@ class DurableExecutionPollingStore:
     def get_execution(self, calculation_id: UUID) -> ExecutionRecord | None:
         return execution_registry.get_execution(calculation_id)
 
-    def get_job(self, calculation_id: UUID) -> ComputeJobRecord | None:
-        return compute_job_store.get_job(calculation_id)
+    def get_job(self, calculation_id: UUID, *, tenant_id: str) -> ComputeJobRecord | None:
+        return compute_job_store.get_job_for_tenant(calculation_id, tenant_id=tenant_id)
 
-    def get_result(self, calculation_id: UUID) -> AsyncResultRecord | None:
-        return async_result_store.get_result(calculation_id)
+    def get_result(self, calculation_id: UUID, *, tenant_id: str) -> AsyncResultRecord | None:
+        return async_result_store.get_result_for_tenant(calculation_id, tenant_id=tenant_id)
 
 
 execution_polling_store: ExecutionPollingStore = DurableExecutionPollingStore()

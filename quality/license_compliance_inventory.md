@@ -34,7 +34,7 @@ Mode: generated first-party and third-party dependency license evidence.
 | `h11` | runtime | `h11==0.16.0` | `0.16.0` | MIT | License | allowed | - | - |
 | `httpcore` | runtime | `httpcore==1.0.9` | `1.0.9` | BSD-3-Clause | License-Expression | allowed | - | - |
 | `httpx` | development, runtime | `httpx==0.28.1` | `0.28.1` | BSD-3-Clause | License | allowed | - | - |
-| `httpx2` | development | `httpx2==2.4.0` | `2.4.0` | BSD-3-Clause | License-Expression | allowed | - | - |
+| `httpx2` | development | `httpx2==2.12.0` | `2.12.0` | BSD-3-Clause | License-Expression | allowed | - | - |
 | `idna` | runtime | `idna==3.18` | `3.18` | BSD-3-Clause | License-Expression | allowed | - | - |
 | `mypy` | development | `mypy==1.20.2` | `1.20.2` | MIT | License-Expression | allowed | - | - |
 | `numpy` | runtime | `numpy==2.3.2` | `2.3.2` | Copyright (c) 2005-2025, NumPy Developers. All rights reserved. Redistribution and use in source and binary forms, with or without modification, are permitted p | License | allowed | - | - |

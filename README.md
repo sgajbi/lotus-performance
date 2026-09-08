@@ -41,6 +41,13 @@ does not delegate performance conclusions to `lotus-core`.
    container supply-chain evidence are part of the real merge gate.
 6. Compose initializes persisted lineage-volume ownership before any non-root API or worker starts;
    PR and Main Releasability prove root-owned-volume repair, restart health, and retained evidence.
+7. Durable calculation identity and result disclosure are tenant-authority scoped across submission,
+   replay, cached results, job results, and worker restoration; tenantless stateful work is refused
+   before admission while legitimate stateless requests remain supported.
+8. Currency-converted results include applied FX evidence for the selected source currency and
+   exact prior/current EOD fixings; requested reporting currency alone is never conversion proof.
+9. Group contribution analytics publish genuine source group-return observations with their dates,
+   currencies, and weights instead of reconstructing returns from contribution divided by weight.
 
 ## Enterprise Readiness Evidence
 
@@ -415,6 +422,12 @@ Current request-model highlights:
   missing-benchmark readiness is generated through `make idea-opportunity-runtime-evidence`
 - attribution emits source-owned `currency_attribution_totals` for portfolio-level
   Karnosky-Singer FX attribution when `currency_mode=BOTH` is source-ready
+- TWR, Workspace Summary, Contribution, and Attribution publish `currency_evidence` for the
+  actually applied reporting currency; exact prior/current-date EOD FX coverage is validated and
+  `meta.report_ccy` remains a compatibility request echo
+- Attribution `by_group` currency results consume source-preconverted `return_base`,
+  `return_local`, and `return_fx` components. They publish that distinct provenance and reject
+  incomplete components or a `report_ccy` that differs from the base currency actually applied.
 - MWR stateless requests may supply complete `source_preconverted_fx_evidence`; the service
   validates per-input FX provenance and emits `currency_evidence` while still computing on a
   single reporting-currency schedule

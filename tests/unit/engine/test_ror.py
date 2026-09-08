@@ -188,6 +188,32 @@ def test_daily_ror_currency_decomposition_requires_config_when_guard_is_forced(m
         calculate_daily_ror(sample_df, metric_basis="GROSS", config=None)
 
 
+def test_local_only_does_not_apply_supplied_fx_rates(sample_df):
+    config = EngineConfig(
+        performance_start_date=date(2025, 1, 1),
+        report_end_date=date(2025, 1, 2),
+        metric_basis="GROSS",
+        period_type="YTD",
+        currency_mode="LOCAL_ONLY",
+        report_ccy="SGD",
+        source_currency="USD",
+        fx=FXRequestBlock.model_validate(
+            {
+                "rates": [
+                    {"date": "2024-12-31", "ccy": "USD", "rate": 1.30},
+                    {"date": "2025-01-01", "ccy": "USD", "rate": 1.35},
+                    {"date": "2025-01-02", "ccy": "USD", "rate": 1.36},
+                ]
+            }
+        ),
+    )
+
+    result = calculate_daily_ror(sample_df, metric_basis="GROSS", config=config)
+
+    assert "local_ror" not in result
+    assert "fx_ror" not in result
+
+
 def test_compound_ror_decimal_strict_multi_period():
     """Tests that the decimal-strict compounding works over multiple rows."""
     df = pd.DataFrame(
@@ -450,6 +476,50 @@ def test_calculate_fx_daily_return_accepts_date_rate_series_without_currency_dim
     fx_ror = _calculate_fx_daily_return(df, config)
 
     assert fx_ror.tolist() == pytest.approx([0.1])
+
+
+def test_calculate_fx_daily_return_selects_the_configured_currency_from_shared_dates():
+    df = pd.DataFrame({PortfolioColumns.PERF_DATE: pd.to_datetime(["2025-01-02"])})
+    config = EngineConfig(
+        performance_start_date=date(2025, 1, 2),
+        report_end_date=date(2025, 1, 2),
+        metric_basis="GROSS",
+        period_type="YTD",
+        currency_mode="BOTH",
+        report_ccy="USD",
+        source_currency="JPY",
+        fx=FXRequestBlock.model_validate(
+            {
+                "rates": [
+                    {"date": "2025-01-01", "ccy": "EUR", "rate": 1.1},
+                    {"date": "2025-01-02", "ccy": "EUR", "rate": 1.21},
+                    {"date": "2025-01-01", "ccy": "JPY", "rate": 0.006},
+                    {"date": "2025-01-02", "ccy": "JPY", "rate": 0.0063},
+                ]
+            }
+        ),
+    )
+
+    fx_ror = _calculate_fx_daily_return(df, config)
+
+    assert fx_ror.tolist() == pytest.approx([0.05])
+
+
+def test_calculate_fx_daily_return_refuses_missing_prior_date_instead_of_zero_return():
+    df = pd.DataFrame({PortfolioColumns.PERF_DATE: pd.to_datetime(["2025-01-02"])})
+    config = EngineConfig(
+        performance_start_date=date(2025, 1, 2),
+        report_end_date=date(2025, 1, 2),
+        metric_basis="GROSS",
+        period_type="YTD",
+        currency_mode="BOTH",
+        report_ccy="USD",
+        source_currency="EUR",
+        fx=FXRequestBlock.model_validate({"rates": [{"date": "2025-01-02", "ccy": "EUR", "rate": 1.2}]}),
+    )
+
+    with pytest.raises(ValueError, match="missing dates: 2025-01-01"):
+        _calculate_fx_daily_return(df, config)
 
 
 def test_cumulative_component_names_defaults_to_daily_return_only():

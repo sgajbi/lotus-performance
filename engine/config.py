@@ -47,5 +47,6 @@ class EngineConfig:
 
     currency_mode: Optional[Literal["BASE_ONLY", "LOCAL_ONLY", "BOTH"]] = "BASE_ONLY"
     report_ccy: Optional[str] = "USD"
+    source_currency: Optional[str] = None
     fx: Optional[FXRequestBlock] = None
     hedging: Optional[HedgingRequestBlock] = None

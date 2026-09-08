@@ -188,29 +188,16 @@ def test_an_unadmitted_request_after_an_admitted_one_is_still_refused(recorded_c
     ["tenant-sg ", " tenant-sg", "\ttenant-sg"],
     ids=["trailing space", "leading space", "leading tab"],
 )
-def test_a_padded_tenant_is_refused_rather_than_quietly_trimmed(recorded_core, presented: str) -> None:
-    """Trimming would substitute a tenant the caller did not present.
-
-    `TenantAuthority.__post_init__` has always said this -- "Core compares the
-    header exactly, so a padded value is a different tenant to it" -- and could
-    never fire, because the resolver stripped the header before the authority was
-    built. A correct, documented, unreachable invariant.
-
-    400 rather than 401: the caller did present authority and the problem is the
-    shape of what they sent. `outbound == []` matters as much as the status,
-    because reading under a trimmed tenant is the outcome being prevented.
-    """
+def test_a_padded_tenant_is_canonicalised_like_core(recorded_core, presented: str) -> None:
+    """Performance and Core admit the same canonical tenant identity."""
 
     response = asyncio.run(_request(presented))
 
-    assert response.status_code == 400
-    assert response.json()["error_code"] == "TENANT_AUTHORITY_MALFORMED"
-    assert recorded_core.calls == [], "a padded tenant must not reach Core in any form"
+    assert response.status_code == 200
+    assert recorded_core.tenants == ["tenant-sg"]
 
 
-def test_the_presented_tenant_reaches_core_unaltered(recorded_core) -> None:
-    """The control: an exact value is forwarded byte for byte, not canonicalised."""
-
+def test_the_canonical_presented_tenant_reaches_core(recorded_core) -> None:
     response = asyncio.run(_request("Tenant-SG_01"))
 
     assert response.status_code == 200

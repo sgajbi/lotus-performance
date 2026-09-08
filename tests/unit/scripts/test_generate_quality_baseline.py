@@ -24,10 +24,13 @@ def _stats() -> RepositoryStatistics:
     )
 
 
-def test_render_baseline_report_includes_repeatable_command_and_current_branch():
+def test_render_baseline_report_is_deterministic_across_checkout_identity():
     report = render_baseline_report(_stats())
 
-    assert "Branch: `feature/test`" in report
+    assert "feature/test" not in report
+    assert "2026-06-27" not in report
+    assert "abc1234" not in report
+    assert "freshness is deterministic" in report
     assert "Baseline commit" not in report
     assert "`make quality-baseline`" in report
     assert "| 1 | `app/services/example.py` | 120 |" in report
@@ -53,3 +56,12 @@ def test_write_or_check_reports_detects_stale_generated_reports(tmp_path: Path):
     (tmp_path / "quality" / "baseline_report.md").write_text("stale\n", encoding="utf-8")
 
     assert write_or_check_reports(_stats(), write=False, root=tmp_path) == 1
+
+
+def test_quality_baseline_freshness_is_a_required_pr_gate() -> None:
+    makefile = Path("Makefile").read_text(encoding="utf-8")
+    workflow = Path(".github/workflows/pr-merge-gate.yml").read_text(encoding="utf-8")
+
+    assert "quality-baseline-check:" in makefile
+    assert "python scripts/generate_quality_baseline.py --check" in makefile
+    assert "- name: Quality Baseline Freshness\n        run: make quality-baseline-check" in workflow

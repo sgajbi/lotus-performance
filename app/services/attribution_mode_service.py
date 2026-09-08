@@ -110,11 +110,14 @@ def _resolved_stateful_attribution_request(
     source_input: StatefulAttributionSourceInput,
     normalized_input: StatefulAttributionNormalizedInput,
 ) -> ResolvedAttributionRequest:
+    attribution_request = request.to_stateless_attribution_request(
+        portfolio_data=normalized_input.portfolio_data,
+        instruments_data=normalized_input.instruments_data,
+        benchmark_groups_data=normalized_input.benchmark_groups_data,
+    )
     return ResolvedAttributionRequest(
-        attribution_request=request.to_stateless_attribution_request(
-            portfolio_data=normalized_input.portfolio_data,
-            instruments_data=normalized_input.instruments_data,
-            benchmark_groups_data=normalized_input.benchmark_groups_data,
+        attribution_request=attribution_request.model_copy(
+            update={"currency": getattr(source_input.portfolio_input, "portfolio_currency", None) or request.currency}
         ),
         input_mode=AttributionInputMode.STATEFUL,
         input_count=(len(normalized_input.instruments_data) + len(normalized_input.benchmark_groups_data)),

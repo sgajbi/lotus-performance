@@ -236,7 +236,8 @@ def test_compute_executor_worker_process_leased_job_records_success_before_compl
             calls.append(("mark_complete", calculation_id_arg, response_payload, worker_id))
 
     class _ResultStore:
-        def record_success(self, *, calculation_id, analytics_type, response_payload):
+        def record_success(self, *, calculation_id, analytics_type, response_payload, tenant_id):
+            assert tenant_id == "tenant-test"
             calls.append(("record_success", calculation_id, analytics_type, response_payload))
 
     runtime = compute_executor_worker._ComputeJobRuntime(
@@ -305,7 +306,8 @@ def test_compute_executor_worker_skips_expired_batch_entry_without_terminating_w
             calls.append(("mark_complete", calculation_id_arg))
 
     class _ResultStore:
-        def record_success(self, *, calculation_id, analytics_type, response_payload):
+        def record_success(self, *, calculation_id, analytics_type, response_payload, tenant_id):
+            assert tenant_id == "tenant-test"
             calls.append(("record_success", calculation_id))
 
     monkeypatch.setattr(
@@ -368,7 +370,8 @@ def test_compute_executor_worker_renews_workspace_summary_lease_before_lineage_a
             calls.append(("mark_complete", calculation_id_arg, response_payload, worker_id))
 
     class _ResultStore:
-        def record_success(self, *, calculation_id, analytics_type, response_payload):
+        def record_success(self, *, calculation_id, analytics_type, response_payload, tenant_id):
+            assert tenant_id == "tenant-test"
             calls.append(("record_success", calculation_id, analytics_type, response_payload))
 
     def _lineage_materializer(materialized_calculation_id, *, worker_id, settings):
@@ -481,7 +484,8 @@ def test_compute_executor_worker_preserves_success_result_when_completion_fails(
             raise AssertionError("success finalization must not mark failed")
 
     class _ResultStore:
-        def record_success(self, *, calculation_id, analytics_type, response_payload):
+        def record_success(self, *, calculation_id, analytics_type, response_payload, tenant_id):
+            assert tenant_id == "tenant-test"
             calls.append(("record_success", calculation_id, analytics_type, response_payload))
 
         def record_failure(self, *args, **kwargs):  # noqa: ANN002, ANN003
@@ -710,7 +714,8 @@ def test_compute_executor_worker_does_not_complete_job_when_success_result_publi
             return True
 
     class _ResultStore:
-        def record_success(self, *, calculation_id, analytics_type, response_payload):  # noqa: ARG002
+        def record_success(self, *, calculation_id, analytics_type, response_payload, tenant_id):  # noqa: ARG002
+            assert tenant_id == "tenant-test"
             calls.append(("record_success", calculation_id, analytics_type))
             raise RuntimeError("result store outage")
 
@@ -2148,6 +2153,7 @@ def test_compute_executor_worker_records_terminal_failure_when_execution_missing
     compute_executor_worker._record_terminal_failure(
         calculation_id=calculation_id,
         analytics_type=ANALYTICS_WORKFLOW_RETURNS_SERIES,
+        tenant_id="tenant-private-bank",
         error_message="boom",
         error_type="RuntimeError",
         missing_execution_log_message="Execution record missing for compute job %s",
@@ -2733,7 +2739,7 @@ def _run_under_probe_executor(monkeypatch, job, observed):  # noqa: ANN001, ANN2
     [
         ("a presented tenant", "tenant-sg", "tenant-sg"),
         ("nothing presented", "", ""),
-        ("a padded header", "  tenant-sg  ", "  tenant-sg  "),
+        ("a padded header", "  tenant-sg  ", "tenant-sg"),
     ],
 )
 def test_an_offloaded_job_runs_under_exactly_the_authority_it_was_admitted_with(
@@ -2745,12 +2751,10 @@ def test_an_offloaded_job_runs_under_exactly_the_authority_it_was_admitted_with(
     so every offloaded job built its Core client with an empty tenant regardless of
     what the caller presented. The value now comes from the job's own column.
 
-    All three cases are restored verbatim, and the last two are the point. An empty
+    All three cases preserve authority semantics, and the last two are the point. An empty
     tenant is preserved as absence and refused at the Core boundary, where the refusal
     names the operation -- while stateless work that never reaches Core proceeds, as
-    it does inline. Padding survives because `TenantAuthority.__post_init__` treats a
-    padded value as a different tenant, so normalising here would silently repair a
-    header the synchronous path refuses.
+    it does inline. Padding is canonicalised because Core strips it at ingress.
 
     An earlier version of this slice refused the last two at execution. Twenty-six
     integration failures said that a request succeeding inline was being refused once

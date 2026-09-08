@@ -5,7 +5,7 @@ from uuid import UUID
 from fastapi import APIRouter, HTTPException, Path, Request, status
 from fastapi.responses import FileResponse, JSONResponse, Response
 
-from app.api.async_openapi import async_result_responses, async_submission_responses
+from app.api.async_openapi import STATEFUL_TENANT_OPENAPI_EXTRA, async_result_responses, async_submission_responses
 from app.api.http_response_adapter import to_fastapi_response
 from app.models.inspection_requests import TWRInspectionRequest
 from app.models.inspection_responses import TWRInspectionAcceptedResponse, TWRInspectionResponse
@@ -23,6 +23,21 @@ from app.services.inspection.twr_inspection_workflow_service import (
 )
 
 router = APIRouter(tags=["Performance"])
+
+INSPECTION_TENANT_OPENAPI_EXTRA = {
+    **STATEFUL_TENANT_OPENAPI_EXTRA,
+    "parameters": [
+        {
+            **STATEFUL_TENANT_OPENAPI_EXTRA["parameters"][0],
+            "description": (
+                "Required when the embedded TWR request selects stateful input, or when a referenced "
+                "calculation subject cannot be resolved without tenant authority. The admitted tenant is "
+                "canonicalised by trimming surrounding whitespace and is carried to lotus-core; it is never "
+                "minted or defaulted by lotus-performance."
+            ),
+        }
+    ],
+}
 
 
 def _is_application_http_error(exc: Exception) -> bool:
@@ -59,7 +74,9 @@ def _retained_inspection_artifact_response(artifact: RetainedTWRInspectionArtifa
         accepted_model=TWRInspectionAcceptedResponse,
         analytics_name="TWR inspection",
         result_path_template="/performance/inspections/{inspection_id}",
+        stateful_tenant_capable=True,
     ),
+    openapi_extra=INSPECTION_TENANT_OPENAPI_EXTRA,
 )
 def submit_twr_inspection(request: TWRInspectionRequest):
     return to_fastapi_response(submit_twr_inspection_workflow(request))

@@ -29,18 +29,30 @@ class _AsyncResponse(BaseModel):
 class _ResultStore:
     def __init__(self, result: AsyncResultRecord | None = None) -> None:
         self._result = result
+        self.requested_tenants: list[str] = []
 
     def get_result(self, calculation_id: UUID) -> AsyncResultRecord | None:
         del calculation_id
+        return self._result
+
+    def get_result_for_tenant(self, calculation_id: UUID, *, tenant_id: str) -> AsyncResultRecord | None:
+        del calculation_id
+        self.requested_tenants.append(tenant_id)
         return self._result
 
 
 class _JobStore:
     def __init__(self, job: ComputeJobRecord) -> None:
         self._job = job
+        self.requested_tenants: list[str] = []
 
     def get_job(self, calculation_id: UUID) -> ComputeJobRecord:
         del calculation_id
+        return self._job
+
+    def get_job_for_tenant(self, calculation_id: UUID, *, tenant_id: str) -> ComputeJobRecord:
+        del calculation_id
+        self.requested_tenants.append(tenant_id)
         return self._job
 
 
@@ -106,9 +118,15 @@ def _accepted_response(calculation_id: UUID) -> _AsyncResponse:
     return _AsyncResponse(calculation_id=calculation_id, status="accepted")
 
 
-def _execution_record(calculation_id: UUID, *, portfolio_id: str | None = "PORT-1") -> ExecutionRecord:
+def _execution_record(
+    calculation_id: UUID,
+    *,
+    portfolio_id: str | None = "PORT-1",
+    tenant_id: str | None = "tenant-private-bank",
+) -> ExecutionRecord:
     return ExecutionRecord(
         calculation_id=calculation_id,
+        tenant_id=tenant_id,
         analytics_type="ReturnsSeries",
         portfolio_id=portfolio_id,
         execution_mode="async",
@@ -306,6 +324,38 @@ def test_resolve_async_result_allows_same_portfolio_access(monkeypatch):
     )
 
     assert response == _AsyncResponse(calculation_id=calculation_id, status="complete")
+
+
+def test_resolve_async_result_uses_persisted_empty_authority_for_stateless_poll(monkeypatch):
+    calculation_id = uuid4()
+    result_store = _ResultStore(
+        _async_result_record(
+            calculation_id,
+            result_status=AsyncResultStatus.COMPLETE,
+            response_payload={"calculation_id": str(calculation_id), "status": "complete"},
+        )
+    )
+    monkeypatch.setattr(
+        async_result_service, "execution_registry", _ExecutionStore(_execution_record(calculation_id, tenant_id=""))
+    )
+    monkeypatch.setattr(async_result_service, "async_result_store", result_store)
+    tenant_token = async_result_service.tenant_id_var.set("tenant-private-bank")
+
+    try:
+        response = resolve_async_result(
+            calculation_id=calculation_id,
+            expected_analytics_type="ReturnsSeries",
+            response_model=_AsyncResponse,
+            accepted_response_factory=_accepted_response,
+            not_found_detail="not found",
+            failed_detail="failed",
+            request_headers=_identity_headers(**{"X-Portfolio-Id": "PORT-1"}),
+        )
+    finally:
+        async_result_service.tenant_id_var.reset(tenant_token)
+
+    assert response == _AsyncResponse(calculation_id=calculation_id, status="complete")
+    assert result_store.requested_tenants == [""]
 
 
 def test_resolve_async_result_validates_stored_async_result_payload(monkeypatch):

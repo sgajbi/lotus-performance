@@ -12,7 +12,7 @@ from common.enums import canonical_performance_period_code
 class FXRate(BaseModel):
     date: date
     ccy: str
-    rate: float
+    rate: float = Field(..., gt=0, allow_inf_nan=False)
 
 
 class FXRequestBlock(BaseModel):

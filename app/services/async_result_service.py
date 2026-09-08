@@ -8,6 +8,7 @@ from uuid import UUID
 from pydantic import BaseModel, ValidationError
 
 from app.core.application_responses import ApplicationHttpResponse, accepted_application_response
+from app.observability import tenant_id_var
 from app.services.async_result_store import AsyncResultRecord, AsyncResultStatus, async_result_store
 from app.services.calculation_result_access import authorize_calculation_result_access
 from app.services.compute_job_store import ComputeJobRecord, ComputeJobStatus, compute_job_store
@@ -155,7 +156,7 @@ def resolve_async_result(
     failed_detail: str,
     request_headers: Mapping[str, Any] | None = None,
 ) -> ResponseModelT | ApplicationHttpResponse:
-    access_denial = _authorize_async_result_access(
+    access_denial, persisted_tenant_id = _authorize_async_result_access(
         calculation_id=calculation_id,
         request_headers=request_headers,
         not_found_detail=not_found_detail,
@@ -163,7 +164,8 @@ def resolve_async_result(
     if access_denial is not None:
         return access_denial
 
-    async_result = async_result_store.get_result(calculation_id)
+    admitted_tenant_id = tenant_id_var.get() if persisted_tenant_id is None else persisted_tenant_id
+    async_result = async_result_store.get_result_for_tenant(calculation_id, tenant_id=admitted_tenant_id)
     if async_result is not None:
         return _resolve_stored_async_result(
             async_result=async_result,
@@ -175,7 +177,7 @@ def resolve_async_result(
 
     return _resolve_compute_job_result(
         calculation_id=calculation_id,
-        job=compute_job_store.get_job(calculation_id),
+        job=compute_job_store.get_job_for_tenant(calculation_id, tenant_id=admitted_tenant_id),
         expected_analytics_type=expected_analytics_type,
         response_model=response_model,
         accepted_response_factory=accepted_response_factory,
@@ -189,10 +191,10 @@ def _authorize_async_result_access(
     calculation_id: UUID,
     request_headers: Mapping[str, Any] | None,
     not_found_detail: str,
-) -> ApplicationHttpResponse | None:
+) -> tuple[ApplicationHttpResponse | None, str | None]:
     if request_headers is None:
-        return None
+        return None, None
     execution = execution_registry.get_execution(calculation_id)
     if execution is None:
         raise APINotFoundError(not_found_detail)
-    return authorize_calculation_result_access(execution=execution, headers=request_headers)
+    return authorize_calculation_result_access(execution=execution, headers=request_headers), execution.tenant_id

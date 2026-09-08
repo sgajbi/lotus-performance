@@ -26,6 +26,18 @@ def base_response_footer():
             "effective_period_start": "2025-01-01",
         },
         "audit": {"counts": {"input_rows": 10}},
+        "currency_evidence": {
+            "portfolio_base_currency": "USD",
+            "requested_report_ccy": None,
+            "applied_report_ccy": "USD",
+            "restated": False,
+            "currency_mode_applied": "BASE_ONLY",
+            "fx_source": "none",
+            "fx_coverage": "none",
+            "fixing_policy": "EOD_EXACT_PRIOR_AND_CURRENT",
+            "applied_pairs": [],
+            "reason": "PORTFOLIO_BASE_CURRENCY_APPLIED",
+        },
     }
 
 

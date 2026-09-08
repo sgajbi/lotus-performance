@@ -316,8 +316,12 @@ def _performance_component_economics_contexts(request: ContributionRequest) -> l
         if not isinstance(context, dict):
             continue
         key = (
+            position.position_id,
             context.get("retrieval_status"),
             context.get("supportability_state"),
+            context.get("supportability_reason"),
+            tuple(_source_string_list(context.get("request_fingerprints"))),
+            _performance_component_source_row_identities(context),
             tuple(_source_string_list(context.get("observed_component_families"))),
             tuple(_source_string_list(context.get("missing_component_families"))),
         )
@@ -362,7 +366,7 @@ def _has_degraded_performance_component_economics(component_contexts: list[dict[
             return True
         if context.get("supportability_state") != "READY":
             return True
-        if not _has_performance_component_source_rows(context):
+        if not _has_performance_component_source_rows(context) and not _is_authoritative_no_activity(context):
             return True
     return False
 
@@ -370,6 +374,27 @@ def _has_degraded_performance_component_economics(component_contexts: list[dict[
 def _has_performance_component_source_rows(context: dict[str, Any]) -> bool:
     rows = context.get("source_rows")
     return isinstance(rows, list) and any(isinstance(row, dict) for row in rows)
+
+
+def _is_authoritative_no_activity(context: dict[str, Any]) -> bool:
+    return context.get("supportability_reason") == "PERFORMANCE_COMPONENT_ECONOMICS_NO_ACTIVITY"
+
+
+def _performance_component_source_row_identities(context: dict[str, Any]) -> tuple[tuple[str, str, str], ...]:
+    rows = context.get("source_rows")
+    if not isinstance(rows, list):
+        return ()
+    return tuple(
+        sorted(
+            (
+                str(row.get("security_id") or ""),
+                str(row.get("transaction_date") or ""),
+                str(row.get("transaction_id") or ""),
+            )
+            for row in rows
+            if isinstance(row, dict)
+        )
+    )
 
 
 def _source_string_list(value: Any) -> list[str]:

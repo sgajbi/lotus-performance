@@ -496,6 +496,29 @@ def test_initial_benchmark_async_submission_projects_large_input_payload(mocker)
     assert register_async.call_args.kwargs["calculation_hash"] == "source-hash"
     assert register_async.call_args.kwargs["requested_window"]["input_count"] == 2
     assert register_async.call_args.kwargs["offload_reason"] == "large_benchmark_input_set"
+    assert register_async.call_args.kwargs["requires_tenant_authority"] is False
+
+
+def test_initial_benchmark_async_submission_requires_tenant_for_stateful_input(mocker):
+    request = BenchmarkAnalyticsRequest.model_validate(_stateful_benchmark_payload())
+    accepted_response = benchmark_calculation_workflow_service.accepted_benchmark_response(request.calculation_id)
+    mocker.patch(
+        "app.services.benchmark_calculation_workflow_service.should_offload_benchmark",
+        return_value=True,
+    )
+    register_async = mocker.patch(
+        "app.services.benchmark_calculation_workflow_service.register_async_submission_or_raise",
+        return_value=accepted_response,
+    )
+
+    response = benchmark_calculation_workflow_service._initial_benchmark_async_submission(
+        request,
+        source_request_fingerprint="source-fingerprint",
+        source_request_hash="source-hash",
+    )
+
+    assert response == accepted_response
+    assert register_async.call_args.kwargs["requires_tenant_authority"] is True
 
 
 @pytest.mark.asyncio

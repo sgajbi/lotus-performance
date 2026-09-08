@@ -8,6 +8,7 @@ from pydantic import BaseModel, ConfigDict, Field
 
 from app.core.async_polling import DEFAULT_RECOMMENDED_POLL_AFTER_SECONDS
 from app.models.benchmark_analytics_requests import BenchmarkInputMode, BenchmarkReturnSource
+from app.models.currency_evidence import AppliedCurrencyEvidence
 from app.models.mwr_analytics_requests import MWRInputMode
 from app.models.twr_requests import TWRInputMode
 from common.enums import Frequency
@@ -329,6 +330,9 @@ class WorkspaceSummaryResponse(BaseModel):
     input_mode: TWRInputMode = Field(description="Resolved portfolio input mode for the workspace summary.")
     results_by_period: Dict[str, WorkspacePeriodSummaryResult] = Field(
         description="Workspace summary outputs keyed by the requested workspace period label."
+    )
+    currency_evidence: AppliedCurrencyEvidence = Field(
+        description="Evidence for the reporting currency and FX rates actually applied to workspace returns."
     )
     meta: Meta = Field(description="Shared metadata envelope for the workspace summary.")
     diagnostics: Diagnostics = Field(description="Diagnostic details for the workspace summary.")

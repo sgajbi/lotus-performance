@@ -100,8 +100,11 @@ Current repository posture:
     source-economics evidence for cashflow, fee, income, tax, realized P&L, and FX-context
     component-family supportability. The consumer must traverse Core component-economics pages,
     preserve source rows, lineage, request fingerprints, retrieval metadata, and consumed-page
-    totals, and use observed component families for source-backed contribution evidence only when
-    the relevant position context contains actual Core-authored `source_rows`.
+    totals. Preserve Core's per-page supportability verdicts: authoritative initial
+    `READY/NO_ACTIVITY` is a valid empty result, while `UNAVAILABLE/PAGE_EVIDENCE_CHANGED` is a
+    refusal even when an earlier page contained rows. Use observed component families for
+    source-backed contribution evidence only when the relevant position context contains actual
+    Core-authored `source_rows`.
     `lotus-performance` still owns contribution methodology and treats non-200 or unavailable
     component-economics responses as degraded evidence rather than as a required-input failure.
 15. `ReturnsSeriesBundle:v1` exposes source-owned return-series diagnostics for downstream
@@ -245,6 +248,8 @@ Use these commands as the primary local contract:
    `make domain-product-validate`
 9. report-only enterprise refactor quality baseline refresh
    `make quality-baseline`
+   Assert freshness without rewriting evidence with `make quality-baseline-check`; the required PR
+   gate runs this assertion.
 10. demo API certification
    `make demo-api-certification`
 11. RFC-0002 Idea opportunity evidence contract gate
@@ -280,6 +285,12 @@ Use these commands as the primary local contract:
 2. `Pull Request Merge Gate`
 3. `Main Releasability Gate`
 
+The merged-PR dispatcher assumes and verifies rebase-only repository policy, enumerates the exact
+landed base-to-tip revision range, and dispatches one immutable Main Releasability evaluation per
+revision. Main evidence runs must never cancel one another. The scheduled coverage audit fails
+closed on missing, unverifiable, or truncated coverage while retaining the passing/failing verdict
+split for historical revisions.
+
 Important validation expectations:
 
 1. OpenAPI and API vocabulary governance are active,
@@ -310,6 +321,12 @@ Important validation expectations:
    `quality/baseline_report.md`. The Quality Baseline Snapshot workflow calls this same target so
    local and GitHub evidence stay aligned, while `quality/refactor_health_report.md` and
    `quality/quality_scorecard.md` remain curated source reports updated by meaningful slices.
+    `make quality-baseline-check` is the non-mutating freshness assertion in the required PR gate.
+    It must fail when generated report inputs change without regeneration and pass after the
+    reviewed refresh. The CI-local Docker lifecycle derives a stable checkout-specific Compose
+    project and uses it symmetrically for up and down. Do not remove that project scoping:
+    product-runtime and parallel-worktree containers, networks, and volumes are outside CI-local
+    teardown ownership.
 11. `make demo-api-certification` is the single local demo-readiness API sweep. It calls the
    supported demo-critical calculation and integration APIs with deterministic synthetic data,
    seeds composite persisted-fact data repeatably, validates expected figures and capability

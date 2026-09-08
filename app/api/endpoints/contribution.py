@@ -4,7 +4,7 @@ from uuid import UUID
 from fastapi import APIRouter, Request
 from fastapi.responses import JSONResponse
 
-from app.api.async_openapi import async_result_responses, async_submission_responses
+from app.api.async_openapi import STATEFUL_TENANT_OPENAPI_EXTRA, async_result_responses, async_submission_responses
 from app.api.http_response_adapter import to_fastapi_response
 from app.api.mappers.analytics_workflow_requests import map_contribution_request
 from app.models.contribution_analytics_requests import ContributionAnalyticsRequest
@@ -44,7 +44,9 @@ def _as_numeric(value: object, default=0):
         accepted_model=ContributionAcceptedResponse,
         analytics_name="contribution",
         result_path_template="/performance/contribution/results/{calculation_id}",
+        stateful_tenant_capable=True,
     ),
+    openapi_extra=STATEFUL_TENANT_OPENAPI_EXTRA,
 )
 async def calculate_contribution_endpoint(
     request: ContributionAnalyticsRequest,

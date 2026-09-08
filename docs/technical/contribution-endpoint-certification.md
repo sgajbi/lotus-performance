@@ -157,8 +157,11 @@ source-authored, and where upstream snapshot lineage is retained. Stateful contr
 `PerformanceComponentEconomics:v1` as optional Core source evidence for cashflow, fee, income, tax,
 realized P&L, and FX-context component families. Non-200 or unavailable component-economics
 responses degrade `source_economics_evidence` rather than blocking calculations that can still run
-from portfolio and position timeseries. Multi-chunk component-economics retrieval is source-backed
-only when every requested chunk is `READY`; partial chunk coverage remains degraded and must not
+from portfolio and position timeseries. Multi-page reduction preserves Core's source verdict:
+`READY/NO_ACTIVITY` is authoritative valid-empty evidence, whereas
+`UNAVAILABLE/PAGE_EVIDENCE_CHANGED` remains unavailable after any populated partial page.
+Multi-chunk component-economics retrieval is source-backed only when every requested chunk is
+`READY`; partial chunk coverage remains degraded and must not
 clear component-P&L unsupported flags. Downstream consumers must preserve this block instead of
 inferring source quality from rounded contribution totals.
 

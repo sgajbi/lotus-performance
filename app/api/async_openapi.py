@@ -8,6 +8,21 @@ from app.core.async_polling import ASYNC_RETRY_AFTER_HEADER, DEFAULT_RECOMMENDED
 from app.models.platform_surfaces import ErrorDetailResponse
 
 _EXAMPLE_CALCULATION_ID = "209da27d-f3f4-4e64-97c5-a2eb1d4fe4f3"
+STATEFUL_TENANT_OPENAPI_EXTRA: dict[str, Any] = {
+    "parameters": [
+        {
+            "name": "X-Tenant-Id",
+            "in": "header",
+            "required": False,
+            "schema": {"type": "string", "maxLength": 128},
+            "description": (
+                "Required when input_mode selects a stateful path. The admitted tenant is "
+                "canonicalised by trimming surrounding whitespace and is carried to lotus-core; "
+                "it is never minted or defaulted by lotus-performance."
+            ),
+        }
+    ]
+}
 
 
 def async_submission_responses(
@@ -15,8 +30,9 @@ def async_submission_responses(
     accepted_model: type[BaseModel],
     analytics_name: str,
     result_path_template: str,
+    stateful_tenant_capable: bool = False,
 ) -> dict[int, dict[str, Any]]:
-    return {
+    responses = {
         202: {
             "model": accepted_model,
             "description": (
@@ -28,6 +44,42 @@ def async_submission_responses(
             "headers": _accepted_polling_headers(),
             "content": {"application/json": {"example": _accepted_example(accepted_model, result_path_template)}},
         }
+    }
+    if stateful_tenant_capable:
+        responses.update(stateful_tenant_authority_responses())
+    return responses
+
+
+def stateful_tenant_authority_responses() -> dict[int, dict[str, Any]]:
+    return {
+        400: {
+            "model": ErrorDetailResponse,
+            "description": "The normalized X-Tenant-Id exceeds the supported 128-character authority bound.",
+            "content": {
+                "application/json": {
+                    "example": _error_detail_example(
+                        detail="X-Tenant-Id must not exceed 128 characters after trimming.",
+                        error_code="TENANT_AUTHORITY_MALFORMED",
+                        message="X-Tenant-Id must not exceed 128 characters after trimming.",
+                        retryable=False,
+                    )
+                }
+            },
+        },
+        401: {
+            "model": ErrorDetailResponse,
+            "description": "A stateful request did not carry the required X-Tenant-Id authority.",
+            "content": {
+                "application/json": {
+                    "example": _error_detail_example(
+                        detail="Stateful input requires X-Tenant-Id before any durable job is accepted or Core read is made.",
+                        error_code="TENANT_AUTHORITY_REQUIRED",
+                        message="Stateful input requires X-Tenant-Id before any durable job is accepted or Core read is made.",
+                        retryable=False,
+                    )
+                }
+            },
+        },
     }
 
 

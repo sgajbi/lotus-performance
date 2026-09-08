@@ -65,7 +65,18 @@ def test_build_contribution_period_result_projects_flat_and_hierarchy_outputs():
                 {
                     "level": 1,
                     "name": "sector",
-                    "rows": [{"key": {"sector": "Technology"}, "contribution": 3.25}],
+                    "rows": [
+                        {
+                            "key": {"sector": "Technology"},
+                            "contribution": 3.25,
+                            "group_return": {
+                                "status": "READY",
+                                "period_return_pct": 3.25,
+                                "currency": "USD",
+                                "series": [],
+                            },
+                        }
+                    ],
                 }
             ],
         },

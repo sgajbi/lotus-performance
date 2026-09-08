@@ -163,6 +163,12 @@ Source-economics evidence fields:
   or partial component-economics enrichment, or missing embedded snapshot evidence
 - `cash_flow_type_counts`, `source_snapshot_count`, and `source_snapshot_endpoints`
 
+The component-economics reducer preserves Core's page verdicts rather than deriving readiness from
+row presence. An exhausted initial page reported as `READY/NO_ACTIVITY` is valid empty evidence. A
+continuation page reported as `UNAVAILABLE/PAGE_EVIDENCE_CHANGED` makes the requested window
+unavailable even when preceding pages contained rows. Per-position evidence identities are retained
+when evaluating source quality, so reversing position order cannot change the degraded posture.
+
 Hierarchical path fields:
 - `results_by_period.<period>.summary.portfolio_contribution`
 - `results_by_period.<period>.levels[].rows[].contribution`

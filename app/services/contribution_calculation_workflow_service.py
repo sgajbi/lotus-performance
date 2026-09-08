@@ -13,6 +13,7 @@ from app.models.contribution_requests import ContributionRequest
 from app.models.contribution_responses import ContributionAcceptedResponse, ContributionResponse
 from app.services.analytics_workflow_commands import ContributionWorkflowCommand, workflow_request
 from app.services.analytics_workflow_types import ANALYTICS_WORKFLOW_CONTRIBUTION
+from app.services.applied_currency_evidence_service import require_reporting_currency_for_both
 from app.services.async_observability_context import async_observability_request_payload
 from app.services.calculation_engine_version import calculation_engine_version
 from app.services.contribution_mode_service import resolve_contribution_request
@@ -125,6 +126,7 @@ def _prepare_promoted_stateful_contribution_sync_execution(
         analytics_type=ANALYTICS_WORKFLOW_CONTRIBUTION,
         source_request_fingerprint=input_fingerprint,
         accepted_response_factory=accepted_contribution_response,
+        requires_tenant_authority=request.input_mode == ContributionInputMode.STATEFUL,
     )
     if replay_response is not None:
         return replay_response
@@ -237,6 +239,7 @@ def _initial_contribution_async_submission(
         request_payload=async_observability_request_payload(request.model_dump(mode="json")),
         offload_reason=offload_reason,
         accepted_response_factory=accepted_contribution_response,
+        requires_tenant_authority=request.input_mode == ContributionInputMode.STATEFUL,
     )
 
 
@@ -283,6 +286,7 @@ async def calculate_contribution_workflow(
 ) -> ContributionResponse | ApplicationHttpResponse:
     """Resolve, fence, execute, and map errors for one contribution analytics request."""
     request = workflow_request(command, ContributionAnalyticsRequest)
+    require_reporting_currency_for_both(currency_mode=request.currency_mode, requested_report_ccy=request.report_ccy)
     active_settings = get_settings()
     input_fingerprint, calculation_hash = generate_request_fingerprint(
         request,

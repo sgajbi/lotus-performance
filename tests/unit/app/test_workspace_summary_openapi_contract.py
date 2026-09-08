@@ -18,6 +18,8 @@ def test_workspace_summary_openapi_describes_usage_and_schema_fields():
     period_schema = schemas["WorkspaceSummaryPeriodRequest"]
     benchmark_schema = schemas["WorkspaceBenchmarkRequest"]
     accepted_schema = schemas["WorkspaceSummaryAcceptedResponse"]
+    response_schema = schemas["WorkspaceSummaryResponse"]
+    currency_evidence_schema = schemas["AppliedCurrencyEvidence"]
 
     for field_name in [
         "portfolio_id",
@@ -44,3 +46,13 @@ def test_workspace_summary_openapi_describes_usage_and_schema_fields():
 
     for field_name in ["calculation_id", "poll_path", "result_path", "recommended_poll_after_seconds"]:
         assert accepted_schema["properties"][field_name]["description"]
+
+    assert "currency_evidence" in response_schema["properties"]
+    assert set(currency_evidence_schema["required"]) >= {
+        "portfolio_base_currency",
+        "requested_report_ccy",
+        "applied_report_ccy",
+        "restated",
+        "fx_coverage",
+    }
+    assert "applied_pairs" in currency_evidence_schema["properties"]

@@ -36,6 +36,7 @@ from app.models.workspace_summary_responses import (
 from app.precision_policy import to_decimal
 from app.services.analytics_observation_dates import observation_date_series
 from app.services.analytics_workflow_types import ANALYTICS_WORKFLOW_WORKSPACE_SUMMARY
+from app.services.applied_currency_evidence_service import build_applied_currency_evidence
 from app.services.benchmark_assignment_service import resolve_benchmark_identity
 from app.services.calculation_engine_version import calculation_engine_version
 from app.services.execution_lifecycle_service import complete_execution_with_lineage
@@ -77,6 +78,7 @@ class ResolvedWorkspacePortfolioInput:
     valuation_points: list[DailyInputData]
     observations: list[dict[str, object]]
     source_details: dict[str, int]
+    portfolio_currency: str | None = None
 
 
 @dataclass(frozen=True)
@@ -241,6 +243,7 @@ async def _resolve_workspace_inputs_async(
         request=request,
         valuation_points=portfolio_input.valuation_points,
         performance_start_date=portfolio_input.performance_start_date,
+        portfolio_base_currency=portfolio_input.portfolio_currency or request.currency,
     )
     return resolved_periods, portfolio_input, benchmark_input, net_artifacts, gross_artifacts
 
@@ -311,6 +314,7 @@ async def _build_stateful_workspace_portfolio_input_async(
             "portfolio_chunk_count": source_input.retrieval_metadata.chunk_count,
             "portfolio_page_count": source_input.retrieval_metadata.page_count,
         },
+        portfolio_currency=getattr(source_input, "portfolio_currency", None),
     )
 
 
@@ -332,6 +336,7 @@ def _calculate_workspace_basis_artifacts(
     request: WorkspaceSummaryRequest,
     valuation_points: list[DailyInputData],
     performance_start_date: date,
+    portfolio_base_currency: str,
 ) -> tuple[WorkspaceTWRArtifacts, WorkspaceTWRArtifacts]:
     with ThreadPoolExecutor(max_workers=2) as executor:
         net_future = executor.submit(
@@ -339,6 +344,7 @@ def _calculate_workspace_basis_artifacts(
             request=request,
             valuation_points=valuation_points,
             performance_start_date=performance_start_date,
+            portfolio_base_currency=portfolio_base_currency,
             metric_basis="NET",
         )
         gross_future = executor.submit(
@@ -346,6 +352,7 @@ def _calculate_workspace_basis_artifacts(
             request=request,
             valuation_points=valuation_points,
             performance_start_date=performance_start_date,
+            portfolio_base_currency=portfolio_base_currency,
             metric_basis="GROSS",
         )
         return net_future.result(), gross_future.result()
@@ -375,6 +382,7 @@ def _trim_portfolio_input_to_master_window(
         valuation_points=filtered_points,
         observations=filtered_observations,
         source_details=portfolio_input.source_details,
+        portfolio_currency=getattr(portfolio_input, "portfolio_currency", None),
     )
 
 
@@ -574,6 +582,7 @@ def _calculate_workspace_twr_artifacts(
     request: WorkspaceSummaryRequest,
     valuation_points: list[DailyInputData],
     performance_start_date: date,
+    portfolio_base_currency: str,
     metric_basis: str,
 ) -> WorkspaceTWRArtifacts:
     performance_request = PerformanceRequest.model_validate(
@@ -586,7 +595,7 @@ def _calculate_workspace_twr_artifacts(
             "report_end_date": request.report_end_date,
             "analyses": [{"period": "EXPLICIT", "frequencies": ["daily"]}],
             "valuation_points": [point.model_dump(mode="python") for point in valuation_points],
-            "currency": request.currency,
+            "currency": portfolio_base_currency,
             "precision_mode": request.precision_mode,
             "rounding_precision": request.rounding_precision,
             "calendar": request.calendar.model_dump(mode="python"),
@@ -635,6 +644,13 @@ def _build_workspace_summary_response(
         portfolio_id=request.portfolio_id,
         input_mode=request.input_mode,
         results_by_period=projection.results_by_period,
+        currency_evidence=build_applied_currency_evidence(
+            portfolio_base_currency=portfolio_input.portfolio_currency or request.currency,
+            requested_report_ccy=request.report_ccy,
+            currency_mode=request.currency_mode,
+            fx=request.fx,
+            source_currencies=[portfolio_input.portfolio_currency or request.currency],
+        ),
         meta=_workspace_summary_meta(
             request=request,
             settings=settings,

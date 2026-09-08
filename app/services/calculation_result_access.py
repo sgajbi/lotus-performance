@@ -17,7 +17,10 @@ from app.enterprise_runtime_config import _privileged_read_authz_enabled
 from app.services.execution_registry import ExecutionRecord
 
 _PORTFOLIO_ID_HEADER = "x-portfolio-id"
+_TENANT_ID_HEADER = "x-tenant-id"
 _RESULT_ACCESS_DENIED_REASON = "missing_result_access:operations.runtime.read_or_matching_portfolio_id"
+_RESULT_TENANT_ACCESS_DENIED_REASON = "result_tenant_authority_mismatch"
+_RESULT_TENANT_AUTHORITY_UNAVAILABLE_REASON = "result_tenant_authority_unavailable"
 
 
 def authorize_calculation_result_access(
@@ -25,13 +28,17 @@ def authorize_calculation_result_access(
     execution: ExecutionRecord,
     headers: Mapping[str, Any] | None,
 ) -> ApplicationHttpResponse | None:
-    if headers is None or not _privileged_read_authz_enabled():
-        return None
-    normalized_headers = _normalized_headers(headers)
-    denial_reason = _calculation_result_access_denial_reason(
-        execution=execution,
-        normalized_headers=normalized_headers,
-    )
+    normalized_headers = _normalized_headers(headers or {})
+    if _privileged_read_authz_enabled():
+        denial_reason = _calculation_result_access_denial_reason(
+            execution=execution,
+            normalized_headers=normalized_headers,
+        )
+    else:
+        denial_reason = _tenant_access_denial_reason(
+            execution=execution,
+            normalized_headers=normalized_headers,
+        )
     if denial_reason is None:
         return None
     return _authorization_denied_application_response(denial_reason)
@@ -47,12 +54,32 @@ def _calculation_result_access_denial_reason(
         return _missing_headers_reason(missing_headers)
     if not _has_service_identity(normalized_headers):
         return "missing_service_identity"
+    tenant_denial = _tenant_access_denial_reason(
+        execution=execution,
+        normalized_headers=normalized_headers,
+    )
+    if tenant_denial is not None:
+        return tenant_denial
     if _has_calculation_result_access(
         execution=execution,
         normalized_headers=normalized_headers,
     ):
         return None
     return _RESULT_ACCESS_DENIED_REASON
+
+
+def _tenant_access_denial_reason(
+    *,
+    execution: ExecutionRecord,
+    normalized_headers: Mapping[str, str],
+) -> str | None:
+    if execution.tenant_id is None:
+        return _RESULT_TENANT_AUTHORITY_UNAVAILABLE_REASON
+    if not execution.tenant_id:
+        return None
+    if normalized_headers.get(_TENANT_ID_HEADER) != execution.tenant_id:
+        return _RESULT_TENANT_ACCESS_DENIED_REASON
+    return None
 
 
 def _has_calculation_result_access(

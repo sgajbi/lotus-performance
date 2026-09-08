@@ -124,31 +124,55 @@ def _apply_local_daily_return_division(
 
 
 def _should_decompose_currency(config: EngineConfig | None) -> bool:
-    return bool(config and config.currency_mode and config.currency_mode != "BASE_ONLY" and config.fx)
+    if not config or config.currency_mode != "BOTH" or not config.fx:
+        return False
+    if config.source_currency and config.report_ccy:
+        return config.source_currency.strip().upper() != config.report_ccy.strip().upper()
+    return True
 
 
 def _calculate_fx_daily_return(df: pd.DataFrame, config: EngineConfig) -> pd.Series:
-    fx_config = config.fx
-    if fx_config is None:
-        raise ValueError("FX daily return calculation requires FX configuration.")
-    fx_rates_df = pd.DataFrame([rate.model_dump() for rate in fx_config.rates])
-
-    if "date" in fx_rates_df.columns and "ccy" in fx_rates_df.columns:
-        fx_rates_df.drop_duplicates(subset=["date", "ccy"], keep="last", inplace=True)
-
-    fx_rates_df["date"] = pd.to_datetime(fx_rates_df["date"])
-    fx_rates = fx_rates_df.set_index("date")["rate"].sort_index()
-
+    fx_rates = _fx_rate_series(config)
     start_dt = pd.to_datetime(config.performance_start_date) - pd.Timedelta(days=1)
     end_dt = df[PortfolioColumns.PERF_DATE.value].max()
-    full_date_range = pd.date_range(start=start_dt, end=end_dt, freq="D")
-    all_rates = fx_rates.reindex(full_date_range).ffill()
+    all_rates = fx_rates.reindex(pd.date_range(start=start_dt, end=end_dt, freq="D"))
+    _require_exact_fx_coverage(df=df, config=config, all_rates=all_rates)
 
     df["start_rate"] = df[PortfolioColumns.PERF_DATE.value].apply(lambda x: all_rates.get(x - pd.Timedelta(days=1)))
     df["end_rate"] = df[PortfolioColumns.PERF_DATE.value].map(all_rates)
 
-    fx_ror = ((df["end_rate"] / df["start_rate"]) - 1).fillna(0.0)
+    fx_ror = (df["end_rate"] / df["start_rate"]) - 1
     return _apply_hedging_to_fx_return(df, config, fx_ror)
+
+
+def _fx_rate_series(config: EngineConfig) -> pd.Series:
+    if config.fx is None:
+        raise ValueError("FX daily return calculation requires FX configuration.")
+    fx_rates_df = pd.DataFrame([rate.model_dump() for rate in config.fx.rates])
+    if fx_rates_df.empty:
+        raise ValueError("FX daily return calculation requires at least one FX rate.")
+    if config.source_currency:
+        normalized_source = config.source_currency.strip().upper()
+        fx_rates_df = fx_rates_df[fx_rates_df["ccy"].str.strip().str.upper() == normalized_source]
+    if fx_rates_df.empty:
+        raise ValueError(f"FX daily return calculation has no rates for source currency {config.source_currency}.")
+    duplicate_key = ["date", "ccy"] if "ccy" in fx_rates_df.columns else ["date"]
+    fx_rates_df.drop_duplicates(subset=duplicate_key, keep="last", inplace=True)
+    fx_rates_df["date"] = pd.to_datetime(fx_rates_df["date"])
+    return fx_rates_df.set_index("date")["rate"].sort_index()
+
+
+def _require_exact_fx_coverage(*, df: pd.DataFrame, config: EngineConfig, all_rates: pd.Series) -> None:
+    required_dates = set(df[PortfolioColumns.PERF_DATE.value])
+    required_dates.update(value - pd.Timedelta(days=1) for value in tuple(required_dates))
+    missing_dates = sorted(value for value in required_dates if pd.isna(all_rates.get(value)))
+    if not missing_dates:
+        return
+    formatted_dates = ", ".join(value.date().isoformat() for value in missing_dates)
+    raise ValueError(
+        f"FX daily return calculation requires exact EOD prior/current rates for "
+        f"{config.source_currency}/{config.report_ccy}; missing dates: {formatted_dates}."
+    )
 
 
 def _apply_hedging_to_fx_return(

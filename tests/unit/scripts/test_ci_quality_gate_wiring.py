@@ -237,8 +237,10 @@ def test_merged_pr_dispatch_binds_main_releasability_to_exact_sha() -> None:
     main_gate = _workflow_text("main-releasability.yml")
 
     assert "MERGE_COMMIT_SHA: ${{ github.event.pull_request.merge_commit_sha }}" in dispatcher
-    assert 'dispatch_ref="main-releasability-${MERGE_COMMIT_SHA}"' in dispatcher
-    assert '-f expected_sha="$MERGE_COMMIT_SHA"' in dispatcher
+    assert "BASE_SHA: ${{ github.event.pull_request.base.sha }}" in dispatcher
+    assert 'git rev-list --reverse "$BASE_SHA..$MERGE_COMMIT_SHA"' in dispatcher
+    assert 'dispatch_ref="main-releasability-${revision}"' in dispatcher
+    assert '-f expected_sha="$revision"' in dispatcher
     assert "expected_sha:" in main_gate
     assert 'actual_sha="$(git rev-parse HEAD)"' in main_gate
     assert "inputs.expected_sha || github.sha" in main_gate
@@ -258,8 +260,8 @@ def test_main_releasability_concurrency_is_keyed_per_commit_not_per_branch() -> 
     releasability evidence with nothing reporting it. Merge commit `5402692` lost two runs that way
     before this was found. See issue #481.
 
-    `cancel-in-progress` stays `true` and is asserted here too: superseding an earlier attempt at the
-    *same* revision is correct, and this fix must not be mistaken for disabling cancellation.
+    Releasability evidence is immutable, so even a duplicate or backfill for the same revision must
+    not cancel a run before it reaches a verdict.
     """
 
     workflow = _workflow_text("main-releasability.yml")
@@ -285,7 +287,6 @@ def test_main_releasability_concurrency_is_keyed_per_commit_not_per_branch() -> 
         f"commit cancels the run validating an earlier one: {group}"
     )
     assert "github.sha" in group, f"The concurrency group must be keyed on the commit under validation: {group}"
-    assert "cancel-in-progress: true" in "\n".join(concurrency_lines), (
-        "Cancellation within a single revision is correct and must stay enabled; the defect was the "
-        "grouping, not the cancellation."
-    )
+    assert "cancel-in-progress: false" in "\n".join(
+        concurrency_lines
+    ), "A duplicate or backfill must not cancel the only verdict-bearing evaluation for a revision."

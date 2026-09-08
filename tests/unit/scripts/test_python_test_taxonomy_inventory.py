@@ -142,6 +142,22 @@ def test_recommended_poll_after_seconds_uses_runtime_cadence():
 """,
         encoding="utf-8",
     )
+    async_result_file = service_dir / "test_async_result_service.py"
+    async_result_file.write_text(
+        """
+def test_stateless_result_uses_persisted_authority():
+    pass
+""",
+        encoding="utf-8",
+    )
+    applied_currency_file = service_dir / "test_applied_currency_evidence_service.py"
+    applied_currency_file.write_text(
+        """
+def test_applied_currency_requires_reporting_currency():
+    pass
+""",
+        encoding="utf-8",
+    )
     legal_hold_file = service_dir / "test_runtime_retention_legal_hold.py"
     legal_hold_file.write_text(
         """
@@ -154,10 +170,12 @@ def test_legal_hold_source_projects_governed_retention_exclusions():
     modules = collect_test_modules((str(tests_root),))
     modules_by_path = {module.path: module for module in modules}
 
-    assert [module.test_count for module in modules] == [2, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1]
+    assert [module.test_count for module in modules] == [2, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1]
     api_module = modules_by_path["tests/integration/test_returns_api.py"]
     application_responses_module = modules_by_path["tests/unit/core/test_application_responses.py"]
     async_polling_module = modules_by_path["tests/unit/core/test_async_polling.py"]
+    async_result_module = modules_by_path["tests/unit/services/test_async_result_service.py"]
+    applied_currency_module = modules_by_path["tests/unit/services/test_applied_currency_evidence_service.py"]
     contract_module = modules_by_path["tests/unit/app/test_openapi_contract.py"]
     config_module = modules_by_path["tests/unit/core/test_config.py"]
     compute_store_module = modules_by_path["tests/unit/services/test_compute_job_store.py"]
@@ -177,6 +195,8 @@ def test_legal_hold_source_projects_governed_retention_exclusions():
     assert "api_or_runtime" in application_responses_module.families
     assert async_polling_module.suite == "unit"
     assert "api_or_runtime" in async_polling_module.families
+    assert "api_or_runtime" in async_result_module.families
+    assert "analytics_domain" in applied_currency_module.families
     assert contract_module.suite == "unit"
     assert "contract_or_governance" in contract_module.families
     assert config_module.suite == "unit"

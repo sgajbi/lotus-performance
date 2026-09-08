@@ -121,10 +121,13 @@ def _resolved_stateful_contribution_request(
     request: ContributionAnalyticsRequest,
     normalized_input: StatefulContributionNormalizedInput,
 ) -> ResolvedContributionRequest:
+    contribution_request = request.to_stateless_contribution_request(
+        portfolio_data=normalized_input.portfolio_data,
+        positions_data=normalized_input.positions_data,
+    )
     return ResolvedContributionRequest(
-        contribution_request=request.to_stateless_contribution_request(
-            portfolio_data=normalized_input.portfolio_data,
-            positions_data=normalized_input.positions_data,
+        contribution_request=contribution_request.model_copy(
+            update={"currency": getattr(normalized_input, "portfolio_currency", None) or request.currency}
         ),
         input_mode=ContributionInputMode.STATEFUL,
         position_count=len(normalized_input.positions_data),

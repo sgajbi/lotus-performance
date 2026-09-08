@@ -5,7 +5,7 @@ from uuid import UUID
 from fastapi import APIRouter, Request
 from fastapi.responses import JSONResponse
 
-from app.api.async_openapi import async_result_responses, async_submission_responses
+from app.api.async_openapi import STATEFUL_TENANT_OPENAPI_EXTRA, async_result_responses, async_submission_responses
 from app.api.http_response_adapter import to_fastapi_response
 from app.api.mappers.analytics_workflow_requests import map_returns_series_request
 from app.models.returns_series import (
@@ -35,7 +35,9 @@ router = APIRouter(tags=["Integration"])
         accepted_model=ReturnsSeriesAcceptedResponse,
         analytics_name="returns-series",
         result_path_template="/integration/returns/series/results/{calculation_id}",
+        stateful_tenant_capable=True,
     ),
+    openapi_extra=STATEFUL_TENANT_OPENAPI_EXTRA,
 )
 async def get_returns_series(request: ReturnsSeriesRequest) -> ReturnsSeriesResponse | JSONResponse:
     return to_fastapi_response(await calculate_returns_series_workflow(map_returns_series_request(request)))

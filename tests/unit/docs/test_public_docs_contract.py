@@ -238,7 +238,7 @@ def test_reproducibility_docs_govern_calculation_engine_version_identity():
     for document in (reproducibility, service_reference, ci_quality_gates, wiki_validation):
         assert "CALCULATION_ENGINE_VERSION" in document
 
-    assert "lotus-performance-calculation-engine.v1" in reproducibility
+    assert "lotus-performance-calculation-engine.v2" in reproducibility
     assert "not the deployable build version" in reproducibility
     assert "make calculation-engine-version-gate" in reproducibility
     assert "APP_VERSION" in reproducibility

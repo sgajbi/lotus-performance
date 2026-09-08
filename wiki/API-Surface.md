@@ -114,6 +114,12 @@ emits `smoothing_evidence` and `source_economics_evidence`; Gateway preserves th
 Workbench displays exact contribution evidence statuses in Performance Drivers. See
 [Contribution Analytics](Contribution-Analytics) for the implementation-backed product boundary.
 
+TWR, Workspace Summary, Contribution, and Attribution responses publish top-level
+`currency_evidence`. Consumers use `applied_report_ccy` rather than the compatibility
+`meta.report_ccy` request echo. Cross-currency execution requires positive finite exact
+prior/current-date EOD coverage for every applied source/report pair; empty and partial stateful
+Contribution or Attribution coverage returns `FX_RATES_REQUIRED`.
+
 `POST /performance/attribution` supports both stateless caller-owned inputs and stateful lotus-core
 portfolio/position, benchmark, and source currency sourcing. In stateful mode it is the source-owned
 attribution methodology surface for downstream product experiences; clients should consume emitted

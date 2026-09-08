@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import logging
 from typing import Protocol, cast
 
 from app.core.application_responses import ApplicationHttpResponse
@@ -9,6 +10,7 @@ from app.models.attribution_analytics_requests import AttributionAnalyticsReques
 from app.models.attribution_requests import AttributionRequest
 from app.models.attribution_responses import AttributionAcceptedResponse, AttributionResponse
 from app.services.analytics_workflow_types import ANALYTICS_WORKFLOW_ATTRIBUTION
+from app.services.applied_currency_evidence_service import require_reporting_currency_for_both
 from app.services.async_observability_context import async_observability_request_payload
 from app.services.attribution_mode_service import ResolvedAttributionRequest, resolve_attribution_request
 from app.services.attribution_service import calculate_attribution
@@ -29,6 +31,8 @@ from app.services.submission_fencing_service import (
     register_sync_execution_or_raise,
 )
 from core.errors import APIInternalServerError
+
+logger = logging.getLogger(__name__)
 
 
 class _AttributionWorkflowSettings(Protocol):
@@ -155,6 +159,7 @@ def _finalize_resolved_stateful_attribution_execution(
         should_offload=should_offload_resolved_attribution(resolved.input_count),
         offload_reason="large_resolved_stateful_attribution",
         accepted_response_factory=accepted_attribution_response,
+        requires_tenant_authority=request.input_mode == AttributionInputMode.STATEFUL,
     )
     return input_fingerprint, calculation_hash, accepted_response
 
@@ -183,6 +188,7 @@ def _initial_attribution_async_submission(
         request_payload=async_observability_request_payload(request.model_dump(mode="json")),
         offload_reason=offload_reason,
         accepted_response_factory=accepted_attribution_response,
+        requires_tenant_authority=request.input_mode == AttributionInputMode.STATEFUL,
     )
 
 
@@ -243,6 +249,7 @@ async def calculate_attribution_workflow(
     request: AttributionAnalyticsRequest,
 ) -> AttributionResponse | ApplicationHttpResponse:
     """Resolve, fence, execute, and map errors for one attribution analytics request."""
+    require_reporting_currency_for_both(currency_mode=request.currency_mode, requested_report_ccy=request.report_ccy)
     active_settings = get_settings()
     input_fingerprint, calculation_hash = generate_request_fingerprint(
         request,
@@ -329,6 +336,13 @@ async def _resolve_and_calculate_attribution_response(
             )
             raise
         failure_detail = _unexpected_attribution_resolution_failure_detail(exc)
+        logger.exception(
+            "Attribution request resolution failed unexpectedly.",
+            extra={
+                "calculation_id": str(request.calculation_id),
+                "analytics_type": ANALYTICS_WORKFLOW_ATTRIBUTION,
+            },
+        )
         record_execution_failure(
             calculation_id=request.calculation_id,
             message=failure_detail,

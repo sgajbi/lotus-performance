@@ -292,6 +292,7 @@ async def calculate_returns_series_workflow(
                 else "long_window_stateful_returns_series"
             ),
             accepted_response_factory=accepted_returns_series_response,
+            requires_tenant_authority=request.input_mode == InputMode.STATEFUL,
         )
 
     register_sync_execution_or_raise(

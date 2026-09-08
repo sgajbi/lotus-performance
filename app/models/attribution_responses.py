@@ -6,6 +6,7 @@ from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 from app.core.async_polling import DEFAULT_RECOMMENDED_POLL_AFTER_SECONDS
 from app.models.attribution_analytics_requests import AttributionInputMode
+from app.models.currency_evidence import AppliedCurrencyEvidence
 from app.models.responses import PerformanceCalculationSupportability
 from common.enums import AttributionModel, LinkingMethod
 from core.envelope import Audit, Diagnostics, Meta
@@ -566,6 +567,9 @@ class AttributionResponse(BaseModel):
             "Bounded supportability state for completed attribution output, including source freshness and "
             "resolved input and benchmark counts used by front-office degraded-state handling."
         )
+    )
+    currency_evidence: AppliedCurrencyEvidence = Field(
+        description="Evidence for the reporting currency and FX rates actually applied to the attribution result."
     )
 
     meta: Meta = Field(description="Shared metadata envelope for the calculation.")

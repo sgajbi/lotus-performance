@@ -25,7 +25,6 @@ BOILERPLATE_JUSTIFICATION = "Temporary approved monetary floating-point usage; c
 
 DISPOSITIONED_FINDINGS = {
     "app/models/mwr_requests.py:14:amount: float",
-    "core/envelope.py:13:rate: float",
 }
 MIGRATION_ISSUE = "https://github.com/sgajbi/lotus-performance/issues/473"
 

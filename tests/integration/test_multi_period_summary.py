@@ -27,6 +27,7 @@ def test_multi_period_portfolio_return_summary_is_correct(client):
             {"period": "YTD", "frequencies": ["monthly"]},
         ],
         "metric_basis": "GROSS",
+        "currency": "EUR",
         "currency_mode": "BOTH",
         "report_ccy": "USD",
         "valuation_points": [
@@ -37,8 +38,9 @@ def test_multi_period_portfolio_return_summary_is_correct(client):
         ],
         "fx": {
             "rates": [
-                {"date": "2024-12-31", "ccy": "EUR", "rate": 1.00},
+                {"date": "2025-01-14", "ccy": "EUR", "rate": 1.00},
                 {"date": "2025-01-15", "ccy": "EUR", "rate": 1.01},
+                {"date": "2025-02-14", "ccy": "EUR", "rate": 1.01},
                 {"date": "2025-02-15", "ccy": "EUR", "rate": 1.0302},
             ]
         },

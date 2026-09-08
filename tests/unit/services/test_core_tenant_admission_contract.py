@@ -33,13 +33,10 @@ class TestTenantAuthority:
             with pytest.raises(ValueError, match="non-empty"):
                 TenantAuthority(tenant_id=blank)
 
-    def test_a_padded_tenant_is_a_different_tenant(self) -> None:
-        """Core compares the header exactly, so ` tenant-sg ` is not
-        `tenant-sg` there. Silently stripping it here would make this service
-        disagree with the authority it is quoting."""
+    def test_a_padded_tenant_is_canonicalised_like_core(self) -> None:
+        authority = TenantAuthority(tenant_id=" tenant-sg ")
 
-        with pytest.raises(ValueError, match="whitespace"):
-            TenantAuthority(tenant_id=" tenant-sg ")
+        assert authority.headers() == {TENANT_HEADER: "tenant-sg"}
 
     def test_the_authority_travels_as_the_header_core_admits_on(self) -> None:
         assert TenantAuthority(tenant_id="tenant-sg").headers() == {TENANT_HEADER: "tenant-sg"}

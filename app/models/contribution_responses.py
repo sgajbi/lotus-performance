@@ -1,14 +1,19 @@
 # app/models/contribution_responses.py
 from datetime import date as dt_date
-from typing import Any, Dict, List, Optional
+from decimal import Decimal
+from typing import Any, Dict, List, Literal, Optional
 from uuid import UUID
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, PlainSerializer
+from typing_extensions import Annotated
 
 from app.core.async_polling import DEFAULT_RECOMMENDED_POLL_AFTER_SECONDS
 from app.models.contribution_analytics_requests import ContributionInputMode
+from app.models.currency_evidence import AppliedCurrencyEvidence
 from app.models.responses import PerformanceCalculationSupportability
 from core.envelope import Audit, Diagnostics, Meta
+
+PercentagePoint = Annotated[Decimal, PlainSerializer(lambda v: float(v))]
 
 
 class PositionContribution(BaseModel):
@@ -91,6 +96,36 @@ class ContributionSummary(BaseModel):
     )
 
 
+class GroupDailyReturnPoint(BaseModel):
+    """Source-valuation group return and portfolio weight for one observation date."""
+
+    date: dt_date = Field(description="Observation date shared by the group return and weight.")
+    return_pct: PercentagePoint = Field(
+        description="Group return computed from source position valuations, in percent."
+    )
+    portfolio_weight_pct: PercentagePoint = Field(
+        description="Group beginning-capital weight in the portfolio for the same observation date, in percent."
+    )
+
+
+class GroupReturnEvidence(BaseModel):
+    """Genuine group-return evidence, never inferred from contribution divided by weight."""
+
+    status: Literal["READY", "UNAVAILABLE"]
+    period_return_pct: Optional[PercentagePoint] = Field(
+        default=None,
+        description="Geometrically linked group return from the published daily source-valuation series.",
+    )
+    currency: Optional[str] = Field(
+        default=None,
+        description="Single currency in which group returns are expressed; null when no truthful singular currency exists.",
+    )
+    return_basis: Literal["SOURCE_POSITION_VALUATION_TWR"] = "SOURCE_POSITION_VALUATION_TWR"
+    weight_basis: Literal["BEGINNING_CAPITAL_RATIO"] = "BEGINNING_CAPITAL_RATIO"
+    series: List[GroupDailyReturnPoint] = Field(default_factory=list)
+    reason: Optional[str] = None
+
+
 class ContributionRow(BaseModel):
     """Represents a single row within a hierarchical level (e.g., a sector or security)."""
 
@@ -103,6 +138,12 @@ class ContributionRow(BaseModel):
         default=None,
         description="Average row weight in percentage units. Example: 18.0 means 18%.",
         examples=[18.0],
+    )
+    group_return: GroupReturnEvidence = Field(
+        description=(
+            "Group return/date/currency/weight evidence computed from source position valuation economics. "
+            "It is not reconstructed from contribution divided by average weight."
+        )
     )
     children_count: Optional[int] = Field(
         default=None, description="Number of child rows rolled into this row.", examples=[5]
@@ -373,6 +414,9 @@ class ContributionResponse(BaseModel):
             "Contribution-specific source-economics posture, including source-backed, unsupported, and "
             "degraded economic input families."
         )
+    )
+    currency_evidence: AppliedCurrencyEvidence = Field(
+        description="Evidence for the reporting currency and FX rates actually applied to the contribution result."
     )
 
     # Shared footer

@@ -39,7 +39,7 @@ def client():
     lineage_metadata_store.create_schema()
     lineage_metadata_store.clear_all_records()
 
-    with TestClient(app) as c:
+    with TestClient(app, headers={"X-Tenant-Id": "tenant-a"}) as c:
         yield c
 
     if os.path.exists(settings.LINEAGE_STORAGE_PATH):
@@ -236,6 +236,16 @@ def test_contribution_endpoint_multi_currency(client):
     assert response.status_code == 200
     data = response.json()["results_by_period"]["SI"]
     assert data["total_contribution"] == pytest.approx(4.91429, abs=1e-5)
+    evidence = response.json()["currency_evidence"]
+    assert evidence["applied_report_ccy"] == "USD"
+    assert evidence["applied_pairs"] == ["EUR/USD"]
+
+    payload.pop("report_ccy")
+    rejected = client.post("/performance/contribution", json=payload)
+    assert rejected.status_code == 422
+    assert rejected.json()["error_code"] == "FX_REPORT_CURRENCY_REQUIRED"
+    assert evidence["restated"] is True
+    assert evidence["fx_coverage"] == "complete"
 
 
 def test_contribution_lineage_flow(client, happy_path_payload):
@@ -322,6 +332,13 @@ def test_contribution_endpoint_hierarchy_happy_path(client, happy_path_payload):
     data = response.json()["results_by_period"]["SI"]
     assert "summary" in data
     assert data["summary"]["portfolio_contribution"] == pytest.approx(2.95327, abs=1e-5)
+    sector_row = data["levels"][0]["rows"][0]
+    assert sector_row["group_return"]["status"] == "READY"
+    assert sector_row["group_return"]["currency"] == "USD"
+    assert [point["date"] for point in sector_row["group_return"]["series"]] == [
+        "2025-01-01",
+        "2025-01-02",
+    ]
 
 
 def test_contribution_endpoint_treats_external_deposit_as_non_performance(client):
@@ -1205,6 +1222,7 @@ def test_contribution_supports_stateful_input_mode(client, monkeypatch):
                 {
                     "position_id": "SEC_1",
                     "security_id": "SEC_1",
+                    "position_currency": "USD",
                     "valuation_date": "2025-01-01",
                     "beginning_market_value_portfolio_currency": "1000",
                     "ending_market_value_portfolio_currency": "1010",
@@ -1214,6 +1232,7 @@ def test_contribution_supports_stateful_input_mode(client, monkeypatch):
                 {
                     "position_id": "SEC_1",
                     "security_id": "SEC_1",
+                    "position_currency": "USD",
                     "valuation_date": "2025-01-02",
                     "beginning_market_value_portfolio_currency": "1010",
                     "ending_market_value_portfolio_currency": "1020.1",
@@ -1237,7 +1256,7 @@ def test_contribution_supports_stateful_input_mode(client, monkeypatch):
         "stateful_input": {},
     }
 
-    response = client.post("/performance/contribution", json=payload)
+    response = client.post("/performance/contribution", json=payload, headers={"X-Tenant-Id": "tenant-a"})
 
     assert response.status_code == 200
     body = response.json()
@@ -1250,6 +1269,17 @@ def test_contribution_supports_stateful_input_mode(client, monkeypatch):
     assert "PortfolioTimeseriesInput:v1" in source_economics["source_contracts"]
     assert "PositionTimeseriesInput:v1" in source_economics["source_contracts"]
     assert "sector" in source_economics["classification_dimensions"]
+
+    payload.update({"currency_mode": "BOTH", "report_ccy": "EUR", "fx": {}})
+    rejected = client.post("/performance/contribution", json=payload, headers={"X-Tenant-Id": "tenant-a"})
+    assert rejected.status_code == 422
+    assert rejected.json()["error_code"] == "FX_RATES_REQUIRED"
+    assert "fx.rates" in rejected.json()["detail"]
+
+    payload["fx"] = {"rates": [{"date": "2024-12-31", "ccy": "USD", "rate": 0.92}]}
+    partial = client.post("/performance/contribution", json=payload, headers={"X-Tenant-Id": "tenant-a"})
+    assert partial.status_code == 422
+    assert "USD/EUR dates 2025-01-01, 2025-01-02" in partial.json()["detail"]
 
 
 def test_contribution_stateful_cash_only_external_flows_do_not_create_position_flow_residuals(client, monkeypatch):
@@ -1841,6 +1871,9 @@ def test_contribution_stateful_currency_mode_both_allows_same_currency_positions
     assert body["input_mode"] == "stateful"
     assert result["position_contributions"][0]["local_contribution"] == pytest.approx(1.0)
     assert result["position_contributions"][0]["fx_contribution"] == pytest.approx(0.0)
+    assert body["currency_evidence"]["applied_report_ccy"] == "USD"
+    assert body["currency_evidence"]["restated"] is False
+    assert body["currency_evidence"]["fx_coverage"] == "none"
 
 
 def test_contribution_stateful_currency_mode_both_requires_fx_for_mixed_currency_positions(client, monkeypatch):
@@ -1977,6 +2010,7 @@ def test_contribution_async_replay_self_heals_missing_compute_job(client, happy_
             requested_window=build_contribution_execution_window(request_model),
             input_fingerprint=input_fingerprint,
             calculation_hash=calculation_hash,
+            tenant_id="tenant-a",
         )
 
         response = client.post("/performance/contribution", json=payload)
@@ -2069,7 +2103,11 @@ def test_admission_records_an_absent_tenant_as_absent_rather_than_as_unknown(cli
     original_threshold = settings.CONTRIBUTION_EXECUTOR_POSITION_COUNT
     settings.CONTRIBUTION_EXECUTOR_POSITION_COUNT = 0
     try:
-        accepted = client.post("/performance/contribution", json=happy_path_payload)
+        accepted = client.post(
+            "/performance/contribution",
+            json=happy_path_payload,
+            headers={"X-Tenant-Id": ""},
+        )
         assert accepted.status_code == 202
         calculation_id = UUID(accepted.json()["calculation_id"])
 

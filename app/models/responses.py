@@ -6,6 +6,7 @@ from uuid import UUID
 from pydantic import BaseModel, ConfigDict, Field
 
 from app.core.async_polling import DEFAULT_RECOMMENDED_POLL_AFTER_SECONDS
+from app.models.currency_evidence import AppliedCurrencyEvidence
 from app.models.twr_requests import TWRInputMode
 from common.enums import Frequency
 from core.envelope import Audit, Diagnostics, Meta
@@ -423,6 +424,7 @@ class PerformanceResponse(BaseModel):
     input_mode: TWRInputMode = TWRInputMode.STATELESS
     benchmark_context: TWRBenchmarkContext | None = None
     calculation_supportability: PerformanceCalculationSupportability
+    currency_evidence: AppliedCurrencyEvidence
 
     results_by_period: Dict[str, SinglePeriodPerformanceResult]
 

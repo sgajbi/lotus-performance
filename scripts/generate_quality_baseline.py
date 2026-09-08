@@ -182,8 +182,9 @@ def render_baseline_report(stats: RepositoryStatistics) -> str:
     )
     return f"""# Lotus Performance Enterprise Backend Refactor Baseline
 
-Baseline date: {stats.report_date}
-Branch: `{stats.branch}`
+Generation provenance: Git history for this source-controlled artifact. Volatile branch, date, and
+commit fields are intentionally excluded so freshness is deterministic across local, PR merge-ref,
+and main checkouts.
 Mode: report-only baseline; no new blocking quality gate is introduced by this artifact.
 
 ## Purpose
