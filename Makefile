@@ -9,12 +9,52 @@ CONTAINER_SECURITY_OUTPUT_DIR ?= output/container-security
 TRIVY_IMAGE ?= aquasec/trivy:0.71.2
 TRIVY_SEVERITY ?= HIGH,CRITICAL
 CONTAINER_SERVICE_VERSION ?= 0.1.0
-CONTAINER_GIT_SHA ?= local
-CONTAINER_GIT_BRANCH ?= local
-CONTAINER_BUILD_TIMESTAMP ?= local
+# Quote a value for safe interpolation into a recipe. The value becomes data, never
+# syntax: git accepts branch names containing `;`, `$`, backticks and quotes, and an
+# unquoted expansion would let any of them change the command being run.
+shellquote = '$(subst ','"'"',$(1))'
+CONTAINER_GIT_HEAD ?= $(shell git rev-parse --verify HEAD 2>/dev/null || echo local)
+CONTAINER_GIT_TREE_STATE := $(shell git status --porcelain 2>/dev/null | grep -q . && echo dirty || echo clean)
+# A build from a modified tree is not the commit it names. The marker keeps local
+# iteration working while making the difference visible, so acceptance can reject a
+# dirty value instead of being unable to see one.
+CONTAINER_GIT_SHA ?= $(CONTAINER_GIT_HEAD)$(if $(filter dirty,$(CONTAINER_GIT_TREE_STATE)),-dirty,)
+CONTAINER_GIT_BRANCH ?= $(shell git rev-parse --abbrev-ref HEAD 2>/dev/null || echo local)
+CONTAINER_BUILD_TIMESTAMP ?= $(shell python -c "from datetime import datetime, timezone; print(datetime.now(timezone.utc).isoformat(timespec='seconds').replace('+00:00','Z'))")
 CONTAINER_REPOSITORY_URL ?= https://github.com/sgajbi/lotus-performance
 CONTAINER_IMAGE_DIGEST ?= unavailable-before-push
 CONTAINER_CI_PIPELINE_RUN_ID ?= local
+
+# Re-capture any provenance value that arrived from the environment as raw text.
+#
+# GNU Make imports environment variables as *recursively expanded*, so an env-supplied
+# value containing `$(...)` is interpreted by Make before `shellquote` ever sees it: a
+# branch literally named `feature/foo$(id)` reaches the build argument as
+# `feature/foo`, and the image then records a branch that does not exist. That path is
+# the supported one -- `.github/workflows/main-releasability.yml` supplies
+# CONTAINER_GIT_SHA, CONTAINER_GIT_BRANCH, CONTAINER_REPOSITORY_URL and
+# CONTAINER_CI_PIPELINE_RUN_ID through the environment.
+#
+# `$(value ...)` returns the unexpanded text, and the result of an expansion is not
+# re-scanned, so the raw value survives into the recipe where shellquote makes it data.
+# Values that did not come from the environment are left exactly as computed above.
+#
+# Applied to every provenance variable rather than only the ones that look risky today:
+# deciding per variable which can contain a `$` is a judgement that goes stale, and the
+# uniform rule costs nothing.
+#
+# Raised in review of #511. The `$(shell ...)` derivation is NOT affected -- Make does
+# not re-expand shell output -- which is exactly why the first hostile-branch test
+# missed this: it entered through the one door that was already safe.
+raw_environment_value = $(if $(filter environment,$(origin $(1))),$(value $(1)),$(2))
+CONTAINER_SERVICE_VERSION := $(call raw_environment_value,CONTAINER_SERVICE_VERSION,$(CONTAINER_SERVICE_VERSION))
+CONTAINER_GIT_SHA := $(call raw_environment_value,CONTAINER_GIT_SHA,$(CONTAINER_GIT_SHA))
+CONTAINER_GIT_BRANCH := $(call raw_environment_value,CONTAINER_GIT_BRANCH,$(CONTAINER_GIT_BRANCH))
+CONTAINER_BUILD_TIMESTAMP := $(call raw_environment_value,CONTAINER_BUILD_TIMESTAMP,$(CONTAINER_BUILD_TIMESTAMP))
+CONTAINER_REPOSITORY_URL := $(call raw_environment_value,CONTAINER_REPOSITORY_URL,$(CONTAINER_REPOSITORY_URL))
+CONTAINER_IMAGE_DIGEST := $(call raw_environment_value,CONTAINER_IMAGE_DIGEST,$(CONTAINER_IMAGE_DIGEST))
+CONTAINER_CI_PIPELINE_RUN_ID := $(call raw_environment_value,CONTAINER_CI_PIPELINE_RUN_ID,$(CONTAINER_CI_PIPELINE_RUN_ID))
+
 CONTAINER_BUILD_TARGET ?= runtime
 
 install:
@@ -220,14 +260,29 @@ security-audit:
 	python scripts/dependency_health_check.py --skip-outdated --requirement requirements.txt --requirement requirements-dev.txt
 
 docker-up:
-	docker compose up -d --build
+	APP_VERSION=$(call shellquote,$(CONTAINER_SERVICE_VERSION)) \
+	  APP_GIT_COMMIT_SHA=$(call shellquote,$(CONTAINER_GIT_SHA)) \
+	  APP_GIT_BRANCH=$(call shellquote,$(CONTAINER_GIT_BRANCH)) \
+	  APP_BUILD_TIMESTAMP=$(call shellquote,$(CONTAINER_BUILD_TIMESTAMP)) \
+	  APP_REPOSITORY_URL=$(call shellquote,$(CONTAINER_REPOSITORY_URL)) \
+	  APP_IMAGE_DIGEST=$(call shellquote,$(CONTAINER_IMAGE_DIGEST)) \
+	  APP_CI_PIPELINE_RUN_ID=$(call shellquote,$(CONTAINER_CI_PIPELINE_RUN_ID)) \
+	  docker compose up -d --build
 
 docker-down:
 	docker compose down
 
 
 docker-build:
-	docker build -f Dockerfile --target $(CONTAINER_BUILD_TARGET) -t $(CONTAINER_IMAGE) --build-arg APP_VERSION=$(CONTAINER_SERVICE_VERSION) --build-arg APP_GIT_COMMIT_SHA=$(CONTAINER_GIT_SHA) --build-arg APP_GIT_BRANCH=$(CONTAINER_GIT_BRANCH) --build-arg APP_BUILD_TIMESTAMP=$(CONTAINER_BUILD_TIMESTAMP) --build-arg APP_REPOSITORY_URL=$(CONTAINER_REPOSITORY_URL) --build-arg APP_IMAGE_DIGEST=$(CONTAINER_IMAGE_DIGEST) --build-arg APP_CI_PIPELINE_RUN_ID=$(CONTAINER_CI_PIPELINE_RUN_ID) .
+	docker build -f Dockerfile --target $(CONTAINER_BUILD_TARGET) -t $(CONTAINER_IMAGE) \
+		--build-arg APP_VERSION=$(call shellquote,$(CONTAINER_SERVICE_VERSION)) \
+		--build-arg APP_GIT_COMMIT_SHA=$(call shellquote,$(CONTAINER_GIT_SHA)) \
+		--build-arg APP_GIT_BRANCH=$(call shellquote,$(CONTAINER_GIT_BRANCH)) \
+		--build-arg APP_BUILD_TIMESTAMP=$(call shellquote,$(CONTAINER_BUILD_TIMESTAMP)) \
+		--build-arg APP_REPOSITORY_URL=$(call shellquote,$(CONTAINER_REPOSITORY_URL)) \
+		--build-arg APP_IMAGE_DIGEST=$(call shellquote,$(CONTAINER_IMAGE_DIGEST)) \
+		--build-arg APP_CI_PIPELINE_RUN_ID=$(call shellquote,$(CONTAINER_CI_PIPELINE_RUN_ID)) \
+		.
 
 container-supply-chain-evidence: container-sbom container-vulnerability-report
 

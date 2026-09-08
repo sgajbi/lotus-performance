@@ -22,8 +22,8 @@ python scripts/python_test_taxonomy_inventory.py --limit 30 --min-api-runtime-te
 
 | Metric | Value |
 | --- | ---: |
-| Test modules inventoried | 322 |
-| Test functions inventoried | 3669 |
+| Test modules inventoried | 323 |
+| Test functions inventoried | 3680 |
 | Integration/API/runtime test functions | 701 |
 | Contract/governance test functions | 178 |
 
@@ -34,7 +34,7 @@ python scripts/python_test_taxonomy_inventory.py --limit 30 --min-api-runtime-te
 | benchmarks | 9 | 19 |
 | e2e | 1 | 21 |
 | integration | 28 | 345 |
-| unit | 284 | 3284 |
+| unit | 285 | 3295 |
 
 ## Test Functions By Family
 
@@ -48,7 +48,7 @@ above does sum to it, because a module belongs to exactly one suite.
 | api_or_runtime | 701 |
 | contract_or_governance | 178 |
 | observability_or_readiness | 429 |
-| quality_or_security | 226 |
+| quality_or_security | 237 |
 | uncategorized | 825 |
 
 ## Largest Test Modules
@@ -91,3 +91,9 @@ The #502 request-path proof added a module driving the real application over HTT
 The container-scan composition proof added one module and two documentation invariants. The module asserts that a workflow job reaches the image scan exactly once and that the judged report is the one produced and uploaded, which is a property of how the lane composes Make targets rather than of any single target. The invariant requires every documented `make` invocation to name a target that exists in the Makefile, so a reference to a target that does not exist fails without anyone having to remember which target was renamed. Inventoried modules rise to `322`, source test functions to `3664`, quality/security tests to `226`, and contract/governance tests to `178`. Uncategorized tests are unchanged at `876`, exactly the ceiling this gate governs: neither addition classifies as uncategorized, so the ceiling was neither approached nor raised.
 
 The #504 durable-tenant-authority slice added the worker authority restore and its admission proof, and closed a classifier gap that had been hiding the surface it touches. `compute_executor_worker` was absent from the `observability_or_readiness` token list while its own `compute_job_store` and its sibling `lineage_worker` were both present, so every test of the worker fell to `uncategorized`. That is the same shape as the `workspace` omission recorded above and the dead `logging`/`correlation` tokens beside it: a classification rule that never matched the module it was meant to cover. Closing it moves 54 existing tests out of `uncategorized` and the four added here into `observability_or_readiness`, so source test functions rise to `3669`, API/runtime tests to `701`, and uncategorized tests **fall** from `876` to `825`. The ceiling is re-banked down to `825` rather than raised, and it is banked at exact equality: the gate passes at `825` and fails at `824`, verified both ways. A ceiling that moves down because a surface became classifiable is the outcome this gate exists to produce; one that moves up to accommodate the tests being added is the outcome it exists to prevent.
+
+The #511 Compose-provenance slice added one module proving both build paths carry the same arguments, that all five services built from `docker-compose.yml` receive them, and that a hostile branch name survives as data. Inventoried modules rise to `323`, source test functions to `3,678`, and quality/security tests to `235`. Uncategorized tests are unchanged at `825`, exactly the ceiling this gate governs: the module lives under `tests/unit/scripts/`, which the classifier already maps, so the ceiling was neither approached nor raised.
+
+Review of the same slice added two more: local configuration cannot enter the build context (`.env` is gitignored, so a tree carrying one measures clean and the image would ship it under a claim of an exact commit), and volatile metadata is applied after the expensive layers so a per-second build timestamp does not evict the dependency cache. Source test functions rise to `3,680` and quality/security tests to `237`; uncategorized is unchanged at `825`.
+
+A later review round added the environment-supplied path, which the first hostile-branch test could not reach: GNU Make imports environment variables as recursively expanded, so a branch named `feature/foo$(id)` supplied the way CI supplies it loses `$(id)` before any quoting runs. The original test drove the value through `$(shell git ...)`, whose output Make does not re-expand -- the one door that was already safe. Source test functions rise to `3,680` and quality/security tests to `237`; uncategorized is unchanged at `825`.

@@ -1,3 +1,20 @@
+# Provenance for every service built from this file. An anchor rather than five
+# copies: the defect this closes is two build paths stating different things about one
+# commit, and five unsynchronised copies is the same defect with more places to
+# introduce it. Defaults match the Dockerfile's own ARG defaults so a build outside a
+# checkout still works and still says so.
+x-provenance-build: &provenance-build
+  context: .
+  target: runtime
+  args:
+    APP_VERSION: ${APP_VERSION:-0.1.0}
+    APP_GIT_COMMIT_SHA: ${APP_GIT_COMMIT_SHA:-local}
+    APP_GIT_BRANCH: ${APP_GIT_BRANCH:-local}
+    APP_BUILD_TIMESTAMP: ${APP_BUILD_TIMESTAMP:-local}
+    APP_REPOSITORY_URL: ${APP_REPOSITORY_URL:-https://github.com/sgajbi/lotus-performance}
+    APP_IMAGE_DIGEST: ${APP_IMAGE_DIGEST:-unavailable-before-push}
+    APP_CI_PIPELINE_RUN_ID: ${APP_CI_PIPELINE_RUN_ID:-local}
+
 services:
   performance-lineage-db:
     image: postgres:17
@@ -15,9 +32,7 @@ services:
       retries: 20
 
   performance-lineage-volume-init:
-    build:
-      context: .
-      target: runtime
+    build: *provenance-build
     container_name: "${PA_LINEAGE_VOLUME_INIT_CONTAINER_NAME:-performance-lineage-volume-init}"
     user: "0:0"
     entrypoint: ["/bin/sh", "-c"]
@@ -41,9 +56,7 @@ services:
     restart: "no"
 
   performance-analytics:
-    build:
-      context: .
-      target: runtime
+    build: *provenance-build
     container_name: "${PA_ANALYTICS_CONTAINER_NAME:-performance-analytics}"
     environment:
       CORE_CONTROL_PLANE_BASE_URL: "${CORE_CONTROL_PLANE_BASE_URL:-http://host.docker.internal:8202}"
@@ -74,9 +87,7 @@ services:
       start_period: 20s
 
   performance-lineage-worker:
-    build:
-      context: .
-      target: runtime
+    build: *provenance-build
     container_name: "${PA_LINEAGE_WORKER_CONTAINER_NAME:-performance-lineage-worker}"
     command: ["python", "-m", "app.workers.lineage_worker"]
     environment:
@@ -100,9 +111,7 @@ services:
       start_period: 20s
 
   performance-compute-executor:
-    build:
-      context: .
-      target: runtime
+    build: *provenance-build
     container_name: "${PA_COMPUTE_EXECUTOR_CONTAINER_NAME:-performance-compute-executor}"
     command: ["python", "-m", "app.workers.compute_executor_worker"]
     environment:
@@ -126,9 +135,7 @@ services:
       start_period: 20s
 
   performance-runtime-retention-worker:
-    build:
-      context: .
-      target: runtime
+    build: *provenance-build
     container_name: "${PA_RUNTIME_RETENTION_CONTAINER_NAME:-performance-runtime-retention-worker}"
     command: ["python", "-m", "app.workers.runtime_retention_worker"]
     profiles: ["ops"]
