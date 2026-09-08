@@ -16,9 +16,7 @@ REPO_ROOT = Path(__file__).resolve().parents[3]
 GATE = "scripts/postgres_concurrency_contracts_gate.py"
 
 
-def _run_gate(
-    target: Path, environment_overrides: dict[str, str] | None = None
-) -> subprocess.CompletedProcess[str]:
+def _run_gate(target: Path, environment_overrides: dict[str, str] | None = None) -> subprocess.CompletedProcess[str]:
     environment = {**os.environ, **(environment_overrides or {})}
     return subprocess.run(
         [sys.executable, GATE, "--target", str(target)],
@@ -138,8 +136,6 @@ def test_an_inherited_selector_cannot_shrink_what_the_gate_proves(tmp_path: Path
     result = _run_gate(target, {"PYTEST_ADDOPTS": "-k test_contract_that_passes"})
 
     assert result.returncode != 0, (
-        "an inherited -k selected one contract and the gate called the run complete: "
-        + result.stdout
-        + result.stderr
+        "an inherited -k selected one contract and the gate called the run complete: " + result.stdout + result.stderr
     )
     assert "failure(s)" in result.stdout
