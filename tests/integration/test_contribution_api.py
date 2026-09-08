@@ -2018,3 +2018,64 @@ def test_contribution_async_conflict_does_not_leave_orphan_execution(client, hap
         assert job.request_payload["hierarchy"] == ["sector"]
     finally:
         settings.CONTRIBUTION_EXECUTOR_POSITION_COUNT = original_threshold
+
+
+def test_admission_persists_the_presented_tenant_on_the_route_the_api_actually_uses(client, happy_path_payload):
+    """A job's authority is captured at admission, from the header the caller sent.
+
+    Asserted against the stored row rather than a response field, because the failure
+    this guards against is invisible in the response: the API returned 202 for every
+    offloaded job while writing no tenant at all, and nothing surfaced until the
+    worker tried to run one.
+
+    Deliberately through the HTTP route. The unit suite covered `enqueue_job`, which
+    only the recovery drill calls, and reported an invariant that was false for every
+    real submission. A test of the guarded path is not a test of the path.
+    """
+
+    original_threshold = settings.CONTRIBUTION_EXECUTOR_POSITION_COUNT
+    settings.CONTRIBUTION_EXECUTOR_POSITION_COUNT = 0
+    try:
+        accepted = client.post(
+            "/performance/contribution",
+            json=happy_path_payload,
+            headers={"X-Tenant-Id": "tenant-sg"},
+        )
+        assert accepted.status_code == 202
+        calculation_id = UUID(accepted.json()["calculation_id"])
+
+        stored = compute_job_store.get_job(calculation_id)
+        assert stored is not None
+        assert stored.tenant_id == "tenant-sg"
+    finally:
+        settings.CONTRIBUTION_EXECUTOR_POSITION_COUNT = original_threshold
+
+
+def test_admission_records_an_absent_tenant_as_absent_rather_than_as_unknown(client, happy_path_payload):
+    """Nothing presented is stored as nothing presented -- not as NULL.
+
+    The distinction carries the whole slice. `""` means the caller presented no
+    tenant, which the worker replays faithfully so that stateless work succeeds
+    offloaded exactly as it does inline, and Core-bound work is refused at the
+    boundary exactly as it is inline. `NULL` means the row predates the column and
+    what was presented was never recorded, which cannot be replayed at all and is
+    refused.
+
+    Collapse the two and every legacy row becomes indistinguishable from a live
+    tenantless submission, which is the point at which "refuse, do not default"
+    stops being implementable.
+    """
+
+    original_threshold = settings.CONTRIBUTION_EXECUTOR_POSITION_COUNT
+    settings.CONTRIBUTION_EXECUTOR_POSITION_COUNT = 0
+    try:
+        accepted = client.post("/performance/contribution", json=happy_path_payload)
+        assert accepted.status_code == 202
+        calculation_id = UUID(accepted.json()["calculation_id"])
+
+        stored = compute_job_store.get_job(calculation_id)
+        assert stored is not None
+        assert stored.tenant_id == "", "an absent tenant was not distinguished from an unrecorded one"
+        assert stored.tenant_id is not None
+    finally:
+        settings.CONTRIBUTION_EXECUTOR_POSITION_COUNT = original_threshold

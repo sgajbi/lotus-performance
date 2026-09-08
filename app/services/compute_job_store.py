@@ -686,9 +686,23 @@ class ComputeJobStore:
         *,
         calculation_id: UUID,
         analytics_type: str,
+        tenant_id: str,
         request_payload: dict[str, Any],
         max_attempts: int | None = None,
     ) -> ComputeJobRegistrationResult:
+        """Persist an offloaded job together with the authority it was admitted with.
+
+        `tenant_id` is required and has no default. Not because every job needs a
+        tenant -- stateless work legitimately presents none -- but so that a caller
+        which forgets to supply one fails at the call site rather than writing a row
+        whose authority is unknowable at execution time. Required-and-possibly-empty
+        is what separates "the caller presented nothing" from "nobody asked".
+
+        Stored verbatim, neither stripped nor refused here: the Core boundary decides
+        what an empty or padded tenant means, so an offloaded request is decided
+        exactly as the same request would be inline.
+        """
+
         now = datetime.now(timezone.utc)
         configured_max_attempts = max_attempts or get_settings().COMPUTE_EXECUTOR_MAX_ATTEMPTS
         request_json = json.dumps(request_payload, sort_keys=True)
@@ -697,6 +711,7 @@ class ComputeJobStore:
             calculation_id=str(calculation_id),
             analytics_type=analytics_type,
             job_status=ComputeJobStatus.PENDING.value,
+            tenant_id=tenant_id,
             request_json=request_json,
             response_json=None,
             error_message=None,

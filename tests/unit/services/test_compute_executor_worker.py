@@ -138,6 +138,7 @@ def test_execute_compute_job_restores_async_context_for_any_executor(monkeypatch
     monkeypatch.setitem(compute_executor_worker._COMPUTE_JOB_EXECUTORS, "AnyWorkflow", _executor)
     job = SimpleNamespace(
         analytics_type="AnyWorkflow",
+        tenant_id="tenant-test",
         request_payload={
             "observability_context": {
                 "correlation_id": "corr-any-workflow",
@@ -900,7 +901,7 @@ def test_compute_executor_worker_calculator_options_preserve_truthy_default_poli
 
 
 def test_compute_executor_worker_dispatches_known_workflow_through_executor_registry(monkeypatch):
-    job = SimpleNamespace(analytics_type=ANALYTICS_WORKFLOW_RETURNS_SERIES)
+    job = SimpleNamespace(analytics_type=ANALYTICS_WORKFLOW_RETURNS_SERIES, tenant_id="tenant-test")
     context = SimpleNamespace()
     captured = {}
 
@@ -2692,3 +2693,125 @@ def test_compute_executor_worker_resolves_twr_jobs_from_resolved_payload_and_raw
     assert benchmark_input_mode is None
     assert source == "calculated"
     assert should_update is False
+
+
+def _authority_probe_job(tenant_id):  # noqa: ANN001, ANN202
+    return SimpleNamespace(
+        analytics_type="AnyWorkflow",
+        tenant_id=tenant_id,
+        request_payload={},
+        calculation_id=uuid4(),
+    )
+
+
+def _run_under_probe_executor(monkeypatch, job, observed):  # noqa: ANN001, ANN202
+    """Drive `_execute_compute_job` and capture the authority the executor sees.
+
+    Through the real entry point rather than the context manager: the claim is that
+    an offloaded job runs under its admitted authority, and a test of the helper
+    alone stays green if the `with` is dropped from the call path.
+    """
+
+    from app.observability import tenant_id_var
+
+    def _executor(inner_job, context):  # noqa: ANN001, ANN202, ARG001
+        observed["tenant_id"] = tenant_id_var.get()
+        observed["reached"] = True
+        return "ok"
+
+    original = dict(compute_executor_worker._COMPUTE_JOB_EXECUTORS)
+    monkeypatch.setitem(compute_executor_worker._COMPUTE_JOB_EXECUTORS, "AnyWorkflow", _executor)
+    try:
+        return compute_executor_worker._execute_compute_job(job, SimpleNamespace())
+    finally:
+        compute_executor_worker._COMPUTE_JOB_EXECUTORS.clear()
+        compute_executor_worker._COMPUTE_JOB_EXECUTORS.update(original)
+
+
+@pytest.mark.parametrize(
+    ("label", "admitted", "expected"),
+    [
+        ("a presented tenant", "tenant-sg", "tenant-sg"),
+        ("nothing presented", "", ""),
+        ("a padded header", "  tenant-sg  ", "  tenant-sg  "),
+    ],
+)
+def test_an_offloaded_job_runs_under_exactly_the_authority_it_was_admitted_with(
+    monkeypatch, label: str, admitted: str, expected: str
+) -> None:
+    """The async path must decide a request exactly as the synchronous path would.
+
+    `build_stateful_input_service` reads `tenant_id_var`, and the worker never set it,
+    so every offloaded job built its Core client with an empty tenant regardless of
+    what the caller presented. The value now comes from the job's own column.
+
+    All three cases are restored verbatim, and the last two are the point. An empty
+    tenant is preserved as absence and refused at the Core boundary, where the refusal
+    names the operation -- while stateless work that never reaches Core proceeds, as
+    it does inline. Padding survives because `TenantAuthority.__post_init__` treats a
+    padded value as a different tenant, so normalising here would silently repair a
+    header the synchronous path refuses.
+
+    An earlier version of this slice refused the last two at execution. Twenty-six
+    integration failures said that a request succeeding inline was being refused once
+    offloaded, which is a worse defect than the one being fixed.
+    """
+
+    from app.observability import tenant_id_var
+
+    observed: dict[str, object] = {}
+    assert _run_under_probe_executor(monkeypatch, _authority_probe_job(admitted), observed) == "ok"
+
+    assert observed["tenant_id"] == expected, f"{label} did not reach the executor intact"
+    assert tenant_id_var.get() == "", "the tenant outlived the job it belonged to"
+
+
+def test_a_job_predating_the_tenant_column_is_refused_rather_than_guessed(monkeypatch) -> None:
+    """`None` is the one case that is not a value.
+
+    A row written before the column existed does not record what the caller presented.
+    That is unknowable rather than absent, and the two must not collapse: absence can
+    be replayed faithfully, an unrecorded value cannot be replayed at all. Running it
+    would substitute this worker's ambient scope for the caller's, and defaulting it
+    would make one tenant the owner of another's work in a way nothing downstream
+    could distinguish from a genuine submission.
+
+    The refusal names the job, so an operator can act on it. A fail-closed guard that
+    names nothing is safe and undiagnosable at the same time.
+    """
+
+    from app.observability import tenant_id_var
+
+    observed: dict[str, object] = {}
+    job = _authority_probe_job(None)
+
+    with pytest.raises(
+        compute_executor_worker.ComputeJobAuthorityUnavailableError,
+        match=str(job.calculation_id),
+    ):
+        _run_under_probe_executor(monkeypatch, job, observed)
+
+    assert "reached" not in observed, "a job with unknowable authority reached the executor"
+    assert tenant_id_var.get() == "", "a refused job still installed a scope"
+
+
+def test_unknowable_authority_is_terminal_rather_than_retried() -> None:
+    """The classifier has to agree with the docstring, or the docstring is decoration.
+
+    `_is_retryable_exception` returns True for anything it does not recognise, so a
+    new error type is retryable by default. This one was: the integration run showed
+    `failure_classification: retryable_compute_failure, retryable: true` against a
+    row that will never grow a tenant it was not written with. Three attempts, three
+    identical failures, and the terminal signal delayed to the third.
+
+    Asserted against the predicate rather than the log line, because the log is
+    downstream of this decision and would keep reporting whatever it is given.
+    """
+
+    authority_failure = compute_executor_worker.ComputeJobAuthorityUnavailableError("no tenant recorded")
+
+    assert compute_executor_worker._is_retryable_exception(authority_failure) is False
+
+    # The default this had been falling through to, held alongside it so the contrast
+    # is visible: an unrecognised failure stays retryable, and that is correct.
+    assert compute_executor_worker._is_retryable_exception(RuntimeError("transient")) is True

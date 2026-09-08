@@ -15,7 +15,7 @@ and quality family without executing tests or requiring coverage data.
 
 ```powershell
 python scripts/python_test_taxonomy_inventory.py --limit 30
-python scripts/python_test_taxonomy_inventory.py --limit 30 --min-api-runtime-tests 656 --min-contract-governance-tests 136 --max-uncategorized-tests 876
+python scripts/python_test_taxonomy_inventory.py --limit 30 --min-api-runtime-tests 656 --min-contract-governance-tests 136 --max-uncategorized-tests 825
 ```
 
 ## Summary
@@ -23,8 +23,8 @@ python scripts/python_test_taxonomy_inventory.py --limit 30 --min-api-runtime-te
 | Metric | Value |
 | --- | ---: |
 | Test modules inventoried | 322 |
-| Test functions inventoried | 3664 |
-| Integration/API/runtime test functions | 699 |
+| Test functions inventoried | 3669 |
+| Integration/API/runtime test functions | 701 |
 | Contract/governance test functions | 178 |
 
 ## Test Functions By Suite
@@ -33,8 +33,8 @@ python scripts/python_test_taxonomy_inventory.py --limit 30 --min-api-runtime-te
 | --- | ---: | ---: |
 | benchmarks | 9 | 19 |
 | e2e | 1 | 21 |
-| integration | 28 | 343 |
-| unit | 284 | 3281 |
+| integration | 28 | 345 |
+| unit | 284 | 3284 |
 
 ## Test Functions By Family
 
@@ -44,12 +44,12 @@ above does sum to it, because a module belongs to exactly one suite.
 
 | Family | Test functions |
 | --- | ---: |
-| analytics_domain | 1672 |
-| api_or_runtime | 699 |
+| analytics_domain | 1674 |
+| api_or_runtime | 701 |
 | contract_or_governance | 178 |
-| observability_or_readiness | 375 |
+| observability_or_readiness | 429 |
 | quality_or_security | 226 |
-| uncategorized | 876 |
+| uncategorized | 825 |
 
 ## Largest Test Modules
 
@@ -64,15 +64,15 @@ above does sum to it, because a module belongs to exactly one suite.
 | 7 | `tests/unit/services/test_lineage_metadata_store.py` | unit | 60 | uncategorized |
 | 8 | `tests/unit/engine/test_attribution.py` | unit | 57 | analytics_domain |
 | 9 | `tests/unit/services/test_twr_inspection_source_economics.py` | unit | 57 | analytics_domain |
-| 10 | `tests/unit/app/test_contribution_endpoint_helpers.py` | unit | 52 | analytics_domain, api_or_runtime |
-| 11 | `tests/unit/services/test_compute_executor_worker.py` | unit | 51 | uncategorized |
+| 10 | `tests/unit/services/test_compute_executor_worker.py` | unit | 54 | observability_or_readiness |
+| 11 | `tests/unit/app/test_contribution_endpoint_helpers.py` | unit | 52 | analytics_domain, api_or_runtime |
 | 12 | `tests/unit/services/test_twr_inspection_calculation_consistency.py` | unit | 51 | analytics_domain |
 | 13 | `tests/unit/services/test_workspace_summary_service.py` | unit | 50 | analytics_domain |
 | 14 | `tests/unit/services/test_stateful_input_service.py` | unit | 47 | analytics_domain |
 | 15 | `tests/unit/services/test_twr_mode_service.py` | unit | 45 | analytics_domain |
 | 16 | `tests/unit/engine/test_mwr.py` | unit | 44 | analytics_domain |
 | 17 | `tests/unit/services/test_stateful_benchmark_input_service.py` | unit | 44 | analytics_domain |
-| 18 | `tests/integration/test_contribution_api.py` | integration | 41 | analytics_domain, api_or_runtime |
+| 18 | `tests/integration/test_contribution_api.py` | integration | 43 | analytics_domain, api_or_runtime |
 | 19 | `tests/integration/test_performance_api.py` | integration | 40 | api_or_runtime |
 | 20 | `tests/unit/services/test_operator_action_lease_service.py` | unit | 40 | uncategorized |
 | 21 | `tests/unit/services/test_benchmark_exposure_context_service.py` | unit | 35 | analytics_domain |
@@ -89,3 +89,5 @@ above does sum to it, because a module belongs to exactly one suite.
 The #502 request-path proof added a module driving the real application over HTTP for tenant admission - admitted, absent, blank and concurrent two-tenant requests, each asserting the outbound Core call - raising inventoried modules to `317`, source test functions to `3634`, and API/runtime tests to `699`. Later review fixes in the same PR added the padded-tenant refusals and the returns-series authority regression, which are counted in those figures. Uncategorized tests are unchanged at `876`: every added module classifies as api_or_runtime, so the ceiling this gate governs was neither approached nor raised.
 
 The container-scan composition proof added one module and two documentation invariants. The module asserts that a workflow job reaches the image scan exactly once and that the judged report is the one produced and uploaded, which is a property of how the lane composes Make targets rather than of any single target. The invariant requires every documented `make` invocation to name a target that exists in the Makefile, so a reference to a target that does not exist fails without anyone having to remember which target was renamed. Inventoried modules rise to `322`, source test functions to `3664`, quality/security tests to `226`, and contract/governance tests to `178`. Uncategorized tests are unchanged at `876`, exactly the ceiling this gate governs: neither addition classifies as uncategorized, so the ceiling was neither approached nor raised.
+
+The #504 durable-tenant-authority slice added the worker authority restore and its admission proof, and closed a classifier gap that had been hiding the surface it touches. `compute_executor_worker` was absent from the `observability_or_readiness` token list while its own `compute_job_store` and its sibling `lineage_worker` were both present, so every test of the worker fell to `uncategorized`. That is the same shape as the `workspace` omission recorded above and the dead `logging`/`correlation` tokens beside it: a classification rule that never matched the module it was meant to cover. Closing it moves 54 existing tests out of `uncategorized` and the four added here into `observability_or_readiness`, so source test functions rise to `3669`, API/runtime tests to `701`, and uncategorized tests **fall** from `876` to `825`. The ceiling is re-banked down to `825` rather than raised, and it is banked at exact equality: the gate passes at `825` and fails at `824`, verified both ways. A ceiling that moves down because a surface became classifiable is the outcome this gate exists to produce; one that moves up to accommodate the tests being added is the outcome it exists to prevent.

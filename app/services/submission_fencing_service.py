@@ -8,6 +8,7 @@ from uuid import UUID
 from pydantic import BaseModel
 
 from app.core.application_responses import ApplicationHttpResponse, accepted_application_response
+from app.observability import tenant_id_var
 from app.services.compute_job_store import (
     ComputeJobRegistrationResult,
     ComputeJobRegistrationStatus,
@@ -107,6 +108,7 @@ def _register_async_compute_job_or_rollback_execution(
         job_registration = compute_job_store.register_job(
             calculation_id=calculation_id,
             analytics_type=analytics_type,
+            tenant_id=tenant_id_var.get(),
             request_payload=request_payload,
         )
     except Exception:
@@ -196,6 +198,7 @@ def promote_existing_execution_to_async_submission_or_raise(
     job_registration = compute_job_store.register_job(
         calculation_id=calculation_id,
         analytics_type=analytics_type,
+        tenant_id=tenant_id_var.get(),
         request_payload=request_payload,
     )
     if job_registration.status == ComputeJobRegistrationStatus.CONFLICT:
