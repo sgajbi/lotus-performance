@@ -85,8 +85,9 @@ and `period_return_pct` geometrically links that daily return path. The return i
 the underlying position valuation economics before contribution smoothing or residual allocation;
 it is never reconstructed as contribution divided by `weight_avg`. `currency` names the applied
 reporting or portfolio-base currency. A `LOCAL_ONLY` group spanning multiple local currencies, an
-`Other` rollup that combines distinct source groups, or incomplete source valuation economics is
-published as `UNAVAILABLE` with a bounded reason instead of a fabricated return.
+`Other` rollup that combines distinct source groups, invalid observation dates, non-finite source
+return/capital/weight values, or otherwise incomplete source valuation economics is published as
+`UNAVAILABLE` with a bounded reason instead of a fabricated return.
 
 ## Async execution
 

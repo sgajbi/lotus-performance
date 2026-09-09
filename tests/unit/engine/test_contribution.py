@@ -929,3 +929,60 @@ def test_group_return_evidence_preserves_short_only_group(hierarchical_request_f
             "portfolio_weight_pct": pytest.approx(-100.0),
         }
     ]
+
+
+@pytest.mark.parametrize(
+    ("column", "values"),
+    [
+        ("daily_ror", [float("inf")]),
+        ("capital_inst", [float("-inf")]),
+        ("daily_weight", [float("nan")]),
+    ],
+)
+def test_group_return_evidence_refuses_non_finite_source_economics(
+    hierarchical_request_fixture,
+    column,
+    values,
+):
+    request = hierarchical_request_fixture.model_copy(update={"currency": "USD", "currency_mode": "BASE_ONLY"})
+    group_df = pd.DataFrame(
+        {
+            "perf_date": pd.to_datetime(["2026-01-01"]),
+            "capital_inst": [50.0],
+            "daily_ror": [1.0],
+            "daily_weight": [0.5],
+            "currency": ["USD"],
+        }
+    )
+    group_df[column] = values
+
+    evidence = _group_return_evidence(group_df=group_df, request=request)
+
+    assert evidence == {
+        "status": "UNAVAILABLE",
+        "currency": "USD",
+        "series": [],
+        "reason": "SOURCE_POSITION_VALUATION_ECONOMICS_INCOMPLETE",
+    }
+
+
+def test_group_return_evidence_refuses_invalid_observation_date(hierarchical_request_fixture):
+    request = hierarchical_request_fixture.model_copy(update={"currency": "USD", "currency_mode": "BASE_ONLY"})
+    group_df = pd.DataFrame(
+        {
+            "perf_date": [pd.NaT],
+            "capital_inst": [50.0],
+            "daily_ror": [1.0],
+            "daily_weight": [0.5],
+            "currency": ["USD"],
+        }
+    )
+
+    evidence = _group_return_evidence(group_df=group_df, request=request)
+
+    assert evidence == {
+        "status": "UNAVAILABLE",
+        "currency": None,
+        "series": [],
+        "reason": "SOURCE_POSITION_VALUATION_ECONOMICS_INCOMPLETE",
+    }

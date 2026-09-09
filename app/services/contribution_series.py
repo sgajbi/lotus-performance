@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from math import isfinite
 from typing import Any
 
 import pandas as pd
@@ -403,14 +404,12 @@ def _aggregate_hierarchy_level(
 
 
 def _group_return_evidence(*, group_df: pd.DataFrame, request: ContributionRequest) -> dict[str, Any]:
+    if _group_return_input_is_incomplete(group_df):
+        return _unavailable_group_return_evidence("SOURCE_POSITION_VALUATION_ECONOMICS_INCOMPLETE")
+
     currency = _group_return_currency(group_df=group_df, request=request)
     if currency is None:
-        return {
-            "status": "UNAVAILABLE",
-            "currency": None,
-            "series": [],
-            "reason": "MIXED_LOCAL_CURRENCIES_HAVE_NO_SINGLE_GROUP_RETURN",
-        }
+        return _unavailable_group_return_evidence("MIXED_LOCAL_CURRENCIES_HAVE_NO_SINGLE_GROUP_RETURN")
 
     points: list[dict[str, Any]] = []
     for observation_date, daily_df in group_df.groupby(PortfolioColumns.PERF_DATE.value, sort=True):
@@ -418,13 +417,11 @@ def _group_return_evidence(*, group_df: pd.DataFrame, request: ContributionReque
         returns = pd.to_numeric(daily_df[PortfolioColumns.DAILY_ROR.value], errors="coerce")
         source_weights = _source_daily_weights(daily_df)
         denominator = _as_numeric(capital.sum())
-        if denominator == 0 or capital.isna().any() or returns.isna().any() or source_weights.isna().any():
-            return {
-                "status": "UNAVAILABLE",
-                "currency": currency,
-                "series": [],
-                "reason": "SOURCE_POSITION_VALUATION_ECONOMICS_INCOMPLETE",
-            }
+        if _group_return_day_is_incomplete(denominator, capital, returns, source_weights):
+            return _unavailable_group_return_evidence(
+                "SOURCE_POSITION_VALUATION_ECONOMICS_INCOMPLETE",
+                currency=currency,
+            )
         points.append(
             {
                 "date": observation_date,
@@ -441,6 +438,41 @@ def _group_return_evidence(*, group_df: pd.DataFrame, request: ContributionReque
         "currency": currency,
         "series": points,
         "reason": None,
+    }
+
+
+def _group_return_input_is_incomplete(group_df: pd.DataFrame) -> bool:
+    return group_df.empty or group_df[PortfolioColumns.PERF_DATE.value].isna().any()
+
+
+def _group_return_day_is_incomplete(
+    denominator: Any,
+    capital: pd.Series,
+    returns: pd.Series,
+    source_weights: pd.Series,
+) -> bool:
+    return (
+        denominator == 0
+        or not _all_finite(capital)
+        or not _all_finite(returns)
+        or not _all_finite(source_weights)
+        or not isfinite(denominator)
+    )
+
+
+def _all_finite(values: pd.Series) -> bool:
+    numeric = pd.to_numeric(values, errors="coerce")
+    if numeric.isna().any():
+        return False
+    return bool(numeric.map(isfinite).all())
+
+
+def _unavailable_group_return_evidence(reason: str, *, currency: str | None = None) -> dict[str, Any]:
+    return {
+        "status": "UNAVAILABLE",
+        "currency": currency,
+        "series": [],
+        "reason": reason,
     }
 
 

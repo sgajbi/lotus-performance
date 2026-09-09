@@ -23,8 +23,8 @@ python scripts/python_test_taxonomy_inventory.py --limit 30 --min-api-runtime-te
 | Metric | Value |
 | --- | ---: |
 | Test modules inventoried | 327 |
-| Test functions inventoried | 3745 |
-| Integration/API/runtime test functions | 748 |
+| Test functions inventoried | 3748 |
+| Integration/API/runtime test functions | 749 |
 | Contract/governance test functions | 188 |
 
 ## Test Functions By Suite
@@ -33,8 +33,8 @@ python scripts/python_test_taxonomy_inventory.py --limit 30 --min-api-runtime-te
 | --- | ---: | ---: |
 | benchmarks | 9 | 20 |
 | e2e | 1 | 21 |
-| integration | 28 | 350 |
-| unit | 289 | 3354 |
+| integration | 28 | 351 |
+| unit | 289 | 3356 |
 
 ## Test Functions By Family
 
@@ -44,8 +44,8 @@ above does sum to it, because a module belongs to exactly one suite.
 
 | Family | Test functions |
 | --- | ---: |
-| analytics_domain | 1707 |
-| api_or_runtime | 748 |
+| analytics_domain | 1710 |
+| api_or_runtime | 749 |
 | contract_or_governance | 188 |
 | observability_or_readiness | 430 |
 | quality_or_security | 251 |
@@ -72,10 +72,10 @@ above does sum to it, because a module belongs to exactly one suite.
 | 15 | `tests/unit/services/test_twr_mode_service.py` | unit | 45 | analytics_domain |
 | 16 | `tests/unit/engine/test_mwr.py` | unit | 44 | analytics_domain |
 | 17 | `tests/unit/services/test_stateful_benchmark_input_service.py` | unit | 44 | analytics_domain |
-| 18 | `tests/integration/test_contribution_api.py` | integration | 43 | analytics_domain, api_or_runtime |
+| 18 | `tests/integration/test_contribution_api.py` | integration | 44 | analytics_domain, api_or_runtime |
 | 19 | `tests/integration/test_performance_api.py` | integration | 40 | api_or_runtime |
 | 20 | `tests/unit/services/test_operator_action_lease_service.py` | unit | 40 | uncategorized |
-| 21 | `tests/unit/engine/test_contribution.py` | unit | 36 | analytics_domain |
+| 21 | `tests/unit/engine/test_contribution.py` | unit | 38 | analytics_domain |
 | 22 | `tests/unit/services/test_benchmark_exposure_context_service.py` | unit | 35 | analytics_domain |
 | 23 | `tests/unit/test_observability.py` | unit | 34 | observability_or_readiness |
 | 24 | `tests/unit/models/test_twr_requests.py` | unit | 32 | analytics_domain |
