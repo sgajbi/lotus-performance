@@ -341,6 +341,60 @@ def test_contribution_endpoint_hierarchy_happy_path(client, happy_path_payload):
     ]
 
 
+def test_contribution_endpoint_hierarchy_publishes_contrasting_group_return_series(client):
+    payload = {
+        "portfolio_id": "CONTRIB_GROUP_RETURN_CONTRAST",
+        "report_start_date": "2025-01-01",
+        "report_end_date": "2025-01-02",
+        "analyses": [{"period": "SI", "frequencies": ["daily"]}],
+        "hierarchy": ["sector"],
+        "portfolio_data": {
+            "metric_basis": "NET",
+            "valuation_points": [
+                {"perf_date": "2025-01-01", "begin_mv": 1000, "end_mv": 1020},
+                {"perf_date": "2025-01-02", "begin_mv": 1020, "end_mv": 1040.4},
+            ],
+        },
+        "positions_data": [
+            {
+                "position_id": "EQUITY",
+                "meta": {"sector": "Equity"},
+                "valuation_points": [
+                    {"perf_date": "2025-01-01", "begin_mv": 600, "end_mv": 606},
+                    {"perf_date": "2025-01-02", "begin_mv": 606, "end_mv": 624.18},
+                ],
+            },
+            {
+                "position_id": "BONDS",
+                "meta": {"sector": "Bonds"},
+                "valuation_points": [
+                    {"perf_date": "2025-01-01", "begin_mv": 400, "end_mv": 412},
+                    {"perf_date": "2025-01-02", "begin_mv": 412, "end_mv": 416.12},
+                ],
+            },
+        ],
+    }
+
+    response = client.post("/performance/contribution", json=payload)
+
+    assert response.status_code == 200
+    rows = {row["key"]["sector"]: row for row in response.json()["results_by_period"]["SI"]["levels"][0]["rows"]}
+    equity_return = rows["Equity"]["group_return"]
+    bonds_return = rows["Bonds"]["group_return"]
+    assert equity_return["status"] == bonds_return["status"] == "READY"
+    assert equity_return["currency"] == bonds_return["currency"] == "USD"
+    assert [point["return_pct"] for point in equity_return["series"]] == pytest.approx([1.0, 3.0])
+    assert [point["return_pct"] for point in bonds_return["series"]] == pytest.approx([3.0, 1.0])
+    assert [point["portfolio_weight_pct"] for point in equity_return["series"]] == pytest.approx(
+        [60.0, 59.411764705882355]
+    )
+    assert [point["portfolio_weight_pct"] for point in bonds_return["series"]] == pytest.approx(
+        [40.0, 40.3921568627451]
+    )
+    assert equity_return["period_return_pct"] == pytest.approx(4.03)
+    assert bonds_return["period_return_pct"] == pytest.approx(4.03)
+
+
 def test_contribution_endpoint_treats_external_deposit_as_non_performance(client):
     payload = {
         "portfolio_id": "CONTRIB_EXTERNAL_DEPOSIT_NO_PERF",
