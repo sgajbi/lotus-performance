@@ -17,12 +17,24 @@ def build_applied_currency_evidence(
     currency_mode: str | None,
     fx: FXRequestBlock | None,
     source_currencies: Iterable[object] = (),
+    source_preconverted_reporting_currency: str | None = None,
+    source_preconverted_cash_flow_pairs: Iterable[str] = (),
 ) -> AppliedCurrencyEvidence:
     base_currency = _required_currency(portfolio_base_currency, field_name="portfolio base currency")
     report_currency = normalized_currency_code(requested_report_ccy)
     mode = currency_mode or "BASE_ONLY"
     normalized_sources = _normalized_source_currencies(source_currencies) or {base_currency}
     require_reporting_currency_for_both(currency_mode=mode, requested_report_ccy=report_currency)
+
+    source_reporting_currency = normalized_currency_code(source_preconverted_reporting_currency)
+    if source_reporting_currency is not None:
+        return _source_preconverted_position_valuation_evidence(
+            base_currency=base_currency,
+            requested_report_ccy=report_currency,
+            currency_mode=mode,
+            source_reporting_currency=source_reporting_currency,
+            cash_flow_pairs=source_preconverted_cash_flow_pairs,
+        )
 
     if mode == "LOCAL_ONLY":
         return _currency_evidence(
@@ -61,6 +73,41 @@ def build_applied_currency_evidence(
         mode="BOTH",
         reason="CALLER_SUPPLIED_FX_APPLIED",
         required_sources=required_sources,
+    )
+
+
+def _source_preconverted_position_valuation_evidence(
+    *,
+    base_currency: str,
+    requested_report_ccy: str | None,
+    currency_mode: str,
+    source_reporting_currency: str,
+    cash_flow_pairs: Iterable[str],
+) -> AppliedCurrencyEvidence:
+    if currency_mode != "BASE_ONLY" or requested_report_ccy != source_reporting_currency:
+        raise APIUnprocessableEntityError(
+            detail=(
+                "Source-selected reporting-currency position valuations require currency_mode=BASE_ONLY "
+                "and report_ccy matching the Core reporting currency."
+            ),
+            error_code="SOURCE_REPORTING_CURRENCY_MISMATCH",
+        )
+    applied_cash_flow_pairs = sorted(set(cash_flow_pairs))
+    return AppliedCurrencyEvidence(
+        portfolio_base_currency=base_currency,
+        requested_report_ccy=requested_report_ccy,
+        applied_report_ccy=source_reporting_currency,
+        restated=True,
+        currency_mode_applied="BASE_ONLY",
+        fx_source="source_preconverted",
+        fx_coverage="complete",
+        fixing_policy=(
+            "SOURCE_PRECONVERTED_POSITION_VALUATIONS_AND_CASH_FLOWS"
+            if applied_cash_flow_pairs
+            else "SOURCE_PRECONVERTED_POSITION_VALUATIONS"
+        ),
+        applied_pairs=applied_cash_flow_pairs,
+        reason="SOURCE_REPORTING_CURRENCY_VALUATIONS_APPLIED",
     )
 
 

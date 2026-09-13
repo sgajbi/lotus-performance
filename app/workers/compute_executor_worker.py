@@ -53,7 +53,7 @@ from app.services.compute_job_store import (
     ReconciledJobRecord,
     compute_job_store,
 )
-from app.services.contribution_mode_service import resolve_contribution_request
+from app.services.contribution_mode_service import resolve_contribution_request, resolved_contribution_identity_payload
 from app.services.contribution_service import calculate_contribution
 from app.services.durable_metadata_bootstrap import bootstrap_durable_metadata_stores
 from app.services.durable_store_runtime import RuntimeStoreProxy
@@ -581,38 +581,75 @@ def _update_execution_identity(
     return input_fingerprint, calculation_hash
 
 
-def _execute_attribution_job(job: ComputeJobRecord, context: _ComputeJobExecutionContext) -> Any:
-    (
-        attribution_request,
-        attribution_input_mode,
-        resolved_benchmark_id,
-        resolved_benchmark_return_source,
-    ) = _resolve_async_attribution_job_request(
-        job.request_payload,
-        settings=context.settings,
-    )
-    input_fingerprint, calculation_hash = _update_execution_identity(job, context, attribution_request)
-    return context.attribution_calculator(
-        attribution_request,
+def _execute_resolved_async_calculation(
+    *,
+    job: ComputeJobRecord,
+    context: _ComputeJobExecutionContext,
+    request: Any,
+    input_mode: Any,
+    calculator: Callable[..., Any],
+    identity_artifact: Any | None = None,
+    **calculator_kwargs: Any,
+) -> Any:
+    input_fingerprint, calculation_hash = _update_execution_identity(job, context, identity_artifact or request)
+    return calculator(
+        request,
         input_fingerprint=input_fingerprint,
         calculation_hash=calculation_hash,
-        input_mode=attribution_input_mode,
-        resolved_benchmark_id=resolved_benchmark_id,
-        resolved_benchmark_return_source=resolved_benchmark_return_source,
+        input_mode=input_mode,
+        **calculator_kwargs,
+    )
+
+
+def _execute_resolved_async_workflow_job(
+    *,
+    job: ComputeJobRecord,
+    context: _ComputeJobExecutionContext,
+    resolver: Callable[..., tuple[Any, ...]],
+    calculator: Callable[..., Any],
+    option_names: tuple[str, ...],
+    identity_artifact_factory: Callable[..., Any] | None = None,
+) -> Any:
+    request, input_mode, *option_values = resolver(job.request_payload, settings=context.settings)
+    identity_artifact = identity_artifact_factory(request, *option_values) if identity_artifact_factory else None
+    calculator_kwargs = dict(zip(option_names, option_values, strict=True))
+    if identity_artifact is not None:
+        calculator_kwargs["request_artifact_model"] = identity_artifact
+    return _execute_resolved_async_calculation(
+        job=job,
+        context=context,
+        request=request,
+        input_mode=input_mode,
+        calculator=calculator,
+        identity_artifact=identity_artifact,
+        **calculator_kwargs,
+    )
+
+
+def _execute_attribution_job(job: ComputeJobRecord, context: _ComputeJobExecutionContext) -> Any:
+    return _execute_resolved_async_workflow_job(
+        job=job,
+        context=context,
+        resolver=_resolve_async_attribution_job_request,
+        calculator=context.attribution_calculator,
+        option_names=("resolved_benchmark_id", "resolved_benchmark_return_source"),
     )
 
 
 def _execute_contribution_job(job: ComputeJobRecord, context: _ComputeJobExecutionContext) -> Any:
-    contribution_request, contribution_input_mode = _resolve_async_contribution_job_request(
-        job.request_payload,
-        settings=context.settings,
-    )
-    input_fingerprint, calculation_hash = _update_execution_identity(job, context, contribution_request)
-    return context.contribution_calculator(
-        contribution_request,
-        input_fingerprint=input_fingerprint,
-        calculation_hash=calculation_hash,
-        input_mode=contribution_input_mode,
+    return _execute_resolved_async_workflow_job(
+        job=job,
+        context=context,
+        resolver=_resolve_async_contribution_job_request,
+        calculator=context.contribution_calculator,
+        option_names=("portfolio_base_currency", "source_preconverted_reporting_currency"),
+        identity_artifact_factory=lambda request, portfolio_base_currency, source_preconverted_reporting_currency: (
+            resolved_contribution_identity_payload(
+                request,
+                portfolio_base_currency=portfolio_base_currency,
+                source_preconverted_reporting_currency=source_preconverted_reporting_currency,
+            )
+        ),
     )
 
 
@@ -968,15 +1005,42 @@ def _resolve_async_contribution_job_request(
     payload: dict[str, Any],
     *,
     settings,
-) -> tuple[ContributionRequest, ContributionInputMode]:
+) -> tuple[ContributionRequest, ContributionInputMode, str | None, str | None]:
     payload = _payload_without_async_observability_context(payload)
+    resolved_request = _resolved_async_contribution_job_request_from_payload(payload)
+    if resolved_request is not None:
+        return resolved_request
     try:
         request = ContributionRequest.model_validate(payload)
     except ValidationError:
         analytics_request = ContributionAnalyticsRequest.model_validate(payload)
         resolved_contribution = asyncio.run(resolve_contribution_request(analytics_request, settings=settings))
-        return resolved_contribution.contribution_request, resolved_contribution.input_mode
-    return request, ContributionInputMode.STATEFUL
+        return (
+            resolved_contribution.contribution_request,
+            resolved_contribution.input_mode,
+            getattr(resolved_contribution, "portfolio_base_currency", None),
+            getattr(resolved_contribution, "source_preconverted_reporting_currency", None),
+        )
+    return request, ContributionInputMode.STATEFUL, None, None
+
+
+def _resolved_async_contribution_job_request_from_payload(
+    payload: dict[str, Any],
+) -> tuple[ContributionRequest, ContributionInputMode, str | None, str | None] | None:
+    resolved_request_payload = payload.get("resolved_request")
+    source_input_mode = payload.get("source_input_mode")
+    if not isinstance(resolved_request_payload, dict) or not isinstance(source_input_mode, str):
+        return None
+    return (
+        ContributionRequest.model_validate(resolved_request_payload),
+        ContributionInputMode(source_input_mode),
+        payload.get("portfolio_base_currency") if isinstance(payload.get("portfolio_base_currency"), str) else None,
+        (
+            payload.get("source_preconverted_reporting_currency")
+            if isinstance(payload.get("source_preconverted_reporting_currency"), str)
+            else None
+        ),
+    )
 
 
 def _resolve_async_returns_series_job_request(

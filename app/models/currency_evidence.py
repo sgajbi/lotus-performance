@@ -23,10 +23,15 @@ class AppliedCurrencyEvidence(BaseModel):
     fx_coverage: Literal["complete", "none"] = Field(
         description="Coverage of required applied FX pairs and exact fixing dates; partial coverage is refused."
     )
-    fixing_policy: Literal["EOD_EXACT_PRIOR_AND_CURRENT", "SOURCE_PRECONVERTED_RETURN_COMPONENTS"] = Field(
+    fixing_policy: Literal[
+        "EOD_EXACT_PRIOR_AND_CURRENT",
+        "SOURCE_PRECONVERTED_POSITION_VALUATIONS",
+        "SOURCE_PRECONVERTED_POSITION_VALUATIONS_AND_CASH_FLOWS",
+        "SOURCE_PRECONVERTED_RETURN_COMPONENTS",
+    ] = Field(
         description=(
-            "Applied conversion policy: exact prior/current EOD caller rates, or source-provided "
-            "base/local/FX return components that require no engine rate fixing."
+            "Applied conversion policy: exact prior/current EOD caller rates, source-selected complete "
+            "reporting valuations, or source-provided base/local/FX return components that require no engine rate fixing."
         )
     )
     applied_pairs: list[str] = Field(

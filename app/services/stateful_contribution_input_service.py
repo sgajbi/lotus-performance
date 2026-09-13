@@ -8,6 +8,7 @@ from uuid import UUID
 
 from app.core.config import Settings
 from app.models.contribution_requests import PortfolioData, PositionData
+from app.services.currency_code_normalization import normalized_currency_code
 from app.services.position_source_service import parse_stateful_position_timeseries_payload
 from app.services.source_cashflow_taxonomy import classify_cashflow_type
 from app.services.stateful_input_service import RetrievalMetadata, StatefulInputService
@@ -31,6 +32,7 @@ from app.services.stateful_position_row_service import (
 from app.services.stateful_retrieval_metadata import parse_retrieval_metadata
 from app.services.stateful_upstream_errors import raise_for_stateful_control_plane_unavailable
 from app.services.valuation_points_service import portfolio_timeseries_to_valuation_points
+from core.errors import APIUnprocessableEntityError
 
 
 @dataclass(frozen=True)
@@ -75,6 +77,9 @@ class StatefulContributionNormalizedInput:
     portfolio_data: PortfolioData
     positions_data: list[PositionData]
     portfolio_currency: str | None = None
+    reporting_currency: str | None = None
+    valuation_currency: str | None = None
+    source_preconverted_cash_flow_conversion: bool = False
 
 
 @dataclass(frozen=True)
@@ -199,6 +204,7 @@ def build_stateful_contribution_input(
     currency_mode: str | None,
     fx: object,
     reporting_currency: str | None,
+    portfolio_base_currency: str | None = None,
 ) -> StatefulContributionNormalizedInput:
     normalized_currency_mode = currency_mode or "BASE_ONLY"
     if normalized_currency_mode == "BOTH":
@@ -208,10 +214,25 @@ def build_stateful_contribution_input(
             fx=fx,
         )
 
+    valuation_currency = _stateful_base_only_valuation_currency(
+        source_input=source_input,
+        currency_mode=normalized_currency_mode,
+        requested_reporting_currency=reporting_currency,
+        fallback_portfolio_currency=portfolio_base_currency,
+    )
+    resolved_portfolio_currency = normalized_currency_code(
+        getattr(source_input.portfolio_input, "portfolio_currency", None)
+    ) or normalized_currency_code(portfolio_base_currency)
+
     position_series = _stateful_contribution_position_series(
         rows=source_input.position_rows,
         currency_mode=normalized_currency_mode,
-        reporting_currency=reporting_currency,
+        reporting_currency=_stateful_position_reporting_currency(
+            source_input=source_input,
+            currency_mode=normalized_currency_mode,
+            valuation_currency=valuation_currency,
+            requested_reporting_currency=reporting_currency,
+        ),
         performance_component_economics_payload=getattr(
             source_input,
             "performance_component_economics_payload",
@@ -230,8 +251,227 @@ def build_stateful_contribution_input(
             metric_basis=metric_basis,
         ),
         positions_data=_stateful_contribution_positions_data(position_series),
-        portfolio_currency=getattr(source_input.portfolio_input, "portfolio_currency", None),
+        portfolio_currency=resolved_portfolio_currency,
+        reporting_currency=getattr(source_input.portfolio_input, "reporting_currency", None),
+        valuation_currency=valuation_currency,
+        source_preconverted_cash_flow_conversion=_stateful_has_source_preconverted_cash_flow_conversion(
+            rows=source_input.position_rows,
+            portfolio_currency=resolved_portfolio_currency,
+        ),
     )
+
+
+def _stateful_position_reporting_currency(
+    *,
+    source_input: StatefulContributionSourceInput,
+    currency_mode: str,
+    valuation_currency: str | None,
+    requested_reporting_currency: str | None,
+) -> str | None:
+    if currency_mode != "BASE_ONLY":
+        return requested_reporting_currency
+    source_reporting_currency = normalized_currency_code(
+        getattr(source_input.portfolio_input, "reporting_currency", None)
+    )
+    return source_reporting_currency if valuation_currency == source_reporting_currency else None
+
+
+def _stateful_base_only_valuation_currency(
+    *,
+    source_input: StatefulContributionSourceInput,
+    currency_mode: str,
+    requested_reporting_currency: str | None,
+    fallback_portfolio_currency: str | None = None,
+) -> str | None:
+    """Return Core's selected valuation denomination without relabelling a fallback value pair."""
+    portfolio_currency = normalized_currency_code(
+        getattr(source_input.portfolio_input, "portfolio_currency", None)
+    ) or normalized_currency_code(fallback_portfolio_currency)
+    reporting_currency = normalized_currency_code(getattr(source_input.portfolio_input, "reporting_currency", None))
+    requested_currency = normalized_currency_code(requested_reporting_currency)
+    if currency_mode != "BASE_ONLY":
+        return portfolio_currency
+    if requested_currency is None:
+        return portfolio_currency
+    _require_matching_stateful_reporting_currency(
+        reporting_currency=reporting_currency,
+        requested_currency=requested_currency,
+    )
+    if reporting_currency is None:
+        return portfolio_currency
+    if reporting_currency == portfolio_currency:
+        _require_complete_stateful_reporting_cash_flow_conversion(
+            rows=source_input.position_rows,
+            portfolio_currency=portfolio_currency,
+            reporting_currency=reporting_currency,
+        )
+        return portfolio_currency
+
+    incomplete_rows = _incomplete_stateful_reporting_value_rows(source_input.position_rows)
+    if incomplete_rows:
+        raise APIUnprocessableEntityError(
+            detail=(
+                "Stateful contribution BASE_ONLY cannot publish Core reporting-currency valuation evidence "
+                "when a position lacks a complete reporting value pair: " + ", ".join(incomplete_rows) + "."
+            ),
+            error_code="REPORTING_CURRENCY_VALUATIONS_INCOMPLETE",
+        )
+    _require_complete_stateful_reporting_cash_flow_conversion(
+        rows=source_input.position_rows,
+        portfolio_currency=portfolio_currency,
+        reporting_currency=reporting_currency,
+    )
+    return reporting_currency
+
+
+def _require_matching_stateful_reporting_currency(
+    *,
+    reporting_currency: str | None,
+    requested_currency: str,
+) -> None:
+    if reporting_currency is not None and reporting_currency != requested_currency:
+        raise APIUnprocessableEntityError(
+            detail="Stateful contribution source reporting_currency does not match requested report_ccy.",
+            error_code="SOURCE_REPORTING_CURRENCY_MISMATCH",
+        )
+
+
+def _incomplete_stateful_reporting_value_rows(rows: list[dict[str, object]]) -> list[str]:
+    return [
+        _stateful_position_row_identity(row, index=index)
+        for index, row in enumerate(rows)
+        if _stateful_row_is_consumed_for_reporting_valuation(row) and _stateful_row_lacks_reporting_value_pair(row)
+    ]
+
+
+def _stateful_row_lacks_reporting_value_pair(row: dict[str, object]) -> bool:
+    if not isinstance(row.get("valuation_date"), str):
+        return False
+    return (
+        row.get("beginning_market_value_reporting_currency") is None
+        or row.get("ending_market_value_reporting_currency") is None
+    )
+
+
+def _stateful_position_row_identity(row: dict[str, object], *, index: int) -> str:
+    for field_name in ("position_id", "security_id"):
+        value = row.get(field_name)
+        if isinstance(value, str) and value.strip():
+            return value.strip()
+    return f"row[{index}]"
+
+
+def _incomplete_stateful_reporting_cash_flow_conversion_rows(
+    *,
+    rows: list[dict[str, object]],
+    portfolio_currency: str | None,
+    reporting_currency: str,
+) -> list[str]:
+    return [
+        _stateful_position_row_identity(row, index=index)
+        for index, row in enumerate(rows)
+        if _stateful_row_is_consumed_for_reporting_valuation(row)
+        and _stateful_row_lacks_required_reporting_cash_flow_rates(
+            row=row,
+            portfolio_currency=portfolio_currency,
+            reporting_currency=reporting_currency,
+        )
+    ]
+
+
+def _require_complete_stateful_reporting_cash_flow_conversion(
+    *,
+    rows: list[dict[str, object]],
+    portfolio_currency: str | None,
+    reporting_currency: str,
+) -> None:
+    incomplete_rows = _incomplete_stateful_reporting_cash_flow_conversion_rows(
+        rows=rows,
+        portfolio_currency=portfolio_currency,
+        reporting_currency=reporting_currency,
+    )
+    if incomplete_rows:
+        raise APIUnprocessableEntityError(
+            detail=(
+                "Stateful contribution BASE_ONLY cannot publish Core reporting-currency valuation evidence "
+                "when nonzero position-currency cash flows lack required source FX rates: "
+                + ", ".join(incomplete_rows)
+                + "."
+            ),
+            error_code="REPORTING_CURRENCY_CASH_FLOW_FX_INCOMPLETE",
+        )
+
+
+def _stateful_row_lacks_required_reporting_cash_flow_rates(
+    *,
+    row: dict[str, object],
+    portfolio_currency: str | None,
+    reporting_currency: str,
+) -> bool:
+    position_currency = normalized_currency_code(row.get("position_currency"))
+    if not _stateful_row_has_nonzero_timed_cash_flow(row):
+        return False
+    cash_flow_currency = normalized_currency_code(row.get("cash_flow_currency"))
+    if position_currency is None or cash_flow_currency is None or cash_flow_currency != position_currency:
+        return True
+    return (
+        position_currency != portfolio_currency and not _is_positive_decimal(row.get("position_to_portfolio_fx_rate"))
+    ) or (
+        portfolio_currency != reporting_currency and not _is_positive_decimal(row.get("portfolio_to_reporting_fx_rate"))
+    )
+
+
+def _stateful_row_is_consumed_for_reporting_valuation(row: dict[str, object]) -> bool:
+    position_id = row.get("position_id")
+    valuation_date = row.get("valuation_date")
+    return (
+        isinstance(position_id, str)
+        and isinstance(valuation_date, str)
+        and _position_value_inputs(
+            row=row,
+            currency_mode="BASE_ONLY",
+            reporting_currency="reporting",
+        )
+        is not None
+    )
+
+
+def _stateful_row_has_nonzero_timed_cash_flow(row: dict[str, object]) -> bool:
+    cash_flows = row.get("cash_flows")
+    if not isinstance(cash_flows, list):
+        return False
+    return any(
+        isinstance(flow, dict)
+        and flow.get("timing") in {"bod", "eod"}
+        and flow.get("amount") is not None
+        and Decimal(str(flow["amount"])) != 0
+        and classify_cashflow_type(flow.get("cash_flow_type")).economics_role != "unsupported"
+        for flow in cash_flows
+    )
+
+
+def _stateful_has_source_preconverted_cash_flow_conversion(
+    *,
+    rows: list[dict[str, object]],
+    portfolio_currency: str | None,
+) -> bool:
+    """Whether consumed flow evidence used Core's position-to-base conversion."""
+    return any(
+        _stateful_row_is_consumed_for_reporting_valuation(row)
+        and _stateful_row_has_nonzero_timed_cash_flow(row)
+        and normalized_currency_code(row.get("position_currency")) not in {None, portfolio_currency}
+        for row in rows
+    )
+
+
+def _is_positive_decimal(value: object) -> bool:
+    if value is None:
+        return False
+    try:
+        parsed = Decimal(str(value))
+        return parsed.is_finite() and parsed > 0
+    except ArithmeticError:
+        return False
 
 
 def _stateful_contribution_portfolio_data(
@@ -274,6 +514,7 @@ def _stateful_contribution_position_series(
 ) -> _StatefulContributionPositionSeries:
     positions_by_id: dict[str, list[dict[str, object]]] = {}
     position_meta: dict[str, dict[str, object]] = {}
+    cash_flow_currencies_by_position_id: dict[str, set[str]] = {}
     for row in rows:
         position_id_raw = row.get("position_id")
         valuation_date = row.get("valuation_date")
@@ -294,10 +535,30 @@ def _stateful_contribution_position_series(
             performance_component_economics_payload=performance_component_economics_payload,
             performance_component_economics_status=performance_component_economics_status,
         )
+        _record_position_cash_flow_currency(
+            row=row,
+            normalized_position_id=normalized_position_id,
+            currencies_by_position_id=cash_flow_currencies_by_position_id,
+        )
+    for position_id, currencies in cash_flow_currencies_by_position_id.items():
+        position_meta[position_id]["_source_cash_flow_currencies"] = sorted(currencies)
     return _StatefulContributionPositionSeries(
         valuation_points_by_position_id=positions_by_id,
         meta_by_position_id=position_meta,
     )
+
+
+def _record_position_cash_flow_currency(
+    *,
+    row: dict[str, object],
+    normalized_position_id: str,
+    currencies_by_position_id: dict[str, set[str]],
+) -> None:
+    if not _stateful_row_has_nonzero_timed_cash_flow(row):
+        return
+    cash_flow_currency = normalized_currency_code(row.get("cash_flow_currency"))
+    if cash_flow_currency is not None:
+        currencies_by_position_id.setdefault(normalized_position_id, set()).add(cash_flow_currency)
 
 
 def _position_row_to_daily_point(

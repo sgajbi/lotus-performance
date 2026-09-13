@@ -155,9 +155,11 @@ async def test_contribution_endpoint_returns_accepted_response_when_resolved_sta
             contribution_request=resolved_request,
             input_mode=ContributionInputMode.STATEFUL,
             position_count=2,
+            portfolio_base_currency="EUR",
+            source_preconverted_reporting_currency="USD",
         ),
     )
-    mocker.patch(
+    finalize_execution = mocker.patch(
         "app.services.contribution_calculation_workflow_service.finalize_resolved_stateful_execution",
         return_value=accepted_response,
     )
@@ -169,6 +171,10 @@ async def test_contribution_endpoint_returns_accepted_response_when_resolved_sta
 
     assert response == accepted_response
     calculate_contribution.assert_not_called()
+    persisted_payload = finalize_execution.call_args.kwargs["resolved_request_payload"]
+    assert persisted_payload["source_input_mode"] == "stateful"
+    assert persisted_payload["portfolio_base_currency"] == "EUR"
+    assert persisted_payload["source_preconverted_reporting_currency"] == "USD"
 
 
 @pytest.mark.asyncio
@@ -199,6 +205,8 @@ async def test_contribution_endpoint_executes_resolved_stateful_request_when_fin
             contribution_request=resolved_request,
             input_mode=ContributionInputMode.STATEFUL,
             position_count=1,
+            portfolio_base_currency="EUR",
+            source_preconverted_reporting_currency="USD",
         ),
     )
     mocker.patch(
@@ -214,6 +222,11 @@ async def test_contribution_endpoint_executes_resolved_stateful_request_when_fin
 
     assert response == expected_response
     calculate_contribution.assert_called_once()
+    assert calculate_contribution.call_args.kwargs["request_artifact_model"].model_dump(mode="json") == {
+        "contribution_request": resolved_request.model_dump(mode="json"),
+        "portfolio_base_currency": "EUR",
+        "source_preconverted_reporting_currency": "USD",
+    }
 
 
 @pytest.mark.asyncio
