@@ -4,7 +4,7 @@ import argparse
 import json
 import os
 import re
-import socket
+import secrets
 import subprocess
 import time
 from pathlib import Path
@@ -12,12 +12,32 @@ from typing import NoReturn
 
 REPOSITORY_ROOT = Path(__file__).resolve().parents[1]
 PROJECT_PREFIX = "lotus-performance-lineage-recovery-"
+RECOVERY_COMPOSE_FILE = REPOSITORY_ROOT / "docker-compose.lineage-recovery.yml"
 RUNTIME_SERVICES = (
     "performance-analytics",
     "performance-lineage-worker",
     "performance-compute-executor",
 )
 _PROJECT_PATTERN = re.compile(rf"^{PROJECT_PREFIX}[a-z0-9][a-z0-9-]{{0,40}}$")
+_HOST_ENVIRONMENT_KEYS = (
+    "PATH",
+    "SystemRoot",
+    "WINDIR",
+    "COMSPEC",
+    "PATHEXT",
+    "ProgramFiles",
+    "ProgramW6432",
+    "ProgramFiles(x86)",
+    "USERPROFILE",
+    "HOMEDRIVE",
+    "HOMEPATH",
+    "APPDATA",
+    "LOCALAPPDATA",
+    "TEMP",
+    "TMP",
+)
+_LINEAGE_DATABASE_URL = "postgresql+psycopg://lotus:lotus@performance-lineage-db:5432/lotus_performance"
+_LOCAL_DOCKER_CONTEXT = "default"
 
 
 def validate_project_name(project_name: str) -> str:
@@ -27,11 +47,23 @@ def validate_project_name(project_name: str) -> str:
     return normalized
 
 
+def new_project_name() -> str:
+    """Return a collision-resistant name inside the validator's owned Compose namespace."""
+    return f"{PROJECT_PREFIX}{secrets.token_hex(12)}"
+
+
 def build_runtime_environment(project_name: str) -> dict[str, str]:
+    """Build the bounded host and container configuration for one owned recovery run.
+
+    Docker only receives the host variables it needs to start locally. Compose interpolation is
+    then limited to resource names and the in-network database URL owned by this project; caller
+    configuration cannot redirect the proof to another database, daemon, project, or host port.
+    Every command also selects Docker's built-in ``default`` context explicitly, so a persisted
+    caller-selected context cannot redirect the validator to a remote daemon.
+    """
     return {
-        **os.environ,
-        "PA_LINEAGE_DB_PORT": str(_available_port()),
-        "PA_HOST_PORT": str(_available_port()),
+        **_host_command_environment(),
+        "LINEAGE_METADATA_DATABASE_URL": _LINEAGE_DATABASE_URL,
         "PA_LINEAGE_DB_CONTAINER_NAME": f"{project_name}-db",
         "PA_LINEAGE_VOLUME_INIT_CONTAINER_NAME": f"{project_name}-volume-init",
         "PA_ANALYTICS_CONTAINER_NAME": f"{project_name}-analytics",
@@ -41,24 +73,26 @@ def build_runtime_environment(project_name: str) -> dict[str, str]:
     }
 
 
-def _available_port() -> int:
-    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as candidate:
-        candidate.bind(("127.0.0.1", 0))
-        return int(candidate.getsockname()[1])
+def _host_command_environment() -> dict[str, str]:
+    return {key: value for key in _HOST_ENVIRONMENT_KEYS if (value := os.environ.get(key)) is not None}
 
 
 def compose_command(project_name: str, *arguments: str) -> list[str]:
-    return [
-        "docker",
+    return docker_command(
         "compose",
-        "--project-directory",
-        str(REPOSITORY_ROOT),
         "-f",
         str(REPOSITORY_ROOT / "docker-compose.yml"),
+        "-f",
+        str(RECOVERY_COMPOSE_FILE),
         "-p",
         project_name,
         *arguments,
-    ]
+    )
+
+
+def docker_command(*arguments: str) -> list[str]:
+    """Run every Docker CLI operation against the built-in local context."""
+    return ["docker", "--context", _LOCAL_DOCKER_CONTEXT, *arguments]
 
 
 def run_validation(project_name: str) -> dict[str, object]:
@@ -120,22 +154,24 @@ def run_validation(project_name: str) -> dict[str, object]:
         }
     finally:
         _run(
-            compose_command(
-                project_name,
-                "down",
-                "-v",
-                "--remove-orphans",
-                "--rmi",
-                "local",
-            ),
+            cleanup_command(project_name),
             env=runtime_environment,
             check=False,
         )
 
 
+def cleanup_command(project_name: str) -> list[str]:
+    """Remove only project-scoped containers, volumes, networks, and orphaned services.
+
+    Deliberately retain images: Compose's local-image label is not a safe ownership boundary for a
+    shared developer or CI daemon.
+    """
+    return compose_command(project_name, "down", "-v", "--remove-orphans")
+
+
 def _assert_initializer_succeeded(container_name: str, env: dict[str, str]) -> None:
     exit_code = _capture(
-        ["docker", "inspect", "--format", "{{.State.ExitCode}}", container_name],
+        docker_command("inspect", "--format", "{{.State.ExitCode}}", container_name),
         env=env,
     ).strip()
     if exit_code != "0":
@@ -155,7 +191,7 @@ def _wait_for_healthy_runtime(
             name
             for name in pending
             if _capture(
-                ["docker", "inspect", "--format", "{{.State.Health.Status}}", name],
+                docker_command("inspect", "--format", "{{.State.Health.Status}}", name),
                 env=env,
                 check=False,
             ).strip()
@@ -166,7 +202,7 @@ def _wait_for_healthy_runtime(
     if pending:
         statuses = {
             name: _capture(
-                ["docker", "inspect", "--format", "{{json .State}}", name],
+                docker_command("inspect", "--format", "{{json .State}}", name),
                 env=env,
                 check=False,
             ).strip()
@@ -187,7 +223,7 @@ def _container_log_tails(
 ) -> dict[str, str]:
     return {
         name: _capture(
-            ["docker", "logs", "--tail", str(tail_lines), name],
+            docker_command("logs", "--tail", str(tail_lines), name),
             env=env,
             check=False,
         ).strip()
@@ -265,7 +301,7 @@ def main() -> int:
     parser = argparse.ArgumentParser(description="Prove non-root lineage volume recovery and restart health.")
     parser.add_argument(
         "--project-name",
-        default=f"{PROJECT_PREFIX}{os.getpid()}",
+        default=new_project_name(),
         help=f"Owned disposable Compose project; must start with {PROJECT_PREFIX}",
     )
     args = parser.parse_args()

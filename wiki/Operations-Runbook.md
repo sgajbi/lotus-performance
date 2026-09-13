@@ -55,8 +55,10 @@ For first response:
 1. run `docker compose ps -a` and confirm the initializer exited with code `0`;
 2. inspect initializer logs before restarting workloads when it did not complete;
 3. confirm the affected API and worker healthchecks after the initializer succeeds;
-4. run `make lineage-volume-recovery-smoke` only as isolated release proof—the command creates and
-   removes its own `lotus-performance-lineage-recovery-*` project and must not target the live
+4. run `make lineage-volume-recovery-smoke` only as isolated release proof—the command creates a
+   random owned `lotus-performance-lineage-recovery-*` project with no published host ports, a
+   bounded environment, and Docker's local `default` context; it removes only its project-scoped
+   resources and must not target the live
    deployment;
 5. preserve the named volume during incident triage; do not use `docker compose down -v`, delete
    `/app/lineage_data`, or recursively loosen permissions as a recovery shortcut.

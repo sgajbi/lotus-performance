@@ -1,0 +1,8 @@
+# This override is used only by scripts/validate_lineage_volume_recovery.py.  The recovery proof
+# talks to every service through the owned Compose network, so it must never allocate host ports
+# that could collide with, expose, or accidentally validate another local runtime.
+services:
+  performance-lineage-db:
+    ports: !reset []
+  performance-analytics:
+    ports: !reset []
