@@ -26,6 +26,9 @@ def test_dockerfile_uses_minimized_non_root_runtime_image() -> None:
     dockerfile = (ROOT / "Dockerfile").read_text(encoding="utf-8")
 
     assert "FROM python:3.11-slim AS runtime" in dockerfile
+    assert "apt-get update" in dockerfile
+    assert "apt-get upgrade --yes" in dockerfile
+    assert "rm -rf /var/lib/apt/lists/*" in dockerfile
     assert "COPY requirements.txt requirements-image.txt ./" in dockerfile
     assert "requirements-dev.txt" not in dockerfile
     assert "useradd --system --uid 10001" in dockerfile

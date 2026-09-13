@@ -79,3 +79,25 @@ def test_the_annualize_return_ratio_is_not_an_allowlist_entry():
     offenders = [entry["finding"] for entry in payload["allowlist"] if "annualize_return" in entry["finding"]]
 
     assert offenders == [], offenders
+
+
+def test_breakdown_percentage_returns_are_not_dated_monetary_allowlist_entries():
+    """Quantized return percentages are ratios, so they are source-dispositioned.
+
+    The exact two expressions previously carried stale generic entries even though the
+    rounding standard already classifies percentage returns as dimensionless. Keep the
+    source marker and the no-entry rule together so a future expiry cannot make the
+    repository's release gate red again.
+    """
+
+    payload = json.loads(ALLOWLIST_PATH.read_text(encoding="utf-8"))
+    offenders = [
+        entry["finding"] for entry in payload["allowlist"] if entry["finding"].startswith("engine/breakdown.py:")
+    ]
+
+    source = (REPO_ROOT / "engine/breakdown.py").read_text(encoding="utf-8")
+    assert offenders == [], offenders
+    assert source.count("# monetary-float-allow: quantized percentage return is a dimensionless ratio, not money.") == 1
+    assert (
+        source.count("# monetary-float-allow: cumulative percentage return is a dimensionless ratio, not money.") == 1
+    )

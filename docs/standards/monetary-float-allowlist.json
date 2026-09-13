@@ -640,18 +640,6 @@
       "review_by": "2026-09-17"
     },
     {
-      "finding": "engine/breakdown.py:28:\"period_return_pct\": float(quantize_performance(period_ror * 100)),",
-      "justification": "Temporary approved monetary floating-point usage; convert to Decimal.",
-      "owner": "platform-governance",
-      "review_by": "2026-09-10"
-    },
-    {
-      "finding": "engine/breakdown.py:32:summary[\"cumulative_return_pct_to_date\"] = float(",
-      "justification": "Temporary approved monetary floating-point usage; convert to Decimal.",
-      "owner": "platform-governance",
-      "review_by": "2026-09-10"
-    },
-    {
       "finding": "engine/contribution_smoothing.py:10:def _calculate_carino_factor_for_return(portfolio_return: float) -> float:",
       "justification": "Temporary approved monetary floating-point usage; convert to Decimal.",
       "owner": "platform-governance",

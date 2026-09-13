@@ -21,17 +21,23 @@ def _calculate_period_summary_dict(
 
     period_ror = (1 + period_df[PortfolioColumns.DAILY_ROR.value] / 100).prod() - 1
 
+    period_return_pct = float(  # monetary-float-allow: quantized percentage return is a dimensionless ratio, not money.
+        quantize_performance(period_ror * 100)
+    )
     summary = {
         PortfolioColumns.BEGIN_MV.value: first_day[PortfolioColumns.BEGIN_MV.value],
         PortfolioColumns.END_MV.value: last_day[PortfolioColumns.END_MV.value],
         "net_cash_flow": (period_df[PortfolioColumns.BOD_CF.value] + period_df[PortfolioColumns.EOD_CF.value]).sum(),
-        "period_return_pct": float(quantize_performance(period_ror * 100)),
+        "period_return_pct": period_return_pct,
     }
 
     if include_cumulative:
-        summary["cumulative_return_pct_to_date"] = float(
-            quantize_performance(last_day[PortfolioColumns.FINAL_CUM_ROR.value])
+        cumulative_return_pct_to_date = (
+            float(  # monetary-float-allow: cumulative percentage return is a dimensionless ratio, not money.
+                quantize_performance(last_day[PortfolioColumns.FINAL_CUM_ROR.value])
+            )
         )
+        summary["cumulative_return_pct_to_date"] = cumulative_return_pct_to_date
 
     if annualization.enabled:
         annualized_return_pct = _period_annualized_return_pct(

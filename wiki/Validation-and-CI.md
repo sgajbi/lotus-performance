@@ -50,7 +50,7 @@ branch `main` at the exact merged SHA, while manual dispatch retains its selecte
   `artifacts/durable-schema-apply/`
 - `make container-supply-chain-evidence`
   image release evidence: builds the production `runtime` Dockerfile target with support-safe
-  Git/build metadata, installs only runtime dependencies, runs as non-root user `lotus`, writes a
+  Git/build metadata, refreshes published Debian security packages, installs only runtime dependencies, runs as non-root user `lotus`, writes a
   CycloneDX SBOM, and writes a high/critical Trivy vulnerability report under
   `output/container-security/`
 - `make ci-local`

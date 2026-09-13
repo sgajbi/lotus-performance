@@ -23,7 +23,7 @@ python scripts/python_test_taxonomy_inventory.py --limit 30 --min-api-runtime-te
 | Metric | Value |
 | --- | ---: |
 | Test modules inventoried | 327 |
-| Test functions inventoried | 3748 |
+| Test functions inventoried | 3752 |
 | Integration/API/runtime test functions | 749 |
 | Contract/governance test functions | 188 |
 
@@ -34,7 +34,7 @@ python scripts/python_test_taxonomy_inventory.py --limit 30 --min-api-runtime-te
 | benchmarks | 9 | 20 |
 | e2e | 1 | 21 |
 | integration | 28 | 351 |
-| unit | 289 | 3356 |
+| unit | 289 | 3360 |
 
 ## Test Functions By Family
 
@@ -48,7 +48,7 @@ above does sum to it, because a module belongs to exactly one suite.
 | api_or_runtime | 749 |
 | contract_or_governance | 188 |
 | observability_or_readiness | 430 |
-| quality_or_security | 251 |
+| quality_or_security | 255 |
 | uncategorized | 797 |
 
 ## Largest Test Modules
@@ -67,12 +67,12 @@ above does sum to it, because a module belongs to exactly one suite.
 | 10 | `tests/unit/services/test_compute_executor_worker.py` | unit | 54 | observability_or_readiness |
 | 11 | `tests/unit/app/test_contribution_endpoint_helpers.py` | unit | 52 | analytics_domain, api_or_runtime |
 | 12 | `tests/unit/services/test_twr_inspection_calculation_consistency.py` | unit | 51 | analytics_domain |
-| 13 | `tests/unit/services/test_workspace_summary_service.py` | unit | 50 | analytics_domain |
+| 13 | `tests/unit/services/test_workspace_summary_service.py` | unit | 51 | analytics_domain |
 | 14 | `tests/unit/services/test_stateful_input_service.py` | unit | 49 | analytics_domain |
 | 15 | `tests/unit/services/test_twr_mode_service.py` | unit | 45 | analytics_domain |
-| 16 | `tests/unit/engine/test_mwr.py` | unit | 44 | analytics_domain |
-| 17 | `tests/unit/services/test_stateful_benchmark_input_service.py` | unit | 44 | analytics_domain |
-| 18 | `tests/integration/test_contribution_api.py` | integration | 44 | analytics_domain, api_or_runtime |
+| 16 | `tests/integration/test_contribution_api.py` | integration | 44 | analytics_domain, api_or_runtime |
+| 17 | `tests/unit/engine/test_mwr.py` | unit | 44 | analytics_domain |
+| 18 | `tests/unit/services/test_stateful_benchmark_input_service.py` | unit | 44 | analytics_domain |
 | 19 | `tests/integration/test_performance_api.py` | integration | 40 | api_or_runtime |
 | 20 | `tests/unit/services/test_operator_action_lease_service.py` | unit | 40 | uncategorized |
 | 21 | `tests/unit/engine/test_contribution.py` | unit | 38 | analytics_domain |

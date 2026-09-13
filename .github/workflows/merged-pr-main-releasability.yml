@@ -46,9 +46,16 @@ jobs:
             exit 1
           fi
           mapfile -t revisions < <(git rev-list --reverse "$BASE_SHA..$MERGE_COMMIT_SHA")
-          if [ "${#revisions[@]}" -ne "$COMMIT_COUNT" ]; then
-            echo "::error::Landed range has ${#revisions[@]} revision(s), but PR event reports $COMMIT_COUNT"
+          if [ "${#revisions[@]}" -eq 0 ]; then
+            echo "::error::Merged PR produced no landed revisions; refusing a zero-dispatch release record"
             exit 1
+          fi
+          if [ "${#revisions[@]}" -gt "$COMMIT_COUNT" ]; then
+            echo "::error::Landed range has ${#revisions[@]} revision(s), exceeding the PR event count $COMMIT_COUNT"
+            exit 1
+          fi
+          if [ "${#revisions[@]}" -lt "$COMMIT_COUNT" ]; then
+            echo "::notice::Rebase dropped $((COMMIT_COUNT - ${#revisions[@]})) already-landed revision(s); dispatching the ${#revisions[@]} newly landed revision(s)."
           fi
           for revision in "${revisions[@]}"; do
             if ! git merge-base --is-ancestor "$revision" HEAD; then
