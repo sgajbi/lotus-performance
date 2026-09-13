@@ -18,6 +18,9 @@ For rebase-only merges, the dispatcher enumerates the exact landed range from th
 the landed tip, cross-checks that count against the PR event, and creates or verifies one immutable
 `main-releasability-<sha>` tag per revision. Each gate rejects a different checkout before release
 jobs start. Main evidence runs never cancel one another, including duplicate or backfill dispatches.
+The full shipped dispatcher loop is exercised against temporary Git histories and a recording GitHub
+CLI boundary: a rebase drop dispatches every and only landed source and workflow-touch revision,
+with immutable ref, expected SHA, repository, workflow, and triggering-PR identity asserted.
 The scheduled `main-gate-coverage-audit.yml` fails closed when any recent main commit lacks a
 verdict-bearing run, its run listing is unverifiable, or the requested audit window is truncated;
 historical failures remain reported as evaluated evidence rather than being mislabeled as gaps.
@@ -90,13 +93,14 @@ exception policy in `quality/container_supply_chain_report.md`, each bound to pa
 affected version, severity, owner, expiry and remediation path.
 
 `make lineage-volume-recovery-smoke` is the isolated restart-safety proof for the shared lineage
-artifact volume. It creates only a random generated `lotus-performance-lineage-recovery-*` Compose
+artifact volume. It creates a fresh, validator-generated `lotus-performance-lineage-recovery-*` Compose
 project with an allowlisted subprocess environment pinned to Docker's local `default` context, no
 published host ports, and an owned in-network database URL. It does not inherit a caller-selected
 remote Docker context. It seeds root-owned persisted evidence, requires the bounded initializer to repair
 ownership, proves API and worker health as UID/GID `10001`, restarts the workloads, rechecks retained
-evidence, and removes only the owned containers, volume, network, and orphaned services (not shared
-local images). PR Merge Gate feeds this job
+evidence, and removes only the invocation-owned containers, volume, network, and orphaned services
+(not shared local images). The validator cannot report success when `down -v --remove-orphans` fails;
+it reports remaining owned resource names and preserves an earlier validation failure. PR Merge Gate feeds this job
 into the required compatibility aggregate; Main Releasability repeats it on the merged SHA.
 
 Performance characterization evidence is produced by the dedicated Performance Characterization

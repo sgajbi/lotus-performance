@@ -36,35 +36,43 @@ def test_dispatcher_enumerates_exact_landed_range_under_rebase_only_policy() -> 
     assert workflow.index(guard) < workflow.index('dispatch_ref="main-releasability-${revision}"')
 
 
-def _landed_range_guard_block() -> str:
+def _shipped_dispatcher_script() -> str:
     workflow = (WORKFLOWS / "merged-pr-main-releasability.yml").read_text(encoding="utf-8")
-    start_marker = '          mapfile -t revisions < <(git rev-list --reverse "$BASE_SHA..$MERGE_COMMIT_SHA")\n'
-    end_marker = '          for revision in "${revisions[@]}"; do\n'
-    start = workflow.index(start_marker)
-    end = workflow.index(end_marker, start)
-    return textwrap.dedent(workflow[start:end])
+    start_marker = "        run: |\n"
+    start = workflow.index(start_marker) + len(start_marker)
+    return textwrap.dedent(workflow[start:])
 
 
-def _run_landed_range_guard(
+def _run_shipped_dispatcher(
     tmp_path: Path,
     *,
     commit_count: int,
     landed_commit_count: int,
+    base_sha_override: str | None = None,
+    tag_lookup_mode: str = "missing",
 ) -> subprocess.CompletedProcess[str]:
-    # Git for Windows supplies a POSIX-compatible ``sh``. Prefer it over the
-    # Windows System32 WSL launcher, while CI invokes Bash explicitly.
-    shell = shutil.which("sh") if os.name == "nt" else shutil.which("bash")
+    # Git for Windows exposes its Bash-compatible shell as ``sh``; the Windows
+    # System32 ``bash`` launcher can point at an unavailable WSL distribution.
+    shell = shutil.which("sh") if os.name == "nt" else (shutil.which("bash") or shutil.which("sh"))
     if shell is None:
-        pytest.skip("Bash is required to execute the shipped workflow range guard")
+        pytest.skip("Bash is required to execute the shipped dispatcher workflow")
 
     origin = tmp_path / "origin.git"
     source = tmp_path / "source"
     runner = tmp_path / "runner"
     subprocess.run(["git", "init", "--bare", str(origin)], check=True, capture_output=True, text=True)
     subprocess.run(["git", "clone", str(origin), str(source)], check=True, capture_output=True, text=True)
+    landed_revisions: list[str] = []
     for index in range(landed_commit_count + 1):
-        (source / "history.txt").write_text(f"revision {index}\n", encoding="utf-8")
-        subprocess.run(["git", "add", "history.txt"], cwd=source, check=True)
+        if index == 1:
+            changed_path = source / "src" / "source-lineage.py"
+        elif index == 2:
+            changed_path = source / ".github" / "workflows" / "workflow-touch.yml"
+        else:
+            changed_path = source / "history.txt"
+        changed_path.parent.mkdir(parents=True, exist_ok=True)
+        changed_path.write_text(f"revision {index}\n", encoding="utf-8")
+        subprocess.run(["git", "add", str(changed_path.relative_to(source))], cwd=source, check=True)
         subprocess.run(
             [
                 "git",
@@ -85,6 +93,12 @@ def _run_landed_range_guard(
             base_sha = subprocess.run(
                 ["git", "rev-parse", "HEAD"], cwd=source, check=True, capture_output=True, text=True
             ).stdout.strip()
+        else:
+            landed_revisions.append(
+                subprocess.run(
+                    ["git", "rev-parse", "HEAD"], cwd=source, check=True, capture_output=True, text=True
+                ).stdout.strip()
+            )
     subprocess.run(["git", "branch", "-M", "main"], cwd=source, check=True)
     subprocess.run(["git", "push", "origin", "main"], cwd=source, check=True, capture_output=True, text=True)
     merge_commit_sha = subprocess.run(
@@ -93,105 +107,208 @@ def _run_landed_range_guard(
     subprocess.run(
         ["git", "clone", "--branch", "main", str(origin), str(runner)], check=True, capture_output=True, text=True
     )
-    env = os.environ.copy()
-    env.update(
-        {
-            "BASE_SHA": base_sha,
-            "MERGE_COMMIT_SHA": merge_commit_sha,
-            "COMMIT_COUNT": str(commit_count),
-        }
-    )
-    return subprocess.run(
-        [shell, "-eu", "-c", _landed_range_guard_block()],
-        cwd=runner,
-        env=env,
-        capture_output=True,
-        text=True,
-    )
-
-
-def test_dispatcher_accepts_a_rebase_drop_but_dispatches_only_landed_revisions(tmp_path: Path) -> None:
-    completed = _run_landed_range_guard(tmp_path, commit_count=3, landed_commit_count=2)
-
-    assert completed.returncode == 0, completed.stderr
-    assert "Rebase dropped 1 already-landed revision(s)" in completed.stdout
-
-
-def test_dispatcher_refuses_an_empty_landed_range(tmp_path: Path) -> None:
-    completed = _run_landed_range_guard(tmp_path, commit_count=1, landed_commit_count=0)
-
-    assert completed.returncode != 0
-    assert "produced no landed revisions" in completed.stdout
-
-
-def test_dispatcher_refuses_more_landed_revisions_than_the_merge_event_reports(tmp_path: Path) -> None:
-    completed = _run_landed_range_guard(tmp_path, commit_count=1, landed_commit_count=2)
-
-    assert completed.returncode != 0
-    assert "exceeding the PR event count" in completed.stdout
-
-
-def _dispatch_ref_resolution_block() -> str:
-    workflow = (WORKFLOWS / "merged-pr-main-releasability.yml").read_text(encoding="utf-8")
-    start_marker = '            existing_ref_sha=""\n            if existing_ref_sha='
-    end_marker = "            gh workflow run main-releasability.yml"
-    start = workflow.index(start_marker)
-    end = workflow.index(end_marker, start)
-    return textwrap.dedent(workflow[start:end])
-
-
-def _run_dispatch_ref_resolution(tmp_path: Path, *, lookup_mode: str) -> list[str]:
-    shell = shutil.which("sh")
-    if shell is None:
-        pytest.skip("POSIX shell is required to execute the workflow ref-resolution contract")
-
-    revision = "a" * 40
     call_log = tmp_path / "gh-calls.log"
     bin_dir = tmp_path / "bin"
     bin_dir.mkdir()
     gh_stub = bin_dir / "gh"
     gh_stub.write_text(
         "#!/bin/sh\n"
-        'case "$*" in\n'
-        "  *git/ref/tags/*)\n"
-        '    if [ "$GH_LOOKUP_MODE" = missing ]; then\n'
-        "      printf '%s\\n' '{\"message\":\"Not Found\"}'\n"
-        "      exit 1\n"
-        "    fi\n"
-        f"    printf '%s\\n' '{revision}'\n"
-        "    ;;\n"
-        "  *git/refs*) printf '%s\\n' create-ref >> \"$GH_CALL_LOG\" ;;\n"
-        "  *) exit 97 ;;\n"
-        "esac\n",
+        '{ for argument in "$@"; do printf \'%s\\t\' "$argument"; done; printf \'\\n\'; } >> "$GH_CALL_LOG"\n'
+        'if [ "$1" = api ] && [ "$2" = "repos/$GITHUB_REPOSITORY" ]; then\n'
+        "  printf '%s\\n' 'false,false,true'\n"
+        "  exit 0\n"
+        "fi\n"
+        'case "$2" in\n'
+        "  */git/ref/tags/*)\n"
+        '    if [ "$GH_TAG_LOOKUP_MODE" = matching ]; then printf \'%s\\n\' "${2##*-}"; exit 0; fi\n'
+        "    printf '%s\\n' '{\\\"message\\\":\\\"Not Found\\\"}'; exit 1 ;;\n"
+        "esac\n"
+        "exit 0\n",
         encoding="utf-8",
     )
     gh_stub.chmod(0o755)
     env = os.environ.copy()
     env.update(
         {
-            "GH_CALL_LOG": str(call_log),
-            "GH_LOOKUP_MODE": lookup_mode,
+            "BASE_SHA": base_sha_override or base_sha,
+            "MERGE_COMMIT_SHA": merge_commit_sha,
+            "COMMIT_COUNT": str(commit_count),
             "GITHUB_REPOSITORY": "sgajbi/lotus-performance",
+            "PR_NUMBER": "523",
+            "GH_TOKEN": "test-token",
+            "GH_CALL_LOG": str(call_log),
+            "GH_TAG_LOOKUP_MODE": tag_lookup_mode,
             "PATH": f"{bin_dir}{os.pathsep}{env['PATH']}",
-            "dispatch_ref": f"main-releasability-{revision}",
-            "revision": revision,
         }
     )
-    subprocess.run(
-        [shell, "-eu", "-c", _dispatch_ref_resolution_block()],
-        check=True,
+    completed = subprocess.run(
+        [shell, "-c", _shipped_dispatcher_script()],
+        cwd=runner,
         env=env,
+        capture_output=True,
         text=True,
     )
-    return call_log.read_text(encoding="utf-8").splitlines() if call_log.exists() else []
+    completed.gh_calls = (  # type: ignore[attr-defined]
+        [
+            [argument for argument in line.split("\t") if argument]
+            for line in call_log.read_text(encoding="utf-8").splitlines()
+        ]
+        if call_log.exists()
+        else []
+    )
+    completed.landed_revisions = landed_revisions  # type: ignore[attr-defined]
+    return completed
 
 
-def test_dispatcher_creates_ref_after_lookup_returns_404_body(tmp_path: Path) -> None:
-    assert _run_dispatch_ref_resolution(tmp_path, lookup_mode="missing") == ["create-ref"]
+def test_shipped_dispatcher_accepts_a_rebase_drop_and_dispatches_exact_immutable_revisions(tmp_path: Path) -> None:
+    completed = _run_shipped_dispatcher(tmp_path, commit_count=3, landed_commit_count=2)
+
+    assert completed.returncode == 0, completed.stderr
+    assert "Rebase dropped 1 already-landed revision(s)" in completed.stdout
+    landed_revisions = completed.landed_revisions  # type: ignore[attr-defined]
+    assert len(landed_revisions) == 2
+    assert (
+        "src/source-lineage.py"
+        in subprocess.run(
+            ["git", "show", "--format=", "--name-only", landed_revisions[0]],
+            cwd=tmp_path / "runner",
+            check=True,
+            capture_output=True,
+            text=True,
+        ).stdout
+    )
+    assert (
+        ".github/workflows/workflow-touch.yml"
+        in subprocess.run(
+            ["git", "show", "--format=", "--name-only", landed_revisions[1]],
+            cwd=tmp_path / "runner",
+            check=True,
+            capture_output=True,
+            text=True,
+        ).stdout
+    )
+    expected_calls = [
+        [
+            "api",
+            "repos/sgajbi/lotus-performance",
+            "--jq",
+            "[.allow_squash_merge, .allow_merge_commit, .allow_rebase_merge] | @csv",
+        ]
+    ]
+    for revision in landed_revisions:
+        dispatch_ref = f"main-releasability-{revision}"
+        expected_calls.extend(
+            [
+                ["api", f"repos/sgajbi/lotus-performance/git/ref/tags/{dispatch_ref}", "--jq", ".object.sha"],
+                [
+                    "api",
+                    "repos/sgajbi/lotus-performance/git/refs",
+                    "-f",
+                    f"ref=refs/tags/{dispatch_ref}",
+                    "-f",
+                    f"sha={revision}",
+                ],
+                [
+                    "workflow",
+                    "run",
+                    "main-releasability.yml",
+                    "--repo",
+                    "sgajbi/lotus-performance",
+                    "--ref",
+                    dispatch_ref,
+                    "-f",
+                    f"expected_sha={revision}",
+                    "-f",
+                    "triggering_pr=523",
+                ],
+            ]
+        )
+    assert completed.gh_calls == expected_calls  # type: ignore[attr-defined]
 
 
-def test_dispatcher_reuses_matching_existing_ref(tmp_path: Path) -> None:
-    assert _run_dispatch_ref_resolution(tmp_path, lookup_mode="existing") == []
+def test_shipped_dispatcher_reuses_a_matching_existing_immutable_tag(tmp_path: Path) -> None:
+    completed = _run_shipped_dispatcher(
+        tmp_path,
+        commit_count=1,
+        landed_commit_count=1,
+        tag_lookup_mode="matching",
+    )
+
+    assert completed.returncode == 0, completed.stderr
+    revision = completed.landed_revisions[0]  # type: ignore[attr-defined]
+    dispatch_ref = f"main-releasability-{revision}"
+    assert completed.gh_calls == [  # type: ignore[attr-defined]
+        [
+            "api",
+            "repos/sgajbi/lotus-performance",
+            "--jq",
+            "[.allow_squash_merge, .allow_merge_commit, .allow_rebase_merge] | @csv",
+        ],
+        ["api", f"repos/sgajbi/lotus-performance/git/ref/tags/{dispatch_ref}", "--jq", ".object.sha"],
+        [
+            "workflow",
+            "run",
+            "main-releasability.yml",
+            "--repo",
+            "sgajbi/lotus-performance",
+            "--ref",
+            dispatch_ref,
+            "-f",
+            f"expected_sha={revision}",
+            "-f",
+            "triggering_pr=523",
+        ],
+    ]
+
+
+def test_dispatcher_refuses_an_empty_landed_range(tmp_path: Path) -> None:
+    completed = _run_shipped_dispatcher(tmp_path, commit_count=1, landed_commit_count=0)
+
+    assert completed.returncode != 0
+    assert "produced no landed revisions" in completed.stdout
+    assert completed.gh_calls == [
+        [
+            "api",
+            "repos/sgajbi/lotus-performance",
+            "--jq",
+            "[.allow_squash_merge, .allow_merge_commit, .allow_rebase_merge] | @csv",
+        ]
+    ]  # type: ignore[attr-defined]
+
+
+def test_dispatcher_refuses_more_landed_revisions_than_the_merge_event_reports(tmp_path: Path) -> None:
+    completed = _run_shipped_dispatcher(tmp_path, commit_count=1, landed_commit_count=2)
+
+    assert completed.returncode != 0
+    assert "exceeding the PR event count" in completed.stdout
+    assert completed.gh_calls == [
+        [
+            "api",
+            "repos/sgajbi/lotus-performance",
+            "--jq",
+            "[.allow_squash_merge, .allow_merge_commit, .allow_rebase_merge] | @csv",
+        ]
+    ]  # type: ignore[attr-defined]
+
+
+def test_shipped_dispatcher_refuses_a_non_ancestor_range_before_dispatch(tmp_path: Path) -> None:
+    completed = _run_shipped_dispatcher(
+        tmp_path,
+        commit_count=2,
+        landed_commit_count=2,
+        base_sha_override="f" * 40,
+    )
+
+    assert completed.returncode != 0
+    assert "is not an ancestor of landed tip" in completed.stdout
+    assert completed.gh_calls == [
+        [
+            "api",
+            "repos/sgajbi/lotus-performance",
+            "--jq",
+            "[.allow_squash_merge, .allow_merge_commit, .allow_rebase_merge] | @csv",
+        ]
+    ]  # type: ignore[attr-defined]
 
 
 def test_releasability_evidence_is_never_cancelled() -> None:
