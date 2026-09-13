@@ -562,7 +562,12 @@ Important validation expectations:
     `service_completed_successfully` dependencies and the least-capability container posture.
     `make lineage-volume-recovery-smoke` is the canonical isolated proof: it must seed a root-owned
     volume, retain evidence across workload restart, verify non-root read/write access and health,
-    and clean only its generated `lotus-performance-lineage-recovery-*` project.
+    and clean only its generated `lotus-performance-lineage-recovery-*` project. Its subprocess
+    environment is allowlisted and pinned to Docker's local `default` context, its Compose override
+    publishes no host ports, and its in-network
+    lineage database URL is owned by the generated project; do not reintroduce inherited database,
+    daemon, project, or port configuration. Retain local images because Compose image labels are not
+    a safe ownership boundary on a shared daemon.
 
 ## Standards And RFCs That Govern This Repository
 

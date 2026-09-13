@@ -90,10 +90,13 @@ exception policy in `quality/container_supply_chain_report.md`, each bound to pa
 affected version, severity, owner, expiry and remediation path.
 
 `make lineage-volume-recovery-smoke` is the isolated restart-safety proof for the shared lineage
-artifact volume. It creates only a generated `lotus-performance-lineage-recovery-*` Compose
-project, seeds root-owned persisted evidence, requires the bounded initializer to repair ownership,
-proves API and worker health as UID/GID `10001`, restarts the workloads, rechecks retained evidence,
-and removes the owned containers, volume, network, and local images. PR Merge Gate feeds this job
+artifact volume. It creates only a random generated `lotus-performance-lineage-recovery-*` Compose
+project with an allowlisted subprocess environment pinned to Docker's local `default` context, no
+published host ports, and an owned in-network database URL. It does not inherit a caller-selected
+remote Docker context. It seeds root-owned persisted evidence, requires the bounded initializer to repair
+ownership, proves API and worker health as UID/GID `10001`, restarts the workloads, rechecks retained
+evidence, and removes only the owned containers, volume, network, and orphaned services (not shared
+local images). PR Merge Gate feeds this job
 into the required compatibility aggregate; Main Releasability repeats it on the merged SHA.
 
 Performance characterization evidence is produced by the dedicated Performance Characterization

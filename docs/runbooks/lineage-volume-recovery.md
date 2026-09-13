@@ -40,11 +40,15 @@ Expected result:
 make lineage-volume-recovery-smoke
 ```
 
-The command creates a generated `lotus-performance-lineage-recovery-*` Compose project, builds the
-production runtime target, seeds a root-owned `0755` volume with a retained marker, runs the bounded
-initializer, verifies all three non-root workloads, restarts them, and verifies the marker plus
-write access again. Its finalizer removes only that exact project's containers, volume, network, and
-locally built images. A JSON summary with `status: passed` is the acceptance signal.
+The command creates a generated, random `lotus-performance-lineage-recovery-*` Compose project,
+builds the production runtime target, and runs with a bounded subprocess environment pinned to
+Docker's local `default` context. Its dedicated Compose override removes database and API host-port
+publication, and its owned in-network database URL cannot be redirected by inherited caller
+configuration or a persisted remote Docker-context selection. It seeds a root-owned `0755` volume with
+a retained marker, runs the bounded initializer, verifies all three non-root workloads, restarts
+them, and verifies the marker plus write access again. Its finalizer removes only that exact
+project's containers, volume, network, and orphaned services; it deliberately retains shared local
+images. A JSON summary with `status: passed` is the acceptance signal.
 
 Do not reuse this disposable proof project name for a live deployment. The validator rejects names
 outside its owned prefix so cleanup cannot target the canonical Compose project.
