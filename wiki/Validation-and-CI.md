@@ -82,7 +82,9 @@ branch `main` at the exact merged SHA, while manual dispatch retains its selecte
 
 Rebase merges are evaluated per landed commit. The merged-PR dispatcher verifies the repository is
 rebase-only, enumerates the exact base-to-tip range, cross-checks the event commit count, and pins a
-Main Releasability run to every revision. Those evidence runs use `cancel-in-progress: false`.
+Main Releasability run to every revision. A shipped-script harness runs that entire dispatch loop
+against temporary Git histories and a recording GitHub CLI boundary, including dropped, empty, and
+wrong ranges plus a workflow-touch revision. Those evidence runs use `cancel-in-progress: false`.
 The daily fail-closed coverage audit distinguishes missing or unverifiable evidence from a
 verdict-bearing historical failure; failures stay visible, while only missing/unknown coverage
 fails the coverage invariant.
@@ -105,7 +107,7 @@ fails the coverage invariant.
 | Runtime behavior | `make ci`, unit/integration/e2e lanes | calculation behavior, API behavior, async/runtime flows, coverage floor |
 | Performance characterization | `make performance-characterization`, Performance Characterization Evidence workflow | benchmark budget posture plus live PostgreSQL query-plan and concurrency contracts, with artifact evidence under `output/performance-characterization/` |
 | Container supply-chain | `make container-supply-chain-evidence`, PR/Main container evidence jobs, `GET /version` | production runtime image buildability, non-root/runtime-dependency posture, API and worker healthchecks, runtime-to-image build identity, SBOM inventory, high/critical vulnerability evidence, and main-branch SBOM provenance attestation |
-| Lineage restart recovery | `make lineage-volume-recovery-smoke`, PR/Main Lineage Volume Recovery jobs | first-create or restored-volume ownership repair, UID/GID `10001` workload access, health after restart, retained artifact evidence, and cleanup pinned to Docker's local `default` context |
+| Lineage restart recovery | `make lineage-volume-recovery-smoke`, PR/Main Lineage Volume Recovery jobs | first-create or restored-volume ownership repair, UID/GID `10001` workload access, health after restart, retained artifact evidence, and per-invocation cleanup pinned to Docker's local `default` context; cleanup failure is a failed proof with remaining owned resources reported |
 | Documentation contract | docs regression tests, wiki source check | public contract language, command accuracy, source wiki publication readiness |
 | Baseline evidence | `make quality-baseline`, `make quality-baseline-check`, PR Merge Gate, Quality Baseline Snapshot | before/after scorecard data whose committed generated reports cannot drift through a green PR |
 

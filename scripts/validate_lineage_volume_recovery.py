@@ -40,6 +40,40 @@ _LINEAGE_DATABASE_URL = "postgresql+psycopg://lotus:lotus@performance-lineage-db
 _LOCAL_DOCKER_CONTEXT = "default"
 
 
+class RecoveryCleanupError(RuntimeError):
+    """Raised when the invocation-owned Compose project could not be removed."""
+
+    def __init__(
+        self,
+        project_name: str,
+        returncode: int | None,
+        remaining_resources: dict[str, list[str]],
+        *,
+        launch_error: OSError | None = None,
+    ) -> None:
+        self.project_name = project_name
+        self.returncode = returncode
+        self.remaining_resources = remaining_resources
+        self.launch_error = launch_error
+        cleanup_outcome = (
+            f"could not start: {launch_error}" if launch_error is not None else f"exited with code {returncode}"
+        )
+        super().__init__(
+            "lineage recovery cleanup failed "
+            f"for owned project {project_name}: {cleanup_outcome}; "
+            f"remaining owned resources: {json.dumps(remaining_resources, sort_keys=True)}"
+        )
+
+
+class RecoveryValidationError(RuntimeError):
+    """Retain the original recovery failure when its cleanup also fails."""
+
+    def __init__(self, validation_error: Exception, cleanup_error: RecoveryCleanupError) -> None:
+        self.validation_error = validation_error
+        self.cleanup_error = cleanup_error
+        super().__init__(f"recovery validation failed: {validation_error}; cleanup also failed: {cleanup_error}")
+
+
 def validate_project_name(project_name: str) -> str:
     normalized = project_name.strip().lower()
     if not _PROJECT_PATTERN.fullmatch(normalized):
@@ -95,8 +129,13 @@ def docker_command(*arguments: str) -> list[str]:
     return ["docker", "--context", _LOCAL_DOCKER_CONTEXT, *arguments]
 
 
-def run_validation(project_name: str) -> dict[str, object]:
-    project_name = validate_project_name(project_name)
+def run_validation() -> dict[str, object]:
+    """Run one recovery proof in a freshly allocated, invocation-owned namespace.
+
+    The project identity is intentionally not caller-configurable. A same-prefix value does not
+    establish ownership, and cleanup includes destructive volume removal.
+    """
+    project_name = validate_project_name(new_project_name())
     runtime_environment = build_runtime_environment(project_name)
     container_names = {
         "initializer": runtime_environment["PA_LINEAGE_VOLUME_INIT_CONTAINER_NAME"],
@@ -104,6 +143,7 @@ def run_validation(project_name: str) -> dict[str, object]:
         "lineage_worker": runtime_environment["PA_LINEAGE_WORKER_CONTAINER_NAME"],
         "compute_executor": runtime_environment["PA_COMPUTE_EXECUTOR_CONTAINER_NAME"],
     }
+    validation_error: Exception | None = None
     try:
         _run(
             compose_command(project_name, "build", "performance-lineage-volume-init"),
@@ -152,12 +192,16 @@ def run_validation(project_name: str) -> dict[str, object]:
             "lineage_evidence_retained": True,
             "healthy_after_restart": list(RUNTIME_SERVICES),
         }
+    except Exception as exc:
+        validation_error = exc
+        raise
     finally:
-        _run(
-            cleanup_command(project_name),
-            env=runtime_environment,
-            check=False,
-        )
+        try:
+            _cleanup_owned_project(project_name, runtime_environment)
+        except RecoveryCleanupError as cleanup_error:
+            if validation_error is not None:
+                raise RecoveryValidationError(validation_error, cleanup_error) from validation_error
+            raise
 
 
 def cleanup_command(project_name: str) -> list[str]:
@@ -167,6 +211,56 @@ def cleanup_command(project_name: str) -> list[str]:
     shared developer or CI daemon.
     """
     return compose_command(project_name, "down", "-v", "--remove-orphans")
+
+
+def _cleanup_owned_project(project_name: str, env: dict[str, str]) -> None:
+    try:
+        completed = _run(cleanup_command(project_name), env=env, check=False)
+    except OSError as exc:
+        raise RecoveryCleanupError(
+            project_name,
+            None,
+            _remaining_owned_resources(project_name, env),
+            launch_error=exc,
+        ) from exc
+    if completed.returncode:
+        raise RecoveryCleanupError(
+            project_name,
+            completed.returncode,
+            _remaining_owned_resources(project_name, env),
+        )
+
+
+def _remaining_owned_resources(project_name: str, env: dict[str, str]) -> dict[str, list[str]]:
+    """Report only names that can belong to this generated Compose project."""
+    return {
+        "containers": _owned_resource_names(
+            docker_command("ps", "-a", "--filter", f"name={project_name}", "--format", "{{.Names}}"),
+            f"{project_name}-",
+            env,
+        ),
+        "networks": _owned_resource_names(
+            docker_command("network", "ls", "--filter", f"name={project_name}", "--format", "{{.Name}}"),
+            f"{project_name}_",
+            env,
+        ),
+        "volumes": _owned_resource_names(
+            docker_command("volume", "ls", "--filter", f"name={project_name}", "--format", "{{.Name}}"),
+            f"{project_name}_",
+            env,
+        ),
+    }
+
+
+def _owned_resource_names(command: list[str], prefix: str, env: dict[str, str]) -> list[str]:
+    try:
+        completed = _capture_completed(command, env=env, check=False)
+    except OSError as exc:
+        return [f"<inspection failed: {exc}>"]
+    output = _captured_output(completed.stdout, completed.stderr)
+    if completed.returncode:
+        return [f"<inspection failed: exit {completed.returncode}: {output.strip()}>"]
+    return sorted({line.strip() for line in output.splitlines() if line.strip().startswith(prefix)})
 
 
 def _assert_initializer_succeeded(container_name: str, env: dict[str, str]) -> None:
@@ -276,7 +370,17 @@ def _capture(
     env: dict[str, str],
     check: bool = True,
 ) -> str:
-    completed = subprocess.run(
+    completed = _capture_completed(command, env=env, check=check)
+    return _captured_output(completed.stdout, completed.stderr)
+
+
+def _capture_completed(
+    command: list[str],
+    *,
+    env: dict[str, str],
+    check: bool = True,
+) -> subprocess.CompletedProcess[str]:
+    return subprocess.run(
         command,
         cwd=REPOSITORY_ROOT,
         env=env,
@@ -284,7 +388,6 @@ def _capture(
         capture_output=True,
         text=True,
     )
-    return _captured_output(completed.stdout, completed.stderr)
 
 
 def _captured_output(stdout: str, stderr: str) -> str:
@@ -299,15 +402,10 @@ def _fail(message: str) -> NoReturn:
 
 def main() -> int:
     parser = argparse.ArgumentParser(description="Prove non-root lineage volume recovery and restart health.")
-    parser.add_argument(
-        "--project-name",
-        default=new_project_name(),
-        help=f"Owned disposable Compose project; must start with {PROJECT_PREFIX}",
-    )
-    args = parser.parse_args()
+    parser.parse_args()
     try:
-        summary = run_validation(args.project_name)
-    except (OSError, subprocess.CalledProcessError, RuntimeError, ValueError) as exc:
+        summary = run_validation()
+    except (OSError, subprocess.CalledProcessError, RecoveryValidationError, RuntimeError, ValueError) as exc:
         _fail(f"lineage volume recovery validation failed: {exc}")
     print(json.dumps(summary, indent=2, sort_keys=True))
     return 0

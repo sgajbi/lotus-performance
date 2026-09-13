@@ -400,7 +400,9 @@ Important validation expectations:
     operator dispatch remains supported. The synthetic checkout tag must not leak into build
     identity. Exact merged-PR dispatches retain `main` as `CONTAINER_GIT_BRANCH` and the merge
     commit as `CONTAINER_GIT_SHA`; manual operator dispatches retain their selected branch or tag as
-    branch identity.
+    branch identity. The full dispatcher loop is regression-tested as shipped against real temporary
+    Git history and a recording GitHub CLI boundary; do not replace that behavioral proof with
+    isolated range or tag fragments.
 18. `ENTERPRISE_RUNTIME_PROFILE=production`, `prod`, or `staging` is production-like and fails
     startup when enterprise write authz, privileged-read authz, runtime-config enforcement, or
     `ENTERPRISE_PRIMARY_KEY_ID` is missing, or when governed runtime-status degradation thresholds
@@ -562,7 +564,10 @@ Important validation expectations:
     `service_completed_successfully` dependencies and the least-capability container posture.
     `make lineage-volume-recovery-smoke` is the canonical isolated proof: it must seed a root-owned
     volume, retain evidence across workload restart, verify non-root read/write access and health,
-    and clean only its generated `lotus-performance-lineage-recovery-*` project. Its subprocess
+    and clean only its freshly generated `lotus-performance-lineage-recovery-*` project. It must
+    not accept a caller-supplied project name, because prefix matching is not ownership. Cleanup is
+    part of acceptance: a nonzero cleanup fails the command with remaining owned resource names,
+    while an earlier validation error remains causal. Its subprocess
     environment is allowlisted and pinned to Docker's local `default` context, its Compose override
     publishes no host ports, and its in-network
     lineage database URL is owned by the generated project; do not reintroduce inherited database,

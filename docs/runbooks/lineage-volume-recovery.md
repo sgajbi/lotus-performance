@@ -48,10 +48,15 @@ configuration or a persisted remote Docker-context selection. It seeds a root-ow
 a retained marker, runs the bounded initializer, verifies all three non-root workloads, restarts
 them, and verifies the marker plus write access again. Its finalizer removes only that exact
 project's containers, volume, network, and orphaned services; it deliberately retains shared local
-images. A JSON summary with `status: passed` is the acceptance signal.
+images. The generated project identity is not a command-line input: a matching prefix alone never
+proves ownership, so concurrent recovery invocations cannot clean one another's resources. A JSON
+summary with `status: passed` is emitted only after cleanup exits successfully. If cleanup fails,
+the command fails and reports the generated project name, cleanup exit code, and any remaining
+project-owned container, network, or volume names; if validation already failed, that original
+failure is retained as the causal error.
 
-Do not reuse this disposable proof project name for a live deployment. The validator rejects names
-outside its owned prefix so cleanup cannot target the canonical Compose project.
+Do not reuse or supply a disposable proof project name for a live deployment. The validator allocates
+the name itself and never accepts a caller-selected Compose project for destructive cleanup.
 
 ## Incident response
 
