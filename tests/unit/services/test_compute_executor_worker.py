@@ -1691,13 +1691,65 @@ def test_compute_executor_worker_updates_identity_for_stateful_contribution_job(
     assert compute_executor_worker.process_pending_jobs(limit=10, settings=worker_settings) == 1
 
     expected_input_fingerprint, expected_calculation_hash = compute_executor_worker.generate_canonical_hash(
-        resolved_request,
+        compute_executor_worker.resolved_contribution_identity_payload(
+            resolved_request,
+            portfolio_base_currency=None,
+            source_preconverted_reporting_currency=None,
+        ),
         calculation_engine_version(worker_settings),
     )
     execution = execution_store.get_execution(calculation_id)
     assert execution is not None
     assert execution.input_fingerprint == expected_input_fingerprint
     assert execution.calculation_hash == expected_calculation_hash
+
+
+def test_compute_executor_worker_restores_resolved_contribution_currency_provenance(monkeypatch):
+    request = ContributionRequest.model_validate(
+        {
+            "calculation_id": str(uuid4()),
+            "portfolio_id": "P1",
+            "report_start_date": "2025-01-01",
+            "report_end_date": "2025-01-02",
+            "analyses": [{"period": "SI", "frequencies": ["daily"]}],
+            "currency": "USD",
+            "portfolio_data": {
+                "metric_basis": "NET",
+                "valuation_points": [{"perf_date": "2025-01-01", "begin_mv": 1000, "end_mv": 1010}],
+            },
+            "positions_data": [],
+        }
+    )
+    payload = {
+        "resolved_request": request.model_dump(mode="json"),
+        "source_input_mode": "stateful",
+        "portfolio_base_currency": "EUR",
+        "source_preconverted_reporting_currency": "USD",
+    }
+    captured: dict[str, object] = {}
+    context = SimpleNamespace(
+        settings=_worker_settings(),
+        contribution_calculator=lambda resolved_request, **kwargs: captured.update(
+            request=resolved_request,
+            **kwargs,
+        ),
+    )
+    monkeypatch.setattr(compute_executor_worker, "_update_execution_identity", lambda *_args: ("fp", "hash"))
+
+    compute_executor_worker._execute_contribution_job(
+        SimpleNamespace(request_payload=payload),
+        context,
+    )
+
+    assert captured["request"] == request
+    assert captured["input_mode"] == ContributionInputMode.STATEFUL
+    assert captured["portfolio_base_currency"] == "EUR"
+    assert captured["source_preconverted_reporting_currency"] == "USD"
+    assert captured["request_artifact_model"] == compute_executor_worker.resolved_contribution_identity_payload(
+        request,
+        portfolio_base_currency="EUR",
+        source_preconverted_reporting_currency="USD",
+    )
 
 
 def test_compute_executor_worker_processes_pending_attribution_job(tmp_path, monkeypatch):

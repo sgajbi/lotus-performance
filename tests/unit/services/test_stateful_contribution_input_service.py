@@ -7,6 +7,10 @@ from uuid import uuid4
 import pytest
 from fastapi import HTTPException
 
+from app.services.contribution_service import (
+    _source_cash_flow_currencies,
+    _source_preconverted_cash_flow_pairs_for_position,
+)
 from app.services.stateful_contribution_input_service import (
     StatefulContributionSourceInput,
     _position_contract_fx_rate_meta,
@@ -17,6 +21,7 @@ from app.services.stateful_contribution_input_service import (
     _position_value_inputs,
     _reporting_position_value_pair,
     _security_ids_filter,
+    _stateful_base_only_valuation_currency,
     _stateful_both_currency_requires_fx,
     _stateful_contribution_portfolio_data,
     _stateful_contribution_position_series,
@@ -253,6 +258,8 @@ def test_build_stateful_contribution_input_builds_positions_and_currency_selecti
     source_input = StatefulContributionSourceInput(
         portfolio_input=StatefulPortfolioInput(
             performance_start_date=date(2025, 1, 1),
+            portfolio_currency=None,
+            reporting_currency="USD",
             observations=[
                 {
                     "valuation_date": "2025-01-01",
@@ -266,6 +273,10 @@ def test_build_stateful_contribution_input_builds_positions_and_currency_selecti
                 "position_id": "POS_1",
                 "security_id": "SEC_1",
                 "valuation_date": "2025-01-01",
+                "position_currency": "EUR",
+                "cash_flow_currency": "EUR",
+                "position_to_portfolio_fx_rate": "1",
+                "portfolio_to_reporting_fx_rate": "1",
                 "beginning_market_value_reporting_currency": "900",
                 "ending_market_value_reporting_currency": "909",
                 "beginning_market_value_position_currency": "800",
@@ -322,9 +333,13 @@ def test_build_stateful_contribution_input_builds_positions_and_currency_selecti
         currency_mode="BASE_ONLY",
         reporting_currency="USD",
         fx=None,
+        portfolio_base_currency="EUR",
     )
 
     assert normalized.portfolio_data.metric_basis == "NET"
+    assert normalized.portfolio_currency == "EUR"
+    assert normalized.reporting_currency == "USD"
+    assert normalized.valuation_currency == "USD"
     assert len(normalized.positions_data) == 1
     point = normalized.positions_data[0].valuation_points[0]
     assert point.begin_mv == Decimal("900")
@@ -343,6 +358,257 @@ def test_build_stateful_contribution_input_builds_positions_and_currency_selecti
     assert component_context["lineage"]["contract_version"] == "performance_component_economics_v1"
     assert component_context["request_fingerprints"] == ["fingerprint-1"]
     assert component_context["retrieval_metadata"] == {"chunk_count": 1, "page_count": 1}
+
+
+def test_build_stateful_contribution_input_uses_core_base_for_cash_flow_provenance():
+    source_input = StatefulContributionSourceInput(
+        portfolio_input=StatefulPortfolioInput(
+            performance_start_date=date(2025, 1, 1),
+            portfolio_currency="EUR",
+            reporting_currency="EUR",
+            observations=[
+                {
+                    "valuation_date": "2025-01-01",
+                    "beginning_market_value": "100",
+                    "ending_market_value": "101",
+                }
+            ],
+        ),
+        position_rows=[
+            {
+                "position_id": "EUR_POSITION",
+                "valuation_date": "2025-01-01",
+                "position_currency": "EUR",
+                "cash_flow_currency": "EUR",
+                "position_to_portfolio_fx_rate": "1",
+                "beginning_market_value_reporting_currency": "100",
+                "ending_market_value_reporting_currency": "101",
+                "cash_flows": [{"amount": "5", "timing": "bod", "cash_flow_type": "external_flow"}],
+            }
+        ],
+        position_retrieval_metadata=RetrievalMetadata(chunk_count=1, page_count=1),
+    )
+
+    normalized = build_stateful_contribution_input(
+        source_input=source_input,
+        metric_basis="NET",
+        currency_mode="BASE_ONLY",
+        reporting_currency="EUR",
+        fx=None,
+        portfolio_base_currency="USD",
+    )
+
+    assert normalized.portfolio_currency == "EUR"
+    assert normalized.source_preconverted_cash_flow_conversion is False
+
+
+def test_stateful_base_only_valuation_currency_refuses_source_report_currency_mismatch():
+    source_input = StatefulContributionSourceInput(
+        portfolio_input=StatefulPortfolioInput(
+            performance_start_date=date(2025, 1, 1),
+            portfolio_currency="EUR",
+            reporting_currency="USD",
+            observations=[],
+        ),
+        position_rows=[],
+        position_retrieval_metadata=RetrievalMetadata(chunk_count=1, page_count=1),
+    )
+
+    with pytest.raises(APIError) as exc_info:
+        _stateful_base_only_valuation_currency(
+            source_input=source_input,
+            currency_mode="BASE_ONLY",
+            requested_reporting_currency="SGD",
+        )
+
+    assert exc_info.value.error_code == "SOURCE_REPORTING_CURRENCY_MISMATCH"
+
+
+def test_stateful_base_only_refuses_cross_currency_cash_flows_without_source_fx_rates():
+    source_input = StatefulContributionSourceInput(
+        portfolio_input=StatefulPortfolioInput(
+            performance_start_date=date(2025, 1, 1),
+            portfolio_currency="EUR",
+            reporting_currency="USD",
+            observations=[],
+        ),
+        position_rows=[
+            {
+                "position_id": "EUR_CASH_FLOW",
+                "valuation_date": "2025-01-01",
+                "cash_flow_currency": "EUR",
+                "beginning_market_value_reporting_currency": "120",
+                "ending_market_value_reporting_currency": "132",
+                "cash_flows": [{"amount": "5", "timing": "bod"}],
+            }
+        ],
+        position_retrieval_metadata=RetrievalMetadata(chunk_count=1, page_count=1),
+    )
+
+    with pytest.raises(APIError) as exc_info:
+        build_stateful_contribution_input(
+            source_input=source_input,
+            metric_basis="NET",
+            currency_mode="BASE_ONLY",
+            reporting_currency="USD",
+            fx=None,
+        )
+
+    assert exc_info.value.error_code == "REPORTING_CURRENCY_CASH_FLOW_FX_INCOMPLETE"
+
+    same_currency_portfolio_foreign_flow_source_input = StatefulContributionSourceInput(
+        portfolio_input=StatefulPortfolioInput(
+            performance_start_date=date(2025, 1, 1),
+            portfolio_currency="USD",
+            reporting_currency="USD",
+            observations=[],
+        ),
+        position_rows=[
+            {
+                "position_id": "EUR_FLOW_IN_USD_PORTFOLIO",
+                "valuation_date": "2025-01-01",
+                "position_currency": "EUR",
+                "cash_flow_currency": "EUR",
+                "beginning_market_value_reporting_currency": "120",
+                "ending_market_value_reporting_currency": "132",
+                "cash_flows": [{"amount": "5", "timing": "bod"}],
+            }
+        ],
+        position_retrieval_metadata=RetrievalMetadata(chunk_count=1, page_count=1),
+    )
+
+    with pytest.raises(APIError) as exc_info:
+        build_stateful_contribution_input(
+            source_input=same_currency_portfolio_foreign_flow_source_input,
+            metric_basis="NET",
+            currency_mode="BASE_ONLY",
+            reporting_currency="USD",
+            fx=None,
+        )
+
+    assert exc_info.value.error_code == "REPORTING_CURRENCY_CASH_FLOW_FX_INCOMPLETE"
+
+    nonfinite_rate_source_input = StatefulContributionSourceInput(
+        portfolio_input=StatefulPortfolioInput(
+            performance_start_date=date(2025, 1, 1),
+            portfolio_currency="EUR",
+            reporting_currency="USD",
+            observations=[],
+        ),
+        position_rows=[
+            {
+                "position_id": "EUR_NONFINITE_CASH_FLOW",
+                "valuation_date": "2025-01-01",
+                "position_currency": "EUR",
+                "cash_flow_currency": "EUR",
+                "position_to_portfolio_fx_rate": "1",
+                "portfolio_to_reporting_fx_rate": "Infinity",
+                "beginning_market_value_reporting_currency": "120",
+                "ending_market_value_reporting_currency": "132",
+                "cash_flows": [{"amount": "5", "timing": "bod"}],
+            }
+        ],
+        position_retrieval_metadata=RetrievalMetadata(chunk_count=1, page_count=1),
+    )
+
+    with pytest.raises(APIError) as exc_info:
+        build_stateful_contribution_input(
+            source_input=nonfinite_rate_source_input,
+            metric_basis="NET",
+            currency_mode="BASE_ONLY",
+            reporting_currency="USD",
+            fx=None,
+        )
+
+    assert exc_info.value.error_code == "REPORTING_CURRENCY_CASH_FLOW_FX_INCOMPLETE"
+
+
+def test_stateful_base_only_ignores_unsupported_cash_flows_when_validating_source_fx():
+    source_input = StatefulContributionSourceInput(
+        portfolio_input=StatefulPortfolioInput(
+            performance_start_date=date(2025, 1, 1),
+            portfolio_currency="EUR",
+            reporting_currency="USD",
+            observations=[
+                {
+                    "valuation_date": "2025-01-01",
+                    "beginning_market_value": "120",
+                    "ending_market_value": "132",
+                }
+            ],
+        ),
+        position_rows=[
+            {
+                "position_id": "EUR_UNSUPPORTED_CASH_FLOW",
+                "valuation_date": "2025-01-01",
+                "position_currency": "EUR",
+                "cash_flow_currency": "EUR",
+                "beginning_market_value_reporting_currency": "120",
+                "ending_market_value_reporting_currency": "132",
+                "cash_flows": [{"amount": "5", "timing": "bod", "cash_flow_type": "coupon"}],
+            }
+        ],
+        position_retrieval_metadata=RetrievalMetadata(chunk_count=1, page_count=1),
+    )
+
+    normalized = build_stateful_contribution_input(
+        source_input=source_input,
+        metric_basis="NET",
+        currency_mode="BASE_ONLY",
+        reporting_currency="USD",
+        fx=None,
+    )
+
+    point = normalized.positions_data[0].valuation_points[0]
+    assert point.bod_cf == Decimal("0")
+    assert "_source_cash_flow_currencies" not in normalized.positions_data[0].meta
+
+
+def test_stateful_base_only_ignores_unconsumed_rows_when_validating_reporting_coverage():
+    source_input = StatefulContributionSourceInput(
+        portfolio_input=StatefulPortfolioInput(
+            performance_start_date=date(2025, 1, 1),
+            portfolio_currency="EUR",
+            reporting_currency="USD",
+            observations=[
+                {
+                    "valuation_date": "2025-01-01",
+                    "beginning_market_value": "120",
+                    "ending_market_value": "132",
+                }
+            ],
+        ),
+        position_rows=[
+            {
+                "position_id": "VALID",
+                "valuation_date": "2025-01-01",
+                "beginning_market_value_reporting_currency": "120",
+                "ending_market_value_reporting_currency": "132",
+                "cash_flows": [],
+            },
+            {
+                "valuation_date": "2025-01-01",
+                "beginning_market_value_portfolio_currency": "1",
+                "ending_market_value_portfolio_currency": "1",
+            },
+            {
+                "position_id": "NO_VALUES",
+                "valuation_date": "2025-01-01",
+            },
+        ],
+        position_retrieval_metadata=RetrievalMetadata(chunk_count=1, page_count=1),
+    )
+
+    normalized = build_stateful_contribution_input(
+        source_input=source_input,
+        metric_basis="NET",
+        currency_mode="BASE_ONLY",
+        reporting_currency="USD",
+        fx=None,
+    )
+
+    assert normalized.valuation_currency == "USD"
+    assert [position.position_id for position in normalized.positions_data] == ["VALID"]
 
 
 def test_stateful_contribution_portfolio_data_preserves_metric_basis_and_valuation_points():
@@ -764,6 +1030,7 @@ def test_stateful_contribution_position_series_groups_points_and_preserves_lates
                 "beginning_market_value_portfolio_currency": "10",
                 "ending_market_value_portfolio_currency": "11",
                 "cash_flows": [{"amount": "1", "timing": "bod"}],
+                "cash_flow_currency": "EUR",
                 "dimensions": {"sector": "Tech"},
             },
             {
@@ -784,6 +1051,40 @@ def test_stateful_contribution_position_series_groups_points_and_preserves_lates
     assert position_series.valuation_points_by_position_id["POS_1"][0]["bod_cf"] == Decimal("1")
     assert position_series.meta_by_position_id["POS_1"]["security_id"] == "SEC_1_UPDATED"
     assert position_series.meta_by_position_id["POS_1"]["sector"] == "Software"
+    assert position_series.meta_by_position_id["POS_1"]["_source_cash_flow_currencies"] == ["EUR"]
+    assert _source_cash_flow_currencies(_stateful_contribution_positions_data(position_series)[0]) == ["EUR"]
+
+
+def test_stateful_contribution_position_series_preserves_pairs_for_cancelled_source_cash_flows():
+    position_series = _stateful_contribution_position_series(
+        rows=[
+            {
+                "position_id": "POS_GBP",
+                "valuation_date": "2025-01-01",
+                "position_currency": "GBP",
+                "cash_flow_currency": "GBP",
+                "position_to_portfolio_fx_rate": "1.15",
+                "portfolio_to_reporting_fx_rate": "1.10",
+                "beginning_market_value_reporting_currency": "120",
+                "ending_market_value_reporting_currency": "132",
+                "cash_flows": [
+                    {"amount": "5", "timing": "bod", "cash_flow_type": "external_flow"},
+                    {"amount": "-5", "timing": "bod", "cash_flow_type": "external_flow"},
+                ],
+            }
+        ],
+        currency_mode="BASE_ONLY",
+        reporting_currency="USD",
+    )
+
+    position = _stateful_contribution_positions_data(position_series)[0]
+    assert position.valuation_points[0].bod_cf == Decimal("0")
+    assert _source_cash_flow_currencies(position) == ["GBP"]
+    assert _source_preconverted_cash_flow_pairs_for_position(
+        position=position,
+        portfolio_base_currency="EUR",
+        reporting_currency="USD",
+    ) == {"EUR/USD", "GBP/EUR"}
 
 
 def test_stateful_contribution_position_series_preserves_source_position_grain():

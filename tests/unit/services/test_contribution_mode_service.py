@@ -12,10 +12,12 @@ from app.services.contribution_mode_service import (
     _resolved_stateful_contribution_request,
     _resolved_stateless_contribution_request,
     resolve_contribution_request,
+    resolved_contribution_identity_payload,
 )
 from app.services.execution_registry import execution_registry
 from app.services.stateful_input_service import RetrievalMetadata
 from core.errors import APIError
+from core.repro import generate_canonical_hash_from_value
 
 
 def _settings():
@@ -144,6 +146,85 @@ def test_resolved_stateful_contribution_request_projects_normalized_inputs():
     assert resolved.position_count == 1
     assert resolved.contribution_request.portfolio_data.metric_basis == "NET"
     assert resolved.contribution_request.positions_data[0].meta["sector"] == "Technology"
+
+
+@pytest.mark.parametrize(
+    (
+        "portfolio_currency",
+        "reporting_currency",
+        "core_reporting_currency",
+        "currency_mode",
+        "source_preconverted_cash_flow_conversion",
+        "expected_currency",
+        "expected_source_reporting_currency",
+    ),
+    [
+        ("EUR", "USD", "USD", "BASE_ONLY", False, "USD", "USD"),
+        ("USD", "USD", "USD", None, False, "USD", None),
+        ("EUR", None, None, None, False, "EUR", None),
+        ("EUR", "USD", "USD", "BOTH", False, "EUR", None),
+        ("USD", "USD", "USD", "BASE_ONLY", True, "USD", "USD"),
+        ("EUR", None, None, "BASE_ONLY", True, "EUR", None),
+        ("EUR", "EUR", None, "BASE_ONLY", True, "EUR", None),
+    ],
+)
+def test_resolved_stateful_request_uses_core_reporting_currency_only_for_base_only(
+    portfolio_currency,
+    reporting_currency,
+    core_reporting_currency,
+    currency_mode,
+    source_preconverted_cash_flow_conversion,
+    expected_currency,
+    expected_source_reporting_currency,
+):
+    request = ContributionAnalyticsRequest.model_validate(
+        {
+            "calculation_id": str(uuid4()),
+            "portfolio_id": "CONTRIB_REPORTING_CURRENCY",
+            "report_start_date": "2025-01-01",
+            "report_end_date": "2025-01-01",
+            "analyses": [{"period": "SI", "frequencies": ["daily"]}],
+            "currency": portfolio_currency,
+            "report_ccy": reporting_currency,
+            "currency_mode": currency_mode,
+            "input_mode": "stateful",
+            "stateful_input": {},
+        }
+    )
+    normalized_input = SimpleNamespace(
+        portfolio_data=PortfolioData.model_validate(
+            {
+                "metric_basis": "NET",
+                "valuation_points": [{"perf_date": "2025-01-01", "begin_mv": 1000, "end_mv": 1010}],
+            }
+        ),
+        positions_data=[],
+        portfolio_currency=portfolio_currency,
+        reporting_currency=core_reporting_currency,
+        valuation_currency=expected_currency,
+        source_preconverted_cash_flow_conversion=source_preconverted_cash_flow_conversion,
+    )
+
+    resolved = _resolved_stateful_contribution_request(request, normalized_input)
+
+    assert resolved.contribution_request.currency == expected_currency
+    assert resolved.portfolio_base_currency == portfolio_currency
+    assert resolved.source_preconverted_reporting_currency == expected_source_reporting_currency
+    source_preconverted_reporting_currency = resolved.source_preconverted_reporting_currency
+    identity = resolved_contribution_identity_payload(
+        resolved.contribution_request,
+        portfolio_base_currency=portfolio_currency,
+        source_preconverted_reporting_currency=source_preconverted_reporting_currency,
+    )
+    changed_base_identity = resolved_contribution_identity_payload(
+        resolved.contribution_request,
+        portfolio_base_currency="GBP" if portfolio_currency != "GBP" else "EUR",
+        source_preconverted_reporting_currency=source_preconverted_reporting_currency,
+    )
+    assert generate_canonical_hash_from_value(identity, "test-engine") != generate_canonical_hash_from_value(
+        changed_base_identity,
+        "test-engine",
+    )
 
 
 @pytest.mark.asyncio

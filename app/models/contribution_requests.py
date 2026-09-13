@@ -237,3 +237,13 @@ class ContributionRequest(ContributionRequestBase):
 
     portfolio_data: PortfolioData
     positions_data: List[PositionData]
+
+
+class ResolvedContributionExecutionRequest(BaseModel):
+    """Canonical stateful contribution identity persisted for hashing and lineage."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    contribution_request: ContributionRequest
+    portfolio_base_currency: str | None = None
+    source_preconverted_reporting_currency: str | None = None

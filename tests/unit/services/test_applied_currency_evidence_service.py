@@ -86,6 +86,21 @@ def test_local_only_evidence_ignores_supplied_fx_rates():
     assert evidence.fx_source == "none"
 
 
+def test_source_preconverted_position_evidence_reports_consumed_cash_flow_pairs():
+    evidence = build_applied_currency_evidence(
+        portfolio_base_currency="EUR",
+        requested_report_ccy="USD",
+        currency_mode="BASE_ONLY",
+        fx=None,
+        source_currencies=["EUR"],
+        source_preconverted_reporting_currency="USD",
+        source_preconverted_cash_flow_pairs=["EUR/USD"],
+    )
+
+    assert evidence.fixing_policy == "SOURCE_PRECONVERTED_POSITION_VALUATIONS_AND_CASH_FLOWS"
+    assert evidence.applied_pairs == ["EUR/USD"]
+
+
 def test_by_group_evidence_identifies_source_preconverted_return_components():
     evidence = build_source_preconverted_currency_evidence(
         portfolio_base_currency="USD",

@@ -23,8 +23,8 @@ python scripts/python_test_taxonomy_inventory.py --limit 30 --min-api-runtime-te
 | Metric | Value |
 | --- | ---: |
 | Test modules inventoried | 327 |
-| Test functions inventoried | 3761 |
-| Integration/API/runtime test functions | 749 |
+| Test functions inventoried | 3775 |
+| Integration/API/runtime test functions | 754 |
 | Contract/governance test functions | 188 |
 
 ## Test Functions By Suite
@@ -33,8 +33,8 @@ python scripts/python_test_taxonomy_inventory.py --limit 30 --min-api-runtime-te
 | --- | ---: | ---: |
 | benchmarks | 9 | 20 |
 | e2e | 1 | 21 |
-| integration | 28 | 351 |
-| unit | 289 | 3369 |
+| integration | 28 | 356 |
+| unit | 289 | 3378 |
 
 ## Test Functions By Family
 
@@ -44,10 +44,10 @@ above does sum to it, because a module belongs to exactly one suite.
 
 | Family | Test functions |
 | --- | ---: |
-| analytics_domain | 1710 |
-| api_or_runtime | 749 |
+| analytics_domain | 1723 |
+| api_or_runtime | 754 |
 | contract_or_governance | 188 |
-| observability_or_readiness | 430 |
+| observability_or_readiness | 431 |
 | quality_or_security | 264 |
 | uncategorized | 797 |
 
@@ -64,13 +64,13 @@ above does sum to it, because a module belongs to exactly one suite.
 | 7 | `tests/unit/services/test_lineage_metadata_store.py` | unit | 60 | uncategorized |
 | 8 | `tests/unit/engine/test_attribution.py` | unit | 57 | analytics_domain |
 | 9 | `tests/unit/services/test_twr_inspection_source_economics.py` | unit | 57 | analytics_domain |
-| 10 | `tests/unit/services/test_compute_executor_worker.py` | unit | 54 | observability_or_readiness |
+| 10 | `tests/unit/services/test_compute_executor_worker.py` | unit | 55 | observability_or_readiness |
 | 11 | `tests/unit/app/test_contribution_endpoint_helpers.py` | unit | 52 | analytics_domain, api_or_runtime |
 | 12 | `tests/unit/services/test_twr_inspection_calculation_consistency.py` | unit | 51 | analytics_domain |
 | 13 | `tests/unit/services/test_workspace_summary_service.py` | unit | 51 | analytics_domain |
-| 14 | `tests/unit/services/test_stateful_input_service.py` | unit | 49 | analytics_domain |
-| 15 | `tests/unit/services/test_twr_mode_service.py` | unit | 45 | analytics_domain |
-| 16 | `tests/integration/test_contribution_api.py` | integration | 44 | analytics_domain, api_or_runtime |
+| 14 | `tests/integration/test_contribution_api.py` | integration | 49 | analytics_domain, api_or_runtime |
+| 15 | `tests/unit/services/test_stateful_input_service.py` | unit | 49 | analytics_domain |
+| 16 | `tests/unit/services/test_twr_mode_service.py` | unit | 45 | analytics_domain |
 | 17 | `tests/unit/engine/test_mwr.py` | unit | 44 | analytics_domain |
 | 18 | `tests/unit/services/test_stateful_benchmark_input_service.py` | unit | 44 | analytics_domain |
 | 19 | `tests/integration/test_performance_api.py` | integration | 40 | api_or_runtime |
@@ -78,13 +78,13 @@ above does sum to it, because a module belongs to exactly one suite.
 | 21 | `tests/unit/engine/test_contribution.py` | unit | 38 | analytics_domain |
 | 22 | `tests/unit/services/test_benchmark_exposure_context_service.py` | unit | 35 | analytics_domain |
 | 23 | `tests/unit/test_observability.py` | unit | 34 | observability_or_readiness |
-| 24 | `tests/unit/models/test_twr_requests.py` | unit | 32 | analytics_domain |
-| 25 | `tests/unit/services/test_twr_inspection_reconciliation.py` | unit | 32 | analytics_domain |
-| 26 | `tests/integration/test_returns_series_api.py` | integration | 31 | analytics_domain, api_or_runtime |
-| 27 | `tests/unit/app/test_enterprise_readiness.py` | unit | 31 | observability_or_readiness |
-| 28 | `tests/unit/models/test_workspace_summary_models.py` | unit | 31 | analytics_domain |
-| 29 | `tests/unit/services/test_twr_inspection_service.py` | unit | 31 | analytics_domain |
-| 30 | `tests/unit/services/test_operator_action_replay_service.py` | unit | 30 | uncategorized |
+| 24 | `tests/unit/services/test_stateful_contribution_input_service.py` | unit | 33 | analytics_domain |
+| 25 | `tests/unit/models/test_twr_requests.py` | unit | 32 | analytics_domain |
+| 26 | `tests/unit/services/test_twr_inspection_reconciliation.py` | unit | 32 | analytics_domain |
+| 27 | `tests/integration/test_returns_series_api.py` | integration | 31 | analytics_domain, api_or_runtime |
+| 28 | `tests/unit/app/test_enterprise_readiness.py` | unit | 31 | observability_or_readiness |
+| 29 | `tests/unit/models/test_workspace_summary_models.py` | unit | 31 | analytics_domain |
+| 30 | `tests/unit/services/test_twr_inspection_service.py` | unit | 31 | analytics_domain |
 
 The #502 request-path proof added a module driving the real application over HTTP for tenant admission - admitted, absent, blank and concurrent two-tenant requests, each asserting the outbound Core call - raising inventoried modules to `317`, source test functions to `3634`, and API/runtime tests to `699`. Later review fixes in the same PR added the padded-tenant refusals and the returns-series authority regression, which are counted in those figures. Uncategorized tests are unchanged at `876`: every added module classifies as api_or_runtime, so the ceiling this gate governs was neither approached nor raised.
 

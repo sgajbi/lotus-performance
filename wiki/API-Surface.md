@@ -113,6 +113,17 @@ local, and FX contribution results rather than reconstructing contribution downs
 emits `smoothing_evidence` and `source_economics_evidence`; Gateway preserves those fields and
 Workbench displays exact contribution evidence statuses in Performance Drivers. See
 [Contribution Analytics](Contribution-Analytics) for the implementation-backed product boundary.
+For stateful `BASE_ONLY`, Core-selected reporting-currency valuations are accepted only when every
+consumed cross-currency position has complete reporting value pairs. Nonzero cash flows must declare
+the same position and cash-flow currency and carry the required Core conversion metadata; the
+response keeps the Core portfolio-base identity and records the actual consumed cash-flow pairs in
+`currency_evidence.applied_pairs`, including a source-to-base pair when Core reporting and base
+are the same denomination but a foreign-currency flow was consumed. A request `report_ccy` does
+not substitute for Core's source
+`reporting_currency`: without that declaration, portfolio-base values remain selected. Performance
+does not infer a denomination, relabel values, or invent FX. For promoted or async execution, the
+same resolved denomination artifact is used for `input_fingerprint`, `calculation_hash`, and the
+captured lineage request.
 
 TWR, Workspace Summary, Contribution, and Attribution responses publish top-level
 `currency_evidence`. Consumers use `applied_report_ccy` rather than the compatibility

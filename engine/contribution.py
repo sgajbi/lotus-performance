@@ -237,6 +237,8 @@ def _build_position_contribution_results_frame(
     )
     position_results_df["position_id"] = position.position_id
     for key, value in position.meta.items():
+        if key.startswith("_"):
+            continue
         position_results_df[key] = value
     return _apply_position_fx_capital_conversion(
         position_results_df=position_results_df,

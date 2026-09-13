@@ -14,8 +14,10 @@ from app.services.async_result_store import async_result_store
 from app.services.calculation_engine_version import calculation_engine_version
 from app.services.compute_job_store import compute_job_store
 from app.services.contribution_calculation_workflow_service import build_contribution_execution_window
+from app.services.contribution_mode_service import resolved_contribution_identity_payload
 from app.services.execution_registry import execution_registry
 from app.services.lineage_metadata_store import lineage_metadata_store
+from app.services.reproducibility_service import generate_request_fingerprint
 from core.repro import generate_canonical_hash
 from engine.exceptions import EngineCalculationError
 from main import app
@@ -1336,6 +1338,325 @@ def test_contribution_supports_stateful_input_mode(client, monkeypatch):
     assert "USD/EUR dates 2025-01-01, 2025-01-02" in partial.json()["detail"]
 
 
+@pytest.mark.parametrize(
+    ("portfolio_currency", "reporting_currency", "position_currencies"),
+    [
+        ("EUR", "USD", ("EUR", "USD")),
+        ("USD", "USD", ("USD", "USD")),
+    ],
+)
+def test_contribution_stateful_base_only_keeps_core_reporting_currency_on_group_evidence(
+    client,
+    monkeypatch,
+    portfolio_currency,
+    reporting_currency,
+    position_currencies,
+):
+    """Exercise the HTTP workflow with Core-selected reporting-currency valuation rows."""
+
+    async def _mock_retrieve_stateful_contribution_source_input(**kwargs):  # noqa: ARG001
+        from types import SimpleNamespace
+
+        return SimpleNamespace(
+            portfolio_input=SimpleNamespace(
+                portfolio_currency=portfolio_currency,
+                reporting_currency=reporting_currency,
+                observations=[
+                    {
+                        "valuation_date": "2025-01-01",
+                        "beginning_market_value": "1000",
+                        "ending_market_value": "1100",
+                    }
+                ],
+            ),
+            position_rows=[
+                {
+                    "position_id": "CORE_EQUITY",
+                    "security_id": "CORE_EQUITY",
+                    "position_currency": position_currencies[0],
+                    "valuation_date": "2025-01-01",
+                    "beginning_market_value_reporting_currency": "600",
+                    "ending_market_value_reporting_currency": "660",
+                    "cash_flows": [],
+                    "dimensions": {"sector": "Equity"},
+                },
+                {
+                    "position_id": "CORE_BOND",
+                    "security_id": "CORE_BOND",
+                    "position_currency": position_currencies[1],
+                    "valuation_date": "2025-01-01",
+                    "beginning_market_value_reporting_currency": "400",
+                    "ending_market_value_reporting_currency": "440",
+                    "cash_flows": [],
+                    "dimensions": {"sector": "Fixed Income"},
+                },
+            ],
+        )
+
+    monkeypatch.setattr(
+        "app.services.contribution_mode_service.retrieve_stateful_contribution_source_input",
+        _mock_retrieve_stateful_contribution_source_input,
+    )
+    payload = {
+        "portfolio_id": "CONTRIB_CORE_REPORTING_CURRENCY",
+        "report_start_date": "2025-01-01",
+        "report_end_date": "2025-01-01",
+        "analyses": [{"period": "SI", "frequencies": ["daily"]}],
+        "currency": portfolio_currency,
+        "currency_mode": "BASE_ONLY",
+        "report_ccy": reporting_currency,
+        "hierarchy": ["sector"],
+        "input_mode": "stateful",
+        "stateful_input": {"metric_basis": "NET"},
+    }
+
+    response = client.post("/performance/contribution", json=payload)
+
+    assert response.status_code == 200
+    body = response.json()
+    rows = body["results_by_period"]["SI"]["levels"][0]["rows"]
+    assert body["input_mode"] == "stateful"
+    assert body["results_by_period"]["SI"]["total_portfolio_return"] == pytest.approx(10.0)
+    assert {row["group_return"]["currency"] for row in rows} == {reporting_currency}
+    assert [row["group_return"]["period_return_pct"] for row in rows] == pytest.approx([10.0, 10.0])
+    evidence = body["currency_evidence"]
+    assert evidence["portfolio_base_currency"] == portfolio_currency
+    assert evidence["applied_report_ccy"] == reporting_currency
+    assert evidence["reason"] == (
+        "SOURCE_REPORTING_CURRENCY_VALUATIONS_APPLIED"
+        if portfolio_currency != reporting_currency
+        else "PORTFOLIO_BASE_CURRENCY_APPLIED"
+    )
+
+
+def test_contribution_stateful_base_only_refuses_incomplete_core_reporting_value_pairs(client, monkeypatch):
+    async def _mock_retrieve_stateful_contribution_source_input(**kwargs):  # noqa: ARG001
+        from types import SimpleNamespace
+
+        return SimpleNamespace(
+            portfolio_input=SimpleNamespace(
+                portfolio_currency="EUR",
+                reporting_currency="USD",
+                observations=[
+                    {"valuation_date": "2025-01-01", "beginning_market_value": "1000", "ending_market_value": "1100"}
+                ],
+            ),
+            position_rows=[
+                {
+                    "position_id": "CORE_REPORTING",
+                    "security_id": "CORE_REPORTING",
+                    "position_currency": "EUR",
+                    "valuation_date": "2025-01-01",
+                    "beginning_market_value_reporting_currency": "600",
+                    "ending_market_value_reporting_currency": "660",
+                    "cash_flows": [],
+                    "dimensions": {"sector": "Equity"},
+                },
+                {
+                    "position_id": "CORE_FALLBACK",
+                    "security_id": "CORE_FALLBACK",
+                    "position_currency": "EUR",
+                    "valuation_date": "2025-01-01",
+                    "beginning_market_value_portfolio_currency": "400",
+                    "ending_market_value_portfolio_currency": "440",
+                    "cash_flows": [],
+                    "dimensions": {"sector": "Fixed Income"},
+                },
+            ],
+        )
+
+    monkeypatch.setattr(
+        "app.services.contribution_mode_service.retrieve_stateful_contribution_source_input",
+        _mock_retrieve_stateful_contribution_source_input,
+    )
+    response = client.post(
+        "/performance/contribution",
+        json={
+            "portfolio_id": "CONTRIB_CORE_INCOMPLETE_REPORTING",
+            "report_start_date": "2025-01-01",
+            "report_end_date": "2025-01-01",
+            "analyses": [{"period": "SI", "frequencies": ["daily"]}],
+            "currency": "EUR",
+            "currency_mode": "BASE_ONLY",
+            "report_ccy": "USD",
+            "hierarchy": ["sector"],
+            "input_mode": "stateful",
+            "stateful_input": {"metric_basis": "NET"},
+        },
+    )
+
+    assert response.status_code == 422
+    assert response.json()["error_code"] == "REPORTING_CURRENCY_VALUATIONS_INCOMPLETE"
+    assert "CORE_FALLBACK" in response.json()["detail"]
+
+
+def test_contribution_stateful_base_only_uses_portfolio_values_without_core_reporting_currency(client, monkeypatch):
+    async def _mock_retrieve_stateful_contribution_source_input(**kwargs):  # noqa: ARG001
+        from types import SimpleNamespace
+
+        return SimpleNamespace(
+            portfolio_input=SimpleNamespace(
+                portfolio_currency="EUR",
+                reporting_currency=None,
+                observations=[
+                    {"valuation_date": "2025-01-01", "beginning_market_value": "1000", "ending_market_value": "1100"}
+                ],
+            ),
+            position_rows=[
+                {
+                    "position_id": "CORE_UNDECLARED_REPORTING",
+                    "security_id": "CORE_UNDECLARED_REPORTING",
+                    "position_currency": "EUR",
+                    "valuation_date": "2025-01-01",
+                    "beginning_market_value_portfolio_currency": "1000",
+                    "ending_market_value_portfolio_currency": "1100",
+                    "beginning_market_value_reporting_currency": "2000",
+                    "ending_market_value_reporting_currency": "2600",
+                    "cash_flows": [],
+                    "dimensions": {"sector": "Equity"},
+                }
+            ],
+        )
+
+    monkeypatch.setattr(
+        "app.services.contribution_mode_service.retrieve_stateful_contribution_source_input",
+        _mock_retrieve_stateful_contribution_source_input,
+    )
+    response = client.post(
+        "/performance/contribution",
+        json={
+            "portfolio_id": "CONTRIB_CORE_UNDECLARED_REPORTING",
+            "report_start_date": "2025-01-01",
+            "report_end_date": "2025-01-01",
+            "analyses": [{"period": "SI", "frequencies": ["daily"]}],
+            "currency": "EUR",
+            "currency_mode": "BASE_ONLY",
+            "report_ccy": "USD",
+            "hierarchy": ["sector"],
+            "input_mode": "stateful",
+            "stateful_input": {"metric_basis": "NET"},
+        },
+    )
+
+    assert response.status_code == 200
+    body = response.json()
+    row = body["results_by_period"]["SI"]["levels"][0]["rows"][0]
+    assert row["group_return"]["currency"] == "EUR"
+    assert row["group_return"]["period_return_pct"] == pytest.approx(10.0)
+    assert body["currency_evidence"]["applied_report_ccy"] == "EUR"
+
+
+def test_contribution_stateful_base_only_refuses_cross_currency_cash_flows_without_source_fx(client, monkeypatch):
+    async def _mock_retrieve_stateful_contribution_source_input(**kwargs):  # noqa: ARG001
+        from types import SimpleNamespace
+
+        return SimpleNamespace(
+            portfolio_input=SimpleNamespace(
+                portfolio_currency="EUR",
+                reporting_currency="USD",
+                observations=[
+                    {"valuation_date": "2025-01-01", "beginning_market_value": "1000", "ending_market_value": "1100"}
+                ],
+            ),
+            position_rows=[
+                {
+                    "position_id": "CORE_CASH_FLOW",
+                    "security_id": "CORE_CASH_FLOW",
+                    "cash_flow_currency": "EUR",
+                    "valuation_date": "2025-01-01",
+                    "beginning_market_value_reporting_currency": "600",
+                    "ending_market_value_reporting_currency": "660",
+                    "cash_flows": [{"amount": "5", "timing": "bod"}],
+                    "dimensions": {"sector": "Equity"},
+                }
+            ],
+        )
+
+    monkeypatch.setattr(
+        "app.services.contribution_mode_service.retrieve_stateful_contribution_source_input",
+        _mock_retrieve_stateful_contribution_source_input,
+    )
+    response = client.post(
+        "/performance/contribution",
+        json={
+            "portfolio_id": "CONTRIB_CORE_CASH_FLOW_FX_INCOMPLETE",
+            "report_start_date": "2025-01-01",
+            "report_end_date": "2025-01-01",
+            "analyses": [{"period": "SI", "frequencies": ["daily"]}],
+            "currency": "EUR",
+            "currency_mode": "BASE_ONLY",
+            "report_ccy": "USD",
+            "hierarchy": ["sector"],
+            "input_mode": "stateful",
+            "stateful_input": {"metric_basis": "NET"},
+        },
+    )
+
+    assert response.status_code == 422
+    assert response.json()["error_code"] == "REPORTING_CURRENCY_CASH_FLOW_FX_INCOMPLETE"
+    assert "CORE_CASH_FLOW" in response.json()["detail"]
+
+
+def test_contribution_stateful_base_only_reports_core_cash_flow_fx_pairs(client, monkeypatch):
+    async def _mock_retrieve_stateful_contribution_source_input(**kwargs):  # noqa: ARG001
+        from types import SimpleNamespace
+
+        return SimpleNamespace(
+            portfolio_input=SimpleNamespace(
+                portfolio_currency="EUR",
+                reporting_currency="USD",
+                observations=[
+                    {
+                        "valuation_date": "2025-01-01",
+                        "beginning_market_value": "132",
+                        "ending_market_value": "145.2",
+                        "cash_flows": [{"amount": "13.2", "timing": "bod"}],
+                    }
+                ],
+            ),
+            position_rows=[
+                {
+                    "position_id": "CORE_CASH_FLOW",
+                    "security_id": "CORE_CASH_FLOW",
+                    "position_currency": "EUR",
+                    "cash_flow_currency": "EUR",
+                    "position_to_portfolio_fx_rate": "1",
+                    "portfolio_to_reporting_fx_rate": "1.1",
+                    "valuation_date": "2025-01-01",
+                    "beginning_market_value_reporting_currency": "132",
+                    "ending_market_value_reporting_currency": "145.2",
+                    "cash_flows": [{"amount": "12", "timing": "bod"}],
+                    "dimensions": {"sector": "Equity"},
+                }
+            ],
+        )
+
+    monkeypatch.setattr(
+        "app.services.contribution_mode_service.retrieve_stateful_contribution_source_input",
+        _mock_retrieve_stateful_contribution_source_input,
+    )
+    response = client.post(
+        "/performance/contribution",
+        json={
+            "portfolio_id": "CONTRIB_CORE_CASH_FLOW_FX_EVIDENCE",
+            "report_start_date": "2025-01-01",
+            "report_end_date": "2025-01-01",
+            "analyses": [{"period": "SI", "frequencies": ["daily"]}],
+            "currency": "EUR",
+            "currency_mode": "BASE_ONLY",
+            "report_ccy": "USD",
+            "hierarchy": ["sector"],
+            "input_mode": "stateful",
+            "stateful_input": {"metric_basis": "NET"},
+        },
+    )
+
+    assert response.status_code == 200
+    evidence = response.json()["currency_evidence"]
+    assert evidence["fixing_policy"] == "SOURCE_PRECONVERTED_POSITION_VALUATIONS_AND_CASH_FLOWS"
+    assert evidence["applied_pairs"] == ["EUR/USD"]
+
+
 def test_contribution_stateful_cash_only_external_flows_do_not_create_position_flow_residuals(client, monkeypatch):
     async def _mock_retrieve_stateful_contribution_source_input(**kwargs):  # noqa: ARG001
         from types import SimpleNamespace
@@ -1443,6 +1764,8 @@ def test_contribution_stateful_converts_non_base_cash_flows_using_explicit_fx_me
 
         return SimpleNamespace(
             portfolio_input=SimpleNamespace(
+                portfolio_currency="EUR",
+                reporting_currency="USD",
                 observations=[
                     {
                         "valuation_date": "2025-01-01",
@@ -1499,6 +1822,8 @@ def test_contribution_stateful_emit_timeseries_returns_series(client, monkeypatc
 
         return SimpleNamespace(
             portfolio_input=SimpleNamespace(
+                portfolio_currency="USD",
+                reporting_currency="USD",
                 observations=[
                     {
                         "valuation_date": "2025-01-01",
@@ -1516,10 +1841,16 @@ def test_contribution_stateful_emit_timeseries_returns_series(client, monkeypatc
                 {
                     "position_id": "SEC_1",
                     "security_id": "SEC_1",
+                    "position_currency": "EUR",
+                    "cash_flow_currency": "EUR",
+                    "position_to_portfolio_fx_rate": "1.20",
                     "valuation_date": "2025-01-01",
                     "beginning_market_value_portfolio_currency": "1000",
                     "ending_market_value_portfolio_currency": "1010",
-                    "cash_flows": [],
+                    "cash_flows": [
+                        {"amount": "5", "timing": "bod", "cash_flow_type": "external_flow"},
+                        {"amount": "-5", "timing": "bod", "cash_flow_type": "external_flow"},
+                    ],
                     "dimensions": {"sector": "Technology"},
                 },
                 {
@@ -1543,6 +1874,9 @@ def test_contribution_stateful_emit_timeseries_returns_series(client, monkeypatc
         "portfolio_id": "CONTRIB_STATEFUL_SERIES",
         "report_start_date": "2025-01-01",
         "report_end_date": "2025-01-02",
+        "currency": "USD",
+        "currency_mode": "BASE_ONLY",
+        "report_ccy": "USD",
         "analyses": [{"period": "SI", "frequencies": ["daily"]}],
         "emit": {"timeseries": True, "by_position_timeseries": True},
         "input_mode": "stateful",
@@ -1557,6 +1891,16 @@ def test_contribution_stateful_emit_timeseries_returns_series(client, monkeypatc
     assert len(result["by_position_timeseries"]) == 1
     assert result["by_position_timeseries"][0]["position_id"] == "SEC_1"
     assert len(result["by_position_timeseries"][0]["series"]) == 2
+    evidence = response.json()["currency_evidence"]
+    assert evidence["fixing_policy"] == "SOURCE_PRECONVERTED_POSITION_VALUATIONS_AND_CASH_FLOWS"
+    assert evidence["applied_pairs"] == ["EUR/USD"]
+
+    default_currency_payload = {
+        key: value for key, value in payload.items() if key not in {"currency", "currency_mode", "report_ccy"}
+    }
+    default_currency_response = client.post("/performance/contribution", json=default_currency_payload)
+    assert default_currency_response.status_code == 200
+    assert default_currency_response.json()["currency_evidence"]["fx_source"] == "none"
 
 
 def test_contribution_stateful_offloads_on_resolved_position_count(client, monkeypatch):
@@ -1649,7 +1993,8 @@ def test_contribution_stateful_offloads_on_resolved_position_count(client, monke
         job = compute_job_store.get_job(calculation_id)
         assert job is not None
         assert "stateful_input" not in job.request_payload
-        assert "portfolio_data" in job.request_payload
+        assert "portfolio_data" in job.request_payload["resolved_request"]
+        assert job.request_payload["source_input_mode"] == "stateful"
 
         assert drain_compute_queue() == 1
 
@@ -1862,8 +2207,12 @@ def test_contribution_stateful_hashes_follow_resolved_inputs(client, monkeypatch
             ],
         }
     )
-    expected_input_fingerprint, expected_calculation_hash = generate_canonical_hash(
-        expected_request,
+    expected_input_fingerprint, expected_calculation_hash = generate_request_fingerprint(
+        resolved_contribution_identity_payload(
+            expected_request,
+            portfolio_base_currency=expected_request.currency,
+            source_preconverted_reporting_currency=None,
+        ),
         calculation_engine_version(settings),
     )
 

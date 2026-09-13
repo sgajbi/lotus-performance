@@ -8,7 +8,8 @@ from app.models.contribution_analytics_requests import (
     ContributionInputMode,
     ContributionStatefulInput,
 )
-from app.models.contribution_requests import ContributionRequest
+from app.models.contribution_requests import ContributionRequest, ResolvedContributionExecutionRequest
+from app.services.currency_code_normalization import normalized_currency_code
 from app.services.execution_registry import execution_registry
 from app.services.execution_stage_errors import execution_stage_failure_detail
 from app.services.execution_stage_names import EXECUTION_STAGE_NORMALIZATION, EXECUTION_STAGE_RETRIEVAL
@@ -29,6 +30,22 @@ class ResolvedContributionRequest:
     contribution_request: ContributionRequest
     input_mode: ContributionInputMode
     position_count: int
+    portfolio_base_currency: str | None = None
+    source_preconverted_reporting_currency: str | None = None
+
+
+def resolved_contribution_identity_payload(
+    request: ContributionRequest,
+    *,
+    portfolio_base_currency: str | None,
+    source_preconverted_reporting_currency: str | None,
+) -> ResolvedContributionExecutionRequest:
+    """Bind published denomination provenance to the resolved calculation identity."""
+    return ResolvedContributionExecutionRequest(
+        contribution_request=request,
+        portfolio_base_currency=portfolio_base_currency,
+        source_preconverted_reporting_currency=source_preconverted_reporting_currency,
+    )
 
 
 async def resolve_contribution_request(
@@ -105,6 +122,7 @@ def _normalize_stateful_contribution_input(
             currency_mode=request.currency_mode,
             fx=request.fx,
             reporting_currency=request.report_ccy,
+            portfolio_base_currency=request.currency,
         )
         execution_registry.complete_stage(
             request.calculation_id,
@@ -127,10 +145,75 @@ def _resolved_stateful_contribution_request(
     )
     return ResolvedContributionRequest(
         contribution_request=contribution_request.model_copy(
-            update={"currency": getattr(normalized_input, "portfolio_currency", None) or request.currency}
+            update={"currency": _resolved_stateful_contribution_currency(request, normalized_input)}
         ),
         input_mode=ContributionInputMode.STATEFUL,
         position_count=len(normalized_input.positions_data),
+        portfolio_base_currency=_resolved_stateful_portfolio_base_currency(request, normalized_input),
+        source_preconverted_reporting_currency=_resolved_stateful_source_reporting_currency(request, normalized_input),
+    )
+
+
+def _resolved_stateful_contribution_currency(
+    request: ContributionAnalyticsRequest,
+    normalized_input: StatefulContributionNormalizedInput,
+) -> str:
+    """Keep Core's selected reporting denomination attached to BASE_ONLY economics."""
+    return normalized_currency_code(getattr(normalized_input, "valuation_currency", None)) or (
+        _resolved_stateful_portfolio_base_currency(request, normalized_input)
+    )
+
+
+def _resolved_stateful_portfolio_base_currency(
+    request: ContributionAnalyticsRequest,
+    normalized_input: StatefulContributionNormalizedInput,
+) -> str:
+    return normalized_currency_code(getattr(normalized_input, "portfolio_currency", None)) or request.currency
+
+
+def _resolved_stateful_source_reporting_currency(
+    request: ContributionAnalyticsRequest,
+    normalized_input: StatefulContributionNormalizedInput,
+) -> str | None:
+    portfolio_base_currency = _resolved_stateful_portfolio_base_currency(request, normalized_input)
+    valuation_currency = normalized_currency_code(getattr(normalized_input, "valuation_currency", None))
+    requested_reporting_currency = normalized_currency_code(request.report_ccy)
+    core_reporting_currency = normalized_currency_code(getattr(normalized_input, "reporting_currency", None))
+    if (request.currency_mode or "BASE_ONLY") != "BASE_ONLY":
+        return None
+    if requested_reporting_currency is None:
+        return None
+    if valuation_currency != portfolio_base_currency:
+        return valuation_currency
+    if _same_base_currency_has_source_preconverted_cash_flow(
+        valuation_currency=valuation_currency,
+        source_preconverted_cash_flow_conversion=getattr(
+            normalized_input,
+            "source_preconverted_cash_flow_conversion",
+            False,
+        ),
+        requested_reporting_currency=requested_reporting_currency,
+        core_reporting_currency=core_reporting_currency,
+    ):
+        # Core selected this same denomination and supplied a consumed foreign-flow conversion.
+        # Retain that source provenance instead of hiding the applied pair merely because the
+        # portfolio base and reporting currencies happen to be identical.
+        return valuation_currency
+    return None
+
+
+def _same_base_currency_has_source_preconverted_cash_flow(
+    *,
+    valuation_currency: str | None,
+    source_preconverted_cash_flow_conversion: bool,
+    requested_reporting_currency: str,
+    core_reporting_currency: str | None,
+) -> bool:
+    return (
+        valuation_currency is not None
+        and source_preconverted_cash_flow_conversion
+        and requested_reporting_currency == valuation_currency
+        and core_reporting_currency == valuation_currency
     )
 
 

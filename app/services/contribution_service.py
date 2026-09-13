@@ -6,7 +6,7 @@ from typing import Any
 
 from app.core.config import get_settings
 from app.models.contribution_analytics_requests import ContributionInputMode
-from app.models.contribution_requests import ContributionRequest
+from app.models.contribution_requests import ContributionRequest, PositionData
 from app.models.contribution_responses import (
     AverageWeightMethodologyStatus,
     ContributionResponse,
@@ -63,6 +63,7 @@ from app.services.contribution_smoothing import (
     _count_carino_invalid_domain_days,
 )
 from app.services.contribution_source_economics import build_contribution_source_economics_evidence
+from app.services.currency_code_normalization import normalized_currency_code
 from app.services.execution_lifecycle_service import (
     complete_execution_with_lineage,
     record_execution_failure,
@@ -728,6 +729,8 @@ def _build_contribution_response(
     results_by_period: dict[str, SinglePeriodContributionResult],
     average_weight_audit_state: AverageWeightShadowAuditState,
     average_weight_sum_residual_bp: int,
+    portfolio_base_currency: str | None = None,
+    source_preconverted_reporting_currency: str | None = None,
 ) -> ContributionResponse:
     meta = Meta(
         calculation_id=request.calculation_id,
@@ -763,16 +766,77 @@ def _build_contribution_response(
         calculation_supportability=evidence.calculation_supportability,
         source_economics_evidence=evidence.source_economics_evidence,
         currency_evidence=build_applied_currency_evidence(
-            portfolio_base_currency=request.currency,
+            portfolio_base_currency=portfolio_base_currency or request.currency,
             requested_report_ccy=request.report_ccy,
             currency_mode=request.currency_mode,
             fx=request.fx,
             source_currencies=[position.meta.get("currency") for position in request.positions_data],
+            source_preconverted_reporting_currency=source_preconverted_reporting_currency,
+            source_preconverted_cash_flow_pairs=_source_preconverted_cash_flow_pairs(
+                request=request,
+                portfolio_base_currency=portfolio_base_currency or request.currency,
+                reporting_currency=source_preconverted_reporting_currency,
+            ),
         ),
         meta=meta,
         diagnostics=evidence.diagnostics,
         audit=evidence.audit,
     )
+
+
+def _source_preconverted_cash_flow_pairs(
+    *,
+    request: ContributionRequest,
+    portfolio_base_currency: str,
+    reporting_currency: str | None,
+) -> list[str]:
+    if reporting_currency is None:
+        return []
+    pairs: set[str] = set()
+    for position in request.positions_data:
+        pairs.update(
+            _source_preconverted_cash_flow_pairs_for_position(
+                position=position,
+                portfolio_base_currency=portfolio_base_currency,
+                reporting_currency=reporting_currency,
+            )
+        )
+    return sorted(pairs)
+
+
+def _source_preconverted_cash_flow_pairs_for_position(
+    *,
+    position: PositionData,
+    portfolio_base_currency: str,
+    reporting_currency: str,
+) -> set[str]:
+    has_retained_source_cash_flow_provenance = "_source_cash_flow_currencies" in position.meta
+    if not has_retained_source_cash_flow_provenance and not _position_has_nonzero_cash_flow(position):
+        return set()
+    source_currencies = _source_cash_flow_currencies(position)
+    if not source_currencies:
+        return set()
+    pairs = (
+        {f"{portfolio_base_currency}/{reporting_currency}"} if portfolio_base_currency != reporting_currency else set()
+    )
+    pairs.update(
+        f"{source_currency}/{portfolio_base_currency}"
+        for source_currency in source_currencies
+        if source_currency != portfolio_base_currency
+    )
+    return pairs
+
+
+def _source_cash_flow_currencies(position: PositionData) -> list[str]:
+    source_currencies = position.meta.get("_source_cash_flow_currencies")
+    if isinstance(source_currencies, list):
+        return [currency for currency in map(normalized_currency_code, source_currencies) if currency is not None]
+    source_currency = normalized_currency_code(position.meta.get("cash_flow_currency") or position.meta.get("currency"))
+    return [source_currency] if source_currency is not None else []
+
+
+def _position_has_nonzero_cash_flow(position: PositionData) -> bool:
+    return any(point.bod_cf or point.eod_cf or point.mgmt_fees for point in position.valuation_points)
 
 
 def _build_contribution_response_evidence(
@@ -836,11 +900,12 @@ def _complete_contribution_execution(
     response_model: ContributionResponse,
     portfolio_results_df,
     daily_contributions_df,
+    request_artifact_model: Any | None = None,
 ) -> None:
     complete_execution_with_lineage(
         calculation_id=request.calculation_id,
         calculation_type="Contribution",
-        request_model=request,
+        request_model=request_artifact_model or request,
         response_model=response_model,
         execution_details={"input_positions": len(request.positions_data)},
         calculation_details={
@@ -903,6 +968,9 @@ def calculate_contribution(
     input_fingerprint: str,
     calculation_hash: str,
     input_mode: ContributionInputMode = ContributionInputMode.STATELESS,
+    portfolio_base_currency: str | None = None,
+    source_preconverted_reporting_currency: str | None = None,
+    request_artifact_model: Any | None = None,
 ) -> ContributionResponse:
     active_settings = get_settings()
     reset_aware_average_weight_mode = _normalize_reset_aware_average_weight_mode(
@@ -931,6 +999,8 @@ def calculate_contribution(
         results_by_period=calculation_run.results_by_period,
         average_weight_audit_state=calculation_run.average_weight_audit_state,
         average_weight_sum_residual_bp=calculation_run.average_weight_sum_residual_bp,
+        portfolio_base_currency=portfolio_base_currency,
+        source_preconverted_reporting_currency=source_preconverted_reporting_currency,
     )
     enforce_core_analytics_fail_fast(operation="contribution", request=request, response=response_model)
     _complete_contribution_execution(
@@ -938,5 +1008,6 @@ def calculate_contribution(
         response_model=response_model,
         portfolio_results_df=engine_inputs.portfolio_results_df,
         daily_contributions_df=engine_inputs.daily_contributions_df,
+        request_artifact_model=request_artifact_model,
     )
     return response_model

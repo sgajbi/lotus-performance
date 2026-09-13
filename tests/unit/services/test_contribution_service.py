@@ -470,6 +470,7 @@ def test_complete_contribution_execution_preserves_lineage_handoff(monkeypatch):
     response_model = SimpleNamespace(calculation_id="contribution-calc-1")
     portfolio_results_df = pd.DataFrame({"portfolio_id": ["P"]})
     daily_contributions_df = pd.DataFrame({"position_id": ["A"]})
+    request_artifact_model = SimpleNamespace(identity="resolved-denomination-artifact")
     completion_calls: list[dict[str, object]] = []
 
     def complete_execution_with_lineage(**kwargs):
@@ -482,13 +483,14 @@ def test_complete_contribution_execution_preserves_lineage_handoff(monkeypatch):
         response_model=response_model,
         portfolio_results_df=portfolio_results_df,
         daily_contributions_df=daily_contributions_df,
+        request_artifact_model=request_artifact_model,
     )
 
     assert len(completion_calls) == 1
     completion = completion_calls[0]
     assert completion["calculation_id"] == "contribution-calc-1"
     assert completion["calculation_type"] == "Contribution"
-    assert completion["request_model"] is request
+    assert completion["request_model"] is request_artifact_model
     assert completion["response_model"] is response_model
     assert completion["execution_details"] == {"input_positions": 3}
     calculation_details = completion["calculation_details"]

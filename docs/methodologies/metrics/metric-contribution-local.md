@@ -24,6 +24,18 @@ Position Local Contribution (`position_contributions[].local_contribution`)
   and requested dimensions.
 - `lotus-performance` owns local contribution methodology; lotus-core supplies analytics inputs and
   source currency evidence.
+- For stateful `BASE_ONLY` requests where Core selects reporting-currency valuations, Performance
+  retains Core's portfolio-base identity and only publishes the Core reporting denomination after
+  every consumed cross-currency row has complete reporting values. A nonzero position cash flow
+  additionally requires explicit matching position/cash-flow currency and Core conversion metadata;
+  `currency_evidence.applied_pairs` then records the consumed source-to-base and base-to-reporting
+  pair(s). A request `report_ccy` is not source proof: when Core does not declare a
+  `reporting_currency`, Performance selects portfolio-base valuations. Performance neither infers a
+  cash-flow denomination nor invents a rate. The resolved request plus its portfolio-base and
+  source-reporting provenance is the common hash and lineage request artifact for promoted or
+  async execution. This provenance remains visible when the selected
+  Core reporting currency equals portfolio base: a consumed foreign-currency flow still publishes
+  its actual source-to-base pair.
 
 ## Unit Conventions
 - Daily local contribution computed in decimal.

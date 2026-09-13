@@ -16,7 +16,7 @@ from app.services.analytics_workflow_types import ANALYTICS_WORKFLOW_CONTRIBUTIO
 from app.services.applied_currency_evidence_service import require_reporting_currency_for_both
 from app.services.async_observability_context import async_observability_request_payload
 from app.services.calculation_engine_version import calculation_engine_version
-from app.services.contribution_mode_service import resolve_contribution_request
+from app.services.contribution_mode_service import resolve_contribution_request, resolved_contribution_identity_payload
 from app.services.contribution_service import calculate_contribution
 from app.services.execution_lifecycle_service import record_execution_failure
 from app.services.execution_stage_errors import (
@@ -153,8 +153,13 @@ async def _resolve_promoted_stateful_contribution_response(
     try:
         resolved = await resolve_contribution_request(request, settings=active_settings)
         resolved_request = resolved.contribution_request
-        resolved_input_fingerprint, resolved_calculation_hash = generate_request_fingerprint(
+        resolved_identity = resolved_contribution_identity_payload(
             resolved_request,
+            portfolio_base_currency=resolved.portfolio_base_currency,
+            source_preconverted_reporting_currency=resolved.source_preconverted_reporting_currency,
+        )
+        resolved_input_fingerprint, resolved_calculation_hash = generate_request_fingerprint(
+            resolved_identity,
             calculation_engine_version(active_settings),
         )
         resolved_window = build_resolved_contribution_execution_window(
@@ -168,7 +173,7 @@ async def _resolve_promoted_stateful_contribution_response(
             requested_window=resolved_window,
             input_fingerprint=resolved_input_fingerprint,
             calculation_hash=resolved_calculation_hash,
-            resolved_request_payload=async_observability_request_payload(resolved_request.model_dump(mode="json")),
+            resolved_request_payload=_resolved_contribution_async_request_payload(resolved),
             should_offload=should_offload_resolved_contribution(resolved.position_count),
             offload_reason="large_resolved_stateful_contribution",
             accepted_response_factory=accepted_contribution_response,
@@ -181,6 +186,9 @@ async def _resolve_promoted_stateful_contribution_response(
             input_fingerprint=resolved_input_fingerprint,
             calculation_hash=resolved_calculation_hash,
             input_mode=resolved.input_mode,
+            portfolio_base_currency=resolved.portfolio_base_currency,
+            source_preconverted_reporting_currency=resolved.source_preconverted_reporting_currency,
+            request_artifact_model=resolved_identity,
         )
     except Exception as exc:
         if is_mappable_application_error(exc):
@@ -243,6 +251,18 @@ def _initial_contribution_async_submission(
     )
 
 
+def _resolved_contribution_async_request_payload(resolved: Any) -> dict[str, Any]:
+    """Persist source-selected denomination provenance with a promoted contribution job."""
+    return async_observability_request_payload(
+        {
+            "resolved_request": resolved.contribution_request.model_dump(mode="json"),
+            "source_input_mode": resolved.input_mode.value,
+            "portfolio_base_currency": resolved.portfolio_base_currency,
+            "source_preconverted_reporting_currency": resolved.source_preconverted_reporting_currency,
+        }
+    )
+
+
 async def _calculate_initial_sync_contribution(
     *,
     request: ContributionAnalyticsRequest,
@@ -265,6 +285,8 @@ async def _calculate_initial_sync_contribution(
             input_fingerprint=input_fingerprint,
             calculation_hash=calculation_hash,
             input_mode=resolved.input_mode,
+            portfolio_base_currency=resolved.portfolio_base_currency,
+            source_preconverted_reporting_currency=resolved.source_preconverted_reporting_currency,
         )
     except Exception as exc:
         if is_mappable_application_error(exc):
