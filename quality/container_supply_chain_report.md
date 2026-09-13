@@ -25,7 +25,7 @@ Runtime image contract:
 | Control | Current posture |
 | --- | --- |
 | Docker target | `runtime`, selected by `CONTAINER_BUILD_TARGET ?= runtime` and Compose `target: runtime`. |
-| Dependency scope | Installs `requirements.txt` and `requirements-image.txt`. The second holds packages that ship inside the image without being imported by application code (pinned `setuptools`), declared there so the build and the licence inventory read one authority rather than two that drift. `pip` and `wheel` are pinned for the build and uninstalled afterwards, so they are not distributed and not scanned. Development/test dependencies from `requirements-dev.txt` are not installed. |
+| Dependency scope | Refreshes published Debian security packages before installing `requirements.txt` and `requirements-image.txt`. The second holds packages that ship inside the image without being imported by application code (pinned `setuptools`), declared there so the build and the licence inventory read one authority rather than two that drift. `pip` and `wheel` are pinned for the build and uninstalled afterwards, so they are not distributed and not scanned. Development/test dependencies from `requirements-dev.txt` are not installed. |
 | Runtime user | Creates and runs as non-root user `lotus` with UID/GID `10001`. |
 | Writable paths | Owns `/app/lineage_data`, `/app/artifacts`, and `/app/output`; source files are copied with `--chown=lotus:lotus`. |
 | API healthcheck | Dockerfile probes `/health/live`; Compose probes `/health/ready` for the API service. |

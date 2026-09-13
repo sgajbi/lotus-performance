@@ -13,6 +13,13 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
 
 WORKDIR /app
 
+# The upstream slim image is intentionally refreshed at build time so Debian security
+# fixes that are already published for its retained runtime packages are not deferred
+# to a future base-tag update. Keep the package index out of the final image.
+RUN apt-get update && \
+    apt-get upgrade --yes && \
+    rm -rf /var/lib/apt/lists/*
+
 COPY requirements.txt requirements-image.txt ./
 # setuptools and wheel ship with the base image and carry fixable HIGH
 # advisories there (path traversal in setuptools, privilege escalation in
