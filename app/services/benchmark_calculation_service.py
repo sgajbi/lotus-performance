@@ -37,7 +37,7 @@ class BenchmarkCalculationArtifacts:
     daily_returns_df: pd.DataFrame
     component_contributions_df: pd.DataFrame
     effective_period_start: date
-    max_weight_sum_deviation: float
+    max_weight_sum_deviation: float  # monetary-float-allow: dimensionless benchmark weight deviation
     notes: list[str]
 
 
@@ -46,7 +46,7 @@ class _BenchmarkSourceArtifacts:
     daily_returns_df: pd.DataFrame
     component_contributions_df: pd.DataFrame
     effective_period_start: date
-    max_weight_sum_deviation: float
+    max_weight_sum_deviation: float  # monetary-float-allow: dimensionless benchmark weight deviation
     notes: list[str]
 
 

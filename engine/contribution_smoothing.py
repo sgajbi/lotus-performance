@@ -12,7 +12,9 @@ class ContributionSmoothingLike(Protocol):
     method: str
 
 
-def _calculate_carino_factor_for_return(portfolio_return: float) -> float:
+def _calculate_carino_factor_for_return(
+    portfolio_return: float,  # monetary-float-allow: dimensionless return
+) -> float:  # monetary-float-allow: dimensionless Carino factor
     """Returns the Carino linking factor for a single return when the log domain is valid.
 
     Domain meaning:
@@ -24,7 +26,7 @@ def _calculate_carino_factor_for_return(portfolio_return: float) -> float:
         return 1.0
     if np.isclose(portfolio_return, 0.0, atol=CARINO_ZERO_RETURN_TOLERANCE):
         return 1.0
-    return float(np.log1p(portfolio_return) / portfolio_return)
+    return float(np.log1p(portfolio_return) / portfolio_return)  # monetary-float-allow: dimensionless Carino factor
 
 
 def _carino_smoothing_domain_is_valid(portfolio_return_series: pd.Series) -> bool:
@@ -40,7 +42,12 @@ def _calculate_carino_factors(ror_series: pd.Series) -> pd.Series:
         ror_series.index = pd.to_datetime(ror_series.index)
 
     return pd.Series(
-        [_calculate_carino_factor_for_return(float(portfolio_return)) for portfolio_return in ror_series],
+        [
+            _calculate_carino_factor_for_return(
+                float(portfolio_return)  # monetary-float-allow: dimensionless return
+            )
+            for portfolio_return in ror_series
+        ],
         index=ror_series.index,
     )
 

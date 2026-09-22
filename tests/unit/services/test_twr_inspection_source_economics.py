@@ -1727,6 +1727,21 @@ def test_sum_detailed_cash_flows_accumulates_totals_and_row_quality_samples():
     assert result.fee_bod_timing_rows == ({"timing": "bod", "amount": "-2.5", "cash_flow_type": "fee"},)
 
 
+def test_inspection_detailed_totals_exclude_canonical_income_from_external_flows():
+    result = source_economics._sum_detailed_cash_flows(
+        [
+            {"amount": "10", "timing": "bod", "cash_flow_type": "income"},
+            {"amount": "20", "timing": "eod", "cash_flow_type": "income"},
+            {"amount": "5", "timing": "bod", "cash_flow_type": "external_flow"},
+        ]
+    )
+
+    assert result.external_bod == Decimal("5")
+    assert result.external_eod == Decimal("0")
+    assert result.fee_bod == Decimal("0")
+    assert result.fee_eod == Decimal("0")
+
+
 def test_add_amount_routes_fee_timing_and_bod_sample():
     accumulator = source_economics._DetailedCashFlowAccumulator()
 

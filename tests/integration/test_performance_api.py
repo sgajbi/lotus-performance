@@ -875,6 +875,49 @@ def test_twr_supports_stateful_input_mode(client, monkeypatch):
     assert body["results_by_period"]["YTD"]["portfolio"]["summary"]["period_return"]["base"] == pytest.approx(2.01)
 
 
+def test_twr_stateful_portfolio_income_is_return_not_external_cashflow(client, monkeypatch):
+    async def source_timeseries(**kwargs):  # noqa: ARG001
+        return (
+            200,
+            {
+                "portfolio_open_date": "2024-12-31",
+                "observations": [
+                    {"valuation_date": "2025-01-01", "beginning_market_value": "1000", "ending_market_value": "1000"},
+                    {
+                        "valuation_date": "2025-01-02",
+                        "beginning_market_value": "1000",
+                        "ending_market_value": "1015",
+                        "cash_flows": [
+                            {"amount": "10", "timing": "eod", "cash_flow_type": "income"},
+                            {"amount": "5", "timing": "eod", "cash_flow_type": "external_flow"},
+                        ],
+                    },
+                ],
+            },
+        )
+
+    monkeypatch.setattr(
+        "app.services.stateful_performance_input_service.fetch_stateful_portfolio_timeseries", source_timeseries
+    )
+    response = client.post(
+        "/performance/twr",
+        json={
+            "portfolio_id": "STATEFUL_TWR_INCOME",
+            "performance_start_date": "2024-12-31",
+            "metric_basis": "NET",
+            "report_end_date": "2025-01-02",
+            "analyses": [{"period": "YTD", "frequencies": ["daily"]}],
+            "input_mode": "stateful",
+            "stateful_input": {},
+        },
+    )
+
+    assert response.status_code == 200
+    assert response.json()["results_by_period"]["YTD"]["portfolio"]["summary"]["period_return"][
+        "base"
+    ] == pytest.approx(1.0)
+
+
 def test_twr_stateful_supportability_exposes_source_quality_warnings(client, monkeypatch):
     async def _mock_fetch_stateful_portfolio_timeseries(**kwargs):  # noqa: ARG001
         return (

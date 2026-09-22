@@ -13,7 +13,7 @@ class BenchmarkEngineResult:
     daily_returns_df: pd.DataFrame
     component_contributions_df: pd.DataFrame
     effective_period_start: date
-    max_weight_sum_deviation: float
+    max_weight_sum_deviation: float  # monetary-float-allow: dimensionless weight deviation
     notes: list[str]
 
 
@@ -135,7 +135,9 @@ def calculate_benchmark_returns(
         daily_returns_df=grouped,
         component_contributions_df=contributions_df,
         effective_period_start=min(observation.perf_date for observation in component_observations),
-        max_weight_sum_deviation=float(max_weight_sum_deviation_decimal),
+        max_weight_sum_deviation=float(  # monetary-float-allow: dimensionless weight deviation
+            max_weight_sum_deviation_decimal
+        ),
         notes=notes,
     )
 

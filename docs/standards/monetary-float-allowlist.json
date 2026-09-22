@@ -1,7 +1,7 @@
 {
   "description": "Approved baseline monetary-float findings. New findings fail CI.",
   "policy_version": "1.1.0",
-  "generated_at": "2026-05-11T23:45:55Z",
+  "generated_at": "2026-09-22T11:40:45Z",
   "allowlist": [
     {
       "finding": "app/models/attribution_requests.py:56:weight_bop: float = Field(",
@@ -118,84 +118,6 @@
       "review_by": "2026-10-12"
     },
     {
-      "finding": "app/models/benchmark_requests.py:17:weight_bop: float = Field(..., description=\"Beginning-of-day component benchmark weight.\")",
-      "justification": "Temporary approved monetary floating-point usage; convert to Decimal.",
-      "owner": "platform-governance",
-      "review_by": "2026-09-18"
-    },
-    {
-      "finding": "app/models/benchmark_requests.py:22:component_return: float = Field(",
-      "justification": "Temporary approved monetary floating-point usage; convert to Decimal.",
-      "owner": "platform-governance",
-      "review_by": "2026-09-18"
-    },
-    {
-      "finding": "app/models/benchmark_requests.py:26:component_return_local: float | None = Field(",
-      "justification": "Temporary approved monetary floating-point usage; convert to Decimal.",
-      "owner": "platform-governance",
-      "review_by": "2026-09-18"
-    },
-    {
-      "finding": "app/models/benchmark_requests.py:30:component_return_fx: float | None = Field(",
-      "justification": "Temporary approved monetary floating-point usage; convert to Decimal.",
-      "owner": "platform-governance",
-      "review_by": "2026-09-18"
-    },
-    {
-      "finding": "app/models/benchmark_requests.py:40:benchmark_return: float = Field(",
-      "justification": "Temporary approved monetary floating-point usage; convert to Decimal.",
-      "owner": "platform-governance",
-      "review_by": "2026-09-18"
-    },
-    {
-      "finding": "app/models/benchmark_responses.py:16:benchmark_return: float = Field(",
-      "justification": "Temporary approved monetary floating-point usage; convert to Decimal.",
-      "owner": "platform-governance",
-      "review_by": "2026-09-17"
-    },
-    {
-      "finding": "app/models/benchmark_responses.py:20:cumulative_return: float = Field(",
-      "justification": "Temporary approved monetary floating-point usage; convert to Decimal.",
-      "owner": "platform-governance",
-      "review_by": "2026-09-17"
-    },
-    {
-      "finding": "app/models/benchmark_responses.py:24:benchmark_return_local: float | None = Field(",
-      "justification": "Temporary approved monetary floating-point usage; convert to Decimal.",
-      "owner": "platform-governance",
-      "review_by": "2026-09-17"
-    },
-    {
-      "finding": "app/models/benchmark_responses.py:29:benchmark_return_fx: float | None = Field(",
-      "justification": "Temporary approved monetary floating-point usage; convert to Decimal.",
-      "owner": "platform-governance",
-      "review_by": "2026-09-17"
-    },
-    {
-      "finding": "app/models/benchmark_responses.py:44:weight_bop: float = Field(",
-      "justification": "Temporary approved monetary floating-point usage; convert to Decimal.",
-      "owner": "platform-governance",
-      "review_by": "2026-09-17"
-    },
-    {
-      "finding": "app/models/benchmark_responses.py:48:component_return: float = Field(",
-      "justification": "Temporary approved monetary floating-point usage; convert to Decimal.",
-      "owner": "platform-governance",
-      "review_by": "2026-09-17"
-    },
-    {
-      "finding": "app/models/benchmark_responses.py:52:component_return_local: float | None = Field(",
-      "justification": "Temporary approved monetary floating-point usage; convert to Decimal.",
-      "owner": "platform-governance",
-      "review_by": "2026-09-17"
-    },
-    {
-      "finding": "app/models/benchmark_responses.py:57:component_return_fx: float | None = Field(",
-      "justification": "Temporary approved monetary floating-point usage; convert to Decimal.",
-      "owner": "platform-governance",
-      "review_by": "2026-09-17"
-    },
-    {
       "finding": "app/models/contribution_requests.py:100:threshold_weight: float = Field(",
       "justification": "Temporary approved monetary floating-point usage; convert to Decimal.",
       "owner": "platform-governance",
@@ -203,15 +125,15 @@
     },
     {
       "finding": "app/models/contribution_requests.py:27:begin_mv: float = Field(..., description=\"Beginning market value before any cash flows.\")",
-      "justification": "Temporary approved monetary floating-point usage; convert to Decimal.",
-      "owner": "platform-governance",
-      "review_by": "2026-09-17"
+      "justification": "Deferred position market-value request boundary; Decimal/API compatibility and golden vectors tracked in https://github.com/sgajbi/lotus-performance/issues/530.",
+      "owner": "lotus-performance",
+      "review_by": "2026-09-30"
     },
     {
       "finding": "app/models/contribution_requests.py:28:end_mv: float = Field(..., description=\"Ending market value after market movement and fees.\")",
-      "justification": "Temporary approved monetary floating-point usage; convert to Decimal.",
-      "owner": "platform-governance",
-      "review_by": "2026-09-17"
+      "justification": "Deferred position market-value request boundary; Decimal/API compatibility and golden vectors tracked in https://github.com/sgajbi/lotus-performance/issues/530.",
+      "owner": "lotus-performance",
+      "review_by": "2026-09-30"
     },
     {
       "finding": "app/models/contribution_responses.py:101:weight_avg: Optional[float] = Field(",
@@ -299,69 +221,15 @@
     },
     {
       "finding": "app/models/requests.py:39:end_mv: float = Field(..., description=\"The market value of the portfolio at the end of the day.\")",
-      "justification": "Temporary approved monetary floating-point usage; convert to Decimal.",
-      "owner": "platform-governance",
-      "review_by": "2026-09-17"
+      "justification": "Deferred portfolio market-value request boundary; Decimal/API compatibility and golden vectors tracked in https://github.com/sgajbi/lotus-performance/issues/530.",
+      "owner": "lotus-performance",
+      "review_by": "2026-09-30"
     },
     {
       "finding": "app/models/responses.py:19:end_mv: float = Field(description=\"Ending market value for the bucket in reporting currency.\", examples=[1012500.0])",
-      "justification": "Temporary approved monetary floating-point usage; convert to Decimal.",
-      "owner": "platform-governance",
-      "review_by": "2026-09-17"
-    },
-    {
-      "finding": "app/models/responses.py:24:period_return_pct: float = Field(",
-      "justification": "Temporary approved monetary floating-point usage; convert to Decimal.",
-      "owner": "platform-governance",
-      "review_by": "2026-09-17"
-    },
-    {
-      "finding": "app/models/responses.py:28:cumulative_return_pct_to_date: Optional[float] = Field(",
-      "justification": "Temporary approved monetary floating-point usage; convert to Decimal.",
-      "owner": "platform-governance",
-      "review_by": "2026-09-17"
-    },
-    {
-      "finding": "app/models/responses.py:33:annualized_return_pct: Optional[float] = Field(",
-      "justification": "Temporary approved monetary floating-point usage; convert to Decimal.",
-      "owner": "platform-governance",
-      "review_by": "2026-09-17"
-    },
-    {
-      "finding": "app/models/responses.py:61:local: float = Field(description=\"Local-market return contribution in percentage points.\", examples=[1.12])",
-      "justification": "Temporary approved monetary floating-point usage; convert to Decimal.",
-      "owner": "platform-governance",
-      "review_by": "2026-09-17"
-    },
-    {
-      "finding": "app/models/responses.py:62:fx: float = Field(description=\"FX return contribution in percentage points.\", examples=[0.18])",
-      "justification": "Temporary approved monetary floating-point usage; convert to Decimal.",
-      "owner": "platform-governance",
-      "review_by": "2026-09-17"
-    },
-    {
-      "finding": "app/models/responses.py:63:base: float = Field(description=\"Base-currency total return in percentage points.\", examples=[1.3])",
-      "justification": "Temporary approved monetary floating-point usage; convert to Decimal.",
-      "owner": "platform-governance",
-      "review_by": "2026-09-17"
-    },
-    {
-      "finding": "app/models/responses.py:67:arithmetic_relative_return: float = Field(",
-      "justification": "Temporary approved monetary floating-point usage; convert to Decimal.",
-      "owner": "platform-governance",
-      "review_by": "2026-09-17"
-    },
-    {
-      "finding": "app/models/responses.py:71:cumulative_arithmetic_relative_return: float = Field(",
-      "justification": "Temporary approved monetary floating-point usage; convert to Decimal.",
-      "owner": "platform-governance",
-      "review_by": "2026-09-17"
-    },
-    {
-      "finding": "app/models/responses.py:88:base: float = Field(description=\"Total return in percentage-point output units.\", examples=[1.3])",
-      "justification": "Temporary approved monetary floating-point usage; convert to Decimal.",
-      "owner": "platform-governance",
-      "review_by": "2026-09-17"
+      "justification": "Deferred market-value response boundary; Decimal/JSON compatibility and golden vectors tracked in https://github.com/sgajbi/lotus-performance/issues/530.",
+      "owner": "lotus-performance",
+      "review_by": "2026-09-30"
     },
     {
       "finding": "app/models/workspace_summary_responses.py:188:begin_market_value: float = Field(",
@@ -454,70 +322,28 @@
       "review_by": "2026-10-12"
     },
     {
-      "finding": "app/services/benchmark_calculation_service.py:36:max_weight_sum_deviation: float",
-      "justification": "Temporary approved monetary floating-point usage; convert to Decimal.",
-      "owner": "platform-governance",
-      "review_by": "2026-09-17"
-    },
-    {
-      "finding": "app/services/stateful_benchmark_input_service.py:183:benchmark_return=float(point[\"benchmark_return\"]),",
-      "justification": "Temporary approved monetary floating-point usage; convert to Decimal.",
-      "owner": "platform-governance",
-      "review_by": "2026-09-17"
-    },
-    {
-      "finding": "app/services/stateful_benchmark_input_service.py:497:weight_bop=float(segment.composition_weight),",
-      "justification": "Temporary approved monetary floating-point usage; convert to Decimal.",
-      "owner": "platform-governance",
-      "review_by": "2026-09-18"
-    },
-    {
-      "finding": "app/services/stateful_benchmark_input_service.py:498:component_return=float(component_return),",
-      "justification": "Temporary approved monetary floating-point usage; convert to Decimal.",
-      "owner": "platform-governance",
-      "review_by": "2026-09-18"
-    },
-    {
-      "finding": "app/services/stateful_benchmark_input_service.py:499:component_return_local=float(component_return_local),",
-      "justification": "Temporary approved monetary floating-point usage; convert to Decimal.",
-      "owner": "platform-governance",
-      "review_by": "2026-09-18"
-    },
-    {
-      "finding": "app/services/stateful_benchmark_input_service.py:500:component_return_fx=float(component_return_fx),",
-      "justification": "Temporary approved monetary floating-point usage; convert to Decimal.",
-      "owner": "platform-governance",
-      "review_by": "2026-09-18"
-    },
-    {
-      "finding": "app/services/stateless_benchmark_input_service.py:107:weight_bop=float(current_point.weight_bop),",
-      "justification": "Temporary approved monetary floating-point usage; convert to Decimal.",
-      "owner": "platform-governance",
-      "review_by": "2026-09-17"
-    },
-    {
       "finding": "app/services/stateless_benchmark_input_service.py:66:previous_price = float(previous_point.index_price)",
-      "justification": "Temporary approved monetary floating-point usage; convert to Decimal.",
-      "owner": "platform-governance",
-      "review_by": "2026-09-17"
+      "justification": "Deferred benchmark index-price conversion before return calculation; Decimal precision migration tracked in https://github.com/sgajbi/lotus-performance/issues/530.",
+      "owner": "lotus-performance",
+      "review_by": "2026-09-30"
     },
     {
       "finding": "app/services/stateless_benchmark_input_service.py:67:current_price = float(current_point.index_price)",
-      "justification": "Temporary approved monetary floating-point usage; convert to Decimal.",
-      "owner": "platform-governance",
-      "review_by": "2026-09-17"
+      "justification": "Deferred benchmark index-price conversion before return calculation; Decimal precision migration tracked in https://github.com/sgajbi/lotus-performance/issues/530.",
+      "owner": "lotus-performance",
+      "review_by": "2026-09-30"
     },
     {
       "finding": "app/services/stateless_benchmark_input_service.py:95:previous_fx_value = float(previous_fx)",
-      "justification": "Temporary approved monetary floating-point usage; convert to Decimal.",
-      "owner": "platform-governance",
-      "review_by": "2026-09-17"
+      "justification": "Deferred benchmark FX-rate conversion before price normalization; Decimal precision migration tracked in https://github.com/sgajbi/lotus-performance/issues/530.",
+      "owner": "lotus-performance",
+      "review_by": "2026-09-30"
     },
     {
       "finding": "app/services/stateless_benchmark_input_service.py:96:current_fx_value = float(current_fx)",
-      "justification": "Temporary approved monetary floating-point usage; convert to Decimal.",
-      "owner": "platform-governance",
-      "review_by": "2026-09-17"
+      "justification": "Deferred benchmark FX-rate conversion before price normalization; Decimal precision migration tracked in https://github.com/sgajbi/lotus-performance/issues/530.",
+      "owner": "lotus-performance",
+      "review_by": "2026-09-30"
     },
     {
       "finding": "app/services/twr_service.py:150:def _link_return_series(series: pd.Series) -> float:",
@@ -628,36 +454,6 @@
       "review_by": "2026-11-06"
     },
     {
-      "finding": "engine/benchmarks.py:107:max_weight_sum_deviation=float(max_weight_sum_deviation_decimal),",
-      "justification": "Temporary approved monetary floating-point usage; convert to Decimal.",
-      "owner": "platform-governance",
-      "review_by": "2026-09-17"
-    },
-    {
-      "finding": "engine/benchmarks.py:17:max_weight_sum_deviation: float",
-      "justification": "Temporary approved monetary floating-point usage; convert to Decimal.",
-      "owner": "platform-governance",
-      "review_by": "2026-09-17"
-    },
-    {
-      "finding": "engine/contribution_smoothing.py:10:def _calculate_carino_factor_for_return(portfolio_return: float) -> float:",
-      "justification": "Temporary approved monetary floating-point usage; convert to Decimal.",
-      "owner": "platform-governance",
-      "review_by": "2026-09-17"
-    },
-    {
-      "finding": "engine/contribution_smoothing.py:22:return float(np.log1p(portfolio_return) / portfolio_return)",
-      "justification": "Temporary approved monetary floating-point usage; convert to Decimal.",
-      "owner": "platform-governance",
-      "review_by": "2026-09-17"
-    },
-    {
-      "finding": "engine/contribution_smoothing.py:38:[_calculate_carino_factor_for_return(float(portfolio_return)) for portfolio_return in ror_series],",
-      "justification": "Temporary approved monetary floating-point usage; convert to Decimal.",
-      "owner": "platform-governance",
-      "review_by": "2026-09-17"
-    },
-    {
       "finding": "engine/mwr.py:107:def f_log(log_rate: float) -> float:",
       "justification": "Temporary approved monetary floating-point usage; convert to Decimal.",
       "owner": "platform-governance",
@@ -716,12 +512,6 @@
       "justification": "Temporary approved monetary floating-point usage; convert to Decimal.",
       "owner": "platform-governance",
       "review_by": "2026-11-06"
-    },
-    {
-      "finding": "engine/ror.py:20:Calculates the daily rate of return, supporting both float and Decimal.",
-      "justification": "Temporary approved monetary floating-point usage; convert to Decimal.",
-      "owner": "platform-governance",
-      "review_by": "2026-09-17"
     }
   ]
 }

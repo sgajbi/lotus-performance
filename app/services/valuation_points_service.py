@@ -79,7 +79,7 @@ def _valuation_cashflow_component_for_role(
     zero = Decimal("0")
     if economics_role == "fee":
         return zero, zero, amount
-    if economics_role == "unsupported":
+    if economics_role in {"income", "unsupported"}:
         return zero, zero, zero
     if timing == "bod":
         return amount, zero, zero

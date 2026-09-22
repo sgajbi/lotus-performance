@@ -25,7 +25,7 @@ class _LocalDailyReturn:
 
 def calculate_daily_ror(df: pd.DataFrame, metric_basis: str, config: EngineConfig = None) -> pd.DataFrame:
     """
-    Calculates the daily rate of return, supporting both float and Decimal.
+    Calculates the daily rate of return, supporting both floating-point ratios and Decimal.
     If FX config is provided, it returns a DataFrame with local, fx, and base returns.
     """
     local_return = _calculate_local_daily_return(df, metric_basis)

@@ -37,7 +37,7 @@ key and prove that the calculation output and evidence contract remain unchanged
 Calculation hashes use the governed calculation engine version token, not the deployable build
 version. In other words, the calculation engine version is not the deployable build version. The
 current source is `Settings.CALCULATION_ENGINE_VERSION`, which defaults to
-`lotus-performance-calculation-engine.v2` and is exposed through the same helper for TWR, MWR,
+`lotus-performance-calculation-engine.v3` and is exposed through the same helper for TWR, MWR,
 contribution, attribution, benchmark, workspace-summary, TWR inspection, and returns-series hash
 paths. The token is intentionally separate from `APP_VERSION`, Git SHA, OCI image labels, image
 digest, CI run id, and `/version` build metadata.
@@ -46,6 +46,11 @@ Change `CALCULATION_ENGINE_VERSION` when methodology, calculation logic, canonic
 compatibility semantics, or governed reproducibility behavior changes in a way that should create a
 new calculation identity for the same economic input. Do not change it merely because the service is
 rebuilt, retagged, promoted across environments, or receives a non-methodology runtime patch.
+
+Version `v3` supersedes `v2` for canonical Core `income` position economics and the portfolio
+external-flow boundary. A replay of the same source input across this version transition retains
+the same input fingerprint but must have a different calculation hash. Do not reuse a `v2` result
+as proof of `v3` methodology.
 
 The lightweight gate `make calculation-engine-version-gate` runs in `make lint` and fails if
 production calculation code uses `APP_VERSION` for hash identity or reintroduces legacy per-family

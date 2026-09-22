@@ -14,20 +14,20 @@ from core.envelope import Audit, Diagnostics, Meta
 
 class DailyBenchmarkReturn(BaseModel):
     date: dt_date = Field(description="Business date for this benchmark return observation.", examples=["2026-03-20"])
-    benchmark_return: float = Field(
+    benchmark_return: float = Field(  # monetary-float-allow: percentage-point return, not money
         description="Benchmark return for the date in percentage-point output units.",
         examples=[0.42],
     )
-    cumulative_return: float = Field(
+    cumulative_return: float = Field(  # monetary-float-allow: percentage-point return, not money
         description="Cumulative linked benchmark return through the date in percentage-point output units.",
         examples=[2.18],
     )
-    benchmark_return_local: float | None = Field(
+    benchmark_return_local: float | None = Field(  # monetary-float-allow: percentage-point return, not money
         default=None,
         description="Local-market component of the daily benchmark return in percentage points.",
         examples=[0.35],
     )
-    benchmark_return_fx: float | None = Field(
+    benchmark_return_fx: float | None = Field(  # monetary-float-allow: percentage-point return, not money
         default=None,
         description="FX component of the daily benchmark return in percentage points.",
         examples=[0.07],
@@ -42,20 +42,20 @@ class DailyBenchmarkComponentContribution(BaseModel):
         description="Native component currency when the component is currency-aware.",
         examples=["USD"],
     )
-    weight_bop: float = Field(
+    weight_bop: float = Field(  # monetary-float-allow: dimensionless weight
         description="Beginning-of-day benchmark weight as a decimal ratio. Example: 0.60 means 60%.",
         examples=[0.6],
     )
-    component_return: float = Field(
+    component_return: float = Field(  # monetary-float-allow: percentage-point return, not money
         description="Component return for the date in percentage-point output units.",
         examples=[0.55],
     )
-    component_return_local: float | None = Field(
+    component_return_local: float | None = Field(  # monetary-float-allow: percentage-point return, not money
         default=None,
         description="Local-market component return in percentage points.",
         examples=[0.48],
     )
-    component_return_fx: float | None = Field(
+    component_return_fx: float | None = Field(  # monetary-float-allow: percentage-point return, not money
         default=None,
         description="FX component return in percentage points.",
         examples=[0.07],

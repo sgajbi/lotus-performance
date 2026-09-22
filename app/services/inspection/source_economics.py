@@ -264,7 +264,7 @@ class _DetailedCashFlowAccumulator:
         economics_role: str,
         cash_flow_type: object,
     ) -> None:
-        if economics_role == "unsupported":
+        if economics_role in {"income", "unsupported"}:
             return
         if economics_role == "fee":
             self._add_fee_amount(timing=timing, amount=amount, cash_flow_type=cash_flow_type)

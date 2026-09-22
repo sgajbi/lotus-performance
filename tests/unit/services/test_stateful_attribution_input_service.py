@@ -1229,6 +1229,13 @@ def test_stateful_attribution_alignment_validator_tolerates_unusable_rows_and_in
     )
 
 
+def test_core_income_is_not_internal_trade_alignment():
+    assert _internal_cash_flow_abs_in_alignment_basis(
+        flow={"amount": "-850", "cash_flow_type": "income", "flow_scope": "operational"},
+        conversion_factor=Decimal("1"),
+    ) == Decimal("0")
+
+
 def test_internal_cash_flow_abs_in_alignment_basis_filters_and_converts_supported_internal_flows():
     conversion_factor = Decimal("1.5")
 

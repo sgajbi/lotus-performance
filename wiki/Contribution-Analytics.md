@@ -118,6 +118,14 @@ The RFC-047 QA pack proves these contribution semantics:
 - external deposits are not performance;
 - internal trade flows are not portfolio external flow;
 - income can remain assigned to the generating asset when source metadata supplies `income_pnl`;
+- canonical Core position-timeseries `income` rows are timed position economics (including
+  dividend and interest transfers to cash), not external portfolio flows; the paired cash leg
+  remains an internal flow. Portfolio TWR and inspection exclude income from external BOD/EOD
+  totals while market-value return retains it. Dated sector group returns must reconcile to the portfolio return;
+  unclassified raw income-like labels are not silently promoted;
+- calculation engine identity `lotus-performance-calculation-engine.v3` distinguishes this
+  methodology from `v2`: the same canonical input fingerprint has a different calculation hash,
+  so historical results must not be replayed as if they used the revised income treatment;
 - net fee drag can be carried by an explicit fee bucket when source metadata supplies `fee_pnl`;
 - missing classification is emitted as `Unclassified`;
 - short positions preserve signed average weight and inverse contribution sign behavior;

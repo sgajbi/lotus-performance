@@ -18,6 +18,17 @@ def test_finding_key_preserves_source_expression():
     assert _finding_key(approved) != _finding_key(changed)
 
 
+def test_source_exemption_does_not_hide_unmarked_monetary_float(tmp_path: Path):
+    source = tmp_path / "app" / "example.py"
+    source.parent.mkdir()
+    source.write_text(
+        "period_return: float = 0.1  # monetary-float-allow: dimensionless ratio\n" "end_market_value: float = 100.1\n",
+        encoding="utf-8",
+    )
+
+    assert scan_repo(tmp_path) == ["app/example.py:2:end_market_value: float = 100.1"]
+
+
 REPO_ROOT = Path(__file__).resolve().parents[3]
 ALLOWLIST_PATH = REPO_ROOT / "docs/standards/monetary-float-allowlist.json"
 

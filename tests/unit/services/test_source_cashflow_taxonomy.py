@@ -25,6 +25,17 @@ def test_classify_cashflow_type_maps_canonical_internal_trade_flow():
     assert classification.governed_alias is False
 
 
+def test_classify_cashflow_type_maps_core_canonical_income_without_promoting_raw_aliases():
+    classification = classify_cashflow_type(" INCOME ")
+
+    assert classification.normalized_value == "income"
+    assert classification.economics_role == "income"
+    assert classification.canonical is True
+    assert classification.governed_alias is False
+    for raw_alias in ("dividend", "interest", "coupon", "distribution", "tax"):
+        assert classify_cashflow_type(raw_alias).economics_role == "unsupported"
+
+
 def test_classify_cashflow_type_maps_governed_fee_alias():
     classification = classify_cashflow_type(" MANAGEMENT_FEE ")
 
