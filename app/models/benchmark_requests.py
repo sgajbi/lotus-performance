@@ -14,20 +14,22 @@ from core.periods import PeriodType
 class BenchmarkComponentObservation(BaseModel):
     component_id: str = Field(..., description="Benchmark component identifier.")
     perf_date: dt_date = Field(..., description="Benchmark observation date.")
-    weight_bop: float = Field(..., description="Beginning-of-day component benchmark weight.")
+    weight_bop: float = Field(  # monetary-float-allow: dimensionless weight
+        ..., description="Beginning-of-day component benchmark weight."
+    )
     component_currency: str | None = Field(
         default=None,
         description="Optional benchmark component currency.",
     )
-    component_return: float = Field(
+    component_return: float = Field(  # monetary-float-allow: dimensionless return
         ...,
         description="Component daily return expressed as a decimal fraction (0.01 = 1%).",
     )
-    component_return_local: float | None = Field(
+    component_return_local: float | None = Field(  # monetary-float-allow: dimensionless return
         default=None,
         description="Optional component daily local return expressed as a decimal fraction.",
     )
-    component_return_fx: float | None = Field(
+    component_return_fx: float | None = Field(  # monetary-float-allow: dimensionless return
         default=None,
         description="Optional component daily FX return expressed as a decimal fraction.",
     )
@@ -37,7 +39,7 @@ class BenchmarkComponentObservation(BaseModel):
 
 class BenchmarkReturnPoint(BaseModel):
     perf_date: dt_date = Field(..., description="Benchmark return observation date.")
-    benchmark_return: float = Field(
+    benchmark_return: float = Field(  # monetary-float-allow: dimensionless return
         ...,
         description="Benchmark daily return expressed as a decimal fraction (0.01 = 1%).",
     )

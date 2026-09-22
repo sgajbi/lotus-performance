@@ -342,6 +342,11 @@ front-office and audit confusion:
 - external deposits and withdrawals are cash-flow events, not portfolio performance;
 - balanced internal trade flows do not become portfolio external flow;
 - income can remain assigned to the generating asset when source metadata supplies `income_pnl`;
+- in stateful Core position-timeseries, canonical `cash_flow_type="income"` participates in
+  position return as a timed operational flow; the paired cash-position internal flow does not
+  create an external portfolio flow. Group returns must reconcile to the portfolio return on
+  dividend and bond-interest dates. Raw income-like labels remain unsupported without the
+  canonical Core classification;
 - net fee drag can be represented through an explicit fee bucket when source metadata supplies
   `fee_pnl`;
 - missing hierarchy classification is emitted as `Unclassified` rather than dropped or guessed;

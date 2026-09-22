@@ -152,7 +152,7 @@ def _build_price_point_observation(
     return BenchmarkComponentObservation(
         component_id=component_id,
         perf_date=current_date,
-        weight_bop=float(current_point.weight_bop),
+        weight_bop=float(current_point.weight_bop),  # monetary-float-allow: dimensionless weight
         component_currency=return_components.currency,
         component_return=return_components.total,
         component_return_local=return_components.local,

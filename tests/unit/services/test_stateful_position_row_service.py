@@ -93,6 +93,24 @@ def test_split_position_cash_flows_in_value_basis_includes_internal_trade_flows(
     ) == (Decimal("10"), Decimal("-4"), Decimal("0"))
 
 
+@pytest.mark.parametrize("income_amount", ["-850", "-1187"])
+def test_split_position_cash_flows_in_value_basis_includes_core_product_income(income_amount: str):
+    assert split_position_cash_flows_in_value_basis(
+        cash_flows_raw=[
+            {
+                "amount": income_amount,
+                "timing": "eod",
+                "cash_flow_type": "income",
+                "flow_scope": "operational",
+                "source_classification": "INCOME",
+            },
+            {"amount": "10", "timing": "eod", "cash_flow_type": "dividend"},
+        ],
+        row={"position_currency": "USD", "cash_flow_currency": "USD"},
+        value_basis="portfolio",
+    ) == (Decimal("0"), Decimal(income_amount), Decimal("0"))
+
+
 def test_position_cash_flow_projection_normalizes_valid_flows_and_rejects_invalid_rows():
     fee_projection = _position_cash_flow_projection(
         {"amount": "-2", "timing": "eod", "cash_flow_type": "management_fee"},

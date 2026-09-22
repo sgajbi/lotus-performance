@@ -58,6 +58,13 @@ An allowlist entry the scan no longer produces must be **removed**, not carried.
 computes findings-minus-allowlist, so a resolved finding keeps its approval unless somebody takes
 it away; `tests/unit/scripts/test_monetary_float_usage.py` fails when an orphaned entry appears.
 
+The 2026-09-22 review of expired cohort #472 retired 35 dimensionless-ratio or docstring
+matches at their source sites. Eight actual market-value, benchmark-price, and FX-conversion
+boundaries retain finding-specific dated allowances through 2026-09-30 under #530. That short
+allowance is not evidence of Decimal migration or production precision certification; #530 owns
+the compatibility and golden-vector work. The guard still blocks stale and newly introduced
+unapproved monetary floats.
+
 ## Deviation and Change Control
 
 - Deviations require RFC/ADR approval linked from repository docs and the platform standard (RFC-0063).
@@ -69,4 +76,3 @@ it away; `tests/unit/scripts/test_monetary_float_usage.py` fails when an orphane
 - Platform check: `lotus-platform/automation/Validate-Rounding-Consistency.ps1`.
 - Automation guide: `lotus-platform/automation/docs/Automation-Guide.md`.
 - Evidence artifact: `Rounding Consistency Report`.
-

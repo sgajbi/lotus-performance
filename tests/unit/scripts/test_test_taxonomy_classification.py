@@ -17,6 +17,7 @@ import subprocess
 from pathlib import Path
 
 from scripts.python_test_taxonomy_inventory import (
+    _families_for_path,
     collect_test_modules,
     summarize_test_taxonomy,
 )
@@ -33,6 +34,9 @@ CLASSIFIED_SURFACES = (
     ("twr", "analytics_domain"),
     ("contribution", "analytics_domain"),
     ("attribution", "analytics_domain"),
+    ("source_cashflow_taxonomy", "analytics_domain"),
+    ("stateful_position_row", "analytics_domain"),
+    ("valuation_points_service", "analytics_domain"),
     ("durable_schema_apply", "observability_or_readiness"),
     ("durable_schema_creation", "observability_or_readiness"),
     ("durable_schema_inventory_check", "contract_or_governance"),
@@ -113,6 +117,13 @@ def test_named_surfaces_are_classified_by_their_actual_evidence_role() -> None:
         "These modules belong to a named evidence surface but carry no matching family, so their "
         f"tests inflate the uncategorized ceiling: {unclassified}. See issue #475."
     )
+
+
+def test_cashflow_classifier_tokens_do_not_promote_unrelated_position_tests() -> None:
+    assert _families_for_path("tests/unit/services/test_source_cashflow_taxonomy.py") == ("analytics_domain",)
+    assert _families_for_path("tests/unit/services/test_stateful_position_row_service.py") == ("analytics_domain",)
+    assert _families_for_path("tests/unit/services/test_valuation_points_service.py") == ("analytics_domain",)
+    assert _families_for_path("tests/unit/services/test_position_row_formatting.py") == ("uncategorized",)
 
 
 def test_the_uncategorized_ceiling_is_banked_at_the_measured_value() -> None:

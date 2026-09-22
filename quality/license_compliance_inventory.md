@@ -23,7 +23,7 @@ Mode: generated first-party and third-party dependency license evidence.
 | Package | Requirement source | Requirement spec | Installed metadata version | License | License source | Review status | Exception owner | Exception expires |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- |
 | `annotated-types` | runtime | `annotated-types==0.7.0` | `0.7.0` | MIT License | Classifier | allowed | - | - |
-| `anyio` | runtime | `anyio==4.10.0` | `4.10.0` | MIT | License-Expression | allowed | - | - |
+| `anyio` | runtime | `anyio==4.14.2` | `4.14.2` | MIT | License-Expression | allowed | - | - |
 | `bandit` | development | `bandit==1.9.4` | `1.9.4` | Apache-2.0 | License | allowed | - | - |
 | `certifi` | runtime | `certifi==2026.2.25` | `2026.2.25` | MPL-2.0 | License | review_required_exception | platform-security | 2027-01-31 |
 | `click` | runtime | `click==8.3.3` | `8.3.3` | BSD-3-Clause | License-Expression | allowed | - | - |

@@ -1,5 +1,6 @@
 import os
 import shutil
+from decimal import Decimal
 from uuid import UUID, uuid4
 
 import pandas as pd
@@ -18,6 +19,7 @@ from app.services.contribution_mode_service import resolved_contribution_identit
 from app.services.execution_registry import execution_registry
 from app.services.lineage_metadata_store import lineage_metadata_store
 from app.services.reproducibility_service import generate_request_fingerprint
+from app.services.stateful_contribution_input_service import _position_row_to_daily_point
 from core.repro import generate_canonical_hash
 from engine.exceptions import EngineCalculationError
 from main import app
@@ -395,6 +397,106 @@ def test_contribution_endpoint_hierarchy_publishes_contrasting_group_return_seri
     )
     assert equity_return["period_return_pct"] == pytest.approx(4.03)
     assert bonds_return["period_return_pct"] == pytest.approx(4.03)
+
+
+@pytest.mark.parametrize(
+    ("observation_date", "opening_portfolio_mv", "income"),
+    [
+        ("2026-03-03", "1301897.108535348", "850"),
+        ("2026-03-11", "1344103.059275136", "1187"),
+    ],
+)
+def test_contribution_endpoint_reconciles_core_income_source_rows_to_portfolio_return(
+    client, observation_date: str, opening_portfolio_mv: str, income: str
+):
+    opening_mv = Decimal(opening_portfolio_mv)
+    income_amount = Decimal(income)
+
+    def source_position_point(begin_mv: Decimal, end_mv: Decimal, cash_flows: list[dict]) -> dict:
+        point = _position_row_to_daily_point(
+            row={
+                "valuation_date": observation_date,
+                "beginning_market_value_portfolio_currency": str(begin_mv),
+                "ending_market_value_portfolio_currency": str(end_mv),
+                "position_currency": "USD",
+                "cash_flow_currency": "USD",
+                "cash_flows": cash_flows,
+            },
+            currency_mode="BASE_ONLY",
+            reporting_currency=None,
+        )
+        assert point is not None
+        return {key: str(value) if isinstance(value, Decimal) else value for key, value in point.items()}
+
+    positions = [
+        (
+            "INCOME_ASSET",
+            "Fixed Income",
+            source_position_point(
+                Decimal("100000"),
+                Decimal("100000"),
+                [
+                    {
+                        "amount": str(-income_amount),
+                        "timing": "eod",
+                        "cash_flow_type": "income",
+                        "flow_scope": "operational",
+                        "source_classification": "INCOME",
+                    }
+                ],
+            ),
+        ),
+        (
+            "CASH",
+            "Cash",
+            source_position_point(
+                Decimal("100000"),
+                Decimal("100000") + income_amount,
+                [{"amount": income, "timing": "bod", "cash_flow_type": "internal_trade_flow"}],
+            ),
+        ),
+        (
+            "OTHER",
+            "Other",
+            source_position_point(opening_mv - Decimal("200000"), opening_mv - Decimal("200000"), []),
+        ),
+    ]
+    payload = {
+        "portfolio_id": "CONTRIB_CORE_INCOME_RECONCILIATION",
+        "report_start_date": observation_date,
+        "report_end_date": observation_date,
+        "analyses": [{"period": "SI", "frequencies": ["daily"]}],
+        "hierarchy": ["sector"],
+        "portfolio_data": {
+            "metric_basis": "NET",
+            "valuation_points": [
+                {
+                    "perf_date": observation_date,
+                    "begin_mv": opening_portfolio_mv,
+                    "end_mv": str(opening_mv + income_amount),
+                }
+            ],
+        },
+        "positions_data": [
+            {"position_id": position_id, "meta": {"sector": sector}, "valuation_points": [point]}
+            for position_id, sector, point in positions
+        ],
+    }
+
+    response = client.post("/performance/contribution", json=payload)
+
+    assert response.status_code == 200
+    period = response.json()["results_by_period"]["SI"]
+    expected_pp = float(income_amount / opening_mv * 100)
+    assert period["total_portfolio_return"] == pytest.approx(expected_pp, abs=1e-6)
+    group_rows = period["levels"][0]["rows"]
+    weighted_group_pp = sum(
+        row["group_return"]["series"][0]["portfolio_weight_pct"] * row["group_return"]["series"][0]["return_pct"] / 100
+        for row in group_rows
+    )
+    assert {row["group_return"]["status"] for row in group_rows} == {"READY"}
+    assert weighted_group_pp == pytest.approx(expected_pp, abs=1e-6)
+    assert weighted_group_pp == pytest.approx(period["total_portfolio_return"], abs=0.01)
 
 
 def test_contribution_endpoint_treats_external_deposit_as_non_performance(client):
@@ -1336,6 +1438,106 @@ def test_contribution_supports_stateful_input_mode(client, monkeypatch):
     partial = client.post("/performance/contribution", json=payload, headers={"X-Tenant-Id": "tenant-a"})
     assert partial.status_code == 422
     assert "USD/EUR dates 2025-01-01, 2025-01-02" in partial.json()["detail"]
+
+
+@pytest.mark.parametrize(
+    ("observation_date", "opening_portfolio_mv", "income"),
+    [
+        ("2026-03-03", "1301897.108535348", "850"),
+        ("2026-03-11", "1344103.059275136", "1187"),
+    ],
+)
+def test_stateful_contribution_reconciles_core_income_to_dated_group_returns(
+    client, monkeypatch, observation_date: str, opening_portfolio_mv: str, income: str
+):
+    from types import SimpleNamespace
+
+    opening_mv = Decimal(opening_portfolio_mv)
+    income_amount = Decimal(income)
+
+    def position_row(position_id: str, sector: str, begin_mv: Decimal, end_mv: Decimal, flows: list[dict]) -> dict:
+        return {
+            "position_id": position_id,
+            "security_id": position_id,
+            "valuation_date": observation_date,
+            "position_currency": "USD",
+            "cash_flow_currency": "USD",
+            "beginning_market_value_portfolio_currency": str(begin_mv),
+            "ending_market_value_portfolio_currency": str(end_mv),
+            "cash_flows": flows,
+            "dimensions": {"sector": sector},
+        }
+
+    async def source_input(**kwargs):  # noqa: ARG001
+        return SimpleNamespace(
+            portfolio_input=SimpleNamespace(
+                observations=[
+                    {
+                        "valuation_date": observation_date,
+                        "beginning_market_value": opening_portfolio_mv,
+                        "ending_market_value": str(opening_mv + income_amount),
+                    }
+                ]
+            ),
+            position_rows=[
+                position_row(
+                    "INCOME_ASSET",
+                    "Fixed Income",
+                    Decimal("100000"),
+                    Decimal("100000"),
+                    [
+                        {
+                            "amount": str(-income_amount),
+                            "timing": "eod",
+                            "cash_flow_type": "income",
+                            "flow_scope": "operational",
+                            "source_classification": "INCOME",
+                        }
+                    ],
+                ),
+                position_row(
+                    "CASH",
+                    "Cash",
+                    Decimal("100000"),
+                    Decimal("100000") + income_amount,
+                    [
+                        {
+                            "amount": income,
+                            "timing": "bod",
+                            "cash_flow_type": "internal_trade_flow",
+                        }
+                    ],
+                ),
+                position_row("OTHER", "Other", opening_mv - Decimal("200000"), opening_mv - Decimal("200000"), []),
+            ],
+        )
+
+    monkeypatch.setattr(
+        "app.services.contribution_mode_service.retrieve_stateful_contribution_source_input", source_input
+    )
+    response = client.post(
+        "/performance/contribution",
+        json={
+            "portfolio_id": "CONTRIB_CORE_INCOME_RECONCILIATION",
+            "report_start_date": observation_date,
+            "report_end_date": observation_date,
+            "analyses": [{"period": "SI", "frequencies": ["daily"]}],
+            "hierarchy": ["sector"],
+            "input_mode": "stateful",
+            "stateful_input": {"metric_basis": "NET", "dimensions": ["sector"], "include_cash_flows": True},
+        },
+        headers={"X-Tenant-Id": "tenant-sg"},
+    )
+
+    assert response.status_code == 200
+    period = response.json()["results_by_period"]["SI"]
+    expected_pp = float(income_amount / opening_mv * 100)
+    weighted_group_pp = sum(
+        row["group_return"]["series"][0]["portfolio_weight_pct"] * row["group_return"]["series"][0]["return_pct"] / 100
+        for row in period["levels"][0]["rows"]
+    )
+    assert weighted_group_pp == pytest.approx(expected_pp, abs=1e-6)
+    assert weighted_group_pp == pytest.approx(period["total_portfolio_return"], abs=0.01)
 
 
 @pytest.mark.parametrize(

@@ -148,6 +148,9 @@ def _families_for_path(path: str) -> tuple[str, ...]:
             "contribution",
             "benchmark",
             "applied_currency",
+            "source_cashflow_taxonomy",
+            "stateful_position_row",
+            "valuation_points_service",
             # The workspace summary surface resolves observation windows and builds period
             # breakdowns over published performance results — the same material the tokens above
             # classify. It was absent from this list, so all of its tests fell to `uncategorized`

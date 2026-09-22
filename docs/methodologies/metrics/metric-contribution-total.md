@@ -103,6 +103,13 @@ Position Total Contribution (`position_contributions[].total_contribution`)
    timeseries, normalize source rows into `portfolio_data` and `positions_data`, preserve source
    dimensions in position metadata, convert source cash-flow rows into BOD, EOD, and fee fields,
    and retrieve `PerformanceComponentEconomics:v1` as optional source-economics evidence.
+   Core's canonical `cash_flow_type="income"` is a timed position flow, including an EOD
+   dividend or interest transfer from the generating asset to cash. It is not a portfolio-external
+   MWR flow or an internal-trade alignment flow. Portfolio valuation points and source-economics
+   inspection likewise exclude canonical income from external BOD/EOD totals, while retaining it
+   in portfolio market value and return. Raw `dividend`, `interest`, and `coupon` labels
+   are not promoted to this canonical classification.
+   This is consistent with the [GIPS calculation-methodology guidance](https://www.gipsstandards.org/wp-content/uploads/2021/03/calculation_methodology_gs_2011.pdf): investment dividend and interest income affects total return but is not an external portfolio flow unless paid out of the portfolio. This scoped calculation treatment is not a claim of GIPS verification or firm-level compliance.
 2. Resolve requested periods.
 3. Run TWR engine for portfolio and each position to obtain daily returns.
 4. Merge position rows with portfolio capital columns by date.

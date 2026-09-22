@@ -67,6 +67,27 @@ def test_portfolio_timeseries_to_valuation_points_does_not_whitelist_expense_cas
     assert points[0]["eod_cf"] == Decimal("0")
 
 
+@pytest.mark.parametrize("timing", ["bod", "eod"])
+def test_portfolio_timeseries_does_not_treat_canonical_income_as_external_flow(timing: str):
+    points = portfolio_timeseries_to_valuation_points(
+        observations=[
+            {
+                "valuation_date": "2026-03-12",
+                "beginning_market_value": "1200",
+                "ending_market_value": "1210",
+                "cash_flows": [
+                    {"amount": "10", "timing": timing, "cash_flow_type": "income"},
+                    {"amount": "5", "timing": timing, "cash_flow_type": "external_flow"},
+                ],
+            }
+        ]
+    )
+
+    assert points[0]["mgmt_fees"] == Decimal("0")
+    assert points[0]["bod_cf"] == (Decimal("5") if timing == "bod" else Decimal("0"))
+    assert points[0]["eod_cf"] == (Decimal("5") if timing == "eod" else Decimal("0"))
+
+
 def test_portfolio_timeseries_to_valuation_points_keeps_unlabeled_cashflows_as_external_for_compatibility():
     points = portfolio_timeseries_to_valuation_points(
         observations=[

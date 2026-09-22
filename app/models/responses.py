@@ -23,16 +23,16 @@ class PerformanceSummary(BaseModel):
         description="Net external cash flow for the bucket in reporting currency.",
         examples=[25000.0],
     )
-    period_return_pct: float = Field(
+    period_return_pct: float = Field(  # monetary-float-allow: percentage-point return, not money
         description="Bucket return in percentage-point output units. Example: 1.25 means 1.25%, not 125%.",
         examples=[1.25],
     )
-    cumulative_return_pct_to_date: Optional[float] = Field(
+    cumulative_return_pct_to_date: Optional[float] = Field(  # monetary-float-allow: percentage-point return, not money
         default=None,
         description="Cumulative linked return through this bucket in percentage-point output units.",
         examples=[3.42],
     )
-    annualized_return_pct: Optional[float] = Field(
+    annualized_return_pct: Optional[float] = Field(  # monetary-float-allow: percentage-point return, not money
         default=None,
         description="Annualized return in percentage-point output units when annualization is applicable.",
         examples=[7.18],
@@ -60,17 +60,23 @@ class ResetEvent(BaseModel):
 
 
 class PortfolioReturnDecomposition(BaseModel):
-    local: float = Field(description="Local-market return contribution in percentage points.", examples=[1.12])
-    fx: float = Field(description="FX return contribution in percentage points.", examples=[0.18])
-    base: float = Field(description="Base-currency total return in percentage points.", examples=[1.3])
+    local: float = Field(  # monetary-float-allow: percentage-point return, not money
+        description="Local-market return contribution in percentage points.", examples=[1.12]
+    )
+    fx: float = Field(  # monetary-float-allow: percentage-point return, not money
+        description="FX return contribution in percentage points.", examples=[0.18]
+    )
+    base: float = Field(  # monetary-float-allow: percentage-point return, not money
+        description="Base-currency total return in percentage points.", examples=[1.3]
+    )
 
 
 class RelativePerformanceSummary(BaseModel):
-    arithmetic_relative_return: float = Field(
+    arithmetic_relative_return: float = Field(  # monetary-float-allow: percentage-point return, not money
         description="Arithmetic active return for the resolved period in percentage points.",
         examples=[0.42],
     )
-    cumulative_arithmetic_relative_return: float = Field(
+    cumulative_arithmetic_relative_return: float = Field(  # monetary-float-allow: percentage-point return, not money
         description="Cumulative arithmetic active return through the end of the period in percentage points.",
         examples=[1.08],
     )
@@ -87,7 +93,9 @@ class ComparativeReturnValue(BaseModel):
         description="FX return component in percentage points when the metric decomposes FX return.",
         examples=[0.2],
     )
-    base: float = Field(description="Total return in percentage-point output units.", examples=[1.3])
+    base: float = Field(  # monetary-float-allow: percentage-point return, not money
+        description="Total return in percentage-point output units.", examples=[1.3]
+    )
 
 
 class ComparativeSummary(BaseModel):

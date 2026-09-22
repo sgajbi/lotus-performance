@@ -348,7 +348,7 @@ def _benchmark_return_point_from_payload_point(point: object) -> BenchmarkReturn
         return None
     return BenchmarkReturnPoint(
         perf_date=date.fromisoformat(series_date),
-        benchmark_return=float(point["benchmark_return"]),
+        benchmark_return=float(point["benchmark_return"]),  # monetary-float-allow: dimensionless return
     )
 
 
@@ -777,10 +777,10 @@ def _build_component_observation(
         component_id=segment.index_id,
         perf_date=point_date,
         component_currency=prices.component_currency,
-        weight_bop=float(segment.composition_weight),
-        component_return=float(component_return),
-        component_return_local=float(component_return_local),
-        component_return_fx=float(component_return_fx),
+        weight_bop=float(segment.composition_weight),  # monetary-float-allow: dimensionless weight
+        component_return=float(component_return),  # monetary-float-allow: dimensionless return
+        component_return_local=float(component_return_local),  # monetary-float-allow: dimensionless return
+        component_return_fx=float(component_return_fx),  # monetary-float-allow: dimensionless return
     )
 
 

@@ -3,12 +3,13 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Literal
 
-CashflowEconomicsRole = Literal["fee", "external", "internal", "unsupported", "missing"]
+CashflowEconomicsRole = Literal["fee", "external", "internal", "income", "unsupported", "missing"]
 CashflowTypeClassificationRule = tuple[CashflowEconomicsRole, bool, bool]
 
 _CANONICAL_FEE_TYPES = {"fee"}
 _CANONICAL_EXTERNAL_TYPES = {"external_flow", "transfer"}
 _CANONICAL_INTERNAL_TYPES = {"internal_trade_flow"}
+_CANONICAL_INCOME_TYPES = {"income"}
 _FEE_LIKE_ALIASES = {
     "advisory_fee",
     "custody_fee",
@@ -36,6 +37,7 @@ _CASHFLOW_TYPE_CLASSIFICATION_RULES: dict[str, CashflowTypeClassificationRule] =
     **{cashflow_type: ("fee", True, False) for cashflow_type in _CANONICAL_FEE_TYPES},
     **{cashflow_type: ("external", True, False) for cashflow_type in _CANONICAL_EXTERNAL_TYPES},
     **{cashflow_type: ("internal", True, False) for cashflow_type in _CANONICAL_INTERNAL_TYPES},
+    **{cashflow_type: ("income", True, False) for cashflow_type in _CANONICAL_INCOME_TYPES},
     **{cashflow_type: ("fee", False, True) for cashflow_type in _FEE_LIKE_ALIASES},
     **{cashflow_type: ("external", False, True) for cashflow_type in _EXTERNAL_LIKE_ALIASES},
     **{cashflow_type: ("unsupported", False, False) for cashflow_type in _INCOME_LIKE_UNSUPPORTED_TYPES},

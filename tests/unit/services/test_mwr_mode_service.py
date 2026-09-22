@@ -595,6 +595,20 @@ def test_eligible_source_mwr_cash_flow_amount_records_quality_reasons():
     }
 
 
+def test_core_income_is_not_an_external_mwr_cash_flow():
+    source_quality = _StatefulMWRSourceCashFlowQualityAccumulator()
+
+    assert (
+        _eligible_source_mwr_cash_flow_amount(
+            flow={"amount": "-850", "cash_flow_type": "income", "flow_scope": "operational"},
+            source_quality=source_quality,
+        )
+        is None
+    )
+    assert source_quality.to_evidence().observed_economics_role_counts == {"income": 1}
+    assert source_quality.to_evidence().excluded_source_row_count == 1
+
+
 def test_stateful_mwr_cash_flow_projection_aggregates_same_date_but_keeps_source_components():
     collection = _collect_stateful_mwr_cash_flows(
         observations=[
