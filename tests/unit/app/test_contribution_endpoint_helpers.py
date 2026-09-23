@@ -1349,6 +1349,7 @@ def test_partition_hierarchy_rows_for_emission_moves_threshold_and_top_n_overflo
             "sector": ["Technology", "Healthcare", "Energy", "Cash"],
             "contribution": [0.04, 0.03, 0.02, 0.01],
             "weight_avg": [0.50, 0.30, 0.20, 0.01],
+            "group_return": [{"status": "READY"}] * 4,
         }
     )
 
