@@ -201,46 +201,71 @@ def _build_hierarchy_from_adjusted_position_series(
 ) -> dict[str, Any]:
     """Builds hierarchy rows from the same adjusted daily position series emitted to clients."""
     summary = _initial_hierarchy_summary(request)
-    if not _has_adjusted_hierarchy_inputs(
-        period_slice_df=period_slice_df,
-        position_series=position_series,
+    calendar_df = portfolio_period_slice_df if portfolio_period_slice_df is not None else period_slice_df
+    observed_dates = (
+        observation_date_set(calendar_df[PortfolioColumns.PERF_DATE.value])
+        if PortfolioColumns.PERF_DATE.value in calendar_df.columns
+        else set()
+    )
+    source_position_memberships = _latest_source_position_hierarchy_memberships(
+        source_position_history_df,
+        observation_dates=observed_dates,
         request=request,
-    ):
-        return {"summary": summary, "levels": []}
-
-    prepared_frames = _prepared_adjusted_hierarchy_frames(
+    )
+    prepared_frames = _prepared_hierarchy_frames_or_source_membership_fallback(
         period_slice_df=period_slice_df,
         position_series=position_series,
         position_average_weights=position_average_weights,
+        source_position_memberships=source_position_memberships,
+        observed_dates=observed_dates,
         request=request,
     )
     if prepared_frames is None:
         return {"summary": summary, "levels": []}
     adjusted_df, merged_df = prepared_frames
 
-    calendar_df = portfolio_period_slice_df if portfolio_period_slice_df is not None else period_slice_df
-    observed_dates = observation_date_set(calendar_df[PortfolioColumns.PERF_DATE.value])
-    source_position_memberships = _latest_source_position_hierarchy_memberships(
-        source_position_history_df,
-        observation_dates=observed_dates,
-        request=request,
-    )
-    position_day_count = max(
-        1,
-        len(observation_date_set(period_slice_df[PortfolioColumns.PERF_DATE.value])),
-    )
     response_levels = _build_hierarchy_response_levels(
         merged_df=merged_df,
         observation_dates=observed_dates,
         source_position_memberships=source_position_memberships,
         source_position_window_complete=source_position_window_complete,
-        day_count=position_day_count,
+        day_count=max(1, len(observed_dates)),
         proven_position_inception_dates=proven_position_inception_dates,
         request=request,
     )
 
     summary["portfolio_contribution"] = _as_numeric(adjusted_df["adjusted_contribution"].sum()) * 100
     return {"summary": summary, "levels": response_levels}
+
+
+def _prepared_hierarchy_frames_or_source_membership_fallback(
+    *,
+    period_slice_df: pd.DataFrame,
+    position_series: list[PositionContributionSeries],
+    position_average_weights: pd.DataFrame | None,
+    source_position_memberships: pd.DataFrame | None,
+    observed_dates: set[date],
+    request: ContributionRequest,
+) -> tuple[pd.DataFrame, pd.DataFrame] | None:
+    if _has_adjusted_hierarchy_inputs(
+        period_slice_df=period_slice_df,
+        position_series=position_series,
+        request=request,
+    ):
+        return _prepared_adjusted_hierarchy_frames(
+            period_slice_df=period_slice_df,
+            position_series=position_series,
+            position_average_weights=position_average_weights,
+            request=request,
+        )
+    if not request.hierarchy or not observed_dates or source_position_memberships is None:
+        return None
+    if source_position_memberships.empty:
+        return None
+
+    adjusted_df = pd.DataFrame(columns=["adjusted_contribution"])
+    merged_df = pd.DataFrame(columns=[*_hierarchy_metadata_columns(request.hierarchy), "adjusted_contribution"])
+    return adjusted_df, merged_df
 
 
 def _has_adjusted_hierarchy_inputs(
