@@ -210,19 +210,32 @@ def test_resolved_stateful_request_uses_core_reporting_currency_only_for_base_on
     assert resolved.contribution_request.currency == expected_currency
     assert resolved.portfolio_base_currency == portfolio_currency
     assert resolved.source_preconverted_reporting_currency == expected_source_reporting_currency
+    assert resolved.source_position_window_complete is True
     source_preconverted_reporting_currency = resolved.source_preconverted_reporting_currency
     identity = resolved_contribution_identity_payload(
         resolved.contribution_request,
         portfolio_base_currency=portfolio_currency,
         source_preconverted_reporting_currency=source_preconverted_reporting_currency,
+        source_position_window_complete=True,
     )
     changed_base_identity = resolved_contribution_identity_payload(
         resolved.contribution_request,
         portfolio_base_currency="GBP" if portfolio_currency != "GBP" else "EUR",
         source_preconverted_reporting_currency=source_preconverted_reporting_currency,
+        source_position_window_complete=True,
+    )
+    unproven_window_identity = resolved_contribution_identity_payload(
+        resolved.contribution_request,
+        portfolio_base_currency=portfolio_currency,
+        source_preconverted_reporting_currency=source_preconverted_reporting_currency,
+        source_position_window_complete=False,
     )
     assert generate_canonical_hash_from_value(identity, "test-engine") != generate_canonical_hash_from_value(
         changed_base_identity,
+        "test-engine",
+    )
+    assert generate_canonical_hash_from_value(identity, "test-engine") != generate_canonical_hash_from_value(
+        unproven_window_identity,
         "test-engine",
     )
 

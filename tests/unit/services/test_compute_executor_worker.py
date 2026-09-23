@@ -1725,6 +1725,7 @@ def test_compute_executor_worker_restores_resolved_contribution_currency_provena
         "source_input_mode": "stateful",
         "portfolio_base_currency": "EUR",
         "source_preconverted_reporting_currency": "USD",
+        "source_position_window_complete": True,
     }
     captured: dict[str, object] = {}
     context = SimpleNamespace(
@@ -1745,10 +1746,12 @@ def test_compute_executor_worker_restores_resolved_contribution_currency_provena
     assert captured["input_mode"] == ContributionInputMode.STATEFUL
     assert captured["portfolio_base_currency"] == "EUR"
     assert captured["source_preconverted_reporting_currency"] == "USD"
+    assert captured["source_position_window_complete"] is True
     assert captured["request_artifact_model"] == compute_executor_worker.resolved_contribution_identity_payload(
         request,
         portfolio_base_currency="EUR",
         source_preconverted_reporting_currency="USD",
+        source_position_window_complete=True,
     )
 
 

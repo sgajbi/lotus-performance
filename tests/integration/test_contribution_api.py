@@ -2414,6 +2414,7 @@ def test_contribution_stateful_hashes_follow_resolved_inputs(client, monkeypatch
             expected_request,
             portfolio_base_currency=expected_request.currency,
             source_preconverted_reporting_currency=None,
+            source_position_window_complete=True,
         ),
         calculation_engine_version(settings),
     )

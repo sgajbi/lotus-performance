@@ -157,6 +157,7 @@ async def _resolve_promoted_stateful_contribution_response(
             resolved_request,
             portfolio_base_currency=resolved.portfolio_base_currency,
             source_preconverted_reporting_currency=resolved.source_preconverted_reporting_currency,
+            source_position_window_complete=resolved.source_position_window_complete,
         )
         resolved_input_fingerprint, resolved_calculation_hash = generate_request_fingerprint(
             resolved_identity,
@@ -188,6 +189,7 @@ async def _resolve_promoted_stateful_contribution_response(
             input_mode=resolved.input_mode,
             portfolio_base_currency=resolved.portfolio_base_currency,
             source_preconverted_reporting_currency=resolved.source_preconverted_reporting_currency,
+            source_position_window_complete=resolved.source_position_window_complete,
             request_artifact_model=resolved_identity,
         )
     except Exception as exc:
@@ -259,6 +261,7 @@ def _resolved_contribution_async_request_payload(resolved: Any) -> dict[str, Any
             "source_input_mode": resolved.input_mode.value,
             "portfolio_base_currency": resolved.portfolio_base_currency,
             "source_preconverted_reporting_currency": resolved.source_preconverted_reporting_currency,
+            "source_position_window_complete": resolved.source_position_window_complete,
         }
     )
 
@@ -287,6 +290,7 @@ async def _calculate_initial_sync_contribution(
             input_mode=resolved.input_mode,
             portfolio_base_currency=resolved.portfolio_base_currency,
             source_preconverted_reporting_currency=resolved.source_preconverted_reporting_currency,
+            source_position_window_complete=resolved.source_position_window_complete,
         )
     except Exception as exc:
         if is_mappable_application_error(exc):

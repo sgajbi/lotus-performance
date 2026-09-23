@@ -93,9 +93,10 @@ When the complete position source proves that an explicit hierarchy group has no
 portfolio observation date, the series carries an explicit `return_pct=0` and
 `portfolio_weight_pct=0` point. This includes dates before a group first enters the portfolio and
 keeps downstream covariance calendars complete without asking consumers to invent zero exposure.
-Only leading portfolio dates before a source-proven position inception (zero opening value plus a
-beginning-of-day funding flow) are emitted as zero exposure. A bounded window's first position row
-does not by itself prove inception. A missing valuation at or after position inception makes that group return
+Only stateful Core input whose adapter has exhaustively retrieved every page of every requested
+date chunk can establish a complete position window. Within that window, a zero opening value plus
+a beginning-of-day funding flow establishes entry for zero-filling earlier dates; the same row in
+caller-supplied or otherwise unproven input does not. A missing valuation at or after position entry makes that group return
 `UNAVAILABLE` with `SOURCE_POSITION_VALUATION_ECONOMICS_INCOMPLETE`.
 It does not turn incomplete or ambiguous source economics into zero.
 

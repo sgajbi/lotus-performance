@@ -494,6 +494,7 @@ def _build_hierarchy_period_contribution_result(
     portfolio_results_df: Any,
     reset_aware_average_weight_mode: str,
     average_weight_audit_state: AverageWeightShadowAuditState,
+    source_position_window_complete: bool = False,
 ) -> _ContributionPeriodResult | None:
     period_preparation = _prepare_contribution_period(
         daily_contributions_df=daily_contributions_df,
@@ -516,7 +517,9 @@ def _build_hierarchy_period_contribution_result(
         period=period,
         period_slice_df=period_preparation.period_slice_df,
         portfolio_period_slice_df=period_preparation.portfolio_period_slice_df,
-        proven_position_inception_dates=_proven_position_inception_dates(daily_contributions_df),
+        proven_position_inception_dates=(
+            _proven_position_inception_dates(daily_contributions_df) if source_position_window_complete else {}
+        ),
         period_methodology_context=period_preparation.period_methodology_context,
         reset_aware_average_weight_mode=reset_aware_average_weight_mode,
         total_portfolio_return=total_portfolio_return,
@@ -683,6 +686,7 @@ def _build_contribution_results_by_period(
     portfolio_results_df: Any,
     reset_aware_average_weight_mode: str,
     average_weight_audit_state: AverageWeightShadowAuditState,
+    source_position_window_complete: bool = False,
 ) -> _ContributionPeriodResults:
     results_by_period: dict[str, SinglePeriodContributionResult] = {}
     average_weight_sum_residual_bp = 0
@@ -696,6 +700,7 @@ def _build_contribution_results_by_period(
                 portfolio_results_df=portfolio_results_df,
                 reset_aware_average_weight_mode=reset_aware_average_weight_mode,
                 average_weight_audit_state=average_weight_audit_state,
+                source_position_window_complete=source_position_window_complete,
             )
             if request.hierarchy
             else _build_flat_period_contribution_result(
@@ -926,6 +931,7 @@ def _run_contribution_calculation(
     request: ContributionRequest,
     *,
     reset_aware_average_weight_mode: str,
+    source_position_window_complete: bool = False,
 ) -> _ContributionCalculationRun:
     try:
         engine_inputs = _prepare_contribution_engine_inputs(request)
@@ -937,6 +943,7 @@ def _run_contribution_calculation(
             portfolio_results_df=engine_inputs.portfolio_results_df,
             reset_aware_average_weight_mode=reset_aware_average_weight_mode,
             average_weight_audit_state=average_weight_audit_state,
+            source_position_window_complete=source_position_window_complete,
         )
         return _ContributionCalculationRun(
             engine_inputs=engine_inputs,
@@ -977,6 +984,7 @@ def calculate_contribution(
     input_mode: ContributionInputMode = ContributionInputMode.STATELESS,
     portfolio_base_currency: str | None = None,
     source_preconverted_reporting_currency: str | None = None,
+    source_position_window_complete: bool = False,
     request_artifact_model: Any | None = None,
 ) -> ContributionResponse:
     active_settings = get_settings()
@@ -989,6 +997,7 @@ def calculate_contribution(
     calculation_run = _run_contribution_calculation(
         request,
         reset_aware_average_weight_mode=reset_aware_average_weight_mode,
+        source_position_window_complete=source_position_window_complete,
     )
     engine_inputs = calculation_run.engine_inputs
 

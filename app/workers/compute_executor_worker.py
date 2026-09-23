@@ -642,14 +642,26 @@ def _execute_contribution_job(job: ComputeJobRecord, context: _ComputeJobExecuti
         context=context,
         resolver=_resolve_async_contribution_job_request,
         calculator=context.contribution_calculator,
-        option_names=("portfolio_base_currency", "source_preconverted_reporting_currency"),
-        identity_artifact_factory=lambda request, portfolio_base_currency, source_preconverted_reporting_currency: (
-            resolved_contribution_identity_payload(
-                request,
-                portfolio_base_currency=portfolio_base_currency,
-                source_preconverted_reporting_currency=source_preconverted_reporting_currency,
-            )
+        option_names=(
+            "portfolio_base_currency",
+            "source_preconverted_reporting_currency",
+            "source_position_window_complete",
         ),
+        identity_artifact_factory=_resolved_contribution_identity_from_options,
+    )
+
+
+def _resolved_contribution_identity_from_options(
+    request: ContributionRequest,
+    portfolio_base_currency: str | None,
+    source_preconverted_reporting_currency: str | None,
+    source_position_window_complete: bool,
+) -> Any:
+    return resolved_contribution_identity_payload(
+        request,
+        portfolio_base_currency=portfolio_base_currency,
+        source_preconverted_reporting_currency=source_preconverted_reporting_currency,
+        source_position_window_complete=source_position_window_complete,
     )
 
 
@@ -1005,7 +1017,7 @@ def _resolve_async_contribution_job_request(
     payload: dict[str, Any],
     *,
     settings,
-) -> tuple[ContributionRequest, ContributionInputMode, str | None, str | None]:
+) -> tuple[ContributionRequest, ContributionInputMode, str | None, str | None, bool]:
     payload = _payload_without_async_observability_context(payload)
     resolved_request = _resolved_async_contribution_job_request_from_payload(payload)
     if resolved_request is not None:
@@ -1020,13 +1032,14 @@ def _resolve_async_contribution_job_request(
             resolved_contribution.input_mode,
             getattr(resolved_contribution, "portfolio_base_currency", None),
             getattr(resolved_contribution, "source_preconverted_reporting_currency", None),
+            getattr(resolved_contribution, "source_position_window_complete", False),
         )
-    return request, ContributionInputMode.STATEFUL, None, None
+    return request, ContributionInputMode.STATEFUL, None, None, False
 
 
 def _resolved_async_contribution_job_request_from_payload(
     payload: dict[str, Any],
-) -> tuple[ContributionRequest, ContributionInputMode, str | None, str | None] | None:
+) -> tuple[ContributionRequest, ContributionInputMode, str | None, str | None, bool] | None:
     resolved_request_payload = payload.get("resolved_request")
     source_input_mode = payload.get("source_input_mode")
     if not isinstance(resolved_request_payload, dict) or not isinstance(source_input_mode, str):
@@ -1040,6 +1053,7 @@ def _resolved_async_contribution_job_request_from_payload(
             if isinstance(payload.get("source_preconverted_reporting_currency"), str)
             else None
         ),
+        payload.get("source_position_window_complete") is True,
     )
 
 

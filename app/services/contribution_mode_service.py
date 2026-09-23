@@ -32,6 +32,7 @@ class ResolvedContributionRequest:
     position_count: int
     portfolio_base_currency: str | None = None
     source_preconverted_reporting_currency: str | None = None
+    source_position_window_complete: bool = False
 
 
 def resolved_contribution_identity_payload(
@@ -39,12 +40,14 @@ def resolved_contribution_identity_payload(
     *,
     portfolio_base_currency: str | None,
     source_preconverted_reporting_currency: str | None,
+    source_position_window_complete: bool = False,
 ) -> ResolvedContributionExecutionRequest:
     """Bind published denomination provenance to the resolved calculation identity."""
     return ResolvedContributionExecutionRequest(
         contribution_request=request,
         portfolio_base_currency=portfolio_base_currency,
         source_preconverted_reporting_currency=source_preconverted_reporting_currency,
+        source_position_window_complete=source_position_window_complete,
     )
 
 
@@ -151,6 +154,9 @@ def _resolved_stateful_contribution_request(
         position_count=len(normalized_input.positions_data),
         portfolio_base_currency=_resolved_stateful_portfolio_base_currency(request, normalized_input),
         source_preconverted_reporting_currency=_resolved_stateful_source_reporting_currency(request, normalized_input),
+        # The stateful adapter exhausts every Core page for every planned date chunk
+        # and fails the request on an upstream page, cursor, or chunk failure.
+        source_position_window_complete=True,
     )
 
 
