@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from datetime import date
 from math import isfinite
 from typing import Any
 
@@ -215,7 +216,12 @@ def _build_hierarchy_from_adjusted_position_series(
 
     observed_dates = observation_date_set(period_slice_df[PortfolioColumns.PERF_DATE.value])
     day_count = max(1, len(observed_dates))
-    response_levels = _build_hierarchy_response_levels(merged_df=merged_df, day_count=day_count, request=request)
+    response_levels = _build_hierarchy_response_levels(
+        merged_df=merged_df,
+        observation_dates=observed_dates,
+        day_count=day_count,
+        request=request,
+    )
 
     summary["portfolio_contribution"] = _as_numeric(adjusted_df["adjusted_contribution"].sum()) * 100
     return {"summary": summary, "levels": response_levels}
@@ -360,6 +366,7 @@ def _apply_hierarchy_unclassified_policy(
 def _build_hierarchy_response_levels(
     *,
     merged_df: pd.DataFrame,
+    observation_dates: set[date],
     day_count: int,
     request: ContributionRequest,
 ) -> list[dict[str, Any]]:
@@ -370,6 +377,7 @@ def _build_hierarchy_response_levels(
         level_agg = _aggregate_hierarchy_level(
             merged_df=merged_df,
             level_keys=level_keys,
+            observation_dates=observation_dates,
             request=request,
         )
         level_agg["weight_avg"] = level_agg["weight_sum"] / day_count
@@ -386,7 +394,11 @@ def _build_hierarchy_response_levels(
 
 
 def _aggregate_hierarchy_level(
-    *, merged_df: pd.DataFrame, level_keys: list[str], request: ContributionRequest
+    *,
+    merged_df: pd.DataFrame,
+    level_keys: list[str],
+    observation_dates: set[date],
+    request: ContributionRequest,
 ) -> pd.DataFrame:
     records: list[dict[str, Any]] = []
     for raw_key, group_df in merged_df.groupby(level_keys, dropna=False):
@@ -396,14 +408,23 @@ def _aggregate_hierarchy_level(
             {
                 "contribution": _as_numeric(group_df["adjusted_contribution"].sum()),
                 "weight_sum": _as_numeric(group_df["daily_weight"].sum()),
-                "group_return": _group_return_evidence(group_df=group_df, request=request),
+                "group_return": _group_return_evidence(
+                    group_df=group_df,
+                    request=request,
+                    observation_dates=observation_dates,
+                ),
             }
         )
         records.append(record)
     return pd.DataFrame(records)
 
 
-def _group_return_evidence(*, group_df: pd.DataFrame, request: ContributionRequest) -> dict[str, Any]:
+def _group_return_evidence(
+    *,
+    group_df: pd.DataFrame,
+    request: ContributionRequest,
+    observation_dates: set[date] | None = None,
+) -> dict[str, Any]:
     if _group_return_input_is_incomplete(group_df):
         return _unavailable_group_return_evidence("SOURCE_POSITION_VALUATION_ECONOMICS_INCOMPLETE")
 
@@ -411,7 +432,7 @@ def _group_return_evidence(*, group_df: pd.DataFrame, request: ContributionReque
     if currency is None:
         return _unavailable_group_return_evidence("MIXED_LOCAL_CURRENCIES_HAVE_NO_SINGLE_GROUP_RETURN")
 
-    points: list[dict[str, Any]] = []
+    points_by_date: dict[date, dict[str, Any]] = {}
     for observation_date, daily_df in group_df.groupby(PortfolioColumns.PERF_DATE.value, sort=True):
         capital = numeric_series(daily_df["capital_inst"], default=float("nan"))
         returns = pd.to_numeric(daily_df[PortfolioColumns.DAILY_ROR.value], errors="coerce")
@@ -422,13 +443,28 @@ def _group_return_evidence(*, group_df: pd.DataFrame, request: ContributionReque
                 "SOURCE_POSITION_VALUATION_ECONOMICS_INCOMPLETE",
                 currency=currency,
             )
-        points.append(
+        points_by_date[observation_date] = {
+            "date": observation_date,
+            "return_pct": _as_numeric((capital * returns).sum() / denominator),
+            "portfolio_weight_pct": _as_numeric(source_weights.sum()) * 100,
+        }
+    # The enclosing period slice is the complete, source-owned position calendar.
+    # Absence from this explicit group on one of those dates therefore means zero
+    # exposure, rather than an unknown date that a consumer would have to infer.
+    complete_calendar = set(points_by_date)
+    if observation_dates is not None:
+        complete_calendar.update(observation_dates)
+    points = [
+        points_by_date.get(
+            observation_date,
             {
                 "date": observation_date,
-                "return_pct": _as_numeric((capital * returns).sum() / denominator),
-                "portfolio_weight_pct": _as_numeric(source_weights.sum()) * 100,
-            }
+                "return_pct": 0.0,
+                "portfolio_weight_pct": 0.0,
+            },
         )
+        for observation_date in sorted(complete_calendar)
+    ]
     linked_growth = 1.0
     for point in points:
         linked_growth *= 1.0 + point["return_pct"] / 100
