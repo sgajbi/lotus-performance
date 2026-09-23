@@ -442,6 +442,28 @@ def _group_return_evidence(
             currency=currency,
         )
 
+    points_by_date = _group_return_points_by_date(group_df)
+    if points_by_date is None:
+        return _unavailable_group_return_evidence(
+            "SOURCE_POSITION_VALUATION_ECONOMICS_INCOMPLETE",
+            currency=currency,
+        )
+    points = _completed_group_return_points(
+        points_by_date,
+        observation_dates=observation_dates,
+    )
+    return {
+        "status": "READY",
+        "period_return_pct": _linked_group_return_pct(points),
+        "currency": currency,
+        "series": points,
+        "reason": None,
+    }
+
+
+def _group_return_points_by_date(
+    group_df: pd.DataFrame,
+) -> dict[date, dict[str, Any]] | None:
     points_by_date: dict[date, dict[str, Any]] = {}
     for observation_date, daily_df in group_df.groupby(PortfolioColumns.PERF_DATE.value, sort=True):
         capital = numeric_series(daily_df["capital_inst"], default=float("nan"))
@@ -449,22 +471,25 @@ def _group_return_evidence(
         source_weights = _source_daily_weights(daily_df)
         denominator = _as_numeric(capital.sum())
         if _group_return_day_is_incomplete(denominator, capital, returns, source_weights):
-            return _unavailable_group_return_evidence(
-                "SOURCE_POSITION_VALUATION_ECONOMICS_INCOMPLETE",
-                currency=currency,
-            )
+            return None
         points_by_date[observation_date] = {
             "date": observation_date,
             "return_pct": _as_numeric((capital * returns).sum() / denominator),
             "portfolio_weight_pct": _as_numeric(source_weights.sum()) * 100,
         }
+    return points_by_date
+
+
+def _completed_group_return_points(
+    points_by_date: dict[date, dict[str, Any]],
+    *,
+    observation_dates: set[date] | None,
+) -> list[dict[str, Any]]:
     # The portfolio slice is the source-owned observation calendar. Only dates before
     # every position in this group first appears are proven zero exposure. The
     # completeness guard above refuses gaps at or after a position's inception.
-    complete_calendar = set(points_by_date)
-    if observation_dates is not None:
-        complete_calendar.update(observation_dates)
-    points = [
+    complete_calendar = set(points_by_date) | (observation_dates or set())
+    return [
         points_by_date.get(
             observation_date,
             {
@@ -475,16 +500,13 @@ def _group_return_evidence(
         )
         for observation_date in sorted(complete_calendar)
     ]
+
+
+def _linked_group_return_pct(points: list[dict[str, Any]]) -> float:
     linked_growth = 1.0
     for point in points:
         linked_growth *= 1.0 + point["return_pct"] / 100
-    return {
-        "status": "READY",
-        "period_return_pct": (linked_growth - 1.0) * 100,
-        "currency": currency,
-        "series": points,
-        "reason": None,
-    }
+    return (linked_growth - 1.0) * 100
 
 
 def _group_position_calendars_are_complete(
