@@ -14,7 +14,11 @@ from app.models.contribution_responses import (
     PositionDailyContribution,
 )
 from app.services.analytics_numeric import numeric_series
-from app.services.analytics_observation_dates import observation_date_series, observation_date_set
+from app.services.analytics_observation_dates import (
+    observation_date_series,
+    observation_date_set,
+    optional_observation_date,
+)
 from app.services.contribution_methodology import _as_numeric
 from app.services.currency_code_normalization import normalized_currency_code
 from engine.schema import PortfolioColumns
@@ -528,8 +532,7 @@ def _normalized_source_position_hierarchy_history(
 ) -> pd.DataFrame | None:
     if source_position_history_df is None:
         return None
-    required_columns = {"position_id", PortfolioColumns.PERF_DATE.value}
-    if source_position_history_df.empty or not required_columns.issubset(source_position_history_df.columns):
+    if not _has_required_source_position_hierarchy_history(source_position_history_df):
         return None
     if not observation_dates:
         return None
@@ -538,7 +541,10 @@ def _normalized_source_position_hierarchy_history(
     for level_name in request.hierarchy or []:
         if level_name not in history_df.columns:
             history_df[level_name] = None
-    history_df[PortfolioColumns.PERF_DATE.value] = observation_date_series(history_df[PortfolioColumns.PERF_DATE.value])
+    history_df[PortfolioColumns.PERF_DATE.value] = pd.Series(
+        (optional_observation_date(value) for value in history_df[PortfolioColumns.PERF_DATE.value]),
+        index=history_df.index,
+    )
     history_df = history_df[
         history_df["position_id"].notna()
         & history_df[PortfolioColumns.PERF_DATE.value].notna()
@@ -549,6 +555,11 @@ def _normalized_source_position_hierarchy_history(
         keep="last",
     )
     return history_df
+
+
+def _has_required_source_position_hierarchy_history(history_df: pd.DataFrame) -> bool:
+    required_columns = {"position_id", PortfolioColumns.PERF_DATE.value}
+    return not history_df.empty and required_columns.issubset(history_df.columns)
 
 
 def _effective_position_membership_rows(

@@ -24,7 +24,8 @@ def position_cash_flows_are_losslessly_normalizable(
     if not cash_flows_raw:
         return True
     source_row = row or {}
-    if not _required_cash_flow_conversion_rates_are_present(
+    if not _cash_flow_conversion_evidence_is_complete(
+        cash_flows_raw=cash_flows_raw,
         row=source_row,
         value_basis=value_basis,
         portfolio_currency=portfolio_currency,
@@ -35,6 +36,33 @@ def position_cash_flows_are_losslessly_normalizable(
     if not conversion_factor.is_finite() or conversion_factor <= 0:
         return False
     return all(_cash_flow_is_losslessly_projected(flow, conversion_factor=conversion_factor) for flow in cash_flows_raw)
+
+
+def _cash_flow_conversion_evidence_is_complete(
+    *,
+    cash_flows_raw: list[object],
+    row: dict[str, object],
+    value_basis: PositionValueBasis,
+    portfolio_currency: str | None,
+    reporting_currency: str | None,
+) -> bool:
+    if not _cash_flows_require_conversion(cash_flows_raw):
+        return True
+    return _required_cash_flow_conversion_rates_are_present(
+        row=row,
+        value_basis=value_basis,
+        portfolio_currency=portfolio_currency,
+        reporting_currency=reporting_currency,
+    )
+
+
+def _cash_flows_require_conversion(cash_flows: list[object]) -> bool:
+    return any(_cash_flow_requires_conversion(flow) for flow in cash_flows)
+
+
+def _cash_flow_requires_conversion(flow: object) -> bool:
+    projected_flow = _position_cash_flow_projection(flow, conversion_factor=Decimal("1"))
+    return projected_flow is not None and projected_flow[1] != 0 and projected_flow[2].economics_role != "unsupported"
 
 
 def _cash_flow_is_losslessly_projected(flow: object, *, conversion_factor: Decimal) -> bool:

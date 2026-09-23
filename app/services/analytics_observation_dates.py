@@ -31,3 +31,11 @@ def observation_date_set(values: Iterable[Any]) -> set[date]:
 
 def normalize_observation_date(value: Any) -> date:
     return pd.Timestamp(value).date()
+
+
+def optional_observation_date(value: Any) -> date | None:
+    """Normalize a date-like value, returning no date for malformed source evidence."""
+    try:
+        return normalize_observation_date(value)
+    except (TypeError, ValueError, OverflowError):
+        return None

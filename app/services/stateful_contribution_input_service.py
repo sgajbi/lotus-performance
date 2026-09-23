@@ -12,6 +12,7 @@ from app.models.contribution_requests import (
     PortfolioData,
     PositionData,
 )
+from app.services.analytics_observation_dates import optional_observation_date
 from app.services.currency_code_normalization import normalized_currency_code
 from app.services.position_source_service import parse_stateful_position_timeseries_payload
 from app.services.source_cashflow_taxonomy import classify_cashflow_type
@@ -483,13 +484,23 @@ def _stateful_row_has_nonzero_timed_cash_flow(row: dict[str, object]) -> bool:
     cash_flows = row.get("cash_flows")
     if not isinstance(cash_flows, list):
         return False
-    return any(
-        isinstance(flow, dict)
-        and flow.get("timing") in {"bod", "eod"}
-        and flow.get("amount") is not None
-        and Decimal(str(flow["amount"])) != 0
+    return any(_is_nonzero_supported_timed_cash_flow(flow) for flow in cash_flows)
+
+
+def _is_nonzero_supported_timed_cash_flow(flow: object) -> bool:
+    if not isinstance(flow, dict) or flow.get("timing") not in {"bod", "eod"}:
+        return False
+    amount = flow.get("amount")
+    if amount is None:
+        return False
+    try:
+        decimal_amount = Decimal(str(amount))
+    except ArithmeticError:
+        return False
+    return (
+        decimal_amount.is_finite()
+        and decimal_amount != 0
         and classify_cashflow_type(flow.get("cash_flow_type")).economics_role != "unsupported"
-        for flow in cash_flows
     )
 
 
@@ -563,10 +574,10 @@ def _stateful_contribution_position_series(
     cash_flow_currencies_by_position_id: dict[str, set[str]] = {}
     normalized_row_count = 0
     for row in rows:
-        position_id_raw = row.get("position_id")
-        valuation_date = row.get("valuation_date")
-        if not isinstance(position_id_raw, str) or not isinstance(valuation_date, str):
+        source_identity = _valid_source_position_identity(row)
+        if source_identity is None:
             continue
+        position_id_raw, valuation_date = source_identity
         normalized_position_id = _source_position_key_or_position_id(row, position_id_raw)
         row_meta = _position_meta_from_row(
             row,
@@ -610,6 +621,16 @@ def _stateful_contribution_position_series(
         meta_by_position_id=position_meta,
         source_rows_complete=normalized_row_count == len(rows),
     )
+
+
+def _valid_source_position_identity(row: dict[str, object]) -> tuple[str, str] | None:
+    position_id = row.get("position_id")
+    valuation_date = row.get("valuation_date")
+    if not isinstance(position_id, str) or not isinstance(valuation_date, str):
+        return None
+    if optional_observation_date(valuation_date) is None:
+        return None
+    return position_id, valuation_date
 
 
 def _position_row_cash_flows_are_losslessly_normalized(

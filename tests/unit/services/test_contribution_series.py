@@ -17,6 +17,7 @@ from app.services.contribution_series import (
     _group_return_evidence,
     _has_adjusted_hierarchy_inputs,
     _hierarchy_metadata_columns,
+    _normalized_source_position_hierarchy_history,
     _other_hierarchy_row_for_emission,
     _prepared_adjusted_hierarchy_frames,
     _proven_position_inception_dates,
@@ -152,6 +153,42 @@ def test_build_hierarchy_from_adjusted_position_series_uses_observation_date_ali
     assert row["group_return"]["series"] == [
         {"date": date(2026, 3, 30), "return_pct": 1.0, "portfolio_weight_pct": 50.0},
         {"date": date(2026, 3, 31), "return_pct": 2.0, "portfolio_weight_pct": 50.0},
+    ]
+
+
+def test_normalized_source_position_hierarchy_history_discards_malformed_dates():
+    request = ContributionRequest.model_validate(
+        {
+            "portfolio_id": "PB_TEST",
+            "report_start_date": "2026-03-30",
+            "report_end_date": "2026-03-31",
+            "analyses": [{"period": "SI", "frequencies": ["daily"]}],
+            "hierarchy": ["sector"],
+            "portfolio_data": {"metric_basis": "NET", "valuation_points": []},
+            "positions_data": [],
+        }
+    )
+    source_history = pd.DataFrame(
+        {
+            "position_id": ["SEC_BAD", "SEC_A"],
+            PortfolioColumns.PERF_DATE.value: ["not-a-date", "2026-03-30"],
+            "sector": ["Invalid", "Technology"],
+        }
+    )
+
+    normalized = _normalized_source_position_hierarchy_history(
+        source_history,
+        observation_dates={date(2026, 3, 30)},
+        request=request,
+    )
+
+    assert normalized is not None
+    assert normalized[["position_id", PortfolioColumns.PERF_DATE.value, "sector"]].to_dict("records") == [
+        {
+            "position_id": "SEC_A",
+            PortfolioColumns.PERF_DATE.value: date(2026, 3, 30),
+            "sector": "Technology",
+        }
     ]
 
 

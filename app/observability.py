@@ -346,11 +346,33 @@ def _patch_instrumentator_route_name_resolution() -> None:
     instrumentator_routing.get_route_name = _instrumentator_route_name
 
 
-def _instrumentator_route_name(request: Request) -> str | None:
+def _instrumentator_route_name(
+    request: Request,
+    should_include_root_path: bool = False,
+) -> str | None:
     try:
-        return _ORIGINAL_INSTRUMENTATOR_ROUTE_NAME_RESOLVER(request)
+        return _original_instrumentator_route_name(
+            request,
+            should_include_root_path=should_include_root_path,
+        )
     except AttributeError:
         return _included_router_route_name(request)
+
+
+def _original_instrumentator_route_name(
+    request: Request,
+    *,
+    should_include_root_path: bool,
+) -> str | None:
+    try:
+        return _ORIGINAL_INSTRUMENTATOR_ROUTE_NAME_RESOLVER(
+            request,
+            should_include_root_path=should_include_root_path,
+        )
+    except TypeError as exc:
+        if "unexpected keyword argument 'should_include_root_path'" not in str(exc):
+            raise
+        return _ORIGINAL_INSTRUMENTATOR_ROUTE_NAME_RESOLVER(request)
 
 
 def _included_router_route_name(request: Request) -> str | None:
