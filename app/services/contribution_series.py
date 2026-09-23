@@ -543,30 +543,43 @@ def _group_position_calendars_are_complete(
     if not observation_dates:
         return False
     portfolio_first_observation_date = min(observation_dates)
-    for position_id, position_df in group_df.groupby("position_id", dropna=False):
-        position_dates = observation_date_set(position_df[PortfolioColumns.PERF_DATE.value])
-        if not position_dates:
-            return False
-        period_first_observation_date = min(position_dates)
-        proven_inception_date = (proven_position_inception_dates or {}).get(str(position_id))
-        if (
-            period_first_observation_date > portfolio_first_observation_date
-            and proven_inception_date != period_first_observation_date
-        ):
-            # A bounded source window cannot distinguish a newly acquired position
-            # from a pre-existing position whose valuations resume late. Leading
-            # zero exposure is safe only when the source row proves acquisition.
-            return False
-        first_observation_date = min(
-            period_first_observation_date,
-            proven_inception_date or period_first_observation_date,
+    inception_dates = proven_position_inception_dates or {}
+    return all(
+        _position_calendar_is_complete(
+            position_df=position_df,
+            observation_dates=observation_dates,
+            portfolio_first_observation_date=portfolio_first_observation_date,
+            proven_inception_date=inception_dates.get(str(position_id)),
         )
-        required_dates = {
-            observation_date for observation_date in observation_dates if observation_date >= first_observation_date
-        }
-        if not required_dates.issubset(position_dates):
-            return False
-    return True
+        for position_id, position_df in group_df.groupby("position_id", dropna=False)
+    )
+
+
+def _position_calendar_is_complete(
+    *,
+    position_df: pd.DataFrame,
+    observation_dates: set[date],
+    portfolio_first_observation_date: date,
+    proven_inception_date: date | None,
+) -> bool:
+    position_dates = observation_date_set(position_df[PortfolioColumns.PERF_DATE.value])
+    if not position_dates:
+        return False
+    period_first_observation_date = min(position_dates)
+    if (
+        period_first_observation_date > portfolio_first_observation_date
+        and proven_inception_date != period_first_observation_date
+    ):
+        # A bounded source window cannot distinguish a newly acquired position
+        # from a pre-existing position whose valuations resume late. Leading
+        # zero exposure is safe only when the source row proves acquisition.
+        return False
+    required_start = min(
+        period_first_observation_date,
+        proven_inception_date or period_first_observation_date,
+    )
+    required_dates = {date_value for date_value in observation_dates if date_value >= required_start}
+    return required_dates.issubset(position_dates)
 
 
 def _proven_position_inception_dates(source_df: pd.DataFrame) -> dict[str, date]:
