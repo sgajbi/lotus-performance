@@ -241,6 +241,7 @@ def build_stateful_contribution_input(
     position_series = _stateful_contribution_position_series(
         rows=source_input.position_rows,
         currency_mode=normalized_currency_mode,
+        portfolio_currency=resolved_portfolio_currency,
         reporting_currency=_stateful_position_reporting_currency(
             source_input=source_input,
             currency_mode=normalized_currency_mode,
@@ -550,7 +551,8 @@ def _stateful_contribution_position_series(
     *,
     rows: list[dict[str, object]],
     currency_mode: str,
-    reporting_currency: str | None,
+    portfolio_currency: str | None = None,
+    reporting_currency: str | None = None,
     performance_component_economics_payload: dict[str, object] | None = None,
     performance_component_economics_status: int | None = None,
 ) -> _StatefulContributionPositionSeries:
@@ -586,6 +588,7 @@ def _stateful_contribution_position_series(
         if _position_row_cash_flows_are_losslessly_normalized(
             row,
             currency_mode=currency_mode,
+            portfolio_currency=portfolio_currency,
             reporting_currency=reporting_currency,
         ):
             normalized_row_count += 1
@@ -613,6 +616,7 @@ def _position_row_cash_flows_are_losslessly_normalized(
     row: dict[str, object],
     *,
     currency_mode: str,
+    portfolio_currency: str | None,
     reporting_currency: str | None,
 ) -> bool:
     if "cash_flows" not in row:
@@ -626,6 +630,8 @@ def _position_row_cash_flows_are_losslessly_normalized(
         row.get("cash_flows"),
         row=row,
         value_basis=value_inputs.value_basis,
+        portfolio_currency=portfolio_currency,
+        reporting_currency=reporting_currency,
     )
 
 

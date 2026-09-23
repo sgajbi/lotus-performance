@@ -1588,8 +1588,28 @@ def test_stateful_contribution_reconciles_core_income_to_dated_group_returns(
             "Real Assets",
             1.0,
         ),
+        (
+            {
+                "position_id": "MISSING_CROSS_CURRENCY_FX",
+                "security_id": "MISSING_CROSS_CURRENCY_FX",
+                "valuation_date": "2025-01-01",
+                "position_currency": "EUR",
+                "cash_flow_currency": "EUR",
+                "beginning_market_value_portfolio_currency": "100",
+                "ending_market_value_portfolio_currency": "105",
+                "cash_flows": [{"amount": "5", "timing": "bod", "cash_flow_type": "external_flow"}],
+                "dimensions": {"sector": "Global Credit"},
+            },
+            "Global Credit",
+            1.0,
+        ),
     ],
-    ids=["dropped-valuation", "discarded-cash-flow", "discarded-after-fx-conversion"],
+    ids=[
+        "dropped-valuation",
+        "discarded-cash-flow",
+        "discarded-after-fx-conversion",
+        "missing-cross-currency-fx",
+    ],
 )
 def test_stateful_contribution_retains_membership_and_refuses_incomplete_economics(
     client,

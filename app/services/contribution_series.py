@@ -212,6 +212,11 @@ def _build_hierarchy_from_adjusted_position_series(
         observation_dates=observed_dates,
         request=request,
     )
+    visible_source_position_memberships = (
+        _apply_hierarchy_unclassified_policy(source_position_memberships, request=request)
+        if source_position_memberships is not None
+        else None
+    )
     prepared_frames = _prepared_hierarchy_frames_or_source_membership_fallback(
         period_slice_df=period_slice_df,
         position_series=position_series,
@@ -231,7 +236,7 @@ def _build_hierarchy_from_adjusted_position_series(
     response_levels = _build_hierarchy_response_levels(
         merged_df=merged_df,
         observation_dates=observed_dates,
-        source_position_memberships=source_position_memberships,
+        source_position_memberships=visible_source_position_memberships,
         source_position_window_complete=source_position_window_complete,
         position_calendar_df=period_slice_df,
         day_count=position_day_count,
@@ -267,6 +272,8 @@ def _prepared_hierarchy_frames_or_source_membership_fallback(
     if not request.hierarchy or not observed_dates or source_position_memberships is None:
         return None
     if source_position_memberships.empty:
+        return None
+    if _apply_hierarchy_unclassified_policy(source_position_memberships, request=request).empty:
         return None
 
     adjusted_df = pd.DataFrame(columns=["adjusted_contribution"])
@@ -311,6 +318,9 @@ def _prepared_adjusted_hierarchy_frames(
         source_position_memberships=source_position_memberships,
         hierarchy_levels=request.hierarchy or [],
     )
+    merged_df["position_observation_count"] = merged_df.groupby("position_id")[
+        PortfolioColumns.PERF_DATE.value
+    ].transform("nunique")
     merged_df = _apply_hierarchy_unclassified_policy(merged_df, request=request)
     if merged_df.empty:
         return None
@@ -467,7 +477,7 @@ def _effective_source_position_hierarchy_memberships(
         _effective_position_membership_rows(history_df, observation_dates=observation_dates),
         columns=history_df.columns,
     )
-    return _apply_hierarchy_unclassified_policy(effective_df, request=request)
+    return effective_df
 
 
 def _normalized_source_position_hierarchy_history(
@@ -656,10 +666,7 @@ def _aggregate_hierarchy_level(
             key_values=key_values,
         )
         record: dict[str, Any] = {key: value for key, value in zip(level_keys, key_values, strict=True)}
-        selected_weight_sum, selected_weight_complete = _selected_group_weight(
-            group_df,
-            all_position_rows=merged_df,
-        )
+        selected_weight_sum, selected_weight_complete = _selected_group_weight(group_df)
         record.update(
             {
                 "contribution": _as_numeric(group_df["adjusted_contribution"].sum()),
@@ -692,24 +699,22 @@ def _aggregate_hierarchy_level(
 
 def _selected_group_weight(
     group_df: pd.DataFrame,
-    *,
-    all_position_rows: pd.DataFrame,
 ) -> tuple[Any, bool]:
     if group_df.empty:
         return 0.0, False
-    selected_weights = group_df[["position_id", "selected_average_weight"]].drop_duplicates("position_id")
+    selected_weights = group_df[
+        ["position_id", "selected_average_weight", "position_observation_count"]
+    ].drop_duplicates("position_id")
     selected_numeric = pd.to_numeric(selected_weights["selected_average_weight"], errors="coerce")
     if selected_numeric.isna().any():
         return 0.0, False
     group_date_counts = group_df.groupby("position_id")[PortfolioColumns.PERF_DATE.value].nunique()
-    position_date_counts = all_position_rows.groupby("position_id")[PortfolioColumns.PERF_DATE.value].nunique()
     selected_weights = selected_weights.assign(
         group_date_count=selected_weights["position_id"].map(group_date_counts),
-        position_date_count=selected_weights["position_id"].map(position_date_counts),
     )
-    if selected_weights[["group_date_count", "position_date_count"]].isna().any().any():
+    if selected_weights[["group_date_count", "position_observation_count"]].isna().any().any():
         return 0.0, False
-    allocation = selected_weights["group_date_count"] / selected_weights["position_date_count"]
+    allocation = selected_weights["group_date_count"] / selected_weights["position_observation_count"]
     return _as_numeric((selected_numeric * allocation).sum()), True
 
 
