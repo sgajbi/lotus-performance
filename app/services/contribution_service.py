@@ -57,6 +57,7 @@ from app.services.contribution_series import (
     _build_hierarchy_from_adjusted_position_series,
     _build_residual_adjusted_daily_contribution_series,
     _build_residual_adjusted_position_timeseries,
+    _position_first_observation_dates,
 )
 from app.services.contribution_smoothing import (
     _build_contribution_smoothing_evidence,
@@ -379,6 +380,7 @@ def _build_hierarchy_contribution_position_assembly(
     period: Any,
     period_slice_df: Any,
     portfolio_period_slice_df: Any,
+    position_first_observation_dates: dict[str, date],
     period_methodology_context: ContributionPeriodMethodologyContext,
     reset_aware_average_weight_mode: str,
     total_portfolio_return: Any,
@@ -415,6 +417,7 @@ def _build_hierarchy_contribution_position_assembly(
         portfolio_period_slice_df=portfolio_period_slice_df,
         position_series=position_series,
         position_average_weights=position_totals_result.totals_df[["position_id", "selected_average_weight"]],
+        position_first_observation_dates=position_first_observation_dates,
         request=request,
     )
     return _HierarchyContributionPositionAssembly(
@@ -513,6 +516,7 @@ def _build_hierarchy_period_contribution_result(
         period=period,
         period_slice_df=period_preparation.period_slice_df,
         portfolio_period_slice_df=period_preparation.portfolio_period_slice_df,
+        position_first_observation_dates=_position_first_observation_dates(daily_contributions_df),
         period_methodology_context=period_preparation.period_methodology_context,
         reset_aware_average_weight_mode=reset_aware_average_weight_mode,
         total_portfolio_return=total_portfolio_return,

@@ -17,6 +17,7 @@ from app.services.contribution_series import (
     _has_adjusted_hierarchy_inputs,
     _hierarchy_metadata_columns,
     _other_hierarchy_row_for_emission,
+    _position_first_observation_dates,
     _prepared_adjusted_hierarchy_frames,
     _residual_adjusted_daily_totals_by_date,
     _residual_adjusted_position_rows,
@@ -353,6 +354,128 @@ def test_hierarchy_group_returns_refuse_post_inception_portfolio_calendar_gap():
     assert group_return["series"] == []
 
 
+def test_hierarchy_group_returns_use_source_history_for_subperiod_inception():
+    dates = [date(2026, 9, 1), date(2026, 9, 2), date(2026, 9, 3)]
+    request = ContributionRequest.model_validate(
+        {
+            "portfolio_id": "PB_TEST",
+            "report_start_date": str(dates[0]),
+            "report_end_date": str(dates[-1]),
+            "analyses": [{"period": "MTD", "frequencies": ["daily"]}],
+            "hierarchy": ["sector"],
+            "emit": {"threshold_weight": 0.0},
+            "portfolio_data": {
+                "metric_basis": "NET",
+                "valuation_points": [{"perf_date": value, "begin_mv": 1000, "end_mv": 1010} for value in dates],
+            },
+            "positions_data": [{"position_id": "RESUMED", "valuation_points": []}],
+        }
+    )
+    period_slice_df = pd.DataFrame(
+        {
+            "position_id": ["RESUMED", "RESUMED"],
+            PortfolioColumns.PERF_DATE.value: dates[1:],
+            PortfolioColumns.DAILY_ROR.value: [1.0, 2.0],
+            "capital_inst": [1000.0, 1010.0],
+            "daily_weight": [1.0, 1.0],
+            "currency": ["USD", "USD"],
+            "sector": ["Technology", "Technology"],
+        }
+    )
+    position_series = [
+        PositionContributionSeries(
+            position_id="RESUMED",
+            series=[
+                PositionDailyContribution(date=dates[1], contribution=1.0),
+                PositionDailyContribution(date=dates[2], contribution=2.0),
+            ],
+        )
+    ]
+
+    hierarchy = _build_hierarchy_from_adjusted_position_series(
+        period_slice_df=period_slice_df,
+        portfolio_period_slice_df=pd.DataFrame({PortfolioColumns.PERF_DATE.value: dates}),
+        position_series=position_series,
+        position_first_observation_dates={"RESUMED": date(2026, 8, 25)},
+        request=request,
+    )
+
+    group_return = hierarchy["levels"][0]["rows"][0]["group_return"]
+    assert group_return["status"] == "UNAVAILABLE"
+    assert group_return["reason"] == "SOURCE_POSITION_VALUATION_ECONOMICS_INCOMPLETE"
+    assert group_return["series"] == []
+
+
+def test_hierarchy_weights_preserve_selected_average_on_larger_portfolio_calendar():
+    dates = [date(2026, 3, 30), date(2026, 3, 31), date(2026, 4, 1)]
+    request = ContributionRequest.model_validate(
+        {
+            "portfolio_id": "PB_TEST",
+            "report_start_date": str(dates[0]),
+            "report_end_date": str(dates[-1]),
+            "analyses": [{"period": "SI", "frequencies": ["daily"]}],
+            "hierarchy": ["sector"],
+            "emit": {"threshold_weight": 0.20},
+            "portfolio_data": {
+                "metric_basis": "NET",
+                "valuation_points": [{"perf_date": value, "begin_mv": 1000, "end_mv": 1010} for value in dates],
+            },
+            "positions_data": [{"position_id": "LATE", "valuation_points": []}],
+        }
+    )
+    period_slice_df = pd.DataFrame(
+        {
+            "position_id": ["LATE", "LATE"],
+            PortfolioColumns.PERF_DATE.value: dates[1:],
+            PortfolioColumns.DAILY_ROR.value: [1.0, 2.0],
+            "capital_inst": [250.0, 250.0],
+            "daily_weight": [0.25, 0.25],
+            "currency": ["USD", "USD"],
+            "sector": ["Private Credit", "Private Credit"],
+        }
+    )
+    position_series = [
+        PositionContributionSeries(
+            position_id="LATE",
+            series=[
+                PositionDailyContribution(date=dates[1], contribution=0.25),
+                PositionDailyContribution(date=dates[2], contribution=0.25),
+            ],
+        )
+    ]
+
+    hierarchy = _build_hierarchy_from_adjusted_position_series(
+        period_slice_df=period_slice_df,
+        portfolio_period_slice_df=pd.DataFrame({PortfolioColumns.PERF_DATE.value: dates}),
+        position_series=position_series,
+        position_average_weights=pd.DataFrame({"position_id": ["LATE"], "selected_average_weight": [0.25]}),
+        request=request,
+    )
+
+    row = hierarchy["levels"][0]["rows"][0]
+    assert row["key"] == {"sector": "Private Credit"}
+    assert row["weight_avg"] == pytest.approx(25.0)
+
+
+def test_position_first_observation_dates_use_unsliced_source_history():
+    source_df = pd.DataFrame(
+        {
+            "position_id": ["A", "A", "B", None],
+            PortfolioColumns.PERF_DATE.value: [
+                "2026-08-25T23:30:00Z",
+                date(2026, 9, 2),
+                date(2026, 9, 3),
+                date(2026, 8, 1),
+            ],
+        }
+    )
+
+    assert _position_first_observation_dates(source_df) == {
+        "A": date(2026, 8, 25),
+        "B": date(2026, 9, 3),
+    }
+
+
 def test_hierarchy_metadata_helpers_align_dates_and_unclassified_policy():
     request = ContributionRequest.model_validate(
         {
@@ -417,6 +540,7 @@ def test_hierarchy_metadata_helpers_align_dates_and_unclassified_policy():
         "capital_inst",
         "daily_weight",
         "source_daily_weight",
+        "selected_average_weight",
         "currency",
         "sector",
         "region",
@@ -454,6 +578,7 @@ def test_hierarchy_metadata_columns_preserves_base_columns_and_unique_levels():
         "capital_inst",
         "daily_weight",
         "source_daily_weight",
+        "selected_average_weight",
         "currency",
         "sector",
         "region",
