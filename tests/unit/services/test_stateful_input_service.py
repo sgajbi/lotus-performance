@@ -2054,6 +2054,60 @@ def test_stateful_input_service_builds_position_timeseries_payload():
     }
 
 
+def test_position_timeseries_payload_counts_conflicts_across_chunks():
+    service = StatefulInputService(core_service=_CoreServiceStub())
+    shared_row = {
+        "valuation_date": "2026-01-01",
+        "position_id": "POS_1",
+        "ending_market_value_portfolio_currency": "100",
+    }
+
+    payload = service._build_position_timeseries_payload(
+        responses=[
+            (
+                200,
+                {
+                    "rows": [shared_row],
+                    "retrieval_metadata": {
+                        "page_count": 1,
+                        "source_row_count": 1,
+                        "retained_row_count": 1,
+                        "discarded_source_row_count": 0,
+                    },
+                },
+            ),
+            (
+                200,
+                {
+                    "rows": [{**shared_row, "ending_market_value_portfolio_currency": "125"}],
+                    "retrieval_metadata": {
+                        "page_count": 1,
+                        "source_row_count": 1,
+                        "retained_row_count": 1,
+                        "discarded_source_row_count": 0,
+                    },
+                },
+            ),
+        ],
+        chunk_count=2,
+    )
+
+    assert payload["rows"] == [
+        {
+            **shared_row,
+            "source_position_key": "POS_1",
+            "ending_market_value_portfolio_currency": "125",
+        }
+    ]
+    assert payload["retrieval_metadata"] == {
+        "chunk_count": 2,
+        "page_count": 2,
+        "source_row_count": 2,
+        "retained_row_count": 1,
+        "discarded_source_row_count": 1,
+    }
+
+
 def test_stateful_input_service_preserves_source_position_grain_when_building_position_payload():
     service = StatefulInputService(core_service=_CoreServiceStub())
 
@@ -2281,8 +2335,49 @@ def test_stateful_input_service_builds_position_chunk_payload_from_accumulator()
             "page_count": 3,
             "source_row_count": 4,
             "retained_row_count": 2,
-            "discarded_source_row_count": 1,
+            "discarded_source_row_count": 2,
         },
+    }
+
+
+@pytest.mark.parametrize(
+    ("second_end_value", "expected_discarded_count"),
+    [("100", 0), ("125", 1)],
+)
+def test_position_chunk_payload_distinguishes_identical_and_conflicting_duplicates(
+    second_end_value,
+    expected_discarded_count,
+):
+    service = StatefulInputService(core_service=_CoreServiceStub())
+    accumulator = _PositionChunkAccumulator(
+        rows=[
+            {
+                "valuation_date": "2026-01-02",
+                "position_id": "POS_1",
+                "beginning_market_value_portfolio_currency": "0",
+                "ending_market_value_portfolio_currency": "100",
+                "cash_flows": [{"amount": "100", "timing": "bod"}],
+            },
+            {
+                "valuation_date": "2026-01-02",
+                "position_id": "POS_1",
+                "beginning_market_value_portfolio_currency": "0",
+                "ending_market_value_portfolio_currency": second_end_value,
+                "cash_flows": [{"amount": "100", "timing": "bod"}],
+            },
+        ],
+        page_count=1,
+        source_row_count=2,
+    )
+
+    payload = service._build_position_chunk_payload(accumulator=accumulator)
+
+    assert len(payload["rows"]) == 1
+    assert payload["retrieval_metadata"] == {
+        "page_count": 1,
+        "source_row_count": 2,
+        "retained_row_count": 1,
+        "discarded_source_row_count": expected_discarded_count,
     }
 
 

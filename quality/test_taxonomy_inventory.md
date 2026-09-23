@@ -23,7 +23,7 @@ python scripts/python_test_taxonomy_inventory.py --limit 30 --min-api-runtime-te
 | Metric | Value |
 | --- | ---: |
 | Test modules inventoried | 327 |
-| Test functions inventoried | 3795 |
+| Test functions inventoried | 3797 |
 | Integration/API/runtime test functions | 757 |
 | Contract/governance test functions | 188 |
 
@@ -34,7 +34,7 @@ python scripts/python_test_taxonomy_inventory.py --limit 30 --min-api-runtime-te
 | benchmarks | 9 | 20 |
 | e2e | 1 | 21 |
 | integration | 28 | 359 |
-| unit | 289 | 3395 |
+| unit | 289 | 3397 |
 
 ## Test Functions By Family
 
@@ -44,7 +44,7 @@ above does sum to it, because a module belongs to exactly one suite.
 
 | Family | Test functions |
 | --- | ---: |
-| analytics_domain | 1765 |
+| analytics_domain | 1767 |
 | api_or_runtime | 757 |
 | contract_or_governance | 188 |
 | observability_or_readiness | 431 |
@@ -67,9 +67,9 @@ above does sum to it, because a module belongs to exactly one suite.
 | 10 | `tests/unit/services/test_compute_executor_worker.py` | unit | 55 | observability_or_readiness |
 | 11 | `tests/unit/app/test_contribution_endpoint_helpers.py` | unit | 52 | analytics_domain, api_or_runtime |
 | 12 | `tests/integration/test_contribution_api.py` | integration | 51 | analytics_domain, api_or_runtime |
-| 13 | `tests/unit/services/test_twr_inspection_calculation_consistency.py` | unit | 51 | analytics_domain |
-| 14 | `tests/unit/services/test_workspace_summary_service.py` | unit | 51 | analytics_domain |
-| 15 | `tests/unit/services/test_stateful_input_service.py` | unit | 49 | analytics_domain |
+| 13 | `tests/unit/services/test_stateful_input_service.py` | unit | 51 | analytics_domain |
+| 14 | `tests/unit/services/test_twr_inspection_calculation_consistency.py` | unit | 51 | analytics_domain |
+| 15 | `tests/unit/services/test_workspace_summary_service.py` | unit | 51 | analytics_domain |
 | 16 | `tests/unit/services/test_twr_mode_service.py` | unit | 45 | analytics_domain |
 | 17 | `tests/unit/engine/test_mwr.py` | unit | 44 | analytics_domain |
 | 18 | `tests/unit/services/test_stateful_benchmark_input_service.py` | unit | 44 | analytics_domain |
