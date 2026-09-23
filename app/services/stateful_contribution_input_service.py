@@ -80,12 +80,14 @@ class StatefulContributionNormalizedInput:
     reporting_currency: str | None = None
     valuation_currency: str | None = None
     source_preconverted_cash_flow_conversion: bool = False
+    source_position_window_complete: bool = False
 
 
 @dataclass(frozen=True)
 class _StatefulContributionPositionSeries:
     valuation_points_by_position_id: dict[str, list[dict[str, object]]]
     meta_by_position_id: dict[str, dict[str, object]]
+    source_rows_complete: bool
 
 
 @dataclass(frozen=True)
@@ -258,6 +260,7 @@ def build_stateful_contribution_input(
             rows=source_input.position_rows,
             portfolio_currency=resolved_portfolio_currency,
         ),
+        source_position_window_complete=position_series.source_rows_complete,
     )
 
 
@@ -515,6 +518,7 @@ def _stateful_contribution_position_series(
     positions_by_id: dict[str, list[dict[str, object]]] = {}
     position_meta: dict[str, dict[str, object]] = {}
     cash_flow_currencies_by_position_id: dict[str, set[str]] = {}
+    normalized_row_count = 0
     for row in rows:
         position_id_raw = row.get("position_id")
         valuation_date = row.get("valuation_date")
@@ -528,6 +532,7 @@ def _stateful_contribution_position_series(
         )
         if point is None:
             continue
+        normalized_row_count += 1
         positions_by_id.setdefault(normalized_position_id, []).append(point)
         position_meta[normalized_position_id] = _position_meta_from_row(
             row,
@@ -545,6 +550,7 @@ def _stateful_contribution_position_series(
     return _StatefulContributionPositionSeries(
         valuation_points_by_position_id=positions_by_id,
         meta_by_position_id=position_meta,
+        source_rows_complete=normalized_row_count == len(rows),
     )
 
 

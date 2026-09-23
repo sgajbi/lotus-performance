@@ -1010,6 +1010,33 @@ def test_build_stateful_contribution_input_skips_rows_without_usable_values():
     )
 
     assert normalized.positions_data == []
+    assert normalized.source_position_window_complete is False
+
+
+def test_position_series_withholds_window_authority_when_an_earlier_core_row_is_dropped():
+    position_series = _stateful_contribution_position_series(
+        rows=[
+            {
+                "position_id": "POS_1",
+                "valuation_date": "2025-01-01",
+                "beginning_market_value_portfolio_currency": None,
+                "ending_market_value_portfolio_currency": "0",
+            },
+            {
+                "position_id": "POS_1",
+                "valuation_date": "2025-01-02",
+                "beginning_market_value_portfolio_currency": "0",
+                "ending_market_value_portfolio_currency": "100",
+                "cash_flows": [{"amount": "100", "timing": "bod"}],
+            },
+        ],
+        currency_mode="BASE_ONLY",
+        reporting_currency=None,
+    )
+
+    surviving_points = position_series.valuation_points_by_position_id["POS_1"]
+    assert [point["perf_date"] for point in surviving_points] == ["2025-01-02"]
+    assert position_series.source_rows_complete is False
 
 
 def test_stateful_contribution_position_series_groups_points_and_preserves_latest_meta():
@@ -1048,6 +1075,7 @@ def test_stateful_contribution_position_series_groups_points_and_preserves_lates
 
     assert list(position_series.valuation_points_by_position_id) == ["POS_2", "POS_1"]
     assert len(position_series.valuation_points_by_position_id["POS_1"]) == 2
+    assert position_series.source_rows_complete is True
     assert position_series.valuation_points_by_position_id["POS_1"][0]["bod_cf"] == Decimal("1")
     assert position_series.meta_by_position_id["POS_1"]["security_id"] == "SEC_1_UPDATED"
     assert position_series.meta_by_position_id["POS_1"]["sector"] == "Software"

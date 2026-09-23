@@ -138,6 +138,7 @@ def test_resolved_stateful_contribution_request_projects_normalized_inputs():
                 }
             )
         ],
+        source_position_window_complete=False,
     )
 
     resolved = _resolved_stateful_contribution_request(request, normalized_input)
@@ -146,6 +147,7 @@ def test_resolved_stateful_contribution_request_projects_normalized_inputs():
     assert resolved.position_count == 1
     assert resolved.contribution_request.portfolio_data.metric_basis == "NET"
     assert resolved.contribution_request.positions_data[0].meta["sector"] == "Technology"
+    assert resolved.source_position_window_complete is False
 
 
 @pytest.mark.parametrize(
@@ -203,6 +205,7 @@ def test_resolved_stateful_request_uses_core_reporting_currency_only_for_base_on
         reporting_currency=core_reporting_currency,
         valuation_currency=expected_currency,
         source_preconverted_cash_flow_conversion=source_preconverted_cash_flow_conversion,
+        source_position_window_complete=True,
     )
 
     resolved = _resolved_stateful_contribution_request(request, normalized_input)
@@ -308,6 +311,7 @@ async def test_resolve_contribution_request_sources_stateful_payload(monkeypatch
     assert len(resolved.contribution_request.portfolio_data.valuation_points) == 2
     assert len(resolved.contribution_request.positions_data) == 1
     assert resolved.contribution_request.positions_data[0].meta["sector"] == "Technology"
+    assert resolved.source_position_window_complete is True
 
 
 def test_contribution_retrieval_stage_details_projects_source_counts():
