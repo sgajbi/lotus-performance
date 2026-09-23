@@ -223,6 +223,27 @@ def test_group_return_uses_effective_dated_membership_for_position_reclassificat
         {"date": date(2026, 3, 31), "return_pct": 2.0, "portfolio_weight_pct": 50.0},
     ]
 
+    exclude_unclassified_request = request.model_copy(
+        update={"emit": request.emit.model_copy(update={"include_unclassified": False})}
+    )
+    partly_unclassified_history = source_position_history.copy()
+    partly_unclassified_history.loc[1, "sector"] = None
+    classified_hierarchy = _build_hierarchy_from_adjusted_position_series(
+        period_slice_df=position_rows,
+        portfolio_period_slice_df=pd.DataFrame(
+            {PortfolioColumns.PERF_DATE.value: [date(2026, 3, 30), date(2026, 3, 31)]}
+        ),
+        source_position_history_df=partly_unclassified_history,
+        source_position_window_complete=True,
+        position_series=position_series,
+        position_average_weights=pd.DataFrame({"position_id": ["SEC_A"], "selected_average_weight": [0.5]}),
+        request=exclude_unclassified_request,
+    )
+    classified_rows = classified_hierarchy["levels"][0]["rows"]
+    assert len(classified_rows) == 1
+    assert classified_rows[0]["key"] == {"sector": "Sector A"}
+    assert classified_rows[0]["weight_avg"] == pytest.approx(25.0)
+
 
 def test_group_return_evidence_refuses_complete_calendar_from_incomplete_stateful_source():
     request = ContributionRequest.model_validate(

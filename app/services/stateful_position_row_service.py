@@ -15,13 +15,23 @@ def position_cash_flows_are_losslessly_normalizable(
     *,
     row: dict[str, object] | None = None,
     value_basis: PositionValueBasis = "position",
+    portfolio_currency: str | None = None,
+    reporting_currency: str | None = None,
 ) -> bool:
     """Report whether every supplied nested cash-flow row has calculable semantics."""
     if not isinstance(cash_flows_raw, list):
         return False
     if not cash_flows_raw:
         return True
-    conversion_factor = _cash_flow_conversion_factor(row=row or {}, value_basis=value_basis)
+    source_row = row or {}
+    if not _required_cash_flow_conversion_rates_are_present(
+        row=source_row,
+        value_basis=value_basis,
+        portfolio_currency=portfolio_currency,
+        reporting_currency=reporting_currency,
+    ):
+        return False
+    conversion_factor = _cash_flow_conversion_factor(row=source_row, value_basis=value_basis)
     if not conversion_factor.is_finite() or conversion_factor <= 0:
         return False
     return all(_cash_flow_is_losslessly_projected(flow, conversion_factor=conversion_factor) for flow in cash_flows_raw)
@@ -30,6 +40,41 @@ def position_cash_flows_are_losslessly_normalizable(
 def _cash_flow_is_losslessly_projected(flow: object, *, conversion_factor: Decimal) -> bool:
     projected_flow = _position_cash_flow_projection(flow, conversion_factor=conversion_factor)
     return projected_flow is not None and projected_flow[2].economics_role != "unsupported"
+
+
+def _required_cash_flow_conversion_rates_are_present(
+    *,
+    row: dict[str, object],
+    value_basis: PositionValueBasis,
+    portfolio_currency: str | None,
+    reporting_currency: str | None,
+) -> bool:
+    if value_basis == "position":
+        return True
+    if _conversion_rate_is_required(
+        row.get("position_currency"), portfolio_currency
+    ) and not _is_positive_finite_decimal(row.get("position_to_portfolio_fx_rate")):
+        return False
+    if value_basis != "reporting":
+        return True
+    return not _conversion_rate_is_required(portfolio_currency, reporting_currency) or _is_positive_finite_decimal(
+        row.get("portfolio_to_reporting_fx_rate")
+    )
+
+
+def _conversion_rate_is_required(source_currency: object, target_currency: object) -> bool:
+    normalized_source_currency = normalized_currency_code(source_currency)
+    normalized_target_currency = normalized_currency_code(target_currency)
+    return (
+        normalized_source_currency is not None
+        and normalized_target_currency is not None
+        and normalized_source_currency != normalized_target_currency
+    )
+
+
+def _is_positive_finite_decimal(value: object) -> bool:
+    decimal_value = _finite_decimal_or_none(value)
+    return decimal_value is not None and decimal_value > 0
 
 
 def split_position_cash_flows_in_value_basis(
