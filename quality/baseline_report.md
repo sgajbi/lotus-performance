@@ -19,9 +19,9 @@ snapshots are written under ignored `output/quality-baseline/`; curated source r
 | --- | ---: | --- |
 | Python files | 682 | `rg --files -g '*.py'` equivalent excluding local caches |
 | Python package markers | 22 | recursive `__init__.py` count |
-| Python LOC | 209,239 | recursive `.py` line count |
+| Python LOC | 209,277 | recursive `.py` line count |
 | Test modules | 327 | `tests/**/test_*.py` |
-| Collected tests | 4164 tests | `python -m pytest --collect-only -q` |
+| Collected tests | 4165 tests | `python -m pytest --collect-only -q` |
 | Configured CI workflows | 8 | `.github/workflows/*.yml` |
 | Repo-native baseline command | 1 | `make quality-baseline` |
 
@@ -30,7 +30,7 @@ snapshots are written under ignored `output/quality-baseline/`; curated source r
 | Rank | File | Lines |
 | ---: | --- | ---: |
 | 1 | `tests/unit/services/test_returns_series_service.py` | 3074 |
-| 2 | `tests/integration/test_contribution_api.py` | 2963 |
+| 2 | `tests/integration/test_contribution_api.py` | 2979 |
 | 3 | `tests/unit/services/test_compute_executor_worker.py` | 2876 |
 | 4 | `tests/unit/services/test_runtime_status_service.py` | 2637 |
 | 5 | `tests/unit/services/test_stateful_input_service.py` | 2558 |

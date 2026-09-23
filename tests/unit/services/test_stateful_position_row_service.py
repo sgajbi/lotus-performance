@@ -110,7 +110,7 @@ def test_position_cash_flows_are_losslessly_normalizable_accepts_empty_and_suppo
     assert (
         position_cash_flows_are_losslessly_normalizable(
             [{"amount": "1", "timing": "bod", "cash_flow_type": "external_flow"}],
-            row={"position_currency": "USD"},
+            row={"cash_flow_currency": "USD", "position_currency": "USD"},
             value_basis="portfolio",
             portfolio_currency="USD",
         )
@@ -137,6 +137,15 @@ def test_position_cash_flows_require_currency_identity_only_for_nonzero_economic
         )
         is False
     )
+    assert (
+        position_cash_flows_are_losslessly_normalizable(
+            [{"amount": "5", "timing": "bod", "cash_flow_type": "external_flow"}],
+            row={"position_currency": "EUR", "position_to_portfolio_fx_rate": "1.2"},
+            value_basis="portfolio",
+            portfolio_currency="USD",
+        )
+        is False
+    )
 
 
 @pytest.mark.parametrize("fx_rate", [None, "NaN", "Infinity", "0", "-1"])
@@ -144,7 +153,11 @@ def test_position_cash_flows_are_losslessly_normalizable_rejects_lossy_fx_conver
     assert (
         position_cash_flows_are_losslessly_normalizable(
             [{"amount": "5", "timing": "bod", "cash_flow_type": "external_flow"}],
-            row={"position_currency": "EUR", "position_to_portfolio_fx_rate": fx_rate},
+            row={
+                "cash_flow_currency": "EUR",
+                "position_currency": "EUR",
+                "position_to_portfolio_fx_rate": fx_rate,
+            },
             value_basis="portfolio",
             portfolio_currency="USD",
         )

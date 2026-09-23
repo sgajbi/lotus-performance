@@ -79,6 +79,8 @@ def _required_cash_flow_conversion_rates_are_present(
 ) -> bool:
     if value_basis == "position":
         return True
+    if not _cash_flow_and_position_currency_identities_are_present(row):
+        return False
     if not _currency_conversion_evidence_is_complete(
         source_currency=row.get("position_currency"),
         target_currency=portfolio_currency,
@@ -91,6 +93,13 @@ def _required_cash_flow_conversion_rates_are_present(
         source_currency=portfolio_currency,
         target_currency=reporting_currency,
         rate=row.get("portfolio_to_reporting_fx_rate"),
+    )
+
+
+def _cash_flow_and_position_currency_identities_are_present(row: dict[str, object]) -> bool:
+    return (
+        normalized_currency_code(row.get("cash_flow_currency")) is not None
+        and normalized_currency_code(row.get("position_currency")) is not None
     )
 
 
