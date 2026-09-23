@@ -519,13 +519,18 @@ def _stateful_has_source_preconverted_cash_flow_conversion(
 
 
 def _is_positive_decimal(value: object) -> bool:
+    parsed = _finite_decimal_or_none(value)
+    return parsed is not None and parsed > 0
+
+
+def _finite_decimal_or_none(value: object) -> Decimal | None:
     if value is None:
-        return False
+        return None
     try:
         parsed = Decimal(str(value))
-        return parsed.is_finite() and parsed > 0
     except ArithmeticError:
-        return False
+        return None
+    return parsed if parsed.is_finite() else None
 
 
 def _stateful_contribution_portfolio_data(
@@ -640,6 +645,8 @@ def _position_row_cash_flows_are_losslessly_normalized(
     portfolio_currency: str | None,
     reporting_currency: str | None,
 ) -> bool:
+    if not _position_contract_fx_rates_are_valid(row):
+        return False
     if "cash_flows" not in row:
         return True
     value_inputs = _position_value_inputs(
@@ -839,10 +846,20 @@ def _position_contract_fx_rate_meta(row: dict[str, object]) -> dict[str, object]
         "position_to_portfolio_fx_rate",
         "portfolio_to_reporting_fx_rate",
     ):
-        value = row.get(fx_rate_field)
-        if value is not None:
-            meta[fx_rate_field] = Decimal(str(value))
+        parsed_rate = _finite_decimal_or_none(row.get(fx_rate_field))
+        if parsed_rate is not None:
+            meta[fx_rate_field] = parsed_rate
     return meta
+
+
+def _position_contract_fx_rates_are_valid(row: dict[str, object]) -> bool:
+    return all(
+        row.get(fx_rate_field) is None or _finite_decimal_or_none(row.get(fx_rate_field)) is not None
+        for fx_rate_field in (
+            "position_to_portfolio_fx_rate",
+            "portfolio_to_reporting_fx_rate",
+        )
+    )
 
 
 def _position_source_economics_from_row(

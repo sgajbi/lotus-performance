@@ -985,6 +985,8 @@ def test_position_contract_fx_rate_meta_converts_available_rates_to_decimals():
         "portfolio_to_reporting_fx_rate": Decimal("1"),
     }
     assert _position_contract_fx_rate_meta({"position_to_portfolio_fx_rate": None}) == {}
+    assert _position_contract_fx_rate_meta({"position_to_portfolio_fx_rate": "invalid"}) == {}
+    assert _position_contract_fx_rate_meta({"position_to_portfolio_fx_rate": "NaN"}) == {}
 
 
 def test_build_stateful_contribution_input_retains_membership_without_usable_values():
@@ -1003,6 +1005,7 @@ def test_build_stateful_contribution_input_retains_membership_without_usable_val
             {
                 "position_id": "POS_1",
                 "valuation_date": "2025-01-01",
+                "position_to_portfolio_fx_rate": "invalid",
                 "beginning_market_value_portfolio_currency": None,
                 "ending_market_value_portfolio_currency": "10",
             },
@@ -1030,6 +1033,7 @@ def test_build_stateful_contribution_input_retains_membership_without_usable_val
         position.meta["_source_hierarchy_memberships"] == [{"perf_date": "2025-01-01"}]
         for position in normalized.positions_data
     )
+    assert "position_to_portfolio_fx_rate" not in normalized.positions_data[0].meta
     assert normalized.source_position_window_complete is False
 
 
