@@ -207,6 +207,7 @@ async def test_contribution_endpoint_executes_resolved_stateful_request_when_fin
             position_count=1,
             portfolio_base_currency="EUR",
             source_preconverted_reporting_currency="USD",
+            source_position_window_complete=True,
         ),
     )
     mocker.patch(
@@ -226,6 +227,7 @@ async def test_contribution_endpoint_executes_resolved_stateful_request_when_fin
         "contribution_request": resolved_request.model_dump(mode="json"),
         "portfolio_base_currency": "EUR",
         "source_preconverted_reporting_currency": "USD",
+        "source_position_window_complete": True,
     }
 
 
