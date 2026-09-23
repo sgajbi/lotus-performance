@@ -706,8 +706,7 @@ def _position_row_to_daily_point(
     if value_inputs is None:
         return None
 
-    bod_cf, eod_cf, mgmt_fees = split_position_cash_flows_in_value_basis(
-        cash_flows_raw=row.get("cash_flows"),
+    bod_cf, eod_cf, mgmt_fees = _position_cash_flow_values(
         row=row,
         value_basis=value_inputs.value_basis,
     )
@@ -719,6 +718,20 @@ def _position_row_to_daily_point(
         "eod_cf": eod_cf,
         "mgmt_fees": mgmt_fees,
     }
+
+
+def _position_cash_flow_values(
+    *,
+    row: dict[str, object],
+    value_basis: PositionValueBasis,
+) -> tuple[Decimal, Decimal, Decimal]:
+    if not _position_contract_fx_rates_are_valid(row):
+        return Decimal("0"), Decimal("0"), Decimal("0")
+    return split_position_cash_flows_in_value_basis(
+        cash_flows_raw=row.get("cash_flows"),
+        row=row,
+        value_basis=value_basis,
+    )
 
 
 def _position_value_inputs(
