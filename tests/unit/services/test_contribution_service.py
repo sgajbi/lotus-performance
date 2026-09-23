@@ -966,6 +966,7 @@ def test_build_hierarchy_contribution_position_assembly_preserves_hierarchy_proj
         period_slice_df=period_slice_df,
         portfolio_period_slice_df=period_slice_df,
         source_position_history_df=period_slice_df,
+        source_position_window_complete=True,
         proven_position_inception_dates={"A": date(2025, 12, 31)},
         period_methodology_context=methodology_context,
         reset_aware_average_weight_mode="candidate_periods",
@@ -992,13 +993,25 @@ def test_build_hierarchy_contribution_position_assembly_preserves_hierarchy_proj
     assert hierarchy_calls[0]["period_slice_df"] is period_slice_df
     assert hierarchy_calls[0]["portfolio_period_slice_df"] is period_slice_df
     assert hierarchy_calls[0]["source_position_history_df"] is period_slice_df
+    assert hierarchy_calls[0]["source_position_window_complete"] is True
     assert hierarchy_calls[0]["position_series"] == ["position-series"]
     assert hierarchy_calls[0]["proven_position_inception_dates"] == {"A": date(2025, 12, 31)}
     pd.testing.assert_frame_equal(hierarchy_calls[0]["position_average_weights"], totals_df)
     assert hierarchy_calls[0]["request"] is request
 
 
-def test_build_hierarchy_period_contribution_result_preserves_hierarchy_outputs(monkeypatch):
+@pytest.mark.parametrize(
+    ("source_position_window_complete", "expected_inception_dates"),
+    [
+        (True, {"A": date(2025, 12, 15)}),
+        (False, {}),
+    ],
+)
+def test_build_hierarchy_period_contribution_result_preserves_hierarchy_outputs(
+    monkeypatch,
+    source_position_window_complete,
+    expected_inception_dates,
+):
     period_slice_df = pd.DataFrame({"position_id": ["A"], "smoothed_contribution": [0.01]})
     portfolio_period_slice_df = pd.DataFrame({"portfolio_id": ["P"]})
     totals_df = pd.DataFrame({"position_id": ["A"], "selected_average_weight": [0.5]})
@@ -1125,7 +1138,7 @@ def test_build_hierarchy_period_contribution_result_preserves_hierarchy_outputs(
         portfolio_results_df=pd.DataFrame(),
         reset_aware_average_weight_mode="candidate_periods",
         average_weight_audit_state=audit_state,
-        source_position_window_complete=True,
+        source_position_window_complete=source_position_window_complete,
     )
 
     assert result is not None
@@ -1144,6 +1157,7 @@ def test_build_hierarchy_period_contribution_result_preserves_hierarchy_outputs(
     assert residual_calls[0]["selected_average_weight_source_column"] == "average_weight"
     assert hierarchy_calls[0]["request"] is request
     assert hierarchy_calls[0]["source_position_history_df"] is source_contributions_df
-    assert hierarchy_calls[0]["proven_position_inception_dates"] == {"A": date(2025, 12, 15)}
+    assert hierarchy_calls[0]["source_position_window_complete"] is source_position_window_complete
+    assert hierarchy_calls[0]["proven_position_inception_dates"] == expected_inception_dates
     assert smoothing_calls[0]["residual_allocation_basis"] == "average_weight"
     assert methodology_calls[0]["is_promoted"] is False

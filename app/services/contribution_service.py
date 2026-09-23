@@ -381,6 +381,7 @@ def _build_hierarchy_contribution_position_assembly(
     period_slice_df: Any,
     portfolio_period_slice_df: Any,
     source_position_history_df: Any,
+    source_position_window_complete: bool,
     proven_position_inception_dates: dict[str, date],
     period_methodology_context: ContributionPeriodMethodologyContext,
     reset_aware_average_weight_mode: str,
@@ -417,6 +418,7 @@ def _build_hierarchy_contribution_position_assembly(
         period_slice_df=period_slice_df,
         portfolio_period_slice_df=portfolio_period_slice_df,
         source_position_history_df=source_position_history_df,
+        source_position_window_complete=source_position_window_complete,
         position_series=position_series,
         position_average_weights=position_totals_result.totals_df[["position_id", "selected_average_weight"]],
         proven_position_inception_dates=proven_position_inception_dates,
@@ -520,6 +522,7 @@ def _build_hierarchy_period_contribution_result(
         period_slice_df=period_preparation.period_slice_df,
         portfolio_period_slice_df=period_preparation.portfolio_period_slice_df,
         source_position_history_df=daily_contributions_df,
+        source_position_window_complete=source_position_window_complete,
         proven_position_inception_dates=(
             _proven_position_inception_dates(daily_contributions_df) if source_position_window_complete else {}
         ),
@@ -1000,7 +1003,9 @@ def calculate_contribution(
     calculation_run = _run_contribution_calculation(
         request,
         reset_aware_average_weight_mode=reset_aware_average_weight_mode,
-        source_position_window_complete=source_position_window_complete,
+        source_position_window_complete=(
+            input_mode == ContributionInputMode.STATELESS or source_position_window_complete
+        ),
     )
     engine_inputs = calculation_run.engine_inputs
 
