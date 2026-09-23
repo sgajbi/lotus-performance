@@ -109,11 +109,14 @@ Stateful normalization retains source hierarchy membership independently from ca
 valuation points. A Core row with valid position identity and dimensions therefore remains visible
 as `UNAVAILABLE` when its valuation pair is missing or unusable; the retained membership cannot
 create a contribution or return and is included in the resolved request identity used for replay.
-The lossless-source check also covers nested cash-flow rows: a supplied non-list collection or a
-cash flow that cannot be projected by amount, timing, and governed type withholds completeness.
+The lossless-source check also covers nested cash-flow rows: a supplied non-list collection, a
+cash flow that cannot be projected by amount, timing, and governed type, or a non-positive or
+non-finite FX factor on the value basis actually consumed withholds completeness.
 Effective-dated hierarchy membership is carried forward on the portfolio calendar, so a genuine
 classification change closes the old group and opens the new group without being misreported as a
-missing valuation; the position's global valuation calendar must still remain complete.
+missing valuation. That dated source authority replaces the engine's latest-metadata projection
+before contribution, weight, and group-return aggregation; the position's global valuation
+calendar must still remain complete.
 If every known source group is absent, the portfolio observation calendar still retains the period
 and every group remains visible as `UNAVAILABLE`; the service does not erase the period.
 It does not turn incomplete or ambiguous source economics into zero.

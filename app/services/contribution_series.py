@@ -261,6 +261,7 @@ def _prepared_hierarchy_frames_or_source_membership_fallback(
             period_slice_df=period_slice_df,
             position_series=position_series,
             position_average_weights=position_average_weights,
+            source_position_memberships=source_position_memberships,
             request=request,
         )
     if not request.hierarchy or not observed_dates or source_position_memberships is None:
@@ -287,6 +288,7 @@ def _prepared_adjusted_hierarchy_frames(
     period_slice_df: pd.DataFrame,
     position_series: list[PositionContributionSeries],
     position_average_weights: pd.DataFrame | None = None,
+    source_position_memberships: pd.DataFrame | None = None,
     request: ContributionRequest,
 ) -> tuple[pd.DataFrame, pd.DataFrame] | None:
     adjusted_records = _adjusted_position_hierarchy_records(position_series)
@@ -304,10 +306,45 @@ def _prepared_adjusted_hierarchy_frames(
         on=["position_id", PortfolioColumns.PERF_DATE.value],
         how="left",
     )
+    merged_df = _apply_effective_source_hierarchy_memberships(
+        merged_df,
+        source_position_memberships=source_position_memberships,
+        hierarchy_levels=request.hierarchy or [],
+    )
     merged_df = _apply_hierarchy_unclassified_policy(merged_df, request=request)
     if merged_df.empty:
         return None
     return adjusted_df, merged_df
+
+
+def _apply_effective_source_hierarchy_memberships(
+    merged_df: pd.DataFrame,
+    *,
+    source_position_memberships: pd.DataFrame | None,
+    hierarchy_levels: list[str],
+) -> pd.DataFrame:
+    """Apply source-effective grouping to the dated rows used for aggregation."""
+    if source_position_memberships is None or source_position_memberships.empty:
+        return merged_df
+    join_columns = ["position_id", PortfolioColumns.PERF_DATE.value]
+    available_authority_columns = set(source_position_memberships.columns).difference(join_columns)
+    authority_columns = [column for column in [*hierarchy_levels, "currency"] if column in available_authority_columns]
+    if not authority_columns:
+        return merged_df
+
+    source_column_names = {column: f"__source_{column}" for column in authority_columns}
+    authoritative_rows = source_position_memberships[[*join_columns, *authority_columns]].drop_duplicates(
+        join_columns, keep="last"
+    )
+    authoritative_rows = authoritative_rows.rename(columns=source_column_names)
+    authoritative_rows["__source_membership_present"] = True
+    result = merged_df.merge(authoritative_rows, on=join_columns, how="left")
+    source_membership_present = result["__source_membership_present"].fillna(False).astype(bool)
+    for column, source_column in source_column_names.items():
+        result[column] = result[column].where(~source_membership_present, result[source_column])
+    return result.drop(
+        columns=[*source_column_names.values(), "__source_membership_present"],
+    )
 
 
 def _initial_hierarchy_summary(request: ContributionRequest) -> dict[str, Any]:

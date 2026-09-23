@@ -583,7 +583,11 @@ def _stateful_contribution_position_series(
         )
         if point is None:
             continue
-        if _position_row_cash_flows_are_losslessly_normalized(row):
+        if _position_row_cash_flows_are_losslessly_normalized(
+            row,
+            currency_mode=currency_mode,
+            reporting_currency=reporting_currency,
+        ):
             normalized_row_count += 1
         positions_by_id.setdefault(normalized_position_id, []).append(point)
         position_meta[normalized_position_id] = row_meta
@@ -605,8 +609,24 @@ def _stateful_contribution_position_series(
     )
 
 
-def _position_row_cash_flows_are_losslessly_normalized(row: dict[str, object]) -> bool:
-    return "cash_flows" not in row or position_cash_flows_are_losslessly_normalizable(row.get("cash_flows"))
+def _position_row_cash_flows_are_losslessly_normalized(
+    row: dict[str, object],
+    *,
+    currency_mode: str,
+    reporting_currency: str | None,
+) -> bool:
+    if "cash_flows" not in row:
+        return True
+    value_inputs = _position_value_inputs(
+        row=row,
+        currency_mode=currency_mode,
+        reporting_currency=reporting_currency,
+    )
+    return value_inputs is not None and position_cash_flows_are_losslessly_normalizable(
+        row.get("cash_flows"),
+        row=row,
+        value_basis=value_inputs.value_basis,
+    )
 
 
 def _source_hierarchy_membership_from_row(

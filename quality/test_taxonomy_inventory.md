@@ -23,8 +23,8 @@ python scripts/python_test_taxonomy_inventory.py --limit 30 --min-api-runtime-te
 | Metric | Value |
 | --- | ---: |
 | Test modules inventoried | 327 |
-| Test functions inventoried | 3809 |
-| Integration/API/runtime test functions | 758 |
+| Test functions inventoried | 3812 |
+| Integration/API/runtime test functions | 759 |
 | Contract/governance test functions | 188 |
 
 ## Test Functions By Suite
@@ -33,8 +33,8 @@ python scripts/python_test_taxonomy_inventory.py --limit 30 --min-api-runtime-te
 | --- | ---: | ---: |
 | benchmarks | 9 | 20 |
 | e2e | 1 | 21 |
-| integration | 28 | 360 |
-| unit | 289 | 3408 |
+| integration | 28 | 361 |
+| unit | 289 | 3410 |
 
 ## Test Functions By Family
 
@@ -44,8 +44,8 @@ above does sum to it, because a module belongs to exactly one suite.
 
 | Family | Test functions |
 | --- | ---: |
-| analytics_domain | 1779 |
-| api_or_runtime | 758 |
+| analytics_domain | 1782 |
+| api_or_runtime | 759 |
 | contract_or_governance | 188 |
 | observability_or_readiness | 431 |
 | quality_or_security | 266 |
@@ -65,7 +65,7 @@ above does sum to it, because a module belongs to exactly one suite.
 | 8 | `tests/unit/services/test_twr_inspection_source_economics.py` | unit | 58 | analytics_domain |
 | 9 | `tests/unit/engine/test_attribution.py` | unit | 57 | analytics_domain |
 | 10 | `tests/unit/services/test_compute_executor_worker.py` | unit | 55 | observability_or_readiness |
-| 11 | `tests/integration/test_contribution_api.py` | integration | 52 | analytics_domain, api_or_runtime |
+| 11 | `tests/integration/test_contribution_api.py` | integration | 53 | analytics_domain, api_or_runtime |
 | 12 | `tests/unit/app/test_contribution_endpoint_helpers.py` | unit | 52 | analytics_domain, api_or_runtime |
 | 13 | `tests/unit/services/test_stateful_input_service.py` | unit | 51 | analytics_domain |
 | 14 | `tests/unit/services/test_twr_inspection_calculation_consistency.py` | unit | 51 | analytics_domain |
@@ -76,7 +76,7 @@ above does sum to it, because a module belongs to exactly one suite.
 | 19 | `tests/integration/test_performance_api.py` | integration | 41 | api_or_runtime |
 | 20 | `tests/unit/services/test_operator_action_lease_service.py` | unit | 40 | uncategorized |
 | 21 | `tests/unit/engine/test_contribution.py` | unit | 39 | analytics_domain |
-| 22 | `tests/unit/services/test_stateful_contribution_input_service.py` | unit | 36 | analytics_domain |
+| 22 | `tests/unit/services/test_stateful_contribution_input_service.py` | unit | 37 | analytics_domain |
 | 23 | `tests/unit/services/test_benchmark_exposure_context_service.py` | unit | 35 | analytics_domain |
 | 24 | `tests/unit/test_observability.py` | unit | 34 | observability_or_readiness |
 | 25 | `tests/unit/models/test_twr_requests.py` | unit | 32 | analytics_domain |
