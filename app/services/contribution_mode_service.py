@@ -154,9 +154,9 @@ def _resolved_stateful_contribution_request(
         position_count=len(normalized_input.positions_data),
         portfolio_base_currency=_resolved_stateful_portfolio_base_currency(request, normalized_input),
         source_preconverted_reporting_currency=_resolved_stateful_source_reporting_currency(request, normalized_input),
-        # The stateful adapter exhausts every Core page for every planned date chunk
-        # and fails the request on an upstream page, cursor, or chunk failure.
-        source_position_window_complete=True,
+        # Retrieval already fails on a page, cursor, or chunk error. Normalization
+        # separately withholds authority when any returned Core row is unusable.
+        source_position_window_complete=normalized_input.source_position_window_complete,
     )
 
 
