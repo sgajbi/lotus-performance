@@ -26,6 +26,7 @@ from engine.contribution import (
 )
 from engine.contribution_smoothing import apply_contribution_smoothing
 from engine.runtime import base_only_engine_config
+from engine.schema import PortfolioColumns
 
 
 @dataclass(frozen=True)
@@ -161,6 +162,25 @@ def test_calculate_daily_contributions_bod_weighting(prepared_data_fixture):
     stock_b_day_2 = result_df[result_df["position_id"] == "Stock_B"].iloc[1]
     assert stock_b_day_2["daily_weight"] == pytest.approx(408 / 1070)
     assert stock_b_day_2["raw_contribution"] == pytest.approx(0.001869, abs=1e-6)
+
+
+def test_calculate_daily_contributions_preserves_required_schema_for_empty_positions():
+    result_df = _calculate_daily_instrument_contributions(
+        pd.DataFrame(),
+        pd.DataFrame(),
+        WeightingScheme.BOD,
+        Smoothing(method="NONE"),
+    )
+
+    assert result_df.empty
+    assert {
+        "position_id",
+        PortfolioColumns.PERF_DATE.value,
+        "daily_weight",
+        "smoothed_contribution",
+        "smoothed_local_contribution",
+        "smoothed_fx_contribution",
+    }.issubset(result_df.columns)
 
 
 def test_calculate_daily_contributions_smoothing(prepared_data_fixture):

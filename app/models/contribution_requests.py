@@ -17,6 +17,8 @@ from core.envelope import (
     Output,
 )
 
+SOURCE_HIERARCHY_MEMBERSHIPS_META_KEY = "_source_hierarchy_memberships"
+
 
 class PositionDailyData(BaseModel):
     """Time series data for a single position on a single day."""

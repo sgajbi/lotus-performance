@@ -1541,6 +1541,72 @@ def test_stateful_contribution_reconciles_core_income_to_dated_group_returns(
     assert weighted_group_pp == pytest.approx(period["total_portfolio_return"], abs=0.01)
 
 
+def test_stateful_contribution_retains_group_membership_from_dropped_valuation_row(client, monkeypatch):
+    from types import SimpleNamespace
+
+    async def source_input(**kwargs):  # noqa: ARG001
+        return SimpleNamespace(
+            position_source_rows_complete=True,
+            portfolio_input=SimpleNamespace(
+                portfolio_currency="USD",
+                reporting_currency=None,
+                observations=[
+                    {
+                        "valuation_date": "2025-01-01",
+                        "beginning_market_value": "1000",
+                        "ending_market_value": "1010",
+                    }
+                ],
+            ),
+            position_rows=[
+                {
+                    "position_id": "DROPPED_PRIVATE_CREDIT",
+                    "security_id": "DROPPED_PRIVATE_CREDIT",
+                    "valuation_date": "2025-01-01",
+                    "position_currency": "USD",
+                    "beginning_market_value_portfolio_currency": None,
+                    "ending_market_value_portfolio_currency": "100",
+                    "cash_flows": [],
+                    "dimensions": {"sector": "Private Credit"},
+                }
+            ],
+        )
+
+    monkeypatch.setattr(
+        "app.services.contribution_mode_service.retrieve_stateful_contribution_source_input",
+        source_input,
+    )
+
+    response = client.post(
+        "/performance/contribution",
+        json={
+            "portfolio_id": "CONTRIB_DROPPED_MEMBERSHIP",
+            "report_start_date": "2025-01-01",
+            "report_end_date": "2025-01-01",
+            "analyses": [{"period": "SI", "frequencies": ["daily"]}],
+            "hierarchy": ["sector"],
+            "input_mode": "stateful",
+            "stateful_input": {"metric_basis": "NET", "dimensions": ["sector"]},
+        },
+        headers={"X-Tenant-Id": "tenant-sg"},
+    )
+
+    assert response.status_code == 200
+    period = response.json()["results_by_period"]["SI"]
+    row = period["levels"][0]["rows"][0]
+    assert row["key"] == {"sector": "Private Credit"}
+    assert row["contribution"] == 0.0
+    assert row["group_return"] == {
+        "status": "UNAVAILABLE",
+        "period_return_pct": None,
+        "currency": None,
+        "series": [],
+        "reason": "SOURCE_POSITION_VALUATION_ECONOMICS_INCOMPLETE",
+        "return_basis": "SOURCE_POSITION_VALUATION_TWR",
+        "weight_basis": "BEGINNING_CAPITAL_RATIO",
+    }
+
+
 @pytest.mark.parametrize(
     ("portfolio_currency", "reporting_currency", "position_currencies"),
     [
@@ -2392,6 +2458,10 @@ def test_contribution_stateful_hashes_follow_resolved_inputs(client, monkeypatch
                             "source_contract": "PositionTimeseriesInput:v1",
                             "valuation_status": None,
                         },
+                        "_source_hierarchy_memberships": [
+                            {"perf_date": "2025-01-01", "sector": "Technology"},
+                            {"perf_date": "2025-01-02", "sector": "Technology"},
+                        ],
                     },
                     "valuation_points": [
                         {

@@ -29,6 +29,14 @@ __all__ = [
 ]
 
 _RESIDUAL_DENOMINATOR_TOLERANCE = 1e-12
+_DAILY_CONTRIBUTION_REQUIRED_COLUMNS = (
+    "position_id",
+    PortfolioColumns.PERF_DATE.value,
+    "daily_weight",
+    "smoothed_contribution",
+    "smoothed_local_contribution",
+    "smoothed_fx_contribution",
+)
 
 
 class ModelDumpLike(Protocol):
@@ -121,7 +129,11 @@ def _calculate_daily_instrument_contributions(
     Calculates daily weights and smoothed contributions for each instrument.
     """
     if instruments_df.empty:
-        return instruments_df
+        empty_result = instruments_df.copy()
+        for column_name in _DAILY_CONTRIBUTION_REQUIRED_COLUMNS:
+            if column_name not in empty_result.columns:
+                empty_result[column_name] = pd.Series(dtype="object")
+        return empty_result
 
     df = pd.merge(
         instruments_df,
