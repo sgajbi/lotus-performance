@@ -168,7 +168,7 @@ def test_group_return_uses_effective_dated_membership_for_position_reclassificat
             "positions_data": [{"position_id": "SEC_A", "valuation_points": []}],
         }
     )
-    position_rows = pd.DataFrame(
+    source_position_history = pd.DataFrame(
         {
             "position_id": ["SEC_A", "SEC_A"],
             PortfolioColumns.PERF_DATE.value: [date(2026, 3, 30), date(2026, 3, 31)],
@@ -181,6 +181,10 @@ def test_group_return_uses_effective_dated_membership_for_position_reclassificat
             "sector": ["Sector A", "Sector B"],
         }
     )
+    # The production engine projects the position's latest metadata onto every dated
+    # calculation row. Source-effective membership must correct that projection before
+    # hierarchy aggregation.
+    position_rows = source_position_history.assign(sector="Sector B")
     position_series = [
         PositionContributionSeries(
             position_id="SEC_A",
@@ -196,13 +200,15 @@ def test_group_return_uses_effective_dated_membership_for_position_reclassificat
         portfolio_period_slice_df=pd.DataFrame(
             {PortfolioColumns.PERF_DATE.value: [date(2026, 3, 30), date(2026, 3, 31)]}
         ),
-        source_position_history_df=position_rows,
+        source_position_history_df=source_position_history,
         source_position_window_complete=True,
         position_series=position_series,
         request=request,
     )
 
     rows_by_sector = {row["key"]["sector"]: row for row in hierarchy["levels"][0]["rows"]}
+    assert rows_by_sector["Sector A"]["contribution"] == pytest.approx(1.0)
+    assert rows_by_sector["Sector B"]["contribution"] == pytest.approx(2.0)
     assert rows_by_sector["Sector A"]["group_return"]["status"] == "READY"
     assert rows_by_sector["Sector A"]["group_return"]["series"] == [
         {"date": date(2026, 3, 30), "return_pct": 1.0, "portfolio_weight_pct": 50.0},

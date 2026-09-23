@@ -10,18 +10,26 @@ from core.errors import APIUnprocessableEntityError
 PositionValueBasis = Literal["position", "portfolio", "reporting"]
 
 
-def position_cash_flows_are_losslessly_normalizable(cash_flows_raw: object) -> bool:
+def position_cash_flows_are_losslessly_normalizable(
+    cash_flows_raw: object,
+    *,
+    row: dict[str, object] | None = None,
+    value_basis: PositionValueBasis = "position",
+) -> bool:
     """Report whether every supplied nested cash-flow row has calculable semantics."""
     if not isinstance(cash_flows_raw, list):
         return False
-    for flow in cash_flows_raw:
-        if not isinstance(flow, dict) or flow.get("amount") is None or flow.get("timing") not in {"bod", "eod"}:
-            return False
-        if _finite_decimal_or_none(flow.get("amount")) is None:
-            return False
-        if classify_cashflow_type(flow.get("cash_flow_type")).economics_role == "unsupported":
-            return False
-    return True
+    if not cash_flows_raw:
+        return True
+    conversion_factor = _cash_flow_conversion_factor(row=row or {}, value_basis=value_basis)
+    if not conversion_factor.is_finite() or conversion_factor <= 0:
+        return False
+    return all(_cash_flow_is_losslessly_projected(flow, conversion_factor=conversion_factor) for flow in cash_flows_raw)
+
+
+def _cash_flow_is_losslessly_projected(flow: object, *, conversion_factor: Decimal) -> bool:
+    projected_flow = _position_cash_flow_projection(flow, conversion_factor=conversion_factor)
+    return projected_flow is not None and projected_flow[2].economics_role != "unsupported"
 
 
 def split_position_cash_flows_in_value_basis(

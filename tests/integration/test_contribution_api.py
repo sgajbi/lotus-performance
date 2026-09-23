@@ -1572,8 +1572,24 @@ def test_stateful_contribution_reconciles_core_income_to_dated_group_returns(
             "Infrastructure",
             1.0,
         ),
+        (
+            {
+                "position_id": "LOSSY_FX_CASH_FLOW",
+                "security_id": "LOSSY_FX_CASH_FLOW",
+                "valuation_date": "2025-01-01",
+                "position_currency": "USD",
+                "cash_flow_currency": "USD",
+                "position_to_portfolio_fx_rate": "NaN",
+                "beginning_market_value_portfolio_currency": "100",
+                "ending_market_value_portfolio_currency": "105",
+                "cash_flows": [{"amount": "5", "timing": "bod", "cash_flow_type": "external_flow"}],
+                "dimensions": {"sector": "Real Assets"},
+            },
+            "Real Assets",
+            1.0,
+        ),
     ],
-    ids=["dropped-valuation", "discarded-cash-flow"],
+    ids=["dropped-valuation", "discarded-cash-flow", "discarded-after-fx-conversion"],
 )
 def test_stateful_contribution_retains_membership_and_refuses_incomplete_economics(
     client,
@@ -1634,6 +1650,86 @@ def test_stateful_contribution_retains_membership_and_refuses_incomplete_economi
         "return_basis": "SOURCE_POSITION_VALUATION_TWR",
         "weight_basis": "BEGINNING_CAPITAL_RATIO",
     }
+
+
+def test_stateful_contribution_applies_effective_membership_before_hierarchy_aggregation(client, monkeypatch):
+    from types import SimpleNamespace
+
+    async def source_input(**kwargs):  # noqa: ARG001
+        return SimpleNamespace(
+            position_source_rows_complete=True,
+            portfolio_input=SimpleNamespace(
+                portfolio_currency="USD",
+                reporting_currency=None,
+                observations=[
+                    {
+                        "valuation_date": "2025-01-01",
+                        "beginning_market_value": "100",
+                        "ending_market_value": "101",
+                    },
+                    {
+                        "valuation_date": "2025-01-02",
+                        "beginning_market_value": "101",
+                        "ending_market_value": "103.02",
+                    },
+                ],
+            ),
+            position_rows=[
+                {
+                    "position_id": "RECLASSIFIED_POSITION",
+                    "security_id": "RECLASSIFIED_POSITION",
+                    "valuation_date": "2025-01-01",
+                    "position_currency": "USD",
+                    "beginning_market_value_portfolio_currency": "100",
+                    "ending_market_value_portfolio_currency": "101",
+                    "cash_flows": [],
+                    "dimensions": {"sector": "Sector A"},
+                },
+                {
+                    "position_id": "RECLASSIFIED_POSITION",
+                    "security_id": "RECLASSIFIED_POSITION",
+                    "valuation_date": "2025-01-02",
+                    "position_currency": "USD",
+                    "beginning_market_value_portfolio_currency": "101",
+                    "ending_market_value_portfolio_currency": "103.02",
+                    "cash_flows": [],
+                    "dimensions": {"sector": "Sector B"},
+                },
+            ],
+        )
+
+    monkeypatch.setattr(
+        "app.services.contribution_mode_service.retrieve_stateful_contribution_source_input",
+        source_input,
+    )
+
+    response = client.post(
+        "/performance/contribution",
+        json={
+            "portfolio_id": "CONTRIB_RECLASSIFICATION",
+            "report_start_date": "2025-01-01",
+            "report_end_date": "2025-01-02",
+            "analyses": [{"period": "SI", "frequencies": ["daily"]}],
+            "hierarchy": ["sector"],
+            "input_mode": "stateful",
+            "stateful_input": {"metric_basis": "NET", "dimensions": ["sector"]},
+            "emit": {"threshold_weight": 0},
+        },
+        headers={"X-Tenant-Id": "tenant-sg"},
+    )
+
+    assert response.status_code == 200
+    rows = {row["key"]["sector"]: row for row in response.json()["results_by_period"]["SI"]["levels"][0]["rows"]}
+    assert rows["Sector A"]["contribution"] > 0
+    assert rows["Sector B"]["contribution"] > 0
+    assert rows["Sector A"]["group_return"]["series"] == [
+        {"date": "2025-01-01", "return_pct": 1.0, "portfolio_weight_pct": 100.0},
+        {"date": "2025-01-02", "return_pct": 0.0, "portfolio_weight_pct": 0.0},
+    ]
+    assert rows["Sector B"]["group_return"]["series"] == [
+        {"date": "2025-01-01", "return_pct": 0.0, "portfolio_weight_pct": 0.0},
+        {"date": "2025-01-02", "return_pct": 2.0, "portfolio_weight_pct": 100.0},
+    ]
 
 
 @pytest.mark.parametrize(

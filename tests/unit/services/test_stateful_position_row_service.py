@@ -109,6 +109,18 @@ def test_position_cash_flows_are_losslessly_normalizable_accepts_empty_and_suppo
     )
 
 
+@pytest.mark.parametrize("fx_rate", ["NaN", "Infinity", "0", "-1"])
+def test_position_cash_flows_are_losslessly_normalizable_rejects_lossy_fx_conversion(fx_rate):
+    assert (
+        position_cash_flows_are_losslessly_normalizable(
+            [{"amount": "5", "timing": "bod", "cash_flow_type": "external_flow"}],
+            row={"position_to_portfolio_fx_rate": fx_rate},
+            value_basis="portfolio",
+        )
+        is False
+    )
+
+
 def test_split_position_cash_flows_in_value_basis_includes_internal_trade_flows():
     assert split_position_cash_flows_in_value_basis(
         cash_flows_raw=[

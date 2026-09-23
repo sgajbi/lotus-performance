@@ -1293,6 +1293,28 @@ def test_stateful_contribution_position_series_withholds_completeness_for_discar
     assert position_series.source_rows_complete is False
 
 
+def test_stateful_contribution_position_series_withholds_completeness_for_nonfinite_cash_flow_fx():
+    position_series = _stateful_contribution_position_series(
+        rows=[
+            {
+                "position_id": "POS_1",
+                "valuation_date": "2025-01-01",
+                "beginning_market_value_portfolio_currency": "100",
+                "ending_market_value_portfolio_currency": "105",
+                "position_to_portfolio_fx_rate": "NaN",
+                "cash_flows": [{"amount": "5", "timing": "bod", "cash_flow_type": "external_flow"}],
+                "dimensions": {"sector": "Private Credit"},
+            }
+        ],
+        currency_mode="BASE_ONLY",
+        reporting_currency=None,
+    )
+
+    assert len(position_series.valuation_points_by_position_id["POS_1"]) == 1
+    assert position_series.valuation_points_by_position_id["POS_1"][0]["bod_cf"].is_zero()
+    assert position_series.source_rows_complete is False
+
+
 def test_position_value_inputs_selects_local_position_values():
     value_inputs = _position_value_inputs(
         row={
