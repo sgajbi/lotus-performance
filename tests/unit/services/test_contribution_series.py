@@ -232,6 +232,75 @@ def test_build_hierarchy_from_adjusted_position_series_uses_selected_period_aver
     ] == pytest.approx([90.0, 5.0])
 
 
+def test_hierarchy_group_returns_publish_explicit_zero_exposure_before_group_inception():
+    request = ContributionRequest.model_validate(
+        {
+            "portfolio_id": "PB_TEST",
+            "report_start_date": "2026-03-30",
+            "report_end_date": "2026-04-01",
+            "analyses": [{"period": "SI", "frequencies": ["daily"]}],
+            "hierarchy": ["sector"],
+            "emit": {"threshold_weight": 0.0},
+            "portfolio_data": {
+                "metric_basis": "NET",
+                "valuation_points": [
+                    {"perf_date": "2026-03-30", "begin_mv": 1000, "end_mv": 1010},
+                    {"perf_date": "2026-03-31", "begin_mv": 1010, "end_mv": 1020},
+                    {"perf_date": "2026-04-01", "begin_mv": 1020, "end_mv": 1030},
+                ],
+            },
+            "positions_data": [
+                {"position_id": "ANCHOR", "valuation_points": []},
+                {"position_id": "LATE", "valuation_points": []},
+            ],
+        }
+    )
+    dates = [date(2026, 3, 30), date(2026, 3, 31), date(2026, 4, 1)]
+    period_slice_df = pd.DataFrame(
+        {
+            "position_id": ["ANCHOR", "ANCHOR", "ANCHOR", "LATE", "LATE"],
+            PortfolioColumns.PERF_DATE.value: [dates[0], dates[1], dates[2], dates[1], dates[2]],
+            PortfolioColumns.DAILY_ROR.value: [1.0, 1.5, 2.0, 3.0, 4.0],
+            "capital_inst": [1000.0, 800.0, 700.0, 200.0, 300.0],
+            "daily_weight": [1.0, 0.8, 0.7, 0.2, 0.3],
+            "currency": ["USD"] * 5,
+            "sector": ["Anchor", "Anchor", "Anchor", "Late", "Late"],
+        }
+    )
+    position_series = [
+        PositionContributionSeries(
+            position_id="ANCHOR",
+            series=[
+                PositionDailyContribution(date=dates[0], contribution=1.0),
+                PositionDailyContribution(date=dates[1], contribution=1.2),
+                PositionDailyContribution(date=dates[2], contribution=1.4),
+            ],
+        ),
+        PositionContributionSeries(
+            position_id="LATE",
+            series=[
+                PositionDailyContribution(date=dates[1], contribution=0.6),
+                PositionDailyContribution(date=dates[2], contribution=1.2),
+            ],
+        ),
+    ]
+
+    hierarchy = _build_hierarchy_from_adjusted_position_series(
+        period_slice_df=period_slice_df,
+        position_series=position_series,
+        request=request,
+    )
+
+    rows = {row["key"]["sector"]: row for row in hierarchy["levels"][0]["rows"]}
+    assert {point["date"] for point in rows["Anchor"]["group_return"]["series"]} == set(dates)
+    assert rows["Late"]["group_return"]["series"] == [
+        {"date": dates[0], "return_pct": 0.0, "portfolio_weight_pct": 0.0},
+        {"date": dates[1], "return_pct": 3.0, "portfolio_weight_pct": 20.0},
+        {"date": dates[2], "return_pct": 4.0, "portfolio_weight_pct": 30.0},
+    ]
+    assert rows["Late"]["group_return"]["period_return_pct"] == pytest.approx(7.12)
+
+
 def test_hierarchy_metadata_helpers_align_dates_and_unclassified_policy():
     request = ContributionRequest.model_validate(
         {
