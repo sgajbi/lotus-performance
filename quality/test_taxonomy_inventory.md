@@ -23,7 +23,7 @@ python scripts/python_test_taxonomy_inventory.py --limit 30 --min-api-runtime-te
 | Metric | Value |
 | --- | ---: |
 | Test modules inventoried | 327 |
-| Test functions inventoried | 3794 |
+| Test functions inventoried | 3795 |
 | Integration/API/runtime test functions | 757 |
 | Contract/governance test functions | 188 |
 
@@ -34,7 +34,7 @@ python scripts/python_test_taxonomy_inventory.py --limit 30 --min-api-runtime-te
 | benchmarks | 9 | 20 |
 | e2e | 1 | 21 |
 | integration | 28 | 359 |
-| unit | 289 | 3394 |
+| unit | 289 | 3395 |
 
 ## Test Functions By Family
 
@@ -44,7 +44,7 @@ above does sum to it, because a module belongs to exactly one suite.
 
 | Family | Test functions |
 | --- | ---: |
-| analytics_domain | 1764 |
+| analytics_domain | 1765 |
 | api_or_runtime | 757 |
 | contract_or_governance | 188 |
 | observability_or_readiness | 431 |
@@ -77,8 +77,8 @@ above does sum to it, because a module belongs to exactly one suite.
 | 20 | `tests/unit/services/test_operator_action_lease_service.py` | unit | 40 | uncategorized |
 | 21 | `tests/unit/engine/test_contribution.py` | unit | 38 | analytics_domain |
 | 22 | `tests/unit/services/test_benchmark_exposure_context_service.py` | unit | 35 | analytics_domain |
-| 23 | `tests/unit/test_observability.py` | unit | 34 | observability_or_readiness |
-| 24 | `tests/unit/services/test_stateful_contribution_input_service.py` | unit | 33 | analytics_domain |
+| 23 | `tests/unit/services/test_stateful_contribution_input_service.py` | unit | 35 | analytics_domain |
+| 24 | `tests/unit/test_observability.py` | unit | 34 | observability_or_readiness |
 | 25 | `tests/unit/models/test_twr_requests.py` | unit | 32 | analytics_domain |
 | 26 | `tests/unit/services/test_twr_inspection_reconciliation.py` | unit | 32 | analytics_domain |
 | 27 | `tests/integration/test_returns_series_api.py` | integration | 31 | analytics_domain, api_or_runtime |

@@ -281,6 +281,7 @@ async def test_resolve_contribution_request_sources_stateful_payload(monkeypatch
                     "dimensions": {"sector": "Technology"},
                 },
             ],
+            position_source_rows_complete=True,
         )
 
     monkeypatch.setattr(

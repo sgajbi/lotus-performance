@@ -2331,6 +2331,7 @@ def test_contribution_stateful_hashes_follow_resolved_inputs(client, monkeypatch
                     "dimensions": {"sector": "Technology"},
                 },
             ],
+            position_source_rows_complete=True,
         )
 
     monkeypatch.setattr(
