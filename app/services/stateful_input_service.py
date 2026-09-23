@@ -1296,8 +1296,16 @@ class StatefulInputService:
         source_rows = _position_rows_with_source_keys(accumulator.rows)
         key_fields = ("valuation_date", "position_id", "source_position_key")
         keyed_rows = [row for row in source_rows if _record_key_by_fields(record=row, key_fields=key_fields)]
-        rows = self._merge_dedup_records_by_fields(records=keyed_rows, key_fields=key_fields)
-        discarded_source_row_count = accumulator.discarded_source_row_count + len(accumulator.rows) - len(keyed_rows)
+        rows, conflicting_duplicate_count = self._merge_dedup_records_with_conflict_count(
+            records=keyed_rows,
+            key_fields=key_fields,
+        )
+        discarded_source_row_count = (
+            accumulator.discarded_source_row_count
+            + len(accumulator.rows)
+            - len(keyed_rows)
+            + conflicting_duplicate_count
+        )
         return {
             "rows": rows,
             "retrieval_metadata": {
@@ -1589,10 +1597,16 @@ class StatefulInputService:
         responses: list[tuple[int, dict[str, Any]]],
         chunk_count: int,
     ) -> dict[str, Any]:
-        rows = self._merge_dedup_records_by_fields(
+        rows, conflicting_duplicate_count = self._merge_dedup_records_with_conflict_count(
             records=_position_rows_from_responses(responses),
             key_fields=("valuation_date", "position_id", "source_position_key"),
         )
+        discarded_source_row_count = _position_retrieval_count_total(
+            responses,
+            "discarded_source_row_count",
+        )
+        if discarded_source_row_count is not None:
+            discarded_source_row_count += conflicting_duplicate_count
         return {
             "rows": rows,
             "retrieval_metadata": {
@@ -1600,10 +1614,7 @@ class StatefulInputService:
                 "page_count": self._total_retrieval_page_count(responses),
                 "source_row_count": _position_retrieval_count_total(responses, "source_row_count"),
                 "retained_row_count": len(rows),
-                "discarded_source_row_count": _position_retrieval_count_total(
-                    responses,
-                    "discarded_source_row_count",
-                ),
+                "discarded_source_row_count": discarded_source_row_count,
             },
         }
 
@@ -1714,13 +1725,29 @@ class StatefulInputService:
         records: list[dict[str, Any]],
         key_fields: tuple[str, ...],
     ) -> list[dict[str, Any]]:
+        rows, _ = self._merge_dedup_records_with_conflict_count(
+            records=records,
+            key_fields=key_fields,
+        )
+        return rows
+
+    def _merge_dedup_records_with_conflict_count(
+        self,
+        *,
+        records: list[dict[str, Any]],
+        key_fields: tuple[str, ...],
+    ) -> tuple[list[dict[str, Any]], int]:
         deduped: dict[tuple[str, ...], dict[str, Any]] = {}
+        conflicting_duplicate_count = 0
         for record in records:
             record_key = _record_key_by_fields(record=record, key_fields=key_fields)
             if record_key is None:
                 continue
+            previous = deduped.get(record_key)
+            if previous is not None and previous != record:
+                conflicting_duplicate_count += 1
             deduped[record_key] = record
-        return [deduped[key] for key in sorted(deduped)]
+        return [deduped[key] for key in sorted(deduped)], conflicting_duplicate_count
 
     def _merge_component_series(self, *, payloads: list[dict[str, Any]]) -> list[dict[str, Any]]:
         merged_by_index = self._component_points_by_index(payloads)
