@@ -105,6 +105,10 @@ entry makes that group return `UNAVAILABLE` with
 Stateless input with a complete supplied calendar remains calculable, but it cannot establish the
 source-window authority required to fill a leading date. A source group known from the requested
 window but wholly absent from a subperiod is retained as an explicit `UNAVAILABLE` row.
+Stateful normalization retains source hierarchy membership independently from calculable
+valuation points. A Core row with valid position identity and dimensions therefore remains visible
+as `UNAVAILABLE` when its valuation pair is missing or unusable; the retained membership cannot
+create a contribution or return and is included in the resolved request identity used for replay.
 If every known source group is absent, the portfolio observation calendar still retains the period
 and every group remains visible as `UNAVAILABLE`; the service does not erase the period.
 It does not turn incomplete or ambiguous source economics into zero.

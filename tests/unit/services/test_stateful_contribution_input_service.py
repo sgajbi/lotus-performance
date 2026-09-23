@@ -622,7 +622,8 @@ def test_stateful_base_only_ignores_unconsumed_rows_when_validating_reporting_co
     )
 
     assert normalized.valuation_currency == "USD"
-    assert [position.position_id for position in normalized.positions_data] == ["VALID"]
+    assert [position.position_id for position in normalized.positions_data] == ["NO_VALUES", "VALID"]
+    assert normalized.positions_data[0].valuation_points == []
 
 
 def test_stateful_contribution_portfolio_data_preserves_metric_basis_and_valuation_points():
@@ -986,7 +987,7 @@ def test_position_contract_fx_rate_meta_converts_available_rates_to_decimals():
     assert _position_contract_fx_rate_meta({"position_to_portfolio_fx_rate": None}) == {}
 
 
-def test_build_stateful_contribution_input_skips_rows_without_usable_values():
+def test_build_stateful_contribution_input_retains_membership_without_usable_values():
     source_input = StatefulContributionSourceInput(
         portfolio_input=StatefulPortfolioInput(
             performance_start_date=date(2025, 1, 1),
@@ -1023,7 +1024,12 @@ def test_build_stateful_contribution_input_skips_rows_without_usable_values():
         fx=None,
     )
 
-    assert normalized.positions_data == []
+    assert [position.position_id for position in normalized.positions_data] == ["POS_1", "POS_2"]
+    assert all(position.valuation_points == [] for position in normalized.positions_data)
+    assert all(
+        position.meta["_source_hierarchy_memberships"] == [{"perf_date": "2025-01-01"}]
+        for position in normalized.positions_data
+    )
     assert normalized.source_position_window_complete is False
 
 
@@ -1260,7 +1266,11 @@ def test_stateful_contribution_position_series_skips_invalid_or_unusable_rows():
     )
 
     assert position_series.valuation_points_by_position_id == {}
-    assert position_series.meta_by_position_id == {}
+    assert list(position_series.meta_by_position_id) == ["POS_2"]
+    assert position_series.meta_by_position_id["POS_2"]["_source_hierarchy_memberships"] == [
+        {"perf_date": "2025-01-02"}
+    ]
+    assert position_series.source_rows_complete is False
 
 
 def test_position_value_inputs_selects_local_position_values():

@@ -4,9 +4,15 @@ from dataclasses import dataclass
 from datetime import date
 from typing import Any
 
+import pandas as pd
+
 from app.core.config import get_settings
 from app.models.contribution_analytics_requests import ContributionInputMode
-from app.models.contribution_requests import ContributionRequest, PositionData
+from app.models.contribution_requests import (
+    SOURCE_HIERARCHY_MEMBERSHIPS_META_KEY,
+    ContributionRequest,
+    PositionData,
+)
 from app.models.contribution_responses import (
     AverageWeightMethodologyStatus,
     ContributionResponse,
@@ -499,6 +505,7 @@ def _build_hierarchy_period_contribution_result(
     reset_aware_average_weight_mode: str,
     average_weight_audit_state: AverageWeightShadowAuditState,
     source_position_window_complete: bool | None = False,
+    source_position_history_df: Any | None = None,
 ) -> _ContributionPeriodResult | None:
     period_preparation = _prepare_contribution_period(
         daily_contributions_df=daily_contributions_df,
@@ -522,7 +529,9 @@ def _build_hierarchy_period_contribution_result(
         period=period,
         period_slice_df=period_preparation.period_slice_df,
         portfolio_period_slice_df=period_preparation.portfolio_period_slice_df,
-        source_position_history_df=daily_contributions_df,
+        source_position_history_df=(
+            daily_contributions_df if source_position_history_df is None else source_position_history_df
+        ),
         source_position_window_complete=source_position_window_complete,
         proven_position_inception_dates=(
             _proven_position_inception_dates(daily_contributions_df) if source_position_window_complete else {}
@@ -641,6 +650,8 @@ def _prepare_contribution_engine_inputs(request: ContributionRequest) -> _Contri
     daily_contributions_df = _calculate_daily_instrument_contributions(
         instruments_df, portfolio_results_df, request.weighting_scheme, request.smoothing
     )
+    if PortfolioColumns.PERF_DATE.value not in daily_contributions_df.columns:
+        daily_contributions_df[PortfolioColumns.PERF_DATE.value] = pd.Series(dtype="object")
     daily_contributions_df[PortfolioColumns.PERF_DATE.value] = observation_date_series(
         daily_contributions_df[PortfolioColumns.PERF_DATE.value]
     )
@@ -697,6 +708,7 @@ def _build_contribution_results_by_period(
     reset_aware_average_weight_mode: str,
     average_weight_audit_state: AverageWeightShadowAuditState,
     source_position_window_complete: bool | None = False,
+    source_position_history_df: Any | None = None,
 ) -> _ContributionPeriodResults:
     results_by_period: dict[str, SinglePeriodContributionResult] = {}
     average_weight_sum_residual_bp = 0
@@ -711,6 +723,7 @@ def _build_contribution_results_by_period(
                 reset_aware_average_weight_mode=reset_aware_average_weight_mode,
                 average_weight_audit_state=average_weight_audit_state,
                 source_position_window_complete=source_position_window_complete,
+                source_position_history_df=source_position_history_df,
             )
             if request.hierarchy
             else _build_flat_period_contribution_result(
@@ -954,6 +967,10 @@ def _run_contribution_calculation(
             reset_aware_average_weight_mode=reset_aware_average_weight_mode,
             average_weight_audit_state=average_weight_audit_state,
             source_position_window_complete=source_position_window_complete,
+            source_position_history_df=_build_source_position_history_df(
+                request=request,
+                daily_contributions_df=engine_inputs.daily_contributions_df,
+            ),
         )
         return _ContributionCalculationRun(
             engine_inputs=engine_inputs,
@@ -984,6 +1001,29 @@ def _run_contribution_calculation(
             execution_stage_started=True,
         )
         raise APIInternalServerError(failure_detail) from exc
+
+
+def _build_source_position_history_df(
+    *,
+    request: ContributionRequest,
+    daily_contributions_df: pd.DataFrame,
+) -> pd.DataFrame:
+    membership_rows: list[dict[str, object]] = []
+    for position in request.positions_data:
+        raw_memberships = position.meta.get(SOURCE_HIERARCHY_MEMBERSHIPS_META_KEY)
+        if not isinstance(raw_memberships, list):
+            continue
+        for raw_membership in raw_memberships:
+            if not isinstance(raw_membership, dict) or raw_membership.get("perf_date") is None:
+                continue
+            membership_rows.append({**raw_membership, "position_id": position.position_id})
+    if not membership_rows:
+        return daily_contributions_df
+    return pd.concat(
+        [daily_contributions_df, pd.DataFrame(membership_rows)],
+        ignore_index=True,
+        sort=False,
+    )
 
 
 def calculate_contribution(

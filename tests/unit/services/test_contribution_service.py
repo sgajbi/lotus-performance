@@ -142,6 +142,34 @@ def test_prepare_contribution_engine_inputs_resolves_master_window_and_normalize
     assert result.daily_contributions_df[PortfolioColumns.PERF_DATE.value].tolist() == [date(2026, 1, 2)]
 
 
+def test_prepare_contribution_engine_inputs_keeps_empty_calculation_frame_schema_safe(monkeypatch):
+    period = SimpleNamespace(name="SI", start_date=date(2026, 1, 1), end_date=date(2026, 1, 1))
+    request = SimpleNamespace(
+        analyses=[SimpleNamespace(period="SI")],
+        portfolio_data=SimpleNamespace(valuation_points=[SimpleNamespace(perf_date=date(2026, 1, 1))]),
+        report_end_date=date(2026, 1, 1),
+        report_start_date=date(2026, 1, 1),
+        weighting_scheme="daily",
+        smoothing=SimpleNamespace(method="NONE"),
+    )
+    monkeypatch.setattr(contribution_service, "resolve_periods", lambda *_args, **_kwargs: [period])
+    monkeypatch.setattr(
+        contribution_service,
+        "_prepare_hierarchical_data",
+        lambda prepared_request: (pd.DataFrame(), pd.DataFrame()),
+    )
+    monkeypatch.setattr(
+        contribution_service,
+        "_calculate_daily_instrument_contributions",
+        lambda *_args: pd.DataFrame(),
+    )
+
+    result = contribution_service._prepare_contribution_engine_inputs(request)
+
+    assert result.daily_contributions_df.empty
+    assert result.daily_contributions_df.columns.tolist() == [PortfolioColumns.PERF_DATE.value]
+
+
 def test_prepare_contribution_engine_inputs_rejects_unresolved_periods(monkeypatch):
     request = SimpleNamespace(
         analyses=[SimpleNamespace(period="MTD")],
@@ -259,7 +287,7 @@ def test_build_contribution_results_by_period_routes_hierarchy_periods(monkeypat
 
 
 def test_run_contribution_calculation_prepares_engine_inputs_and_period_results(monkeypatch):
-    request = SimpleNamespace(calculation_id="contribution-calc-1")
+    request = SimpleNamespace(calculation_id="contribution-calc-1", positions_data=[])
     periods = [SimpleNamespace(name="SI")]
     portfolio_results_df = pd.DataFrame({"portfolio_id": ["P-1"]})
     daily_contributions_df = pd.DataFrame({PortfolioColumns.PERF_DATE.value: [date(2026, 1, 31)]})
@@ -304,6 +332,7 @@ def test_run_contribution_calculation_prepares_engine_inputs_and_period_results(
             "reset_aware_average_weight_mode": "candidate_periods",
             "average_weight_audit_state": result.average_weight_audit_state,
             "source_position_window_complete": True,
+            "source_position_history_df": daily_contributions_df,
         }
     ]
 

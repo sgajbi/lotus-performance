@@ -7,7 +7,11 @@ from typing import TypeGuard
 from uuid import UUID
 
 from app.core.config import Settings
-from app.models.contribution_requests import PortfolioData, PositionData
+from app.models.contribution_requests import (
+    SOURCE_HIERARCHY_MEMBERSHIPS_META_KEY,
+    PortfolioData,
+    PositionData,
+)
 from app.services.currency_code_normalization import normalized_currency_code
 from app.services.position_source_service import parse_stateful_position_timeseries_payload
 from app.services.source_cashflow_taxonomy import classify_cashflow_type
@@ -534,10 +538,10 @@ def _stateful_contribution_positions_data(
             {
                 "position_id": position_id,
                 "meta": position_series.meta_by_position_id.get(position_id, {}),
-                "valuation_points": valuation_points,
+                "valuation_points": position_series.valuation_points_by_position_id.get(position_id, []),
             }
         )
-        for position_id, valuation_points in sorted(position_series.valuation_points_by_position_id.items())
+        for position_id in sorted(position_series.meta_by_position_id)
     ]
 
 
@@ -551,6 +555,8 @@ def _stateful_contribution_position_series(
 ) -> _StatefulContributionPositionSeries:
     positions_by_id: dict[str, list[dict[str, object]]] = {}
     position_meta: dict[str, dict[str, object]] = {}
+    latest_source_meta: dict[str, dict[str, object]] = {}
+    source_memberships: dict[str, list[dict[str, object]]] = {}
     cash_flow_currencies_by_position_id: dict[str, set[str]] = {}
     normalized_row_count = 0
     for row in rows:
@@ -559,6 +565,16 @@ def _stateful_contribution_position_series(
         if not isinstance(position_id_raw, str) or not isinstance(valuation_date, str):
             continue
         normalized_position_id = _source_position_key_or_position_id(row, position_id_raw)
+        row_meta = _position_meta_from_row(
+            row,
+            normalized_position_id=normalized_position_id,
+            performance_component_economics_payload=performance_component_economics_payload,
+            performance_component_economics_status=performance_component_economics_status,
+        )
+        latest_source_meta[normalized_position_id] = row_meta
+        source_memberships.setdefault(normalized_position_id, []).append(
+            _source_hierarchy_membership_from_row(row, valuation_date=valuation_date)
+        )
         point = _position_row_to_daily_point(
             row=row,
             currency_mode=currency_mode,
@@ -568,17 +584,16 @@ def _stateful_contribution_position_series(
             continue
         normalized_row_count += 1
         positions_by_id.setdefault(normalized_position_id, []).append(point)
-        position_meta[normalized_position_id] = _position_meta_from_row(
-            row,
-            normalized_position_id=normalized_position_id,
-            performance_component_economics_payload=performance_component_economics_payload,
-            performance_component_economics_status=performance_component_economics_status,
-        )
+        position_meta[normalized_position_id] = row_meta
         _record_position_cash_flow_currency(
             row=row,
             normalized_position_id=normalized_position_id,
             currencies_by_position_id=cash_flow_currencies_by_position_id,
         )
+    for position_id, memberships in source_memberships.items():
+        position_meta.setdefault(position_id, latest_source_meta[position_id])[
+            SOURCE_HIERARCHY_MEMBERSHIPS_META_KEY
+        ] = memberships
     for position_id, currencies in cash_flow_currencies_by_position_id.items():
         position_meta[position_id]["_source_cash_flow_currencies"] = sorted(currencies)
     return _StatefulContributionPositionSeries(
@@ -586,6 +601,19 @@ def _stateful_contribution_position_series(
         meta_by_position_id=position_meta,
         source_rows_complete=normalized_row_count == len(rows),
     )
+
+
+def _source_hierarchy_membership_from_row(
+    row: dict[str, object],
+    *,
+    valuation_date: str,
+) -> dict[str, object]:
+    membership: dict[str, object] = {"perf_date": valuation_date}
+    position_currency = row.get("position_currency")
+    if isinstance(position_currency, str) and position_currency:
+        membership["currency"] = position_currency
+    membership.update(_normalized_position_dimensions(row.get("dimensions")))
+    return membership
 
 
 def _record_position_cash_flow_currency(
