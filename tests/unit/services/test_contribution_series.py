@@ -17,8 +17,8 @@ from app.services.contribution_series import (
     _has_adjusted_hierarchy_inputs,
     _hierarchy_metadata_columns,
     _other_hierarchy_row_for_emission,
-    _position_first_observation_dates,
     _prepared_adjusted_hierarchy_frames,
+    _proven_position_inception_dates,
     _residual_adjusted_daily_totals_by_date,
     _residual_adjusted_position_rows,
     _target_total_contribution_by_position,
@@ -290,6 +290,7 @@ def test_hierarchy_group_returns_publish_explicit_zero_exposure_before_group_inc
         period_slice_df=period_slice_df,
         portfolio_period_slice_df=pd.DataFrame({PortfolioColumns.PERF_DATE.value: dates}),
         position_series=position_series,
+        proven_position_inception_dates={"LATE": dates[1]},
         request=request,
     )
 
@@ -396,7 +397,59 @@ def test_hierarchy_group_returns_use_source_history_for_subperiod_inception():
         period_slice_df=period_slice_df,
         portfolio_period_slice_df=pd.DataFrame({PortfolioColumns.PERF_DATE.value: dates}),
         position_series=position_series,
-        position_first_observation_dates={"RESUMED": date(2026, 8, 25)},
+        proven_position_inception_dates={"RESUMED": date(2026, 8, 25)},
+        request=request,
+    )
+
+    group_return = hierarchy["levels"][0]["rows"][0]["group_return"]
+    assert group_return["status"] == "UNAVAILABLE"
+    assert group_return["reason"] == "SOURCE_POSITION_VALUATION_ECONOMICS_INCOMPLETE"
+    assert group_return["series"] == []
+
+
+def test_hierarchy_group_returns_refuse_unproven_leading_gap_from_bounded_source():
+    dates = [date(2026, 9, 1), date(2026, 9, 2), date(2026, 9, 3)]
+    request = ContributionRequest.model_validate(
+        {
+            "portfolio_id": "PB_TEST",
+            "report_start_date": str(dates[0]),
+            "report_end_date": str(dates[-1]),
+            "analyses": [{"period": "MTD", "frequencies": ["daily"]}],
+            "hierarchy": ["sector"],
+            "emit": {"threshold_weight": 0.0},
+            "portfolio_data": {
+                "metric_basis": "NET",
+                "valuation_points": [{"perf_date": value, "begin_mv": 1000, "end_mv": 1010} for value in dates],
+            },
+            "positions_data": [{"position_id": "RESUMED", "valuation_points": []}],
+        }
+    )
+    period_slice_df = pd.DataFrame(
+        {
+            "position_id": ["RESUMED", "RESUMED"],
+            PortfolioColumns.PERF_DATE.value: dates[1:],
+            PortfolioColumns.DAILY_ROR.value: [1.0, 2.0],
+            "capital_inst": [1000.0, 1010.0],
+            "daily_weight": [1.0, 1.0],
+            "currency": ["USD", "USD"],
+            "sector": ["Technology", "Technology"],
+        }
+    )
+    position_series = [
+        PositionContributionSeries(
+            position_id="RESUMED",
+            series=[
+                PositionDailyContribution(date=dates[1], contribution=1.0),
+                PositionDailyContribution(date=dates[2], contribution=2.0),
+            ],
+        )
+    ]
+
+    hierarchy = _build_hierarchy_from_adjusted_position_series(
+        period_slice_df=period_slice_df,
+        portfolio_period_slice_df=pd.DataFrame({PortfolioColumns.PERF_DATE.value: dates}),
+        position_series=position_series,
+        proven_position_inception_dates={},
         request=request,
     )
 
@@ -457,7 +510,7 @@ def test_hierarchy_weights_preserve_selected_average_on_larger_portfolio_calenda
     assert row["weight_avg"] == pytest.approx(25.0)
 
 
-def test_position_first_observation_dates_use_unsliced_source_history():
+def test_proven_position_inception_dates_require_opening_flow_economics():
     source_df = pd.DataFrame(
         {
             "position_id": ["A", "A", "B", None],
@@ -467,12 +520,13 @@ def test_position_first_observation_dates_use_unsliced_source_history():
                 date(2026, 9, 3),
                 date(2026, 8, 1),
             ],
+            PortfolioColumns.BEGIN_MV.value: [0.0, 100.0, 75.0, 0.0],
+            PortfolioColumns.BOD_CF.value: [100.0, 0.0, 0.0, 50.0],
         }
     )
 
-    assert _position_first_observation_dates(source_df) == {
+    assert _proven_position_inception_dates(source_df) == {
         "A": date(2026, 8, 25),
-        "B": date(2026, 9, 3),
     }
 
 

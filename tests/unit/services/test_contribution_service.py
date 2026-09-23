@@ -962,7 +962,7 @@ def test_build_hierarchy_contribution_position_assembly_preserves_hierarchy_proj
         period=period,
         period_slice_df=period_slice_df,
         portfolio_period_slice_df=period_slice_df,
-        position_first_observation_dates={"A": date(2025, 12, 31)},
+        proven_position_inception_dates={"A": date(2025, 12, 31)},
         period_methodology_context=methodology_context,
         reset_aware_average_weight_mode="candidate_periods",
         total_portfolio_return=0.02,
@@ -988,7 +988,7 @@ def test_build_hierarchy_contribution_position_assembly_preserves_hierarchy_proj
     assert hierarchy_calls[0]["period_slice_df"] is period_slice_df
     assert hierarchy_calls[0]["portfolio_period_slice_df"] is period_slice_df
     assert hierarchy_calls[0]["position_series"] == ["position-series"]
-    assert hierarchy_calls[0]["position_first_observation_dates"] == {"A": date(2025, 12, 31)}
+    assert hierarchy_calls[0]["proven_position_inception_dates"] == {"A": date(2025, 12, 31)}
     pd.testing.assert_frame_equal(hierarchy_calls[0]["position_average_weights"], totals_df)
     assert hierarchy_calls[0]["request"] is request
 
@@ -1012,6 +1012,8 @@ def test_build_hierarchy_period_contribution_result_preserves_hierarchy_outputs(
         {
             "position_id": ["A", "A"],
             PortfolioColumns.PERF_DATE.value: [date(2025, 12, 15), date(2026, 3, 31)],
+            PortfolioColumns.BEGIN_MV.value: [0.0, 100.0],
+            PortfolioColumns.BOD_CF.value: [100.0, 0.0],
         }
     )
 
@@ -1135,6 +1137,6 @@ def test_build_hierarchy_period_contribution_result_preserves_hierarchy_outputs(
     assert residual_calls[0]["residual_allocation_weight_column"] == "selected_average_weight"
     assert residual_calls[0]["selected_average_weight_source_column"] == "average_weight"
     assert hierarchy_calls[0]["request"] is request
-    assert hierarchy_calls[0]["position_first_observation_dates"] == {"A": date(2025, 12, 15)}
+    assert hierarchy_calls[0]["proven_position_inception_dates"] == {"A": date(2025, 12, 15)}
     assert smoothing_calls[0]["residual_allocation_basis"] == "average_weight"
     assert methodology_calls[0]["is_promoted"] is False
