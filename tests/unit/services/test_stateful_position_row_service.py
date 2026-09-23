@@ -118,7 +118,7 @@ def test_position_cash_flows_are_losslessly_normalizable_accepts_empty_and_suppo
     )
 
 
-def test_position_cash_flows_are_losslessly_normalizable_accepts_zero_flow_without_fx():
+def test_position_cash_flows_require_currency_identity_only_for_nonzero_economics():
     assert (
         position_cash_flows_are_losslessly_normalizable(
             [{"amount": "0", "timing": "bod", "cash_flow_type": "external_flow"}],
@@ -127,6 +127,15 @@ def test_position_cash_flows_are_losslessly_normalizable_accepts_zero_flow_witho
             portfolio_currency="USD",
         )
         is True
+    )
+    assert (
+        position_cash_flows_are_losslessly_normalizable(
+            [{"amount": "5", "timing": "bod", "cash_flow_type": "external_flow"}],
+            row={"cash_flow_currency": "EUR"},
+            value_basis="portfolio",
+            portfolio_currency="USD",
+        )
+        is False
     )
 
 

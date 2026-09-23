@@ -79,25 +79,32 @@ def _required_cash_flow_conversion_rates_are_present(
 ) -> bool:
     if value_basis == "position":
         return True
-    if _conversion_rate_is_required(
-        row.get("position_currency"), portfolio_currency
-    ) and not _is_positive_finite_decimal(row.get("position_to_portfolio_fx_rate")):
+    if not _currency_conversion_evidence_is_complete(
+        source_currency=row.get("position_currency"),
+        target_currency=portfolio_currency,
+        rate=row.get("position_to_portfolio_fx_rate"),
+    ):
         return False
     if value_basis != "reporting":
         return True
-    return not _conversion_rate_is_required(portfolio_currency, reporting_currency) or _is_positive_finite_decimal(
-        row.get("portfolio_to_reporting_fx_rate")
+    return _currency_conversion_evidence_is_complete(
+        source_currency=portfolio_currency,
+        target_currency=reporting_currency,
+        rate=row.get("portfolio_to_reporting_fx_rate"),
     )
 
 
-def _conversion_rate_is_required(source_currency: object, target_currency: object) -> bool:
+def _currency_conversion_evidence_is_complete(
+    *,
+    source_currency: object,
+    target_currency: object,
+    rate: object,
+) -> bool:
     normalized_source_currency = normalized_currency_code(source_currency)
     normalized_target_currency = normalized_currency_code(target_currency)
-    return (
-        normalized_source_currency is not None
-        and normalized_target_currency is not None
-        and normalized_source_currency != normalized_target_currency
-    )
+    if normalized_source_currency is None or normalized_target_currency is None:
+        return False
+    return normalized_source_currency == normalized_target_currency or _is_positive_finite_decimal(rate)
 
 
 def _is_positive_finite_decimal(value: object) -> bool:
