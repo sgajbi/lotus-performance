@@ -503,6 +503,8 @@ def _completed_group_return_points(
         )
         for observation_date in sorted(complete_calendar)
     ]
+
+
 def _group_position_calendars_are_complete(
     group_df: pd.DataFrame,
     *,
