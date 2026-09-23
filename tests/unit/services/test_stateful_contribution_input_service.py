@@ -1141,6 +1141,7 @@ def test_stateful_contribution_position_series_groups_points_and_preserves_lates
                 "position_id": "POS_1",
                 "security_id": "SEC_1",
                 "valuation_date": "2025-01-01",
+                "position_currency": "EUR",
                 "beginning_market_value_portfolio_currency": "10",
                 "ending_market_value_portfolio_currency": "11",
                 "cash_flows": [{"amount": "1", "timing": "bod"}],
@@ -1157,6 +1158,7 @@ def test_stateful_contribution_position_series_groups_points_and_preserves_lates
             },
         ],
         currency_mode="BASE_ONLY",
+        portfolio_currency="EUR",
         reporting_currency=None,
     )
 
