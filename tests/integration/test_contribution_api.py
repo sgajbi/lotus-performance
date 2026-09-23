@@ -1541,7 +1541,47 @@ def test_stateful_contribution_reconciles_core_income_to_dated_group_returns(
     assert weighted_group_pp == pytest.approx(period["total_portfolio_return"], abs=0.01)
 
 
-def test_stateful_contribution_retains_group_membership_from_dropped_valuation_row(client, monkeypatch):
+@pytest.mark.parametrize(
+    ("position_row", "expected_sector", "expected_contribution"),
+    [
+        (
+            {
+                "position_id": "DROPPED_PRIVATE_CREDIT",
+                "security_id": "DROPPED_PRIVATE_CREDIT",
+                "valuation_date": "2025-01-01",
+                "position_currency": "USD",
+                "beginning_market_value_portfolio_currency": None,
+                "ending_market_value_portfolio_currency": "100",
+                "cash_flows": [],
+                "dimensions": {"sector": "Private Credit"},
+            },
+            "Private Credit",
+            0.0,
+        ),
+        (
+            {
+                "position_id": "MALFORMED_CASH_FLOW",
+                "security_id": "MALFORMED_CASH_FLOW",
+                "valuation_date": "2025-01-01",
+                "position_currency": "USD",
+                "beginning_market_value_portfolio_currency": "100",
+                "ending_market_value_portfolio_currency": "105",
+                "cash_flows": [{"amount": "5", "timing": "mid"}],
+                "dimensions": {"sector": "Infrastructure"},
+            },
+            "Infrastructure",
+            1.0,
+        ),
+    ],
+    ids=["dropped-valuation", "discarded-cash-flow"],
+)
+def test_stateful_contribution_retains_membership_and_refuses_incomplete_economics(
+    client,
+    monkeypatch,
+    position_row,
+    expected_sector,
+    expected_contribution,
+):
     from types import SimpleNamespace
 
     async def source_input(**kwargs):  # noqa: ARG001
@@ -1558,18 +1598,7 @@ def test_stateful_contribution_retains_group_membership_from_dropped_valuation_r
                     }
                 ],
             ),
-            position_rows=[
-                {
-                    "position_id": "DROPPED_PRIVATE_CREDIT",
-                    "security_id": "DROPPED_PRIVATE_CREDIT",
-                    "valuation_date": "2025-01-01",
-                    "position_currency": "USD",
-                    "beginning_market_value_portfolio_currency": None,
-                    "ending_market_value_portfolio_currency": "100",
-                    "cash_flows": [],
-                    "dimensions": {"sector": "Private Credit"},
-                }
-            ],
+            position_rows=[position_row],
         )
 
     monkeypatch.setattr(
@@ -1594,8 +1623,8 @@ def test_stateful_contribution_retains_group_membership_from_dropped_valuation_r
     assert response.status_code == 200
     period = response.json()["results_by_period"]["SI"]
     row = period["levels"][0]["rows"][0]
-    assert row["key"] == {"sector": "Private Credit"}
-    assert row["contribution"] == 0.0
+    assert row["key"] == {"sector": expected_sector}
+    assert row["contribution"] == pytest.approx(expected_contribution)
     assert row["group_return"] == {
         "status": "UNAVAILABLE",
         "period_return_pct": None,

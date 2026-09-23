@@ -155,6 +155,66 @@ def test_build_hierarchy_from_adjusted_position_series_uses_observation_date_ali
     ]
 
 
+def test_group_return_uses_effective_dated_membership_for_position_reclassification():
+    request = ContributionRequest.model_validate(
+        {
+            "portfolio_id": "PB_TEST",
+            "report_start_date": "2026-03-30",
+            "report_end_date": "2026-03-31",
+            "analyses": [{"period": "SI", "frequencies": ["daily"]}],
+            "hierarchy": ["sector"],
+            "emit": {"threshold_weight": 0.0},
+            "portfolio_data": {"metric_basis": "NET", "valuation_points": []},
+            "positions_data": [{"position_id": "SEC_A", "valuation_points": []}],
+        }
+    )
+    position_rows = pd.DataFrame(
+        {
+            "position_id": ["SEC_A", "SEC_A"],
+            PortfolioColumns.PERF_DATE.value: [date(2026, 3, 30), date(2026, 3, 31)],
+            PortfolioColumns.DAILY_ROR.value: [1.0, 2.0],
+            PortfolioColumns.BEGIN_MV.value: [500.0, 505.0],
+            PortfolioColumns.BOD_CF.value: [0.0, 0.0],
+            "capital_inst": [500.0, 505.0],
+            "daily_weight": [0.5, 0.5],
+            "currency": ["USD", "USD"],
+            "sector": ["Sector A", "Sector B"],
+        }
+    )
+    position_series = [
+        PositionContributionSeries(
+            position_id="SEC_A",
+            series=[
+                PositionDailyContribution(date=date(2026, 3, 30), contribution=1.0),
+                PositionDailyContribution(date=date(2026, 3, 31), contribution=2.0),
+            ],
+        )
+    ]
+
+    hierarchy = _build_hierarchy_from_adjusted_position_series(
+        period_slice_df=position_rows,
+        portfolio_period_slice_df=pd.DataFrame(
+            {PortfolioColumns.PERF_DATE.value: [date(2026, 3, 30), date(2026, 3, 31)]}
+        ),
+        source_position_history_df=position_rows,
+        source_position_window_complete=True,
+        position_series=position_series,
+        request=request,
+    )
+
+    rows_by_sector = {row["key"]["sector"]: row for row in hierarchy["levels"][0]["rows"]}
+    assert rows_by_sector["Sector A"]["group_return"]["status"] == "READY"
+    assert rows_by_sector["Sector A"]["group_return"]["series"] == [
+        {"date": date(2026, 3, 30), "return_pct": 1.0, "portfolio_weight_pct": 50.0},
+        {"date": date(2026, 3, 31), "return_pct": 0.0, "portfolio_weight_pct": 0.0},
+    ]
+    assert rows_by_sector["Sector B"]["group_return"]["status"] == "READY"
+    assert rows_by_sector["Sector B"]["group_return"]["series"] == [
+        {"date": date(2026, 3, 30), "return_pct": 0.0, "portfolio_weight_pct": 0.0},
+        {"date": date(2026, 3, 31), "return_pct": 2.0, "portfolio_weight_pct": 50.0},
+    ]
+
+
 def test_group_return_evidence_refuses_complete_calendar_from_incomplete_stateful_source():
     request = ContributionRequest.model_validate(
         {

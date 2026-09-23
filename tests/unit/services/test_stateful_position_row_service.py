@@ -9,6 +9,7 @@ from app.services.stateful_position_row_service import (
     _decimal_or_one,
     _has_cash_flow_position_currency_mismatch,
     _position_cash_flow_projection,
+    position_cash_flows_are_losslessly_normalizable,
     split_position_cash_flows_in_value_basis,
 )
 from core.errors import APIError
@@ -69,7 +70,6 @@ def test_split_position_cash_flows_in_value_basis_ignores_non_list_and_non_usabl
         row=row,
         value_basis="portfolio",
     ) == (Decimal("0"), Decimal("0"), Decimal("0"))
-
     assert split_position_cash_flows_in_value_basis(
         cash_flows_raw=[
             {"amount": None, "timing": "bod"},
@@ -80,6 +80,33 @@ def test_split_position_cash_flows_in_value_basis_ignores_non_list_and_non_usabl
         row=row,
         value_basis="position",
     ) == (Decimal("0"), Decimal("0"), Decimal("0"))
+
+
+@pytest.mark.parametrize(
+    "cash_flows",
+    [
+        None,
+        "not-a-list",
+        ["not-a-dict"],
+        [{"timing": "bod"}],
+        [{"amount": "1", "timing": "mid"}],
+        [{"amount": "not-a-number", "timing": "eod"}],
+        [{"amount": "NaN", "timing": "eod"}],
+        [{"amount": "1", "timing": "eod", "cash_flow_type": "dividend"}],
+    ],
+)
+def test_position_cash_flows_are_losslessly_normalizable_rejects_discarded_economics(cash_flows):
+    assert position_cash_flows_are_losslessly_normalizable(cash_flows) is False
+
+
+def test_position_cash_flows_are_losslessly_normalizable_accepts_empty_and_supported_flows():
+    assert position_cash_flows_are_losslessly_normalizable([]) is True
+    assert (
+        position_cash_flows_are_losslessly_normalizable(
+            [{"amount": "1", "timing": "bod", "cash_flow_type": "external_flow"}]
+        )
+        is True
+    )
 
 
 def test_split_position_cash_flows_in_value_basis_includes_internal_trade_flows():

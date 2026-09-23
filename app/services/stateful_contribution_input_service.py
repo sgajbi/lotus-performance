@@ -31,6 +31,7 @@ from app.services.stateful_position_currency_support import (
 )
 from app.services.stateful_position_row_service import (
     PositionValueBasis,
+    position_cash_flows_are_losslessly_normalizable,
     split_position_cash_flows_in_value_basis,
 )
 from app.services.stateful_retrieval_metadata import parse_retrieval_metadata
@@ -582,7 +583,8 @@ def _stateful_contribution_position_series(
         )
         if point is None:
             continue
-        normalized_row_count += 1
+        if _position_row_cash_flows_are_losslessly_normalized(row):
+            normalized_row_count += 1
         positions_by_id.setdefault(normalized_position_id, []).append(point)
         position_meta[normalized_position_id] = row_meta
         _record_position_cash_flow_currency(
@@ -601,6 +603,10 @@ def _stateful_contribution_position_series(
         meta_by_position_id=position_meta,
         source_rows_complete=normalized_row_count == len(rows),
     )
+
+
+def _position_row_cash_flows_are_losslessly_normalized(row: dict[str, object]) -> bool:
+    return "cash_flows" not in row or position_cash_flows_are_losslessly_normalizable(row.get("cash_flows"))
 
 
 def _source_hierarchy_membership_from_row(
