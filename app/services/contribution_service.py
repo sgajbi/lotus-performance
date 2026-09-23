@@ -505,6 +505,7 @@ def _build_hierarchy_period_contribution_result(
         portfolio_results_df=portfolio_results_df,
         period=period,
         average_weight_audit_state=average_weight_audit_state,
+        allow_empty_position_slice=True,
         require_portfolio_slice=True,
     )
     if period_preparation is None:
@@ -560,6 +561,7 @@ def _prepare_contribution_period(
     portfolio_results_df: Any,
     period: Any,
     average_weight_audit_state: AverageWeightShadowAuditState,
+    allow_empty_position_slice: bool = False,
     require_portfolio_slice: bool = False,
 ) -> _ContributionPeriodPreparation | None:
     period_frames = _slice_contribution_period_frames(
@@ -571,7 +573,9 @@ def _prepare_contribution_period(
     period_slice_df = period_frames.period_slice_df
     portfolio_period_slice_df = period_frames.portfolio_period_slice_df
 
-    if period_slice_df.empty or (require_portfolio_slice and portfolio_period_slice_df.empty):
+    if (period_slice_df.empty and not allow_empty_position_slice) or (
+        require_portfolio_slice and portfolio_period_slice_df.empty
+    ):
         return None
 
     period_methodology_context = _build_contribution_period_methodology_context(

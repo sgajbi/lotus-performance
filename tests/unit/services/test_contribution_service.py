@@ -640,6 +640,59 @@ def test_prepare_contribution_period_requires_portfolio_slice_when_requested(mon
     assert audit_state.delta_positions == 0
 
 
+def test_prepare_contribution_period_allows_empty_hierarchy_position_slice(monkeypatch):
+    period_slice_df = pd.DataFrame(
+        columns=[
+            "position_id",
+            "smoothed_contribution",
+            "smoothed_local_contribution",
+            "daily_weight",
+        ]
+    )
+    portfolio_period_slice_df = pd.DataFrame({"portfolio_id": ["P"]})
+    methodology_context = ContributionPeriodMethodologyContext(
+        average_weight_shadow_df=pd.DataFrame(
+            columns=["position_id", "average_weight", "reset_aware_average_weight_shadow"]
+        ),
+        delta_positions=0,
+        max_shadow_delta_bp=0,
+        sum_shadow_delta_bp=0,
+        position_reset_dates=set(),
+        portfolio_reset_dates=set(),
+        position_flow_balance_counts={"position_flow_residual_days": 0},
+    )
+    period = SimpleNamespace(name="MTD", start_date=date(2026, 9, 1), end_date=date(2026, 9, 3))
+    audit_state = AverageWeightShadowAuditState()
+
+    monkeypatch.setattr(
+        contribution_service,
+        "_slice_contribution_period_frames",
+        lambda **_kwargs: SimpleNamespace(
+            period_slice_df=period_slice_df,
+            portfolio_period_slice_df=portfolio_period_slice_df,
+        ),
+    )
+    monkeypatch.setattr(
+        contribution_service,
+        "_build_contribution_period_methodology_context",
+        lambda **_kwargs: methodology_context,
+    )
+
+    preparation = contribution_service._prepare_contribution_period(
+        daily_contributions_df=pd.DataFrame(),
+        portfolio_results_df=pd.DataFrame(),
+        period=period,
+        average_weight_audit_state=audit_state,
+        allow_empty_position_slice=True,
+        require_portfolio_slice=True,
+    )
+
+    assert preparation is not None
+    assert preparation.period_slice_df is period_slice_df
+    assert preparation.portfolio_period_slice_df is portfolio_period_slice_df
+    assert preparation.period_methodology_context is methodology_context
+
+
 def test_build_contribution_period_supportability_preserves_evidence_inputs(monkeypatch):
     period_slice_df = pd.DataFrame({"position_id": ["A"], "smoothed_contribution": [0.01]})
     portfolio_period_slice_df = pd.DataFrame({"portfolio_id": ["P"]})
@@ -1034,7 +1087,14 @@ def test_build_hierarchy_period_contribution_result_preserves_hierarchy_outputs(
     source_position_window_complete,
     expected_inception_dates,
 ):
-    period_slice_df = pd.DataFrame({"position_id": ["A"], "smoothed_contribution": [0.01]})
+    period_slice_df = pd.DataFrame(
+        columns=[
+            "position_id",
+            "smoothed_contribution",
+            "smoothed_local_contribution",
+            "daily_weight",
+        ]
+    )
     portfolio_period_slice_df = pd.DataFrame({"portfolio_id": ["P"]})
     totals_df = pd.DataFrame({"position_id": ["A"], "selected_average_weight": [0.5]})
     period = SimpleNamespace(name="SI", start_date=date(2026, 1, 1), end_date=date(2026, 3, 31))

@@ -530,6 +530,58 @@ def test_hierarchy_group_returns_use_source_membership_for_position_wholly_absen
         assert missing_group_return["series"] == []
 
 
+def test_hierarchy_preserves_period_when_every_source_group_is_absent():
+    prior_date = date(2026, 8, 31)
+    dates = [date(2026, 9, 1), date(2026, 9, 2), date(2026, 9, 3)]
+    request = ContributionRequest.model_validate(
+        {
+            "portfolio_id": "PB_TEST",
+            "report_start_date": str(dates[0]),
+            "report_end_date": str(dates[-1]),
+            "analyses": [{"period": "MTD", "frequencies": ["daily"]}],
+            "hierarchy": ["sector"],
+            "emit": {"threshold_weight": 0.99, "top_n_per_level": 1},
+            "portfolio_data": {
+                "metric_basis": "NET",
+                "valuation_points": [{"perf_date": value, "begin_mv": 1000, "end_mv": 1010} for value in dates],
+            },
+            "positions_data": [
+                {"position_id": "PRIOR_TECH", "valuation_points": []},
+                {"position_id": "PRIOR_HEALTH", "valuation_points": []},
+            ],
+        }
+    )
+    source_position_history_df = pd.DataFrame(
+        {
+            "position_id": ["PRIOR_TECH", "PRIOR_HEALTH"],
+            PortfolioColumns.PERF_DATE.value: [prior_date, prior_date],
+            "sector": ["Technology", "Health Care"],
+        }
+    )
+
+    hierarchy = _build_hierarchy_from_adjusted_position_series(
+        period_slice_df=source_position_history_df.iloc[0:0],
+        portfolio_period_slice_df=pd.DataFrame({PortfolioColumns.PERF_DATE.value: dates}),
+        source_position_history_df=source_position_history_df,
+        source_position_window_complete=True,
+        position_series=[],
+        request=request,
+    )
+
+    assert hierarchy["summary"]["portfolio_contribution"] == 0.0
+    rows = {row["key"]["sector"]: row for row in hierarchy["levels"][0]["rows"]}
+    assert set(rows) == {"Technology", "Health Care"}
+    for row in rows.values():
+        assert row["contribution"] == 0.0
+        assert row["weight_avg"] == 0.0
+        assert row["group_return"] == {
+            "status": "UNAVAILABLE",
+            "currency": None,
+            "series": [],
+            "reason": "SOURCE_POSITION_VALUATION_ECONOMICS_INCOMPLETE",
+        }
+
+
 def test_hierarchy_group_returns_refuse_unproven_leading_gap_from_bounded_source():
     dates = [date(2026, 9, 1), date(2026, 9, 2), date(2026, 9, 3)]
     request = ContributionRequest.model_validate(
