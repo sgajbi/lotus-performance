@@ -287,6 +287,7 @@ def test_hierarchy_group_returns_publish_explicit_zero_exposure_before_group_inc
 
     hierarchy = _build_hierarchy_from_adjusted_position_series(
         period_slice_df=period_slice_df,
+        portfolio_period_slice_df=pd.DataFrame({PortfolioColumns.PERF_DATE.value: dates}),
         position_series=position_series,
         request=request,
     )
@@ -299,6 +300,57 @@ def test_hierarchy_group_returns_publish_explicit_zero_exposure_before_group_inc
         {"date": dates[2], "return_pct": 4.0, "portfolio_weight_pct": 30.0},
     ]
     assert rows["Late"]["group_return"]["period_return_pct"] == pytest.approx(7.12)
+
+
+def test_hierarchy_group_returns_refuse_post_inception_portfolio_calendar_gap():
+    dates = [date(2026, 3, 30), date(2026, 3, 31), date(2026, 4, 1)]
+    request = ContributionRequest.model_validate(
+        {
+            "portfolio_id": "PB_TEST",
+            "report_start_date": str(dates[0]),
+            "report_end_date": str(dates[-1]),
+            "analyses": [{"period": "SI", "frequencies": ["daily"]}],
+            "hierarchy": ["sector"],
+            "emit": {"threshold_weight": 0.0},
+            "portfolio_data": {
+                "metric_basis": "NET",
+                "valuation_points": [{"perf_date": value, "begin_mv": 1000, "end_mv": 1010} for value in dates],
+            },
+            "positions_data": [{"position_id": "GAPPED", "valuation_points": []}],
+        }
+    )
+    period_slice_df = pd.DataFrame(
+        {
+            "position_id": ["GAPPED", "GAPPED"],
+            PortfolioColumns.PERF_DATE.value: [dates[0], dates[2]],
+            PortfolioColumns.DAILY_ROR.value: [1.0, 2.0],
+            "capital_inst": [1000.0, 1010.0],
+            "daily_weight": [1.0, 1.0],
+            "currency": ["USD", "USD"],
+            "sector": ["Technology", "Technology"],
+        }
+    )
+    position_series = [
+        PositionContributionSeries(
+            position_id="GAPPED",
+            series=[
+                PositionDailyContribution(date=dates[0], contribution=1.0),
+                PositionDailyContribution(date=dates[2], contribution=2.0),
+            ],
+        )
+    ]
+
+    hierarchy = _build_hierarchy_from_adjusted_position_series(
+        period_slice_df=period_slice_df,
+        portfolio_period_slice_df=pd.DataFrame({PortfolioColumns.PERF_DATE.value: dates}),
+        position_series=position_series,
+        request=request,
+    )
+
+    group_return = hierarchy["levels"][0]["rows"][0]["group_return"]
+    assert group_return["status"] == "UNAVAILABLE"
+    assert group_return["reason"] == "SOURCE_POSITION_VALUATION_ECONOMICS_INCOMPLETE"
+    assert group_return["series"] == []
 
 
 def test_hierarchy_metadata_helpers_align_dates_and_unclassified_policy():

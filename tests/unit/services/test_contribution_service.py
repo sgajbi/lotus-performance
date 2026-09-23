@@ -961,6 +961,7 @@ def test_build_hierarchy_contribution_position_assembly_preserves_hierarchy_proj
         request=request,
         period=period,
         period_slice_df=period_slice_df,
+        portfolio_period_slice_df=period_slice_df,
         period_methodology_context=methodology_context,
         reset_aware_average_weight_mode="candidate_periods",
         total_portfolio_return=0.02,
@@ -984,6 +985,7 @@ def test_build_hierarchy_contribution_position_assembly_preserves_hierarchy_proj
     assert contribution_calls[0]["average_weight_column"] == "selected_average_weight"
     assert series_calls[0]["force_position_series"] is True
     assert hierarchy_calls[0]["period_slice_df"] is period_slice_df
+    assert hierarchy_calls[0]["portfolio_period_slice_df"] is period_slice_df
     assert hierarchy_calls[0]["position_series"] == ["position-series"]
     pd.testing.assert_frame_equal(hierarchy_calls[0]["position_average_weights"], totals_df)
     assert hierarchy_calls[0]["request"] is request

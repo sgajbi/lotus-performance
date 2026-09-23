@@ -191,6 +191,7 @@ def _residual_adjusted_daily_totals_by_date(
 def _build_hierarchy_from_adjusted_position_series(
     *,
     period_slice_df: pd.DataFrame,
+    portfolio_period_slice_df: pd.DataFrame | None = None,
     position_series: list[PositionContributionSeries],
     position_average_weights: pd.DataFrame | None = None,
     request: ContributionRequest,
@@ -214,7 +215,8 @@ def _build_hierarchy_from_adjusted_position_series(
         return {"summary": summary, "levels": []}
     adjusted_df, merged_df = prepared_frames
 
-    observed_dates = observation_date_set(period_slice_df[PortfolioColumns.PERF_DATE.value])
+    calendar_df = portfolio_period_slice_df if portfolio_period_slice_df is not None else period_slice_df
+    observed_dates = observation_date_set(calendar_df[PortfolioColumns.PERF_DATE.value])
     day_count = max(1, len(observed_dates))
     response_levels = _build_hierarchy_response_levels(
         merged_df=merged_df,
@@ -431,6 +433,14 @@ def _group_return_evidence(
     currency = _group_return_currency(group_df=group_df, request=request)
     if currency is None:
         return _unavailable_group_return_evidence("MIXED_LOCAL_CURRENCIES_HAVE_NO_SINGLE_GROUP_RETURN")
+    if observation_dates is not None and not _group_position_calendars_are_complete(
+        group_df,
+        observation_dates=observation_dates,
+    ):
+        return _unavailable_group_return_evidence(
+            "SOURCE_POSITION_VALUATION_ECONOMICS_INCOMPLETE",
+            currency=currency,
+        )
 
     points_by_date: dict[date, dict[str, Any]] = {}
     for observation_date, daily_df in group_df.groupby(PortfolioColumns.PERF_DATE.value, sort=True):
@@ -448,9 +458,9 @@ def _group_return_evidence(
             "return_pct": _as_numeric((capital * returns).sum() / denominator),
             "portfolio_weight_pct": _as_numeric(source_weights.sum()) * 100,
         }
-    # The enclosing period slice is the complete, source-owned position calendar.
-    # Absence from this explicit group on one of those dates therefore means zero
-    # exposure, rather than an unknown date that a consumer would have to infer.
+    # The portfolio slice is the source-owned observation calendar. Only dates before
+    # every position in this group first appears are proven zero exposure. The
+    # completeness guard above refuses gaps at or after a position's inception.
     complete_calendar = set(points_by_date)
     if observation_dates is not None:
         complete_calendar.update(observation_dates)
@@ -475,6 +485,24 @@ def _group_return_evidence(
         "series": points,
         "reason": None,
     }
+
+
+def _group_position_calendars_are_complete(
+    group_df: pd.DataFrame,
+    *,
+    observation_dates: set[date],
+) -> bool:
+    for _, position_df in group_df.groupby("position_id", dropna=False):
+        position_dates = observation_date_set(position_df[PortfolioColumns.PERF_DATE.value])
+        if not position_dates:
+            return False
+        first_observation_date = min(position_dates)
+        required_dates = {
+            observation_date for observation_date in observation_dates if observation_date >= first_observation_date
+        }
+        if not required_dates.issubset(position_dates):
+            return False
+    return True
 
 
 def _group_return_input_is_incomplete(group_df: pd.DataFrame) -> bool:
