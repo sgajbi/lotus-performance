@@ -118,6 +118,18 @@ def test_position_cash_flows_are_losslessly_normalizable_accepts_empty_and_suppo
     )
 
 
+def test_position_cash_flows_are_losslessly_normalizable_accepts_zero_flow_without_fx():
+    assert (
+        position_cash_flows_are_losslessly_normalizable(
+            [{"amount": "0", "timing": "bod", "cash_flow_type": "external_flow"}],
+            row={"position_currency": "EUR"},
+            value_basis="portfolio",
+            portfolio_currency="USD",
+        )
+        is True
+    )
+
+
 @pytest.mark.parametrize("fx_rate", [None, "NaN", "Infinity", "0", "-1"])
 def test_position_cash_flows_are_losslessly_normalizable_rejects_lossy_fx_conversion(fx_rate):
     assert (

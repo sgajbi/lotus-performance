@@ -401,6 +401,36 @@ def test_instrumentator_route_name_falls_back_when_original_resolver_rejects_req
     assert _instrumentator_route_name(request) == "/api/items/{item_id}"
 
 
+def test_instrumentator_route_name_forwards_root_path_policy_to_current_resolver(monkeypatch):
+    received_include_root_path = None
+
+    def current_resolver(request, should_include_root_path):  # noqa: ARG001
+        nonlocal received_include_root_path
+        received_include_root_path = should_include_root_path
+        return "/api/items/{item_id}"
+
+    monkeypatch.setattr(observability, "_ORIGINAL_INSTRUMENTATOR_ROUTE_NAME_RESOLVER", current_resolver)
+
+    request = Request(
+        {
+            "type": "http",
+            "http_version": "1.1",
+            "method": "GET",
+            "scheme": "http",
+            "path": "/api/items/123",
+            "root_path": "/performance",
+            "query_string": b"",
+            "headers": [],
+            "client": ("testclient", 50000),
+            "server": ("testserver", 80),
+            "app": FastAPI(),
+        }
+    )
+
+    assert _instrumentator_route_name(request, should_include_root_path=True) == "/api/items/{item_id}"
+    assert received_include_root_path is True
+
+
 def test_matched_route_name_returns_route_path_only_for_full_matches():
     class RouteStub:
         path = "/api/items/{item_id}"

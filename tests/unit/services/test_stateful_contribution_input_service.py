@@ -1260,6 +1260,12 @@ def test_stateful_contribution_position_series_skips_invalid_or_unusable_rows():
                 "beginning_market_value_portfolio_currency": None,
                 "ending_market_value_portfolio_currency": "12",
             },
+            {
+                "position_id": "POS_INVALID_DATE",
+                "valuation_date": "not-a-date",
+                "beginning_market_value_portfolio_currency": "10",
+                "ending_market_value_portfolio_currency": "11",
+            },
         ],
         currency_mode="BASE_ONLY",
         reporting_currency=None,
@@ -1271,6 +1277,62 @@ def test_stateful_contribution_position_series_skips_invalid_or_unusable_rows():
         {"perf_date": "2025-01-02"}
     ]
     assert position_series.source_rows_complete is False
+
+
+def test_stateful_contribution_position_series_withholds_malformed_cash_flow_without_crashing():
+    position_series = _stateful_contribution_position_series(
+        rows=[
+            {
+                "position_id": "POS_1",
+                "valuation_date": "2025-01-01",
+                "position_currency": "USD",
+                "cash_flow_currency": "USD",
+                "beginning_market_value_portfolio_currency": "100",
+                "ending_market_value_portfolio_currency": "105",
+                "cash_flows": [
+                    {
+                        "amount": "not-a-number",
+                        "timing": "bod",
+                        "cash_flow_type": "external_flow",
+                    }
+                ],
+            }
+        ],
+        currency_mode="BASE_ONLY",
+        portfolio_currency="USD",
+        reporting_currency=None,
+    )
+
+    assert len(position_series.valuation_points_by_position_id["POS_1"]) == 1
+    assert position_series.valuation_points_by_position_id["POS_1"][0]["bod_cf"].is_zero()
+    assert position_series.source_rows_complete is False
+
+
+def test_stateful_contribution_position_series_accepts_zero_cross_currency_flow_without_fx():
+    position_series = _stateful_contribution_position_series(
+        rows=[
+            {
+                "position_id": "POS_1",
+                "valuation_date": "2025-01-01",
+                "position_currency": "EUR",
+                "beginning_market_value_portfolio_currency": "100",
+                "ending_market_value_portfolio_currency": "105",
+                "cash_flows": [
+                    {
+                        "amount": "0",
+                        "timing": "bod",
+                        "cash_flow_type": "external_flow",
+                    }
+                ],
+            }
+        ],
+        currency_mode="BASE_ONLY",
+        portfolio_currency="USD",
+        reporting_currency=None,
+    )
+
+    assert position_series.valuation_points_by_position_id["POS_1"][0]["bod_cf"].is_zero()
+    assert position_series.source_rows_complete is True
 
 
 def test_stateful_contribution_position_series_withholds_completeness_for_discarded_nested_cash_flow():
