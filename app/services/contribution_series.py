@@ -196,6 +196,7 @@ def _build_hierarchy_from_adjusted_position_series(
     source_position_window_complete: bool | None = None,
     position_series: list[PositionContributionSeries],
     position_average_weights: pd.DataFrame | None = None,
+    position_weight_components: pd.DataFrame | None = None,
     proven_position_inception_dates: dict[str, date] | None = None,
     request: ContributionRequest,
 ) -> dict[str, Any]:
@@ -221,6 +222,7 @@ def _build_hierarchy_from_adjusted_position_series(
         period_slice_df=period_slice_df,
         position_series=position_series,
         position_average_weights=position_average_weights,
+        position_weight_components=position_weight_components,
         source_position_memberships=source_position_memberships,
         observed_dates=observed_dates,
         request=request,
@@ -253,6 +255,7 @@ def _prepared_hierarchy_frames_or_source_membership_fallback(
     period_slice_df: pd.DataFrame,
     position_series: list[PositionContributionSeries],
     position_average_weights: pd.DataFrame | None,
+    position_weight_components: pd.DataFrame | None,
     source_position_memberships: pd.DataFrame | None,
     observed_dates: set[date],
     request: ContributionRequest,
@@ -266,6 +269,7 @@ def _prepared_hierarchy_frames_or_source_membership_fallback(
             period_slice_df=period_slice_df,
             position_series=position_series,
             position_average_weights=position_average_weights,
+            position_weight_components=position_weight_components,
             source_position_memberships=source_position_memberships,
             request=request,
         )
@@ -295,6 +299,7 @@ def _prepared_adjusted_hierarchy_frames(
     period_slice_df: pd.DataFrame,
     position_series: list[PositionContributionSeries],
     position_average_weights: pd.DataFrame | None = None,
+    position_weight_components: pd.DataFrame | None = None,
     source_position_memberships: pd.DataFrame | None = None,
     request: ContributionRequest,
 ) -> tuple[pd.DataFrame, pd.DataFrame] | None:
@@ -307,6 +312,7 @@ def _prepared_adjusted_hierarchy_frames(
         period_slice_df,
         hierarchy_levels=request.hierarchy or [],
         position_average_weights=position_average_weights,
+        position_weight_components=position_weight_components,
     )
     merged_df = adjusted_df.merge(
         daily_meta,
@@ -318,9 +324,6 @@ def _prepared_adjusted_hierarchy_frames(
         source_position_memberships=source_position_memberships,
         hierarchy_levels=request.hierarchy or [],
     )
-    merged_df["position_observation_count"] = merged_df.groupby("position_id")[
-        PortfolioColumns.PERF_DATE.value
-    ].transform("nunique")
     merged_df = _apply_hierarchy_unclassified_policy(merged_df, request=request)
     if merged_df.empty:
         return None
@@ -390,6 +393,7 @@ def _daily_hierarchy_metadata(
     *,
     hierarchy_levels: list[str],
     position_average_weights: pd.DataFrame | None = None,
+    position_weight_components: pd.DataFrame | None = None,
 ) -> pd.DataFrame:
     meta_columns = _hierarchy_metadata_columns(hierarchy_levels)
     daily_meta = period_slice_df.copy()
@@ -414,7 +418,42 @@ def _daily_hierarchy_metadata(
             daily_meta["selected_average_weight"],
             errors="coerce",
         )
+    _apply_selected_weight_components(
+        daily_meta,
+        position_weight_components=position_weight_components,
+    )
     return daily_meta[meta_columns]
+
+
+def _apply_selected_weight_components(
+    daily_meta: pd.DataFrame,
+    *,
+    position_weight_components: pd.DataFrame | None,
+) -> None:
+    if position_weight_components is not None and not position_weight_components.empty:
+        join_columns = ["position_id", PortfolioColumns.PERF_DATE.value]
+        components = position_weight_components[[*join_columns, "selected_weight_component"]].copy()
+        components[PortfolioColumns.PERF_DATE.value] = observation_date_series(
+            components[PortfolioColumns.PERF_DATE.value]
+        )
+        merged = daily_meta[join_columns].merge(components, on=join_columns, how="left")
+        daily_meta["selected_weight_component"] = pd.to_numeric(
+            merged["selected_weight_component"],
+            errors="coerce",
+        ).array
+        return
+
+    source_weights = _source_daily_weights(daily_meta)
+    position_weight_sums = source_weights.groupby(daily_meta["position_id"]).transform("sum")
+    scale = pd.to_numeric(daily_meta["selected_average_weight"], errors="coerce") / position_weight_sums
+    daily_meta["selected_weight_component"] = source_weights * scale
+    zero_weight_positions = position_weight_sums.eq(0) & pd.to_numeric(
+        daily_meta["selected_average_weight"], errors="coerce"
+    ).eq(0)
+    position_observation_counts = source_weights.groupby(daily_meta["position_id"]).transform("count")
+    daily_meta.loc[zero_weight_positions, "selected_weight_component"] = (
+        source_weights / position_observation_counts
+    ).loc[zero_weight_positions]
 
 
 def _preserve_source_daily_weight(daily_meta: pd.DataFrame) -> None:
@@ -438,6 +477,7 @@ def _hierarchy_metadata_columns(hierarchy_levels: list[str]) -> list[str]:
         "daily_weight",
         "source_daily_weight",
         "selected_average_weight",
+        "selected_weight_component",
         "currency",
     ]
     for level_name in hierarchy_levels:
@@ -702,20 +742,10 @@ def _selected_group_weight(
 ) -> tuple[Any, bool]:
     if group_df.empty:
         return 0.0, False
-    selected_weights = group_df[
-        ["position_id", "selected_average_weight", "position_observation_count"]
-    ].drop_duplicates("position_id")
-    selected_numeric = pd.to_numeric(selected_weights["selected_average_weight"], errors="coerce")
-    if selected_numeric.isna().any():
+    selected_components = pd.to_numeric(group_df["selected_weight_component"], errors="coerce")
+    if selected_components.isna().any():
         return 0.0, False
-    group_date_counts = group_df.groupby("position_id")[PortfolioColumns.PERF_DATE.value].nunique()
-    selected_weights = selected_weights.assign(
-        group_date_count=selected_weights["position_id"].map(group_date_counts),
-    )
-    if selected_weights[["group_date_count", "position_observation_count"]].isna().any().any():
-        return 0.0, False
-    allocation = selected_weights["group_date_count"] / selected_weights["position_observation_count"]
-    return _as_numeric((selected_numeric * allocation).sum()), True
+    return _as_numeric(selected_components.sum()), True
 
 
 def _group_return_evidence(

@@ -143,6 +143,36 @@ def _reset_aware_position_weight_totals(
     )
 
 
+def _selected_average_weight_components(
+    period_slice_df: pd.DataFrame,
+    portfolio_period_slice_df: pd.DataFrame,
+    *,
+    use_reset_aware_average_weight: bool,
+) -> pd.DataFrame:
+    """Project each daily position weight onto the selected average-weight denominator."""
+    component_df = period_slice_df[["position_id", PortfolioColumns.PERF_DATE.value, "daily_weight"]].copy()
+    component_df[PortfolioColumns.PERF_DATE.value] = observation_date_series(
+        component_df[PortfolioColumns.PERF_DATE.value]
+    )
+    daily_weights = numeric_series(component_df["daily_weight"])
+    if use_reset_aware_average_weight:
+        valid_portfolio_days = _reset_aware_valid_portfolio_days(portfolio_period_slice_df)
+        if valid_portfolio_days is not None:
+            valid_day_count = int(valid_portfolio_days.nunique())
+            selected_daily_weights = daily_weights.where(
+                component_df[PortfolioColumns.PERF_DATE.value].isin(set(valid_portfolio_days)),
+                0.0,
+            )
+            component_df["selected_weight_component"] = (
+                selected_daily_weights / valid_day_count if valid_day_count else 0.0
+            )
+            return component_df.drop(columns=["daily_weight"])
+
+    position_observation_counts = component_df.groupby("position_id")["daily_weight"].transform("count")
+    component_df["selected_weight_component"] = daily_weights / position_observation_counts
+    return component_df.drop(columns=["daily_weight"])
+
+
 def _average_weight_shadow_delta_metrics(current_average_weights: pd.DataFrame) -> tuple[int, int, int]:
     delta_position_count = int(
         (current_average_weights["average_weight"] - current_average_weights["reset_aware_average_weight_shadow"])
