@@ -194,6 +194,7 @@ def _build_hierarchy_from_adjusted_position_series(
     portfolio_period_slice_df: pd.DataFrame | None = None,
     position_series: list[PositionContributionSeries],
     position_average_weights: pd.DataFrame | None = None,
+    position_first_observation_dates: dict[str, date] | None = None,
     request: ContributionRequest,
 ) -> dict[str, Any]:
     """Builds hierarchy rows from the same adjusted daily position series emitted to clients."""
@@ -217,11 +218,15 @@ def _build_hierarchy_from_adjusted_position_series(
 
     calendar_df = portfolio_period_slice_df if portfolio_period_slice_df is not None else period_slice_df
     observed_dates = observation_date_set(calendar_df[PortfolioColumns.PERF_DATE.value])
-    day_count = max(1, len(observed_dates))
+    position_day_count = max(
+        1,
+        len(observation_date_set(period_slice_df[PortfolioColumns.PERF_DATE.value])),
+    )
     response_levels = _build_hierarchy_response_levels(
         merged_df=merged_df,
         observation_dates=observed_dates,
-        day_count=day_count,
+        day_count=position_day_count,
+        position_first_observation_dates=position_first_observation_dates,
         request=request,
     )
 
@@ -312,14 +317,17 @@ def _daily_hierarchy_metadata(
             daily_meta[evidence_column] = float("nan")
     _preserve_source_daily_weight(daily_meta)
     daily_meta[PortfolioColumns.PERF_DATE.value] = observation_date_series(daily_meta[PortfolioColumns.PERF_DATE.value])
+    daily_meta["selected_average_weight"] = pd.NA
     if position_average_weights is not None and not position_average_weights.empty:
-        selected_weights = position_average_weights.rename(columns={"selected_average_weight": "daily_weight"})
-        daily_meta = daily_meta.drop(columns=["daily_weight"], errors="ignore").merge(
-            selected_weights[["position_id", "daily_weight"]],
+        daily_meta = daily_meta.drop(columns=["selected_average_weight"]).merge(
+            position_average_weights[["position_id", "selected_average_weight"]],
             on="position_id",
             how="left",
         )
-        daily_meta["daily_weight"] = numeric_series(daily_meta["daily_weight"], default=0.0)
+        daily_meta["selected_average_weight"] = pd.to_numeric(
+            daily_meta["selected_average_weight"],
+            errors="coerce",
+        )
     return daily_meta[meta_columns]
 
 
@@ -343,6 +351,7 @@ def _hierarchy_metadata_columns(hierarchy_levels: list[str]) -> list[str]:
         "capital_inst",
         "daily_weight",
         "source_daily_weight",
+        "selected_average_weight",
         "currency",
     ]
     for level_name in hierarchy_levels:
@@ -370,6 +379,7 @@ def _build_hierarchy_response_levels(
     merged_df: pd.DataFrame,
     observation_dates: set[date],
     day_count: int,
+    position_first_observation_dates: dict[str, date] | None,
     request: ContributionRequest,
 ) -> list[dict[str, Any]]:
     response_levels = []
@@ -380,9 +390,13 @@ def _build_hierarchy_response_levels(
             merged_df=merged_df,
             level_keys=level_keys,
             observation_dates=observation_dates,
+            position_first_observation_dates=position_first_observation_dates,
             request=request,
         )
-        level_agg["weight_avg"] = level_agg["weight_sum"] / day_count
+        level_agg["weight_avg"] = level_agg["selected_weight_sum"].where(
+            level_agg["selected_weight_complete"],
+            level_agg["weight_sum"] / day_count,
+        )
         rows = _build_hierarchy_rows(level_agg=level_agg, level_keys=level_keys, request=request)
         response_levels.append(
             {
@@ -400,20 +414,25 @@ def _aggregate_hierarchy_level(
     merged_df: pd.DataFrame,
     level_keys: list[str],
     observation_dates: set[date],
+    position_first_observation_dates: dict[str, date] | None,
     request: ContributionRequest,
 ) -> pd.DataFrame:
     records: list[dict[str, Any]] = []
     for raw_key, group_df in merged_df.groupby(level_keys, dropna=False):
         key_values = raw_key if isinstance(raw_key, tuple) else (raw_key,)
         record: dict[str, Any] = {key: value for key, value in zip(level_keys, key_values, strict=True)}
+        selected_weight_sum, selected_weight_complete = _selected_group_weight(group_df)
         record.update(
             {
                 "contribution": _as_numeric(group_df["adjusted_contribution"].sum()),
                 "weight_sum": _as_numeric(group_df["daily_weight"].sum()),
+                "selected_weight_sum": selected_weight_sum,
+                "selected_weight_complete": selected_weight_complete,
                 "group_return": _group_return_evidence(
                     group_df=group_df,
                     request=request,
                     observation_dates=observation_dates,
+                    position_first_observation_dates=position_first_observation_dates,
                 ),
             }
         )
@@ -421,11 +440,20 @@ def _aggregate_hierarchy_level(
     return pd.DataFrame(records)
 
 
+def _selected_group_weight(group_df: pd.DataFrame) -> tuple[float, bool]:
+    selected_weights = group_df[["position_id", "selected_average_weight"]].drop_duplicates("position_id")
+    selected_numeric = pd.to_numeric(selected_weights["selected_average_weight"], errors="coerce")
+    if selected_numeric.isna().any():
+        return 0.0, False
+    return _as_numeric(selected_numeric.sum()), True
+
+
 def _group_return_evidence(
     *,
     group_df: pd.DataFrame,
     request: ContributionRequest,
     observation_dates: set[date] | None = None,
+    position_first_observation_dates: dict[str, date] | None = None,
 ) -> dict[str, Any]:
     if _group_return_input_is_incomplete(group_df):
         return _unavailable_group_return_evidence("SOURCE_POSITION_VALUATION_ECONOMICS_INCOMPLETE")
@@ -436,6 +464,7 @@ def _group_return_evidence(
     if observation_dates is not None and not _group_position_calendars_are_complete(
         group_df,
         observation_dates=observation_dates,
+        position_first_observation_dates=position_first_observation_dates,
     ):
         return _unavailable_group_return_evidence(
             "SOURCE_POSITION_VALUATION_ECONOMICS_INCOMPLETE",
@@ -509,18 +538,42 @@ def _group_position_calendars_are_complete(
     group_df: pd.DataFrame,
     *,
     observation_dates: set[date],
+    position_first_observation_dates: dict[str, date] | None = None,
 ) -> bool:
-    for _, position_df in group_df.groupby("position_id", dropna=False):
+    for position_id, position_df in group_df.groupby("position_id", dropna=False):
         position_dates = observation_date_set(position_df[PortfolioColumns.PERF_DATE.value])
         if not position_dates:
             return False
-        first_observation_date = min(position_dates)
+        period_first_observation_date = min(position_dates)
+        source_first_observation_date = (position_first_observation_dates or {}).get(str(position_id))
+        first_observation_date = min(
+            period_first_observation_date,
+            source_first_observation_date or period_first_observation_date,
+        )
         required_dates = {
             observation_date for observation_date in observation_dates if observation_date >= first_observation_date
         }
         if not required_dates.issubset(position_dates):
             return False
     return True
+
+
+def _position_first_observation_dates(source_df: pd.DataFrame) -> dict[str, date]:
+    required_columns = {"position_id", PortfolioColumns.PERF_DATE.value}
+    if source_df.empty or not required_columns.issubset(source_df.columns):
+        return {}
+
+    source_dates = source_df[["position_id", PortfolioColumns.PERF_DATE.value]].copy()
+    source_dates[PortfolioColumns.PERF_DATE.value] = observation_date_series(
+        source_dates[PortfolioColumns.PERF_DATE.value]
+    )
+    source_dates = source_dates.dropna(subset=["position_id", PortfolioColumns.PERF_DATE.value])
+    return {
+        str(position_id): first_date
+        for position_id, first_date in source_dates.groupby("position_id")[PortfolioColumns.PERF_DATE.value]
+        .min()
+        .items()
+    }
 
 
 def _group_return_input_is_incomplete(group_df: pd.DataFrame) -> bool:
