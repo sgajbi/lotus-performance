@@ -80,7 +80,9 @@ When `hierarchy` is supplied, hierarchy level output remains enabled for existin
 position contribution series used for position output, so position rows, daily series, and hierarchy
 rows tell the same contribution story. In reset-aware average-weight rollout mode, hierarchy
 `levels[].rows[].weight_avg` uses the same selected denominator as
-`position_contributions[].average_weight`.
+`position_contributions[].average_weight`. When a position changes hierarchy membership inside the
+period, its selected period-average weight is prorated across the effective observation dates in
+each group, so the groups reconcile to the position weight instead of duplicating it.
 
 Each explicit hierarchy row also publishes `group_return`. Its `series` aligns a genuine
 source-valuation group return and beginning-capital portfolio weight on every observation `date`,

@@ -1722,6 +1722,9 @@ def test_stateful_contribution_applies_effective_membership_before_hierarchy_agg
     rows = {row["key"]["sector"]: row for row in response.json()["results_by_period"]["SI"]["levels"][0]["rows"]}
     assert rows["Sector A"]["contribution"] > 0
     assert rows["Sector B"]["contribution"] > 0
+    assert rows["Sector A"]["weight_avg"] == pytest.approx(50.0)
+    assert rows["Sector B"]["weight_avg"] == pytest.approx(50.0)
+    assert sum(row["weight_avg"] for row in rows.values()) == pytest.approx(100.0)
     assert rows["Sector A"]["group_return"]["series"] == [
         {"date": "2025-01-01", "return_pct": 1.0, "portfolio_weight_pct": 100.0},
         {"date": "2025-01-02", "return_pct": 0.0, "portfolio_weight_pct": 0.0},
