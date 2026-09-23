@@ -247,3 +247,4 @@ class ResolvedContributionExecutionRequest(BaseModel):
     contribution_request: ContributionRequest
     portfolio_base_currency: str | None = None
     source_preconverted_reporting_currency: str | None = None
+    source_position_window_complete: bool = False

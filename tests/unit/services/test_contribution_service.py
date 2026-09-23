@@ -213,6 +213,7 @@ def test_build_contribution_results_by_period_routes_flat_periods_and_tracks_max
         portfolio_results_df=pd.DataFrame(),
         reset_aware_average_weight_mode="candidate_periods",
         average_weight_audit_state=audit_state,
+        source_position_window_complete=True,
     )
 
     assert flat_calls == ["JAN", "FEB", "MAR"]
@@ -287,6 +288,7 @@ def test_run_contribution_calculation_prepares_engine_inputs_and_period_results(
     result = contribution_service._run_contribution_calculation(
         request,
         reset_aware_average_weight_mode="candidate_periods",
+        source_position_window_complete=True,
     )
 
     assert result.engine_inputs is engine_inputs
@@ -301,6 +303,7 @@ def test_run_contribution_calculation_prepares_engine_inputs_and_period_results(
             "portfolio_results_df": portfolio_results_df,
             "reset_aware_average_weight_mode": "candidate_periods",
             "average_weight_audit_state": result.average_weight_audit_state,
+            "source_position_window_complete": True,
         }
     ]
 
@@ -1120,6 +1123,7 @@ def test_build_hierarchy_period_contribution_result_preserves_hierarchy_outputs(
         portfolio_results_df=pd.DataFrame(),
         reset_aware_average_weight_mode="candidate_periods",
         average_weight_audit_state=audit_state,
+        source_position_window_complete=True,
     )
 
     assert result is not None
