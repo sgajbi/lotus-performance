@@ -193,6 +193,7 @@ def _build_hierarchy_from_adjusted_position_series(
     period_slice_df: pd.DataFrame,
     portfolio_period_slice_df: pd.DataFrame | None = None,
     source_position_history_df: pd.DataFrame | None = None,
+    source_position_window_complete: bool = True,
     position_series: list[PositionContributionSeries],
     position_average_weights: pd.DataFrame | None = None,
     proven_position_inception_dates: dict[str, date] | None = None,
@@ -232,6 +233,7 @@ def _build_hierarchy_from_adjusted_position_series(
         merged_df=merged_df,
         observation_dates=observed_dates,
         source_position_memberships=source_position_memberships,
+        source_position_window_complete=source_position_window_complete,
         day_count=position_day_count,
         proven_position_inception_dates=proven_position_inception_dates,
         request=request,
@@ -434,6 +436,7 @@ def _build_hierarchy_response_levels(
     merged_df: pd.DataFrame,
     observation_dates: set[date],
     source_position_memberships: pd.DataFrame | None,
+    source_position_window_complete: bool,
     day_count: int,
     proven_position_inception_dates: dict[str, date] | None,
     request: ContributionRequest,
@@ -447,6 +450,7 @@ def _build_hierarchy_response_levels(
             level_keys=level_keys,
             observation_dates=observation_dates,
             source_position_memberships=source_position_memberships,
+            source_position_window_complete=source_position_window_complete,
             proven_position_inception_dates=proven_position_inception_dates,
             request=request,
         )
@@ -472,6 +476,7 @@ def _aggregate_hierarchy_level(
     level_keys: list[str],
     observation_dates: set[date],
     source_position_memberships: pd.DataFrame | None,
+    source_position_window_complete: bool,
     proven_position_inception_dates: dict[str, date] | None,
     request: ContributionRequest,
 ) -> pd.DataFrame:
@@ -495,6 +500,7 @@ def _aggregate_hierarchy_level(
                         level_keys=level_keys,
                         key_values=key_values,
                     ),
+                    source_position_window_complete=source_position_window_complete,
                     proven_position_inception_dates=proven_position_inception_dates,
                 ),
             }
@@ -517,11 +523,13 @@ def _group_return_evidence(
     request: ContributionRequest,
     observation_dates: set[date] | None = None,
     expected_position_ids: set[str] | None = None,
+    source_position_window_complete: bool = True,
     proven_position_inception_dates: dict[str, date] | None = None,
 ) -> dict[str, Any]:
     if _group_return_input_is_incomplete(
         group_df,
         expected_position_ids=expected_position_ids,
+        source_position_window_complete=source_position_window_complete,
     ):
         return _unavailable_group_return_evidence("SOURCE_POSITION_VALUATION_ECONOMICS_INCOMPLETE")
 
@@ -677,13 +685,16 @@ def _group_return_input_is_incomplete(
     group_df: pd.DataFrame,
     *,
     expected_position_ids: set[str] | None = None,
+    source_position_window_complete: bool = True,
 ) -> bool:
-    if group_df.empty:
+    if group_df.empty or not source_position_window_complete:
         return True
+    if group_df[PortfolioColumns.PERF_DATE.value].isna().any():
+        return True
+    if expected_position_ids is None:
+        return False
     observed_position_ids = {str(value) for value in group_df["position_id"].dropna().tolist()}
-    return group_df[PortfolioColumns.PERF_DATE.value].isna().any() or (
-        expected_position_ids is not None and not expected_position_ids.issubset(observed_position_ids)
-    )
+    return not expected_position_ids.issubset(observed_position_ids)
 
 
 def _group_return_day_is_incomplete(

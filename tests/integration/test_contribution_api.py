@@ -1470,6 +1470,7 @@ def test_stateful_contribution_reconciles_core_income_to_dated_group_returns(
 
     async def source_input(**kwargs):  # noqa: ARG001
         return SimpleNamespace(
+            position_source_rows_complete=True,
             portfolio_input=SimpleNamespace(
                 observations=[
                     {
@@ -1560,6 +1561,7 @@ def test_contribution_stateful_base_only_keeps_core_reporting_currency_on_group_
         from types import SimpleNamespace
 
         return SimpleNamespace(
+            position_source_rows_complete=True,
             portfolio_input=SimpleNamespace(
                 portfolio_currency=portfolio_currency,
                 reporting_currency=reporting_currency,
@@ -1697,6 +1699,7 @@ def test_contribution_stateful_base_only_uses_portfolio_values_without_core_repo
         from types import SimpleNamespace
 
         return SimpleNamespace(
+            position_source_rows_complete=True,
             portfolio_input=SimpleNamespace(
                 portfolio_currency="EUR",
                 reporting_currency=None,

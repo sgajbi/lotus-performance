@@ -14,6 +14,7 @@ from app.services.contribution_series import (
     _apply_hierarchy_unclassified_policy,
     _build_hierarchy_from_adjusted_position_series,
     _daily_hierarchy_metadata,
+    _group_return_evidence,
     _has_adjusted_hierarchy_inputs,
     _hierarchy_metadata_columns,
     _other_hierarchy_row_for_emission,
@@ -152,6 +153,44 @@ def test_build_hierarchy_from_adjusted_position_series_uses_observation_date_ali
         {"date": date(2026, 3, 30), "return_pct": 1.0, "portfolio_weight_pct": 50.0},
         {"date": date(2026, 3, 31), "return_pct": 2.0, "portfolio_weight_pct": 50.0},
     ]
+
+
+def test_group_return_evidence_refuses_complete_calendar_from_incomplete_stateful_source():
+    request = ContributionRequest.model_validate(
+        {
+            "portfolio_id": "PB_TEST",
+            "report_start_date": "2026-03-30",
+            "report_end_date": "2026-03-31",
+            "analyses": [{"period": "SI", "frequencies": ["daily"]}],
+            "hierarchy": ["sector"],
+            "portfolio_data": {"metric_basis": "NET", "valuation_points": []},
+            "positions_data": [],
+        }
+    )
+    complete_retained_rows = pd.DataFrame(
+        {
+            "position_id": ["SEC_A", "SEC_A"],
+            PortfolioColumns.PERF_DATE.value: [date(2026, 3, 30), date(2026, 3, 31)],
+            PortfolioColumns.DAILY_ROR.value: [1.0, 2.0],
+            "capital_inst": [500.0, 505.0],
+            "daily_weight": [0.5, 0.5],
+            "currency": ["USD", "USD"],
+        }
+    )
+
+    evidence = _group_return_evidence(
+        group_df=complete_retained_rows,
+        request=request,
+        observation_dates={date(2026, 3, 30), date(2026, 3, 31)},
+        source_position_window_complete=False,
+    )
+
+    assert evidence == {
+        "status": "UNAVAILABLE",
+        "currency": None,
+        "series": [],
+        "reason": "SOURCE_POSITION_VALUATION_ECONOMICS_INCOMPLETE",
+    }
 
 
 def test_build_hierarchy_from_adjusted_position_series_uses_selected_period_average_weights():
