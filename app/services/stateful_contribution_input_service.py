@@ -705,6 +705,10 @@ def _position_row_to_daily_point(
     )
     if value_inputs is None:
         return None
+    begin_value = _finite_decimal_or_none(value_inputs.begin_value)
+    end_value = _finite_decimal_or_none(value_inputs.end_value)
+    if begin_value is None or end_value is None:
+        return None
 
     bod_cf, eod_cf, mgmt_fees = _position_cash_flow_values(
         row=row,
@@ -712,8 +716,8 @@ def _position_row_to_daily_point(
     )
     return {
         "perf_date": valuation_date,
-        "begin_mv": Decimal(str(value_inputs.begin_value)),
-        "end_mv": Decimal(str(value_inputs.end_value)),
+        "begin_mv": begin_value,
+        "end_mv": end_value,
         "bod_cf": bod_cf,
         "eod_cf": eod_cf,
         "mgmt_fees": mgmt_fees,
