@@ -56,8 +56,10 @@ class _PortfolioChunkAccumulator:
 
 @dataclass
 class _PositionChunkAccumulator:
-    rows: list[dict[str, Any]]
+    rows: list[Any]
     page_count: int = 0
+    source_row_count: int = 0
+    discarded_source_row_count: int = 0
 
 
 @dataclass(frozen=True)
@@ -1291,13 +1293,18 @@ class StatefulInputService:
         *,
         accumulator: _PositionChunkAccumulator,
     ) -> dict[str, Any]:
+        source_rows = _position_rows_with_source_keys(accumulator.rows)
+        key_fields = ("valuation_date", "position_id", "source_position_key")
+        keyed_rows = [row for row in source_rows if _record_key_by_fields(record=row, key_fields=key_fields)]
+        rows = self._merge_dedup_records_by_fields(records=keyed_rows, key_fields=key_fields)
+        discarded_source_row_count = accumulator.discarded_source_row_count + len(accumulator.rows) - len(keyed_rows)
         return {
-            "rows": self._merge_dedup_records_by_fields(
-                records=_position_rows_with_source_keys(accumulator.rows),
-                key_fields=("valuation_date", "position_id", "source_position_key"),
-            ),
+            "rows": rows,
             "retrieval_metadata": {
                 "page_count": accumulator.page_count,
+                "source_row_count": accumulator.source_row_count,
+                "retained_row_count": len(rows),
+                "discarded_source_row_count": discarded_source_row_count,
             },
         }
 
@@ -1582,14 +1589,21 @@ class StatefulInputService:
         responses: list[tuple[int, dict[str, Any]]],
         chunk_count: int,
     ) -> dict[str, Any]:
+        rows = self._merge_dedup_records_by_fields(
+            records=_position_rows_from_responses(responses),
+            key_fields=("valuation_date", "position_id", "source_position_key"),
+        )
         return {
-            "rows": self._merge_dedup_records_by_fields(
-                records=_position_rows_from_responses(responses),
-                key_fields=("valuation_date", "position_id", "source_position_key"),
-            ),
+            "rows": rows,
             "retrieval_metadata": {
                 "chunk_count": chunk_count,
                 "page_count": self._total_retrieval_page_count(responses),
+                "source_row_count": _position_retrieval_count_total(responses, "source_row_count"),
+                "retained_row_count": len(rows),
+                "discarded_source_row_count": _position_retrieval_count_total(
+                    responses,
+                    "discarded_source_row_count",
+                ),
             },
         }
 
@@ -2334,7 +2348,14 @@ def _record_position_chunk_payload(
     accumulator: _PositionChunkAccumulator,
     payload: dict[str, Any],
 ) -> None:
-    accumulator.rows.extend(_position_rows_from_payload(payload))
+    rows = payload.get("rows")
+    if isinstance(rows, list):
+        accumulator.rows.extend(rows)
+        accumulator.source_row_count += len(rows)
+    else:
+        # Preserve a truthful loss signal even when Core violates the row collection contract.
+        accumulator.source_row_count += 1
+        accumulator.discarded_source_row_count += 1
     accumulator.page_count += 1
 
 
@@ -2467,3 +2488,19 @@ def _retrieval_page_count(payload: dict[str, Any]) -> int:
     if not isinstance(metadata, dict):
         return 0
     return int(metadata.get("page_count", 0) or 0)
+
+
+def _position_retrieval_count_total(
+    responses: list[tuple[int, dict[str, Any]]],
+    field_name: str,
+) -> int | None:
+    counts: list[int] = []
+    for _, payload in responses:
+        metadata = payload.get("retrieval_metadata")
+        if not isinstance(metadata, dict):
+            return None
+        count = metadata.get(field_name)
+        if isinstance(count, bool) or not isinstance(count, int) or count < 0:
+            return None
+        counts.append(count)
+    return sum(counts)

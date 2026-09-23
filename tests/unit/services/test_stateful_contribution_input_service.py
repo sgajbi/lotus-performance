@@ -30,7 +30,7 @@ from app.services.stateful_contribution_input_service import (
     build_stateful_contribution_input,
     retrieve_stateful_contribution_source_input,
 )
-from app.services.stateful_input_service import RetrievalMetadata
+from app.services.stateful_input_service import RetrievalMetadata, StatefulInputService
 from app.services.stateful_performance_input_service import StatefulPortfolioInput
 from core.errors import APIError
 
@@ -102,7 +102,13 @@ async def test_retrieve_stateful_contribution_source_input_returns_rows_and_meta
                 },
                 "ignored",
             ],
-            "retrieval_metadata": {"chunk_count": 2, "page_count": 3},
+            "retrieval_metadata": {
+                "chunk_count": 2,
+                "page_count": 3,
+                "source_row_count": 2,
+                "retained_row_count": 1,
+                "discarded_source_row_count": 1,
+            },
         }
     )
 
@@ -129,6 +135,7 @@ async def test_retrieve_stateful_contribution_source_input_returns_rows_and_meta
     assert portfolio_calls[0]["consumer_system"] == "lotus-performance"
     assert len(result.position_rows) == 1
     assert result.position_retrieval_metadata == RetrievalMetadata(chunk_count=2, page_count=3)
+    assert result.position_source_rows_complete is False
     assert service.calls[0]["portfolio_id"] == "P1"
     assert service.calls[0]["start_date"] == date(2025, 1, 1)
     assert service.calls[0]["end_date"] == date(2025, 1, 1)
@@ -187,7 +194,13 @@ async def test_retrieve_stateful_contribution_source_input_preserves_degraded_co
                     "ending_market_value_portfolio_currency": "1010",
                 }
             ],
-            "retrieval_metadata": {"chunk_count": 1, "page_count": 1},
+            "retrieval_metadata": {
+                "chunk_count": 1,
+                "page_count": 1,
+                "source_row_count": 1,
+                "retained_row_count": 1,
+                "discarded_source_row_count": 0,
+            },
         },
         component_status_code=503,
         component_payload=degraded_component_payload,
@@ -210,6 +223,7 @@ async def test_retrieve_stateful_contribution_source_input_preserves_degraded_co
 
     assert result.position_rows[0]["position_id"] == "POS_1"
     assert result.position_retrieval_metadata == RetrievalMetadata(chunk_count=1, page_count=1)
+    assert result.position_source_rows_complete is True
     assert result.performance_component_economics_status == 503
     assert result.performance_component_economics_payload is degraded_component_payload
     assert service.component_calls[0]["security_ids"] == ["SEC_1"]
@@ -1037,6 +1051,73 @@ def test_position_series_withholds_window_authority_when_an_earlier_core_row_is_
     surviving_points = position_series.valuation_points_by_position_id["POS_1"]
     assert [point["perf_date"] for point in surviving_points] == ["2025-01-02"]
     assert position_series.source_rows_complete is False
+
+
+@pytest.mark.asyncio
+async def test_malformed_core_page_row_withholds_window_authority_before_normalization(monkeypatch):
+    portfolio_input = StatefulPortfolioInput(
+        performance_start_date=date(2025, 1, 1),
+        portfolio_currency="USD",
+        observations=[
+            {"valuation_date": "2025-01-01", "beginning_market_value": "0", "ending_market_value": "0"},
+            {"valuation_date": "2025-01-02", "beginning_market_value": "0", "ending_market_value": "100"},
+        ],
+    )
+
+    async def _mock_retrieve_stateful_portfolio_input(**kwargs):  # noqa: ARG001
+        return portfolio_input
+
+    class _MalformedPositionPageCoreService:
+        async def get_position_analytics_timeseries(self, **kwargs):  # noqa: ARG002
+            return 200, {
+                "rows": [
+                    {
+                        "position_id": "POS_1",
+                        "beginning_market_value_portfolio_currency": "0",
+                        "ending_market_value_portfolio_currency": "0",
+                    },
+                    {
+                        "position_id": "POS_1",
+                        "valuation_date": "2025-01-02",
+                        "beginning_market_value_portfolio_currency": "0",
+                        "ending_market_value_portfolio_currency": "100",
+                        "cash_flows": [{"amount": "100", "timing": "bod"}],
+                    },
+                ]
+            }
+
+        async def get_performance_component_economics(self, **kwargs):  # noqa: ARG002
+            return 503, {"detail": "not available in this focused source-row test"}
+
+    monkeypatch.setattr(
+        "app.services.stateful_contribution_input_service.retrieve_stateful_portfolio_input",
+        _mock_retrieve_stateful_portfolio_input,
+    )
+    source_input = await retrieve_stateful_contribution_source_input(
+        settings=object(),
+        stateful_input_service=StatefulInputService(core_service=_MalformedPositionPageCoreService()),
+        calculation_id=None,
+        portfolio_id="P1",
+        as_of_date=date(2025, 1, 2),
+        report_start_date=date(2025, 1, 1),
+        report_end_date=date(2025, 1, 2),
+        reporting_currency=None,
+        consumer_system="lotus-performance",
+        dimensions=[],
+        include_cash_flows=True,
+        filters={},
+    )
+
+    assert [row["valuation_date"] for row in source_input.position_rows] == ["2025-01-02"]
+    assert source_input.position_source_rows_complete is False
+    normalized = build_stateful_contribution_input(
+        source_input=source_input,
+        metric_basis="NET",
+        currency_mode="BASE_ONLY",
+        reporting_currency=None,
+        fx=None,
+    )
+    assert normalized.source_position_window_complete is False
 
 
 def test_stateful_contribution_position_series_groups_points_and_preserves_latest_meta():

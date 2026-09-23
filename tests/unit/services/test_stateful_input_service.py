@@ -1536,7 +1536,13 @@ async def test_get_position_timeseries_reports_chunk_and_page_counts():
         "2026-01-02",
         "2026-01-03",
     ]
-    assert payload["retrieval_metadata"] == {"chunk_count": 2, "page_count": 3}
+    assert payload["retrieval_metadata"] == {
+        "chunk_count": 2,
+        "page_count": 3,
+        "source_row_count": 4,
+        "retained_row_count": 3,
+        "discarded_source_row_count": 0,
+    }
 
 
 @pytest.mark.asyncio
@@ -2038,7 +2044,13 @@ def test_stateful_input_service_builds_position_timeseries_payload():
             {"valuation_date": "2026-01-01", "position_id": "POS_1", "source_position_key": "POS_1", "value": 2},
             {"valuation_date": "2026-01-02", "position_id": "POS_2", "source_position_key": "POS_2", "value": 3},
         ],
-        "retrieval_metadata": {"chunk_count": 2, "page_count": 3},
+        "retrieval_metadata": {
+            "chunk_count": 2,
+            "page_count": 3,
+            "source_row_count": None,
+            "retained_row_count": 2,
+            "discarded_source_row_count": None,
+        },
     }
 
 
@@ -2236,10 +2248,13 @@ def test_record_position_chunk_payload_accumulates_valid_rows_and_page_count():
     _record_position_chunk_payload(accumulator=accumulator, payload={"rows": "bad-shape"})
 
     assert accumulator.rows == [
-        {"valuation_date": "2026-01-01", "position_id": "POS_1", "source_position_key": "POS_1"},
-        {"valuation_date": "2026-01-02", "position_id": "POS_1", "source_position_key": "POS_1"},
+        {"valuation_date": "2026-01-01", "position_id": "POS_1"},
+        "bad-row",
+        {"valuation_date": "2026-01-02", "position_id": "POS_1"},
     ]
     assert accumulator.page_count == 3
+    assert accumulator.source_row_count == 4
+    assert accumulator.discarded_source_row_count == 1
 
 
 def test_stateful_input_service_builds_position_chunk_payload_from_accumulator():
@@ -2252,6 +2267,7 @@ def test_stateful_input_service_builds_position_chunk_payload_from_accumulator()
             {"valuation_date": "2026-01-03", "position_id": None, "value": 4},
         ],
         page_count=3,
+        source_row_count=4,
     )
 
     payload = service._build_position_chunk_payload(accumulator=accumulator)
@@ -2261,7 +2277,12 @@ def test_stateful_input_service_builds_position_chunk_payload_from_accumulator()
             {"valuation_date": "2026-01-01", "position_id": "POS_1", "source_position_key": "POS_1", "value": 2},
             {"valuation_date": "2026-01-02", "position_id": "POS_2", "source_position_key": "POS_2", "value": 3},
         ],
-        "retrieval_metadata": {"page_count": 3},
+        "retrieval_metadata": {
+            "page_count": 3,
+            "source_row_count": 4,
+            "retained_row_count": 2,
+            "discarded_source_row_count": 1,
+        },
     }
 
 

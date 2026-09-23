@@ -42,12 +42,14 @@ class StatefulContributionSourceInput:
     position_retrieval_metadata: RetrievalMetadata
     performance_component_economics_payload: dict[str, object] | None = None
     performance_component_economics_status: int | None = None
+    position_source_rows_complete: bool = False
 
 
 @dataclass(frozen=True)
 class _StatefulContributionPositionSource:
     rows: list[dict[str, object]]
     retrieval_metadata: RetrievalMetadata
+    source_rows_complete: bool
 
 
 @dataclass(frozen=True)
@@ -136,6 +138,7 @@ async def retrieve_stateful_contribution_source_input(
         position_retrieval_metadata=position_source.retrieval_metadata,
         performance_component_economics_payload=component_economics_source.payload,
         performance_component_economics_status=component_economics_source.status_code,
+        position_source_rows_complete=position_source.source_rows_complete,
     )
 
 
@@ -179,6 +182,10 @@ async def _retrieve_stateful_contribution_position_source(
     return _StatefulContributionPositionSource(
         rows=position_source.rows,
         retrieval_metadata=parse_retrieval_metadata(upstream_payload),
+        source_rows_complete=_position_source_rows_complete(
+            payload=upstream_payload,
+            retained_row_count=len(position_source.rows),
+        ),
     )
 
 
@@ -260,8 +267,35 @@ def build_stateful_contribution_input(
             rows=source_input.position_rows,
             portfolio_currency=resolved_portfolio_currency,
         ),
-        source_position_window_complete=position_series.source_rows_complete,
+        source_position_window_complete=(
+            getattr(source_input, "position_source_rows_complete", False) and position_series.source_rows_complete
+        ),
     )
+
+
+def _position_source_rows_complete(
+    *,
+    payload: dict[str, object],
+    retained_row_count: int,
+) -> bool:
+    metadata = payload.get("retrieval_metadata")
+    if not isinstance(metadata, dict):
+        return False
+    source_row_count = _non_negative_int_or_none(metadata.get("source_row_count"))
+    declared_retained_row_count = _non_negative_int_or_none(metadata.get("retained_row_count"))
+    discarded_source_row_count = _non_negative_int_or_none(metadata.get("discarded_source_row_count"))
+    return (
+        source_row_count is not None
+        and declared_retained_row_count == retained_row_count
+        and discarded_source_row_count == 0
+        and source_row_count >= retained_row_count
+    )
+
+
+def _non_negative_int_or_none(value: object) -> int | None:
+    if isinstance(value, bool) or not isinstance(value, int) or value < 0:
+        return None
+    return value
 
 
 def _stateful_position_reporting_currency(
