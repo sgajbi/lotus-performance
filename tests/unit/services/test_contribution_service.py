@@ -308,6 +308,28 @@ def test_run_contribution_calculation_prepares_engine_inputs_and_period_results(
     ]
 
 
+@pytest.mark.parametrize(
+    ("input_mode", "source_position_window_complete", "expected"),
+    [
+        (ContributionInputMode.STATELESS, False, None),
+        (ContributionInputMode.STATEFUL, False, False),
+        (ContributionInputMode.STATEFUL, True, True),
+    ],
+)
+def test_hierarchy_source_window_completeness_preserves_authority_boundary(
+    input_mode,
+    source_position_window_complete,
+    expected,
+):
+    assert (
+        contribution_service._hierarchy_source_window_completeness(
+            input_mode=input_mode,
+            source_position_window_complete=source_position_window_complete,
+        )
+        is expected
+    )
+
+
 def test_run_contribution_calculation_records_http_failure(monkeypatch):
     request = SimpleNamespace(calculation_id="contribution-calc-1")
     failures: list[dict[str, object]] = []

@@ -193,7 +193,7 @@ def _build_hierarchy_from_adjusted_position_series(
     period_slice_df: pd.DataFrame,
     portfolio_period_slice_df: pd.DataFrame | None = None,
     source_position_history_df: pd.DataFrame | None = None,
-    source_position_window_complete: bool = True,
+    source_position_window_complete: bool | None = None,
     position_series: list[PositionContributionSeries],
     position_average_weights: pd.DataFrame | None = None,
     proven_position_inception_dates: dict[str, date] | None = None,
@@ -422,13 +422,40 @@ def _source_group_position_ids(
 ) -> set[str] | None:
     if source_position_memberships is None:
         return None
-    group_memberships = source_position_memberships
+    group_memberships = _hierarchy_group_slice(
+        source_position_memberships,
+        level_keys=level_keys,
+        key_values=key_values,
+    )
+    return {str(value) for value in group_memberships["position_id"].dropna().tolist()}
+
+
+def _hierarchy_group_slice(
+    source_df: pd.DataFrame,
+    *,
+    level_keys: list[str],
+    key_values: tuple[Any, ...],
+) -> pd.DataFrame:
+    group_df = source_df
     for level_name, key_value in zip(level_keys, key_values, strict=True):
         if pd.isna(key_value):
-            group_memberships = group_memberships[group_memberships[level_name].isna()]
+            group_df = group_df[group_df[level_name].isna()]
         else:
-            group_memberships = group_memberships[group_memberships[level_name] == key_value]
-    return {str(value) for value in group_memberships["position_id"].dropna().tolist()}
+            group_df = group_df[group_df[level_name] == key_value]
+    return group_df
+
+
+def _hierarchy_group_keys(
+    merged_df: pd.DataFrame,
+    *,
+    source_position_memberships: pd.DataFrame | None,
+    level_keys: list[str],
+) -> list[tuple[Any, ...]]:
+    key_frames = [merged_df[level_keys]]
+    if source_position_memberships is not None:
+        key_frames.append(source_position_memberships[level_keys])
+    distinct_keys = pd.concat(key_frames, ignore_index=True).drop_duplicates()
+    return [tuple(row) for row in distinct_keys.itertuples(index=False, name=None)]
 
 
 def _build_hierarchy_response_levels(
@@ -436,7 +463,7 @@ def _build_hierarchy_response_levels(
     merged_df: pd.DataFrame,
     observation_dates: set[date],
     source_position_memberships: pd.DataFrame | None,
-    source_position_window_complete: bool,
+    source_position_window_complete: bool | None,
     day_count: int,
     proven_position_inception_dates: dict[str, date] | None,
     request: ContributionRequest,
@@ -476,13 +503,21 @@ def _aggregate_hierarchy_level(
     level_keys: list[str],
     observation_dates: set[date],
     source_position_memberships: pd.DataFrame | None,
-    source_position_window_complete: bool,
+    source_position_window_complete: bool | None,
     proven_position_inception_dates: dict[str, date] | None,
     request: ContributionRequest,
 ) -> pd.DataFrame:
     records: list[dict[str, Any]] = []
-    for raw_key, group_df in merged_df.groupby(level_keys, dropna=False):
-        key_values = raw_key if isinstance(raw_key, tuple) else (raw_key,)
+    for key_values in _hierarchy_group_keys(
+        merged_df,
+        source_position_memberships=source_position_memberships,
+        level_keys=level_keys,
+    ):
+        group_df = _hierarchy_group_slice(
+            merged_df,
+            level_keys=level_keys,
+            key_values=key_values,
+        )
         record: dict[str, Any] = {key: value for key, value in zip(level_keys, key_values, strict=True)}
         selected_weight_sum, selected_weight_complete = _selected_group_weight(group_df)
         record.update(
@@ -510,6 +545,8 @@ def _aggregate_hierarchy_level(
 
 
 def _selected_group_weight(group_df: pd.DataFrame) -> tuple[Any, bool]:
+    if group_df.empty:
+        return 0.0, False
     selected_weights = group_df[["position_id", "selected_average_weight"]].drop_duplicates("position_id")
     selected_numeric = pd.to_numeric(selected_weights["selected_average_weight"], errors="coerce")
     if selected_numeric.isna().any():
@@ -523,7 +560,7 @@ def _group_return_evidence(
     request: ContributionRequest,
     observation_dates: set[date] | None = None,
     expected_position_ids: set[str] | None = None,
-    source_position_window_complete: bool = True,
+    source_position_window_complete: bool | None = None,
     proven_position_inception_dates: dict[str, date] | None = None,
 ) -> dict[str, Any]:
     if _group_return_input_is_incomplete(
@@ -685,9 +722,9 @@ def _group_return_input_is_incomplete(
     group_df: pd.DataFrame,
     *,
     expected_position_ids: set[str] | None = None,
-    source_position_window_complete: bool = True,
+    source_position_window_complete: bool | None = None,
 ) -> bool:
-    if group_df.empty or not source_position_window_complete:
+    if group_df.empty or source_position_window_complete is False:
         return True
     if group_df[PortfolioColumns.PERF_DATE.value].isna().any():
         return True
@@ -777,11 +814,15 @@ def _partition_hierarchy_rows_for_emission(
     threshold: float,
     top_n: int,
 ) -> tuple[pd.DataFrame, pd.DataFrame]:
-    explicit_rows = ordered[ordered["weight_avg"].abs() >= threshold]
-    overflow_rows = ordered[ordered["weight_avg"].abs() < threshold]
-    if top_n and len(explicit_rows) > top_n:
-        overflow_rows = pd.concat([overflow_rows, explicit_rows.iloc[top_n:]], ignore_index=True)
-        explicit_rows = explicit_rows.iloc[:top_n]
+    unavailable_mask = ordered["group_return"].map(lambda evidence: evidence.get("status") == "UNAVAILABLE")
+    unavailable_rows = ordered[unavailable_mask]
+    ready_rows = ordered[~unavailable_mask]
+    explicit_ready_rows = ready_rows[ready_rows["weight_avg"].abs() >= threshold]
+    overflow_rows = ready_rows[ready_rows["weight_avg"].abs() < threshold]
+    if top_n and len(explicit_ready_rows) > top_n:
+        overflow_rows = pd.concat([overflow_rows, explicit_ready_rows.iloc[top_n:]], ignore_index=True)
+        explicit_ready_rows = explicit_ready_rows.iloc[:top_n]
+    explicit_rows = pd.concat([unavailable_rows, explicit_ready_rows], ignore_index=True)
     return explicit_rows, overflow_rows
 
 

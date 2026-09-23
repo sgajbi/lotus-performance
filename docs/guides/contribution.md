@@ -68,9 +68,12 @@ Key `emit` controls:
 - `timeseries=true` returns the residual-adjusted daily total contribution ladder
 - `by_position_timeseries=true` returns residual-adjusted daily contribution ladders for each
   position
-- `top_n_per_level` limits explicit hierarchy rows per level
-- `threshold_weight` rolls small hierarchy rows into `Other` when `include_other=true`
+- `top_n_per_level` limits explicit `READY` hierarchy rows per level
+- `threshold_weight` rolls small `READY` hierarchy rows into `Other` when `include_other=true`
 - `include_unclassified=true` keeps rows with missing hierarchy metadata under `Unclassified`
+
+An `UNAVAILABLE` source group is always emitted explicitly. Presentation limits never hide a
+source group whose valuation economics are missing or ambiguous.
 
 When `hierarchy` is supplied, hierarchy level output remains enabled for existing clients even if
 `emit.by_level` is omitted. The hierarchy rows are built from the same residual-adjusted daily
@@ -96,8 +99,12 @@ keeps downstream covariance calendars complete without asking consumers to inven
 Only stateful Core input whose adapter has exhaustively retrieved every page of every requested
 date chunk can establish a complete position window. Within that window, a zero opening value plus
 a beginning-of-day funding flow establishes entry for zero-filling earlier dates; the same row in
-caller-supplied or otherwise unproven input does not. A missing valuation at or after position entry makes that group return
-`UNAVAILABLE` with `SOURCE_POSITION_VALUATION_ECONOMICS_INCOMPLETE`.
+caller-supplied or otherwise unproven input does not. A missing valuation at or after position
+entry makes that group return `UNAVAILABLE` with
+`SOURCE_POSITION_VALUATION_ECONOMICS_INCOMPLETE`.
+Stateless input with a complete supplied calendar remains calculable, but it cannot establish the
+source-window authority required to fill a leading date. A source group known from the requested
+window but wholly absent from a subperiod is retained as an explicit `UNAVAILABLE` row.
 It does not turn incomplete or ambiguous source economics into zero.
 
 ## Async execution

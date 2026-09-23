@@ -463,7 +463,7 @@ def test_hierarchy_group_returns_use_source_membership_for_position_wholly_absen
             "report_end_date": str(dates[-1]),
             "analyses": [{"period": "MTD", "frequencies": ["daily"]}],
             "hierarchy": ["sector"],
-            "emit": {"threshold_weight": 0.0},
+            "emit": {"top_n_per_level": 1},
             "portfolio_data": {
                 "metric_basis": "NET",
                 "valuation_points": [{"perf_date": value, "begin_mv": 1000, "end_mv": 1010} for value in dates],
@@ -513,14 +513,21 @@ def test_hierarchy_group_returns_use_source_membership_for_position_wholly_absen
         request=request,
     )
 
-    group_return = hierarchy["levels"][0]["rows"][0]["group_return"]
-    assert group_return["status"] == expected_status
-    if expected_status == "UNAVAILABLE":
-        assert group_return["reason"] == "SOURCE_POSITION_VALUATION_ECONOMICS_INCOMPLETE"
-        assert group_return["series"] == []
+    rows = {row["key"]["sector"]: row for row in hierarchy["levels"][0]["rows"]}
+    active_group_return = rows["Technology"]["group_return"]
+    assert active_group_return["status"] == expected_status
+    if missing_position_sector == "Technology":
+        assert set(rows) == {"Technology"}
+        assert active_group_return["reason"] == "SOURCE_POSITION_VALUATION_ECONOMICS_INCOMPLETE"
+        assert active_group_return["series"] == []
     else:
-        assert group_return["reason"] is None
-        assert len(group_return["series"]) == len(dates)
+        assert set(rows) == {"Technology", "Health Care"}
+        assert active_group_return["reason"] is None
+        assert len(active_group_return["series"]) == len(dates)
+        missing_group_return = rows["Health Care"]["group_return"]
+        assert missing_group_return["status"] == "UNAVAILABLE"
+        assert missing_group_return["reason"] == "SOURCE_POSITION_VALUATION_ECONOMICS_INCOMPLETE"
+        assert missing_group_return["series"] == []
 
 
 def test_hierarchy_group_returns_refuse_unproven_leading_gap_from_bounded_source():

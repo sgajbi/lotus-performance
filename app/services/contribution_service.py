@@ -381,7 +381,7 @@ def _build_hierarchy_contribution_position_assembly(
     period_slice_df: Any,
     portfolio_period_slice_df: Any,
     source_position_history_df: Any,
-    source_position_window_complete: bool,
+    source_position_window_complete: bool | None,
     proven_position_inception_dates: dict[str, date],
     period_methodology_context: ContributionPeriodMethodologyContext,
     reset_aware_average_weight_mode: str,
@@ -498,7 +498,7 @@ def _build_hierarchy_period_contribution_result(
     portfolio_results_df: Any,
     reset_aware_average_weight_mode: str,
     average_weight_audit_state: AverageWeightShadowAuditState,
-    source_position_window_complete: bool = False,
+    source_position_window_complete: bool | None = False,
 ) -> _ContributionPeriodResult | None:
     period_preparation = _prepare_contribution_period(
         daily_contributions_df=daily_contributions_df,
@@ -692,7 +692,7 @@ def _build_contribution_results_by_period(
     portfolio_results_df: Any,
     reset_aware_average_weight_mode: str,
     average_weight_audit_state: AverageWeightShadowAuditState,
-    source_position_window_complete: bool = False,
+    source_position_window_complete: bool | None = False,
 ) -> _ContributionPeriodResults:
     results_by_period: dict[str, SinglePeriodContributionResult] = {}
     average_weight_sum_residual_bp = 0
@@ -937,7 +937,7 @@ def _run_contribution_calculation(
     request: ContributionRequest,
     *,
     reset_aware_average_weight_mode: str,
-    source_position_window_complete: bool = False,
+    source_position_window_complete: bool | None = False,
 ) -> _ContributionCalculationRun:
     try:
         engine_inputs = _prepare_contribution_engine_inputs(request)
@@ -1003,8 +1003,9 @@ def calculate_contribution(
     calculation_run = _run_contribution_calculation(
         request,
         reset_aware_average_weight_mode=reset_aware_average_weight_mode,
-        source_position_window_complete=(
-            input_mode == ContributionInputMode.STATELESS or source_position_window_complete
+        source_position_window_complete=_hierarchy_source_window_completeness(
+            input_mode=input_mode,
+            source_position_window_complete=source_position_window_complete,
         ),
     )
     engine_inputs = calculation_run.engine_inputs
@@ -1035,3 +1036,14 @@ def calculate_contribution(
         request_artifact_model=request_artifact_model,
     )
     return response_model
+
+
+def _hierarchy_source_window_completeness(
+    *,
+    input_mode: ContributionInputMode,
+    source_position_window_complete: bool,
+) -> bool | None:
+    """Separate unknown stateless completeness from proven or disproven stateful completeness."""
+    if input_mode == ContributionInputMode.STATELESS:
+        return None
+    return source_position_window_complete
