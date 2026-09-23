@@ -452,9 +452,12 @@ def _group_return_evidence(
         points_by_date,
         observation_dates=observation_dates,
     )
+    linked_growth = 1.0
+    for point in points:
+        linked_growth *= 1.0 + point["return_pct"] / 100
     return {
         "status": "READY",
-        "period_return_pct": _linked_group_return_pct(points),
+        "period_return_pct": (linked_growth - 1.0) * 100,
         "currency": currency,
         "series": points,
         "reason": None,
@@ -500,15 +503,6 @@ def _completed_group_return_points(
         )
         for observation_date in sorted(complete_calendar)
     ]
-
-
-def _linked_group_return_pct(points: list[dict[str, Any]]) -> float:
-    linked_growth = 1.0
-    for point in points:
-        linked_growth *= 1.0 + point["return_pct"] / 100
-    return (linked_growth - 1.0) * 100
-
-
 def _group_position_calendars_are_complete(
     group_df: pd.DataFrame,
     *,
