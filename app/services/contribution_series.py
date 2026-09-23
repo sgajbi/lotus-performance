@@ -192,6 +192,7 @@ def _build_hierarchy_from_adjusted_position_series(
     *,
     period_slice_df: pd.DataFrame,
     portfolio_period_slice_df: pd.DataFrame | None = None,
+    source_position_history_df: pd.DataFrame | None = None,
     position_series: list[PositionContributionSeries],
     position_average_weights: pd.DataFrame | None = None,
     proven_position_inception_dates: dict[str, date] | None = None,
@@ -218,6 +219,11 @@ def _build_hierarchy_from_adjusted_position_series(
 
     calendar_df = portfolio_period_slice_df if portfolio_period_slice_df is not None else period_slice_df
     observed_dates = observation_date_set(calendar_df[PortfolioColumns.PERF_DATE.value])
+    source_position_memberships = _latest_source_position_hierarchy_memberships(
+        source_position_history_df,
+        observation_dates=observed_dates,
+        request=request,
+    )
     position_day_count = max(
         1,
         len(observation_date_set(period_slice_df[PortfolioColumns.PERF_DATE.value])),
@@ -225,6 +231,7 @@ def _build_hierarchy_from_adjusted_position_series(
     response_levels = _build_hierarchy_response_levels(
         merged_df=merged_df,
         observation_dates=observed_dates,
+        source_position_memberships=source_position_memberships,
         day_count=position_day_count,
         proven_position_inception_dates=proven_position_inception_dates,
         request=request,
@@ -374,10 +381,59 @@ def _apply_hierarchy_unclassified_policy(
     return filtered_df
 
 
+def _latest_source_position_hierarchy_memberships(
+    source_position_history_df: pd.DataFrame | None,
+    *,
+    observation_dates: set[date],
+    request: ContributionRequest,
+) -> pd.DataFrame | None:
+    if source_position_history_df is None:
+        return None
+    required_columns = {"position_id", PortfolioColumns.PERF_DATE.value}
+    if source_position_history_df.empty or not required_columns.issubset(source_position_history_df.columns):
+        return None
+    if not observation_dates:
+        return None
+
+    history_df = source_position_history_df.copy()
+    for level_name in request.hierarchy or []:
+        if level_name not in history_df.columns:
+            history_df[level_name] = None
+    history_df[PortfolioColumns.PERF_DATE.value] = observation_date_series(history_df[PortfolioColumns.PERF_DATE.value])
+    history_df = history_df[
+        history_df["position_id"].notna()
+        & history_df[PortfolioColumns.PERF_DATE.value].notna()
+        & (history_df[PortfolioColumns.PERF_DATE.value] <= max(observation_dates))
+    ]
+    history_df = _apply_hierarchy_unclassified_policy(history_df, request=request)
+    return history_df.sort_values(PortfolioColumns.PERF_DATE.value).drop_duplicates(
+        "position_id",
+        keep="last",
+    )
+
+
+def _source_group_position_ids(
+    source_position_memberships: pd.DataFrame | None,
+    *,
+    level_keys: list[str],
+    key_values: tuple[Any, ...],
+) -> set[str] | None:
+    if source_position_memberships is None:
+        return None
+    group_memberships = source_position_memberships
+    for level_name, key_value in zip(level_keys, key_values, strict=True):
+        if pd.isna(key_value):
+            group_memberships = group_memberships[group_memberships[level_name].isna()]
+        else:
+            group_memberships = group_memberships[group_memberships[level_name] == key_value]
+    return {str(value) for value in group_memberships["position_id"].dropna().tolist()}
+
+
 def _build_hierarchy_response_levels(
     *,
     merged_df: pd.DataFrame,
     observation_dates: set[date],
+    source_position_memberships: pd.DataFrame | None,
     day_count: int,
     proven_position_inception_dates: dict[str, date] | None,
     request: ContributionRequest,
@@ -390,6 +446,7 @@ def _build_hierarchy_response_levels(
             merged_df=merged_df,
             level_keys=level_keys,
             observation_dates=observation_dates,
+            source_position_memberships=source_position_memberships,
             proven_position_inception_dates=proven_position_inception_dates,
             request=request,
         )
@@ -414,6 +471,7 @@ def _aggregate_hierarchy_level(
     merged_df: pd.DataFrame,
     level_keys: list[str],
     observation_dates: set[date],
+    source_position_memberships: pd.DataFrame | None,
     proven_position_inception_dates: dict[str, date] | None,
     request: ContributionRequest,
 ) -> pd.DataFrame:
@@ -432,6 +490,11 @@ def _aggregate_hierarchy_level(
                     group_df=group_df,
                     request=request,
                     observation_dates=observation_dates,
+                    expected_position_ids=_source_group_position_ids(
+                        source_position_memberships,
+                        level_keys=level_keys,
+                        key_values=key_values,
+                    ),
                     proven_position_inception_dates=proven_position_inception_dates,
                 ),
             }
@@ -453,9 +516,13 @@ def _group_return_evidence(
     group_df: pd.DataFrame,
     request: ContributionRequest,
     observation_dates: set[date] | None = None,
+    expected_position_ids: set[str] | None = None,
     proven_position_inception_dates: dict[str, date] | None = None,
 ) -> dict[str, Any]:
-    if _group_return_input_is_incomplete(group_df):
+    if _group_return_input_is_incomplete(
+        group_df,
+        expected_position_ids=expected_position_ids,
+    ):
         return _unavailable_group_return_evidence("SOURCE_POSITION_VALUATION_ECONOMICS_INCOMPLETE")
 
     currency = _group_return_currency(group_df=group_df, request=request)
@@ -606,8 +673,17 @@ def _proven_position_inception_dates(source_df: pd.DataFrame) -> dict[str, date]
     return {str(row["position_id"]): row[PortfolioColumns.PERF_DATE.value] for _, row in proven_inceptions.iterrows()}
 
 
-def _group_return_input_is_incomplete(group_df: pd.DataFrame) -> bool:
-    return group_df.empty or group_df[PortfolioColumns.PERF_DATE.value].isna().any()
+def _group_return_input_is_incomplete(
+    group_df: pd.DataFrame,
+    *,
+    expected_position_ids: set[str] | None = None,
+) -> bool:
+    if group_df.empty:
+        return True
+    observed_position_ids = {str(value) for value in group_df["position_id"].dropna().tolist()}
+    return group_df[PortfolioColumns.PERF_DATE.value].isna().any() or (
+        expected_position_ids is not None and not expected_position_ids.issubset(observed_position_ids)
+    )
 
 
 def _group_return_day_is_incomplete(
