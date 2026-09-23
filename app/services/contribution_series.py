@@ -440,7 +440,7 @@ def _aggregate_hierarchy_level(
     return pd.DataFrame(records)
 
 
-def _selected_group_weight(group_df: pd.DataFrame) -> tuple[float, bool]:
+def _selected_group_weight(group_df: pd.DataFrame) -> tuple[Any, bool]:
     selected_weights = group_df[["position_id", "selected_average_weight"]].drop_duplicates("position_id")
     selected_numeric = pd.to_numeric(selected_weights["selected_average_weight"], errors="coerce")
     if selected_numeric.isna().any():
