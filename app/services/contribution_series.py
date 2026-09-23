@@ -207,7 +207,7 @@ def _build_hierarchy_from_adjusted_position_series(
         if PortfolioColumns.PERF_DATE.value in calendar_df.columns
         else set()
     )
-    source_position_memberships = _latest_source_position_hierarchy_memberships(
+    source_position_memberships = _effective_source_position_hierarchy_memberships(
         source_position_history_df,
         observation_dates=observed_dates,
         request=request,
@@ -233,6 +233,7 @@ def _build_hierarchy_from_adjusted_position_series(
         observation_dates=observed_dates,
         source_position_memberships=source_position_memberships,
         source_position_window_complete=source_position_window_complete,
+        position_calendar_df=period_slice_df,
         day_count=position_day_count,
         proven_position_inception_dates=proven_position_inception_dates,
         request=request,
@@ -412,7 +413,27 @@ def _apply_hierarchy_unclassified_policy(
     return filtered_df
 
 
-def _latest_source_position_hierarchy_memberships(
+def _effective_source_position_hierarchy_memberships(
+    source_position_history_df: pd.DataFrame | None,
+    *,
+    observation_dates: set[date],
+    request: ContributionRequest,
+) -> pd.DataFrame | None:
+    history_df = _normalized_source_position_hierarchy_history(
+        source_position_history_df,
+        observation_dates=observation_dates,
+        request=request,
+    )
+    if history_df is None:
+        return None
+    effective_df = pd.DataFrame(
+        _effective_position_membership_rows(history_df, observation_dates=observation_dates),
+        columns=history_df.columns,
+    )
+    return _apply_hierarchy_unclassified_policy(effective_df, request=request)
+
+
+def _normalized_source_position_hierarchy_history(
     source_position_history_df: pd.DataFrame | None,
     *,
     observation_dates: set[date],
@@ -436,11 +457,39 @@ def _latest_source_position_hierarchy_memberships(
         & history_df[PortfolioColumns.PERF_DATE.value].notna()
         & (history_df[PortfolioColumns.PERF_DATE.value] <= max(observation_dates))
     ]
-    history_df = _apply_hierarchy_unclassified_policy(history_df, request=request)
-    return history_df.sort_values(PortfolioColumns.PERF_DATE.value).drop_duplicates(
-        "position_id",
+    history_df = history_df.drop_duplicates(
+        ["position_id", PortfolioColumns.PERF_DATE.value],
         keep="last",
     )
+    return history_df
+
+
+def _effective_position_membership_rows(
+    history_df: pd.DataFrame,
+    *,
+    observation_dates: set[date],
+) -> list[dict[str, Any]]:
+    effective_rows: list[dict[str, Any]] = []
+    ordered_observation_dates = sorted(observation_dates)
+    for _position_id, position_history in history_df.groupby("position_id", sort=True):
+        source_rows = position_history.sort_values(PortfolioColumns.PERF_DATE.value).to_dict("records")
+        source_index = 0
+        latest_membership: dict[str, Any] | None = None
+        for observation_date in ordered_observation_dates:
+            while (
+                source_index < len(source_rows)
+                and source_rows[source_index][PortfolioColumns.PERF_DATE.value] <= observation_date
+            ):
+                latest_membership = source_rows[source_index]
+                source_index += 1
+            if latest_membership is not None:
+                effective_rows.append(
+                    {
+                        **latest_membership,
+                        PortfolioColumns.PERF_DATE.value: observation_date,
+                    }
+                )
+    return effective_rows
 
 
 def _source_group_position_ids(
@@ -457,6 +506,25 @@ def _source_group_position_ids(
         key_values=key_values,
     )
     return {str(value) for value in group_memberships["position_id"].dropna().tolist()}
+
+
+def _source_group_position_dates(
+    source_position_memberships: pd.DataFrame | None,
+    *,
+    level_keys: list[str],
+    key_values: tuple[Any, ...],
+) -> dict[str, set[date]] | None:
+    if source_position_memberships is None:
+        return None
+    group_memberships = _hierarchy_group_slice(
+        source_position_memberships,
+        level_keys=level_keys,
+        key_values=key_values,
+    )
+    return {
+        str(position_id): observation_date_set(position_rows[PortfolioColumns.PERF_DATE.value])
+        for position_id, position_rows in group_memberships.groupby("position_id", dropna=True)
+    }
 
 
 def _hierarchy_group_slice(
@@ -493,6 +561,7 @@ def _build_hierarchy_response_levels(
     observation_dates: set[date],
     source_position_memberships: pd.DataFrame | None,
     source_position_window_complete: bool | None,
+    position_calendar_df: pd.DataFrame,
     day_count: int,
     proven_position_inception_dates: dict[str, date] | None,
     request: ContributionRequest,
@@ -507,6 +576,7 @@ def _build_hierarchy_response_levels(
             observation_dates=observation_dates,
             source_position_memberships=source_position_memberships,
             source_position_window_complete=source_position_window_complete,
+            position_calendar_df=position_calendar_df,
             proven_position_inception_dates=proven_position_inception_dates,
             request=request,
         )
@@ -533,6 +603,7 @@ def _aggregate_hierarchy_level(
     observation_dates: set[date],
     source_position_memberships: pd.DataFrame | None,
     source_position_window_complete: bool | None,
+    position_calendar_df: pd.DataFrame,
     proven_position_inception_dates: dict[str, date] | None,
     request: ContributionRequest,
 ) -> pd.DataFrame:
@@ -566,6 +637,12 @@ def _aggregate_hierarchy_level(
                     ),
                     source_position_window_complete=source_position_window_complete,
                     proven_position_inception_dates=proven_position_inception_dates,
+                    expected_position_dates=_source_group_position_dates(
+                        source_position_memberships,
+                        level_keys=level_keys,
+                        key_values=key_values,
+                    ),
+                    position_calendar_df=position_calendar_df,
                 ),
             }
         )
@@ -591,6 +668,8 @@ def _group_return_evidence(
     expected_position_ids: set[str] | None = None,
     source_position_window_complete: bool | None = None,
     proven_position_inception_dates: dict[str, date] | None = None,
+    expected_position_dates: dict[str, set[date]] | None = None,
+    position_calendar_df: pd.DataFrame | None = None,
 ) -> dict[str, Any]:
     if _group_return_input_is_incomplete(
         group_df,
@@ -606,6 +685,8 @@ def _group_return_evidence(
         group_df,
         observation_dates=observation_dates,
         proven_position_inception_dates=proven_position_inception_dates,
+        expected_position_dates=expected_position_dates,
+        position_calendar_df=position_calendar_df,
     ):
         return _unavailable_group_return_evidence(
             "SOURCE_POSITION_VALUATION_ECONOMICS_INCOMPLETE",
@@ -680,20 +761,78 @@ def _group_position_calendars_are_complete(
     *,
     observation_dates: set[date],
     proven_position_inception_dates: dict[str, date] | None = None,
+    expected_position_dates: dict[str, set[date]] | None = None,
+    position_calendar_df: pd.DataFrame | None = None,
 ) -> bool:
     if not observation_dates:
         return False
     portfolio_first_observation_date = min(observation_dates)
     inception_dates = proven_position_inception_dates or {}
-    return all(
-        _position_calendar_is_complete(
-            position_df=position_df,
+    calendar_df = group_df if position_calendar_df is None else position_calendar_df
+    position_ids = _expected_or_observed_group_position_ids(
+        group_df,
+        expected_position_dates=expected_position_dates,
+    )
+    for position_id in position_ids:
+        if not _group_position_calendar_is_complete(
+            position_id=position_id,
+            group_df=group_df,
+            calendar_df=calendar_df,
             observation_dates=observation_dates,
             portfolio_first_observation_date=portfolio_first_observation_date,
-            proven_inception_date=inception_dates.get(str(position_id)),
-        )
-        for position_id, position_df in group_df.groupby("position_id", dropna=False)
-    )
+            proven_inception_date=inception_dates.get(position_id),
+            expected_group_dates=_expected_group_dates_for_position(
+                expected_position_dates,
+                position_id=position_id,
+            ),
+        ):
+            return False
+    return bool(position_ids)
+
+
+def _expected_or_observed_group_position_ids(
+    group_df: pd.DataFrame,
+    *,
+    expected_position_dates: dict[str, set[date]] | None,
+) -> set[str]:
+    if expected_position_dates is not None:
+        return set(expected_position_dates)
+    return {str(value) for value in group_df["position_id"].dropna().tolist()}
+
+
+def _expected_group_dates_for_position(
+    expected_position_dates: dict[str, set[date]] | None,
+    *,
+    position_id: str,
+) -> set[date] | None:
+    if expected_position_dates is None:
+        return None
+    return expected_position_dates[position_id]
+
+
+def _group_position_calendar_is_complete(
+    *,
+    position_id: str,
+    group_df: pd.DataFrame,
+    calendar_df: pd.DataFrame,
+    observation_dates: set[date],
+    portfolio_first_observation_date: date,
+    proven_inception_date: date | None,
+    expected_group_dates: set[date] | None,
+) -> bool:
+    position_df = calendar_df[calendar_df["position_id"].astype(str) == position_id]
+    if not _position_calendar_is_complete(
+        position_df=position_df,
+        observation_dates=observation_dates,
+        portfolio_first_observation_date=portfolio_first_observation_date,
+        proven_inception_date=proven_inception_date,
+    ):
+        return False
+    if expected_group_dates is None:
+        return True
+    group_position_df = group_df[group_df["position_id"].astype(str) == position_id]
+    group_position_dates = observation_date_set(group_position_df[PortfolioColumns.PERF_DATE.value])
+    return expected_group_dates.issubset(group_position_dates)
 
 
 def _position_calendar_is_complete(

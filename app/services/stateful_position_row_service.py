@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from decimal import Decimal
+from decimal import Decimal, InvalidOperation
 from typing import Literal
 
 from app.services.currency_code_normalization import normalized_currency_code
@@ -8,6 +8,20 @@ from app.services.source_cashflow_taxonomy import CashflowTypeClassification, cl
 from core.errors import APIUnprocessableEntityError
 
 PositionValueBasis = Literal["position", "portfolio", "reporting"]
+
+
+def position_cash_flows_are_losslessly_normalizable(cash_flows_raw: object) -> bool:
+    """Report whether every supplied nested cash-flow row has calculable semantics."""
+    if not isinstance(cash_flows_raw, list):
+        return False
+    for flow in cash_flows_raw:
+        if not isinstance(flow, dict) or flow.get("amount") is None or flow.get("timing") not in {"bod", "eod"}:
+            return False
+        if _finite_decimal_or_none(flow.get("amount")) is None:
+            return False
+        if classify_cashflow_type(flow.get("cash_flow_type")).economics_role == "unsupported":
+            return False
+    return True
 
 
 def split_position_cash_flows_in_value_basis(
@@ -64,8 +78,21 @@ def _position_cash_flow_projection(
     timing = flow.get("timing")
     if amount is None or timing not in {"bod", "eod"}:
         return None
-    decimal_amount = Decimal(str(amount)) * conversion_factor
+    decimal_amount = _finite_decimal_or_none(amount)
+    if decimal_amount is None:
+        return None
+    decimal_amount *= conversion_factor
+    if not decimal_amount.is_finite():
+        return None
     return timing, decimal_amount, classify_cashflow_type(flow.get("cash_flow_type"))
+
+
+def _finite_decimal_or_none(value: object) -> Decimal | None:
+    try:
+        decimal_value = Decimal(str(value))
+    except InvalidOperation:
+        return None
+    return decimal_value if decimal_value.is_finite() else None
 
 
 def _cash_flow_conversion_factor(
