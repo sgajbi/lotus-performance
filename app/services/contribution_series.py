@@ -224,12 +224,16 @@ def _build_hierarchy_from_adjusted_position_series(
         return {"summary": summary, "levels": []}
     adjusted_df, merged_df = prepared_frames
 
+    position_day_count = max(
+        1,
+        len(observation_date_set(period_slice_df[PortfolioColumns.PERF_DATE.value])),
+    )
     response_levels = _build_hierarchy_response_levels(
         merged_df=merged_df,
         observation_dates=observed_dates,
         source_position_memberships=source_position_memberships,
         source_position_window_complete=source_position_window_complete,
-        day_count=max(1, len(observed_dates)),
+        day_count=position_day_count,
         proven_position_inception_dates=proven_position_inception_dates,
         request=request,
     )
