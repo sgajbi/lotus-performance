@@ -407,6 +407,83 @@ def test_hierarchy_group_returns_use_source_history_for_subperiod_inception():
     assert group_return["series"] == []
 
 
+@pytest.mark.parametrize(
+    ("missing_position_sector", "expected_status"),
+    [("Technology", "UNAVAILABLE"), ("Health Care", "READY")],
+)
+def test_hierarchy_group_returns_use_source_membership_for_position_wholly_absent_from_subperiod(
+    missing_position_sector,
+    expected_status,
+):
+    prior_date = date(2026, 8, 31)
+    dates = [date(2026, 9, 1), date(2026, 9, 2), date(2026, 9, 3)]
+    request = ContributionRequest.model_validate(
+        {
+            "portfolio_id": "PB_TEST",
+            "report_start_date": str(dates[0]),
+            "report_end_date": str(dates[-1]),
+            "analyses": [{"period": "MTD", "frequencies": ["daily"]}],
+            "hierarchy": ["sector"],
+            "emit": {"threshold_weight": 0.0},
+            "portfolio_data": {
+                "metric_basis": "NET",
+                "valuation_points": [{"perf_date": value, "begin_mv": 1000, "end_mv": 1010} for value in dates],
+            },
+            "positions_data": [
+                {"position_id": "ACTIVE", "valuation_points": []},
+                {"position_id": "MISSING", "valuation_points": []},
+            ],
+        }
+    )
+    period_slice_df = pd.DataFrame(
+        {
+            "position_id": ["ACTIVE"] * 3,
+            PortfolioColumns.PERF_DATE.value: dates,
+            PortfolioColumns.DAILY_ROR.value: [1.0, 1.5, 2.0],
+            "capital_inst": [700.0, 710.0, 720.0],
+            "daily_weight": [0.7, 0.7, 0.7],
+            "currency": ["USD"] * 3,
+            "sector": ["Technology"] * 3,
+        }
+    )
+    source_position_history_df = pd.concat(
+        [
+            pd.DataFrame(
+                {
+                    "position_id": ["MISSING"],
+                    PortfolioColumns.PERF_DATE.value: [prior_date],
+                    "sector": [missing_position_sector],
+                }
+            ),
+            period_slice_df,
+        ],
+        ignore_index=True,
+    )
+    position_series = [
+        PositionContributionSeries(
+            position_id="ACTIVE",
+            series=[PositionDailyContribution(date=value, contribution=0.7) for value in dates],
+        )
+    ]
+
+    hierarchy = _build_hierarchy_from_adjusted_position_series(
+        period_slice_df=period_slice_df,
+        portfolio_period_slice_df=pd.DataFrame({PortfolioColumns.PERF_DATE.value: dates}),
+        source_position_history_df=source_position_history_df,
+        position_series=position_series,
+        request=request,
+    )
+
+    group_return = hierarchy["levels"][0]["rows"][0]["group_return"]
+    assert group_return["status"] == expected_status
+    if expected_status == "UNAVAILABLE":
+        assert group_return["reason"] == "SOURCE_POSITION_VALUATION_ECONOMICS_INCOMPLETE"
+        assert group_return["series"] == []
+    else:
+        assert group_return["reason"] is None
+        assert len(group_return["series"]) == len(dates)
+
+
 def test_hierarchy_group_returns_refuse_unproven_leading_gap_from_bounded_source():
     dates = [date(2026, 9, 1), date(2026, 9, 2), date(2026, 9, 3)]
     request = ContributionRequest.model_validate(
