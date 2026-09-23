@@ -1618,6 +1618,21 @@ def test_stateful_contribution_reconciles_core_income_to_dated_group_returns(
             "Private Markets",
             1.0,
         ),
+        (
+            {
+                "position_id": "MISSING_CASH_FLOW_CURRENCY",
+                "security_id": "MISSING_CASH_FLOW_CURRENCY",
+                "valuation_date": "2025-01-01",
+                "position_currency": "EUR",
+                "position_to_portfolio_fx_rate": "1.2",
+                "beginning_market_value_portfolio_currency": "100",
+                "ending_market_value_portfolio_currency": "105",
+                "cash_flows": [{"amount": "5", "timing": "bod", "cash_flow_type": "external_flow"}],
+                "dimensions": {"sector": "Emerging Markets"},
+            },
+            "Emerging Markets",
+            1.0,
+        ),
     ],
     ids=[
         "dropped-valuation",
@@ -1625,6 +1640,7 @@ def test_stateful_contribution_reconciles_core_income_to_dated_group_returns(
         "discarded-after-fx-conversion",
         "missing-cross-currency-fx",
         "missing-position-currency-identity",
+        "missing-cash-flow-currency-identity",
     ],
 )
 def test_stateful_contribution_retains_membership_and_refuses_incomplete_economics(
