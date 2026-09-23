@@ -203,12 +203,15 @@ def test_group_return_uses_effective_dated_membership_for_position_reclassificat
         source_position_history_df=source_position_history,
         source_position_window_complete=True,
         position_series=position_series,
+        position_average_weights=pd.DataFrame({"position_id": ["SEC_A"], "selected_average_weight": [0.5]}),
         request=request,
     )
 
     rows_by_sector = {row["key"]["sector"]: row for row in hierarchy["levels"][0]["rows"]}
     assert rows_by_sector["Sector A"]["contribution"] == pytest.approx(1.0)
     assert rows_by_sector["Sector B"]["contribution"] == pytest.approx(2.0)
+    assert rows_by_sector["Sector A"]["weight_avg"] == pytest.approx(25.0)
+    assert rows_by_sector["Sector B"]["weight_avg"] == pytest.approx(25.0)
     assert rows_by_sector["Sector A"]["group_return"]["status"] == "READY"
     assert rows_by_sector["Sector A"]["group_return"]["series"] == [
         {"date": date(2026, 3, 30), "return_pct": 1.0, "portfolio_weight_pct": 50.0},

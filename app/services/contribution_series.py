@@ -656,7 +656,10 @@ def _aggregate_hierarchy_level(
             key_values=key_values,
         )
         record: dict[str, Any] = {key: value for key, value in zip(level_keys, key_values, strict=True)}
-        selected_weight_sum, selected_weight_complete = _selected_group_weight(group_df)
+        selected_weight_sum, selected_weight_complete = _selected_group_weight(
+            group_df,
+            all_position_rows=merged_df,
+        )
         record.update(
             {
                 "contribution": _as_numeric(group_df["adjusted_contribution"].sum()),
@@ -687,14 +690,27 @@ def _aggregate_hierarchy_level(
     return pd.DataFrame(records)
 
 
-def _selected_group_weight(group_df: pd.DataFrame) -> tuple[Any, bool]:
+def _selected_group_weight(
+    group_df: pd.DataFrame,
+    *,
+    all_position_rows: pd.DataFrame,
+) -> tuple[Any, bool]:
     if group_df.empty:
         return 0.0, False
     selected_weights = group_df[["position_id", "selected_average_weight"]].drop_duplicates("position_id")
     selected_numeric = pd.to_numeric(selected_weights["selected_average_weight"], errors="coerce")
     if selected_numeric.isna().any():
         return 0.0, False
-    return _as_numeric(selected_numeric.sum()), True
+    group_date_counts = group_df.groupby("position_id")[PortfolioColumns.PERF_DATE.value].nunique()
+    position_date_counts = all_position_rows.groupby("position_id")[PortfolioColumns.PERF_DATE.value].nunique()
+    selected_weights = selected_weights.assign(
+        group_date_count=selected_weights["position_id"].map(group_date_counts),
+        position_date_count=selected_weights["position_id"].map(position_date_counts),
+    )
+    if selected_weights[["group_date_count", "position_date_count"]].isna().any().any():
+        return 0.0, False
+    allocation = selected_weights["group_date_count"] / selected_weights["position_date_count"]
+    return _as_numeric((selected_numeric * allocation).sum()), True
 
 
 def _group_return_evidence(
