@@ -1491,6 +1491,19 @@ def test_position_row_to_daily_point_returns_none_when_date_or_values_are_missin
         )
         is None
     )
+    for invalid_value in ("invalid", "NaN", "Infinity"):
+        assert (
+            _position_row_to_daily_point(
+                row={
+                    "valuation_date": "2025-01-01",
+                    "beginning_market_value_portfolio_currency": invalid_value,
+                    "ending_market_value_portfolio_currency": "11",
+                },
+                currency_mode="BASE_ONLY",
+                reporting_currency=None,
+            )
+            is None
+        )
     assert (
         _position_row_to_daily_point(
             row={
