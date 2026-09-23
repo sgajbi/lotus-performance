@@ -48,6 +48,7 @@ from app.services.contribution_methodology import (
     _calculate_average_weight_sum_residual_bp,
     _calculate_average_weight_sum_residual_bp_from_ratio_series,
     _normalize_reset_aware_average_weight_mode,
+    _selected_average_weight_components,
 )
 from app.services.contribution_periods import (
     ContributionPeriodMethodologyContext,
@@ -427,6 +428,11 @@ def _build_hierarchy_contribution_position_assembly(
         source_position_window_complete=source_position_window_complete,
         position_series=position_series,
         position_average_weights=position_totals_result.totals_df[["position_id", "selected_average_weight"]],
+        position_weight_components=_selected_average_weight_components(
+            period_slice_df,
+            portfolio_period_slice_df,
+            use_reset_aware_average_weight=use_reset_aware_average_weight,
+        ),
         proven_position_inception_dates=proven_position_inception_dates,
         request=request,
     )

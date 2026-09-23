@@ -81,9 +81,10 @@ position contribution series used for position output, so position rows, daily s
 rows tell the same contribution story. In reset-aware average-weight rollout mode, hierarchy
 `levels[].rows[].weight_avg` uses the same selected denominator as
 `position_contributions[].average_weight`. When a position changes hierarchy membership inside the
-period, its selected period-average weight is prorated across the effective observation dates in
-each group, so the groups reconcile to the position weight instead of duplicating it. The
-denominator remains the full authoritative position calendar even when
+period, each group's weight is the sum of that group's dated position weights divided by the same
+selected denominator used for the position average, so changing daily exposure is allocated by
+economic magnitude instead of date count and the groups reconcile without duplication. The
+selected denominator remains authoritative even when
 `include_unclassified=false` hides an unclassified observation; presentation filtering therefore
 cannot inflate a classified group's weight.
 

@@ -1263,7 +1263,7 @@ def test_contribution_endpoint_promotes_reset_aware_average_weight_for_hierarchy
                 "perf_reset": [0, 1, 0, 0, 1, 0],
                 "bod_cf": [0.0, 0.0, 0.0, 0.0, 0.0, 0.0],
                 "eod_cf": [0.0, 0.0, 0.0, 0.0, 0.0, 0.0],
-                "sector": ["Technology", "Technology", "Technology", "Health Care", "Health Care", "Health Care"],
+                "sector": ["Legacy", "Technology", "Technology", "Health Care", "Health Care", "Health Care"],
             }
         )
         portfolio_df = pd.DataFrame(
@@ -1299,7 +1299,7 @@ def test_contribution_endpoint_promotes_reset_aware_average_weight_for_hierarchy
                     pd.Timestamp("2025-01-03").date(),
                 ],
                 "position_id": ["A", "A", "A", "B", "B", "B"],
-                "sector": ["Technology", "Technology", "Technology", "Health Care", "Health Care", "Health Care"],
+                "sector": ["Legacy", "Technology", "Technology", "Health Care", "Health Care", "Health Care"],
                 "smoothed_contribution": [0.01, 0.01, 0.01, 0.02, 0.02, 0.02],
                 "smoothed_local_contribution": [0.01, 0.01, 0.01, 0.02, 0.02, 0.02],
                 "daily_weight": [0.10, 0.95, 0.95, 0.90, 0.05, 0.05],
@@ -1332,6 +1332,7 @@ def test_contribution_endpoint_promotes_reset_aware_average_weight_for_hierarchy
     hierarchy_rows_by_sector = {row["key"]["sector"]: row for row in hierarchy_rows}
     assert hierarchy_rows_by_sector["Technology"]["weight_avg"] == pytest.approx(95.0)
     assert hierarchy_rows_by_sector["Health Care"]["weight_avg"] == pytest.approx(5.0)
+    assert hierarchy_rows_by_sector["Legacy"]["weight_avg"] == pytest.approx(0.0)
 
 
 def test_contribution_async_result_retrieval(client, happy_path_payload):

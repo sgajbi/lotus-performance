@@ -176,7 +176,7 @@ def test_group_return_uses_effective_dated_membership_for_position_reclassificat
             PortfolioColumns.BEGIN_MV.value: [500.0, 505.0],
             PortfolioColumns.BOD_CF.value: [0.0, 0.0],
             "capital_inst": [500.0, 505.0],
-            "daily_weight": [0.5, 0.5],
+            "daily_weight": [0.1, 0.9],
             "currency": ["USD", "USD"],
             "sector": ["Sector A", "Sector B"],
         }
@@ -210,17 +210,17 @@ def test_group_return_uses_effective_dated_membership_for_position_reclassificat
     rows_by_sector = {row["key"]["sector"]: row for row in hierarchy["levels"][0]["rows"]}
     assert rows_by_sector["Sector A"]["contribution"] == pytest.approx(1.0)
     assert rows_by_sector["Sector B"]["contribution"] == pytest.approx(2.0)
-    assert rows_by_sector["Sector A"]["weight_avg"] == pytest.approx(25.0)
-    assert rows_by_sector["Sector B"]["weight_avg"] == pytest.approx(25.0)
+    assert rows_by_sector["Sector A"]["weight_avg"] == pytest.approx(5.0)
+    assert rows_by_sector["Sector B"]["weight_avg"] == pytest.approx(45.0)
     assert rows_by_sector["Sector A"]["group_return"]["status"] == "READY"
     assert rows_by_sector["Sector A"]["group_return"]["series"] == [
-        {"date": date(2026, 3, 30), "return_pct": 1.0, "portfolio_weight_pct": 50.0},
+        {"date": date(2026, 3, 30), "return_pct": 1.0, "portfolio_weight_pct": 10.0},
         {"date": date(2026, 3, 31), "return_pct": 0.0, "portfolio_weight_pct": 0.0},
     ]
     assert rows_by_sector["Sector B"]["group_return"]["status"] == "READY"
     assert rows_by_sector["Sector B"]["group_return"]["series"] == [
         {"date": date(2026, 3, 30), "return_pct": 0.0, "portfolio_weight_pct": 0.0},
-        {"date": date(2026, 3, 31), "return_pct": 2.0, "portfolio_weight_pct": 50.0},
+        {"date": date(2026, 3, 31), "return_pct": 2.0, "portfolio_weight_pct": 90.0},
     ]
 
     exclude_unclassified_request = request.model_copy(
@@ -242,7 +242,7 @@ def test_group_return_uses_effective_dated_membership_for_position_reclassificat
     classified_rows = classified_hierarchy["levels"][0]["rows"]
     assert len(classified_rows) == 1
     assert classified_rows[0]["key"] == {"sector": "Sector A"}
-    assert classified_rows[0]["weight_avg"] == pytest.approx(25.0)
+    assert classified_rows[0]["weight_avg"] == pytest.approx(5.0)
 
 
 def test_group_return_evidence_refuses_complete_calendar_from_incomplete_stateful_source():
@@ -860,6 +860,7 @@ def test_hierarchy_metadata_helpers_align_dates_and_unclassified_policy():
         "daily_weight",
         "source_daily_weight",
         "selected_average_weight",
+        "selected_weight_component",
         "currency",
         "sector",
         "region",
@@ -898,6 +899,7 @@ def test_hierarchy_metadata_columns_preserves_base_columns_and_unique_levels():
         "daily_weight",
         "source_daily_weight",
         "selected_average_weight",
+        "selected_weight_component",
         "currency",
         "sector",
         "region",

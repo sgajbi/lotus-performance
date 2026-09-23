@@ -1002,7 +1002,17 @@ def test_build_flat_contribution_position_assembly_preserves_reset_aware_weighti
 
 
 def test_build_hierarchy_contribution_position_assembly_preserves_hierarchy_projection(monkeypatch):
-    period_slice_df = pd.DataFrame({"position_id": ["A"], "sector": ["Technology"], "smoothed_contribution": [0.01]})
+    period_slice_df = pd.DataFrame(
+        {
+            "position_id": ["A"],
+            PortfolioColumns.PERF_DATE.value: [date(2026, 3, 31)],
+            "sector": ["Technology"],
+            "smoothed_contribution": [0.01],
+            "daily_weight": [0.5],
+            PortfolioColumns.PERF_RESET.value: [0],
+            PortfolioColumns.NIP.value: [0],
+        }
+    )
     totals_df = pd.DataFrame({"position_id": ["A"], "selected_average_weight": [0.5]})
     average_weight_shadow_df = pd.DataFrame(
         {
@@ -1101,6 +1111,16 @@ def test_build_hierarchy_contribution_position_assembly_preserves_hierarchy_proj
     assert hierarchy_calls[0]["position_series"] == ["position-series"]
     assert hierarchy_calls[0]["proven_position_inception_dates"] == {"A": date(2025, 12, 31)}
     pd.testing.assert_frame_equal(hierarchy_calls[0]["position_average_weights"], totals_df)
+    pd.testing.assert_frame_equal(
+        hierarchy_calls[0]["position_weight_components"],
+        pd.DataFrame(
+            {
+                "position_id": ["A"],
+                PortfolioColumns.PERF_DATE.value: [date(2026, 3, 31)],
+                "selected_weight_component": [0.5],
+            }
+        ),
+    )
     assert hierarchy_calls[0]["request"] is request
 
 
@@ -1122,6 +1142,7 @@ def test_build_hierarchy_period_contribution_result_preserves_hierarchy_outputs(
             "smoothed_contribution",
             "smoothed_local_contribution",
             "daily_weight",
+            PortfolioColumns.PERF_DATE.value,
         ]
     )
     portfolio_period_slice_df = pd.DataFrame({"portfolio_id": ["P"]})
