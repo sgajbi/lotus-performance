@@ -52,14 +52,16 @@ def build_contribution_source_economics_evidence(
 ) -> ContributionSourceEconomicsEvidence:
     """Summarizes source-economics coverage without inventing unavailable upstream facts."""
     if input_mode == ContributionInputMode.STATELESS:
+        unsupported_economics = _unsupported_component_pnl_fields(request)
         return ContributionSourceEconomicsEvidence(
             input_mode="stateless",
             source_owner="caller",
             status="CALLER_SUPPLIED",
+            component_detail_status=_component_detail_status(unsupported_economics=unsupported_economics),
             reason_codes=["STATELESS_CALLER_SUPPLIED_SOURCE_ECONOMICS"],
             source_contracts=["ContributionRequest"],
             available_economics=_available_stateless_economics(request),
-            unsupported_economics=_unsupported_component_pnl_fields(request),
+            unsupported_economics=unsupported_economics,
             degraded_economics=[],
             cash_flow_type_counts={},
             source_snapshot_count=0,
@@ -103,11 +105,15 @@ def _stateful_source_economics_evidence(
         component_contexts=component_contexts,
     )
     status: Literal["SOURCE_BACKED", "SOURCE_LIMITED"]
-    status = "SOURCE_LIMITED" if degraded_economics or unsupported_economics else "SOURCE_BACKED"
+    status = "SOURCE_LIMITED" if degraded_economics else "SOURCE_BACKED"
     return ContributionSourceEconomicsEvidence(
         input_mode="stateful",
         source_owner="lotus-core",
         status=status,
+        component_detail_status=_component_detail_status(
+            unsupported_economics=unsupported_economics,
+            degraded_economics=degraded_economics,
+        ),
         reason_codes=reason_codes,
         source_contracts=_stateful_source_contracts(component_contexts),
         available_economics=available_economics,
@@ -189,6 +195,15 @@ def _unsupported_component_pnl_fields(
     present_component_fields = _present_component_pnl_fields(request)
     present_component_fields.update(_component_pnl_fields_from_performance_economics(component_contexts or []))
     return [field_name for field_name in _COMPONENT_PNL_FIELDS if field_name not in present_component_fields]
+
+
+def _component_detail_status(
+    *,
+    unsupported_economics: list[str],
+    degraded_economics: list[str] | None = None,
+) -> Literal["COMPLETE", "LIMITED"]:
+    component_source_degraded = "performance_component_economics_unavailable" in (degraded_economics or [])
+    return "LIMITED" if unsupported_economics or component_source_degraded else "COMPLETE"
 
 
 def _present_component_pnl_fields(request: ContributionRequest) -> set[str]:

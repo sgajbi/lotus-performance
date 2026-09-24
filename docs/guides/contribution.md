@@ -340,7 +340,12 @@ The top-level response also includes:
 Use this block to understand what the contribution result was actually sourced from:
 
 - `source_owner`: `lotus-core` for stateful analytics inputs, `caller` for stateless payloads
-- `status`: `SOURCE_BACKED`, `SOURCE_LIMITED`, or `CALLER_SUPPLIED`
+- `status`: `SOURCE_BACKED`, `SOURCE_LIMITED`, or `CALLER_SUPPLIED`. For stateful calculations,
+  `SOURCE_BACKED` means required market-value, flow, classification, currency, and lineage evidence
+  is not degraded. Optional component-P&L families that the source contract does not author remain
+  disclosed below and do not by themselves relabel an otherwise supported calculation as limited.
+- `component_detail_status`: `COMPLETE` only when every optional component-P&L family is
+  source-authored; otherwise `LIMITED`
 - `source_contracts`: source contracts used, such as `PortfolioTimeseriesInput:v1` and
   `PositionTimeseriesInput:v1`; stateful contribution also includes
   `PerformanceComponentEconomics:v1` when the Core component-economics source product was
@@ -349,7 +354,7 @@ Use this block to understand what the contribution result was actually sourced f
   trade flows, fees, FX rates, classification dimensions, and observed
   `PerformanceComponentEconomics:v1` component families such as source component income, fees,
   tax, realized capital P&L, realized FX P&L, realized total P&L, cashflows, and FX context
-- `unsupported_economics`: component-P&L families that are not source-authored in the current
+- `unsupported_economics`: optional component-P&L families that are not source-authored in the current
   contract; observed `PerformanceComponentEconomics:v1` fee, income, and tax families remove the
   corresponding `fee_pnl`, `income_pnl`, and `tax_pnl` unsupported flags only when Core
   component-economics retrieval has traversed every requested page, every requested chunk is
@@ -371,6 +376,10 @@ liability economics. Core-authored component evidence is consumed from
 `PerformanceComponentEconomics:v1` as row-level source evidence with lineage, request fingerprints,
 retrieval metadata, and consumed-page totals, but Lotus still avoids overclaiming broader P&L or
 attribution buckets that the source product does not explicitly support.
+`SOURCE_BACKED` therefore certifies the economics actually consumed by contribution, while
+`component_detail_status=LIMITED` and `unsupported_economics` preserve the narrower decomposition
+boundary. A failed, partial, or inconsistent component-economics retrieval remains degraded and
+keeps the overall stateful posture `SOURCE_LIMITED`.
 
 ## Source-Document Edge Semantics
 

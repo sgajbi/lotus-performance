@@ -161,7 +161,8 @@ def test_source_economics_evidence_preserves_source_rich_stateful_contract():
     )
 
     assert evidence.source_owner == "lotus-core"
-    assert evidence.status == "SOURCE_LIMITED"
+    assert evidence.status == "SOURCE_BACKED"
+    assert evidence.component_detail_status == "LIMITED"
     assert "external_flows" in evidence.available_economics
     assert "internal_trade_flows" in evidence.available_economics
     assert "fees" in evidence.available_economics
@@ -239,6 +240,8 @@ def test_source_economics_evidence_consumes_core_performance_component_economics
     assert "tax_pnl" not in evidence.unsupported_economics
     assert "price_pnl" in evidence.unsupported_economics
     assert "fx_pnl" in evidence.unsupported_economics
+    assert evidence.status == "SOURCE_BACKED"
+    assert evidence.component_detail_status == "LIMITED"
 
 
 def test_source_economics_evidence_requires_core_component_rows_for_component_promotion():
@@ -269,6 +272,7 @@ def test_source_economics_evidence_requires_core_component_rows_for_component_pr
     )
 
     assert evidence.status == "SOURCE_LIMITED"
+    assert evidence.component_detail_status == "LIMITED"
     assert "performance_component_economics_unavailable" in evidence.degraded_economics
     assert "source_component_income" not in evidence.available_economics
     assert "income_pnl" in evidence.unsupported_economics
@@ -299,6 +303,7 @@ def test_source_economics_evidence_degrades_unavailable_core_performance_compone
     )
 
     assert evidence.status == "SOURCE_LIMITED"
+    assert evidence.component_detail_status == "LIMITED"
     assert "performance_component_economics_unavailable" in evidence.degraded_economics
     assert "PERFORMANCE_COMPONENT_ECONOMICS_UNAVAILABLE" in evidence.reason_codes
     assert "source_component_income" not in evidence.available_economics
@@ -330,6 +335,7 @@ def test_source_economics_evidence_does_not_use_partial_component_coverage_as_so
     )
 
     assert evidence.status == "SOURCE_LIMITED"
+    assert evidence.component_detail_status == "LIMITED"
     assert "performance_component_economics_unavailable" in evidence.degraded_economics
     assert "source_component_income" not in evidence.available_economics
     assert "source_component_fees" not in evidence.available_economics
@@ -339,7 +345,7 @@ def test_source_economics_evidence_does_not_use_partial_component_coverage_as_so
     assert "tax_pnl" in evidence.unsupported_economics
 
 
-def test_stateful_source_economics_evidence_reports_source_backed_contract_when_complete():
+def test_stateful_source_economics_evidence_reports_complete_component_detail_when_all_fields_are_authored():
     request = _request_with_position_meta(
         {
             "asset_class": "Equity",
@@ -368,6 +374,7 @@ def test_stateful_source_economics_evidence_reports_source_backed_contract_when_
     )
 
     assert evidence.status == "SOURCE_BACKED"
+    assert evidence.component_detail_status == "COMPLETE"
     assert evidence.unsupported_economics == []
     assert evidence.degraded_economics == []
     assert evidence.cash_flow_type_counts == {"external_flow": 1, "fee": 2}
@@ -538,6 +545,7 @@ def test_source_economics_evidence_reports_source_limited_stateful_contract():
     )
 
     assert evidence.status == "SOURCE_LIMITED"
+    assert evidence.component_detail_status == "LIMITED"
     assert evidence.degraded_economics == [
         "missing_classification",
         "unsupported_cash_flow_types",
