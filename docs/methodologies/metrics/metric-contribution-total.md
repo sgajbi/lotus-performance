@@ -161,11 +161,17 @@ Smoothing evidence fields:
 - `carino_factor_min`, `carino_factor_max`, `invalid_domain_days`
 
 Source-economics evidence fields:
-- `status`, `source_owner`, `source_contracts`, and `reason_codes`
+- `status`, `source_owner`, `source_contracts`, and `reason_codes`; `status` describes overall
+  source evidence consumed by the calculation, not completeness of every optional decomposition
+  bucket
+- `component_detail_status`, which is `COMPLETE` only when every optional component-P&L family is
+  source-authored and otherwise remains `LIMITED`
 - `available_economics`, including market values, external flows, internal trade flows, fees, FX
   rates, classification dimensions, and observed `PerformanceComponentEconomics:v1` component
   families where the full requested Core component-economics window is ready
-- `unsupported_economics`, including component-P&L families that are not source-authored
+- `unsupported_economics`, including optional component-P&L families that are not source-authored;
+  these remain explicit but do not alone invalidate source backing for a calculation that did not
+  consume them
 - `degraded_economics`, including unsupported cash-flow types, missing classification, unavailable
   or partial component-economics enrichment, or missing embedded snapshot evidence
 - `cash_flow_type_counts`, `source_snapshot_count`, and `source_snapshot_endpoints`

@@ -16,7 +16,7 @@ contribution totals, source-economics quality, or Carino smoothing state.
 | Hierarchy contribution | Optional `hierarchy` groups position contribution by dimensions such as `asset_class`, `sector`, `country`, `currency`, and `position_id`. Missing classification is emitted as `Unclassified`; top-N bucketing can emit `Other`. Hierarchy `weight_avg` uses the same active or reset-aware promoted denominator as position `average_weight`; when a position changes group, each group's weight sums its dated position weights on that same denominator, so changing exposure is allocated by economic magnitude instead of date count and groups reconcile without duplication. The selected denominator remains authoritative when `include_unclassified=false`, preventing hidden unclassified observations from inflating a classified group. Every explicit row also carries `group_return` with aligned source-valuation return, date, applied currency, and beginning-capital weight semantics; it is never inferred from contribution divided by weight. Explicit zero-return/zero-weight points for leading dates require an exhaustively retrieved stateful Core position window plus zero opening value and a beginning-of-day funding flow at entry; caller-supplied or otherwise unproven windows fail closed while complete stateless calendars remain calculable. A missing valuation at or after position entry, or a source group wholly absent from a subperiod, is explicitly `UNAVAILABLE`, as are mixed-local-currency, invalid-date, non-finite-economics, incomplete-source, and aggregated `Other` cases. Stateful source membership is retained independently of valuation normalization, so a valid position identity and hierarchy classification remain visible as `UNAVAILABLE` even when that row's valuation pair cannot be calculated; this evidence never creates return or contribution economics. Supplied nested cash-flow rows and the FX factors consumed for their selected value basis must all normalize without loss before source completeness is granted. Effective-dated hierarchy membership distinguishes genuine group entry and exit from a missing position valuation and replaces latest-metadata projection before contribution, weight, and group-return aggregation, while the global position calendar remains mandatory. When every known source group is absent, the portfolio observation calendar retains the period and exposes every group as `UNAVAILABLE` rather than silently dropping the period. `UNAVAILABLE` source groups bypass top-N and weight-threshold presentation filters so incomplete economics cannot disappear from the response. |
 | Stateful source input | `input_mode="stateful"` sources portfolio and position analytics inputs from `lotus-core` and normalizes them into the same calculation contract used by stateless requests. |
 | Carino smoothing | Default `CARINO` smoothing uses `F_t = k_t / K` and emits period-level `smoothing_evidence` with raw, smoothed, final, linked-return, residual, factor, status, and reason-code fields. |
-| Source economics evidence | Top-level `source_economics_evidence` states whether inputs are caller supplied or lotus-core sourced, which source contracts were used, which economics are available, and which component-P&L families remain unsupported or degraded. Stateful contribution includes `PerformanceComponentEconomics:v1`, preserves row-level and per-page verdict evidence, accepts authoritative `READY/NO_ACTIVITY` as valid empty input, and refuses `UNAVAILABLE/PAGE_EVIDENCE_CHANGED` even after a populated partial page. |
+| Source economics evidence | Top-level `source_economics_evidence.status` classifies the evidence consumed by contribution, while `component_detail_status` separately distinguishes complete from limited optional P&L decomposition. Unsupported optional buckets remain explicit and do not alone invalidate a supported calculation. Stateful contribution includes `PerformanceComponentEconomics:v1`, preserves row-level and per-page verdict evidence, accepts authoritative `READY/NO_ACTIVITY` as valid empty input, and refuses `UNAVAILABLE/PAGE_EVIDENCE_CHANGED` even after a populated partial page. |
 | Async and lineage | Contribution can return `202 Accepted`, exposes execution status, supports result polling, and emits lineage artifacts for reproducibility and support. |
 | Downstream realization | Gateway preserves source-owned contribution return, smoothing evidence, and source-economics evidence. Workbench renders exact source-economics and smoothing statuses in Performance Drivers. |
 
@@ -94,8 +94,8 @@ private-banking portfolios. The strongest demo path is:
 
 1. open Workbench Performance Drivers for `PB_SG_GLOBAL_BAL_001`;
 2. show top contributors and detractors by asset class or position;
-3. open the evidence context to show that the calculation is supported, source-limited, or
-   caller-supplied as appropriate;
+3. open the evidence context to distinguish the calculation's source posture from optional
+   component-detail coverage;
 4. explain that Carino smoothing reconciles multi-period contribution to the linked portfolio return;
 5. show that Gateway and Workbench display producer-owned evidence rather than reconstructing the
    calculation downstream.
@@ -104,6 +104,11 @@ The correct sales message is not "all possible component economics are available
 message is that Lotus uses Core-authored component-economics evidence where available, keeps
 contribution methodology in `lotus-performance`, and makes remaining source limitations visible,
 which is the safer enterprise behavior for private-banking support and client conversations.
+
+A stateful result may therefore be `SOURCE_BACKED` and still report
+`component_detail_status=LIMITED`. This means its contribution calculation used non-degraded
+authoritative source inputs while optional P&L decomposition buckets remain unavailable; it is not
+a claim that those missing buckets were inferred or zero.
 
 Source-backed component-economics claims require more than aggregate coverage flags. Performance
 retrieves all Core component-economics pages for the requested date chunks, preserves source rows,

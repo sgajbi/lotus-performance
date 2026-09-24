@@ -1425,6 +1425,7 @@ def test_contribution_supports_stateful_input_mode(client, monkeypatch):
     source_economics = body["source_economics_evidence"]
     assert source_economics["source_owner"] == "lotus-core"
     assert source_economics["status"] == "SOURCE_LIMITED"
+    assert source_economics["component_detail_status"] == "LIMITED"
     assert "PortfolioTimeseriesInput:v1" in source_economics["source_contracts"]
     assert "PositionTimeseriesInput:v1" in source_economics["source_contracts"]
     assert "sector" in source_economics["classification_dimensions"]

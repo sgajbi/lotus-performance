@@ -107,6 +107,10 @@ Current repository posture:
     Core-authored `source_rows`.
     `lotus-performance` still owns contribution methodology and treats non-200 or unavailable
     component-economics responses as degraded evidence rather than as a required-input failure.
+    Contribution `source_economics_evidence.status` classifies overall consumed source evidence;
+    unsupported optional component-P&L buckets alone do not force `SOURCE_LIMITED`.
+    `component_detail_status` and `unsupported_economics` preserve that narrower coverage truth,
+    while an unavailable, partial, or inconsistent component-economics retrieval remains degraded.
 15. `ReturnsSeriesBundle:v1` exposes source-owned return-series diagnostics for downstream
     consumers. `diagnostics.coverage` remains the coverage-quality signal, while
     `diagnostics.freshness` is the bounded freshness signal (`current` or `stale`) derived from

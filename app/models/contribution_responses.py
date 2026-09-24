@@ -292,9 +292,23 @@ class ContributionSourceEconomicsEvidence(BaseModel):
         description="Boundary that supplied the source economics used by contribution.",
         examples=["lotus-core"],
     )
-    status: str = Field(
-        description="Bounded source-economics posture. Examples: SOURCE_BACKED, SOURCE_LIMITED, CALLER_SUPPLIED.",
+    status: Literal["SOURCE_BACKED", "SOURCE_LIMITED", "CALLER_SUPPLIED"] = Field(
+        description=(
+            "Overall source-evidence posture for contribution. Unsupported optional component-P&L families do "
+            "not by themselves limit this status; missing, unavailable, or degraded source evidence does. "
+            "Optional component coverage is reported separately through component_detail_status and "
+            "unsupported_economics."
+        ),
         examples=["SOURCE_LIMITED"],
+    )
+    component_detail_status: Literal["COMPLETE", "LIMITED"] = Field(
+        default="LIMITED",
+        description=(
+            "Whether every optional component-P&L detail family is source-authored. LIMITED does not by itself "
+            "invalidate a contribution calculated from complete required market-value, flow, classification, "
+            "currency, and lineage inputs."
+        ),
+        examples=["LIMITED"],
     )
     reason_codes: List[str] = Field(
         default_factory=list,
@@ -313,7 +327,9 @@ class ContributionSourceEconomicsEvidence(BaseModel):
     )
     unsupported_economics: List[str] = Field(
         default_factory=list,
-        description="Economics families not source-authored in the current contribution input contract.",
+        description=(
+            "Optional component-detail economics not source-authored in the current contribution input contract."
+        ),
         examples=[["income_pnl", "tax_pnl", "corporate_action_pnl"]],
     )
     degraded_economics: List[str] = Field(

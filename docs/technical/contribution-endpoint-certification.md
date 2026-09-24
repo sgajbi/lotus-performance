@@ -153,7 +153,11 @@ whether final residual allocation was needed.
 The top-level `source_economics_evidence` block explains whether contribution used caller-supplied
 stateless inputs or lotus-core stateful analytics inputs, which source contracts were used, which
 cash-flow families and classification dimensions were present, which component-P&L families are not
-source-authored, and where upstream snapshot lineage is retained. Stateful contribution now consumes
+source-authored, and where upstream snapshot lineage is retained. Its `status` classifies the
+overall evidence consumed by the calculation; `component_detail_status` separately reports whether
+all optional P&L decomposition families are source-authored. A complete required stateful input can
+therefore be `SOURCE_BACKED` with `component_detail_status=LIMITED` and explicit
+`unsupported_economics`, without inventing those optional details. Stateful contribution now consumes
 `PerformanceComponentEconomics:v1` as optional Core source evidence for cashflow, fee, income, tax,
 realized P&L, and FX-context component families. Non-200 or unavailable component-economics
 responses degrade `source_economics_evidence` rather than blocking calculations that can still run

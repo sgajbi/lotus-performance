@@ -7,10 +7,13 @@ from uuid import uuid4
 import pytest
 from fastapi import HTTPException
 
+from app.models.contribution_analytics_requests import ContributionInputMode
 from app.services.contribution_service import (
     _source_cash_flow_currencies,
     _source_preconverted_cash_flow_pairs_for_position,
 )
+from app.services.contribution_source_economics import build_contribution_source_economics_evidence
+from app.services.execution_registry import UpstreamSnapshotRecord
 from app.services.stateful_contribution_input_service import (
     StatefulContributionSourceInput,
     _position_contract_fx_rate_meta,
@@ -372,6 +375,28 @@ def test_build_stateful_contribution_input_builds_positions_and_currency_selecti
     assert component_context["lineage"]["contract_version"] == "performance_component_economics_v1"
     assert component_context["request_fingerprints"] == ["fingerprint-1"]
     assert component_context["retrieval_metadata"] == {"chunk_count": 1, "page_count": 1}
+
+    evidence = build_contribution_source_economics_evidence(
+        request=normalized,
+        input_mode=ContributionInputMode.STATEFUL,
+        upstream_snapshots=[
+            UpstreamSnapshotRecord(
+                snapshot_id="core-position-timeseries",
+                upstream_endpoint="position_timeseries",
+                source_identifier="PB_SG_GLOBAL_BAL_001",
+                as_of_date="2025-01-01",
+                request_fingerprint="core-request",
+                response_fingerprint="core-response",
+                retrieval_status="200",
+                paging_metadata={"page_token": None},
+                created_at_utc="2025-01-01T00:00:00Z",
+            )
+        ],
+    )
+    assert evidence.status == "SOURCE_BACKED"
+    assert evidence.component_detail_status == "LIMITED"
+    assert evidence.degraded_economics == []
+    assert "price_pnl" in evidence.unsupported_economics
 
 
 def test_build_stateful_contribution_input_uses_core_base_for_cash_flow_provenance():
