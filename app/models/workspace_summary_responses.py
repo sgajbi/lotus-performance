@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from datetime import date as dt_date
-from typing import Dict
+from typing import Any, Dict
 from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, Field
@@ -10,6 +10,7 @@ from app.core.async_polling import DEFAULT_RECOMMENDED_POLL_AFTER_SECONDS
 from app.models.benchmark_analytics_requests import BenchmarkInputMode, BenchmarkReturnSource
 from app.models.currency_evidence import AppliedCurrencyEvidence
 from app.models.mwr_analytics_requests import MWRInputMode
+from app.models.responses import PerformanceCalculationSupportability
 from app.models.twr_requests import TWRInputMode
 from common.enums import Frequency
 from core.envelope import Audit, Diagnostics, Meta
@@ -152,6 +153,27 @@ WORKSPACE_SUMMARY_RESPONSE_EXAMPLES = [
                     "notes": ["Stateful workspace MWR summary resolved from the longest requested window."],
                 },
             }
+        },
+        "currency_evidence": {
+            "portfolio_base_currency": "USD",
+            "requested_report_ccy": "USD",
+            "applied_report_ccy": "USD",
+            "restated": False,
+            "currency_mode_applied": "BASE_ONLY",
+            "fx_source": "none",
+            "fx_coverage": "none",
+            "fixing_policy": "EOD_EXACT_PRIOR_AND_CURRENT",
+            "applied_pairs": [],
+            "reason": "PORTFOLIO_BASE_CURRENCY_APPLIED",
+        },
+        "calculation_supportability": {
+            "state": "ready",
+            "reason": "calculation_complete",
+            "freshness_bucket": "current",
+            "input_row_count": 64,
+            "resolved_period_count": 1,
+            "benchmark_row_count": 64,
+            "source_quality_evidence": None,
         },
         "meta": {
             "engine_version": "test-version",
@@ -334,11 +356,54 @@ class WorkspaceSummaryResponse(BaseModel):
     currency_evidence: AppliedCurrencyEvidence = Field(
         description="Evidence for the reporting currency and FX rates actually applied to workspace returns."
     )
+    calculation_supportability: PerformanceCalculationSupportability = Field(
+        description=(
+            "Bounded readiness, freshness, and source-quality evidence for the completed workspace-summary calculation."
+        )
+    )
     meta: Meta = Field(description="Shared metadata envelope for the workspace summary.")
     diagnostics: Diagnostics = Field(description="Diagnostic details for the workspace summary.")
     audit: Audit = Field(description="Audit details for the workspace summary.")
 
     model_config = ConfigDict(extra="forbid", json_schema_extra={"examples": WORKSPACE_SUMMARY_RESPONSE_EXAMPLES})
+
+
+def upgrade_legacy_workspace_summary_response_payload(
+    payload: dict[str, Any] | None,
+) -> dict[str, Any] | None:
+    """Add conservative supportability to retained results written before that field existed."""
+
+    if payload is None or "calculation_supportability" in payload:
+        return payload
+    audit = payload.get("audit")
+    counts = audit.get("counts") if isinstance(audit, dict) else None
+    counts = counts if isinstance(counts, dict) else {}
+
+    def non_negative_count(key: str) -> int:
+        value = counts.get(key, 0)
+        return value if isinstance(value, int) and not isinstance(value, bool) and value >= 0 else 0
+
+    results_by_period = payload.get("results_by_period")
+    resolved_period_count = (
+        non_negative_count("periods_resolved")
+        if "periods_resolved" in counts
+        else len(results_by_period)
+        if isinstance(results_by_period, dict)
+        else 0
+    )
+
+    return {
+        **payload,
+        "calculation_supportability": {
+            "state": "degraded",
+            "reason": "calculation_quality_issue",
+            "freshness_bucket": "unknown",
+            "input_row_count": non_negative_count("input_rows"),
+            "resolved_period_count": resolved_period_count,
+            "benchmark_row_count": 0,
+            "source_quality_evidence": None,
+        },
+    }
 
 
 class WorkspaceSummaryAcceptedResponse(BaseModel):

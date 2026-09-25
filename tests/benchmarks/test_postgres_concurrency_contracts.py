@@ -1,10 +1,11 @@
 from concurrent.futures import ThreadPoolExecutor
-from threading import Event
+from datetime import datetime, timedelta, timezone
+from threading import Event, current_thread
 from time import monotonic
 from uuid import UUID, uuid4
 
 import pytest
-from sqlalchemy import Column, MetaData, String, Table, inspect, text
+from sqlalchemy import Column, MetaData, String, Table, event, inspect, text
 
 from app.services.async_result_store import AsyncResultStore, AsyncResultTenantConflictError
 from app.services.compute_job_store import ComputeJobRegistrationStatus, ComputeJobStore
@@ -16,8 +17,13 @@ from app.services.durable_schema_creation import (
     DURABLE_SCHEMA_ADVISORY_LOCK_KEY,
     create_durable_schema,
 )
-from app.services.execution_registry import ExecutionRegistrationStatus, ExecutionRegistry
-from app.services.lineage_metadata_store import LineageMetadataStore
+from app.services.execution_registry import ExecutionRegistrationStatus, ExecutionRegistry, ExecutionStatus
+from app.services.lineage_metadata_store import (
+    LineageMetadataStore,
+    LineagePayloadLeaseOwnershipError,
+    LineagePayloadModel,
+    LineageStatus,
+)
 from tests.benchmarks.postgres_runtime_helpers import get_postgres_database_url
 
 POSTGRES_CONCURRENCY_ROWS = 20
@@ -249,3 +255,384 @@ def test_postgres_lineage_claims_are_disjoint_across_workers():
     assert len(claimed_by_b) == POSTGRES_CONCURRENCY_CLAIM_LIMIT
     assert claim_ids_a.isdisjoint(claim_ids_b)
     assert store.lease_pending_payloads(worker_id="postgres-lineage-c", limit=1, lease_seconds=60) == []
+
+
+def test_postgres_execution_cancellation_commits_before_late_lineage_completion():
+    postgres_database_url = get_postgres_database_url()
+    store = ExecutionRegistry(postgres_database_url)
+    store.create_schema()
+    store.clear_all_records()
+    calculation_id = uuid4()
+    store.create_execution(
+        calculation_id=calculation_id,
+        analytics_type="WORKSPACE_SUMMARY",
+        portfolio_id="PORT-CANCELLED",
+    )
+    store.mark_running(calculation_id)
+    store.start_stage(calculation_id, "lineage_materialization")
+    completion_write_reached = Event()
+    release_completion = Event()
+
+    def _pause_completion_before_conditional_update(_conn, _cursor, statement, *_args):
+        if current_thread().name.startswith("execution-completer") and statement.lstrip().lower().startswith(
+            "update analytics_execution set"
+        ):
+            completion_write_reached.set()
+            assert release_completion.wait(timeout=5), "completion write was not released"
+
+    event.listen(store._engine, "before_cursor_execute", _pause_completion_before_conditional_update)
+    try:
+        with ThreadPoolExecutor(max_workers=1, thread_name_prefix="execution-completer") as completer:
+            completion = completer.submit(
+                store.complete_stage_and_execution,
+                calculation_id,
+                "lineage_materialization",
+                {"artifact_names": ["response.json"]},
+            )
+            assert completion_write_reached.wait(timeout=5), "completion did not reach its conditional update"
+            store.mark_failed(calculation_id, "Workspace summary calculation cancelled.")
+            cancelled = store.get_execution(calculation_id)
+            assert cancelled is not None
+            assert cancelled.status == ExecutionStatus.FAILED
+            release_completion.set()
+            assert completion.result(timeout=5) is False
+    finally:
+        release_completion.set()
+        event.remove(store._engine, "before_cursor_execute", _pause_completion_before_conditional_update)
+
+    record = store.get_execution(calculation_id)
+    assert record is not None
+    assert record.status == ExecutionStatus.FAILED
+    assert record.error_message == "Workspace summary calculation cancelled."
+
+
+def test_postgres_lineage_cancellation_fences_waiting_completion():
+    postgres_database_url = get_postgres_database_url()
+    store = LineageMetadataStore(postgres_database_url)
+    store.create_schema()
+    store.clear_all_records()
+    calculation_id = uuid4()
+    store.enqueue_lineage_payload(
+        calculation_id=calculation_id,
+        calculation_type="WORKSPACE_SUMMARY",
+        request_json="{}",
+        response_json="{}",
+        details={"response.json": "{}"},
+    )
+    assert (
+        store.lease_pending_payload(
+            calculation_id=calculation_id,
+            worker_id="late-lineage-worker",
+            lease_seconds=60,
+        )
+        is not None
+    )
+    cancellation_write_finished = Event()
+    release_cancellation = Event()
+    completion_lock_attempted = Event()
+
+    def _pause_cancellation_after_record_update(_conn, _cursor, statement, *_args):
+        if current_thread().name.startswith("lineage-canceller") and statement.lstrip().lower().startswith(
+            "update lineage_records set"
+        ):
+            cancellation_write_finished.set()
+            assert release_cancellation.wait(timeout=5), "lineage cancellation transaction was not released"
+
+    def _notice_completion_record_lock(_conn, _cursor, statement, *_args):
+        normalized_statement = " ".join(statement.lstrip().lower().split())
+        if (
+            current_thread().name.startswith("lineage-completer")
+            and normalized_statement.startswith("select lineage_records")
+            and "for update" in normalized_statement
+        ):
+            completion_lock_attempted.set()
+
+    event.listen(store._engine, "after_cursor_execute", _pause_cancellation_after_record_update)
+    event.listen(store._engine, "before_cursor_execute", _notice_completion_record_lock)
+    try:
+        with (
+            ThreadPoolExecutor(max_workers=1, thread_name_prefix="lineage-canceller") as canceller,
+            ThreadPoolExecutor(max_workers=1, thread_name_prefix="lineage-completer") as completer,
+        ):
+            cancellation = canceller.submit(
+                store.mark_failed_if_present,
+                calculation_id,
+                "Workspace summary calculation cancelled.",
+            )
+            assert cancellation_write_finished.wait(timeout=5), "lineage cancellation did not update its record"
+            completion = completer.submit(
+                store.mark_complete,
+                calculation_id,
+                ["response.json"],
+                worker_id="late-lineage-worker",
+            )
+            assert completion_lock_attempted.wait(timeout=5), "lineage completion did not attempt its record lock"
+            release_cancellation.set()
+            assert cancellation.result(timeout=5) is True
+            with pytest.raises(LineagePayloadLeaseOwnershipError):
+                completion.result(timeout=5)
+    finally:
+        release_cancellation.set()
+        event.remove(store._engine, "after_cursor_execute", _pause_cancellation_after_record_update)
+        event.remove(store._engine, "before_cursor_execute", _notice_completion_record_lock)
+
+    record = store.get_record(calculation_id)
+    assert record is not None
+    assert record.status == LineageStatus.FAILED
+    assert record.error_message == "Workspace summary calculation cancelled."
+    payload = store.get_payload(calculation_id)
+    assert payload is not None
+    assert payload.worker_id is None
+
+
+def test_postgres_lineage_completion_rechecks_lease_expiry_before_update():
+    postgres_database_url = get_postgres_database_url()
+    store = LineageMetadataStore(postgres_database_url)
+    store.create_schema()
+    store.clear_all_records()
+    calculation_id = uuid4()
+    store.enqueue_lineage_payload(
+        calculation_id=calculation_id,
+        calculation_type="WORKSPACE_SUMMARY",
+        request_json="{}",
+        response_json="{}",
+        details={"response.json": "{}"},
+    )
+    assert (
+        store.lease_pending_payload(
+            calculation_id=calculation_id,
+            worker_id="expiring-lineage-worker",
+            lease_seconds=60,
+        )
+        is not None
+    )
+    completion_write_reached = Event()
+    release_completion = Event()
+
+    def _pause_completion_before_conditional_update(_conn, _cursor, statement, *_args):
+        if current_thread().name.startswith("expiring-lineage-completer") and statement.lstrip().lower().startswith(
+            "update lineage_records set"
+        ):
+            completion_write_reached.set()
+            assert release_completion.wait(timeout=5), "lineage completion write was not released"
+
+    event.listen(store._engine, "before_cursor_execute", _pause_completion_before_conditional_update)
+    try:
+        with ThreadPoolExecutor(max_workers=1, thread_name_prefix="expiring-lineage-completer") as completer:
+            completion = completer.submit(
+                store.mark_complete,
+                calculation_id,
+                ["response.json"],
+                worker_id="expiring-lineage-worker",
+            )
+            assert completion_write_reached.wait(timeout=5), "lineage completion did not reach its update"
+            with store._session() as session:
+                payload = session.get(LineagePayloadModel, str(calculation_id))
+                assert payload is not None
+                payload.lease_expires_at_utc = datetime.now(timezone.utc) - timedelta(seconds=1)
+            release_completion.set()
+            with pytest.raises(LineagePayloadLeaseOwnershipError, match="lease loss"):
+                completion.result(timeout=5)
+    finally:
+        release_completion.set()
+        event.remove(store._engine, "before_cursor_execute", _pause_completion_before_conditional_update)
+
+    reclaimed = store.lease_pending_payload(
+        calculation_id=calculation_id,
+        worker_id="replacement-lineage-worker",
+        lease_seconds=60,
+    )
+    assert reclaimed is not None
+    assert reclaimed.worker_id == "replacement-lineage-worker"
+    record = store.get_record(calculation_id)
+    assert record is not None
+    assert record.status == LineageStatus.PENDING
+
+
+@pytest.mark.parametrize("reclaim_method", ["single", "batch"])
+def test_postgres_lineage_completion_serializes_against_expired_reclaim(reclaim_method: str):
+    postgres_database_url = get_postgres_database_url()
+    store = LineageMetadataStore(postgres_database_url)
+    store.create_schema()
+    store.clear_all_records()
+    calculation_id = uuid4()
+    store.enqueue_lineage_payload(
+        calculation_id=calculation_id,
+        calculation_type="WORKSPACE_SUMMARY",
+        request_json="{}",
+        response_json="{}",
+        details={"response.json": "{}"},
+    )
+    assert (
+        store.lease_pending_payload(
+            calculation_id=calculation_id,
+            worker_id="completing-lineage-worker",
+            lease_seconds=60,
+        )
+        is not None
+    )
+    completion_write_finished = Event()
+    release_completion = Event()
+
+    def _pause_completion_after_conditional_update(_conn, _cursor, statement, *_args):
+        if current_thread().name.startswith("serialized-lineage-completer") and statement.lstrip().lower().startswith(
+            "update lineage_records set"
+        ):
+            completion_write_finished.set()
+            assert release_completion.wait(timeout=5), "lineage completion transaction was not released"
+
+    event.listen(store._engine, "after_cursor_execute", _pause_completion_after_conditional_update)
+    try:
+        with ThreadPoolExecutor(max_workers=2, thread_name_prefix="serialized-lineage-completer") as completer:
+            completion = completer.submit(
+                store.mark_complete,
+                calculation_id,
+                ["response.json"],
+                worker_id="completing-lineage-worker",
+            )
+            assert completion_write_finished.wait(timeout=5), "lineage completion did not finish its update"
+            with store._session() as session:
+                payload = session.get(LineagePayloadModel, str(calculation_id))
+                assert payload is not None
+                payload.lease_expires_at_utc = datetime.now(timezone.utc) - timedelta(seconds=1)
+            if reclaim_method == "single":
+                overlapping_reclaim = completer.submit(
+                    store.lease_pending_payload,
+                    calculation_id=calculation_id,
+                    worker_id="replacement-lineage-worker",
+                    lease_seconds=60,
+                )
+                assert overlapping_reclaim.result(timeout=5) is None
+            else:
+                overlapping_reclaim = completer.submit(
+                    store.lease_pending_payloads,
+                    worker_id="replacement-lineage-worker",
+                    limit=10,
+                    lease_seconds=60,
+                )
+                assert overlapping_reclaim.result(timeout=5) == []
+            release_completion.set()
+            assert completion.result(timeout=5) is None
+    finally:
+        release_completion.set()
+        event.remove(store._engine, "after_cursor_execute", _pause_completion_after_conditional_update)
+
+    assert (
+        store.lease_pending_payload(
+            calculation_id=calculation_id,
+            worker_id="replacement-lineage-worker",
+            lease_seconds=60,
+        )
+        is None
+    )
+    record = store.get_record(calculation_id)
+    assert record is not None
+    assert record.status == LineageStatus.COMPLETE
+    payload = store.get_payload(calculation_id)
+    assert payload is not None
+    assert payload.worker_id == "completing-lineage-worker"
+
+
+@pytest.mark.parametrize("reclaim_method", ["single", "batch"])
+def test_postgres_expired_reclaim_fences_waiting_completion(reclaim_method: str):
+    postgres_database_url = get_postgres_database_url()
+    store = LineageMetadataStore(postgres_database_url)
+    store.create_schema()
+    store.clear_all_records()
+    calculation_id = uuid4()
+    store.enqueue_lineage_payload(
+        calculation_id=calculation_id,
+        calculation_type="WORKSPACE_SUMMARY",
+        request_json="{}",
+        response_json="{}",
+        details={"response.json": "{}"},
+    )
+    assert (
+        store.lease_pending_payload(
+            calculation_id=calculation_id,
+            worker_id="expired-lineage-worker",
+            lease_seconds=60,
+        )
+        is not None
+    )
+    with store._session() as session:
+        payload = session.get(LineagePayloadModel, str(calculation_id))
+        assert payload is not None
+        payload.lease_expires_at_utc = datetime.now(timezone.utc) - timedelta(seconds=1)
+
+    reclaim_write_finished = Event()
+    release_reclaim = Event()
+    completion_lock_attempted = Event()
+
+    def _pause_reclaim_after_fence(_conn, _cursor, statement, *_args):
+        normalized_statement = " ".join(statement.lstrip().lower().split())
+        is_single_reclaim = (
+            reclaim_method == "single"
+            and normalized_statement.startswith("select lineage_payloads")
+            and "for update" in normalized_statement
+        )
+        is_batch_reclaim = reclaim_method == "batch" and normalized_statement.startswith(
+            "update lineage_payloads as payload"
+        )
+        if current_thread().name.startswith("reclaim-first") and (is_single_reclaim or is_batch_reclaim):
+            reclaim_write_finished.set()
+            assert release_reclaim.wait(timeout=5), "lineage reclaim transaction was not released"
+
+    def _notice_completion_record_lock(_conn, _cursor, statement, *_args):
+        normalized_statement = " ".join(statement.lstrip().lower().split())
+        if (
+            current_thread().name.startswith("reclaim-fenced-completer")
+            and normalized_statement.startswith("select lineage_records")
+            and "for update" in normalized_statement
+        ):
+            completion_lock_attempted.set()
+
+    event.listen(store._engine, "after_cursor_execute", _pause_reclaim_after_fence)
+    event.listen(store._engine, "before_cursor_execute", _notice_completion_record_lock)
+    try:
+        with (
+            ThreadPoolExecutor(max_workers=1, thread_name_prefix="reclaim-first") as reclaimer,
+            ThreadPoolExecutor(max_workers=1, thread_name_prefix="reclaim-fenced-completer") as completer,
+        ):
+            if reclaim_method == "single":
+                reclaim = reclaimer.submit(
+                    store.lease_pending_payload,
+                    calculation_id=calculation_id,
+                    worker_id="replacement-lineage-worker",
+                    lease_seconds=60,
+                )
+            else:
+                reclaim = reclaimer.submit(
+                    store.lease_pending_payloads,
+                    worker_id="replacement-lineage-worker",
+                    limit=10,
+                    lease_seconds=60,
+                )
+            assert reclaim_write_finished.wait(timeout=5), "lineage reclaimer did not acquire its durable fence"
+            completion = completer.submit(
+                store.mark_complete,
+                calculation_id,
+                ["response.json"],
+                worker_id="expired-lineage-worker",
+            )
+            assert completion_lock_attempted.wait(timeout=5), "lineage completion did not attempt its record lock"
+            release_reclaim.set()
+            reclaimed = reclaim.result(timeout=5)
+            if reclaim_method == "single":
+                assert reclaimed is not None
+                assert reclaimed.worker_id == "replacement-lineage-worker"
+            else:
+                assert [payload.worker_id for payload in reclaimed] == ["replacement-lineage-worker"]
+            with pytest.raises(LineagePayloadLeaseOwnershipError, match="owner mismatch"):
+                completion.result(timeout=5)
+    finally:
+        release_reclaim.set()
+        event.remove(store._engine, "after_cursor_execute", _pause_reclaim_after_fence)
+        event.remove(store._engine, "before_cursor_execute", _notice_completion_record_lock)
+
+    record = store.get_record(calculation_id)
+    assert record is not None
+    assert record.status == LineageStatus.PENDING
+    payload = store.get_payload(calculation_id)
+    assert payload is not None
+    assert payload.worker_id == "replacement-lineage-worker"

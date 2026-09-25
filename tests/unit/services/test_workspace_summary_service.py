@@ -1,5 +1,7 @@
+import asyncio
 from datetime import date
 from decimal import Decimal
+from threading import Event, get_ident
 from types import SimpleNamespace
 from uuid import uuid4
 
@@ -9,6 +11,7 @@ import pytest
 from app.models.benchmark_analytics_requests import BenchmarkInputMode
 from app.models.benchmark_requests import BenchmarkPerformanceRequest
 from app.models.requests import DailyInputData
+from app.models.source_quality import PerformanceSourceQualityEvidence
 from app.models.workspace_summary_requests import WorkspaceSummaryRequest
 from app.models.workspace_summary_responses import (
     WorkspaceBasisPair,
@@ -51,6 +54,7 @@ from app.services.workspace_summary_service import (
     _resolve_workspace_benchmark_input,
     _resolve_workspace_inputs,
     _resolve_workspace_portfolio_input,
+    _resolve_workspace_summary_supportability,
     _sum_decimal_column,
     _trim_portfolio_input_to_master_window,
     _workspace_observation_in_master_window,
@@ -146,6 +150,7 @@ async def test_workspace_summary_async_stateful_retrieval_uses_longest_requested
     mocker.patch("app.services.workspace_summary_service.execution_registry.mark_running")
     mocker.patch("app.services.workspace_summary_service.execution_registry.start_stage")
     mocker.patch("app.services.workspace_summary_service.execution_registry.complete_stage")
+    supportability_metric = mocker.patch("app.services.workspace_summary_service.record_supportability_metric")
     mocker.patch(
         "app.services.workspace_summary_service.complete_execution_with_lineage",
         side_effect=lambda **kwargs: lineage_capture.update(kwargs),
@@ -161,10 +166,11 @@ async def test_workspace_summary_async_stateful_retrieval_uses_longest_requested
         "app.services.workspace_summary_service.build_stateful_portfolio_valuation_input",
         return_value=SimpleNamespace(
             performance_start_date=pd.Timestamp("2026-01-01").date(),
-            observations=[{"perf_date": "2026-05-30"}],
+            source_quality_evidence=None,
+            observations=[{"perf_date": "2026-05-31"}],
             valuation_points=[
                 {
-                    "perf_date": "2026-05-30",
+                    "perf_date": "2026-05-31",
                     "begin_mv": 100.0,
                     "bod_cf": 0.0,
                     "eod_cf": 0.0,
@@ -187,7 +193,7 @@ async def test_workspace_summary_async_stateful_retrieval_uses_longest_requested
         return_value=WorkspaceTWRArtifacts(
             daily_results_df=pd.DataFrame(
                 {
-                    "perf_date": [pd.Timestamp("2026-05-30T10:00:00Z"), "2026-06-30"],
+                    "perf_date": [pd.Timestamp("2026-05-31T10:00:00Z"), "2026-06-30"],
                     "daily_ror": [1.0, 0.990099],
                     "perf_reset": [False, False],
                     "final_cum_ror": [1.0, 2.0],
@@ -196,7 +202,7 @@ async def test_workspace_summary_async_stateful_retrieval_uses_longest_requested
             diagnostics=Diagnostics(
                 nip_days=0,
                 reset_days=0,
-                effective_period_start=pd.Timestamp("2026-05-30").date(),
+                effective_period_start=pd.Timestamp("2026-05-31").date(),
                 notes=[],
             ),
         ),
@@ -221,6 +227,13 @@ async def test_workspace_summary_async_stateful_retrieval_uses_longest_requested
 
     assert str(captured["start_date"]) == "2026-05-31"
     assert response.audit.counts["portfolio_chunk_count"] == 3
+    assert response.calculation_supportability.state == "ready"
+    assert response.calculation_supportability.freshness_bucket == "current"
+    assert response.calculation_supportability.input_row_count == 2
+    supportability_metric.assert_called_once_with(
+        operation="workspace_summary",
+        supportability=response.calculation_supportability,
+    )
     assert lineage_capture["calculation_type"] == ANALYTICS_WORKFLOW_WORKSPACE_SUMMARY
     assert set(response.results_by_period) == {"1D", "1M"}
     one_day = response.results_by_period["1D"]
@@ -228,6 +241,360 @@ async def test_workspace_summary_async_stateful_retrieval_uses_longest_requested
         one_day.portfolio_twr.net.summary.period_return.base == one_day.portfolio_twr.net.summary.cumulative_return.base
     )
     assert one_day.money_weighted_return.period_return == one_day.money_weighted_return.cumulative_return
+
+
+@pytest.mark.asyncio
+async def test_workspace_summary_async_runs_sync_prelude_and_finalization_off_the_application_event_loop(mocker):
+    request = WorkspaceSummaryRequest.model_validate(
+        {
+            "calculation_id": str(uuid4()),
+            "portfolio_id": "PORT-1",
+            "report_end_date": "2026-06-30",
+            "performance_start_date": "2026-06-29",
+            "input_mode": "stateless",
+            "stateless_input": {
+                "valuation_points": [
+                    {"perf_date": "2026-06-29", "begin_mv": 100, "end_mv": 101},
+                    {"perf_date": "2026-06-30", "begin_mv": 101, "end_mv": 102},
+                ]
+            },
+            "periods": [{"period": "1D", "frequencies": ["daily"]}],
+        }
+    )
+    portfolio_input = _build_stateless_workspace_portfolio_input(request)
+    artifacts = WorkspaceTWRArtifacts(
+        daily_results_df=pd.DataFrame({"perf_date": [date(2026, 6, 29), date(2026, 6, 30)]}),
+        diagnostics=Diagnostics(
+            nip_days=0,
+            reset_days=0,
+            effective_period_start=date(2026, 6, 29),
+        ),
+    )
+    application_loop_thread = get_ident()
+
+    def generate_hash(*_args, **_kwargs):
+        assert get_ident() != application_loop_thread
+        return "input-fingerprint", "calculation-hash"
+
+    def start_stage(*_args, **_kwargs):
+        assert get_ident() != application_loop_thread
+
+    mocker.patch("app.services.workspace_summary_service.generate_canonical_hash", side_effect=generate_hash)
+    mocker.patch("app.services.workspace_summary_service.execution_registry.start_stage", side_effect=start_stage)
+    mocker.patch(
+        "app.services.workspace_summary_service._resolve_workspace_inputs_async",
+        new_callable=mocker.AsyncMock,
+        return_value=(
+            [ResolvedWorkspacePeriod(name="1D", start_date=date(2026, 6, 29), end_date=date(2026, 6, 30))],
+            portfolio_input,
+            None,
+            artifacts,
+            artifacts,
+        ),
+    )
+    expected_response = object()
+
+    def finalize(**_kwargs):
+        assert get_ident() != application_loop_thread
+        return expected_response
+
+    finalize_mock = mocker.patch(
+        "app.services.workspace_summary_service._finalize_workspace_summary",
+        side_effect=finalize,
+    )
+
+    response = await calculate_workspace_summary_async(
+        request,
+        settings=SimpleNamespace(APP_VERSION="test-version"),
+    )
+
+    assert response is expected_response
+    finalize_mock.assert_called_once()
+
+
+@pytest.mark.asyncio
+async def test_workspace_summary_async_drains_threaded_finalization_before_propagating_cancellation(mocker):
+    request = WorkspaceSummaryRequest.model_validate(
+        {
+            "calculation_id": str(uuid4()),
+            "portfolio_id": "PORT-1",
+            "report_end_date": "2026-06-30",
+            "performance_start_date": "2026-06-29",
+            "input_mode": "stateless",
+            "stateless_input": {
+                "valuation_points": [
+                    {"perf_date": "2026-06-29", "begin_mv": 100, "end_mv": 101},
+                    {"perf_date": "2026-06-30", "begin_mv": 101, "end_mv": 102},
+                ]
+            },
+            "periods": [{"period": "1D", "frequencies": ["daily"]}],
+        }
+    )
+    mocker.patch("app.services.workspace_summary_service.execution_registry.start_stage")
+    mocker.patch(
+        "app.services.workspace_summary_service._resolve_workspace_inputs_async",
+        new_callable=mocker.AsyncMock,
+        return_value=([], object(), None, object(), object()),
+    )
+    finalization_started = Event()
+    release_finalization = Event()
+    finalization_events: list[str] = []
+
+    def finalize(**_kwargs):
+        finalization_events.append("started")
+        finalization_started.set()
+        assert release_finalization.wait(timeout=2)
+        finalization_events.append("completed")
+        return object()
+
+    mocker.patch(
+        "app.services.workspace_summary_service._finalize_workspace_summary",
+        side_effect=finalize,
+    )
+    task = asyncio.create_task(
+        calculate_workspace_summary_async(
+            request,
+            settings=SimpleNamespace(APP_VERSION="test-version"),
+        )
+    )
+
+    try:
+        assert await asyncio.to_thread(finalization_started.wait, 2)
+        task.cancel()
+        await asyncio.sleep(0)
+        assert not task.done()
+        task.cancel()
+        await asyncio.sleep(0)
+        assert not task.done()
+    finally:
+        release_finalization.set()
+
+    with pytest.raises(asyncio.CancelledError):
+        await task
+    assert finalization_events == ["started", "completed"]
+
+
+def test_workspace_summary_supportability_fails_closed_for_degraded_source_quality():
+    request = WorkspaceSummaryRequest.model_validate(
+        {
+            "calculation_id": str(uuid4()),
+            "portfolio_id": "PORT-1",
+            "report_start_date": "2026-06-01",
+            "report_end_date": "2026-06-30",
+            "performance_start_date": "2026-06-01",
+            "input_mode": "stateless",
+            "stateless_input": {
+                "valuation_points": [
+                    {"perf_date": "2026-06-01", "begin_mv": 100, "end_mv": 101},
+                    {"perf_date": "2026-06-30", "begin_mv": 101, "end_mv": 102},
+                ]
+            },
+            "periods": [{"period": "EXPLICIT", "frequencies": ["monthly"]}],
+        }
+    )
+    source_quality = PerformanceSourceQualityEvidence(
+        quality_state="degraded",
+        warnings=["invalid_source_observation"],
+        observation_count=2,
+        valid_valuation_point_count=2,
+        skipped_observation_count=1,
+        unsupported_cashflow_count=0,
+        source_conflict_count=0,
+        latest_observation_date=date(2026, 6, 30),
+        report_end_date=date(2026, 6, 30),
+        source_owner="lotus-core",
+        source_product="PortfolioTimeseriesInput",
+        input_mode="stateful",
+    )
+    portfolio_input = ResolvedWorkspacePortfolioInput(
+        input_mode="stateful",
+        performance_start_date=date(2026, 6, 1),
+        valuation_points=[
+            DailyInputData(perf_date=date(2026, 6, 1), begin_mv=100, end_mv=101),
+            DailyInputData(perf_date=date(2026, 6, 30), begin_mv=101, end_mv=102),
+        ],
+        observations=[],
+        source_details={},
+        source_quality_evidence=source_quality,
+    )
+    supportability = _resolve_workspace_summary_supportability(
+        request=request,
+        resolved_periods=[
+            ResolvedWorkspacePeriod(
+                name="EXPLICIT",
+                start_date=date(2026, 6, 1),
+                end_date=date(2026, 6, 30),
+            )
+        ],
+        emitted_result_count=1,
+        portfolio_input=portfolio_input,
+        benchmark_input=None,
+        benchmark_daily_df=None,
+        daily_results_df=pd.DataFrame({"perf_date": [date(2026, 6, 1), date(2026, 6, 30)]}),
+    )
+
+    assert supportability.state == "degraded"
+    assert supportability.reason == "calculation_quality_issue"
+    assert supportability.freshness_bucket == "current"
+    assert supportability.source_quality_evidence == source_quality
+
+
+@pytest.mark.parametrize(
+    (
+        "benchmark_dates",
+        "portfolio_dates",
+        "expected_state",
+        "expected_reason",
+        "expected_freshness",
+        "expected_row_count",
+    ),
+    [
+        (
+            [date(2026, 6, 1), date(2026, 6, 29)],
+            [date(2026, 6, 1), date(2026, 6, 29)],
+            "stale",
+            "stale_source_observations",
+            "stale",
+            2,
+        ),
+        (
+            [date(2026, 7, 1)],
+            [date(2026, 6, 1), date(2026, 6, 30)],
+            "degraded",
+            "benchmark_unavailable",
+            "unknown",
+            0,
+        ),
+        (
+            [date(2026, 6, 30)],
+            [date(2026, 6, 1), date(2026, 6, 30)],
+            "degraded",
+            "benchmark_unavailable",
+            "unknown",
+            1,
+        ),
+    ],
+)
+def test_workspace_summary_supportability_fails_closed_for_stale_out_of_window_or_partial_benchmark_series(
+    benchmark_dates,
+    portfolio_dates,
+    expected_state,
+    expected_reason,
+    expected_freshness,
+    expected_row_count,
+):
+    request = WorkspaceSummaryRequest.model_validate(
+        {
+            "calculation_id": str(uuid4()),
+            "portfolio_id": "PORT-1",
+            "report_start_date": "2026-06-01",
+            "report_end_date": "2026-06-30",
+            "performance_start_date": "2026-06-01",
+            "input_mode": "stateless",
+            "stateless_input": {
+                "valuation_points": [
+                    {"perf_date": "2026-06-01", "begin_mv": 100, "end_mv": 101},
+                    {"perf_date": "2026-06-30", "begin_mv": 101, "end_mv": 102},
+                ]
+            },
+            "periods": [{"period": "EXPLICIT", "frequencies": ["monthly"]}],
+        }
+    )
+    benchmark_request = BenchmarkPerformanceRequest.model_validate(
+        {
+            "benchmark_id": "BMK-1",
+            "benchmark_start_date": "2026-06-01",
+            "report_start_date": "2026-06-01",
+            "report_end_date": "2026-06-30",
+            "return_source": "vendor_series",
+            "benchmark_currency": "USD",
+            "benchmark_return_points": [
+                {"perf_date": benchmark_date, "benchmark_return": 0.002} for benchmark_date in benchmark_dates
+            ],
+            "analyses": [{"period": "EXPLICIT", "frequencies": ["daily"]}],
+        }
+    )
+    benchmark_input = ResolvedWorkspaceBenchmarkInput(
+        benchmark_request=benchmark_request,
+        input_mode=BenchmarkInputMode.STATELESS,
+        benchmark_id="BMK-1",
+        source_details={},
+    )
+    portfolio_input = _build_stateless_workspace_portfolio_input(request)
+
+    supportability = _resolve_workspace_summary_supportability(
+        request=request,
+        resolved_periods=[
+            ResolvedWorkspacePeriod(
+                name="EXPLICIT",
+                start_date=date(2026, 6, 1),
+                end_date=date(2026, 6, 30),
+            )
+        ],
+        emitted_result_count=1,
+        portfolio_input=portfolio_input,
+        benchmark_input=benchmark_input,
+        benchmark_daily_df=_build_workspace_benchmark_daily_df(benchmark_input),
+        daily_results_df=pd.DataFrame({"perf_date": portfolio_dates}),
+    )
+
+    assert supportability.state == expected_state
+    assert supportability.reason == expected_reason
+    assert supportability.freshness_bucket == expected_freshness
+    assert supportability.benchmark_row_count == expected_row_count
+
+
+def test_workspace_summary_supportability_prioritizes_insufficient_portfolio_truth_over_benchmark_gap():
+    request = WorkspaceSummaryRequest.model_validate(
+        {
+            "calculation_id": str(uuid4()),
+            "portfolio_id": "PORT-1",
+            "report_start_date": "2026-06-01",
+            "report_end_date": "2026-06-30",
+            "performance_start_date": "2026-06-01",
+            "input_mode": "stateless",
+            "stateless_input": {"valuation_points": [{"perf_date": "2026-06-30", "begin_mv": 100, "end_mv": 101}]},
+            "periods": [{"period": "EXPLICIT", "frequencies": ["monthly"]}],
+        }
+    )
+    benchmark_request = BenchmarkPerformanceRequest.model_validate(
+        {
+            "benchmark_id": "BMK-1",
+            "benchmark_start_date": "2026-06-01",
+            "report_start_date": "2026-06-01",
+            "report_end_date": "2026-06-30",
+            "return_source": "vendor_series",
+            "benchmark_currency": "USD",
+            "benchmark_return_points": [{"perf_date": "2026-06-01", "benchmark_return": 0.002}],
+            "analyses": [{"period": "EXPLICIT", "frequencies": ["daily"]}],
+        }
+    )
+    benchmark_input = ResolvedWorkspaceBenchmarkInput(
+        benchmark_request=benchmark_request,
+        input_mode=BenchmarkInputMode.STATELESS,
+        benchmark_id="BMK-1",
+        source_details={},
+    )
+
+    supportability = _resolve_workspace_summary_supportability(
+        request=request,
+        resolved_periods=[
+            ResolvedWorkspacePeriod(
+                name="EXPLICIT",
+                start_date=date(2026, 6, 1),
+                end_date=date(2026, 6, 30),
+            )
+        ],
+        emitted_result_count=1,
+        portfolio_input=_build_stateless_workspace_portfolio_input(request),
+        benchmark_input=benchmark_input,
+        benchmark_daily_df=_build_workspace_benchmark_daily_df(benchmark_input),
+        daily_results_df=pd.DataFrame({"perf_date": [date(2026, 6, 30)]}),
+    )
+
+    assert supportability.state == "empty"
+    assert supportability.reason == "insufficient_valuation_points"
+    assert supportability.benchmark_row_count == 1
 
 
 def test_workspace_summary_stateful_linked_benchmark_resolves_assignment_once(mocker):
@@ -249,6 +616,7 @@ def test_workspace_summary_stateful_linked_benchmark_resolves_assignment_once(mo
         return SimpleNamespace(
             input_mode="stateful",
             performance_start_date=pd.Timestamp("2025-01-01").date(),
+            source_quality_evidence=None,
             valuation_points=[
                 DailyInputData.model_validate(
                     {
@@ -700,6 +1068,7 @@ def test_build_stateful_workspace_portfolio_input_projects_retrieval_and_source_
         "app.services.workspace_summary_service.build_stateful_portfolio_valuation_input",
         return_value=SimpleNamespace(
             performance_start_date=date(2026, 1, 1),
+            source_quality_evidence=None,
             observations=[{"perf_date": "2026-01-02"}],
             valuation_points=[
                 {
@@ -737,6 +1106,7 @@ def test_build_stateful_workspace_portfolio_input_projects_retrieval_and_source_
     assert result.performance_start_date == date(2026, 1, 1)
     assert [point.perf_date for point in result.valuation_points] == [date(2026, 1, 2)]
     assert result.observations == [{"perf_date": "2026-01-02"}]
+    assert result.source_quality_evidence is None
     assert result.source_details == {"portfolio_chunk_count": 3, "portfolio_page_count": 7}
 
 
@@ -944,13 +1314,18 @@ def test_build_workspace_summary_response_projects_summary_inputs_and_audit_coun
         return_value={"1D": period_result},
     )
     resolved_period = ResolvedWorkspacePeriod(name="1D", start_date=date(2026, 1, 1), end_date=date(2026, 1, 2))
+    empty_resolved_period = ResolvedWorkspacePeriod(
+        name="EMPTY",
+        start_date=date(2025, 12, 1),
+        end_date=date(2025, 12, 31),
+    )
 
     response = _build_workspace_summary_response(
         request=request,
         settings=SimpleNamespace(APP_VERSION="test-version"),
         input_fingerprint="input-fingerprint",
         calculation_hash="calculation-hash",
-        resolved_periods=[resolved_period],
+        resolved_periods=[resolved_period, empty_resolved_period],
         portfolio_input=portfolio_input,
         benchmark_input=None,
         net_artifacts=WorkspaceTWRArtifacts(
@@ -977,6 +1352,7 @@ def test_build_workspace_summary_response_projects_summary_inputs_and_audit_coun
     assert response.portfolio_id == "PORT-1"
     assert response.input_mode == request.input_mode
     assert response.results_by_period == {"1D": period_result}
+    assert response.calculation_supportability.resolved_period_count == 1
     assert response.currency_evidence.applied_report_ccy == "USD"
     assert response.currency_evidence.restated is False
     assert response.currency_evidence.reason == "PORTFOLIO_BASE_CURRENCY_APPLIED"
@@ -992,7 +1368,7 @@ def test_build_workspace_summary_response_projects_summary_inputs_and_audit_coun
     }
     period_kwargs = period_builder.call_args.kwargs
     assert period_kwargs["request"] is request
-    assert period_kwargs["resolved_periods"] == [resolved_period]
+    assert period_kwargs["resolved_periods"] == [resolved_period, empty_resolved_period]
     assert period_kwargs["portfolio_input"] is portfolio_input
     assert period_kwargs["benchmark_input"] is None
     assert period_kwargs["benchmark_daily_df"] is None

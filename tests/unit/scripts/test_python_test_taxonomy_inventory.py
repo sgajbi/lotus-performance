@@ -69,6 +69,38 @@ def test_lineage_materialization_failure_marks_execution_failed():
 """,
         encoding="utf-8",
     )
+    execution_registry_file = service_dir / "test_execution_registry.py"
+    execution_registry_file.write_text(
+        """
+def test_terminal_failure_fences_late_worker_completion():
+    pass
+""",
+        encoding="utf-8",
+    )
+    execution_lifecycle_file = service_dir / "test_execution_lifecycle_service.py"
+    execution_lifecycle_file.write_text(
+        """
+def test_cancellation_fences_execution_before_lineage():
+    pass
+""",
+        encoding="utf-8",
+    )
+    lineage_metadata_file = service_dir / "test_lineage_metadata_store.py"
+    lineage_metadata_file.write_text(
+        """
+def test_cancellation_invalidates_active_lineage_lease():
+    pass
+""",
+        encoding="utf-8",
+    )
+    postgres_concurrency_file = service_dir / "test_postgres_concurrency_contracts.py"
+    postgres_concurrency_file.write_text(
+        """
+def test_terminal_state_interleaving_uses_database_fences():
+    pass
+""",
+        encoding="utf-8",
+    )
     resilience_file = service_dir / "test_http_resilience.py"
     resilience_file.write_text(
         """
@@ -170,7 +202,30 @@ def test_legal_hold_source_projects_governed_retention_exclusions():
     modules = collect_test_modules((str(tests_root),))
     modules_by_path = {module.path: module for module in modules}
 
-    assert [module.test_count for module in modules] == [2, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1]
+    assert [module.test_count for module in modules] == [
+        2,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+    ]
     api_module = modules_by_path["tests/integration/test_returns_api.py"]
     application_responses_module = modules_by_path["tests/unit/core/test_application_responses.py"]
     async_polling_module = modules_by_path["tests/unit/core/test_async_polling.py"]
@@ -183,6 +238,10 @@ def test_legal_hold_source_projects_governed_retention_exclusions():
     returns_series_module = modules_by_path["tests/unit/services/test_returns_series_service.py"]
     resilience_module = modules_by_path["tests/unit/services/test_http_resilience.py"]
     lineage_worker_module = modules_by_path["tests/unit/services/test_lineage_worker.py"]
+    execution_registry_module = modules_by_path["tests/unit/services/test_execution_registry.py"]
+    execution_lifecycle_module = modules_by_path["tests/unit/services/test_execution_lifecycle_service.py"]
+    lineage_metadata_module = modules_by_path["tests/unit/services/test_lineage_metadata_store.py"]
+    postgres_concurrency_module = modules_by_path["tests/unit/services/test_postgres_concurrency_contracts.py"]
     runtime_recovery_module = modules_by_path["tests/unit/services/test_runtime_recovery_service.py"]
     legal_hold_module = modules_by_path["tests/unit/services/test_runtime_retention_legal_hold.py"]
     stateful_input_module = modules_by_path["tests/unit/services/test_stateful_input_service.py"]
@@ -215,6 +274,10 @@ def test_legal_hold_source_projects_governed_retention_exclusions():
     assert "observability_or_readiness" in resilience_module.families
     assert lineage_worker_module.suite == "unit"
     assert "observability_or_readiness" in lineage_worker_module.families
+    assert "observability_or_readiness" in execution_registry_module.families
+    assert "observability_or_readiness" in execution_lifecycle_module.families
+    assert "observability_or_readiness" in lineage_metadata_module.families
+    assert "observability_or_readiness" in postgres_concurrency_module.families
     assert stateful_input_module.suite == "unit"
     assert "analytics_domain" in stateful_input_module.families
     assert stateful_execution_policy_module.suite == "unit"

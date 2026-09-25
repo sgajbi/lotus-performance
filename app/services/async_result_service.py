@@ -17,6 +17,7 @@ from core.errors import APIConflictError, APINotFoundError
 
 ResponseModelT = TypeVar("ResponseModelT", bound=BaseModel)
 AcceptedModelT = TypeVar("AcceptedModelT", bound=BaseModel)
+ResponsePayloadUpgrader = Callable[[dict[str, Any] | None], dict[str, Any] | None]
 ASYNC_RESULT_RESPONSE_SCHEMA_INVALID_DETAIL = "Async result payload failed response contract validation."
 ASYNC_RESULT_RESPONSE_SCHEMA_INVALID_REASON = "async_result_response_schema_invalid"
 ASYNC_RESULT_ANALYTICS_TYPE_MISMATCH_REASON = "async_result_analytics_type_mismatch"
@@ -42,6 +43,7 @@ def _resolve_stored_async_result(
     response_model: type[ResponseModelT],
     not_found_detail: str,
     failed_detail: str,
+    response_payload_upgrader: ResponsePayloadUpgrader | None = None,
 ) -> ResponseModelT:
     _ensure_expected_analytics_type(
         calculation_id=async_result.calculation_id,
@@ -57,6 +59,7 @@ def _resolve_stored_async_result(
         response_model=response_model,
         response_payload=async_result.response_payload,
         source="async_result_store",
+        response_payload_upgrader=response_payload_upgrader,
     )
 
 
@@ -69,6 +72,7 @@ def _resolve_compute_job_result(
     accepted_response_factory: Callable[[UUID], AcceptedModelT],
     not_found_detail: str,
     failed_detail: str,
+    response_payload_upgrader: ResponsePayloadUpgrader | None = None,
 ) -> ResponseModelT | ApplicationHttpResponse:
     job = _require_compute_job(job, not_found_detail=not_found_detail)
     _ensure_expected_analytics_type(
@@ -87,6 +91,7 @@ def _resolve_compute_job_result(
         response_model=response_model,
         response_payload=job.response_payload,
         source="compute_job_store",
+        response_payload_upgrader=response_payload_upgrader,
     )
 
 
@@ -119,9 +124,13 @@ def _validate_response_payload(
     response_model: type[ResponseModelT],
     response_payload: dict[str, Any] | None,
     source: str,
+    response_payload_upgrader: ResponsePayloadUpgrader | None = None,
 ) -> ResponseModelT:
     try:
-        return response_model.model_validate(response_payload)
+        upgraded_payload = (
+            response_payload_upgrader(response_payload) if response_payload_upgrader is not None else response_payload
+        )
+        return response_model.model_validate(upgraded_payload)
     except ValidationError as exc:
         logger.warning(
             "Async result response payload failed schema validation.",
@@ -155,6 +164,7 @@ def resolve_async_result(
     not_found_detail: str,
     failed_detail: str,
     request_headers: Mapping[str, Any] | None = None,
+    response_payload_upgrader: ResponsePayloadUpgrader | None = None,
 ) -> ResponseModelT | ApplicationHttpResponse:
     access_denial, persisted_tenant_id = _authorize_async_result_access(
         calculation_id=calculation_id,
@@ -173,6 +183,7 @@ def resolve_async_result(
             response_model=response_model,
             not_found_detail=not_found_detail,
             failed_detail=failed_detail,
+            response_payload_upgrader=response_payload_upgrader,
         )
 
     return _resolve_compute_job_result(
@@ -183,6 +194,7 @@ def resolve_async_result(
         accepted_response_factory=accepted_response_factory,
         not_found_detail=not_found_detail,
         failed_detail=failed_detail,
+        response_payload_upgrader=response_payload_upgrader,
     )
 
 

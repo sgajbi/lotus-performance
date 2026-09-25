@@ -124,7 +124,16 @@ def _families_for_path(path: str) -> tuple[str, ...]:
             # and pushed the ceiling up by exactly the amount that hid them. Same shape as
             # `workspace` below and the dead `logging`/`correlation` tokens above: see #475.
             "compute_executor_worker",
+            # Execution and lineage stores/services are the durable lifecycle boundary behind
+            # polling, cancellation, evidence materialization, and worker recovery. Leaving their
+            # tests unclassified hid runtime-readiness coverage and made legitimate cancellation
+            # regressions consume the uncategorized-test budget.
+            "execution_registry",
+            "execution_lifecycle",
+            "lineage_metadata_store",
+            "lineage_service",
             "lineage_worker",
+            "postgres_concurrency",
             "runtime_recovery",
             # Executable schema-apply and schema-creation surfaces are startup-readiness concerns:
             # they decide whether a worker replica reaches a healthy state at all. Keep these

@@ -261,14 +261,23 @@ def test_workflow_enabled_requires_every_feature_flag():
     assert _workflow_enabled(False) is False
 
 
-def test_build_integration_capabilities_report_supportability_stays_enabled_without_twr(monkeypatch):
-    monkeypatch.setenv("PA_CAP_TWR_ENABLED", "false")
+def test_build_integration_capabilities_report_supportability_stays_enabled_for_workspace_only(monkeypatch):
+    for setting in (
+        "PA_CAP_TWR_ENABLED",
+        "PA_CAP_MWR_ENABLED",
+        "PA_CAP_CONTRIBUTION_ENABLED",
+        "PA_CAP_ATTRIBUTION_ENABLED",
+        "PLATFORM_INPUT_MODE_STATEFUL_ENABLED",
+        "PLATFORM_INPUT_MODE_STATELESS_ENABLED",
+    ):
+        monkeypatch.setenv(setting, "false")
 
     report = build_integration_capabilities_report()
     features = {item["key"]: item for item in report.features}
     surfaces = {item["key"]: item for item in report.analytics_surfaces}
 
     assert surfaces["twr"]["enabled"] is False
+    assert surfaces["workspace_summary"]["enabled"] is True
     assert features["performance.support.twr_inspection"]["enabled"] is False
     assert features["performance.observability.calculation_supportability"]["enabled"] is True
     assert surfaces["twr_inspection"]["contract_notes"] == []

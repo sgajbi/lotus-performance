@@ -1725,7 +1725,7 @@ def test_front_office_supportability_docs_cover_all_completed_calculation_surfac
     assert "`calculation_supportability`" in repo_context
     assert 'supportability_state="stale"' in runbook
     assert (
-        "Bounded TWR, MWR, contribution, attribution, and returns-series calculation supportability response metadata and Prometheus posture metrics."
+        "Bounded TWR, MWR, workspace-summary, contribution, attribution, and returns-series calculation supportability response metadata and Prometheus posture metrics."
         in _read("docs/examples/integration_capabilities_response.json")
     )
 
@@ -2381,9 +2381,9 @@ def test_current_inventory_prose_carries_no_stale_totals():
         for block in _read("quality/ci_quality_gates.md").split("\n\n")
         if block.lstrip().startswith("Current governed inventory:")
     ]
-    assert len(blocks) == 1, (
-        f"Expected exactly one present-tense 'Current governed inventory' paragraph, " f"found {len(blocks)}"
-    )
+    assert (
+        len(blocks) == 1
+    ), f"Expected exactly one present-tense 'Current governed inventory' paragraph, found {len(blocks)}"
     # Totals wrap mid-phrase across line breaks, which is exactly how a stale one survived a
     # refresh that used exact-phrase replacement.
     paragraph = " ".join(blocks[0].split())
@@ -2433,9 +2433,9 @@ def test_current_inventory_prose_carries_no_stale_totals():
         assert f"| {family} | {count} |" in inventory, f"Inventory family table is stale for {family}: measured {count}"
     for suite, count in summary.suite_counts.items():
         modules = summary.suite_module_counts[suite]
-        assert f"| {suite} | {modules} | {count} |" in inventory, (
-            f"Inventory suite table is stale for {suite}: measured {modules} modules, " f"{count} test functions"
-        )
+        assert (
+            f"| {suite} | {modules} | {count} |" in inventory
+        ), f"Inventory suite table is stale for {suite}: measured {modules} modules, {count} test functions"
 
 
 def test_every_documented_make_target_exists() -> None:

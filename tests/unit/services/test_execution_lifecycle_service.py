@@ -3,7 +3,7 @@ from uuid import uuid4
 import pytest
 from pydantic import BaseModel
 
-from app.services.execution_lifecycle_service import complete_execution_with_lineage
+from app.services.execution_lifecycle_service import complete_execution_with_lineage, record_execution_cancellation
 from app.services.execution_registry import ExecutionStageStatus, ExecutionStatus, execution_registry
 
 
@@ -85,3 +85,30 @@ def test_complete_execution_with_lineage_fails_lineage_stage_when_enqueue_raises
         stages["lineage_materialization"].error_message
         == "Lineage capture enqueue failed unexpectedly. Use the correlation_id for support."
     )
+
+
+def test_record_execution_cancellation_fences_execution_before_lineage(mocker):
+    calculation_id = uuid4()
+    calls: list[str] = []
+    mark_failed = mocker.patch(
+        "app.services.execution_lifecycle_service.execution_registry.mark_failed",
+        side_effect=lambda *_args: calls.append("execution_failed"),
+    )
+    fail_stages = mocker.patch(
+        "app.services.execution_lifecycle_service.execution_registry.fail_in_progress_stages",
+        side_effect=lambda *_args: calls.append("stages_failed"),
+    )
+    fence_lineage = mocker.patch(
+        "app.services.execution_lifecycle_service.lineage_metadata_store.mark_failed_if_present",
+        side_effect=lambda *_args: calls.append("lineage_failed"),
+    )
+
+    record_execution_cancellation(
+        calculation_id=calculation_id,
+        message="Workspace summary calculation cancelled.",
+    )
+
+    assert calls == ["execution_failed", "stages_failed", "lineage_failed"]
+    mark_failed.assert_called_once_with(calculation_id, "Workspace summary calculation cancelled.")
+    fail_stages.assert_called_once_with(calculation_id, "Workspace summary calculation cancelled.")
+    fence_lineage.assert_called_once_with(calculation_id, "Workspace summary calculation cancelled.")

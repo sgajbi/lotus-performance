@@ -103,6 +103,35 @@ def test_execution_registry_marks_failures(tmp_path):
     assert record.stages[0].error_message == "boom"
 
 
+def test_lineage_completion_cannot_overwrite_terminal_execution_failure(tmp_path):
+    registry = ExecutionRegistry(f"sqlite:///{tmp_path / 'execution.db'}")
+    registry.create_schema()
+    calculation_id = uuid4()
+
+    registry.create_execution(
+        calculation_id=calculation_id,
+        analytics_type="WORKSPACE_SUMMARY",
+        portfolio_id="PORT-CANCELLED",
+    )
+    registry.mark_running(calculation_id)
+    registry.start_stage(calculation_id, "lineage_materialization")
+    registry.mark_failed(calculation_id, "Workspace summary calculation cancelled.")
+
+    completed = registry.complete_stage_and_execution(
+        calculation_id,
+        "lineage_materialization",
+        details={"artifact_names": ["response.json"]},
+    )
+
+    record = registry.get_execution(calculation_id)
+    assert completed is False
+    assert record is not None
+    assert record.status == ExecutionStatus.FAILED
+    assert record.error_message == "Workspace summary calculation cancelled."
+    assert record.stages[0].status == ExecutionStageStatus.IN_PROGRESS
+    assert record.stages[0].completed_at_utc is None
+
+
 def test_execution_registry_raises_for_missing_stage(tmp_path):
     registry = ExecutionRegistry(f"sqlite:///{tmp_path / 'execution.db'}")
     registry.create_schema()

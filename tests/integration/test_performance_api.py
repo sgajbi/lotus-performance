@@ -214,6 +214,11 @@ def test_workspace_summary_endpoint_returns_multi_horizon_summary_blocks(client)
     )
     assert "period_return" in ytd["benchmark"]["breakdowns"]["daily"][0]
     assert data["audit"]["counts"]["input_rows"] == 2
+    assert data["calculation_supportability"]["state"] == "ready"
+    assert data["calculation_supportability"]["freshness_bucket"] == "current"
+    assert data["calculation_supportability"]["input_row_count"] == 2
+    assert data["calculation_supportability"]["resolved_period_count"] == 2
+    assert data["calculation_supportability"]["benchmark_row_count"] == 2
 
 
 def test_workspace_summary_endpoint_reconciles_all_summary_figures(client):

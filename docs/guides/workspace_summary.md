@@ -156,6 +156,10 @@ Polling pattern:
 2. if accepted, poll `GET /performance/executions/{calculation_id}`
 3. retrieve the final result from `GET /performance/workspace-summary/results/{calculation_id}`
 
+Durable results written before the supportability field was introduced remain readable. The result
+route adds a conservative `degraded` supportability block at the compatibility boundary; it does
+not rewrite stored evidence or claim that historical calculations were ready.
+
 ## Canonical examples
 
 Canonical example files:
@@ -230,9 +234,20 @@ the same underlying economic path.
 
 The workspace surface keeps runtime and sourcing behavior visible:
 
+- `calculation_supportability.state`
+- `calculation_supportability.reason`
+- `calculation_supportability.freshness_bucket`
+- `calculation_supportability.source_quality_evidence`
 - `audit.counts.portfolio_chunk_count`
 - `audit.counts.portfolio_page_count`
 - `audit.counts.benchmark_chunk_count`
+
+Clients must use `calculation_supportability` as the source-owned readiness posture. A numerically
+complete response can still be degraded or stale; downstream applications must not infer support
+from HTTP success or rebuild this decision from timestamps. When benchmark output is requested,
+the overall freshness posture uses the least-current portfolio or benchmark observation and fails
+closed if the benchmark series is unavailable inside the resolved report window. Observations
+after the report end date cannot make an empty or stale in-window benchmark series look current.
 
 Diagnostics notes make sourcing posture explicit, including:
 

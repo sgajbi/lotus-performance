@@ -21,7 +21,12 @@ from app.models.workspace_summary_requests import (
     _validate_workspace_summary_stateless_inputs,
     _workspace_summary_stateless_envelope_issue,
 )
-from app.models.workspace_summary_responses import WorkspaceSummaryAcceptedResponse, WorkspaceSummaryResponse
+from app.models.workspace_summary_responses import (
+    WORKSPACE_SUMMARY_RESPONSE_EXAMPLES,
+    WorkspaceSummaryAcceptedResponse,
+    WorkspaceSummaryResponse,
+    upgrade_legacy_workspace_summary_response_payload,
+)
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
 
@@ -52,6 +57,35 @@ def test_workspace_summary_response_schema_includes_workspace_summary_example():
     assert "contribution" not in example["results_by_period"]["YTD"]
     assert "attribution" not in example["results_by_period"]["YTD"]
     assert "workspace_detail_block_count" not in example["audit"]["counts"]
+    assert example["calculation_supportability"]["state"] == "ready"
+    assert example["calculation_supportability"]["freshness_bucket"] == "current"
+
+
+def test_legacy_workspace_summary_payload_upgrader_preserves_retained_result_conservatively():
+    legacy_payload = {
+        key: value
+        for key, value in WORKSPACE_SUMMARY_RESPONSE_EXAMPLES[0].items()
+        if key != "calculation_supportability"
+    }
+    legacy_payload["meta"] = {
+        **legacy_payload["meta"],
+        "calculation_id": legacy_payload["calculation_id"],
+        "precision_mode": "FLOAT64",
+        "annualization": {},
+        "calendar": {},
+        "periods": {},
+    }
+
+    upgraded_payload = upgrade_legacy_workspace_summary_response_payload(legacy_payload)
+
+    assert upgraded_payload is not None
+    assert "calculation_supportability" not in legacy_payload
+    response = WorkspaceSummaryResponse.model_validate(upgraded_payload)
+    assert response.calculation_supportability.state == "degraded"
+    assert response.calculation_supportability.reason == "calculation_quality_issue"
+    assert response.calculation_supportability.freshness_bucket == "unknown"
+    assert response.calculation_supportability.input_row_count == 64
+    assert response.calculation_supportability.resolved_period_count == 1
 
 
 def test_workspace_summary_accepted_response_schema_includes_polling_example():
