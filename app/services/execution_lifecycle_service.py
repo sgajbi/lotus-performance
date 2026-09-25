@@ -6,6 +6,7 @@ from uuid import UUID
 from app.services.execution_registry import execution_registry
 from app.services.execution_stage_errors import safe_unexpected_failure_message
 from app.services.execution_stage_names import EXECUTION_STAGE_EXECUTION, EXECUTION_STAGE_LINEAGE_MATERIALIZATION
+from app.services.lineage_metadata_store import lineage_metadata_store
 from app.services.lineage_service import lineage_service
 
 
@@ -22,6 +23,16 @@ def record_execution_failure(
         execution_registry.fail_stage_and_execution(calculation_id, EXECUTION_STAGE_EXECUTION, message)
     else:
         execution_registry.mark_failed(calculation_id, message)
+
+
+def record_execution_cancellation(*, calculation_id: UUID, message: str) -> None:
+    """Durably fence an execution and any queued lineage after caller cancellation."""
+
+    # Failure wins first. The execution registry's completion transition refuses to cross this
+    # terminal fence even if a leased lineage worker is already materializing artifacts.
+    execution_registry.mark_failed(calculation_id, message)
+    execution_registry.fail_in_progress_stages(calculation_id, message)
+    lineage_metadata_store.mark_failed_if_present(calculation_id, message)
 
 
 def complete_execution_with_lineage(

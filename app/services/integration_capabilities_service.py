@@ -9,12 +9,13 @@ from typing import Final
 CALCULATION_SUPPORTABILITY_SURFACE_KEYS: Final[tuple[str, ...]] = (
     "twr",
     "mwr",
+    "workspace_summary",
     "contribution",
     "attribution",
     "returns_series",
 )
 CALCULATION_SUPPORTABILITY_DESCRIPTION: Final[str] = (
-    "Bounded TWR, MWR, contribution, attribution, and returns-series calculation supportability "
+    "Bounded TWR, MWR, workspace-summary, contribution, attribution, and returns-series calculation supportability "
     "response metadata and Prometheus posture metrics."
 )
 OWNER_SERVICE: Final[str] = "lotus-performance"
@@ -91,6 +92,7 @@ def _calculation_supportability_enabled(flags: IntegrationCapabilityFlags) -> bo
     calculation_supportability_surface_enabled = {
         "twr": flags.twr_enabled,
         "mwr": flags.mwr_enabled,
+        "workspace_summary": flags.workspace_summary_enabled,
         "contribution": flags.contribution_enabled,
         "attribution": flags.attribution_enabled,
         "returns_series": flags.stateful_mode_enabled or flags.stateless_mode_enabled,

@@ -1,5 +1,8 @@
 from __future__ import annotations
 
+import asyncio
+from threading import Event, get_ident
+from types import SimpleNamespace
 from uuid import uuid4
 
 import pytest
@@ -49,7 +52,8 @@ async def test_twr_endpoint_delegates_to_twr_workflow(mocker):
     assert response is expected_response
 
 
-def test_workspace_summary_endpoint_delegates_to_workspace_summary_workflow(mocker):
+@pytest.mark.asyncio
+async def test_workspace_summary_endpoint_delegates_to_workspace_summary_workflow(mocker):
     request = WorkspaceSummaryRequest.model_validate(
         {
             "portfolio_id": "P1",
@@ -61,14 +65,36 @@ def test_workspace_summary_endpoint_delegates_to_workspace_summary_workflow(mock
     )
     expected_response = object()
     calculate_workspace_summary = mocker.patch(
-        "app.api.endpoints.performance.calculate_workspace_summary_workflow",
+        "app.api.endpoints.performance.calculate_workspace_summary_workflow_async",
+        new_callable=mocker.AsyncMock,
         return_value=expected_response,
     )
 
-    response = performance_endpoint.calculate_workspace_summary_endpoint(request)
+    response = await performance_endpoint.calculate_workspace_summary_endpoint(request)
 
     calculate_workspace_summary.assert_called_once_with(map_workspace_summary_request(request))
     assert response is expected_response
+
+
+@pytest.mark.asyncio
+async def test_workspace_summary_result_upgrades_retained_pre_supportability_payloads(mocker):
+    calculation_id = uuid4()
+    expected_response = object()
+    resolve_result = mocker.patch(
+        "app.api.endpoints.performance.resolve_async_result",
+        return_value=expected_response,
+    )
+
+    response = await performance_endpoint.get_workspace_summary_result(
+        calculation_id,
+        SimpleNamespace(headers={}),
+    )
+
+    assert response is expected_response
+    assert (
+        resolve_result.call_args.kwargs["response_payload_upgrader"]
+        is performance_endpoint.upgrade_legacy_workspace_summary_response_payload
+    )
 
 
 def test_twr_workspace_helper_paths_cover_optional_benchmark_shapes():
@@ -233,6 +259,526 @@ def test_workspace_summary_async_submission_captures_observability_context(mocke
 
 
 @pytest.mark.asyncio
+async def test_workspace_summary_http_workflow_awaits_calculation_on_the_active_event_loop(
+    mocker,
+):
+    request = WorkspaceSummaryRequest.model_validate(
+        {
+            "calculation_id": str(uuid4()),
+            "portfolio_id": "P1",
+            "report_end_date": "2025-01-02",
+            "performance_start_date": "2025-01-01",
+            "periods": [{"period": "1D", "frequencies": ["daily"]}],
+            "input_mode": "stateless",
+            "stateless_input": {
+                "valuation_points": [
+                    {
+                        "perf_date": "2025-01-02",
+                        "begin_mv": 1000.0,
+                        "end_mv": 1001.0,
+                    }
+                ]
+            },
+        }
+    )
+    expected_response = object()
+    mocker.patch(
+        "app.services.workspace_summary_calculation_workflow_service.get_settings",
+        return_value=type(
+            "Settings",
+            (),
+            {
+                "APP_VERSION": "runtime-version",
+                "WORKSPACE_SUMMARY_EXECUTOR_WINDOW_DAYS": 30,
+                "WORKSPACE_SUMMARY_EXECUTOR_INPUT_COUNT": 50,
+            },
+        )(),
+    )
+    register_sync = mocker.patch(
+        "app.services.workspace_summary_calculation_workflow_service.register_sync_execution_or_raise"
+    )
+    mark_running = mocker.patch(
+        "app.services.workspace_summary_calculation_workflow_service.execution_registry.mark_running"
+    )
+    start_stage = mocker.patch(
+        "app.services.workspace_summary_calculation_workflow_service.execution_registry.start_stage"
+    )
+    calculate_async = mocker.patch(
+        "app.services.workspace_summary_calculation_workflow_service.calculate_workspace_summary_async",
+        new_callable=mocker.AsyncMock,
+        return_value=expected_response,
+    )
+
+    response = await workspace_summary_workflow_service.calculate_workspace_summary_workflow_async(request)
+
+    assert response is expected_response
+    register_sync.assert_called_once()
+    mark_running.assert_called_once_with(request.calculation_id)
+    start_stage.assert_called_once_with(request.calculation_id, "execution")
+    calculate_async.assert_awaited_once()
+    assert calculate_async.call_args.kwargs["execution_stage_started"] is True
+
+
+@pytest.mark.asyncio
+async def test_workspace_summary_http_workflow_offloads_synchronous_preparation(mocker):
+    request = WorkspaceSummaryRequest.model_validate(
+        {
+            "calculation_id": str(uuid4()),
+            "portfolio_id": "P1",
+            "report_end_date": "2025-01-02",
+            "performance_start_date": "2025-01-01",
+            "periods": [{"period": "1D", "frequencies": ["daily"]}],
+            "input_mode": "stateless",
+            "stateless_input": {
+                "valuation_points": [{"perf_date": "2025-01-02", "begin_mv": 1000.0, "end_mv": 1001.0}]
+            },
+        }
+    )
+    application_loop_thread = get_ident()
+    settings = SimpleNamespace(APP_VERSION="runtime-version")
+
+    def prepare(_command):
+        assert get_ident() != application_loop_thread
+        return request, settings, None, "input-fingerprint", "calculation-hash"
+
+    async def calculate(
+        _request,
+        *,
+        settings,
+        input_fingerprint,
+        calculation_hash,
+        execution_stage_started,
+    ):
+        assert get_ident() == application_loop_thread
+        assert input_fingerprint == "input-fingerprint"
+        assert calculation_hash == "calculation-hash"
+        assert execution_stage_started is True
+        return settings.APP_VERSION
+
+    mocker.patch(
+        "app.services.workspace_summary_calculation_workflow_service._prepare_workspace_summary_execution",
+        side_effect=prepare,
+    )
+    mocker.patch(
+        "app.services.workspace_summary_calculation_workflow_service.calculate_workspace_summary_async",
+        side_effect=calculate,
+    )
+
+    response = await workspace_summary_workflow_service.calculate_workspace_summary_workflow_async(request)
+
+    assert response == "runtime-version"
+
+
+@pytest.mark.asyncio
+async def test_workspace_summary_http_workflow_offloads_and_drains_failure_persistence(mocker):
+    request = WorkspaceSummaryRequest.model_validate(
+        {
+            "calculation_id": str(uuid4()),
+            "portfolio_id": "P1",
+            "report_end_date": "2025-01-02",
+            "performance_start_date": "2025-01-01",
+            "periods": [{"period": "1D", "frequencies": ["daily"]}],
+            "input_mode": "stateless",
+            "stateless_input": {
+                "valuation_points": [{"perf_date": "2025-01-02", "begin_mv": 1000.0, "end_mv": 1001.0}]
+            },
+        }
+    )
+    application_loop_thread = get_ident()
+    persistence_started = Event()
+    release_persistence = Event()
+    mocker.patch(
+        "app.services.workspace_summary_calculation_workflow_service._prepare_workspace_summary_execution",
+        return_value=(request, SimpleNamespace(APP_VERSION="runtime-version"), None, "fingerprint", "hash"),
+    )
+    mocker.patch(
+        "app.services.workspace_summary_calculation_workflow_service.calculate_workspace_summary_async",
+        new_callable=mocker.AsyncMock,
+        side_effect=RuntimeError("calculation failed"),
+    )
+
+    def record_failure(**_kwargs):
+        assert get_ident() != application_loop_thread
+        persistence_started.set()
+        assert release_persistence.wait(timeout=2)
+
+    record_failure_mock = mocker.patch(
+        "app.services.workspace_summary_calculation_workflow_service.record_execution_failure",
+        side_effect=record_failure,
+    )
+    workflow_task = asyncio.create_task(
+        workspace_summary_workflow_service.calculate_workspace_summary_workflow_async(request)
+    )
+
+    try:
+        assert await asyncio.to_thread(persistence_started.wait, 2)
+        await asyncio.wait_for(asyncio.sleep(0), timeout=0.2)
+        assert not workflow_task.done()
+    finally:
+        release_persistence.set()
+
+    with pytest.raises(APIError) as exc_info:
+        await workflow_task
+    assert exc_info.value.status_code == 500
+    record_failure_mock.assert_called_once_with(
+        calculation_id=request.calculation_id,
+        message="Workspace summary calculation failed unexpectedly. Use the correlation_id for support.",
+    )
+
+
+@pytest.mark.asyncio
+async def test_workspace_summary_http_workflow_restores_cancellation_after_failure_persistence(mocker):
+    request = WorkspaceSummaryRequest.model_validate(
+        {
+            "calculation_id": str(uuid4()),
+            "portfolio_id": "P1",
+            "report_end_date": "2025-01-02",
+            "performance_start_date": "2025-01-01",
+            "periods": [{"period": "1D", "frequencies": ["daily"]}],
+            "input_mode": "stateless",
+            "stateless_input": {
+                "valuation_points": [{"perf_date": "2025-01-02", "begin_mv": 1000.0, "end_mv": 1001.0}]
+            },
+        }
+    )
+    persistence_started = Event()
+    release_persistence = Event()
+    mocker.patch(
+        "app.services.workspace_summary_calculation_workflow_service._prepare_workspace_summary_execution",
+        return_value=(request, SimpleNamespace(APP_VERSION="runtime-version"), None, "fingerprint", "hash"),
+    )
+    mocker.patch(
+        "app.services.workspace_summary_calculation_workflow_service.calculate_workspace_summary_async",
+        new_callable=mocker.AsyncMock,
+        side_effect=RuntimeError("calculation failed"),
+    )
+
+    def record_failure(**_kwargs):
+        persistence_started.set()
+        assert release_persistence.wait(timeout=2)
+
+    record_failure_mock = mocker.patch(
+        "app.services.workspace_summary_calculation_workflow_service.record_execution_failure",
+        side_effect=record_failure,
+    )
+    workflow_task = asyncio.create_task(
+        workspace_summary_workflow_service.calculate_workspace_summary_workflow_async(request)
+    )
+
+    try:
+        assert await asyncio.to_thread(persistence_started.wait, 2)
+        workflow_task.cancel()
+        await asyncio.sleep(0)
+        workflow_task.cancel()
+        await asyncio.sleep(0)
+        assert not workflow_task.done()
+    finally:
+        release_persistence.set()
+
+    with pytest.raises(asyncio.CancelledError):
+        await workflow_task
+    record_failure_mock.assert_called_once_with(
+        calculation_id=request.calculation_id,
+        message="Workspace summary calculation failed unexpectedly. Use the correlation_id for support.",
+    )
+
+
+@pytest.mark.asyncio
+async def test_workspace_summary_http_workflow_terminally_fails_when_stage_start_fails(mocker):
+    request = WorkspaceSummaryRequest.model_validate(
+        {
+            "calculation_id": str(uuid4()),
+            "portfolio_id": "P1",
+            "report_end_date": "2025-01-02",
+            "performance_start_date": "2025-01-01",
+            "periods": [{"period": "1D", "frequencies": ["daily"]}],
+            "input_mode": "stateless",
+            "stateless_input": {
+                "valuation_points": [{"perf_date": "2025-01-02", "begin_mv": 1000.0, "end_mv": 1001.0}]
+            },
+        }
+    )
+    mocker.patch(
+        "app.services.workspace_summary_calculation_workflow_service.get_settings",
+        return_value=SimpleNamespace(
+            APP_VERSION="runtime-version",
+            WORKSPACE_SUMMARY_EXECUTOR_WINDOW_DAYS=30,
+            WORKSPACE_SUMMARY_EXECUTOR_INPUT_COUNT=50,
+        ),
+    )
+    mocker.patch("app.services.workspace_summary_calculation_workflow_service.register_sync_execution_or_raise")
+    mocker.patch("app.services.workspace_summary_calculation_workflow_service.execution_registry.mark_running")
+    mocker.patch(
+        "app.services.workspace_summary_calculation_workflow_service.execution_registry.start_stage",
+        side_effect=RuntimeError("stage store unavailable"),
+    )
+    record_failure = mocker.patch(
+        "app.services.workspace_summary_calculation_workflow_service.record_execution_failure"
+    )
+    calculate_async = mocker.patch(
+        "app.services.workspace_summary_calculation_workflow_service.calculate_workspace_summary_async",
+        new_callable=mocker.AsyncMock,
+    )
+
+    with pytest.raises(APIError) as exc_info:
+        await workspace_summary_workflow_service.calculate_workspace_summary_workflow_async(request)
+
+    assert exc_info.value.status_code == 500
+    assert exc_info.value.retryable is True
+    record_failure.assert_called_once_with(
+        calculation_id=request.calculation_id,
+        message="Workspace summary calculation failed unexpectedly. Use the correlation_id for support.",
+    )
+    calculate_async.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+async def test_workspace_summary_http_workflow_restores_cancellation_after_stage_start_failure(mocker):
+    request = WorkspaceSummaryRequest.model_validate(
+        {
+            "calculation_id": str(uuid4()),
+            "portfolio_id": "P1",
+            "report_end_date": "2025-01-02",
+            "performance_start_date": "2025-01-01",
+            "periods": [{"period": "1D", "frequencies": ["daily"]}],
+            "input_mode": "stateless",
+            "stateless_input": {
+                "valuation_points": [{"perf_date": "2025-01-02", "begin_mv": 1000.0, "end_mv": 1001.0}]
+            },
+        }
+    )
+    persistence_started = Event()
+    release_persistence = Event()
+    mocker.patch(
+        "app.services.workspace_summary_calculation_workflow_service.get_settings",
+        return_value=SimpleNamespace(
+            APP_VERSION="runtime-version",
+            WORKSPACE_SUMMARY_EXECUTOR_WINDOW_DAYS=30,
+            WORKSPACE_SUMMARY_EXECUTOR_INPUT_COUNT=50,
+        ),
+    )
+    mocker.patch("app.services.workspace_summary_calculation_workflow_service.register_sync_execution_or_raise")
+    mocker.patch("app.services.workspace_summary_calculation_workflow_service.execution_registry.mark_running")
+    mocker.patch(
+        "app.services.workspace_summary_calculation_workflow_service.execution_registry.start_stage",
+        side_effect=RuntimeError("stage store unavailable"),
+    )
+
+    def record_failure(**_kwargs):
+        persistence_started.set()
+        assert release_persistence.wait(timeout=2)
+
+    record_failure_mock = mocker.patch(
+        "app.services.workspace_summary_calculation_workflow_service.record_execution_failure",
+        side_effect=record_failure,
+    )
+    calculate_async = mocker.patch(
+        "app.services.workspace_summary_calculation_workflow_service.calculate_workspace_summary_async",
+        new_callable=mocker.AsyncMock,
+    )
+    workflow_task = asyncio.create_task(
+        workspace_summary_workflow_service.calculate_workspace_summary_workflow_async(request)
+    )
+
+    try:
+        assert await asyncio.to_thread(persistence_started.wait, 2)
+        workflow_task.cancel()
+        await asyncio.sleep(0)
+        workflow_task.cancel()
+        await asyncio.sleep(0)
+        assert not workflow_task.done()
+    finally:
+        release_persistence.set()
+
+    with pytest.raises(asyncio.CancelledError):
+        await workflow_task
+    record_failure_mock.assert_called_once_with(
+        calculation_id=request.calculation_id,
+        message="Workspace summary calculation failed unexpectedly. Use the correlation_id for support.",
+    )
+    calculate_async.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+async def test_workspace_summary_http_workflow_drains_preparation_before_cancellation_fence(mocker):
+    request = WorkspaceSummaryRequest.model_validate(
+        {
+            "calculation_id": str(uuid4()),
+            "portfolio_id": "P1",
+            "report_end_date": "2025-01-02",
+            "performance_start_date": "2025-01-01",
+            "periods": [{"period": "1D", "frequencies": ["daily"]}],
+            "input_mode": "stateless",
+            "stateless_input": {
+                "valuation_points": [{"perf_date": "2025-01-02", "begin_mv": 1000.0, "end_mv": 1001.0}]
+            },
+        }
+    )
+    preparation_started = Event()
+    release_preparation = Event()
+
+    def prepare(_command):
+        preparation_started.set()
+        assert release_preparation.wait(timeout=2)
+        return request, SimpleNamespace(APP_VERSION="runtime-version"), None, "input-fingerprint", "calculation-hash"
+
+    mocker.patch(
+        "app.services.workspace_summary_calculation_workflow_service._prepare_workspace_summary_execution",
+        side_effect=prepare,
+    )
+    record_cancellation = mocker.patch(
+        "app.services.workspace_summary_calculation_workflow_service.record_execution_cancellation"
+    )
+    task = asyncio.create_task(workspace_summary_workflow_service.calculate_workspace_summary_workflow_async(request))
+
+    try:
+        assert await asyncio.to_thread(preparation_started.wait, 2)
+        task.cancel()
+        await asyncio.sleep(0)
+        task.cancel()
+        await asyncio.sleep(0)
+        assert not task.done()
+    finally:
+        release_preparation.set()
+
+    with pytest.raises(asyncio.CancelledError):
+        await task
+    record_cancellation.assert_called_once_with(
+        calculation_id=request.calculation_id,
+        message="Workspace summary calculation cancelled.",
+    )
+
+
+@pytest.mark.asyncio
+async def test_workspace_summary_http_workflow_finalizes_cancelled_execution(mocker):
+    request = WorkspaceSummaryRequest.model_validate(
+        {
+            "calculation_id": str(uuid4()),
+            "portfolio_id": "P1",
+            "report_end_date": "2025-01-02",
+            "performance_start_date": "2025-01-01",
+            "periods": [{"period": "1D", "frequencies": ["daily"]}],
+            "input_mode": "stateless",
+            "stateless_input": {
+                "valuation_points": [{"perf_date": "2025-01-02", "begin_mv": 1000.0, "end_mv": 1001.0}]
+            },
+        }
+    )
+    mocker.patch(
+        "app.services.workspace_summary_calculation_workflow_service.get_settings",
+        return_value=SimpleNamespace(
+            APP_VERSION="runtime-version",
+            WORKSPACE_SUMMARY_EXECUTOR_WINDOW_DAYS=30,
+            WORKSPACE_SUMMARY_EXECUTOR_INPUT_COUNT=50,
+        ),
+    )
+    mocker.patch("app.services.workspace_summary_calculation_workflow_service.register_sync_execution_or_raise")
+    mocker.patch("app.services.workspace_summary_calculation_workflow_service.execution_registry.mark_running")
+    mocker.patch("app.services.workspace_summary_calculation_workflow_service.execution_registry.start_stage")
+    mocker.patch(
+        "app.services.workspace_summary_calculation_workflow_service.calculate_workspace_summary_async",
+        new_callable=mocker.AsyncMock,
+        side_effect=asyncio.CancelledError,
+    )
+    record_cancellation = mocker.patch(
+        "app.services.workspace_summary_calculation_workflow_service.record_execution_cancellation"
+    )
+
+    with pytest.raises(asyncio.CancelledError):
+        await workspace_summary_workflow_service.calculate_workspace_summary_workflow_async(request)
+
+    record_cancellation.assert_called_once_with(
+        calculation_id=request.calculation_id,
+        message="Workspace summary calculation cancelled.",
+    )
+
+
+@pytest.mark.asyncio
+async def test_workspace_summary_http_workflow_preserves_cancellation_when_fence_fails(mocker):
+    request = WorkspaceSummaryRequest.model_validate(
+        {
+            "calculation_id": str(uuid4()),
+            "portfolio_id": "P1",
+            "report_end_date": "2025-01-02",
+            "performance_start_date": "2025-01-01",
+            "periods": [{"period": "1D", "frequencies": ["daily"]}],
+            "input_mode": "stateless",
+            "stateless_input": {
+                "valuation_points": [{"perf_date": "2025-01-02", "begin_mv": 1000.0, "end_mv": 1001.0}]
+            },
+        }
+    )
+    request_cancellation = asyncio.CancelledError("request cancelled")
+    fence_error = RuntimeError("cancellation store unavailable")
+    mocker.patch(
+        "app.services.workspace_summary_calculation_workflow_service._prepare_workspace_summary_execution",
+        return_value=(
+            request,
+            SimpleNamespace(APP_VERSION="runtime-version"),
+            None,
+            "input-fingerprint",
+            "calculation-hash",
+        ),
+    )
+    mocker.patch(
+        "app.services.workspace_summary_calculation_workflow_service.calculate_workspace_summary_async",
+        new_callable=mocker.AsyncMock,
+        side_effect=request_cancellation,
+    )
+    record_cancellation = mocker.patch(
+        "app.services.workspace_summary_calculation_workflow_service.record_execution_cancellation",
+        side_effect=fence_error,
+    )
+
+    with pytest.raises(asyncio.CancelledError) as raised:
+        await workspace_summary_workflow_service.calculate_workspace_summary_workflow_async(request)
+
+    assert raised.value is request_cancellation
+    assert raised.value.__cause__ is fence_error
+    record_cancellation.assert_called_once_with(
+        calculation_id=request.calculation_id,
+        message="Workspace summary calculation cancelled.",
+    )
+
+
+@pytest.mark.asyncio
+async def test_workspace_summary_cancellation_fence_runs_off_loop_and_drains_after_second_cancellation(mocker):
+    application_loop_thread = get_ident()
+    persistence_started = Event()
+    release_persistence = Event()
+
+    def record_cancellation(**_kwargs):
+        assert get_ident() != application_loop_thread
+        persistence_started.set()
+        assert release_persistence.wait(timeout=2)
+
+    mocker.patch(
+        "app.services.workspace_summary_calculation_workflow_service.record_execution_cancellation",
+        side_effect=record_cancellation,
+    )
+    task = asyncio.create_task(
+        workspace_summary_workflow_service._record_execution_cancellation_async(
+            calculation_id=uuid4(),
+            message="Workspace summary calculation cancelled.",
+        )
+    )
+
+    try:
+        assert await asyncio.to_thread(persistence_started.wait, 2)
+        task.cancel()
+        await asyncio.sleep(0)
+        assert not task.done()
+        task.cancel()
+        await asyncio.sleep(0)
+        assert not task.done()
+    finally:
+        release_persistence.set()
+
+    with pytest.raises(asyncio.CancelledError):
+        await task
+
+
+@pytest.mark.asyncio
 async def test_workspace_summary_workflow_records_http_exception_detail(mocker):
     request = WorkspaceSummaryRequest.model_validate(
         {
@@ -264,6 +810,7 @@ async def test_workspace_summary_workflow_records_http_exception_detail(mocker):
         "app.services.workspace_summary_calculation_workflow_service.register_sync_execution_or_raise"
     )
     mocker.patch("app.services.workspace_summary_calculation_workflow_service.execution_registry.mark_running")
+    mocker.patch("app.services.workspace_summary_calculation_workflow_service.execution_registry.start_stage")
     mocker.patch(
         "app.services.workspace_summary_calculation_workflow_service.calculate_workspace_summary",
         side_effect=HTTPException(status_code=422, detail="bad workspace"),

@@ -148,11 +148,20 @@ def test_the_catch_all_logs_the_exception_class_under_extra_fields(monkeypatch, 
 
     monkeypatch.setattr(workflow, "record_execution_failure", lambda **kw: None)
 
-    with caplog.at_level("ERROR"), pytest.raises(APIInternalServerError):
-        workflow._raise_workspace_summary_workflow_error(calculation_id="c-3", exc=ValueError("boom"))
+    def raise_source_fault() -> None:
+        raise ValueError("boom")
+
+    try:
+        raise_source_fault()
+    except ValueError as source_fault:
+        with caplog.at_level("ERROR"), pytest.raises(APIInternalServerError):
+            workflow._raise_workspace_summary_workflow_error(calculation_id="c-3", exc=source_fault)
 
     records = [r for r in caplog.records if hasattr(r, "extra_fields")]
     assert records, "no record carried extra_fields, so nothing reaches JsonFormatter"
     fields = records[-1].extra_fields
     assert fields["exception_type"] == "ValueError"
     assert fields["calculation_id"] == "c-3"
+    assert fields["exception_file"] == "test_workspace_window_boundaries.py"
+    assert fields["exception_function"] == "raise_source_fault"
+    assert isinstance(fields["exception_line"], int)

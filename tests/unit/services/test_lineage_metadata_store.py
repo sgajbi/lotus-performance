@@ -156,6 +156,45 @@ def test_lineage_metadata_store_raises_for_missing_record_updates(tmp_path):
         raise AssertionError("Expected mark_failed to raise KeyError")
 
 
+def test_lineage_cancellation_fence_invalidates_an_active_worker_lease(tmp_path):
+    store = LineageMetadataStore(f"sqlite:///{tmp_path / 'lineage.db'}")
+    store.create_schema()
+    calculation_id = uuid4()
+    store.enqueue_lineage_payload(
+        calculation_id=calculation_id,
+        calculation_type="WORKSPACE_SUMMARY",
+        request_json="{}",
+        response_json="{}",
+        details={"response.json": "{}"},
+    )
+    leased = store.lease_pending_payload(
+        calculation_id=calculation_id,
+        worker_id="late-lineage-worker",
+        lease_seconds=60,
+    )
+    assert leased is not None
+
+    assert store.mark_failed_if_present(calculation_id, "Workspace summary calculation cancelled.") is True
+
+    record = store.get_record(calculation_id)
+    assert record is not None
+    assert record.status == LineageStatus.FAILED
+    assert record.error_message == "Workspace summary calculation cancelled."
+    with pytest.raises(LineagePayloadLeaseOwnershipError):
+        store.mark_complete(
+            calculation_id,
+            ["response.json"],
+            worker_id="late-lineage-worker",
+        )
+
+
+def test_lineage_cancellation_fence_is_a_noop_before_enqueue(tmp_path):
+    store = LineageMetadataStore(f"sqlite:///{tmp_path / 'lineage.db'}")
+    store.create_schema()
+
+    assert store.mark_failed_if_present(uuid4(), "cancelled") is False
+
+
 def test_lineage_metadata_store_lists_and_deletes_terminal_records_older_than_cutoff(tmp_path):
     store = LineageMetadataStore(f"sqlite:///{tmp_path / 'lineage.db'}")
     store.create_schema()

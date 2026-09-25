@@ -1,7 +1,7 @@
 # Lotus Performance Test Taxonomy Inventory
 
-Report date: 2026-09-23
-Branch: `fix/533-group-return-calendar`
+Report date: 2026-09-25
+Branch: `fix/532-canonical-workspace-supportability`
 Mode: regression-blocking test taxonomy inventory; `make quality-test-taxonomy-gate` enforces
 minimum API/runtime and contract/governance breadth plus the current uncategorized-test ceiling.
 
@@ -15,7 +15,7 @@ and quality family without executing tests or requiring coverage data.
 
 ```powershell
 python scripts/python_test_taxonomy_inventory.py --limit 30
-python scripts/python_test_taxonomy_inventory.py --limit 30 --min-api-runtime-tests 656 --min-contract-governance-tests 136 --max-uncategorized-tests 772
+python scripts/python_test_taxonomy_inventory.py --limit 30 --min-api-runtime-tests 656 --min-contract-governance-tests 136 --max-uncategorized-tests 671
 ```
 
 ## Summary
@@ -23,18 +23,18 @@ python scripts/python_test_taxonomy_inventory.py --limit 30 --min-api-runtime-te
 | Metric | Value |
 | --- | ---: |
 | Test modules inventoried | 327 |
-| Test functions inventoried | 3817 |
-| Integration/API/runtime test functions | 759 |
-| Contract/governance test functions | 188 |
+| Test functions inventoried | 3843 |
+| Integration/API/runtime test functions | 770 |
+| Contract/governance test functions | 193 |
 
 ## Test Functions By Suite
 
 | Suite | Modules | Test functions |
 | --- | ---: | ---: |
-| benchmarks | 9 | 20 |
+| benchmarks | 9 | 25 |
 | e2e | 1 | 21 |
 | integration | 28 | 361 |
-| unit | 289 | 3415 |
+| unit | 289 | 3436 |
 
 ## Test Functions By Family
 
@@ -44,12 +44,12 @@ above does sum to it, because a module belongs to exactly one suite.
 
 | Family | Test functions |
 | --- | ---: |
-| analytics_domain | 1786 |
-| api_or_runtime | 759 |
-| contract_or_governance | 188 |
-| observability_or_readiness | 432 |
+| analytics_domain | 1797 |
+| api_or_runtime | 770 |
+| contract_or_governance | 193 |
+| observability_or_readiness | 551 |
 | quality_or_security | 266 |
-| uncategorized | 772 |
+| uncategorized | 671 |
 
 ## Largest Test Modules
 
@@ -60,16 +60,16 @@ above does sum to it, because a module belongs to exactly one suite.
 | 3 | `tests/unit/services/test_stateful_attribution_input_service.py` | unit | 71 | analytics_domain |
 | 4 | `tests/unit/docs/test_public_docs_contract.py` | unit | 68 | contract_or_governance |
 | 5 | `tests/unit/services/test_compute_job_store.py` | unit | 68 | observability_or_readiness |
-| 6 | `tests/unit/app/test_openapi_enrichment.py` | unit | 61 | api_or_runtime |
-| 7 | `tests/unit/services/test_lineage_metadata_store.py` | unit | 60 | uncategorized |
+| 6 | `tests/unit/services/test_lineage_metadata_store.py` | unit | 62 | observability_or_readiness |
+| 7 | `tests/unit/app/test_openapi_enrichment.py` | unit | 61 | api_or_runtime |
 | 8 | `tests/unit/services/test_twr_inspection_source_economics.py` | unit | 58 | analytics_domain |
 | 9 | `tests/unit/engine/test_attribution.py` | unit | 57 | analytics_domain |
-| 10 | `tests/unit/services/test_compute_executor_worker.py` | unit | 55 | observability_or_readiness |
-| 11 | `tests/integration/test_contribution_api.py` | integration | 53 | analytics_domain, api_or_runtime |
-| 12 | `tests/unit/app/test_contribution_endpoint_helpers.py` | unit | 52 | analytics_domain, api_or_runtime |
-| 13 | `tests/unit/services/test_stateful_input_service.py` | unit | 51 | analytics_domain |
-| 14 | `tests/unit/services/test_twr_inspection_calculation_consistency.py` | unit | 51 | analytics_domain |
-| 15 | `tests/unit/services/test_workspace_summary_service.py` | unit | 51 | analytics_domain |
+| 10 | `tests/unit/services/test_workspace_summary_service.py` | unit | 56 | analytics_domain |
+| 11 | `tests/unit/services/test_compute_executor_worker.py` | unit | 55 | observability_or_readiness |
+| 12 | `tests/integration/test_contribution_api.py` | integration | 53 | analytics_domain, api_or_runtime |
+| 13 | `tests/unit/app/test_contribution_endpoint_helpers.py` | unit | 52 | analytics_domain, api_or_runtime |
+| 14 | `tests/unit/services/test_stateful_input_service.py` | unit | 51 | analytics_domain |
+| 15 | `tests/unit/services/test_twr_inspection_calculation_consistency.py` | unit | 51 | analytics_domain |
 | 16 | `tests/unit/services/test_twr_mode_service.py` | unit | 45 | analytics_domain |
 | 17 | `tests/unit/engine/test_mwr.py` | unit | 44 | analytics_domain |
 | 18 | `tests/unit/services/test_stateful_benchmark_input_service.py` | unit | 44 | analytics_domain |
@@ -83,7 +83,7 @@ above does sum to it, because a module belongs to exactly one suite.
 | 26 | `tests/unit/services/test_twr_inspection_reconciliation.py` | unit | 32 | analytics_domain |
 | 27 | `tests/integration/test_returns_series_api.py` | integration | 31 | analytics_domain, api_or_runtime |
 | 28 | `tests/unit/app/test_enterprise_readiness.py` | unit | 31 | observability_or_readiness |
-| 29 | `tests/unit/models/test_workspace_summary_models.py` | unit | 31 | analytics_domain |
+| 29 | `tests/unit/models/test_workspace_summary_models.py` | unit | 32 | analytics_domain |
 | 30 | `tests/unit/services/test_twr_inspection_service.py` | unit | 31 | analytics_domain |
 
 The #502 request-path proof added a module driving the real application over HTTP for tenant admission - admitted, absent, blank and concurrent two-tenant requests, each asserting the outbound Core call - raising inventoried modules to `317`, source test functions to `3634`, and API/runtime tests to `699`. Later review fixes in the same PR added the padded-tenant refusals and the returns-series authority regression, which are counted in those figures. Uncategorized tests are unchanged at `876`: every added module classifies as api_or_runtime, so the ceiling this gate governs was neither approached nor raised.
@@ -101,3 +101,21 @@ A later review round added the environment-supplied path, which the first hostil
 Review of #489 added a module driving the concurrency-contracts gate itself: a completed run accepted, and a skip, a nonzero pytest exit over a green report, and an empty collection each refused. Inventoried modules rise to `324`, source test functions to `3,685`, and quality/security tests to `241`; uncategorized is unchanged at `825`.
 
 A later review round replaced five non-emptiness assertions on `/version` with the exact ARG defaults plus a supplied-value case: the old form passed against a response carrying no build identity at all, so it could not catch CI ceasing to supply the values. Source test functions rise to `3,687` and API/runtime tests to `703`.
+
+The #532 cancellation-race review added four focused lifecycle regressions, two one-row PostgreSQL
+interleaving contracts, and corrected a taxonomy
+gap: execution registry/lifecycle and lineage metadata/service tests prove durable polling,
+cancellation, evidence materialization, and recovery behavior, so they belong with their already
+classified worker and compute-store peers. Final review added one API/runtime proof that synchronous
+preparation is off the application loop and one analytics proof that insufficient portfolio truth
+precedes benchmark degradation. Exact-head review then added five API/runtime proofs that durable
+cancellation and ordinary failure persistence run off the application loop, drain before exit, and
+restore request cancellation after slow preparation or calculation failure transitions, including
+when the durable cancellation fence itself fails.
+The final stage-start mutation proves a failed durable transition terminally fences the execution
+before calculation begins. Real-PostgreSQL expiry and both completion-first and reclaim-first
+interleavings prove a stale lineage worker cannot publish after its lease expires and completion,
+single reclaim, or batch reclaim cannot both win. Source test functions now measure `3,843`,
+API/runtime functions measure `770`, observability/readiness functions rise from `432` to `551`, and uncategorized functions fall from
+`772` to `671`. The blocking ceiling is re-banked to the measured `671`; it was not raised to admit
+new tests.

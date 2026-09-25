@@ -358,7 +358,7 @@ def test_resolve_async_result_uses_persisted_empty_authority_for_stateless_poll(
     assert result_store.requested_tenants == [""]
 
 
-def test_resolve_async_result_validates_stored_async_result_payload(monkeypatch):
+def test_resolve_async_result_upgrades_then_validates_stored_async_result_payload(monkeypatch):
     calculation_id = uuid4()
     monkeypatch.setattr(
         async_result_service,
@@ -367,7 +367,7 @@ def test_resolve_async_result_validates_stored_async_result_payload(monkeypatch)
             _async_result_record(
                 calculation_id,
                 result_status=AsyncResultStatus.COMPLETE,
-                response_payload={"calculation_id": str(calculation_id), "status": "complete"},
+                response_payload={"calculation_id": str(calculation_id)},
             )
         ),
     )
@@ -379,6 +379,7 @@ def test_resolve_async_result_validates_stored_async_result_payload(monkeypatch)
         accepted_response_factory=_accepted_response,
         not_found_detail="not found",
         failed_detail="failed",
+        response_payload_upgrader=lambda payload: {**(payload or {}), "status": "complete"},
     )
 
     assert response == _AsyncResponse(calculation_id=calculation_id, status="complete")
@@ -485,7 +486,7 @@ def test_resolve_async_result_raises_conflict_for_failed_stored_async_result(mon
     assert exc_info.value.detail == "worker failed"
 
 
-def test_resolve_async_result_validates_completed_compute_job_payload(monkeypatch):
+def test_resolve_async_result_upgrades_then_validates_completed_compute_job_payload(monkeypatch):
     calculation_id = uuid4()
     monkeypatch.setattr(async_result_service, "async_result_store", _ResultStore())
     monkeypatch.setattr(
@@ -495,7 +496,7 @@ def test_resolve_async_result_validates_completed_compute_job_payload(monkeypatc
             _job_record(
                 calculation_id,
                 job_status=ComputeJobStatus.COMPLETE,
-                response_payload={"calculation_id": str(calculation_id), "status": "complete"},
+                response_payload={"calculation_id": str(calculation_id)},
             )
         ),
     )
@@ -507,6 +508,7 @@ def test_resolve_async_result_validates_completed_compute_job_payload(monkeypatc
         accepted_response_factory=_accepted_response,
         not_found_detail="not found",
         failed_detail="failed",
+        response_payload_upgrader=lambda payload: {**(payload or {}), "status": "complete"},
     )
 
     assert response == _AsyncResponse(calculation_id=calculation_id, status="complete")

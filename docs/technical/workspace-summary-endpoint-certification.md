@@ -16,7 +16,7 @@ story across multiple horizons. The response returns bounded summary views for:
 - benchmark return;
 - active return;
 - money-weighted return;
-- audit, metadata, diagnostics, and async execution handles.
+- calculation supportability, audit, metadata, diagnostics, and async execution handles.
 
 Do not use this endpoint for full contribution or attribution drill-downs. Use
 `POST /performance/contribution` and `POST /performance/attribution` for those strategic analytical
@@ -50,6 +50,8 @@ The certified request contract covers:
 - `report_ccy`, `currency_mode`, and exact EOD FX coverage for the portfolio calculation path;
 - top-level `currency_evidence.applied_report_ccy` as applied truth, while `meta.report_ccy`
   remains a compatibility request echo.
+- top-level `calculation_supportability` as the authoritative bounded readiness, freshness, and
+  source-quality posture for both synchronous and async results.
 
 ## Output Figure Tie-Outs
 
@@ -107,7 +109,13 @@ downstream migration issue was opened for this endpoint slice.
 
 ## GitHub Issue Disposition
 
-Open issue search found no workspace-summary-specific defect that remains valid for this slice.
+Issue `#532` records the canonical workspace-summary runtime defect found during live front-office
+validation. The endpoint previously ran the asynchronous calculation through `asyncio.run` from a
+synchronous FastAPI route. That closed the temporary event loop after each request while the
+lifespan-owned HTTP client pool retained loop-bound connections, so a first request could succeed
+and later requests fail with `Event loop is closed`. The HTTP route now awaits the calculation on
+the application event loop; the synchronous compatibility path remains available to workers and
+direct callers.
 
 Related but not closed by this endpoint certification:
 
@@ -127,8 +135,23 @@ Coverage added or confirmed:
 - model tests for workspace request/response schema and mode validation;
 - service tests for stateful benchmark resolution, period resolution, async thresholds, and
   request validation;
+- a cheap active-event-loop regression proving that the HTTP workflow awaits the asynchronous
+  sourcing path instead of creating a per-request event loop, while calculation, projection, and
+  lineage finalization run off that loop;
+- a benchmark-freshness regression proving that current portfolio observations cannot mask an
+  included stale benchmark series in the authoritative supportability posture, and that a future
+  benchmark observation outside the requested window cannot make an empty in-window series look
+  current; partial in-window benchmark dates also degrade rather than presenting a one-point
+  benchmark return as a complete multi-date comparison;
+- durable-result compatibility tests proving that workspace results retained before
+  `calculation_supportability` was introduced are upgraded to a conservative degraded posture at
+  the read boundary, for both async-result and compute-job storage paths;
+- cancellation and evidence-count regressions proving an interrupted synchronous request drains
+  threaded finalization before it is durably failed, while resolved-period and benchmark-row counts
+  describe only emitted result blocks and in-window observations;
 - integration tests for multi-horizon response shape, annualization, async accepted/result behavior,
-  and figure-level reconciliation against direct TWR/MWR/benchmark endpoints;
+  supportability propagation, and figure-level reconciliation against direct TWR/MWR/benchmark
+  endpoints;
 - OpenAPI test requiring endpoint descriptions and field descriptions for Swagger;
 - docs tests covering public API references.
 
@@ -187,6 +210,17 @@ Live audit note - 2026-05-10:
   Workbench as-of date is `2026-05-10` while the latest performance and benchmark evidence is
   `2026-05-08`; this is surfaced explicitly rather than hidden;
 - live validation with `npm run live:validate` was rerun as part of the audit.
+
+Live runtime correction note - 2026-09-25:
+
+- five sequential stateful requests with Workbench caller context returned HTTP `200` with
+  `calculation_supportability.state=ready` and identical net return `2.008175070562257`;
+- the actual Workbench BFF MTD route returned a complete result with no partial failures: net
+  `2.008175%`, gross `2.008175%`, benchmark `1.189257%`, and active `0.818918%`;
+- source supportability was `supported/current`, lineage was complete, and calculation artifacts
+  were present;
+- this is local runtime evidence for the patched branch. Exact-main canonical acceptance remains a
+  separate post-merge gate and must not be inferred from this note.
 
 ## Certification Commands
 

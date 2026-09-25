@@ -22,9 +22,11 @@ from sqlalchemy import (
     inspect,
     select,
     text,
+    update,
 )
 from sqlalchemy.engine import Connection
 from sqlalchemy.orm import DeclarativeBase, Mapped, Session, mapped_column, sessionmaker
+from sqlalchemy.sql.elements import ColumnElement
 
 from app.services.calculation_id_filtering import apply_calculation_id_prefix_filter
 from app.services.durable_database_engine import create_durable_database_engine
@@ -260,35 +262,101 @@ class LineageMetadataStore:
         worker_id: str | None = None,
     ) -> None:
         with self._session() as session:
-            record = session.get(LineageRecordModel, str(calculation_id))
+            record = session.execute(
+                select(LineageRecordModel)
+                .where(LineageRecordModel.calculation_id == str(calculation_id))
+                .with_for_update()
+            ).scalar_one_or_none()
             if record is None:
                 raise KeyError(f"Lineage record not found: {calculation_id}")
+            if record.status == LineageStatus.FAILED.value:
+                raise LineagePayloadLeaseOwnershipError(
+                    f"Cannot mark complete lineage payload after terminal failure or lease loss: {calculation_id}"
+                )
+
+            now = datetime.now(timezone.utc)
             payload = session.get(LineagePayloadModel, str(calculation_id))
             _ensure_lineage_payload_active_lease_owner(
                 payload,
                 calculation_id=calculation_id,
                 worker_id=worker_id,
                 transition="mark complete",
-                now=datetime.now(timezone.utc),
+                now=now,
             )
-            record.timestamp_utc = timestamp_utc or datetime.now(timezone.utc)
-            record.status = LineageStatus.COMPLETE.value
-            record.artifact_names = "\n".join(sorted(artifact_names))
-            record.error_message = None
+            completion_conditions = [
+                LineageRecordModel.calculation_id == str(calculation_id),
+                LineageRecordModel.status != LineageStatus.FAILED.value,
+            ]
+            if worker_id is not None:
+                completion_conditions.append(
+                    exists(
+                        select(LineagePayloadModel.calculation_id).where(
+                            LineagePayloadModel.calculation_id == str(calculation_id),
+                            LineagePayloadModel.worker_id == worker_id,
+                            LineagePayloadModel.leased_at_utc.is_not(None),
+                            _payload_lease_active_filter(_lease_transition_database_time(session)),
+                        )
+                    )
+                )
+            completion = session.execute(
+                update(LineageRecordModel)
+                .where(*completion_conditions)
+                .values(
+                    timestamp_utc=timestamp_utc or now,
+                    status=LineageStatus.COMPLETE.value,
+                    artifact_names="\n".join(sorted(artifact_names)),
+                    error_message=None,
+                )
+            )
+            if completion.rowcount == 1:
+                return
+            raise LineagePayloadLeaseOwnershipError(
+                f"Cannot mark complete lineage payload after terminal failure or lease loss: {calculation_id}"
+            )
 
     def mark_failed(self, calculation_id: UUID, error_message: str) -> None:
         with self._session() as session:
-            record = session.get(LineageRecordModel, str(calculation_id))
-            if record is None:
+            if not self._mark_failed_in_session(
+                session,
+                calculation_id=calculation_id,
+                error_message=error_message,
+            ):
                 raise KeyError(f"Lineage record not found: {calculation_id}")
-            record.timestamp_utc = datetime.now(timezone.utc)
-            record.status = LineageStatus.FAILED.value
-            record.error_message = error_message
-            payload = session.get(LineagePayloadModel, str(calculation_id))
-            if payload is not None:
-                payload.worker_id = None
-                payload.leased_at_utc = None
-                payload.lease_expires_at_utc = None
+
+    def mark_failed_if_present(self, calculation_id: UUID, error_message: str) -> bool:
+        """Fence queued or leased lineage without requiring a payload to exist yet."""
+
+        with self._session() as session:
+            return self._mark_failed_in_session(
+                session,
+                calculation_id=calculation_id,
+                error_message=error_message,
+            )
+
+    @staticmethod
+    def _mark_failed_in_session(
+        session: Session,
+        *,
+        calculation_id: UUID,
+        error_message: str,
+    ) -> bool:
+        failed = session.execute(
+            update(LineageRecordModel)
+            .where(LineageRecordModel.calculation_id == str(calculation_id))
+            .values(
+                timestamp_utc=datetime.now(timezone.utc),
+                status=LineageStatus.FAILED.value,
+                error_message=error_message,
+            )
+        )
+        if failed.rowcount != 1:
+            return False
+        session.execute(
+            update(LineagePayloadModel)
+            .where(LineagePayloadModel.calculation_id == str(calculation_id))
+            .values(worker_id=None, leased_at_utc=None, lease_expires_at_utc=None)
+        )
+        return True
 
     def mark_pending(self, calculation_id: UUID) -> None:
         with self._session() as session:
@@ -446,22 +514,22 @@ class LineageMetadataStore:
             dialect_name = session.bind.dialect.name if session.bind is not None else ""
             statement = (
                 select(LineagePayloadModel)
-                .where(LineagePayloadModel.calculation_id == str(calculation_id))
-                .where(
-                    exists(
-                        select(1).where(
-                            (LineageRecordModel.calculation_id == LineagePayloadModel.calculation_id)
-                            & (LineageRecordModel.status == LineageStatus.PENDING.value)
-                        )
-                    )
+                .join(
+                    LineageRecordModel,
+                    LineageRecordModel.calculation_id == LineagePayloadModel.calculation_id,
                 )
+                .where(LineagePayloadModel.calculation_id == str(calculation_id))
+                .where(LineageRecordModel.status == LineageStatus.PENDING.value)
                 .where(
                     LineagePayloadModel.lease_expires_at_utc.is_(None)
                     | (LineagePayloadModel.lease_expires_at_utc < now)
                 )
             )
             if dialect_name == "postgresql":
-                statement = statement.with_for_update(of=LineagePayloadModel, skip_locked=True)
+                statement = statement.with_for_update(
+                    of=(LineagePayloadModel, LineageRecordModel),
+                    skip_locked=True,
+                )
             payload = session.execute(statement).scalar_one_or_none()
             if payload is None:
                 return None
@@ -1322,8 +1390,19 @@ def _pending_lineage_payload_filter():
     return LineageRecordModel.status == LineageStatus.PENDING.value
 
 
-def _payload_lease_active_filter(now: datetime):
+def _payload_lease_active_filter(now: datetime | ColumnElement[datetime]):
     return LineagePayloadModel.lease_expires_at_utc.is_(None) | (LineagePayloadModel.lease_expires_at_utc >= now)
+
+
+def _lease_transition_database_time(session: Session) -> ColumnElement[datetime]:
+    """Use statement-time wall clock for the durable lease transition fence."""
+
+    if session.get_bind().dialect.name == "postgresql":
+        # PostgreSQL CURRENT_TIMESTAMP is fixed at transaction start.  Completion
+        # must reject a lease that expires after the ownership read but before the
+        # conditional write, so use the server's live statement clock instead.
+        return cast(ColumnElement[datetime], func.clock_timestamp())
+    return cast(ColumnElement[datetime], func.current_timestamp())
 
 
 def _active_pending_payload_lease_filter(now: datetime):
@@ -1376,18 +1455,15 @@ def _postgresql_pending_payload_lease_statement():
         FROM (
             SELECT payload.calculation_id
             FROM lineage_payloads AS payload
-            WHERE EXISTS (
-                SELECT 1
-                FROM lineage_records AS record
-                WHERE record.calculation_id = payload.calculation_id
-                  AND record.status = :pending_status
-            )
+            JOIN lineage_records AS record
+              ON record.calculation_id = payload.calculation_id
+            WHERE record.status = :pending_status
               AND (
                 payload.lease_expires_at_utc IS NULL
                 OR payload.lease_expires_at_utc < :leased_at_utc
               )
             ORDER BY payload.created_at_utc ASC, payload.calculation_id ASC
-            FOR UPDATE OF payload SKIP LOCKED
+            FOR UPDATE OF payload, record SKIP LOCKED
             LIMIT :limit
         ) AS claimable
         WHERE payload.calculation_id = claimable.calculation_id

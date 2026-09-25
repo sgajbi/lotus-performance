@@ -1218,6 +1218,9 @@ def test_execution_api_tracks_async_workspace_summary_job_to_completion(client):
         assert result_body["results_by_period"]["YTD"]["portfolio_twr"]["net"]["summary"]["cumulative_return"][
             "base"
         ] == pytest.approx(3.02)
+        assert result_body["calculation_supportability"]["state"] == "ready"
+        assert result_body["calculation_supportability"]["freshness_bucket"] == "current"
+        assert result_body["calculation_supportability"]["input_row_count"] == 2
     finally:
         settings.WORKSPACE_SUMMARY_EXECUTOR_INPUT_COUNT = original_threshold
 

@@ -21,7 +21,11 @@ from app.models.platform_surfaces import ErrorDetailResponse
 from app.models.responses import PerformanceResponse, TWRAcceptedResponse
 from app.models.twr_requests import TWRAnalyticsRequest
 from app.models.workspace_summary_requests import WorkspaceSummaryRequest
-from app.models.workspace_summary_responses import WorkspaceSummaryAcceptedResponse, WorkspaceSummaryResponse
+from app.models.workspace_summary_responses import (
+    WorkspaceSummaryAcceptedResponse,
+    WorkspaceSummaryResponse,
+    upgrade_legacy_workspace_summary_response_payload,
+)
 from app.services.analytics_workflow_types import (
     ANALYTICS_WORKFLOW_ATTRIBUTION,
     ANALYTICS_WORKFLOW_TWR,
@@ -45,7 +49,7 @@ from app.services.workspace_summary_calculation_workflow_service import (
     accepted_workspace_summary_response as _accepted_workspace_summary_response,
 )
 from app.services.workspace_summary_calculation_workflow_service import (
-    calculate_workspace_summary_workflow,
+    calculate_workspace_summary_workflow_async,
 )
 
 router = APIRouter(tags=["Performance"])
@@ -73,11 +77,11 @@ router = APIRouter(tags=["Performance"])
     ),
     openapi_extra=STATEFUL_TENANT_OPENAPI_EXTRA,
 )
-def calculate_workspace_summary_endpoint(
+async def calculate_workspace_summary_endpoint(
     request: WorkspaceSummaryRequest,
 ) -> WorkspaceSummaryResponse | JSONResponse:
     """Calculates multi-horizon workspace summary analytics in one source-owned response."""
-    return to_fastapi_response(calculate_workspace_summary_workflow(map_workspace_summary_request(request)))
+    return to_fastapi_response(await calculate_workspace_summary_workflow_async(map_workspace_summary_request(request)))
 
 
 @router.get(
@@ -109,6 +113,7 @@ async def get_workspace_summary_result(
             not_found_detail="Async workspace summary result not found for the given calculation_id.",
             failed_detail="Async workspace summary execution failed.",
             request_headers=request.headers,
+            response_payload_upgrader=upgrade_legacy_workspace_summary_response_payload,
         )
     )
 

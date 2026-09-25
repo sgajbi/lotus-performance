@@ -9,7 +9,7 @@ from enum import StrEnum
 from typing import Any, Iterator
 from uuid import UUID
 
-from sqlalchemy import DateTime, ForeignKey, Index, String, Text, delete, inspect, select, text
+from sqlalchemy import DateTime, ForeignKey, Index, String, Text, delete, func, inspect, select, text, update
 from sqlalchemy.engine import Connection
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import DeclarativeBase, Mapped, Session, mapped_column, relationship, sessionmaker
@@ -602,21 +602,39 @@ class ExecutionRegistry:
         calculation_id: UUID,
         stage_name: str,
         details: dict[str, Any] | None = None,
-    ) -> None:
+    ) -> bool:
+        """Complete lineage and its execution unless a terminal failure already won.
+
+        Lineage materialization runs asynchronously and can finish after an HTTP request has
+        been cancelled.  A failed execution is a durable terminal fence: a late worker must not
+        turn it back into a successful calculation.
+        """
+
         with self._session() as session:
-            execution = self._get_execution_model(session, calculation_id)
-            stage = self._get_stage_model(session, calculation_id, stage_name)
             now = datetime.now(timezone.utc)
+            completion = session.execute(
+                update(AnalyticsExecutionModel)
+                .where(
+                    AnalyticsExecutionModel.calculation_id == str(calculation_id),
+                    AnalyticsExecutionModel.status != ExecutionStatus.FAILED.value,
+                )
+                .values(
+                    status=ExecutionStatus.COMPLETE.value,
+                    started_at_utc=func.coalesce(AnalyticsExecutionModel.started_at_utc, now),
+                    completed_at_utc=now,
+                    error_message=None,
+                )
+            )
+            if completion.rowcount != 1:
+                return False
+            stage = self._get_stage_model(session, calculation_id, stage_name)
             stage.status = ExecutionStageStatus.COMPLETE.value
             stage.started_at_utc = stage.started_at_utc or now
             stage.completed_at_utc = now
             if details is not None:
                 stage.details_json = json.dumps(details, sort_keys=True)
             stage.error_message = None
-            execution.status = ExecutionStatus.COMPLETE.value
-            execution.started_at_utc = execution.started_at_utc or now
-            execution.completed_at_utc = now
-            execution.error_message = None
+            return True
 
     def stage_is_complete(self, calculation_id: UUID, stage_name: str) -> bool:
         return self.stage_status(calculation_id, stage_name) == ExecutionStageStatus.COMPLETE

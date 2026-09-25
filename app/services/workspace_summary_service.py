@@ -17,6 +17,8 @@ from app.models.benchmark_requests import BenchmarkPerformanceRequest
 from app.models.mwr_analytics_requests import MWRInputMode
 from app.models.mwr_requests import CashFlow
 from app.models.requests import DailyInputData, PerformanceRequest
+from app.models.responses import PerformanceCalculationSupportability
+from app.models.source_quality import PerformanceSourceQualityEvidence
 from app.models.twr_requests import TWRInputMode
 from app.models.workspace_summary_requests import WorkspaceBenchmarkRequest, WorkspaceSummaryRequest
 from app.models.workspace_summary_responses import (
@@ -39,6 +41,10 @@ from app.services.analytics_workflow_types import ANALYTICS_WORKFLOW_WORKSPACE_S
 from app.services.applied_currency_evidence_service import build_applied_currency_evidence
 from app.services.benchmark_assignment_service import resolve_benchmark_identity
 from app.services.calculation_engine_version import calculation_engine_version
+from app.services.calculation_supportability_service import (
+    build_calculation_supportability,
+    record_supportability_metric,
+)
 from app.services.execution_lifecycle_service import complete_execution_with_lineage
 from app.services.execution_registry import execution_registry
 from app.services.execution_stage_names import EXECUTION_STAGE_EXECUTION
@@ -78,6 +84,7 @@ class ResolvedWorkspacePortfolioInput:
     valuation_points: list[DailyInputData]
     observations: list[dict[str, object]]
     source_details: dict[str, int]
+    source_quality_evidence: PerformanceSourceQualityEvidence | None = None
     portfolio_currency: str | None = None
 
 
@@ -140,18 +147,37 @@ def calculate_workspace_summary(
     request: WorkspaceSummaryRequest,
     *,
     settings: Settings | None = None,
+    input_fingerprint: str | None = None,
+    calculation_hash: str | None = None,
+    execution_stage_started: bool = False,
 ) -> WorkspaceSummaryResponse:
-    return _run_sync_compat(calculate_workspace_summary_async(request, settings=settings))
+    return _run_sync_compat(
+        calculate_workspace_summary_async(
+            request,
+            settings=settings,
+            input_fingerprint=input_fingerprint,
+            calculation_hash=calculation_hash,
+            execution_stage_started=execution_stage_started,
+        )
+    )
 
 
 async def calculate_workspace_summary_async(
     request: WorkspaceSummaryRequest,
     *,
     settings: Settings | None = None,
+    input_fingerprint: str | None = None,
+    calculation_hash: str | None = None,
+    execution_stage_started: bool = False,
 ) -> WorkspaceSummaryResponse:
     active_settings = settings or get_settings()
-    input_fingerprint, calculation_hash = generate_canonical_hash(request, calculation_engine_version(active_settings))
-    execution_registry.start_stage(request.calculation_id, EXECUTION_STAGE_EXECUTION)
+    input_fingerprint, calculation_hash = await _workspace_summary_calculation_prelude_async(
+        request=request,
+        settings=active_settings,
+        input_fingerprint=input_fingerprint,
+        calculation_hash=calculation_hash,
+        execution_stage_started=execution_stage_started,
+    )
     (
         resolved_periods,
         portfolio_input,
@@ -162,9 +188,107 @@ async def calculate_workspace_summary_async(
         request=request,
         settings=active_settings,
     )
+    finalization_task = asyncio.create_task(
+        asyncio.to_thread(
+            _finalize_workspace_summary,
+            request=request,
+            settings=active_settings,
+            input_fingerprint=input_fingerprint,
+            calculation_hash=calculation_hash,
+            resolved_periods=resolved_periods,
+            portfolio_input=portfolio_input,
+            benchmark_input=benchmark_input,
+            net_artifacts=net_artifacts,
+            gross_artifacts=gross_artifacts,
+        )
+    )
+    try:
+        return await asyncio.shield(finalization_task)
+    except asyncio.CancelledError as cancellation:
+        await _drain_thread_task_after_cancellation(finalization_task, cancellation=cancellation)
+        raise cancellation
+
+
+async def _workspace_summary_calculation_prelude_async(
+    *,
+    request: WorkspaceSummaryRequest,
+    settings: Settings,
+    input_fingerprint: str | None,
+    calculation_hash: str | None,
+    execution_stage_started: bool,
+) -> tuple[str, str]:
+    if input_fingerprint is not None and calculation_hash is not None and execution_stage_started:
+        return input_fingerprint, calculation_hash
+    prelude_task = asyncio.create_task(
+        asyncio.to_thread(
+            _prepare_workspace_summary_calculation,
+            request=request,
+            settings=settings,
+            input_fingerprint=input_fingerprint,
+            calculation_hash=calculation_hash,
+            execution_stage_started=execution_stage_started,
+        )
+    )
+    try:
+        return await asyncio.shield(prelude_task)
+    except asyncio.CancelledError as cancellation:
+        await _drain_thread_task_after_cancellation(prelude_task, cancellation=cancellation)
+        raise cancellation
+
+
+async def _drain_thread_task_after_cancellation(
+    task: asyncio.Task[_T],
+    *,
+    cancellation: asyncio.CancelledError,
+) -> _T:
+    """Drain non-cancellable thread work while preserving the request cancellation."""
+
+    while not task.done():
+        try:
+            await asyncio.shield(task)
+        except asyncio.CancelledError:
+            continue
+    try:
+        return task.result()
+    except Exception as exc:
+        raise cancellation from exc
+
+
+def _prepare_workspace_summary_calculation(
+    *,
+    request: WorkspaceSummaryRequest,
+    settings: Settings,
+    input_fingerprint: str | None,
+    calculation_hash: str | None,
+    execution_stage_started: bool,
+) -> tuple[str, str]:
+    if input_fingerprint is None or calculation_hash is None:
+        input_fingerprint, calculation_hash = generate_canonical_hash(
+            request,
+            calculation_engine_version(settings),
+        )
+    if not execution_stage_started:
+        execution_registry.start_stage(request.calculation_id, EXECUTION_STAGE_EXECUTION)
+    return input_fingerprint, calculation_hash
+
+
+def _finalize_workspace_summary(
+    *,
+    request: WorkspaceSummaryRequest,
+    settings: Settings,
+    input_fingerprint: str,
+    calculation_hash: str,
+    resolved_periods: list[ResolvedWorkspacePeriod],
+    portfolio_input: ResolvedWorkspacePortfolioInput,
+    benchmark_input: ResolvedWorkspaceBenchmarkInput | None,
+    net_artifacts: WorkspaceTWRArtifacts,
+    gross_artifacts: WorkspaceTWRArtifacts,
+) -> WorkspaceSummaryResponse:
+    """Project and persist a resolved workspace summary off the application event loop."""
+
     response = _build_workspace_summary_response(
         request=request,
-        settings=active_settings,
+        settings=settings,
         input_fingerprint=input_fingerprint,
         calculation_hash=calculation_hash,
         resolved_periods=resolved_periods,
@@ -172,6 +296,10 @@ async def calculate_workspace_summary_async(
         benchmark_input=benchmark_input,
         net_artifacts=net_artifacts,
         gross_artifacts=gross_artifacts,
+    )
+    record_supportability_metric(
+        operation="workspace_summary",
+        supportability=response.calculation_supportability,
     )
 
     complete_execution_with_lineage(
@@ -239,7 +367,8 @@ async def _resolve_workspace_inputs_async(
         settings=settings,
         master_start_date=master_start_date,
     )
-    net_artifacts, gross_artifacts = _calculate_workspace_basis_artifacts(
+    net_artifacts, gross_artifacts = await asyncio.to_thread(
+        _calculate_workspace_basis_artifacts,
         request=request,
         valuation_points=portfolio_input.valuation_points,
         performance_start_date=portfolio_input.performance_start_date,
@@ -314,6 +443,7 @@ async def _build_stateful_workspace_portfolio_input_async(
             "portfolio_chunk_count": source_input.retrieval_metadata.chunk_count,
             "portfolio_page_count": source_input.retrieval_metadata.page_count,
         },
+        source_quality_evidence=normalized.source_quality_evidence,
         portfolio_currency=getattr(source_input, "portfolio_currency", None),
     )
 
@@ -328,6 +458,7 @@ def _build_stateless_workspace_portfolio_input(request: WorkspaceSummaryRequest)
         valuation_points=valuation_points,
         observations=[point.model_dump(mode="python") for point in valuation_points],
         source_details={"portfolio_chunk_count": 0, "portfolio_page_count": 0},
+        source_quality_evidence=None,
     )
 
 
@@ -382,6 +513,7 @@ def _trim_portfolio_input_to_master_window(
         valuation_points=filtered_points,
         observations=filtered_observations,
         source_details=portfolio_input.source_details,
+        source_quality_evidence=portfolio_input.source_quality_evidence,
         portfolio_currency=getattr(portfolio_input, "portfolio_currency", None),
     )
 
@@ -631,6 +763,7 @@ def _build_workspace_summary_response(
     net_artifacts: WorkspaceTWRArtifacts,
     gross_artifacts: WorkspaceTWRArtifacts,
 ) -> WorkspaceSummaryResponse:
+    benchmark_daily_df = _build_workspace_benchmark_daily_df(benchmark_input)
     projection = _build_workspace_summary_projection(
         request=request,
         resolved_periods=resolved_periods,
@@ -638,6 +771,7 @@ def _build_workspace_summary_response(
         net_artifacts=net_artifacts,
         gross_artifacts=gross_artifacts,
         benchmark_input=benchmark_input,
+        benchmark_daily_df=benchmark_daily_df,
     )
     return WorkspaceSummaryResponse(
         calculation_id=request.calculation_id,
@@ -650,6 +784,15 @@ def _build_workspace_summary_response(
             currency_mode=request.currency_mode,
             fx=request.fx,
             source_currencies=[portfolio_input.portfolio_currency or request.currency],
+        ),
+        calculation_supportability=_resolve_workspace_summary_supportability(
+            request=request,
+            resolved_periods=resolved_periods,
+            emitted_result_count=len(projection.results_by_period),
+            portfolio_input=portfolio_input,
+            benchmark_input=benchmark_input,
+            benchmark_daily_df=benchmark_daily_df,
+            daily_results_df=net_artifacts.daily_results_df,
         ),
         meta=_workspace_summary_meta(
             request=request,
@@ -672,6 +815,103 @@ def _build_workspace_summary_response(
     )
 
 
+def _resolve_workspace_summary_supportability(
+    *,
+    request: WorkspaceSummaryRequest,
+    resolved_periods: list[ResolvedWorkspacePeriod],
+    emitted_result_count: int,
+    portfolio_input: ResolvedWorkspacePortfolioInput,
+    benchmark_input: ResolvedWorkspaceBenchmarkInput | None,
+    benchmark_daily_df: pd.DataFrame | None,
+    daily_results_df: pd.DataFrame,
+) -> PerformanceCalculationSupportability:
+    input_row_count = len(portfolio_input.valuation_points)
+    latest_observation_date = None
+    if not daily_results_df.empty:
+        latest_observation_date = observation_date_series(daily_results_df[PortfolioColumns.PERF_DATE.value]).max()
+    in_window_benchmark_df, benchmark_coverage_complete = _workspace_summary_benchmark_supportability_evidence(
+        request=request,
+        resolved_periods=resolved_periods,
+        benchmark_input=benchmark_input,
+        benchmark_daily_df=benchmark_daily_df,
+        daily_results_df=daily_results_df,
+    )
+    benchmark_row_count = len(in_window_benchmark_df)
+    if input_row_count < 2 or emitted_result_count <= 0:
+        return build_calculation_supportability(
+            input_row_count=input_row_count,
+            resolved_period_count=emitted_result_count,
+            latest_observation_date=latest_observation_date,
+            report_end_date=request.report_end_date,
+            benchmark_row_count=benchmark_row_count,
+            minimum_input_row_count=2,
+            source_quality_evidence=portfolio_input.source_quality_evidence,
+        )
+    if benchmark_input is not None:
+        if not benchmark_coverage_complete:
+            return PerformanceCalculationSupportability(
+                state="degraded",
+                reason="benchmark_unavailable",
+                freshness_bucket="unknown",
+                input_row_count=input_row_count,
+                resolved_period_count=emitted_result_count,
+                benchmark_row_count=benchmark_row_count,
+                source_quality_evidence=portfolio_input.source_quality_evidence,
+            )
+        benchmark_latest_observation_date = observation_date_series(in_window_benchmark_df["date"]).max()
+        if latest_observation_date is None or benchmark_latest_observation_date < latest_observation_date:
+            latest_observation_date = benchmark_latest_observation_date
+    return build_calculation_supportability(
+        input_row_count=input_row_count,
+        resolved_period_count=emitted_result_count,
+        latest_observation_date=latest_observation_date,
+        report_end_date=request.report_end_date,
+        benchmark_row_count=benchmark_row_count,
+        minimum_input_row_count=2,
+        source_quality_evidence=portfolio_input.source_quality_evidence,
+    )
+
+
+def _workspace_summary_benchmark_supportability_evidence(
+    *,
+    request: WorkspaceSummaryRequest,
+    resolved_periods: list[ResolvedWorkspacePeriod],
+    benchmark_input: ResolvedWorkspaceBenchmarkInput | None,
+    benchmark_daily_df: pd.DataFrame | None,
+    daily_results_df: pd.DataFrame,
+) -> tuple[pd.DataFrame, bool]:
+    if benchmark_input is None:
+        return pd.DataFrame(), True
+    return _benchmark_evidence_in_window(
+        benchmark_daily_df=benchmark_daily_df,
+        resolved_periods=resolved_periods,
+        report_end_date=request.report_end_date,
+        portfolio_daily_results_df=daily_results_df,
+    )
+
+
+def _benchmark_evidence_in_window(
+    *,
+    benchmark_daily_df: pd.DataFrame | None,
+    resolved_periods: list[ResolvedWorkspacePeriod],
+    report_end_date: date,
+    portfolio_daily_results_df: pd.DataFrame,
+) -> tuple[pd.DataFrame, bool]:
+    """Return in-window benchmark evidence and whether it covers portfolio calculation dates."""
+
+    if benchmark_daily_df is None:
+        return pd.DataFrame(), False
+    in_window_benchmark_df = _slice_by_date(
+        benchmark_daily_df,
+        date_column="date",
+        start_date=min(period.start_date for period in resolved_periods),
+        end_date=report_end_date,
+    )
+    benchmark_dates = set(observation_date_series(in_window_benchmark_df["date"]))
+    portfolio_dates = set(observation_date_series(portfolio_daily_results_df[PortfolioColumns.PERF_DATE.value]))
+    return in_window_benchmark_df, bool(benchmark_dates) and portfolio_dates.issubset(benchmark_dates)
+
+
 def _build_workspace_summary_projection(
     *,
     request: WorkspaceSummaryRequest,
@@ -680,6 +920,7 @@ def _build_workspace_summary_projection(
     net_artifacts: WorkspaceTWRArtifacts,
     gross_artifacts: WorkspaceTWRArtifacts,
     benchmark_input: ResolvedWorkspaceBenchmarkInput | None,
+    benchmark_daily_df: pd.DataFrame | None,
 ) -> _WorkspaceSummaryProjection:
     valuation_df = pd.DataFrame([point.model_dump(mode="python") for point in portfolio_input.valuation_points])
     valuation_df[PortfolioColumns.PERF_DATE.value] = observation_date_series(
@@ -694,7 +935,7 @@ def _build_workspace_summary_projection(
             net_daily_results_df=_normalize_workspace_daily_results_df(net_artifacts.daily_results_df),
             gross_daily_results_df=_normalize_workspace_daily_results_df(gross_artifacts.daily_results_df),
             benchmark_input=benchmark_input,
-            benchmark_daily_df=_build_workspace_benchmark_daily_df(benchmark_input),
+            benchmark_daily_df=benchmark_daily_df,
             requested_frequencies={item.period.value: item.frequencies for item in request.periods},
         )
     )
