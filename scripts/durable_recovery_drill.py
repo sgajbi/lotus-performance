@@ -48,6 +48,7 @@ RESTORE_VALIDATION_REQUIRED_TABLES = REQUIRED_TABLES + (
     "composite_definitions",
     "composite_memberships",
     "composite_member_return_facts",
+    "composite_member_return_fact_publications",
 )
 RESTORE_VALIDATION_ADDITIVE_COLUMN_CHECKS = {
     "lineage_payloads": (
@@ -59,6 +60,14 @@ RESTORE_VALIDATION_ADDITIVE_COLUMN_CHECKS = {
         "return_view",
         "source_fingerprint",
         "restatement_version",
+        "restatement_sequence",
+    ),
+    "composite_member_return_fact_publications": (
+        "period_start",
+        "period_end",
+        "expected_families_json",
+        "source_fingerprint",
+        "restatement_sequence",
     ),
 }
 

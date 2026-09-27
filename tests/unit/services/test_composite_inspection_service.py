@@ -71,6 +71,20 @@ def _fact(
     )
 
 
+def _complete_publication(store: CompositeMetadataStore, *facts: CompositeMemberReturnFact) -> None:
+    first = facts[0]
+    store.complete_member_return_fact_publication(
+        composite_id=first.composite_id,
+        return_view=first.return_view,
+        reporting_currency=first.reporting_currency,
+        restatement_sequence=first.restatement_sequence,
+        period_start=first.period_start,
+        period_end=first.period_end,
+        expected_families={(fact.portfolio_id, fact.period_start, fact.period_end) for fact in facts},
+        source_fingerprint=f"sha256:test-publication-{first.reporting_currency}",
+    )
+
+
 def _inspection_finding(*, code: str, severity: str) -> CompositeInspectionFinding:
     return CompositeInspectionFinding(
         code=code,
@@ -86,8 +100,10 @@ def _inspection_finding(*, code: str, severity: str) -> CompositeInspectionFindi
 def test_composite_inspection_generates_classified_artifacts(tmp_path):
     store = _store(tmp_path)
     store.upsert_definition(_definition())
-    store.upsert_member_return_fact(_fact("P1"))
-    store.upsert_member_return_fact(_fact("P2"))
+    facts = (_fact("P1"), _fact("P2"))
+    for fact in facts:
+        store.upsert_member_return_fact(fact)
+    _complete_publication(store, *facts)
 
     response = inspect_composite_twr_from_persisted_facts(
         inspection_id=UUID("8d1e37d2-aeca-488c-bd43-77dbf6739103"),
@@ -105,7 +121,8 @@ def test_composite_inspection_generates_classified_artifacts(tmp_path):
     assert artifacts["composite_returns.csv"].access_classification == "customer_consumable"
     assert artifacts["lineage_manifest.json"].artifact_content == (
         '{"calculation_status": "READY", "composite_id": "PB_GLOBAL_BALANCED_USD", '
-        '"restatement_versions": ["v1"], "source_fingerprints": ["sha256:P1", "sha256:P2"]}'
+        '"restatement_sequences": [1], "restatement_versions": ["v1"], '
+        '"source_fingerprints": ["sha256:P1", "sha256:P2"]}'
     )
     store.close()
 
@@ -139,6 +156,7 @@ def test_build_artifacts_preserves_names_classifications_lineage_and_brief():
                 source_snapshot_id="snapshot-P1",
                 source_fingerprint="sha256:P1",
                 restatement_version="v1",
+                restatement_sequence=1,
                 calculation_id="calc-P1",
             )
         ],
@@ -168,16 +186,20 @@ def test_build_artifacts_preserves_names_classifications_lineage_and_brief():
     assert "beginning_asset_weight" in artifact_by_name["period_weights.csv"].artifact_content.splitlines()[0]
     assert artifact_by_name["lineage_manifest.json"].artifact_content == (
         '{"calculation_status": "DEGRADED", "composite_id": "PB_GLOBAL_BALANCED_USD", '
-        '"restatement_versions": ["v1"], "source_fingerprints": ["sha256:P1"]}'
+        '"restatement_sequences": [1], "restatement_versions": ["v1"], '
+        '"source_fingerprints": ["sha256:P1"]}'
     )
     assert "- Reason codes: missing_final_valuation" in artifact_by_name["support_brief.md"].artifact_content
 
 
-def test_composite_inspection_reports_blocking_findings(tmp_path):
+def test_composite_inspection_selects_one_reporting_currency_identity(tmp_path):
     store = _store(tmp_path)
     store.upsert_definition(_definition())
-    store.upsert_member_return_fact(_fact("P1", reporting_currency="USD"))
-    store.upsert_member_return_fact(_fact("P2", reporting_currency="SGD"))
+    usd_fact = _fact("P1", reporting_currency="USD")
+    sgd_fact = _fact("P2", reporting_currency="SGD")
+    store.upsert_member_return_fact(usd_fact)
+    store.upsert_member_return_fact(sgd_fact)
+    _complete_publication(store, usd_fact)
 
     response = inspect_composite_twr_from_persisted_facts(
         inspection_id=UUID("8d1e37d2-aeca-488c-bd43-77dbf6739103"),
@@ -187,9 +209,9 @@ def test_composite_inspection_reports_blocking_findings(tmp_path):
         store=store,
     )
 
-    assert response.verdict == "not_supportable"
-    assert response.findings[0].code == "MIXED_MEMBER_REPORTING_CURRENCIES"
-    assert response.findings[0].severity == "critical"
+    assert response.verdict == "supportable"
+    assert response.evidence_summary["member_return_fact_count"] == 1
+    assert response.findings == []
     store.close()
 
 
@@ -232,8 +254,13 @@ def test_composite_inspection_reports_no_member_return_facts(tmp_path):
 def test_composite_inspection_reports_degraded_verdict(tmp_path):
     store = _store(tmp_path)
     store.upsert_definition(_definition())
-    store.upsert_member_return_fact(_fact("P1"))
-    store.upsert_member_return_fact(_fact("P2", status="DEGRADED", reason_codes=["missing_final_valuation"]))
+    facts = (
+        _fact("P1"),
+        _fact("P2", status="DEGRADED", reason_codes=["missing_final_valuation"]),
+    )
+    for fact in facts:
+        store.upsert_member_return_fact(fact)
+    _complete_publication(store, *facts)
 
     response = inspect_composite_twr_from_persisted_facts(
         inspection_id=UUID("8d1e37d2-aeca-488c-bd43-77dbf6739103"),
@@ -296,6 +323,7 @@ def test_member_input_rows_preserve_operator_lineage_values():
             "reason_codes": "missing_final_valuation",
             "source_fingerprint": "sha256:P1",
             "restatement_version": "v1",
+            "restatement_sequence": 1,
         }
     ]
 
@@ -331,6 +359,7 @@ def test_period_weight_rows_preserve_contribution_lineage_order():
                         source_snapshot_id="snapshot-P1",
                         source_fingerprint="sha256:P1",
                         restatement_version="v1",
+                        restatement_sequence=1,
                         calculation_id="calc-P1",
                     )
                 ],
@@ -347,6 +376,7 @@ def test_period_weight_rows_preserve_contribution_lineage_order():
             "contribution": "0.010000000000",
             "source_fingerprint": "sha256:P1",
             "restatement_version": "v1",
+            "restatement_sequence": 1,
         }
     ]
 

@@ -64,6 +64,41 @@ def _create_legacy_composite_fact_schema(database_url: str) -> None:
                 )
                 """
             )
+            connection.exec_driver_sql(
+                """
+                INSERT INTO composite_member_return_facts (
+                    fact_key, composite_id, portfolio_id, period_start, period_end,
+                    return_value, beginning_market_value, ending_market_value,
+                    reporting_currency, calculation_id, source_snapshot_id, status,
+                    reason_codes_json
+                ) VALUES (
+                    'legacy-fact-key', 'PB_GLOBAL_BALANCED_USD', 'P1',
+                    '2026-01-01', '2026-01-31', '0.01', '100.00', '101.00',
+                    'USD', 'legacy-calculation', 'legacy-snapshot', 'READY', '[]'
+                )
+                """
+            )
+    finally:
+        engine.dispose()
+
+
+def _create_publication_schema_without_lineage_columns(database_url: str) -> None:
+    engine = create_engine(database_url, future=True)
+    try:
+        with engine.begin() as connection:
+            connection.exec_driver_sql(
+                """
+                CREATE TABLE composite_member_return_fact_publications (
+                    publication_key VARCHAR(80) PRIMARY KEY,
+                    composite_id VARCHAR(128) NOT NULL,
+                    return_view VARCHAR(32) NOT NULL,
+                    reporting_currency VARCHAR(3) NOT NULL,
+                    restatement_sequence INTEGER NOT NULL,
+                    period_start DATE NOT NULL,
+                    period_end DATE NOT NULL
+                )
+                """
+            )
     finally:
         engine.dispose()
 
@@ -89,10 +124,54 @@ def test_apply_durable_schema_bootstraps_owned_tables_and_additive_columns(tmp_p
     assert "composite_member_return_facts" in evidence.owned_tables_present
     assert all(check.status == "passed" for check in evidence.additive_upgrade_checks)
     assert {"worker_id", "leased_at_utc", "lease_expires_at_utc"} <= _columns(database_url, "lineage_payloads")
-    assert {"return_view", "source_fingerprint", "restatement_version"} <= _columns(
+    assert {"return_view", "source_fingerprint", "restatement_version", "restatement_sequence"} <= _columns(
         database_url,
         "composite_member_return_facts",
     )
+    engine = create_engine(database_url, future=True)
+    try:
+        with engine.connect() as connection:
+            migrated_row = connection.exec_driver_sql(
+                "SELECT fact_key, return_view, source_fingerprint, restatement_version, "
+                "restatement_sequence FROM composite_member_return_facts "
+                "WHERE calculation_id = 'legacy-calculation'"
+            ).one()
+    finally:
+        engine.dispose()
+    assert migrated_row == (
+        "legacy-fact-key",
+        "NET_ACTUAL",
+        "legacy-source-fingerprint-unavailable",
+        "v1",
+        1,
+    )
+
+
+def test_apply_durable_schema_fails_evidence_for_publication_without_lineage_columns(tmp_path: Path) -> None:
+    database_url = f"sqlite:///{tmp_path / 'malformed-publication.db'}"
+    output_dir = tmp_path / "evidence"
+    _create_publication_schema_without_lineage_columns(database_url)
+
+    evidence = apply_durable_schema(database_url=database_url)
+
+    publication_check = next(
+        check
+        for check in evidence.additive_upgrade_checks
+        if check.table_name == "composite_member_return_fact_publications"
+    )
+    assert evidence.status == "failed"
+    assert evidence.bootstrap_error is not None
+    assert "cannot invent lineage authority" in evidence.bootstrap_error
+    assert publication_check.status == "failed"
+    assert publication_check.missing_columns == ["expected_families_json", "source_fingerprint"]
+    assert main(["--database-url", database_url, "--output-dir", str(output_dir)]) == 1
+    latest_payload = json.loads((output_dir / "latest.json").read_text(encoding="utf-8"))
+    assert latest_payload["status"] == "failed"
+    assert "cannot invent lineage authority" in latest_payload["bootstrap_error"]
+    assert latest_payload["additive_upgrade_checks"][-1]["missing_columns"] == [
+        "expected_families_json",
+        "source_fingerprint",
+    ]
 
 
 def test_durable_schema_apply_main_writes_operator_evidence(tmp_path: Path) -> None:

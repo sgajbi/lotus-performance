@@ -23,7 +23,9 @@ Supported after RFC-049 implementation proof:
 - one-member treatment with no dispersion;
 - degraded periods when non-ready facts are excluded but ready facts can still calculate;
 - blocked periods when calculation would be misleading;
-- source fingerprints, restatement versions, source snapshots, and member calculation ids;
+- immutable gross/net/currency fact identities with retained predecessor versions;
+- source fingerprints, source version labels, numeric restatement sequences, source snapshots, and
+  member calculation ids;
 - inspector findings and classified artifacts;
 - `CompositePerformanceAnalytics:v1` data-product declaration;
 - Gateway route realization and Workbench typed BFF consumption;
@@ -35,8 +37,39 @@ The calculation endpoint is:
 
 `POST /performance/composites/twr`
 
-It accepts a `composite_id`, inclusive date window, and optional `calculation_id`. It reads
+It accepts a `composite_id`, inclusive date window, optional `calculation_id`, return view,
+reporting currency, and optional numeric restatement sequence. Omission selects the greatest numeric
+candidate visible for the request and requires a completed durable publication manifest whose exact
+source-backed family set matches the selected facts. A higher unpublished candidate fails closed;
+the service never falls back to an older completed sequence. Unpublished facts remain durable but
+are not eligible as latest. This distinguishes an intentional membership removal from a partial write
+without superseding a disjoint historical window. An explicit sequence replays exactly its retained
+historical set even if later membership differs. When a completed manifest exists for that sequence,
+missing or extra durable families fail closed instead of changing the historical replay, and a
+request wider than the manifest returns a conflict instead of treating the sequence as unpublished. It reads
 persisted member-return facts from the composite metadata store and returns:
+
+Publication fencing uses the logical composite, return-view, reporting-currency, and sequence
+identity. A legacy primary key cannot bypass the fence after currency canonicalization. Bootstrap
+rejects retained non-integer or nonpositive fact/publication sequences and whitespace-only source
+version labels. It only canonicalizes original ASCII currency case variants; Unicode lookalikes are
+never normalized into an accepted code. An early publication table missing its expected-family or
+source-fingerprint lineage column is refused rather than assigned invented authority. PostgreSQL also rejects space-, tab-, or newline-only labels from direct writers
+and strengthens an earlier space-only named constraint during upgrade. A validated nullable legacy
+version column is promoted to non-null. PostgreSQL upgrades reject
+incomplete or malformed retained publication periods,
+promote the validated publication currency and both period boundaries to non-null,
+and enforce canonical definition, fact, and publication currency plus positive sequence and valid
+period constraints. Request validation rejects Unicode currency lookalikes before uppercasing.
+Fresh and upgraded SQLite schemas reject blank or overlong fact version labels, noncanonical
+definition/fact/publication currencies, non-integer fact/publication sequences, and publication dates outside the real year
+0001 through 9999 calendar domain from direct writes. Existing SQLite upgrades first
+require retained boundaries to use text storage and exact `YYYY-MM-DD` values, then install equivalent future-write
+triggers, replacing any same-named stale guard in the bootstrap transaction.
+PostgreSQL and SQLite install mutation guards only after legacy validation: fact payloads and
+completed publication manifests cannot be updated in place, and completed facts cannot be deleted.
+Corrections are written as a new restatement sequence; supported cleanup deletes the manifest
+before its facts transactionally.
 
 - calculation status;
 - cumulative composite return;
@@ -44,6 +77,7 @@ persisted member-return facts from the composite metadata store and returns:
 - member weights and contributions;
 - included source fingerprints;
 - restatement versions;
+- the period-level numeric restatement sequence, retained even when a blocked period has no member contributions;
 - period reason codes;
 - dispersion where at least two ready members exist.
 
@@ -110,7 +144,7 @@ sequenceDiagram
 | --- | --- |
 | Data product identity | `CompositePerformanceAnalytics:v1` in `contracts/domain-data-products/lotus-performance-products.v1.json`. |
 | Freshness | Batch freshness class; facts must carry source-fact lineage and restatement evidence. |
-| Lineage | Source fingerprints, source snapshots, calculation ids, restatement versions, and inspector lineage manifest. |
+| Lineage | Source fingerprints, source snapshots, calculation ids, source version labels, numeric restatement sequences, and inspector lineage manifest. |
 | Audit support | Methodology v3 doc, endpoint certification, reason codes, classified artifacts, and deterministic replay fields. |
 | Security and evidence classification | Inspector artifacts distinguish `operator_only` from `customer_consumable`. |
 | Downstream integration | Gateway and Workbench branches consume the new endpoints through typed contracts. |
@@ -138,7 +172,8 @@ Data mesh interpretation:
 Composite support starts from the persisted facts and inspector, not from screenshots or downstream
 rendering. When a composite value is questioned:
 
-1. identify the `composite_id`, date window, `calculation_id`, and restatement version;
+1. identify the `composite_id`, date window, `calculation_id`, return view, reporting currency,
+   source version label, and numeric restatement sequence;
 2. call `POST /performance/composites/inspect` for the same composite and window;
 3. review the inspector `verdict`, findings, affected periods, member facts, source fingerprints,
    and artifact classifications;
@@ -180,8 +215,8 @@ Common blocked reasons:
 Demo-safe claims:
 
 - Lotus can calculate private-banking composite TWR from persisted member-return facts.
-- Composite results carry member weights, contributions, source fingerprints, restatement versions,
-  reason codes, and supportability state.
+- Composite results carry member weights, contributions, source fingerprints, source version labels,
+  numeric restatement sequences, reason codes, and supportability state.
 - The inspector produces classified artifacts that support audit, operations, and client-safe
   evidence-pack preparation.
 - Gateway and Workbench consume the source-owned composite endpoints rather than recreating the

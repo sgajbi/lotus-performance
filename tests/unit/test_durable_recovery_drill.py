@@ -426,6 +426,50 @@ def test_run_restore_validation_drill_fails_when_required_tables_are_missing(tmp
     assert evidence.representative_lineage_check == "failed_lineage_records_read"
 
 
+@pytest.mark.parametrize(
+    ("table_name", "replacement_schema"),
+    [
+        (
+            "composite_member_return_facts",
+            "CREATE TABLE composite_member_return_facts ("
+            "calculation_id TEXT PRIMARY KEY, return_view TEXT, "
+            "source_fingerprint TEXT, restatement_version TEXT)",
+        ),
+        (
+            "composite_member_return_fact_publications",
+            "CREATE TABLE composite_member_return_fact_publications ("
+            "calculation_id TEXT PRIMARY KEY, period_start TEXT)",
+        ),
+    ],
+)
+def test_restore_validation_rejects_incomplete_composite_schema(
+    tmp_path,
+    table_name,
+    replacement_schema,
+):
+    database_path = tmp_path / f"partial-{table_name}.db"
+    _create_restored_durable_database(database_path)
+    engine = create_engine(f"sqlite:///{database_path}")
+    try:
+        with engine.begin() as connection:
+            connection.exec_driver_sql(f'DROP TABLE "{table_name}"')
+            connection.exec_driver_sql(replacement_schema)
+    finally:
+        engine.dispose()
+
+    evidence = run_restore_validation_drill(
+        restored_database_url=f"sqlite:///{database_path}",
+        backup_identifier="backup-incomplete-composite-schema",
+        backup_source="manual-snapshot",
+        restore_completed_at_utc="2026-03-29T01:30:00Z",
+        operator_id="ops-restore",
+    )
+
+    assert evidence.status == "failed"
+    assert evidence.schema_bootstrap_status == "failed"
+    assert evidence.readiness_status == "not_ready"
+
+
 def _create_restored_durable_database(database_path):
     engine = create_engine(f"sqlite:///{database_path}")
     try:
@@ -449,7 +493,21 @@ def _create_restored_durable_database(database_path):
                             calculation_id TEXT PRIMARY KEY,
                             return_view TEXT,
                             source_fingerprint TEXT,
-                            restatement_version TEXT
+                            restatement_version TEXT,
+                            restatement_sequence INTEGER
+                        )
+                        """
+                    )
+                elif table_name == "composite_member_return_fact_publications":
+                    connection.exec_driver_sql(
+                        """
+                        CREATE TABLE composite_member_return_fact_publications (
+                            calculation_id TEXT PRIMARY KEY,
+                            period_start TEXT,
+                            period_end TEXT,
+                            expected_families_json TEXT,
+                            source_fingerprint TEXT,
+                            restatement_sequence INTEGER
                         )
                         """
                     )

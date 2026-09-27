@@ -1,7 +1,7 @@
 # Lotus Performance Test Taxonomy Inventory
 
-Report date: 2026-09-25
-Branch: `fix/532-canonical-workspace-supportability`
+Report date: 2026-09-28
+Branch: `fix/538-composite-fact-versions`
 Mode: regression-blocking test taxonomy inventory; `make quality-test-taxonomy-gate` enforces
 minimum API/runtime and contract/governance breadth plus the current uncategorized-test ceiling.
 
@@ -15,26 +15,26 @@ and quality family without executing tests or requiring coverage data.
 
 ```powershell
 python scripts/python_test_taxonomy_inventory.py --limit 30
-python scripts/python_test_taxonomy_inventory.py --limit 30 --min-api-runtime-tests 656 --min-contract-governance-tests 136 --max-uncategorized-tests 671
+python scripts/python_test_taxonomy_inventory.py --limit 30 --min-api-runtime-tests 656 --min-contract-governance-tests 136 --max-uncategorized-tests 635
 ```
 
 ## Summary
 
 | Metric | Value |
 | --- | ---: |
-| Test modules inventoried | 327 |
-| Test functions inventoried | 3843 |
-| Integration/API/runtime test functions | 770 |
-| Contract/governance test functions | 193 |
+| Test modules inventoried | 328 |
+| Test functions inventoried | 3882 |
+| Integration/API/runtime test functions | 775 |
+| Contract/governance test functions | 194 |
 
 ## Test Functions By Suite
 
 | Suite | Modules | Test functions |
 | --- | ---: | ---: |
-| benchmarks | 9 | 25 |
+| benchmarks | 10 | 29 |
 | e2e | 1 | 21 |
-| integration | 28 | 361 |
-| unit | 289 | 3436 |
+| integration | 28 | 366 |
+| unit | 289 | 3466 |
 
 ## Test Functions By Family
 
@@ -44,12 +44,12 @@ above does sum to it, because a module belongs to exactly one suite.
 
 | Family | Test functions |
 | --- | ---: |
-| analytics_domain | 1797 |
-| api_or_runtime | 770 |
-| contract_or_governance | 193 |
-| observability_or_readiness | 551 |
-| quality_or_security | 266 |
-| uncategorized | 671 |
+| analytics_domain | 1866 |
+| api_or_runtime | 775 |
+| contract_or_governance | 194 |
+| observability_or_readiness | 565 |
+| quality_or_security | 268 |
+| uncategorized | 635 |
 
 ## Largest Test Modules
 
@@ -80,11 +80,11 @@ above does sum to it, because a module belongs to exactly one suite.
 | 23 | `tests/unit/services/test_benchmark_exposure_context_service.py` | unit | 35 | analytics_domain |
 | 24 | `tests/unit/test_observability.py` | unit | 35 | observability_or_readiness |
 | 25 | `tests/unit/models/test_twr_requests.py` | unit | 32 | analytics_domain |
-| 26 | `tests/unit/services/test_twr_inspection_reconciliation.py` | unit | 32 | analytics_domain |
-| 27 | `tests/integration/test_returns_series_api.py` | integration | 31 | analytics_domain, api_or_runtime |
-| 28 | `tests/unit/app/test_enterprise_readiness.py` | unit | 31 | observability_or_readiness |
-| 29 | `tests/unit/models/test_workspace_summary_models.py` | unit | 32 | analytics_domain |
-| 30 | `tests/unit/services/test_twr_inspection_service.py` | unit | 31 | analytics_domain |
+| 26 | `tests/unit/models/test_workspace_summary_models.py` | unit | 32 | analytics_domain |
+| 27 | `tests/unit/services/test_twr_inspection_reconciliation.py` | unit | 32 | analytics_domain |
+| 28 | `tests/integration/test_returns_series_api.py` | integration | 31 | analytics_domain, api_or_runtime |
+| 29 | `tests/unit/app/test_enterprise_readiness.py` | unit | 31 | observability_or_readiness |
+| 30 | `tests/unit/app/test_performance_endpoint_async_paths.py` | unit | 31 | api_or_runtime |
 
 The #502 request-path proof added a module driving the real application over HTTP for tenant admission - admitted, absent, blank and concurrent two-tenant requests, each asserting the outbound Core call - raising inventoried modules to `317`, source test functions to `3634`, and API/runtime tests to `699`. Later review fixes in the same PR added the padded-tenant refusals and the returns-series authority regression, which are counted in those figures. Uncategorized tests are unchanged at `876`: every added module classifies as api_or_runtime, so the ceiling this gate governs was neither approached nor raised.
 
@@ -119,3 +119,42 @@ single reclaim, or batch reclaim cannot both win. Source test functions now meas
 API/runtime functions measure `770`, observability/readiness functions rise from `432` to `551`, and uncategorized functions fall from
 `772` to `671`. The blocking ceiling is re-banked to the measured `671`; it was not raised to admit
 new tests.
+
+The #538 final-review regressions add five source test functions and correct the classification of
+the executable durable-recovery drill. Its restore-schema and representative-read checks are
+observability/readiness evidence, not uncategorized utility tests. Source test functions therefore
+measure `3,863`, analytics-domain functions `1,848`, observability/readiness functions `564`, and
+uncategorized functions fall from `646` to `635`. The blocking ceiling is tightened to the measured
+`635`; no test was admitted by raising a threshold.
+
+The exact-head review adds two analytics-domain source test functions: one refuses a blank legacy
+restatement version during schema upgrade, and one parametrized contract refuses both missing and
+extra durable families for a pinned completed publication. Source test functions therefore measure
+`3,865`, analytics-domain functions `1,850`, and the governed uncategorized ceiling remains `635`.
+
+The following exact-head review adds one analytics-domain source function for a pinned request that
+extends outside its completed manifest and a second collected case for an overlong legacy version
+label. Source test functions then measure `3,871`, analytics-domain functions `1,856`, and the
+unchanged uncategorized ceiling remains `635`.
+
+The latest exact-head review adds two analytics-domain source functions: a fast parametrized SQLite
+upgrade regression for both null publication-period boundaries and a real-PostgreSQL nullable-row
+upgrade contract. Source test functions now measure `3,873`, analytics-domain functions `1,858`, and the
+unchanged uncategorized ceiling remains `635`.
+
+The subsequent whitespace-version and malformed-date review adds three collected cases to existing
+analytics-domain test functions, so the source-function taxonomy and its `635` ceiling are unchanged.
+
+The fresh-SQLite version-label review adds one analytics-domain source test, and the subsequent
+sequence/calendar review adds two more for direct insert/update rejection. The completed-fact
+immutability review adds one source test covering payload update/delete refusal and supported
+transactional cleanup. The additive-SQLite-guard review adds one source test for upgraded-table
+future writes. Source test functions now measure `3,879`, analytics-domain functions `1,864`, and
+the unchanged uncategorized ceiling remains `635`.
+
+The final review regressions add two analytics-domain source functions for fail-closed publication
+lineage bootstrap and stale SQLite trigger replacement, plus one contract/governance gate function
+proving every selected PostgreSQL target collects independently. Source test functions now measure
+`3,882`, analytics-domain functions `1,866`, contract/governance functions `194`,
+observability/readiness functions `565`, quality/security functions `268`, and the unchanged
+uncategorized ceiling remains `635`.

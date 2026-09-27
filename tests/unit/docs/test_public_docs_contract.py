@@ -931,6 +931,12 @@ def test_rfc_049_composite_documentation_productization_is_grounded():
     assert "Composite Performance](Composite-Performance)" in wiki_home
     assert "POST /performance/composites/twr" in wiki_api_surface
     assert "POST /performance/composites/inspect" in api_reference
+    assert "requires an immutable publication manifest" in api_reference
+    assert "spanning only separately scoped publications" in api_reference
+    assert "missing or extra restored rows return HTTP 409" in api_reference
+    assert "pinned request outside its completed manifest period returns HTTP 409" in api_reference
+    assert "without one it must cover every historically known" not in api_reference
+    assert "blank or overlong source version label also fails upgrade" in _read("docs/standards/migration-contract.md")
     assert "calculate composite TWR from persisted member-return facts" in complete_reference
     assert "docs/guides/composite_performance.md" in readme
     assert "wiki/Composite-Performance.md" in readme

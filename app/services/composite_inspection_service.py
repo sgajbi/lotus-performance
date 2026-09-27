@@ -10,6 +10,7 @@ from app.models.composites import (
     CompositeInspectionArtifact,
     CompositeInspectionFinding,
     CompositeInspectionResponse,
+    CompositeReturnView,
 )
 from app.services.composite_calculation_service import CompositeDefinitionNotFoundError
 from app.services.composite_metadata_store import CompositeMetadataStore, composite_metadata_store
@@ -30,6 +31,7 @@ _MEMBER_INPUT_FIELDS = [
     "reason_codes",
     "source_fingerprint",
     "restatement_version",
+    "restatement_sequence",
 ]
 _PERIOD_WEIGHT_FIELDS = [
     "portfolio_id",
@@ -39,6 +41,7 @@ _PERIOD_WEIGHT_FIELDS = [
     "contribution",
     "source_fingerprint",
     "restatement_version",
+    "restatement_sequence",
 ]
 _COMPOSITE_RETURN_FIELDS = [
     "period_start",
@@ -88,16 +91,23 @@ def inspect_composite_twr_from_persisted_facts(
     composite_id: str,
     period_start: dt_date,
     period_end: dt_date,
+    return_view: CompositeReturnView = CompositeReturnView.NET_ACTUAL,
+    reporting_currency: str | None = None,
+    restatement_sequence: int | None = None,
     store: CompositeMetadataStore | RuntimeStoreProxy[CompositeMetadataStore] = composite_metadata_store,
 ) -> CompositeInspectionResponse:
     definition = store.get_definition(composite_id)
     if definition is None:
         raise CompositeDefinitionNotFoundError(f"Composite definition not found: {composite_id}")
 
+    selected_reporting_currency = reporting_currency or definition.reporting_currency
     facts = store.list_member_return_facts(
         composite_id=composite_id,
         period_start=period_start,
         period_end=period_end,
+        return_view=return_view,
+        reporting_currency=selected_reporting_currency,
+        restatement_sequence=restatement_sequence,
     )
     result = calculate_asset_weighted_composite_twr(composite_id=composite_id, member_return_facts=facts)
     findings = _build_findings(result_status=result.status, reason_codes=result.reason_codes, fact_count=len(facts))
@@ -178,6 +188,7 @@ def _member_input_rows(facts) -> list[dict[str, object]]:
             "reason_codes": "|".join(fact.reason_codes),
             "source_fingerprint": fact.source_fingerprint,
             "restatement_version": fact.restatement_version,
+            "restatement_sequence": fact.restatement_sequence,
         }
         for fact in facts
     ]
@@ -193,6 +204,7 @@ def _period_weight_rows(period_results: list[CompositePeriodResult]) -> list[dic
             "contribution": str(contribution.contribution),
             "source_fingerprint": contribution.source_fingerprint,
             "restatement_version": contribution.restatement_version,
+            "restatement_sequence": contribution.restatement_sequence,
         }
         for period in period_results
         for contribution in period.member_contributions
@@ -205,6 +217,7 @@ def _lineage_manifest(*, composite_id: str, facts, result) -> dict[str, object]:
         "calculation_status": result.status,
         "source_fingerprints": sorted({fact.source_fingerprint for fact in facts}),
         "restatement_versions": sorted({fact.restatement_version for fact in facts}),
+        "restatement_sequences": sorted({fact.restatement_sequence for fact in facts}),
     }
 
 

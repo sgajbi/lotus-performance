@@ -37,6 +37,7 @@ class StructuralCompositeMemberReturnFact:
     source_snapshot_id: str
     source_fingerprint: str
     restatement_version: str
+    restatement_sequence: int
     status: str
     reason_codes: list[str]
 
@@ -91,6 +92,7 @@ def _period_result(*, status: str) -> CompositePeriodResult:
         reporting_currency=None,
         source_fingerprints=[],
         restatement_versions=[],
+        restatement_sequence=None,
         reason_codes=[],
         member_contributions=[],
     )
@@ -731,6 +733,7 @@ def test_asset_weighted_composite_twr_accepts_structural_member_facts():
                 source_snapshot_id="snapshot-P1-2026-01-31",
                 source_fingerprint="sha256:P1-2026-01-31",
                 restatement_version="v1",
+                restatement_sequence=1,
                 status="READY",
                 reason_codes=[],
             )

@@ -17,6 +17,7 @@ from app.services.composite_calculation_service import (
     calculate_composite_twr_from_persisted_facts,
 )
 from app.services.composite_inspection_service import inspect_composite_twr_from_persisted_facts
+from app.services.composite_metadata_store import CompositeMemberReturnFactSelectionError
 
 router = APIRouter(tags=["Performance"])
 
@@ -76,6 +77,20 @@ NO_MEMBER_RETURN_FACTS_RESPONSE = {
         }
     },
 }
+FACT_SELECTION_CONFLICT_RESPONSE = {
+    "model": CompositeErrorResponse,
+    "description": "The explicit fact sequence is absent or the latest sequence is incompletely published.",
+    "content": {
+        "application/json": {
+            "example": {
+                "detail": {
+                    "code": "COMPOSITE_FACT_SELECTION_INCOMPLETE",
+                    "message": "The requested composite fact selection is unavailable or incomplete.",
+                }
+            }
+        }
+    },
+}
 
 
 def _member_contribution_response(item) -> CompositeMemberContributionResponse:
@@ -90,6 +105,7 @@ def _member_contribution_response(item) -> CompositeMemberContributionResponse:
         source_snapshot_id=item.source_snapshot_id,
         source_fingerprint=item.source_fingerprint,
         restatement_version=item.restatement_version,
+        restatement_sequence=item.restatement_sequence,
         calculation_id=item.calculation_id,
     )
 
@@ -110,6 +126,7 @@ def _period_response(item) -> CompositePeriodResultResponse:
         reporting_currency=item.reporting_currency,
         source_fingerprints=item.source_fingerprints,
         restatement_versions=item.restatement_versions,
+        restatement_sequence=item.restatement_sequence,
         reason_codes=item.reason_codes,
         member_contributions=[
             _member_contribution_response(contribution) for contribution in item.member_contributions
@@ -129,6 +146,7 @@ def _period_response(item) -> CompositePeriodResultResponse:
     ),
     responses={
         200: {"description": "Composite TWR calculated from persisted member-return facts."},
+        409: FACT_SELECTION_CONFLICT_RESPONSE,
         404: COMPOSITE_NOT_FOUND_RESPONSE,
         422: NO_MEMBER_RETURN_FACTS_RESPONSE,
     },
@@ -139,11 +157,19 @@ def calculate_composite_twr(request: CompositeTWRRequest) -> CompositeTWRRespons
             composite_id=request.composite_id,
             period_start=request.period_start,
             period_end=request.period_end,
+            return_view=request.return_view,
+            reporting_currency=request.reporting_currency,
+            restatement_sequence=request.restatement_sequence,
         )
     except CompositeDefinitionNotFoundError as exc:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail={"code": "COMPOSITE_NOT_FOUND", "message": str(exc)},
+        ) from exc
+    except CompositeMemberReturnFactSelectionError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail={"code": "COMPOSITE_FACT_SELECTION_INCOMPLETE", "message": str(exc)},
         ) from exc
 
     if not result.period_results:
@@ -178,6 +204,7 @@ def calculate_composite_twr(request: CompositeTWRRequest) -> CompositeTWRRespons
     ),
     responses={
         200: {"description": "Composite inspection completed over persisted facts."},
+        409: FACT_SELECTION_CONFLICT_RESPONSE,
         404: COMPOSITE_NOT_FOUND_RESPONSE,
     },
 )
@@ -188,9 +215,17 @@ def inspect_composite_twr(request: CompositeInspectionRequest) -> CompositeInspe
             composite_id=request.composite_id,
             period_start=request.period_start,
             period_end=request.period_end,
+            return_view=request.return_view,
+            reporting_currency=request.reporting_currency,
+            restatement_sequence=request.restatement_sequence,
         )
     except CompositeDefinitionNotFoundError as exc:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail={"code": "COMPOSITE_NOT_FOUND", "message": str(exc)},
+        ) from exc
+    except CompositeMemberReturnFactSelectionError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail={"code": "COMPOSITE_FACT_SELECTION_INCOMPLETE", "message": str(exc)},
         ) from exc

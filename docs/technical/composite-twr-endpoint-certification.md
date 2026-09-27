@@ -39,14 +39,19 @@ Validated request options:
 - caller-provided or generated `calculation_id`;
 - caller-provided or generated `inspection_id`;
 - `composite_id`;
-- inclusive `period_start` and `period_end`.
+- inclusive `period_start` and `period_end`;
+- `return_view` (`GROSS`, `NET_ACTUAL`, or `NET_MODEL_FEE`);
+- optional uppercase three-letter ISO-shaped `reporting_currency`, defaulted from the source-owned
+  composite definition; lowercase input is normalized and whitespace aliases are rejected;
+- optional positive `restatement_sequence`, replayed as its retained historical fact set; omission
+  selects the greatest numeric sequence, whose incomplete publication fails closed.
 
 The request does not accept:
 
 - inline member facts;
 - membership-policy switches;
 - benchmark switches;
-- return-view conversion switches;
+- fee-view conversion switches (the selected view must already exist as persisted facts);
 - FX conversion switches.
 
 Those are source-authority and persisted-fact concerns, not request-time options.
@@ -66,10 +71,12 @@ Every certified composite calculation must satisfy these invariants for each cal
 - `excluded_member_count` equals non-ready fact count;
 - `dispersion_equal_weight` is null for one ready member and otherwise equals sample standard
   deviation with denominator `n - 1`;
-- `source_fingerprints`, `restatement_versions`, and member `calculation_id` values match the
+- `source_fingerprints`, `restatement_versions`, numeric `restatement_sequence`, and member
+  `calculation_id` values match the
   persisted facts used by the calculation.
 
-Blocked periods must not fabricate a zero return or alter cumulative growth.
+Blocked periods must not fabricate a zero return or alter cumulative growth. They retain the
+selected period-level `restatement_sequence` even when `member_contributions` is empty.
 
 ## Error Behavior
 
@@ -78,6 +85,7 @@ Blocked periods must not fabricate a zero return or alter cumulative growth.
 | Missing composite definition | HTTP 404 with `COMPOSITE_NOT_FOUND`. |
 | Invalid date window | HTTP 422 request validation. |
 | No persisted facts in requested window | HTTP 422 with `NO_MEMBER_RETURN_FACTS`. |
+| Latest sequence is incomplete, or explicit sequence is absent | HTTP 409 with `COMPOSITE_FACT_SELECTION_INCOMPLETE`; no ambiguous composite is returned. |
 | Period facts exist but none are ready | Period `BLOCKED`; aggregate status is `BLOCKED` unless another period calculates. |
 | Nonpositive beginning assets | Period `BLOCKED` with `nonpositive_composite_beginning_assets`. |
 | Mixed return views | Period `BLOCKED` with `mixed_member_return_views`. |
@@ -125,8 +133,9 @@ Certification-relevant mesh controls:
 | --- | --- | --- |
 | Model tests | Definition dates, membership dates, non-ready reason codes, negative asset rejection. | Good for contract validation. |
 | Engine tests | Weighting, linking, degraded facts, no ready facts, no member facts, nonpositive assets, mixed return views, mixed currencies, one-member dispersion, inactive gaps, and reconciliation. | Strong for core methodology. |
-| Service tests | Missing definitions, restated fact selection, persisted fact lookup, inspector findings and artifacts. | Strong for service behavior. |
-| Integration tests | Public API success, missing definition, no persisted facts, degraded facts, invalid windows. | Strong for endpoint behavior. |
+| Service tests | Missing definitions, immutable idempotency/conflict, explicit and numeric-latest selection, persisted fact lookup, inspector findings and artifacts. | Strong for service behavior. |
+| Integration tests | Public API success, explicit v1/latest-net/gross selection, partial-sequence refusal, missing definition, no persisted facts, degraded facts, invalid windows. | Strong for endpoint behavior. |
+| PostgreSQL tests | Pre-sequence schema migration, lowercase-currency canonicalization, fresh/upgraded default parity, legacy backfill, view/version coexistence, restart persistence, complete-generation 5%/4% replay, and forced two-session identical/conflicting writers. | Required PR-lane database proof; distinct backend and transaction identities are asserted, and skips are refused. |
 | OpenAPI tests | Persisted-fact contract text, schema descriptions, realistic error examples, and field descriptions. | Strong after Slice 13 Swagger hardening. |
 | Downstream tests | Gateway route tests and Workbench typed BFF tests exist on their RFC-049 branches. | Strong after Slice 12 live direct API, Gateway, BFF, canonical front-office, and operations proof. |
 

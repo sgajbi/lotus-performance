@@ -3,9 +3,27 @@ from __future__ import annotations
 from datetime import date as dt_date
 from decimal import Decimal
 from enum import StrEnum
+from typing import Annotated, Any
 from uuid import UUID, uuid4
 
-from pydantic import BaseModel, ConfigDict, Field, model_validator
+from pydantic import BaseModel, BeforeValidator, ConfigDict, Field, field_validator, model_validator
+
+
+def _normalize_reporting_currency(value: Any) -> Any:
+    if not isinstance(value, str):
+        return value
+    if value != value.strip():
+        raise ValueError("reporting_currency must not contain leading or trailing whitespace")
+    if not value.isascii() or not value.isalpha():
+        raise ValueError("reporting_currency must contain exactly three ASCII letters")
+    return value.upper()
+
+
+ReportingCurrency = Annotated[
+    str,
+    Field(min_length=3, max_length=3, pattern=r"^[A-Z]{3}$"),
+    BeforeValidator(_normalize_reporting_currency),
+]
 
 
 class CompositeCalculationMethod(StrEnum):
@@ -79,9 +97,7 @@ class CompositeDefinition(BaseModel):
         description="Strategy or mandate grouping code represented by the composite.",
         examples=["GLOBAL_BALANCED"],
     )
-    reporting_currency: str = Field(
-        min_length=3,
-        max_length=3,
+    reporting_currency: ReportingCurrency = Field(
         description="ISO currency used for composite reporting.",
         examples=["USD"],
     )
@@ -182,9 +198,7 @@ class CompositeMemberReturnFact(BaseModel):
         description="Ending market value retained for composite asset reporting.",
         examples=["1012500.00"],
     )
-    reporting_currency: str = Field(
-        min_length=3,
-        max_length=3,
+    reporting_currency: ReportingCurrency = Field(
         description="ISO reporting currency for this member-return fact.",
         examples=["USD"],
     )
@@ -202,8 +216,19 @@ class CompositeMemberReturnFact(BaseModel):
     )
     restatement_version: str = Field(
         default="v1",
-        description="Version of the persisted member-return fact used to prevent silent overwrite and support restatement diffs.",
+        min_length=1,
+        max_length=64,
+        description="Source-owned label for this immutable member-return fact version.",
         examples=["v1"],
+    )
+    restatement_sequence: int = Field(
+        default=1,
+        ge=1,
+        description=(
+            "Positive source chronology used for deterministic latest-version selection. "
+            "Ordering never depends on the lexical form of restatement_version."
+        ),
+        examples=[1],
     )
     status: CompositeMemberReturnStatus = Field(
         default=CompositeMemberReturnStatus.READY,
@@ -223,6 +248,13 @@ class CompositeMemberReturnFact(BaseModel):
         if not _composite_member_return_status_reason_valid(status=self.status, reason_codes=self.reason_codes):
             raise ValueError("reason_codes are required when member return status is not READY")
         return self
+
+    @field_validator("restatement_version")
+    @classmethod
+    def validate_restatement_version(cls, value: str) -> str:
+        if not value.strip():
+            raise ValueError("restatement_version must not be blank")
+        return value
 
 
 def _composite_member_return_period_valid(*, period_start: dt_date, period_end: dt_date) -> bool:
@@ -257,6 +289,28 @@ class CompositeTWRRequest(BaseModel):
     period_end: dt_date = Field(
         description="Inclusive calculation window end date.",
         examples=["2026-03-31"],
+    )
+    return_view: CompositeReturnView = Field(
+        default=CompositeReturnView.NET_ACTUAL,
+        description="Governed fee view selected from immutable persisted facts.",
+        examples=["NET_ACTUAL"],
+    )
+    reporting_currency: ReportingCurrency | None = Field(
+        default=None,
+        description=(
+            "Reporting-currency identity selected from persisted facts. When omitted, the composite "
+            "definition reporting currency is used; no currency is inferred from fact rows."
+        ),
+        examples=["USD"],
+    )
+    restatement_sequence: int | None = Field(
+        default=None,
+        ge=1,
+        description=(
+            "Optional explicit immutable fact sequence, replayed exactly as retained. Omit to select "
+            "the greatest numeric sequence, which must cover the latest requested fact universe."
+        ),
+        examples=[1],
     )
 
     @model_validator(mode="after")
@@ -309,6 +363,10 @@ class CompositeMemberContributionResponse(BaseModel):
         description="Restatement version of the member-return fact used in this contribution.",
         examples=["v1"],
     )
+    restatement_sequence: int = Field(
+        description="Numeric restatement chronology selected for this contribution.",
+        examples=[1],
+    )
     calculation_id: str = Field(description="Source portfolio calculation identifier.", examples=["calc-1"])
 
 
@@ -360,6 +418,15 @@ class CompositePeriodResultResponse(BaseModel):
         default_factory=list,
         description="Ordered restatement versions for ready member-return facts included in this period.",
         examples=[["v1"]],
+    )
+    restatement_sequence: int | None = Field(
+        default=None,
+        ge=1,
+        description=(
+            "Immutable numeric fact sequence selected for the period, including blocked periods "
+            "whose contribution list is empty."
+        ),
+        examples=[1],
     )
     reason_codes: list[str] = Field(
         default_factory=list,
@@ -415,6 +482,25 @@ class CompositeInspectionRequest(BaseModel):
     )
     period_start: dt_date = Field(description="Inclusive inspection window start date.", examples=["2026-01-01"])
     period_end: dt_date = Field(description="Inclusive inspection window end date.", examples=["2026-03-31"])
+    return_view: CompositeReturnView = Field(
+        default=CompositeReturnView.NET_ACTUAL,
+        description="Governed fee view selected for inspection.",
+        examples=["NET_ACTUAL"],
+    )
+    reporting_currency: ReportingCurrency | None = Field(
+        default=None,
+        description="Reporting-currency identity selected for inspection; defaults to the composite definition.",
+        examples=["USD"],
+    )
+    restatement_sequence: int | None = Field(
+        default=None,
+        ge=1,
+        description=(
+            "Optional explicit immutable fact sequence, replayed exactly as retained. Omit to select "
+            "the greatest numeric sequence, which must cover the latest requested fact universe."
+        ),
+        examples=[1],
+    )
 
     @model_validator(mode="after")
     def validate_window(self) -> "CompositeInspectionRequest":

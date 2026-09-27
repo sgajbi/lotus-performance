@@ -45,6 +45,7 @@ def _fact(
     *,
     ending_market_value: str = "1012500.00",
     restatement_version: str = "v1",
+    restatement_sequence: int = 1,
     calculation_id: str | None = None,
     source_snapshot_id: str | None = None,
     source_fingerprint: str | None = None,
@@ -63,7 +64,22 @@ def _fact(
             "source_snapshot_id": source_snapshot_id or f"snapshot-{portfolio_id}",
             "source_fingerprint": source_fingerprint or f"sha256:{portfolio_id}",
             "restatement_version": restatement_version,
+            "restatement_sequence": restatement_sequence,
         }
+    )
+
+
+def _complete_publication(store: CompositeMetadataStore, *facts: CompositeMemberReturnFact) -> None:
+    first = facts[0]
+    store.complete_member_return_fact_publication(
+        composite_id=first.composite_id,
+        return_view=first.return_view,
+        reporting_currency=first.reporting_currency,
+        restatement_sequence=first.restatement_sequence,
+        period_start=first.period_start,
+        period_end=first.period_end,
+        expected_families={(fact.portfolio_id, fact.period_start, fact.period_end) for fact in facts},
+        source_fingerprint=f"sha256:test-publication-{first.return_view.value}-{first.restatement_sequence}",
     )
 
 
@@ -82,8 +98,10 @@ def test_calculate_composite_twr_from_persisted_facts_requires_definition(tmp_pa
 def test_calculate_composite_twr_from_persisted_facts_reads_store(tmp_path):
     store = _store(tmp_path)
     store.upsert_definition(_definition())
-    store.upsert_member_return_fact(_fact("P1", "0.0100", "100.00"))
-    store.upsert_member_return_fact(_fact("P2", "0.0300", "300.00"))
+    facts = (_fact("P1", "0.0100", "100.00"), _fact("P2", "0.0300", "300.00"))
+    for fact in facts:
+        store.upsert_member_return_fact(fact)
+    _complete_publication(store, *facts)
 
     result = calculate_composite_twr_from_persisted_facts(
         composite_id="PB_GLOBAL_BALANCED_USD",
@@ -91,7 +109,6 @@ def test_calculate_composite_twr_from_persisted_facts_reads_store(tmp_path):
         period_end=date(2026, 1, 31),
         store=store,
     )
-
     assert result.status == "READY"
     assert str(result.cumulative_return) == "0.025000000000"
 
@@ -99,24 +116,33 @@ def test_calculate_composite_twr_from_persisted_facts_reads_store(tmp_path):
 def test_calculate_composite_twr_uses_latest_restated_member_fact(tmp_path):
     store = _store(tmp_path)
     store.upsert_definition(_definition())
-    store.upsert_member_return_fact(_fact("P1", "0.0100", "100.00", calculation_id="initial-calc"))
-    store.upsert_member_return_fact(
-        _fact(
-            "P1",
-            "0.0200",
-            "200.00",
-            ending_market_value="204.00",
-            restatement_version="v2",
-            calculation_id="restated-calc",
-            source_snapshot_id="restated-snapshot",
-            source_fingerprint="sha256:restated-p1",
-        )
+    original = _fact("P1", "0.0100", "100.00", calculation_id="initial-calc")
+    restated = _fact(
+        "P1",
+        "0.0200",
+        "200.00",
+        ending_market_value="204.00",
+        restatement_version="v2",
+        restatement_sequence=2,
+        calculation_id="restated-calc",
+        source_snapshot_id="restated-snapshot",
+        source_fingerprint="sha256:restated-p1",
     )
+    store.upsert_member_return_fact(original)
+    store.upsert_member_return_fact(restated)
+    _complete_publication(store, restated)
 
     result = calculate_composite_twr_from_persisted_facts(
         composite_id="PB_GLOBAL_BALANCED_USD",
         period_start=date(2026, 1, 1),
         period_end=date(2026, 1, 31),
+        store=store,
+    )
+    original_result = calculate_composite_twr_from_persisted_facts(
+        composite_id="PB_GLOBAL_BALANCED_USD",
+        period_start=date(2026, 1, 1),
+        period_end=date(2026, 1, 31),
+        restatement_sequence=1,
         store=store,
     )
 
@@ -127,3 +153,5 @@ def test_calculate_composite_twr_uses_latest_restated_member_fact(tmp_path):
     assert period.source_fingerprints == ["sha256:restated-p1"]
     assert period.restatement_versions == ["v2"]
     assert period.member_contributions[0].calculation_id == "restated-calc"
+    assert str(original_result.cumulative_return) == "0.010000000000"
+    assert original_result.period_results[0].restatement_versions == ["v1"]

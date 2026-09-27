@@ -135,6 +135,10 @@ def _families_for_path(path: str) -> tuple[str, ...]:
             "lineage_worker",
             "postgres_concurrency",
             "runtime_recovery",
+            # The durable recovery drill is executable restore/readiness evidence, not an
+            # unclassified utility suite. Its schema and representative-read checks determine
+            # whether a restored service can safely return to operation.
+            "durable_recovery_drill",
             # Executable schema-apply and schema-creation surfaces are startup-readiness concerns:
             # they decide whether a worker replica reaches a healthy state at all. Keep these
             # narrower than `durable_schema`, which would misclassify the Markdown inventory
@@ -156,6 +160,11 @@ def _families_for_path(path: str) -> tuple[str, ...]:
             "attribution",
             "contribution",
             "benchmark",
+            # Composite definitions, persisted member facts, asset weighting, restatement
+            # selection, and inspection are performance-calculation domain behavior. Leaving
+            # these suites uncategorized made a correctness regression spend governance slack
+            # instead of strengthening the analytics evidence family.
+            "composite",
             "applied_currency",
             "source_cashflow_taxonomy",
             "stateful_position_row",
@@ -293,8 +302,8 @@ def render_markdown(modules: Sequence[TestModuleInventory], *, limit: int) -> st
             "",
             "## Test Functions By Family",
             "",
-            "A module can belong to more than one family - `_families_for_path` returns every " "family a path",
-            "matches - so these counts **overlap by design and do not sum to the total**. The " "suite table",
+            "A module can belong to more than one family - `_families_for_path` returns every family a path",
+            "matches - so these counts **overlap by design and do not sum to the total**. The suite table",
             "above does sum to it, because a module belongs to exactly one suite.",
             "",
             "| Family | Test functions |",

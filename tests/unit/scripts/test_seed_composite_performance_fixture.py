@@ -1,5 +1,8 @@
 from __future__ import annotations
 
+from datetime import date
+
+from app.models.composites import CompositeReturnView
 from app.services.composite_metadata_store import CompositeMetadataStore
 from scripts import seed_composite_performance_fixture
 
@@ -10,6 +13,7 @@ def test_seed_canonical_composite_fixture_upserts_expected_records(tmp_path, mon
     monkeypatch.setattr(seed_composite_performance_fixture, "composite_metadata_store", store)
 
     seed_composite_performance_fixture.seed_canonical_composite_fixture()
+    seed_composite_performance_fixture.seed_canonical_composite_fixture()
 
     counts = store.count_records()
     assert counts.definitions == 2
@@ -18,8 +22,10 @@ def test_seed_canonical_composite_fixture_upserts_expected_records(tmp_path, mon
 
     ready_facts = store.list_member_return_facts(
         composite_id="PB_GLOBAL_BALANCED_USD",
-        period_start="2026-01-01",
-        period_end="2026-02-28",
+        period_start=date(2026, 1, 1),
+        period_end=date(2026, 2, 28),
+        return_view=CompositeReturnView.NET_ACTUAL,
+        reporting_currency="USD",
     )
     assert {fact.portfolio_id for fact in ready_facts} == {
         "PB_SG_GLOBAL_BAL_001",
@@ -29,8 +35,10 @@ def test_seed_canonical_composite_fixture_upserts_expected_records(tmp_path, mon
 
     degraded_facts = store.list_member_return_facts(
         composite_id="PB_GLOBAL_BALANCED_USD_DEGRADED",
-        period_start="2026-01-01",
-        period_end="2026-01-31",
+        period_start=date(2026, 1, 1),
+        period_end=date(2026, 1, 31),
+        return_view=CompositeReturnView.NET_ACTUAL,
+        reporting_currency="USD",
     )
     assert [fact.status for fact in degraded_facts] == ["READY", "DEGRADED"]
     assert degraded_facts[1].reason_codes == ["missing_final_valuation"]

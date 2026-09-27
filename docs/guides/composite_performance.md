@@ -14,9 +14,11 @@ Supported now:
 - asset-weighted composite TWR from persisted member-return facts;
 - geometric linking across calculable periods;
 - return-view separation for `GROSS`, `NET_ACTUAL`, and `NET_MODEL_FEE`;
-- single reporting-currency guard for each calculable period;
-- source fingerprints, source snapshots, restatement versions, and source calculation ids in output
-  evidence;
+- explicit reporting-currency identity for each calculation;
+- immutable restatement retention with numeric, non-lexical latest selection and explicit historical
+  sequence replay;
+- source fingerprints, source snapshots, restatement versions, restatement sequences, and source
+  calculation ids in output evidence;
 - classified inspection artifacts for audit and support;
 - `CompositePerformanceAnalytics:v1` data-product declaration and trust telemetry.
 
@@ -72,9 +74,26 @@ Request:
   "calculation_id": "7f2b08b0-58e5-49be-b3ef-7a9cfb0321ce",
   "composite_id": "PB_GLOBAL_BALANCED_USD",
   "period_start": "2026-01-01",
-  "period_end": "2026-03-31"
+  "period_end": "2026-03-31",
+  "return_view": "NET_ACTUAL",
+  "reporting_currency": "USD"
 }
 ```
+
+Omit `restatement_sequence` to select the greatest numeric sequence visible for the requested fact
+set and require that sequence to be completed; the service never falls back past a higher
+unpublished sequence. An unpinned read requires an immutable publication manifest whose inclusive period covers
+the request and whose exact source-backed family universe matches the selected facts; facts written
+before completion are retained but unavailable as latest. Supply a sequence to replay exactly that
+retained historical set, even when a later sequence adds or removes a family. If the selected
+historical sequence has a completed manifest, its currently retained rows must still equal that
+declared family set; missing or extra restored rows fail closed instead of changing the replay. A
+request wider than that manifest also fails closed; it cannot reinterpret a completed sequence as
+an unpublished compatibility read. An entirely absent
+explicit sequence, missing completion manifest, or incomplete unpinned latest publication returns
+HTTP 409. This allows an intentional member removal while continuing to reject a one-member partial
+correction. A later February-only publication does not supersede retained January evidence; a
+request spanning both fails closed until one complete generation covers that wider window.
 
 Response excerpt:
 
@@ -104,6 +123,7 @@ Response excerpt:
       "reporting_currency": "USD",
       "source_fingerprints": ["sha256:member-a-2026-01", "sha256:member-b-2026-01"],
       "restatement_versions": ["v1"],
+      "restatement_sequence": 1,
       "reason_codes": [],
       "member_contributions": [
         {
@@ -117,6 +137,7 @@ Response excerpt:
           "source_snapshot_id": "portfolio-twr-2026-01",
           "source_fingerprint": "sha256:member-a-2026-01",
           "restatement_version": "v1",
+          "restatement_sequence": 1,
           "calculation_id": "member-calc-a-2026-01"
         }
       ]
@@ -124,6 +145,10 @@ Response excerpt:
   ]
 }
 ```
+
+`periods[].restatement_sequence` is the immutable numeric generation selected for that period. It
+remains present when a period is blocked and `member_contributions` is empty, so consumers can bind
+the result to the completed publication that was evaluated.
 
 ## API: Inspect Composite Evidence
 
@@ -141,7 +166,9 @@ Request:
   "inspection_id": "8d1e37d2-aeca-488c-bd43-77dbf6739103",
   "composite_id": "PB_GLOBAL_BALANCED_USD",
   "period_start": "2026-01-01",
-  "period_end": "2026-03-31"
+  "period_end": "2026-03-31",
+  "return_view": "NET_ACTUAL",
+  "reporting_currency": "USD"
 }
 ```
 
@@ -156,7 +183,7 @@ Current artifacts:
 
 | Artifact | Classification | Purpose |
 | --- | --- | --- |
-| `member_inputs.csv` | `operator_only` | Member fact inventory with returns, assets, status, reason codes, fingerprints, and restatement versions. |
+| `member_inputs.csv` | `operator_only` | Member fact inventory with returns, assets, status, reason codes, fingerprints, version labels, and numeric restatement sequences. |
 | `period_weights.csv` | `operator_only` | Member weights and contributions used by each calculated period. |
 | `composite_returns.csv` | `customer_consumable` | Period returns, cumulative returns, counts, dispersion, and reason codes. |
 | `lineage_manifest.json` | `operator_only` | Composite id, calculation status, source fingerprints, and restatement versions. |
@@ -166,9 +193,10 @@ Current artifacts:
 
 | Condition | Endpoint behavior | Reason code |
 | --- | --- | --- |
-| Composite definition missing | HTTP 404 | `COMPOSITE_DEFINITION_NOT_FOUND` |
+| Composite definition missing | HTTP 404 | `COMPOSITE_NOT_FOUND` |
 | Request end date before start date | HTTP 422 | Pydantic validation detail |
 | No persisted facts in requested window | HTTP 422 | `NO_MEMBER_RETURN_FACTS` |
+| Latest sequence is incomplete, or explicit sequence is absent | HTTP 409 | `COMPOSITE_FACT_SELECTION_INCOMPLETE` |
 | Period has facts but no ready facts | blocked period | `no_ready_member_return_facts` or upstream non-ready reason codes |
 | Ready beginning assets are not positive | blocked period | `nonpositive_composite_beginning_assets` |
 | Ready facts mix return views | blocked period | `mixed_member_return_views` |
@@ -197,12 +225,12 @@ flowchart LR
 1. Confirm the composite definition exists and has the expected source-authority policy.
 2. Confirm persisted member-return facts exist for every expected member and period.
 3. Run `POST /performance/composites/inspect` before publishing a new or restated composite result.
-4. Review `member_inputs.csv` for non-ready facts, mixed return views, currency mismatch, and stale
-   restatement versions.
+4. Review `member_inputs.csv` for non-ready facts, selected return view/currency, source version
+   labels, and numeric restatement sequences.
 5. Review `period_weights.csv` to confirm weights sum to one for each ready period.
 6. Review `composite_returns.csv` for blocked or degraded periods, dispersion, and cumulative return.
-7. Use `source_fingerprint`, `source_snapshot_id`, `restatement_version`, and `calculation_id` to
-   replay or investigate source member returns.
+7. Use `source_fingerprint`, `source_snapshot_id`, `restatement_version`,
+   `restatement_sequence`, and `calculation_id` to replay or investigate source member returns.
 8. Do not publish customer-facing composite returns when the inspector verdict is
    `not_supportable`.
 
