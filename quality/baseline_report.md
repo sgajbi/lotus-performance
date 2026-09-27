@@ -19,9 +19,9 @@ snapshots are written under ignored `output/quality-baseline/`; curated source r
 | --- | ---: | --- |
 | Python files | 683 | `rg --files -g '*.py'` equivalent excluding local caches |
 | Python package markers | 22 | recursive `__init__.py` count |
-| Python LOC | 216,438 | recursive `.py` line count |
+| Python LOC | 218,211 | recursive `.py` line count |
 | Test modules | 328 | `tests/**/test_*.py` |
-| Collected tests | 4254 tests | `python -m pytest --collect-only -q` |
+| Collected tests | 4272 tests | `python -m pytest --collect-only -q` |
 | Configured CI workflows | 8 | `.github/workflows/*.yml` |
 | Repo-native baseline command | 1 | `make quality-baseline` |
 
@@ -36,14 +36,14 @@ snapshots are written under ignored `output/quality-baseline/`; curated source r
 | 5 | `tests/unit/services/test_stateful_input_service.py` | 2558 |
 | 6 | `app/services/stateful_input_service.py` | 2533 |
 | 7 | `tests/unit/docs/test_public_docs_contract.py` | 2494 |
-| 8 | `app/services/returns_series_service.py` | 2337 |
-| 9 | `tests/unit/app/test_request_path_runtime_settings.py` | 2276 |
-| 10 | `tests/unit/services/test_stateful_attribution_input_service.py` | 2176 |
-| 11 | `tests/integration/test_performance_api.py` | 2141 |
-| 12 | `tests/unit/services/test_workspace_summary_service.py` | 2082 |
-| 13 | `tests/unit/services/test_twr_inspection_source_economics.py` | 2007 |
-| 14 | `tests/unit/services/test_compute_job_store.py` | 1986 |
-| 15 | `tests/integration/test_attribution_api.py` | 1884 |
+| 8 | `tests/unit/services/test_composite_metadata_store.py` | 2355 |
+| 9 | `app/services/returns_series_service.py` | 2337 |
+| 10 | `tests/unit/app/test_request_path_runtime_settings.py` | 2276 |
+| 11 | `app/services/composite_metadata_store.py` | 2268 |
+| 12 | `tests/unit/services/test_stateful_attribution_input_service.py` | 2176 |
+| 13 | `tests/integration/test_performance_api.py` | 2141 |
+| 14 | `tests/unit/services/test_workspace_summary_service.py` | 2082 |
+| 15 | `tests/unit/services/test_twr_inspection_source_economics.py` | 2007 |
 
 ## Required Inventory Outputs
 

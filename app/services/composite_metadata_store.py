@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import logging
+import re
 from contextlib import contextmanager
 from dataclasses import dataclass
 from datetime import date as dt_date
@@ -12,7 +13,6 @@ from sqlalchemy import CheckConstraint, Date, Index, String, Text, and_, cast, f
 from sqlalchemy.engine import Connection
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import DeclarativeBase, Mapped, Session, mapped_column, sessionmaker
-from sqlalchemy.schema import AddConstraint
 
 from app.models.composites import (
     CompositeDefinition,
@@ -34,6 +34,7 @@ MEMBER_RETURN_FACT_SEQUENCE_CHECK = "ck_composite_member_return_facts_restatemen
 MEMBER_RETURN_FACT_SQLITE_SEQUENCE_TYPE_CHECK = "ck_composite_member_return_facts_restatement_sequence_sqlite_integer"
 MEMBER_RETURN_FACT_VERSION_CHECK = "ck_composite_member_return_facts_restatement_version_nonblank"
 MEMBER_RETURN_FACT_IMMUTABLE_UPDATE_TRIGGER = "trg_composite_member_return_facts_immutable_update"
+MEMBER_RETURN_FACT_COMPLETED_INSERT_TRIGGER = "trg_composite_member_return_facts_completed_insert"
 MEMBER_RETURN_FACT_COMPLETED_DELETE_TRIGGER = "trg_composite_member_return_facts_completed_delete"
 PYTHON_STRIP_WHITESPACE_CODEPOINTS = (
     9,
@@ -66,23 +67,27 @@ PYTHON_STRIP_WHITESPACE_CODEPOINTS = (
     8287,
     12288,
 )
+POSTGRES_STRIP_CHARACTERS_SQL = " || ".join(f"chr({codepoint})" for codepoint in PYTHON_STRIP_WHITESPACE_CODEPOINTS)
 POSTGRES_MEMBER_RETURN_FACT_VERSION_CHECK_SQL = (
-    "length(btrim(restatement_version, "
-    + " || ".join(f"chr({codepoint})" for codepoint in PYTHON_STRIP_WHITESPACE_CODEPOINTS)
-    + ")) > 0"
+    "length(btrim(restatement_version, " + POSTGRES_STRIP_CHARACTERS_SQL + ")) > 0"
 )
 POSTGRES_MEMBER_RETURN_FACT_VERSION_CHECK_MARKER = "chr(12288)"
+SQLITE_STRIP_CHARACTERS_SQL = " || ".join(f"char({codepoint})" for codepoint in PYTHON_STRIP_WHITESPACE_CODEPOINTS)
 SQLITE_MEMBER_RETURN_FACT_VERSION_CHECK_SQL = (
     "length(restatement_version) BETWEEN 1 AND 64 AND length(trim(restatement_version, "
-    + " || ".join(f"char({codepoint})" for codepoint in PYTHON_STRIP_WHITESPACE_CODEPOINTS)
+    + SQLITE_STRIP_CHARACTERS_SQL
     + ")) > 0"
 )
 PUBLICATION_CURRENCY_CHECK = "ck_composite_fact_publications_reporting_currency_canonical"
 PUBLICATION_SEQUENCE_CHECK = "ck_composite_fact_publications_restatement_sequence_positive"
 PUBLICATION_SQLITE_SEQUENCE_TYPE_CHECK = "ck_composite_fact_publications_restatement_sequence_sqlite_integer"
 PUBLICATION_PERIOD_CHECK = "ck_composite_fact_publications_period_valid"
+PUBLICATION_PERIOD_CHECK_SQL = (
+    "period_start >= '0001-01-01' AND period_end <= '9999-12-31' AND period_end >= period_start"
+)
 PUBLICATION_SQLITE_DATE_CHECK = "ck_composite_fact_publications_period_sqlite_dates"
 PUBLICATION_IMMUTABLE_UPDATE_TRIGGER = "trg_composite_fact_publications_immutable_update"
+PUBLICATION_IMMUTABLE_DELETE_TRIGGER = "trg_composite_fact_publications_immutable_delete"
 SQLITE_POSITIVE_INTEGER_SEQUENCE_CHECK_SQL = "typeof(restatement_sequence) = 'integer' AND restatement_sequence >= 1"
 SQLITE_PUBLICATION_DATE_CHECK_SQL = (
     "typeof(period_start) = 'text' "
@@ -104,6 +109,20 @@ CANONICAL_REPORTING_CURRENCY_CHECK_SQL = (
     "AND substr(reporting_currency, 1, 1) BETWEEN 'A' AND 'Z' "
     "AND substr(reporting_currency, 2, 1) BETWEEN 'A' AND 'Z' "
     "AND substr(reporting_currency, 3, 1) BETWEEN 'A' AND 'Z'"
+)
+POSTGRES_CANONICAL_REPORTING_CURRENCY_CHECK_SQL = (
+    "length(reporting_currency) = 3 "
+    "AND reporting_currency = upper(reporting_currency) "
+    "AND substr(reporting_currency, 1, 1) >= 'A' "
+    "AND substr(reporting_currency, 1, 1) <= 'Z' "
+    "AND substr(reporting_currency, 2, 1) >= 'A' "
+    "AND substr(reporting_currency, 2, 1) <= 'Z' "
+    "AND substr(reporting_currency, 3, 1) >= 'A' "
+    "AND substr(reporting_currency, 3, 1) <= 'Z'"
+)
+POSTGRES_CHECK_CAST_PATTERN = re.compile(
+    r"::(?:text|date|integer|bigint|character varying)(?:\(\d+\))?",
+    flags=re.IGNORECASE,
 )
 MEMBER_RETURN_FACT_SCHEMA_UPGRADE_COLUMNS = {
     "return_view": "TEXT NOT NULL DEFAULT 'NET_ACTUAL'",
@@ -250,7 +269,7 @@ class CompositeMemberReturnFactPublicationModel(Base):
             name=PUBLICATION_SQLITE_SEQUENCE_TYPE_CHECK,
         ).ddl_if(dialect="sqlite"),
         CheckConstraint(
-            "period_end >= period_start",
+            PUBLICATION_PERIOD_CHECK_SQL,
             name=PUBLICATION_PERIOD_CHECK,
         ),
         CheckConstraint(
@@ -383,23 +402,43 @@ def _serialize_fact_families(families: set[tuple[str, dt_date, dt_date]]) -> str
     )
 
 
+def _parse_canonical_family_date(raw_value: Any) -> dt_date:
+    if not isinstance(raw_value, str):
+        raise ValueError("publication family periods must be ISO date strings")
+    parsed_value = dt_date.fromisoformat(raw_value)
+    if raw_value != parsed_value.isoformat():
+        raise ValueError("publication family periods must use canonical ISO dates")
+    return parsed_value
+
+
+def _parse_fact_family(item: Any) -> tuple[str, dt_date, dt_date]:
+    if not isinstance(item, dict) or set(item) != {"portfolio_id", "period_start", "period_end"}:
+        raise ValueError("publication families contain a malformed entry")
+    portfolio_id = item["portfolio_id"]
+    if not isinstance(portfolio_id, str) or not portfolio_id.strip() or len(portfolio_id) > 128:
+        raise ValueError("publication family portfolio_id must be nonblank")
+    period_start = _parse_canonical_family_date(item["period_start"])
+    period_end = _parse_canonical_family_date(item["period_end"])
+    if period_end < period_start:
+        raise ValueError("publication family periods must be ordered")
+    return portfolio_id, period_start, period_end
+
+
+def _parse_fact_families(raw_payload: Any) -> set[tuple[str, dt_date, dt_date]]:
+    if not isinstance(raw_payload, str):
+        raise ValueError("publication families must be encoded as JSON text")
+    payload = json.loads(raw_payload)
+    if not isinstance(payload, list):
+        raise ValueError("publication families must be a list")
+    families = {_parse_fact_family(item) for item in payload}
+    if len(families) != len(payload):
+        raise ValueError("publication families must not contain duplicates")
+    return families
+
+
 def _deserialize_fact_families(raw_payload: str) -> set[tuple[str, dt_date, dt_date]]:
     try:
-        payload = json.loads(raw_payload)
-        if not isinstance(payload, list):
-            raise ValueError("publication families must be a list")
-        families = {
-            (
-                str(item["portfolio_id"]),
-                dt_date.fromisoformat(str(item["period_start"])),
-                dt_date.fromisoformat(str(item["period_end"])),
-            )
-            for item in payload
-            if isinstance(item, dict) and set(item) == {"portfolio_id", "period_start", "period_end"}
-        }
-        if len(families) != len(payload):
-            raise ValueError("publication families contain malformed or duplicate entries")
-        return families
+        return _parse_fact_families(raw_payload)
     except (KeyError, TypeError, ValueError, json.JSONDecodeError) as exc:
         raise CompositeMemberReturnFactSelectionError(
             "Completed composite fact publication contains malformed family evidence"
@@ -670,39 +709,102 @@ def _reject_invalid_publication_periods(connection: Connection) -> None:
         )
 
 
-def _drop_stale_postgres_member_return_fact_version_check(
-    connection: Connection,
-    check_constraints: dict[str, str],
-) -> None:
-    installed_definition = check_constraints.get(MEMBER_RETURN_FACT_VERSION_CHECK)
-    if installed_definition is None or POSTGRES_MEMBER_RETURN_FACT_VERSION_CHECK_MARKER in installed_definition:
-        return
-    connection.execute(
-        text(f"ALTER TABLE composite_member_return_facts DROP CONSTRAINT {MEMBER_RETURN_FACT_VERSION_CHECK}")
+def _publication_lineage_is_invalid(
+    *,
+    expected_families_json: Any,
+    source_fingerprint: Any,
+    period_start: dt_date,
+    period_end: dt_date,
+) -> bool:
+    if not isinstance(source_fingerprint, str) or not source_fingerprint.strip() or len(source_fingerprint) > 256:
+        return True
+    try:
+        expected_families = _parse_fact_families(expected_families_json)
+    except (TypeError, ValueError, json.JSONDecodeError):
+        return True
+    return any(
+        family_start < period_start or family_end > period_end for _, family_start, family_end in expected_families
     )
-    check_constraints.pop(MEMBER_RETURN_FACT_VERSION_CHECK)
 
 
-def _add_missing_postgres_member_return_fact_checks(
-    connection: Connection,
-    check_constraints: dict[str, str],
-) -> None:
-    constraint_definitions = {
-        MEMBER_RETURN_FACT_CURRENCY_CHECK: CANONICAL_REPORTING_CURRENCY_CHECK_SQL,
-        MEMBER_RETURN_FACT_SEQUENCE_CHECK: "restatement_sequence >= 1",
-        MEMBER_RETURN_FACT_VERSION_CHECK: POSTGRES_MEMBER_RETURN_FACT_VERSION_CHECK_SQL,
-    }
-    for constraint_name, definition in constraint_definitions.items():
-        if constraint_name not in check_constraints:
+def _reject_invalid_publication_lineage(connection: Connection) -> None:
+    table = CompositeMemberReturnFactPublicationModel.__table__
+    facts_table = CompositeMemberReturnFactModel.__table__
+    retained_lineage = connection.execute(
+        select(
+            table.c.composite_id,
+            table.c.return_view,
+            table.c.reporting_currency,
+            table.c.restatement_sequence,
+            table.c.expected_families_json,
+            table.c.source_fingerprint,
+            table.c.period_start,
+            table.c.period_end,
+        )
+    )
+    invalid_lineage_count = 0
+    for (
+        composite_id,
+        return_view,
+        reporting_currency,
+        restatement_sequence,
+        expected_families_json,
+        source_fingerprint,
+        period_start,
+        period_end,
+    ) in retained_lineage:
+        if _publication_lineage_is_invalid(
+            expected_families_json=expected_families_json,
+            source_fingerprint=source_fingerprint,
+            period_start=period_start,
+            period_end=period_end,
+        ):
+            invalid_lineage_count += 1
+            continue
+        expected_families = _parse_fact_families(expected_families_json)
+        actual_families = set(
             connection.execute(
-                text(f"ALTER TABLE composite_member_return_facts ADD CONSTRAINT {constraint_name} CHECK ({definition})")
+                select(
+                    facts_table.c.portfolio_id,
+                    facts_table.c.period_start,
+                    facts_table.c.period_end,
+                ).where(
+                    facts_table.c.composite_id == composite_id,
+                    facts_table.c.return_view == return_view,
+                    facts_table.c.reporting_currency == reporting_currency,
+                    facts_table.c.restatement_sequence == restatement_sequence,
+                )
             )
+        )
+        if actual_families != expected_families:
+            invalid_lineage_count += 1
+    if invalid_lineage_count:
+        raise RuntimeError(
+            "Composite member-return fact publication upgrade found "
+            f"{invalid_lineage_count} row(s) with invalid publication lineage; "
+            "family evidence must be a structurally valid in-window manifest that exactly matches durable facts, "
+            "and source_fingerprint must be nonblank"
+        )
 
 
-def _upgrade_postgres_member_return_fact_constraints(connection: Connection) -> None:
-    columns_by_name = {
-        column["name"]: column for column in inspect(connection).get_columns("composite_member_return_facts")
-    }
+def _replace_stale_postgres_check_constraints(
+    connection: Connection,
+    table_name: str,
+    installed_constraints: dict[str, str],
+    required_constraints: dict[str, tuple[str, str]],
+) -> None:
+    constraints_to_replace = _stale_postgres_constraints(installed_constraints, required_constraints)
+    for constraint_name, _definition, installed_definition in constraints_to_replace:
+        if installed_definition is not None:
+            connection.execute(text(f"ALTER TABLE {table_name} DROP CONSTRAINT {constraint_name}"))
+    for constraint_name, definition, _installed_definition in constraints_to_replace:
+        connection.execute(text(f"ALTER TABLE {table_name} ADD CONSTRAINT {constraint_name} CHECK ({definition})"))
+
+
+def _harden_postgres_member_return_fact_columns(
+    connection: Connection,
+    columns_by_name: dict[str, Any],
+) -> None:
     version_column = columns_by_name["restatement_version"]
     if getattr(version_column["type"], "length", None) != 64:
         connection.execute(
@@ -720,12 +822,38 @@ def _upgrade_postgres_member_return_fact_constraints(connection: Connection) -> 
         connection.execute(
             text("ALTER TABLE composite_member_return_facts ALTER COLUMN restatement_sequence SET NOT NULL")
         )
+    if columns_by_name["reporting_currency"]["nullable"]:
+        connection.execute(
+            text("ALTER TABLE composite_member_return_facts ALTER COLUMN reporting_currency SET NOT NULL")
+        )
+
+
+def _upgrade_postgres_member_return_fact_constraints(connection: Connection) -> None:
+    columns_by_name = {
+        column["name"]: column for column in inspect(connection).get_columns("composite_member_return_facts")
+    }
+    _harden_postgres_member_return_fact_columns(connection, columns_by_name)
     check_constraints = {
         constraint["name"]: constraint.get("sqltext") or ""
         for constraint in inspect(connection).get_check_constraints("composite_member_return_facts")
     }
-    _drop_stale_postgres_member_return_fact_version_check(connection, check_constraints)
-    _add_missing_postgres_member_return_fact_checks(connection, check_constraints)
+    required_constraints = {
+        MEMBER_RETURN_FACT_CURRENCY_CHECK: (
+            CANONICAL_REPORTING_CURRENCY_CHECK_SQL,
+            POSTGRES_CANONICAL_REPORTING_CURRENCY_CHECK_SQL,
+        ),
+        MEMBER_RETURN_FACT_SEQUENCE_CHECK: ("restatement_sequence >= 1", "restatement_sequence >= 1"),
+        MEMBER_RETURN_FACT_VERSION_CHECK: (
+            POSTGRES_MEMBER_RETURN_FACT_VERSION_CHECK_SQL,
+            POSTGRES_MEMBER_RETURN_FACT_VERSION_CHECK_SQL,
+        ),
+    }
+    _replace_stale_postgres_check_constraints(
+        connection,
+        "composite_member_return_facts",
+        check_constraints,
+        required_constraints,
+    )
 
 
 def _create_member_return_fact_indexes(connection: Connection) -> None:
@@ -787,6 +915,14 @@ def _make_postgres_publication_columns_non_nullable(
             "period_end",
             "ALTER TABLE composite_member_return_fact_publications ALTER COLUMN period_end SET NOT NULL",
         ),
+        (
+            "expected_families_json",
+            "ALTER TABLE composite_member_return_fact_publications ALTER COLUMN expected_families_json SET NOT NULL",
+        ),
+        (
+            "source_fingerprint",
+            "ALTER TABLE composite_member_return_fact_publications ALTER COLUMN source_fingerprint SET NOT NULL",
+        ),
     )
     for column_name, statement in statements:
         if columns_by_name[column_name]["nullable"]:
@@ -799,25 +935,57 @@ def _upgrade_postgres_publication_constraints(connection: Connection) -> None:
         for column in inspect(connection).get_columns(CompositeMemberReturnFactPublicationModel.__tablename__)
     }
     _make_postgres_publication_columns_non_nullable(connection, columns_by_name)
-    constraint_names = {
-        constraint["name"]
+    check_constraints = {
+        constraint["name"]: constraint.get("sqltext") or ""
         for constraint in inspect(connection).get_check_constraints(
             CompositeMemberReturnFactPublicationModel.__tablename__
         )
     }
     constraint_definitions = {
-        PUBLICATION_CURRENCY_CHECK: CANONICAL_REPORTING_CURRENCY_CHECK_SQL,
-        PUBLICATION_SEQUENCE_CHECK: "restatement_sequence >= 1",
-        PUBLICATION_PERIOD_CHECK: "period_end >= period_start",
+        PUBLICATION_CURRENCY_CHECK: (
+            CANONICAL_REPORTING_CURRENCY_CHECK_SQL,
+            POSTGRES_CANONICAL_REPORTING_CURRENCY_CHECK_SQL,
+        ),
+        PUBLICATION_SEQUENCE_CHECK: ("restatement_sequence >= 1", "restatement_sequence >= 1"),
+        PUBLICATION_PERIOD_CHECK: (PUBLICATION_PERIOD_CHECK_SQL, PUBLICATION_PERIOD_CHECK_SQL),
     }
-    for constraint_name, definition in constraint_definitions.items():
-        if constraint_name not in constraint_names:
-            connection.execute(
-                text(
-                    "ALTER TABLE composite_member_return_fact_publications "
-                    f"ADD CONSTRAINT {constraint_name} CHECK ({definition})"
-                )
-            )
+    # Constraint names are not semantics. Early schemas used these governed names
+    # for weaker definitions. Compare PostgreSQL's normalized reflected expression
+    # before replacing a managed check so a canonical bootstrap remains DDL-free.
+    _replace_stale_postgres_check_constraints(
+        connection,
+        "composite_member_return_fact_publications",
+        check_constraints,
+        constraint_definitions,
+    )
+
+
+def _postgres_check_is_current(
+    installed_definition: str | None,
+    postgres_definition: str,
+) -> bool:
+    return installed_definition is not None and _normalize_postgres_check_definition(
+        installed_definition
+    ) == _normalize_postgres_check_definition(postgres_definition)
+
+
+def _stale_postgres_constraints(
+    installed_constraints: dict[str, str],
+    required_constraints: dict[str, tuple[str, str]],
+) -> list[tuple[str, str, str | None]]:
+    return [
+        (constraint_name, definition, installed_constraints.get(constraint_name))
+        for constraint_name, (definition, postgres_definition) in required_constraints.items()
+        if not _postgres_check_is_current(
+            installed_constraints.get(constraint_name),
+            postgres_definition,
+        )
+    ]
+
+
+def _normalize_postgres_check_definition(definition: str) -> str:
+    normalized = POSTGRES_CHECK_CAST_PATTERN.sub("", definition.strip().lower())
+    return re.sub(r"[\s()]", "", normalized)
 
 
 def _upgrade_publication_schema(connection: Connection) -> None:
@@ -825,6 +993,7 @@ def _upgrade_publication_schema(connection: Connection) -> None:
     _add_missing_publication_columns(connection)
     _reject_invalid_publication_sequences(connection)
     _reject_invalid_publication_periods(connection)
+    _reject_invalid_publication_lineage(connection)
     if connection.dialect.name == "postgresql":
         _upgrade_postgres_publication_constraints(connection)
     for index in CompositeMemberReturnFactPublicationModel.__table__.indexes:
@@ -838,14 +1007,48 @@ def _upgrade_postgres_definition_currency_constraint(connection: Connection) -> 
     columns_by_name = {column["name"]: column for column in inspect(connection).get_columns(table_name)}
     if columns_by_name["reporting_currency"]["nullable"]:
         connection.execute(text("ALTER TABLE composite_definitions ALTER COLUMN reporting_currency SET NOT NULL"))
-    constraint_names = {constraint["name"] for constraint in inspect(connection).get_check_constraints(table_name)}
-    if COMPOSITE_DEFINITION_CURRENCY_CHECK not in constraint_names:
-        definition_constraint = next(
-            constraint
-            for constraint in CompositeDefinitionModel.__table__.constraints
-            if constraint.name == COMPOSITE_DEFINITION_CURRENCY_CHECK
-        )
-        connection.execute(AddConstraint(definition_constraint))
+    check_constraints = {
+        constraint["name"]: constraint.get("sqltext") or ""
+        for constraint in inspect(connection).get_check_constraints(table_name)
+    }
+    _replace_stale_postgres_check_constraints(
+        connection,
+        table_name,
+        check_constraints,
+        {
+            COMPOSITE_DEFINITION_CURRENCY_CHECK: (
+                CANONICAL_REPORTING_CURRENCY_CHECK_SQL,
+                POSTGRES_CANONICAL_REPORTING_CURRENCY_CHECK_SQL,
+            )
+        },
+    )
+
+
+def _drop_composite_fact_database_guards(connection: Connection) -> None:
+    if connection.dialect.name == "sqlite":
+        for trigger_name in (
+            "trg_composite_definitions_validate_insert",
+            "trg_composite_definitions_validate_update",
+            "trg_composite_member_return_facts_validate_insert",
+            MEMBER_RETURN_FACT_COMPLETED_INSERT_TRIGGER,
+            "trg_composite_fact_publications_validate_insert",
+            MEMBER_RETURN_FACT_IMMUTABLE_UPDATE_TRIGGER,
+            MEMBER_RETURN_FACT_COMPLETED_DELETE_TRIGGER,
+            PUBLICATION_IMMUTABLE_UPDATE_TRIGGER,
+            PUBLICATION_IMMUTABLE_DELETE_TRIGGER,
+        ):
+            connection.exec_driver_sql(f"DROP TRIGGER IF EXISTS {trigger_name}")
+        return
+    if connection.dialect.name == "postgresql":
+        for trigger_name, table_name in (
+            (MEMBER_RETURN_FACT_IMMUTABLE_UPDATE_TRIGGER, "composite_member_return_facts"),
+            (MEMBER_RETURN_FACT_COMPLETED_INSERT_TRIGGER, "composite_member_return_facts"),
+            (MEMBER_RETURN_FACT_COMPLETED_DELETE_TRIGGER, "composite_member_return_facts"),
+            (PUBLICATION_IMMUTABLE_UPDATE_TRIGGER, "composite_member_return_fact_publications"),
+            (PUBLICATION_IMMUTABLE_DELETE_TRIGGER, "composite_member_return_fact_publications"),
+            ("trg_composite_fact_publications_validate_insert", "composite_member_return_fact_publications"),
+        ):
+            connection.exec_driver_sql(f"DROP TRIGGER IF EXISTS {trigger_name} ON {table_name}")
 
 
 def _create_sqlite_composite_fact_validation_guards(connection: Connection) -> None:
@@ -905,8 +1108,113 @@ def _create_sqlite_composite_fact_validation_guards(connection: Connection) -> N
           OR julianday(NEW.period_end) IS NULL
           OR date(julianday(NEW.period_end)) != NEW.period_end
           OR NEW.period_end < NEW.period_start
+          OR typeof(NEW.source_fingerprint) != 'text'
+          OR length(NEW.source_fingerprint) > 256
+          OR length(trim(NEW.source_fingerprint,
+              char(9) || char(10) || char(11) || char(12) || char(13) ||
+              char(28) || char(29) || char(30) || char(31) || char(32) ||
+              char(133) || char(160) || char(5760) || char(8192) || char(8193) ||
+              char(8194) || char(8195) || char(8196) || char(8197) || char(8198) ||
+              char(8199) || char(8200) || char(8201) || char(8202) || char(8232) ||
+              char(8233) || char(8239) || char(8287) || char(12288))) = 0
+          OR NEW.expected_families_json IS NULL
+          OR typeof(NEW.expected_families_json) != 'text'
+          OR NOT json_valid(NEW.expected_families_json)
+          OR CASE
+              WHEN json_valid(NEW.expected_families_json)
+              THEN json_type(NEW.expected_families_json) != 'array'
+              ELSE 0
+             END
+          OR CASE
+              WHEN json_valid(NEW.expected_families_json)
+               AND json_type(NEW.expected_families_json) = 'array'
+              THEN EXISTS (
+                  SELECT 1
+                  FROM json_each(NEW.expected_families_json) AS family
+                  WHERE CASE
+                      WHEN family.type != 'object' THEN 1
+                      ELSE (SELECT count(*) FROM json_each(family.value)) != 3
+                        OR json_type(family.value, '$.portfolio_id') IS NOT 'text'
+                        OR length(json_extract(family.value, '$.portfolio_id')) NOT BETWEEN 1 AND 128
+                        OR length(trim(
+                            json_extract(family.value, '$.portfolio_id'),
+                            char(9) || char(10) || char(11) || char(12) || char(13) ||
+                            char(28) || char(29) || char(30) || char(31) || char(32) ||
+                            char(133) || char(160) || char(5760) || char(8192) || char(8193) ||
+                            char(8194) || char(8195) || char(8196) || char(8197) || char(8198) ||
+                            char(8199) || char(8200) || char(8201) || char(8202) || char(8232) ||
+                            char(8233) || char(8239) || char(8287) || char(12288)
+                        )) = 0
+                        OR json_type(family.value, '$.period_start') IS NOT 'text'
+                        OR json_type(family.value, '$.period_end') IS NOT 'text'
+                        OR json_extract(family.value, '$.period_start')
+                           NOT GLOB '[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]'
+                        OR json_extract(family.value, '$.period_end')
+                           NOT GLOB '[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]'
+                        OR julianday(json_extract(family.value, '$.period_start')) IS NULL
+                        OR julianday(json_extract(family.value, '$.period_end')) IS NULL
+                        OR date(julianday(json_extract(family.value, '$.period_start')))
+                           != json_extract(family.value, '$.period_start')
+                        OR date(julianday(json_extract(family.value, '$.period_end')))
+                           != json_extract(family.value, '$.period_end')
+                        OR json_extract(family.value, '$.period_end')
+                           < json_extract(family.value, '$.period_start')
+                        OR json_extract(family.value, '$.period_start') < NEW.period_start
+                        OR json_extract(family.value, '$.period_end') > NEW.period_end
+                  END
+              )
+              ELSE 0
+             END
+          OR CASE
+              WHEN json_valid(NEW.expected_families_json)
+               AND json_type(NEW.expected_families_json) = 'array'
+              THEN (
+                  SELECT count(*) FROM json_each(NEW.expected_families_json)
+              ) != (
+                  SELECT count(DISTINCT json_array(
+                      json_extract(family.value, '$.portfolio_id'),
+                      json_extract(family.value, '$.period_start'),
+                      json_extract(family.value, '$.period_end')
+                  ))
+                  FROM json_each(NEW.expected_families_json) AS family
+              )
+              ELSE 0
+             END
+          OR CASE
+              WHEN json_valid(NEW.expected_families_json)
+               AND json_type(NEW.expected_families_json) = 'array'
+              THEN (
+                  SELECT count(*)
+                  FROM composite_member_return_facts AS fact
+                  WHERE fact.composite_id = NEW.composite_id
+                    AND fact.return_view = NEW.return_view
+                    AND fact.reporting_currency = NEW.reporting_currency
+                    AND fact.restatement_sequence = NEW.restatement_sequence
+              ) != json_array_length(NEW.expected_families_json)
+              ELSE 0
+             END
+          OR CASE
+              WHEN json_valid(NEW.expected_families_json)
+               AND json_type(NEW.expected_families_json) = 'array'
+              THEN EXISTS (
+                  SELECT 1
+                  FROM json_each(NEW.expected_families_json) AS family
+                  WHERE NOT EXISTS (
+                      SELECT 1
+                      FROM composite_member_return_facts AS fact
+                      WHERE fact.composite_id = NEW.composite_id
+                        AND fact.return_view = NEW.return_view
+                        AND fact.reporting_currency = NEW.reporting_currency
+                        AND fact.restatement_sequence = NEW.restatement_sequence
+                        AND fact.portfolio_id = json_extract(family.value, '$.portfolio_id')
+                        AND fact.period_start = json_extract(family.value, '$.period_start')
+                        AND fact.period_end = json_extract(family.value, '$.period_end')
+                  )
+              )
+              ELSE 0
+             END
         BEGIN
-            SELECT RAISE(ABORT, 'composite fact publication requires a positive integer sequence and valid calendar period');
+            SELECT RAISE(ABORT, 'composite fact publication requires valid identity, period, lineage, and exact durable family evidence');
         END
         """
     )
@@ -948,8 +1256,26 @@ def _create_sqlite_definition_currency_guards(connection: Connection) -> None:
 
 
 def _create_sqlite_member_return_fact_immutability_guards(connection: Connection) -> None:
+    connection.exec_driver_sql("DROP TRIGGER IF EXISTS trg_composite_member_return_facts_completed_insert")
     connection.exec_driver_sql("DROP TRIGGER IF EXISTS trg_composite_member_return_facts_immutable_update")
     connection.exec_driver_sql("DROP TRIGGER IF EXISTS trg_composite_member_return_facts_completed_delete")
+    connection.exec_driver_sql(
+        """
+        CREATE TRIGGER trg_composite_member_return_facts_completed_insert
+        BEFORE INSERT ON composite_member_return_facts
+        WHEN EXISTS (
+            SELECT 1
+            FROM composite_member_return_fact_publications AS publication
+            WHERE publication.composite_id = NEW.composite_id
+              AND publication.return_view = NEW.return_view
+              AND publication.reporting_currency = NEW.reporting_currency
+              AND publication.restatement_sequence = NEW.restatement_sequence
+        )
+        BEGIN
+            SELECT RAISE(ABORT, 'completed composite member-return facts cannot accept new families');
+        END
+        """
+    )
     connection.exec_driver_sql(
         """
         CREATE TRIGGER trg_composite_member_return_facts_immutable_update
@@ -979,19 +1305,75 @@ def _create_sqlite_member_return_fact_immutability_guards(connection: Connection
 
 
 def _create_sqlite_publication_immutability_guard(connection: Connection) -> None:
-    connection.exec_driver_sql("DROP TRIGGER IF EXISTS trg_composite_fact_publications_immutable_update")
-    connection.exec_driver_sql(
-        """
-        CREATE TRIGGER trg_composite_fact_publications_immutable_update
-        BEFORE UPDATE ON composite_member_return_fact_publications
-        BEGIN
-            SELECT RAISE(ABORT, 'composite fact publications are immutable; write a new restatement sequence');
-        END
-        """
-    )
+    connection.exec_driver_sql(f"DROP TRIGGER IF EXISTS {PUBLICATION_IMMUTABLE_UPDATE_TRIGGER}")
+    connection.exec_driver_sql(f"DROP TRIGGER IF EXISTS {PUBLICATION_IMMUTABLE_DELETE_TRIGGER}")
+    for trigger_name, operation in (
+        (PUBLICATION_IMMUTABLE_UPDATE_TRIGGER, "UPDATE"),
+        (PUBLICATION_IMMUTABLE_DELETE_TRIGGER, "DELETE"),
+    ):
+        connection.exec_driver_sql(
+            f"""
+            CREATE TRIGGER {trigger_name}
+            BEFORE {operation} ON composite_member_return_fact_publications
+            BEGIN
+                SELECT RAISE(ABORT, 'composite fact publications are immutable; write a new restatement sequence');
+            END
+            """
+        )
 
 
 def _create_postgres_member_return_fact_immutability_guards(connection: Connection) -> None:
+    connection.exec_driver_sql(
+        """
+        CREATE OR REPLACE FUNCTION composite_fact_publication_lock_key(
+            p_composite_id text,
+            p_return_view text,
+            p_reporting_currency text,
+            p_restatement_sequence bigint
+        )
+        RETURNS bigint
+        LANGUAGE sql
+        IMMUTABLE
+        PARALLEL SAFE
+        AS $$
+            SELECT hashtextextended(
+                p_composite_id || chr(31) || p_return_view || chr(31) ||
+                p_reporting_currency || chr(31) || p_restatement_sequence::text,
+                0
+            )
+        $$
+        """
+    )
+    connection.exec_driver_sql(
+        """
+        CREATE OR REPLACE FUNCTION fence_composite_member_return_fact_insert()
+        RETURNS trigger
+        LANGUAGE plpgsql
+        AS $$
+        BEGIN
+            PERFORM pg_advisory_xact_lock_shared(composite_fact_publication_lock_key(
+                NEW.composite_id,
+                NEW.return_view,
+                NEW.reporting_currency,
+                NEW.restatement_sequence
+            ));
+            IF EXISTS (
+                SELECT 1
+                FROM composite_member_return_fact_publications AS publication
+                WHERE publication.composite_id = NEW.composite_id
+                  AND publication.return_view = NEW.return_view
+                  AND publication.reporting_currency = NEW.reporting_currency
+                  AND publication.restatement_sequence = NEW.restatement_sequence
+            ) THEN
+                RAISE EXCEPTION USING
+                    ERRCODE = '23514',
+                    MESSAGE = 'completed composite member-return facts cannot accept new families';
+            END IF;
+            RETURN NEW;
+        END;
+        $$
+        """
+    )
     connection.exec_driver_sql(
         """
         CREATE OR REPLACE FUNCTION reject_composite_member_return_fact_mutation()
@@ -1022,10 +1404,21 @@ def _create_postgres_member_return_fact_immutability_guards(connection: Connecti
         """
     )
     connection.exec_driver_sql(
+        f"DROP TRIGGER IF EXISTS {MEMBER_RETURN_FACT_COMPLETED_INSERT_TRIGGER} ON composite_member_return_facts"
+    )
+    connection.exec_driver_sql(
         "DROP TRIGGER IF EXISTS trg_composite_member_return_facts_immutable_update ON composite_member_return_facts"
     )
     connection.exec_driver_sql(
         "DROP TRIGGER IF EXISTS trg_composite_member_return_facts_completed_delete ON composite_member_return_facts"
+    )
+    connection.exec_driver_sql(
+        f"""
+        CREATE TRIGGER {MEMBER_RETURN_FACT_COMPLETED_INSERT_TRIGGER}
+        BEFORE INSERT ON composite_member_return_facts
+        FOR EACH ROW
+        EXECUTE FUNCTION fence_composite_member_return_fact_insert()
+        """
     )
     connection.exec_driver_sql(
         """
@@ -1045,10 +1438,157 @@ def _create_postgres_member_return_fact_immutability_guards(connection: Connecti
     )
 
 
+def _create_postgres_publication_lineage_guard(connection: Connection) -> None:
+    connection.exec_driver_sql(
+        """
+        CREATE OR REPLACE FUNCTION validate_composite_fact_publication_lineage()
+        RETURNS trigger
+        LANGUAGE plpgsql
+        AS $$
+        DECLARE
+            manifest jsonb;
+            family jsonb;
+            family_start date;
+            family_end date;
+            family_count integer;
+            distinct_family_count integer;
+            actual_family_count integer;
+        BEGIN
+            PERFORM pg_advisory_xact_lock(composite_fact_publication_lock_key(
+                NEW.composite_id,
+                NEW.return_view,
+                NEW.reporting_currency,
+                NEW.restatement_sequence
+            ));
+            IF NEW.source_fingerprint IS NULL
+               OR length(NEW.source_fingerprint) > 256
+               OR length(btrim(NEW.source_fingerprint,
+                    chr(9) || chr(10) || chr(11) || chr(12) || chr(13) ||
+                    chr(28) || chr(29) || chr(30) || chr(31) || chr(32) ||
+                    chr(133) || chr(160) || chr(5760) || chr(8192) || chr(8193) ||
+                    chr(8194) || chr(8195) || chr(8196) || chr(8197) || chr(8198) ||
+                    chr(8199) || chr(8200) || chr(8201) || chr(8202) || chr(8232) ||
+                    chr(8233) || chr(8239) || chr(8287) || chr(12288)
+               )) = 0 THEN
+                RAISE EXCEPTION USING
+                    ERRCODE = '23514',
+                    MESSAGE = 'composite fact publication source fingerprint is invalid';
+            END IF;
+            BEGIN
+                manifest := NEW.expected_families_json::jsonb;
+            EXCEPTION WHEN OTHERS THEN
+                RAISE EXCEPTION USING
+                    ERRCODE = '23514',
+                    MESSAGE = 'composite fact publication family manifest is invalid JSON';
+            END;
+            IF manifest IS NULL OR jsonb_typeof(manifest) != 'array' THEN
+                RAISE EXCEPTION USING
+                    ERRCODE = '23514',
+                    MESSAGE = 'composite fact publication family manifest must be a JSON array';
+            END IF;
+            SELECT count(*), count(DISTINCT jsonb_build_array(
+                value ->> 'portfolio_id', value ->> 'period_start', value ->> 'period_end'
+            ))
+            INTO family_count, distinct_family_count
+            FROM jsonb_array_elements(manifest);
+            IF family_count != distinct_family_count THEN
+                RAISE EXCEPTION USING
+                    ERRCODE = '23514',
+                    MESSAGE = 'composite fact publication family manifest contains duplicates';
+            END IF;
+            FOR family IN SELECT value FROM jsonb_array_elements(manifest)
+            LOOP
+                IF jsonb_typeof(family) != 'object' THEN
+                    RAISE EXCEPTION USING
+                        ERRCODE = '23514',
+                        MESSAGE = 'composite fact publication family manifest contains a non-object entry';
+                END IF;
+                IF NOT (family ?& ARRAY['portfolio_id', 'period_start', 'period_end'])
+                   OR (SELECT count(*) FROM jsonb_object_keys(family)) != 3
+                   OR jsonb_typeof(family -> 'portfolio_id') != 'string'
+                   OR length(family ->> 'portfolio_id') NOT BETWEEN 1 AND 128
+                   OR length(btrim(family ->> 'portfolio_id',
+                        chr(9) || chr(10) || chr(11) || chr(12) || chr(13) ||
+                        chr(28) || chr(29) || chr(30) || chr(31) || chr(32) ||
+                        chr(133) || chr(160) || chr(5760) || chr(8192) || chr(8193) ||
+                        chr(8194) || chr(8195) || chr(8196) || chr(8197) || chr(8198) ||
+                        chr(8199) || chr(8200) || chr(8201) || chr(8202) || chr(8232) ||
+                        chr(8233) || chr(8239) || chr(8287) || chr(12288)
+                   )) = 0
+                   OR jsonb_typeof(family -> 'period_start') != 'string'
+                   OR jsonb_typeof(family -> 'period_end') != 'string' THEN
+                    RAISE EXCEPTION USING
+                        ERRCODE = '23514',
+                        MESSAGE = 'composite fact publication family manifest contains a malformed entry';
+                END IF;
+                BEGIN
+                    family_start := (family ->> 'period_start')::date;
+                    family_end := (family ->> 'period_end')::date;
+                EXCEPTION WHEN OTHERS THEN
+                    RAISE EXCEPTION USING
+                        ERRCODE = '23514',
+                        MESSAGE = 'composite fact publication family manifest contains an invalid date';
+                END;
+                IF family ->> 'period_start' != to_char(family_start, 'YYYY-MM-DD')
+                   OR family ->> 'period_end' != to_char(family_end, 'YYYY-MM-DD')
+                   OR family_end < family_start
+                   OR family_start < NEW.period_start
+                   OR family_end > NEW.period_end THEN
+                    RAISE EXCEPTION USING
+                        ERRCODE = '23514',
+                        MESSAGE = 'composite fact publication family manifest contains an invalid period';
+                END IF;
+            END LOOP;
+            SELECT count(*)
+            INTO actual_family_count
+            FROM composite_member_return_facts AS fact
+            WHERE fact.composite_id = NEW.composite_id
+              AND fact.return_view = NEW.return_view
+              AND fact.reporting_currency = NEW.reporting_currency
+              AND fact.restatement_sequence = NEW.restatement_sequence;
+            IF actual_family_count != family_count
+               OR EXISTS (
+                    SELECT 1
+                    FROM jsonb_array_elements(manifest) AS expected(value)
+                    WHERE NOT EXISTS (
+                        SELECT 1
+                        FROM composite_member_return_facts AS fact
+                        WHERE fact.composite_id = NEW.composite_id
+                          AND fact.return_view = NEW.return_view
+                          AND fact.reporting_currency = NEW.reporting_currency
+                          AND fact.restatement_sequence = NEW.restatement_sequence
+                          AND fact.portfolio_id = expected.value ->> 'portfolio_id'
+                          AND fact.period_start = (expected.value ->> 'period_start')::date
+                          AND fact.period_end = (expected.value ->> 'period_end')::date
+                    )
+               ) THEN
+                RAISE EXCEPTION USING
+                    ERRCODE = '23514',
+                    MESSAGE = 'composite fact publication family manifest does not match durable facts';
+            END IF;
+            RETURN NEW;
+        END;
+        $$
+        """
+    )
+    connection.exec_driver_sql(
+        "DROP TRIGGER IF EXISTS trg_composite_fact_publications_validate_insert "
+        "ON composite_member_return_fact_publications"
+    )
+    connection.exec_driver_sql(
+        """
+        CREATE TRIGGER trg_composite_fact_publications_validate_insert
+        BEFORE INSERT ON composite_member_return_fact_publications
+        FOR EACH ROW
+        EXECUTE FUNCTION validate_composite_fact_publication_lineage()
+        """
+    )
+
+
 def _create_postgres_publication_immutability_guard(connection: Connection) -> None:
     connection.exec_driver_sql(
         """
-        CREATE OR REPLACE FUNCTION reject_composite_fact_publication_update()
+        CREATE OR REPLACE FUNCTION reject_composite_fact_publication_mutation()
         RETURNS trigger
         LANGUAGE plpgsql
         AS $$
@@ -1061,17 +1601,23 @@ def _create_postgres_publication_immutability_guard(connection: Connection) -> N
         """
     )
     connection.exec_driver_sql(
-        "DROP TRIGGER IF EXISTS trg_composite_fact_publications_immutable_update "
-        "ON composite_member_return_fact_publications"
+        f"DROP TRIGGER IF EXISTS {PUBLICATION_IMMUTABLE_UPDATE_TRIGGER} ON composite_member_return_fact_publications"
     )
     connection.exec_driver_sql(
-        """
-        CREATE TRIGGER trg_composite_fact_publications_immutable_update
-        BEFORE UPDATE ON composite_member_return_fact_publications
-        FOR EACH ROW
-        EXECUTE FUNCTION reject_composite_fact_publication_update()
-        """
+        f"DROP TRIGGER IF EXISTS {PUBLICATION_IMMUTABLE_DELETE_TRIGGER} ON composite_member_return_fact_publications"
     )
+    for trigger_name, operation in (
+        (PUBLICATION_IMMUTABLE_UPDATE_TRIGGER, "UPDATE"),
+        (PUBLICATION_IMMUTABLE_DELETE_TRIGGER, "DELETE"),
+    ):
+        connection.exec_driver_sql(
+            f"""
+            CREATE TRIGGER {trigger_name}
+            BEFORE {operation} ON composite_member_return_fact_publications
+            FOR EACH ROW
+            EXECUTE FUNCTION reject_composite_fact_publication_mutation()
+            """
+        )
 
 
 def _create_composite_fact_database_guards(connection: Connection) -> None:
@@ -1082,6 +1628,7 @@ def _create_composite_fact_database_guards(connection: Connection) -> None:
         _create_sqlite_publication_immutability_guard(connection)
     elif connection.dialect.name == "postgresql":
         _create_postgres_member_return_fact_immutability_guards(connection)
+        _create_postgres_publication_lineage_guard(connection)
         _create_postgres_publication_immutability_guard(connection)
 
 
@@ -1314,6 +1861,7 @@ class CompositeMetadataStore:
             self._engine,
             Base.metadata,
             schema_upgrades=(
+                _drop_composite_fact_database_guards,
                 _upgrade_legacy_composite_currencies,
                 _upgrade_postgres_definition_currency_constraint,
                 self._upgrade_member_return_fact_schema,
@@ -1345,29 +1893,60 @@ class CompositeMetadataStore:
         finally:
             session.close()
 
+    @contextmanager
+    def _unguarded_maintenance_connection(self) -> Iterator[Connection]:
+        """Suspend immutable guards only inside one locked rollback-safe transaction."""
+
+        with self._engine.begin() as connection:
+            if connection.dialect.name == "sqlite":
+                connection.exec_driver_sql("BEGIN IMMEDIATE")
+            elif connection.dialect.name == "postgresql":
+                # Match publication completion's fact-before-publication lock
+                # order so maintenance cannot form a cross-table deadlock.
+                connection.exec_driver_sql("LOCK TABLE composite_member_return_facts IN ACCESS EXCLUSIVE MODE")
+                connection.exec_driver_sql(
+                    "LOCK TABLE composite_member_return_fact_publications IN ACCESS EXCLUSIVE MODE"
+                )
+            _drop_composite_fact_database_guards(connection)
+            try:
+                yield connection
+            except Exception:
+                # The surrounding transaction restores prior guards and data.
+                raise
+            else:
+                _create_composite_fact_database_guards(connection)
+
     def clear_all_records(self) -> None:
-        with self._session() as session:
-            session.query(CompositeMemberReturnFactPublicationModel).delete()
-            session.query(CompositeMemberReturnFactModel).delete()
-            session.query(CompositeMembershipModel).delete()
-            session.query(CompositeDefinitionModel).delete()
+        with self._unguarded_maintenance_connection() as connection:
+            connection.execute(CompositeMemberReturnFactPublicationModel.__table__.delete())
+            connection.execute(CompositeMemberReturnFactModel.__table__.delete())
+            connection.execute(CompositeMembershipModel.__table__.delete())
+            connection.execute(CompositeDefinitionModel.__table__.delete())
 
     def clear_records_for_composites(self, composite_ids: set[str]) -> None:
         if not composite_ids:
             return
-        with self._session() as session:
-            session.query(CompositeMemberReturnFactPublicationModel).filter(
-                CompositeMemberReturnFactPublicationModel.composite_id.in_(composite_ids)
-            ).delete(synchronize_session=False)
-            session.query(CompositeMemberReturnFactModel).filter(
-                CompositeMemberReturnFactModel.composite_id.in_(composite_ids)
-            ).delete(synchronize_session=False)
-            session.query(CompositeMembershipModel).filter(
-                CompositeMembershipModel.composite_id.in_(composite_ids)
-            ).delete(synchronize_session=False)
-            session.query(CompositeDefinitionModel).filter(
-                CompositeDefinitionModel.composite_id.in_(composite_ids)
-            ).delete(synchronize_session=False)
+        with self._unguarded_maintenance_connection() as connection:
+            connection.execute(
+                CompositeMemberReturnFactPublicationModel.__table__.delete().where(
+                    CompositeMemberReturnFactPublicationModel.composite_id.in_(composite_ids)
+                )
+            )
+            connection.execute(
+                CompositeMemberReturnFactModel.__table__.delete().where(
+                    CompositeMemberReturnFactModel.composite_id.in_(composite_ids)
+                )
+            )
+            connection.execute(
+                CompositeMembershipModel.__table__.delete().where(
+                    CompositeMembershipModel.composite_id.in_(composite_ids)
+                )
+            )
+            connection.execute(
+                CompositeDefinitionModel.__table__.delete().where(
+                    CompositeDefinitionModel.composite_id.in_(composite_ids)
+                )
+            )
 
     def upsert_definition(self, definition: CompositeDefinition) -> None:
         with self._session() as session:

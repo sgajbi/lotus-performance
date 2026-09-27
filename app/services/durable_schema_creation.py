@@ -62,6 +62,12 @@ def create_durable_schema(
     with engine.begin() as connection:
         if engine.dialect.name in _POSTGRESQL_DIALECTS:
             _acquire_postgresql_schema_lock(connection)
+        elif engine.dialect.name == "sqlite":
+            # SQLAlchemy's logical transaction does not necessarily issue a
+            # database BEGIN before SQLite DDL.  Trigger replacement must be
+            # rollback-safe, so acquire the writer transaction explicitly
+            # before create_all or any schema upgrade can mutate the catalog.
+            connection.exec_driver_sql("BEGIN IMMEDIATE")
         # Bound to the locked connection on purpose: the DDL and the lock share one transaction, so
         # the lock cannot be released before the tables and upgrades it protects exist. The ordinary
         # configured lock and statement timeouts are back in force for the DDL itself.
