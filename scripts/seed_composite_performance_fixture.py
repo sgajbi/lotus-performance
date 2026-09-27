@@ -3,6 +3,7 @@ from __future__ import annotations
 import argparse
 import sys
 from dataclasses import dataclass
+from datetime import date
 from decimal import Decimal
 from pathlib import Path
 
@@ -10,7 +11,12 @@ REPO_ROOT = Path(__file__).resolve().parents[1]
 if str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
 
-from app.models.composites import CompositeDefinition, CompositeMemberReturnFact, CompositeMembership  # noqa: E402
+from app.models.composites import (  # noqa: E402
+    CompositeDefinition,
+    CompositeMemberReturnFact,
+    CompositeMembership,
+    CompositeReturnView,
+)
 from app.services.composite_metadata_store import composite_metadata_store  # noqa: E402
 from app.services.durable_metadata_bootstrap import bootstrap_durable_metadata_stores  # noqa: E402
 
@@ -94,6 +100,23 @@ def _upsert_fact(seed: MemberReturnSeed) -> None:
                 "reason_codes": list(seed.reason_codes),
             }
         )
+    )
+
+
+def _complete_publication(facts: tuple[MemberReturnSeed, ...]) -> None:
+    first = facts[0]
+    composite_metadata_store.complete_member_return_fact_publication(
+        composite_id=first.composite_id,
+        return_view=CompositeReturnView.NET_ACTUAL,
+        reporting_currency="USD",
+        restatement_sequence=1,
+        period_start=min(date.fromisoformat(fact.period_start) for fact in facts),
+        period_end=max(date.fromisoformat(fact.period_end) for fact in facts),
+        expected_families={
+            (fact.portfolio_id, date.fromisoformat(fact.period_start), date.fromisoformat(fact.period_end))
+            for fact in facts
+        },
+        source_fingerprint=f"sha256:{first.composite_id.lower()}-net-actual-v1-publication",
     )
 
 
@@ -199,6 +222,8 @@ def seed_canonical_composite_fixture() -> None:
 
     for fact in (*ready_facts, *degraded_facts):
         _upsert_fact(fact)
+    _complete_publication(ready_facts)
+    _complete_publication(degraded_facts)
 
 
 def main() -> None:

@@ -11,8 +11,9 @@ Composite Time-Weighted Return (`cumulative_return` and `periods[].return_value`
   composite result
 - Current reporting-currency policy: one reporting currency per calculable period
 - Current storage posture: composite definitions, memberships, and member-return facts are stored in
-  the composite metadata store; the calculator consumes already-materialized facts and does not run
-  hidden request-time portfolio TWR fan-out
+  the composite metadata store. Member-return facts are append-only by composite, member, period,
+  return view, reporting currency, source version label, and numeric restatement sequence. The
+  calculator consumes already-materialized facts and does not run hidden request-time portfolio TWR fan-out.
 
 ## Inputs
 - `CompositeDefinition.composite_id`
@@ -32,9 +33,12 @@ Composite Time-Weighted Return (`cumulative_return` and `periods[].return_value`
 - `CompositeMemberReturnFact.source_snapshot_id`
 - `CompositeMemberReturnFact.source_fingerprint`
 - `CompositeMemberReturnFact.restatement_version`
+- `CompositeMemberReturnFact.restatement_sequence`
 - `CompositeMemberReturnFact.status`
 - `CompositeMemberReturnFact.reason_codes`
 - Request window: `period_start` and `period_end`
+- Request selection: `return_view`, optional `reporting_currency`, and optional
+  `restatement_sequence`
 
 ## Upstream Data Sources
 - `lotus-manage` owns composite definitions and effective-dated composite membership policy.
@@ -118,29 +122,39 @@ Composite Time-Weighted Return (`cumulative_return` and `periods[].return_value`
 ## Step-by-Step Computation
 1. Validate `CompositeTWRRequest.period_end >= period_start`.
 2. Look up the composite definition by `composite_id`; return 404 if not found.
-3. Read persisted member-return facts where `period_start` and `period_end` fall inside the request
-   window.
-4. Group facts by `(period_start, period_end)` and sort periods ascending.
-5. For each period, split ready facts from non-ready facts.
-6. If there are no ready facts, emit a blocked period with reason
+3. Resolve reporting currency from the explicit request or the composite definition. Filter facts
+   by that currency and the requested return view.
+4. When `restatement_sequence` is omitted, select the greatest numeric sequence across the
+   requested view, currency, and window only when a completed durable publication manifest covers
+   that window. Require selected facts to match the manifest's exact source-declared family set.
+   Facts written before completion remain durable but are not eligible for an unpinned latest read.
+   This permits an evidenced membership removal without accepting a partial write or letting a
+   later disjoint-window generation erase retained history. Version labels are never sorted
+   lexically.
+5. When `restatement_sequence` is supplied, replay exactly the fact families retained in that
+   historical sequence. A later sequence adding or removing a member/period family does not rewrite
+   the earlier set; an entirely absent requested sequence fails closed.
+6. Group selected facts by `(period_start, period_end)` and sort periods ascending.
+7. For each period, split ready facts from non-ready facts.
+8. If there are no ready facts, emit a blocked period with reason
    `no_ready_member_return_facts` or the upstream non-ready reason codes.
-7. Sum beginning and ending market values across ready facts.
-8. If beginning market value is less than or equal to zero, emit a blocked period with reason
+9. Sum beginning and ending market values across ready facts.
+10. If beginning market value is less than or equal to zero, emit a blocked period with reason
    `nonpositive_composite_beginning_assets`.
-9. If ready facts contain multiple `return_view` values, emit a blocked period with reason
+11. If ready facts contain multiple `return_view` values, emit a blocked period with reason
    `mixed_member_return_views`.
-10. If ready facts contain multiple `reporting_currency` values, emit a blocked period with reason
+12. If ready facts contain multiple `reporting_currency` values, emit a blocked period with reason
    `mixed_member_reporting_currencies`.
-11. Sort ready facts by `portfolio_id`, calculate beginning-asset weights and member
+13. Sort ready facts by `portfolio_id`, calculate beginning-asset weights and member
     contributions, and emit `member_contributions[]`.
-12. Calculate period return, cumulative return, dispersion, included source fingerprints,
+14. Calculate period return, cumulative return, dispersion, included source fingerprints,
     restatement versions, ready member count, excluded member count, and period reason codes.
-13. Return calculation-level status, terminal cumulative return from the latest calculable period,
+15. Return calculation-level status, terminal cumulative return from the latest calculable period,
     period evidence, methodology identifier, and aggregate reason codes.
 
 ## Validation and Failure Behavior
 - Request period with `period_end < period_start`: HTTP 422 request validation error.
-- Missing composite definition: HTTP 404 with `COMPOSITE_DEFINITION_NOT_FOUND`.
+- Missing composite definition: HTTP 404 with `COMPOSITE_NOT_FOUND`.
 - No persisted member-return facts in the requested window: HTTP 422 with
   `NO_MEMBER_RETURN_FACTS`; the service does not return a fake zero composite return.
 - Non-ready member facts must carry `reason_codes`.
@@ -154,16 +168,25 @@ Composite Time-Weighted Return (`cumulative_return` and `periods[].return_value`
 - One ready member: period return equals that member return; `dispersion_equal_weight=null`.
 - Inactive or blocked gaps do not erase later calculable history; later periods can still carry the
   geometric cumulative return from calculable periods.
-- Restated facts replace the previous composite, portfolio, and period fact in the metadata store;
-  the emitted response carries the used `source_fingerprint`, `restatement_version`, and
-  `calculation_id`.
+- Restated facts never replace predecessors. Replaying the same immutable identity and same payload
+  is idempotent; different economics or lineage under that identity fails closed.
+- An unpinned latest sequence without a covering completion manifest, an unpinned sequence whose
+  fact families differ from that manifest, or an explicit sequence absent from the requested view,
+  currency, and window returns HTTP 409 with `COMPOSITE_FACT_SELECTION_INCOMPLETE`.
+- The emitted response carries the used `source_fingerprint`, `restatement_version`,
+  `restatement_sequence`, and `calculation_id`.
 
 ## Configuration Options
 - `calculation_id`: caller-provided or generated UUID for support and idempotency correlation.
 - `composite_id`: composite to calculate.
 - `period_start` and `period_end`: inclusive persisted fact window.
-- The calculation method, source authority, reporting currency, and membership policy are
-  source-owned composite metadata, not ad hoc request switches.
+- `return_view`: selects `GROSS`, `NET_ACTUAL`, or `NET_MODEL_FEE` facts without mixing them.
+- `reporting_currency`: canonical uppercase three-letter ISO-4217 shape selecting one persisted
+  currency identity; lowercase input is normalized and whitespace/malformed aliases are rejected.
+- `restatement_sequence`: optional positive numeric chronology for an exactly retained historical
+  fact set; omit it to select the greatest completely published numeric sequence.
+- The calculation method, source authority, and membership policy remain source-owned composite
+  metadata, not ad hoc request switches.
 - Gross, net actual, and model-fee returns are represented by separate persisted member-return
   facts and must not be mixed in one calculated result.
 - Significant cash-flow, minimum asset, grace-period, termination, and manual override policies are
@@ -209,6 +232,7 @@ Member evidence fields:
 - `member_contributions[].source_snapshot_id`
 - `member_contributions[].source_fingerprint`
 - `member_contributions[].restatement_version`
+- `member_contributions[].restatement_sequence`
 - `member_contributions[].calculation_id`
 
 Inspector fields:

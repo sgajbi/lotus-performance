@@ -353,7 +353,46 @@ Important validation expectations:
 14. PR Merge Gate and Main Releasability route matrix test coverage through
     `make test-coverage-shard` and combined coverage enforcement through `make coverage-combine-gate`
     so workflow YAML does not become a second source of truth for pytest or coverage behavior.
-    `make postgres-concurrency-contracts-gate` runs inside the required `PR Merge Gate / Tests (integration)` leg rather than as its own context: matrix legs become distinct required-context names, so a new leg would have created a context nobody requires. The proofs previously ran only in `Performance Characterization / Benchmarks`, which provisions PostgreSQL and is not required, so a merge never waited for them.
+    `make postgres-concurrency-contracts-gate` runs inside the required `PR Merge Gate / Tests (integration)` leg rather than as its own context: matrix legs become distinct required-context names, so a new leg would have created a context nobody requires. The gate runs the concurrency/locking contracts and composite immutable-fact migration/selection contract as separate PostgreSQL targets and requires nonempty, skip-free success from each; aggregate success cannot conceal an empty target. The proofs previously ran only in `Performance Characterization / Benchmarks`, which provisions PostgreSQL and is not required, so a merge never waited for them.
+
+    Composite member-return fact identity includes return view, reporting currency, source version
+    label, and positive numeric restatement sequence. Writes are append-only and idempotent only
+    for an identical payload. Latest selection orders by the numeric sequence, never the arbitrary
+    version label. Explicit sequence reads reproduce that retained historical fact set even when a
+    later sequence changes its families; every unpinned latest read requires an immutable
+    publication manifest whose declared period covers the request and whose family set exactly
+    matches the selected facts. Unpublished durable facts remain explicit-replay evidence and are
+    never inferred to be a complete latest generation. Publication completion is atomic with fact admission:
+    PostgreSQL uses shared-writer/exclusive-completion advisory locks and local SQLite uses an
+    immediate writer transaction.
+    Additive bootstrap canonicalizes only legacy ASCII case variants of three-letter reporting currencies across
+    composite definitions, facts, and publication manifests for both PostgreSQL and supported
+    SQLite stores. Publication fencing resolves the governed logical identity rather than trusting
+    a legacy identity-derived primary key, so a canonicalized manifest still blocks late writers.
+    It rejects retained values containing whitespace, digits, symbols, or other
+    non-ASCII currency characters before serving instead of deferring a model-validation failure
+    to a read. Existing null, nonpositive, fractional, or nonnumeric fact and publication
+    restatement sequences also fail bootstrap explicitly; no historical sequence is invented.
+    Whitespace-only source version labels, including tabs and newlines, fail the same model-aligned
+    bootstrap validation as empty labels. Retained publication periods with a null, non-text, or
+    unparseable boundary, a noncanonical representation, or an end before their start, also fail
+    bootstrap explicitly. Request models reject Unicode lookalikes before case normalization.
+    SQLite schemas reject noncanonical definition, fact, and publication currencies, reject
+    non-integer sequences and invalid fact version labels, and reject publication text outside
+    the supported Python calendar domain. Additive upgrades install equivalent insert/update
+    triggers after retained rows pass validation, replacing any same-named older trigger so later
+    direct SQL cannot remain governed by a stale weaker definition.
+    PostgreSQL upgrades make both validated sequence columns, publication currency, and both
+    publication period boundaries non-null and retrofit canonical-currency constraints for
+    definitions, facts, and publications plus positive-sequence and valid-period constraints.
+    Runtime bootstrap and restore validation require the publication family-universe and source-fingerprint
+    lineage columns; neither path invents lineage authority for an early table. Restore validation also checks the sequence column on facts
+    and the period, family-universe, fingerprint, and sequence columns on publication manifests;
+    table presence alone is insufficient recovery evidence.
+    After bootstrap validation, PostgreSQL and SQLite database triggers make fact payloads and
+    completed publication manifests update-immutable and reject deletion of facts covered by a
+    completed publication. A correction is a new sequence; supported scoped cleanup removes the
+    manifest before deleting its facts in one local transaction.
 
     `make quality-test-taxonomy-gate` now enforces the current measured preservation baseline
     directly. The exact API/runtime and contract/governance floors and the uncategorized ceiling

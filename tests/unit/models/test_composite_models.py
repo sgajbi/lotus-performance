@@ -7,10 +7,12 @@ from pydantic import ValidationError
 
 from app.models.composites import (
     CompositeDefinition,
+    CompositeInspectionRequest,
     CompositeMemberReturnFact,
     CompositeMemberReturnStatus,
     CompositeMembership,
     CompositeMembershipStatus,
+    CompositeTWRRequest,
     _composite_member_return_period_valid,
     _composite_member_return_status_reason_valid,
     _composite_membership_status_reason_valid,
@@ -158,3 +160,90 @@ def test_member_return_fact_accepts_ready_persisted_fact():
 
     assert fact.status.value == "READY"
     assert str(fact.return_value) == "0.0125"
+    assert fact.restatement_sequence == 1
+
+
+def test_member_return_fact_rejects_nonpositive_restatement_sequence():
+    payload = {
+        "composite_id": "PB_GLOBAL_BALANCED_USD",
+        "portfolio_id": "PB_SG_GLOBAL_BAL_001",
+        "period_start": "2026-01-01",
+        "period_end": "2026-01-31",
+        "return_value": "0.0125",
+        "beginning_market_value": "1000000.00",
+        "ending_market_value": "1012500.00",
+        "reporting_currency": "USD",
+        "calculation_id": "7f2b08b0-58e5-49be-b3ef-7a9cfb0321ce",
+        "source_snapshot_id": "portfolio-twr-snapshot-1",
+        "source_fingerprint": "sha256:portfolio-twr-snapshot-1",
+        "restatement_sequence": 0,
+    }
+
+    with pytest.raises(ValidationError):
+        CompositeMemberReturnFact.model_validate(payload)
+
+
+def test_reporting_currency_is_canonical_across_definition_fact_and_requests():
+    definition_payload = {
+        "composite_id": "PB_GLOBAL_BALANCED_USD",
+        "display_name": "Private Banking Global Balanced USD Composite",
+        "strategy_code": "GLOBAL_BALANCED",
+        "reporting_currency": "usd",
+        "inception_date": "2026-01-01",
+        "source_authority": _source_authority(),
+    }
+    fact_payload = {
+        "composite_id": "PB_GLOBAL_BALANCED_USD",
+        "portfolio_id": "PB_SG_GLOBAL_BAL_001",
+        "period_start": "2026-01-01",
+        "period_end": "2026-01-31",
+        "return_value": "0.0125",
+        "beginning_market_value": "1000000.00",
+        "ending_market_value": "1012500.00",
+        "reporting_currency": "usd",
+        "calculation_id": "7f2b08b0-58e5-49be-b3ef-7a9cfb0321ce",
+        "source_snapshot_id": "portfolio-twr-snapshot-1",
+        "source_fingerprint": "sha256:portfolio-twr-snapshot-1",
+    }
+    request_payload = {
+        "composite_id": "PB_GLOBAL_BALANCED_USD",
+        "period_start": "2026-01-01",
+        "period_end": "2026-01-31",
+        "reporting_currency": "usd",
+    }
+
+    cases = (
+        (CompositeDefinition, definition_payload),
+        (CompositeMemberReturnFact, fact_payload),
+        (CompositeTWRRequest, request_payload),
+        (CompositeInspectionRequest, request_payload),
+    )
+    for model, payload in cases:
+        assert getattr(model.model_validate(payload), "reporting_currency") == "USD"
+        with pytest.raises(ValidationError):
+            model.model_validate(payload | {"reporting_currency": " USD "})
+        with pytest.raises(ValidationError):
+            model.model_validate(payload | {"reporting_currency": "US1"})
+        with pytest.raises(ValidationError):
+            model.model_validate(payload | {"reporting_currency": "uſd"})
+
+
+@pytest.mark.parametrize("restatement_version", [" ", "x" * 65])
+def test_member_return_fact_rejects_invalid_durable_restatement_version(restatement_version: str):
+    payload = {
+        "composite_id": "PB_GLOBAL_BALANCED_USD",
+        "portfolio_id": "PB_SG_GLOBAL_BAL_001",
+        "period_start": "2026-01-01",
+        "period_end": "2026-01-31",
+        "return_value": "0.0125",
+        "beginning_market_value": "1000000.00",
+        "ending_market_value": "1012500.00",
+        "reporting_currency": "USD",
+        "calculation_id": "7f2b08b0-58e5-49be-b3ef-7a9cfb0321ce",
+        "source_snapshot_id": "portfolio-twr-snapshot-1",
+        "source_fingerprint": "sha256:portfolio-twr-snapshot-1",
+        "restatement_version": restatement_version,
+    }
+
+    with pytest.raises(ValidationError):
+        CompositeMemberReturnFact.model_validate(payload)

@@ -28,6 +28,7 @@ OWNED_DURABLE_TABLES = (
     "composite_definitions",
     "composite_memberships",
     "composite_member_return_facts",
+    "composite_member_return_fact_publications",
 )
 ADDITIVE_COLUMN_CHECKS = {
     "lineage_payloads": (
@@ -39,6 +40,11 @@ ADDITIVE_COLUMN_CHECKS = {
         "return_view",
         "source_fingerprint",
         "restatement_version",
+        "restatement_sequence",
+    ),
+    "composite_member_return_fact_publications": (
+        "expected_families_json",
+        "source_fingerprint",
     ),
 }
 BOOTSTRAP_STORES = (
@@ -69,6 +75,7 @@ class DurableSchemaApplyEvidence:
     owned_tables_present: list[str]
     missing_owned_tables: list[str]
     additive_upgrade_checks: list[DurableSchemaColumnCheck]
+    bootstrap_error: str | None
     status: str
 
 
@@ -90,27 +97,41 @@ def apply_durable_schema(*, database_url: str | None = None) -> DurableSchemaApp
     stores = (execution_store, compute_store, async_result_store, lineage_store, composite_store)
 
     try:
-        bootstrap_durable_metadata_stores(
-            execution_store=execution_store,
-            compute_store=compute_store,
-            async_result_store_=async_result_store,
-            lineage_store=lineage_store,
-            composite_store=composite_store,
-        )
+        try:
+            bootstrap_durable_metadata_stores(
+                execution_store=execution_store,
+                compute_store=compute_store,
+                async_result_store_=async_result_store,
+                lineage_store=lineage_store,
+                composite_store=composite_store,
+            )
+        except RuntimeError as exc:
+            return _build_evidence(
+                database_url=active_database_url,
+                engine=execution_store._engine,
+                bootstrap_error=str(exc),
+            )
         return _build_evidence(database_url=active_database_url, engine=execution_store._engine)
     finally:
         for store in stores:
             store._engine.dispose()
 
 
-def _build_evidence(*, database_url: str, engine: Engine) -> DurableSchemaApplyEvidence:
+def _build_evidence(
+    *,
+    database_url: str,
+    engine: Engine,
+    bootstrap_error: str | None = None,
+) -> DurableSchemaApplyEvidence:
     available_tables = set(inspect(engine).get_table_names())
     owned_tables_present = [table_name for table_name in OWNED_DURABLE_TABLES if table_name in available_tables]
     missing_owned_tables = [table_name for table_name in OWNED_DURABLE_TABLES if table_name not in available_tables]
     additive_upgrade_checks = _build_additive_column_checks(engine=engine, available_tables=available_tables)
     status = (
         "passed"
-        if not missing_owned_tables and all(not check.missing_columns for check in additive_upgrade_checks)
+        if bootstrap_error is None
+        and not missing_owned_tables
+        and all(not check.missing_columns for check in additive_upgrade_checks)
         else "failed"
     )
     return DurableSchemaApplyEvidence(
@@ -122,6 +143,7 @@ def _build_evidence(*, database_url: str, engine: Engine) -> DurableSchemaApplyE
         owned_tables_present=owned_tables_present,
         missing_owned_tables=missing_owned_tables,
         additive_upgrade_checks=additive_upgrade_checks,
+        bootstrap_error=bootstrap_error,
         status=status,
     )
 

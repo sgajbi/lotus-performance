@@ -34,11 +34,13 @@ CLASSIFIED_SURFACES = (
     ("twr", "analytics_domain"),
     ("contribution", "analytics_domain"),
     ("attribution", "analytics_domain"),
+    ("composite", "analytics_domain"),
     ("source_cashflow_taxonomy", "analytics_domain"),
     ("stateful_position_row", "analytics_domain"),
     ("valuation_points_service", "analytics_domain"),
     ("durable_schema_apply", "observability_or_readiness"),
     ("durable_schema_creation", "observability_or_readiness"),
+    ("durable_recovery_drill", "observability_or_readiness"),
     ("durable_schema_inventory_check", "contract_or_governance"),
 )
 
@@ -211,9 +213,7 @@ def test_no_document_states_a_taxonomy_threshold_the_gate_does_not_enforce() -> 
         text = document.read_text(encoding="utf-8", errors="ignore")
         for flag, value in re.findall(r"--(m(?:in|ax)-[a-z-]+-tests) (\d+)", text):
             if flag in enforced and int(value) != enforced[flag]:
-                drift.append(
-                    f"{document.relative_to(ROOT).as_posix()}: --{flag} {value}, " f"enforced {enforced[flag]}"
-                )
+                drift.append(f"{document.relative_to(ROOT).as_posix()}: --{flag} {value}, enforced {enforced[flag]}")
 
     assert drift == [], (
         "These documents state a taxonomy threshold the gate does not enforce. A documented value "

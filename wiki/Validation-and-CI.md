@@ -47,7 +47,10 @@ branch `main` at the exact merged SHA, while manual dispatch retains its selecte
 - `make migration-apply`
   operator schema apply/verify proof: runs the shared durable metadata bootstrap against the
   configured metadata database and writes structured evidence under
-  `artifacts/durable-schema-apply/`
+  `artifacts/durable-schema-apply/`; publication evidence fails closed if
+  `expected_families_json` or `source_fingerprint` is absent, and a retained composite fact with a
+  blank or overlong `restatement_version` blocks upgrade rather than receiving invented or
+  truncated lineage
 - `make container-supply-chain-evidence`
   image release evidence: builds the production `runtime` Dockerfile target with support-safe
   Git/build metadata, refreshes published Debian security packages, installs only runtime dependencies, runs as non-root user `lotus`, writes a

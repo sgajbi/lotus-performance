@@ -8,7 +8,7 @@
       "openApiVersion": "3.1.0"
     }
   ],
-  "generatedAt": "2026-09-08T22:19:19.036412+00:00",
+  "generatedAt": "2026-09-27T16:02:04.915190+00:00",
   "attributeCatalog": [
     {
       "semanticId": "lotus.access_classification",
@@ -3550,6 +3550,7 @@
           "source_snapshot_id": "snapshot-1",
           "source_fingerprint": "sha256:member-return-fact-pb-sg-global-bal-001-2026-01",
           "restatement_version": "v1",
+          "restatement_sequence": 1,
           "calculation_id": "calc-1"
         }
       ],
@@ -5664,6 +5665,20 @@
       ]
     },
     {
+      "semanticId": "lotus.restatement_sequence",
+      "canonicalTerm": "restatement_sequence",
+      "preferredName": "restatement_sequence",
+      "description": "Canonical restatement sequence used by lotus-performance APIs.",
+      "example": 1,
+      "type": "integer",
+      "locations": [
+        "body"
+      ],
+      "observedTypes": [
+        "integer"
+      ]
+    },
+    {
       "semanticId": "lotus.restatement_version",
       "canonicalTerm": "restatement_version",
       "preferredName": "restatement_version",
@@ -5955,13 +5970,14 @@
       "semanticId": "lotus.return_view",
       "canonicalTerm": "return_view",
       "preferredName": "return_view",
-      "description": "Canonical return view used by lotus-performance APIs.",
-      "example": "STANDARD_VALUE",
-      "type": "string",
+      "description": "composite return view schema.",
+      "example": "GROSS",
+      "type": "CompositeReturnView",
       "locations": [
         "body"
       ],
       "observedTypes": [
+        "CompositeReturnView",
         "string"
       ]
     },
@@ -10619,6 +10635,30 @@
             "type": "string",
             "semanticId": "lotus.period_end",
             "attributeRef": "#/attributeCatalog/lotus.period_end"
+          },
+          {
+            "name": "return_view",
+            "location": "body",
+            "required": false,
+            "type": "CompositeReturnView",
+            "semanticId": "lotus.return_view",
+            "attributeRef": "#/attributeCatalog/lotus.return_view"
+          },
+          {
+            "name": "reporting_currency",
+            "location": "body",
+            "required": false,
+            "type": "string",
+            "semanticId": "lotus.reporting_currency",
+            "attributeRef": "#/attributeCatalog/lotus.reporting_currency"
+          },
+          {
+            "name": "restatement_sequence",
+            "location": "body",
+            "required": false,
+            "type": "integer",
+            "semanticId": "lotus.restatement_sequence",
+            "attributeRef": "#/attributeCatalog/lotus.restatement_sequence"
           }
         ]
       },
@@ -10801,6 +10841,14 @@
             "attributeRef": "#/attributeCatalog/lotus.restatement_versions"
           },
           {
+            "name": "periods[].restatement_sequence",
+            "location": "body",
+            "required": false,
+            "type": "integer",
+            "semanticId": "lotus.restatement_sequence",
+            "attributeRef": "#/attributeCatalog/lotus.restatement_sequence"
+          },
+          {
             "name": "periods[].reason_codes",
             "location": "body",
             "required": false,
@@ -10897,6 +10945,14 @@
             "attributeRef": "#/attributeCatalog/lotus.restatement_version"
           },
           {
+            "name": "periods[].member_contributions[].restatement_sequence",
+            "location": "body",
+            "required": true,
+            "type": "integer",
+            "semanticId": "lotus.restatement_sequence",
+            "attributeRef": "#/attributeCatalog/lotus.restatement_sequence"
+          },
+          {
             "name": "periods[].member_contributions[].calculation_id",
             "location": "body",
             "required": true,
@@ -10954,6 +11010,30 @@
             "type": "string",
             "semanticId": "lotus.period_end",
             "attributeRef": "#/attributeCatalog/lotus.period_end"
+          },
+          {
+            "name": "return_view",
+            "location": "body",
+            "required": false,
+            "type": "CompositeReturnView",
+            "semanticId": "lotus.return_view",
+            "attributeRef": "#/attributeCatalog/lotus.return_view"
+          },
+          {
+            "name": "reporting_currency",
+            "location": "body",
+            "required": false,
+            "type": "string",
+            "semanticId": "lotus.reporting_currency",
+            "attributeRef": "#/attributeCatalog/lotus.reporting_currency"
+          },
+          {
+            "name": "restatement_sequence",
+            "location": "body",
+            "required": false,
+            "type": "integer",
+            "semanticId": "lotus.restatement_sequence",
+            "attributeRef": "#/attributeCatalog/lotus.restatement_sequence"
           }
         ]
       },

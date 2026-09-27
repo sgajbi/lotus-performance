@@ -26,6 +26,7 @@ class CompositeMemberReturnFactLike(Protocol):
     source_snapshot_id: str
     source_fingerprint: str
     restatement_version: str
+    restatement_sequence: int
     status: object
     reason_codes: list[str]
 
@@ -42,6 +43,7 @@ class CompositeMemberContribution:
     source_snapshot_id: str
     source_fingerprint: str
     restatement_version: str
+    restatement_sequence: int
     calculation_id: str
 
 
@@ -63,6 +65,7 @@ class CompositePeriodResult:
     restatement_versions: list[str]
     reason_codes: list[str]
     member_contributions: list[CompositeMemberContribution]
+    restatement_sequence: int | None = None
 
 
 @dataclass(frozen=True)
@@ -143,6 +146,14 @@ def _sample_standard_deviation(values: list[Decimal]) -> Decimal | None:
     return _quantize_decimal(variance.sqrt(), COMPOSITE_RETURN_QUANTUM)
 
 
+def _selected_restatement_sequence(
+    ready_facts: Sequence[CompositeMemberReturnFactLike],
+    excluded_facts: Sequence[CompositeMemberReturnFactLike],
+) -> int | None:
+    sequences = {fact.restatement_sequence for fact in (*ready_facts, *excluded_facts)}
+    return sequences.pop() if len(sequences) == 1 else None
+
+
 def _blocked_composite_period_result(
     *,
     period_start: dt_date,
@@ -172,6 +183,7 @@ def _blocked_composite_period_result(
         reporting_currency=reporting_currency,
         source_fingerprints=source_fingerprints or [],
         restatement_versions=restatement_versions or [],
+        restatement_sequence=_selected_restatement_sequence(ready_facts, excluded_facts),
         reason_codes=reason_codes,
         member_contributions=[],
     )
@@ -200,6 +212,7 @@ def _build_ready_member_contributions(
                 source_snapshot_id=fact.source_snapshot_id,
                 source_fingerprint=fact.source_fingerprint,
                 restatement_version=fact.restatement_version,
+                restatement_sequence=fact.restatement_sequence,
                 calculation_id=fact.calculation_id,
             )
         )
@@ -461,6 +474,10 @@ def _build_ready_composite_period_result(
             reporting_currency=period_fact_set.ready_reporting_currencies[0],
             source_fingerprints=period_fact_set.ready_source_fingerprints,
             restatement_versions=period_fact_set.ready_restatement_versions,
+            restatement_sequence=_selected_restatement_sequence(
+                period_fact_set.ready_facts,
+                period_fact_set.excluded_facts,
+            ),
             reason_codes=period_fact_set.reason_codes,
             member_contributions=member_contributions,
         ),

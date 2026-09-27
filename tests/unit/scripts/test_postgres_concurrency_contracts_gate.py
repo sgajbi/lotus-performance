@@ -16,10 +16,15 @@ REPO_ROOT = Path(__file__).resolve().parents[3]
 GATE = "scripts/postgres_concurrency_contracts_gate.py"
 
 
-def _run_gate(target: Path, environment_overrides: dict[str, str] | None = None) -> subprocess.CompletedProcess[str]:
+def _run_gate(
+    target: Path | tuple[Path, ...],
+    environment_overrides: dict[str, str] | None = None,
+) -> subprocess.CompletedProcess[str]:
     environment = {**os.environ, **(environment_overrides or {})}
+    targets = target if isinstance(target, tuple) else (target,)
+    target_arguments = [argument for selected in targets for argument in ("--target", str(selected))]
     return subprocess.run(
-        [sys.executable, GATE, "--target", str(target)],
+        [sys.executable, GATE, *target_arguments],
         cwd=REPO_ROOT,
         capture_output=True,
         text=True,
@@ -101,7 +106,19 @@ def test_collecting_nothing_is_refused(tmp_path: Path) -> None:
     result = _run_gate(target)
 
     assert result.returncode == 1
-    assert "no concurrency contracts were collected" in result.stdout
+    assert "no PostgreSQL contracts were collected" in result.stdout
+
+
+def test_each_selected_target_must_collect_its_own_contract(tmp_path: Path) -> None:
+    empty_target = tmp_path / "test_contracts_empty.py"
+    empty_target.write_text("# no tests here\n", encoding="utf-8")
+    passing_target = tmp_path / "test_contracts_completed.py"
+    passing_target.write_text("def test_contract():\n    assert True\n", encoding="utf-8")
+
+    result = _run_gate((empty_target, passing_target))
+
+    assert result.returncode == 1
+    assert f"{empty_target}: no PostgreSQL contracts were collected" in result.stdout
 
 
 TARGET_SOURCE = """

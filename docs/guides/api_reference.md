@@ -540,8 +540,18 @@ Return semantics for the workspace surface are now explicit rather than inferred
 - use this endpoint when:
   - composite definition and membership policy have already been materialized
   - member portfolio returns have already been persisted as member-return facts
-  - operations or downstream consumers need source fingerprints, restatement versions, weights,
-    contributions, status, and reason-code evidence
+  - operations or downstream consumers need source fingerprints, source version labels, numeric
+    restatement sequences, weights, contributions, status, and reason-code evidence
+- fact selection:
+  - `return_view` selects one already-materialized fee view
+  - `reporting_currency` is canonicalized to uppercase three-letter ISO-4217 shape, selects one persisted currency identity, and defaults from the composite definition
+  - omitted `restatement_sequence` selects the greatest numeric sequence for the requested fact set
+  - the unpinned latest sequence requires an immutable publication manifest whose declared period covers the entire requested window; absence of a covering manifest returns HTTP 409
+  - a request spanning only separately scoped publications has no single covering manifest and therefore returns HTTP 409; the service never falls back to an older completed sequence
+  - explicit `restatement_sequence` replays exactly the retained historical family set, even if later sequences add or remove families
+  - when that explicit sequence has a completed publication manifest, the retained rows must still match its exact declared family set; missing or extra restored rows return HTTP 409
+  - a pinned request outside its completed manifest period returns HTTP 409; a completed sequence is never reinterpreted as unpublished merely because the requested window is wider
+  - each returned period carries the selected numeric `restatement_sequence`, including a blocked period whose `member_contributions` list is empty
 - do not use this endpoint for ad hoc member-return uploads or hidden request-time portfolio TWR
   fan-out
 - unsupported boundaries:
