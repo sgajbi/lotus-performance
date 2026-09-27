@@ -1,10 +1,11 @@
 from concurrent.futures import ThreadPoolExecutor
 from datetime import date
 from decimal import Decimal
-from threading import Barrier, Lock, local
+from threading import Barrier, Event, Lock, local
+from time import monotonic, sleep
 
 import pytest
-from sqlalchemy import create_engine, inspect, text
+from sqlalchemy import create_engine, event, inspect, text
 from sqlalchemy.exc import IntegrityError
 
 from app.models.composites import CompositeDefinition, CompositeMemberReturnFact, CompositeReturnView
@@ -13,12 +14,14 @@ from app.services.composite_calculation_service import calculate_composite_twr_f
 from app.services.composite_metadata_store import (
     COMPOSITE_DEFINITION_CURRENCY_CHECK,
     MEMBER_RETURN_FACT_COMPLETED_DELETE_TRIGGER,
+    MEMBER_RETURN_FACT_COMPLETED_INSERT_TRIGGER,
     MEMBER_RETURN_FACT_CURRENCY_CHECK,
     MEMBER_RETURN_FACT_IMMUTABLE_UPDATE_TRIGGER,
     MEMBER_RETURN_FACT_SEQUENCE_CHECK,
     MEMBER_RETURN_FACT_VERSION_CHECK,
     POSTGRES_MEMBER_RETURN_FACT_VERSION_CHECK_MARKER,
     PUBLICATION_CURRENCY_CHECK,
+    PUBLICATION_IMMUTABLE_DELETE_TRIGGER,
     PUBLICATION_IMMUTABLE_UPDATE_TRIGGER,
     PUBLICATION_PERIOD_CHECK,
     PUBLICATION_SEQUENCE_CHECK,
@@ -29,6 +32,25 @@ from app.services.composite_metadata_store import (
     _serialize_fact_families,
 )
 from tests.benchmarks.postgres_runtime_helpers import get_postgres_database_url
+
+
+def _wait_for_ungranted_advisory_lock(engine, backend_pid: int) -> None:
+    deadline = monotonic() + 10
+    while monotonic() < deadline:
+        with engine.connect() as connection:
+            waiting = connection.scalar(
+                text(
+                    "SELECT EXISTS ("
+                    "SELECT 1 FROM pg_locks "
+                    "WHERE pid = :backend_pid AND locktype = 'advisory' AND NOT granted"
+                    ")"
+                ),
+                {"backend_pid": backend_pid},
+            )
+        if waiting:
+            return
+        sleep(0.05)
+    pytest.fail(f"PostgreSQL backend {backend_pid} did not wait on the governed advisory lock")
 
 
 def _definition() -> CompositeDefinition:
@@ -182,6 +204,21 @@ def _create_pre_sequence_schema(database_url: str) -> None:
                 )
                 """
             )
+            connection.exec_driver_sql(
+                "ALTER TABLE composite_member_return_fact_publications "
+                f"ADD CONSTRAINT {PUBLICATION_CURRENCY_CHECK} "
+                "CHECK (length(reporting_currency) = 3)"
+            )
+            connection.exec_driver_sql(
+                "ALTER TABLE composite_member_return_fact_publications "
+                f"ADD CONSTRAINT {PUBLICATION_SEQUENCE_CHECK} "
+                "CHECK (restatement_sequence >= 0)"
+            )
+            connection.exec_driver_sql(
+                "ALTER TABLE composite_member_return_fact_publications "
+                f"ADD CONSTRAINT {PUBLICATION_PERIOD_CHECK} "
+                "CHECK (period_end >= period_start)"
+            )
             connection.execute(
                 text(
                     """
@@ -215,6 +252,90 @@ def _create_pre_sequence_schema(database_url: str) -> None:
                     'snapshot-net-v1', 'sha256:net-v1', 'published', 'READY', '[]'
                 )
                 """
+            )
+    finally:
+        engine.dispose()
+
+
+def _create_stale_named_constraint_schema(
+    database_url: str,
+    *,
+    fact_currency: str | None = "usd",
+) -> None:
+    engine = create_engine(database_url, future=True)
+    try:
+        with engine.begin() as connection:
+            connection.exec_driver_sql(
+                """
+                CREATE TABLE composite_definitions (
+                    composite_id VARCHAR(128) PRIMARY KEY,
+                    display_name VARCHAR(256) NOT NULL,
+                    strategy_code VARCHAR(128) NOT NULL,
+                    reporting_currency VARCHAR(3),
+                    inception_date DATE NOT NULL,
+                    termination_date DATE,
+                    calculation_method VARCHAR(64) NOT NULL,
+                    source_authority_json TEXT NOT NULL
+                )
+                """
+            )
+            connection.exec_driver_sql(
+                "ALTER TABLE composite_definitions "
+                f"ADD CONSTRAINT {COMPOSITE_DEFINITION_CURRENCY_CHECK} "
+                "CHECK (length(reporting_currency) = 3)"
+            )
+            connection.exec_driver_sql(
+                """
+                INSERT INTO composite_definitions VALUES (
+                    'STALE_CHECKS', 'Stale Checks', 'STALE_CHECKS', 'usd',
+                    '2026-01-01', NULL, 'ASSET_WEIGHTED', '{}'
+                )
+                """
+            )
+            connection.exec_driver_sql(
+                """
+                CREATE TABLE composite_member_return_facts (
+                    fact_key VARCHAR(360) PRIMARY KEY,
+                    composite_id VARCHAR(128) NOT NULL,
+                    portfolio_id VARCHAR(128) NOT NULL,
+                    period_start DATE NOT NULL,
+                    period_end DATE NOT NULL,
+                    return_value TEXT NOT NULL,
+                    return_view VARCHAR(32) NOT NULL,
+                    beginning_market_value TEXT NOT NULL,
+                    ending_market_value TEXT NOT NULL,
+                    reporting_currency VARCHAR(3),
+                    calculation_id VARCHAR(64) NOT NULL,
+                    source_snapshot_id VARCHAR(256) NOT NULL,
+                    source_fingerprint VARCHAR(256) NOT NULL,
+                    restatement_version VARCHAR(64) NOT NULL,
+                    restatement_sequence INTEGER NOT NULL DEFAULT 1,
+                    status VARCHAR(64) NOT NULL,
+                    reason_codes_json TEXT NOT NULL
+                )
+                """
+            )
+            connection.exec_driver_sql(
+                "ALTER TABLE composite_member_return_facts "
+                f"ADD CONSTRAINT {MEMBER_RETURN_FACT_CURRENCY_CHECK} "
+                "CHECK (length(reporting_currency) = 3)"
+            )
+            connection.exec_driver_sql(
+                "ALTER TABLE composite_member_return_facts "
+                f"ADD CONSTRAINT {MEMBER_RETURN_FACT_SEQUENCE_CHECK} "
+                "CHECK (restatement_sequence >= 0)"
+            )
+            connection.execute(
+                text(
+                    """
+                INSERT INTO composite_member_return_facts VALUES (
+                    'stale-check-fact', 'STALE_CHECKS', 'P1', '2026-01-01', '2026-01-31',
+                    '0.01', 'NET_ACTUAL', '100.00', '101.00', :fact_currency, 'stale-check-calc',
+                    'stale-check-snapshot', 'sha256:stale-check', 'v1', 1, 'READY', '[]'
+                )
+                """
+                ),
+                {"fact_currency": fact_currency},
             )
     finally:
         engine.dispose()
@@ -318,6 +439,37 @@ def _create_unicode_currency_schema(database_url: str) -> None:
                 INSERT INTO composite_definitions VALUES (
                     'UNICODE_CURRENCY', 'Unicode currency rejection', 'BALANCED',
                     'uſd', '2026-01-01', NULL, 'ASSET_WEIGHTED', '{}'
+                )
+                """
+            )
+    finally:
+        engine.dispose()
+
+
+def _create_invalid_publication_lineage_schema(database_url: str) -> None:
+    engine = create_engine(database_url, future=True)
+    try:
+        with engine.begin() as connection:
+            connection.exec_driver_sql(
+                """
+                CREATE TABLE composite_member_return_fact_publications (
+                    publication_key VARCHAR(80) PRIMARY KEY,
+                    composite_id VARCHAR(128) NOT NULL,
+                    return_view VARCHAR(32) NOT NULL,
+                    reporting_currency VARCHAR(3) NOT NULL,
+                    restatement_sequence INTEGER NOT NULL,
+                    period_start DATE NOT NULL,
+                    period_end DATE NOT NULL,
+                    expected_families_json TEXT,
+                    source_fingerprint VARCHAR(256)
+                )
+                """
+            )
+            connection.exec_driver_sql(
+                """
+                INSERT INTO composite_member_return_fact_publications VALUES (
+                    'invalid-lineage', 'PB_GLOBAL_BALANCED_USD', 'NET_ACTUAL',
+                    'USD', 1, '2026-01-01', '2026-01-31', 'not-json', ''
                 )
                 """
             )
@@ -655,11 +807,117 @@ def test_postgres_concurrent_composite_fact_replays_are_idempotent_and_conflicts
             store.close()
 
 
+def test_postgres_replaces_stale_named_constraints_and_hardens_fact_currency() -> None:
+    database_url = get_postgres_database_url()
+    _create_stale_named_constraint_schema(database_url)
+    store = CompositeMetadataStore(database_url)
+    store.create_schema()
+    engine = create_engine(database_url, future=True)
+    try:
+        definition_checks = {
+            constraint["name"]: constraint.get("sqltext") or ""
+            for constraint in inspect(engine).get_check_constraints("composite_definitions")
+        }
+        fact_checks = {
+            constraint["name"]: constraint.get("sqltext") or ""
+            for constraint in inspect(engine).get_check_constraints("composite_member_return_facts")
+        }
+        fact_columns = {
+            column["name"]: column for column in inspect(engine).get_columns("composite_member_return_facts")
+        }
+        assert fact_columns["reporting_currency"]["nullable"] is False
+        assert "upper" in definition_checks[COMPOSITE_DEFINITION_CURRENCY_CHECK].lower()
+        assert "substr" in definition_checks[COMPOSITE_DEFINITION_CURRENCY_CHECK].lower()
+        assert "upper" in fact_checks[MEMBER_RETURN_FACT_CURRENCY_CHECK].lower()
+        assert "substr" in fact_checks[MEMBER_RETURN_FACT_CURRENCY_CHECK].lower()
+        assert ">= 1" in fact_checks[MEMBER_RETURN_FACT_SEQUENCE_CHECK]
+        with pytest.raises(IntegrityError):
+            with engine.begin() as connection:
+                connection.exec_driver_sql(
+                    """
+                    INSERT INTO composite_member_return_facts VALUES (
+                        'null-currency-fact', 'STALE_CHECKS', 'P2',
+                        '2026-01-01', '2026-01-31', '0.01', 'NET_ACTUAL',
+                        '100.00', '101.00', NULL, 'null-currency-calc',
+                        'null-currency-snapshot', 'sha256:null-currency',
+                        'v1', 2, 'READY', '[]'
+                    )
+                    """
+                )
+
+        second_bootstrap_statements: list[str] = []
+
+        def _capture_statement(_connection, _cursor, statement, _parameters, _context, _executemany):
+            second_bootstrap_statements.append(statement)
+
+        event.listen(store._engine, "before_cursor_execute", _capture_statement)
+        try:
+            store.create_schema()
+        finally:
+            event.remove(store._engine, "before_cursor_execute", _capture_statement)
+        managed_tables = (
+            "COMPOSITE_DEFINITIONS",
+            "COMPOSITE_MEMBER_RETURN_FACTS",
+            "COMPOSITE_MEMBER_RETURN_FACT_PUBLICATIONS",
+        )
+        assert not [
+            statement
+            for statement in second_bootstrap_statements
+            if "ALTER TABLE" in statement.upper()
+            and any(table_name in statement.upper() for table_name in managed_tables)
+        ]
+    finally:
+        engine.dispose()
+        store.close()
+
+    invalid_database_url = get_postgres_database_url()
+    _create_stale_named_constraint_schema(invalid_database_url, fact_currency=None)
+    invalid_store = CompositeMetadataStore(invalid_database_url)
+    try:
+        with pytest.raises(RuntimeError, match="invalid reporting_currency.*composite_member_return_facts"):
+            invalid_store.create_schema()
+        invalid_engine = create_engine(invalid_database_url, future=True)
+        try:
+            invalid_fact_columns = {
+                column["name"]: column
+                for column in inspect(invalid_engine).get_columns("composite_member_return_facts")
+            }
+            assert invalid_fact_columns["reporting_currency"]["nullable"] is True
+        finally:
+            invalid_engine.dispose()
+    finally:
+        invalid_store.close()
+
+
 def test_postgres_migrates_and_retains_immutable_composite_fact_versions() -> None:
     database_url = get_postgres_database_url()
     _create_pre_sequence_schema(database_url)
     store = CompositeMetadataStore(database_url)
     store.create_schema()
+    second_bootstrap = CompositeMetadataStore(database_url)
+    second_bootstrap_statements: list[str] = []
+
+    def _capture_second_bootstrap_statement(_connection, _cursor, statement, _parameters, _context, _executemany):
+        second_bootstrap_statements.append(statement)
+
+    event.listen(second_bootstrap._engine, "before_cursor_execute", _capture_second_bootstrap_statement)
+    try:
+        second_bootstrap.create_schema()
+    finally:
+        event.remove(second_bootstrap._engine, "before_cursor_execute", _capture_second_bootstrap_statement)
+        second_bootstrap.close()
+    managed_publication_checks = (
+        PUBLICATION_CURRENCY_CHECK,
+        PUBLICATION_SEQUENCE_CHECK,
+        PUBLICATION_PERIOD_CHECK,
+    )
+    assert not [
+        statement
+        for statement in second_bootstrap_statements
+        if "ALTER TABLE composite_member_return_fact_publications" in statement
+        and ("DROP CONSTRAINT" in statement or "ADD CONSTRAINT" in statement)
+        and any(constraint_name in statement for constraint_name in managed_publication_checks)
+    ]
     store.upsert_definition(_definition())
 
     migrated_v1 = store.list_member_return_facts(
@@ -1092,7 +1350,7 @@ def test_postgres_migrates_and_retains_immutable_composite_fact_versions() -> No
             for column in inspect(engine).get_columns("composite_member_return_fact_publications")
         }
         publication_check_constraints = {
-            constraint["name"]
+            constraint["name"]: constraint.get("sqltext") or ""
             for constraint in inspect(engine).get_check_constraints("composite_member_return_fact_publications")
         }
         with engine.connect() as connection:
@@ -1137,15 +1395,23 @@ def test_postgres_migrates_and_retains_immutable_composite_fact_versions() -> No
     assert POSTGRES_MEMBER_RETURN_FACT_VERSION_CHECK_MARKER in check_constraints[MEMBER_RETURN_FACT_VERSION_CHECK]
     assert MEMBER_RETURN_FACT_CURRENCY_CHECK in check_constraints
     assert MEMBER_RETURN_FACT_IMMUTABLE_UPDATE_TRIGGER in trigger_names
+    assert MEMBER_RETURN_FACT_COMPLETED_INSERT_TRIGGER in trigger_names
     assert MEMBER_RETURN_FACT_COMPLETED_DELETE_TRIGGER in trigger_names
     assert PUBLICATION_IMMUTABLE_UPDATE_TRIGGER in publication_trigger_names
+    assert PUBLICATION_IMMUTABLE_DELETE_TRIGGER in publication_trigger_names
     assert publication_columns["restatement_sequence"]["nullable"] is False
     assert publication_columns["reporting_currency"]["nullable"] is False
     assert publication_columns["period_start"]["nullable"] is False
     assert publication_columns["period_end"]["nullable"] is False
+    assert publication_columns["expected_families_json"]["nullable"] is False
+    assert publication_columns["source_fingerprint"]["nullable"] is False
     assert PUBLICATION_CURRENCY_CHECK in publication_check_constraints
     assert PUBLICATION_SEQUENCE_CHECK in publication_check_constraints
     assert PUBLICATION_PERIOD_CHECK in publication_check_constraints
+    assert "upper" in publication_check_constraints[PUBLICATION_CURRENCY_CHECK].lower()
+    assert "substr" in publication_check_constraints[PUBLICATION_CURRENCY_CHECK].lower()
+    assert ">= 1" in publication_check_constraints[PUBLICATION_SEQUENCE_CHECK]
+    assert "9999-12-31" in publication_check_constraints[PUBLICATION_PERIOD_CHECK]
     _assert_direct_bad_sequence_is_rejected(database_url)
     _assert_direct_blank_version_is_rejected(database_url)
     _assert_direct_malformed_currency_is_rejected(database_url)
@@ -1184,6 +1450,67 @@ def test_postgres_migrates_and_retains_immutable_composite_fact_versions() -> No
                     ),
                     {"composite_id": complete_publication_id},
                 )
+        for suffix, period_start, period_end in (
+            ("negative-infinity", "-infinity", "2026-01-31"),
+            ("positive-infinity", "2026-01-01", "infinity"),
+        ):
+            with pytest.raises(IntegrityError):
+                with engine.begin() as connection:
+                    connection.execute(
+                        text(
+                            "INSERT INTO composite_member_return_fact_publications ("
+                            "publication_key, composite_id, return_view, reporting_currency, "
+                            "restatement_sequence, period_start, period_end, expected_families_json, "
+                            "source_fingerprint) VALUES ("
+                            ":publication_key, 'DIRECT_INVALID_PERIOD', 'NET_ACTUAL', 'USD', 1, "
+                            ":period_start, :period_end, '[]', 'sha256:direct')"
+                        ),
+                        {
+                            "publication_key": f"direct-invalid-period-{suffix}",
+                            "period_start": period_start,
+                            "period_end": period_end,
+                        },
+                    )
+        for suffix, expected_families_json, source_fingerprint in (
+            ("malformed-json", "not-json", "sha256:direct"),
+            ("non-list-manifest", "{}", "sha256:direct"),
+            ("scalar-entry", '["not-an-object"]', "sha256:direct"),
+            (
+                "duplicate-family",
+                '[{"period_end":"2026-01-31","period_start":"2026-01-01","portfolio_id":"P1"},'
+                '{"period_end":"2026-01-31","period_start":"2026-01-01","portfolio_id":"P1"}]',
+                "sha256:direct",
+            ),
+            (
+                "out-of-window",
+                '[{"period_end":"2026-02-28","period_start":"2026-02-01","portfolio_id":"P1"}]',
+                "sha256:direct",
+            ),
+            ("blank-fingerprint", "[]", " \t"),
+        ):
+            with pytest.raises(IntegrityError):
+                with engine.begin() as connection:
+                    connection.execute(
+                        text(
+                            "INSERT INTO composite_member_return_fact_publications ("
+                            "publication_key, composite_id, return_view, reporting_currency, "
+                            "restatement_sequence, period_start, period_end, expected_families_json, "
+                            "source_fingerprint) VALUES ("
+                            ":publication_key, 'DIRECT_INVALID_LINEAGE', 'NET_ACTUAL', 'USD', 1, "
+                            "'2026-01-01', '2026-01-31', :expected_families_json, :source_fingerprint)"
+                        ),
+                        {
+                            "publication_key": f"direct-invalid-lineage-{suffix}",
+                            "expected_families_json": expected_families_json,
+                            "source_fingerprint": source_fingerprint,
+                        },
+                    )
+        with pytest.raises(IntegrityError):
+            with engine.begin() as connection:
+                connection.execute(
+                    text("DELETE FROM composite_member_return_fact_publications WHERE composite_id = :composite_id"),
+                    {"composite_id": complete_publication_id},
+                )
     finally:
         engine.dispose()
     maintenance_store = CompositeMetadataStore(database_url)
@@ -1218,6 +1545,15 @@ def test_postgres_upgrade_rejects_invalid_retained_metadata() -> None:
     finally:
         store.close()
 
+    lineage_database_url = get_postgres_database_url()
+    _create_invalid_publication_lineage_schema(lineage_database_url)
+    store = CompositeMetadataStore(lineage_database_url)
+    try:
+        with pytest.raises(RuntimeError, match="invalid publication lineage"):
+            store.create_schema()
+    finally:
+        store.close()
+
     currency_database_url = get_postgres_database_url()
     _create_unicode_currency_schema(currency_database_url)
     store = CompositeMetadataStore(currency_database_url)
@@ -1233,6 +1569,59 @@ def test_postgres_upgrade_rejects_invalid_retained_metadata() -> None:
     try:
         with pytest.raises(RuntimeError, match="invalid restatement_version"):
             store.create_schema()
+    finally:
+        store.close()
+
+
+def test_postgres_failed_maintenance_restores_records_and_guards(monkeypatch) -> None:
+    database_url = get_postgres_database_url()
+    store = CompositeMetadataStore(database_url)
+    store.create_schema()
+    fact = _fact(
+        return_value="0.0100",
+        return_view="NET_ACTUAL",
+        restatement_version="v1",
+        restatement_sequence=1,
+        fingerprint="maintenance-rollback",
+        composite_id="MAINTENANCE_ROLLBACK",
+    )
+    try:
+        store.upsert_member_return_fact(fact)
+        _complete_publication(store, fact, source_fingerprint="sha256:maintenance-rollback")
+
+        def _fail_guard_recreation(_connection):
+            raise RuntimeError("injected guard recreation failure")
+
+        monkeypatch.setattr(
+            composite_metadata_store_module,
+            "_create_composite_fact_database_guards",
+            _fail_guard_recreation,
+        )
+        with pytest.raises(RuntimeError, match="injected guard recreation failure"):
+            store.clear_records_for_composites({fact.composite_id})
+
+        engine = create_engine(database_url, future=True)
+        try:
+            with engine.connect() as connection:
+                assert connection.execute(
+                    text(
+                        "SELECT "
+                        "(SELECT count(*) FROM composite_member_return_facts WHERE composite_id = :composite_id), "
+                        "(SELECT count(*) FROM composite_member_return_fact_publications "
+                        "WHERE composite_id = :composite_id)"
+                    ),
+                    {"composite_id": fact.composite_id},
+                ).one() == (1, 1)
+            with pytest.raises(IntegrityError):
+                with engine.begin() as connection:
+                    connection.execute(
+                        text(
+                            "DELETE FROM composite_member_return_fact_publications WHERE composite_id = :composite_id"
+                        ),
+                        {"composite_id": fact.composite_id},
+                    )
+        finally:
+            engine.dispose()
     finally:
         store.close()
 
@@ -1259,3 +1648,215 @@ def test_postgres_fresh_schema_enforces_positive_composite_fact_sequence() -> No
     _assert_direct_bad_sequence_is_rejected(database_url)
     _assert_direct_blank_version_is_rejected(database_url)
     _assert_direct_malformed_currency_is_rejected(database_url)
+
+
+def test_postgres_direct_sql_publication_requires_exact_families_and_fences_late_fact() -> None:
+    database_url = get_postgres_database_url()
+    store = CompositeMetadataStore(database_url)
+    store.create_schema()
+    fact = _fact(
+        return_value="0.0100",
+        return_view="NET_ACTUAL",
+        restatement_version="v1",
+        restatement_sequence=1,
+        fingerprint="direct-boundary-p1",
+        composite_id="DIRECT_SQL_PUBLICATION_BOUNDARY",
+        portfolio_id="P1",
+    )
+    store.upsert_member_return_fact(fact)
+    publication_key = _publication_key(
+        composite_id=fact.composite_id,
+        return_view=fact.return_view,
+        reporting_currency=fact.reporting_currency,
+        restatement_sequence=fact.restatement_sequence,
+    )
+    publication_insert = text(
+        """
+        INSERT INTO composite_member_return_fact_publications (
+            publication_key, composite_id, return_view, reporting_currency,
+            restatement_sequence, period_start, period_end, expected_families_json,
+            source_fingerprint
+        ) VALUES (
+            :publication_key, :composite_id, :return_view, :reporting_currency,
+            :restatement_sequence, :period_start, :period_end, :expected_families_json,
+            'sha256:direct-boundary-publication'
+        )
+        """
+    )
+    fact_insert = text(
+        """
+        INSERT INTO composite_member_return_facts (
+            fact_key, composite_id, portfolio_id, period_start, period_end,
+            return_value, return_view, beginning_market_value, ending_market_value,
+            reporting_currency, calculation_id, source_snapshot_id, source_fingerprint,
+            restatement_version, restatement_sequence, status, reason_codes_json
+        ) VALUES (
+            :fact_key, :composite_id, :portfolio_id, :period_start, :period_end,
+            '0.02', :return_view, '100.00', '102.00', :reporting_currency,
+            :fact_key, :fact_key, :source_fingerprint,
+            'v1', :restatement_sequence, 'READY', '[]'
+        )
+        """
+    )
+    values = {
+        "publication_key": publication_key,
+        "composite_id": fact.composite_id,
+        "return_view": fact.return_view.value,
+        "reporting_currency": fact.reporting_currency,
+        "restatement_sequence": fact.restatement_sequence,
+        "period_start": fact.period_start,
+        "period_end": fact.period_end,
+    }
+    engine = create_engine(database_url, future=True)
+    try:
+        with pytest.raises(IntegrityError):
+            with engine.begin() as connection:
+                connection.execute(publication_insert, values | {"expected_families_json": "[]"})
+
+        with engine.begin() as connection:
+            connection.execute(
+                publication_insert,
+                values
+                | {
+                    "expected_families_json": _serialize_fact_families(
+                        {(fact.portfolio_id, fact.period_start, fact.period_end)}
+                    )
+                },
+            )
+
+        with pytest.raises(IntegrityError):
+            with engine.begin() as connection:
+                connection.execute(
+                    fact_insert,
+                    values
+                    | {
+                        "fact_key": "direct-boundary-p2",
+                        "portfolio_id": "P2",
+                        "source_fingerprint": "sha256:direct-boundary-p2",
+                    },
+                )
+
+        with engine.connect() as connection:
+            assert connection.execute(
+                text(
+                    "SELECT "
+                    "(SELECT count(*) FROM composite_member_return_facts WHERE composite_id = :composite_id), "
+                    "(SELECT count(*) FROM composite_member_return_fact_publications "
+                    "WHERE composite_id = :composite_id)"
+                ),
+                {"composite_id": fact.composite_id},
+            ).one() == (1, 1)
+
+        # Prove both lock directions deterministically. The first writer keeps
+        # its transaction open; pg_locks must report the peer waiting on the
+        # governed advisory lock before the first writer commits.
+        def _attempt_direct_insert(statement, statement_values, ready, backend_pids):
+            with engine.connect() as connection:
+                backend_pids.append(connection.scalar(text("SELECT pg_backend_pid()")))
+                connection.commit()
+                ready.set()
+                try:
+                    with connection.begin():
+                        connection.execute(statement, statement_values)
+                except IntegrityError:
+                    return "rejected"
+            return "committed"
+
+        publication_first_id = "DIRECT_SQL_PUBLICATION_RACE_PUBLICATION_FIRST"
+        publication_first_values = values | {
+            "composite_id": publication_first_id,
+            "publication_key": _publication_key(
+                composite_id=publication_first_id,
+                return_view=fact.return_view,
+                reporting_currency=fact.reporting_currency,
+                restatement_sequence=fact.restatement_sequence,
+            ),
+        }
+        publication_writer = engine.connect()
+        publication_transaction = publication_writer.begin()
+        publication_writer.execute(
+            publication_insert,
+            publication_first_values | {"expected_families_json": "[]"},
+        )
+        fact_ready = Event()
+        fact_backend_pids: list[int] = []
+        with ThreadPoolExecutor(max_workers=1) as executor:
+            fact_future = executor.submit(
+                _attempt_direct_insert,
+                fact_insert,
+                publication_first_values
+                | {
+                    "fact_key": "direct-race-publication-first-p1",
+                    "portfolio_id": "P1",
+                    "source_fingerprint": "sha256:direct-race-publication-first-p1",
+                },
+                fact_ready,
+                fact_backend_pids,
+            )
+            try:
+                assert fact_ready.wait(timeout=10)
+                _wait_for_ungranted_advisory_lock(engine, fact_backend_pids[0])
+                publication_transaction.commit()
+            finally:
+                if publication_transaction.is_active:
+                    publication_transaction.rollback()
+                publication_writer.close()
+            assert fact_future.result(timeout=10) == "rejected"
+
+        fact_first_id = "DIRECT_SQL_PUBLICATION_RACE_FACT_FIRST"
+        fact_first_values = values | {
+            "composite_id": fact_first_id,
+            "publication_key": _publication_key(
+                composite_id=fact_first_id,
+                return_view=fact.return_view,
+                reporting_currency=fact.reporting_currency,
+                restatement_sequence=fact.restatement_sequence,
+            ),
+            "fact_key": "direct-race-fact-first-p1",
+            "portfolio_id": "P1",
+            "source_fingerprint": "sha256:direct-race-fact-first-p1",
+        }
+        fact_writer = engine.connect()
+        fact_transaction = fact_writer.begin()
+        fact_writer.execute(fact_insert, fact_first_values)
+        publication_ready = Event()
+        publication_backend_pids: list[int] = []
+        with ThreadPoolExecutor(max_workers=1) as executor:
+            publication_future = executor.submit(
+                _attempt_direct_insert,
+                publication_insert,
+                fact_first_values | {"expected_families_json": "[]"},
+                publication_ready,
+                publication_backend_pids,
+            )
+            try:
+                assert publication_ready.wait(timeout=10)
+                _wait_for_ungranted_advisory_lock(engine, publication_backend_pids[0])
+                fact_transaction.commit()
+            finally:
+                if fact_transaction.is_active:
+                    fact_transaction.rollback()
+                fact_writer.close()
+            assert publication_future.result(timeout=10) == "rejected"
+
+        with engine.connect() as connection:
+            for composite_id, expected_counts in (
+                (publication_first_id, (0, 1)),
+                (fact_first_id, (1, 0)),
+            ):
+                assert (
+                    connection.execute(
+                        text(
+                            "SELECT "
+                            "(SELECT count(*) FROM composite_member_return_facts "
+                            "WHERE composite_id = :composite_id), "
+                            "(SELECT count(*) FROM composite_member_return_fact_publications "
+                            "WHERE composite_id = :composite_id)"
+                        ),
+                        {"composite_id": composite_id},
+                    ).one()
+                    == expected_counts
+                )
+    finally:
+        engine.dispose()
+        store.close()

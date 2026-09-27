@@ -36,9 +36,13 @@ Recovery must include:
 1. Stop write traffic to `performance-analytics`.
 2. Stop `performance-compute-executor`.
 3. Stop `performance-lineage-worker`.
-4. Restore the durable metadata database from the selected backup.
-5. Run schema bootstrap/upgrade once against the restored database.
-6. Verify owned tables exist and health/readiness can reach the durable metadata store.
+4. Stop all cleanup, demo-seed, and composite-publication processes, including older application
+   revisions; they must not overlap the immutable-manifest guard cutover.
+5. Restore the durable metadata database from the selected backup.
+6. Run schema bootstrap/upgrade once using the matching application revision. The upgrade holds a
+   real database transaction, suspends managed guards before legacy normalization, validates
+   retained family manifests and fingerprints, and recreates guards before commit.
+7. Verify owned tables exist and health/readiness can reach the durable metadata store.
 
 ## Worker Restart Order
 
@@ -67,6 +71,9 @@ Recovery must include:
   - verify composite recovery schema includes fact `restatement_sequence` and publication
     `period_start`, `period_end`, `expected_families_json`, `source_fingerprint`, and
     `restatement_sequence`; table-name presence alone is not sufficient restore evidence
+  - verify every retained publication family manifest is structurally valid, unique, inside its
+    declared period, and paired with a nonblank fingerprint; a nullable or malformed retained row
+    must fail bootstrap rather than become serving-time lineage evidence
   - verify retained fact rows have `restatement_version` evidence that is nonblank and at most 64
     characters; upgrade must fail closed on an invalid legacy label rather than inventing or
     truncating historical lineage

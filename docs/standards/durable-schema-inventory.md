@@ -90,15 +90,17 @@
   PostgreSQL makes the validated sequence column non-null.
   PostgreSQL then applies the fact-table database constraint and atomically strengthens an existing
   earlier space-only named constraint after retained-row validation. It also promotes a validated
-  nullable legacy version column to non-null. SQLite additive upgrade replaces the managed future-insert
+  nullable legacy version column to non-null. SQLite additive upgrade establishes an explicit
+  writer transaction, suspends managed guards before normalization, and replaces the future-insert
   canonical-currency, positive-integer-sequence, and version-label guards after retained-row
-  validation without rebuilding the existing table.
+  validation without rebuilding the existing table. A failed upgrade rolls back data and guard DDL together.
 - Recovery role: source of deterministic latest or explicit historical persisted-fact evidence for
   composite TWR calculations and inspections after restart
 - Mutation boundary: fact rows are insert-only after admission. Database triggers reject direct
   updates in PostgreSQL and SQLite, and reject deletion while a matching completed publication
-  exists. Corrections are new immutable sequences; supported scoped cleanup removes the publication
-  before its facts in the same database transaction.
+  exists. Corrections are new immutable sequences; supported scoped cleanup holds the governed
+  table locks and suspends/recreates the deletion guards around manifest-then-fact deletion in the
+  same rollback-safe database transaction.
 
 ### `composite_member_return_fact_publications`
 
@@ -119,16 +121,20 @@
 - Payload integrity: completed family-set comparison is paired with database mutation guards. A
   direct writer cannot change economics or lineage on an existing fact while retaining the same
   family identity, cannot rewrite a completed manifest's period, family set, or fingerprint, and
-  cannot delete a completed fact without first removing its manifest.
+  cannot delete a completed manifest or fact. Only the supported locked maintenance path may
+  remove both, and it restores all guards before commit.
 - Upgrade behavior: retained null, nonpositive, fractional, or nonnumeric sequences fail closed.
   A pre-existing publication table must also retain `expected_families_json` and
   `source_fingerprint`; runtime bootstrap refuses the table rather than fabricating lineage.
-  Retained publication periods also fail closed when either boundary is null, uses a non-text
+  Retained lineage also fails closed unless the expected-family payload is a JSON list of exact,
+  unique, nonblank-portfolio, canonical-date families wholly inside the publication window and the
+  source fingerprint is nonblank and bounded. Retained publication periods fail closed when either boundary is null, uses a non-text
   SQLite storage class, is not the exact canonical `YYYY-MM-DD` representation, or when the end
-  precedes the start. PostgreSQL makes the validated sequence, reporting currency, and both period boundaries non-null and
+  precedes the start. PostgreSQL makes the validated sequence, reporting currency, both period boundaries, and both lineage columns non-null and
   retrofits the canonical-currency, positive-sequence, and valid-period checks before serving.
-  SQLite publication tables reject non-integer sequences and non-calendar ISO date text on direct
-  insert or update, including SQLite's otherwise valid astronomical year zero. Additive upgrades
+  PostgreSQL and SQLite publication insert guards reject malformed family evidence and blank
+  fingerprints. SQLite publication tables also reject non-integer sequences and non-calendar ISO date text on direct
+  insert, including SQLite's otherwise valid astronomical year zero. Additive upgrades
   replace equivalent named triggers after retained rows pass validation; lexical ordering alone is not
   accepted as calendar validity.
 

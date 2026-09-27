@@ -3,9 +3,10 @@ from __future__ import annotations
 from concurrent.futures import ThreadPoolExecutor
 from datetime import date
 from threading import Event
+from unittest.mock import Mock
 
 import pytest
-from sqlalchemy import create_engine, inspect, text
+from sqlalchemy import String, create_engine, inspect, text
 from sqlalchemy.exc import IntegrityError
 
 from app.models.composites import (
@@ -48,6 +49,319 @@ def _drop_sqlite_guard_for_restore_fixture(
 
     with store._engine.begin() as connection:
         connection.exec_driver_sql(f"DROP TRIGGER IF EXISTS {trigger_name}")
+
+
+def test_postgres_upgrade_replaces_all_legacy_same_named_publication_constraints(monkeypatch):
+    inspector = Mock()
+    inspector.get_columns.return_value = [
+        {"name": column_name, "nullable": False}
+        for column_name in (
+            "reporting_currency",
+            "restatement_sequence",
+            "period_start",
+            "period_end",
+            "expected_families_json",
+            "source_fingerprint",
+        )
+    ]
+    inspector.get_check_constraints.return_value = [
+        {
+            "name": composite_metadata_store_module.PUBLICATION_CURRENCY_CHECK,
+            "sqltext": "length(reporting_currency) = 3",
+        },
+        {
+            "name": composite_metadata_store_module.PUBLICATION_SEQUENCE_CHECK,
+            "sqltext": "restatement_sequence >= 0",
+        },
+        {
+            "name": composite_metadata_store_module.PUBLICATION_PERIOD_CHECK,
+            "sqltext": "period_end >= period_start",
+        },
+    ]
+    monkeypatch.setattr(composite_metadata_store_module, "inspect", lambda _connection: inspector)
+    connection = Mock()
+
+    composite_metadata_store_module._upgrade_postgres_publication_constraints(connection)
+
+    executed_sql = [str(call.args[0]) for call in connection.execute.call_args_list]
+    assert executed_sql == [
+        "ALTER TABLE composite_member_return_fact_publications "
+        "DROP CONSTRAINT ck_composite_fact_publications_reporting_currency_canonical",
+        "ALTER TABLE composite_member_return_fact_publications "
+        "DROP CONSTRAINT ck_composite_fact_publications_restatement_sequence_positive",
+        "ALTER TABLE composite_member_return_fact_publications "
+        "DROP CONSTRAINT ck_composite_fact_publications_period_valid",
+        "ALTER TABLE composite_member_return_fact_publications "
+        "ADD CONSTRAINT ck_composite_fact_publications_reporting_currency_canonical CHECK ("
+        "length(reporting_currency) = 3 AND reporting_currency = upper(reporting_currency) "
+        "AND substr(reporting_currency, 1, 1) BETWEEN 'A' AND 'Z' "
+        "AND substr(reporting_currency, 2, 1) BETWEEN 'A' AND 'Z' "
+        "AND substr(reporting_currency, 3, 1) BETWEEN 'A' AND 'Z')",
+        "ALTER TABLE composite_member_return_fact_publications "
+        "ADD CONSTRAINT ck_composite_fact_publications_restatement_sequence_positive CHECK ("
+        "restatement_sequence >= 1)",
+        "ALTER TABLE composite_member_return_fact_publications "
+        "ADD CONSTRAINT ck_composite_fact_publications_period_valid CHECK ("
+        "period_start >= '0001-01-01' AND period_end <= '9999-12-31' "
+        "AND period_end >= period_start)",
+    ]
+
+
+def test_postgres_upgrade_preserves_canonical_publication_constraints(monkeypatch):
+    inspector = Mock()
+    inspector.get_columns.return_value = [
+        {"name": column_name, "nullable": False}
+        for column_name in (
+            "reporting_currency",
+            "restatement_sequence",
+            "period_start",
+            "period_end",
+            "expected_families_json",
+            "source_fingerprint",
+        )
+    ]
+    inspector.get_check_constraints.return_value = [
+        {
+            "name": composite_metadata_store_module.PUBLICATION_CURRENCY_CHECK,
+            "sqltext": (
+                "length(reporting_currency::text) = 3 "
+                "AND reporting_currency::text = upper(reporting_currency::text) "
+                "AND substr(reporting_currency::text, 1, 1) >= 'A'::text "
+                "AND substr(reporting_currency::text, 1, 1) <= 'Z'::text "
+                "AND substr(reporting_currency::text, 2, 1) >= 'A'::text "
+                "AND substr(reporting_currency::text, 2, 1) <= 'Z'::text "
+                "AND substr(reporting_currency::text, 3, 1) >= 'A'::text "
+                "AND substr(reporting_currency::text, 3, 1) <= 'Z'::text"
+            ),
+        },
+        {
+            "name": composite_metadata_store_module.PUBLICATION_SEQUENCE_CHECK,
+            "sqltext": "(restatement_sequence >= 1)",
+        },
+        {
+            "name": composite_metadata_store_module.PUBLICATION_PERIOD_CHECK,
+            "sqltext": (
+                "period_start >= '0001-01-01'::date AND period_end <= '9999-12-31'::date AND period_end >= period_start"
+            ),
+        },
+    ]
+    monkeypatch.setattr(composite_metadata_store_module, "inspect", lambda _connection: inspector)
+    connection = Mock()
+
+    composite_metadata_store_module._upgrade_postgres_publication_constraints(connection)
+
+    connection.execute.assert_not_called()
+
+
+def _postgres_fact_columns(*, reporting_currency_nullable: bool) -> list[dict[str, object]]:
+    return [
+        {"name": "restatement_version", "type": String(64), "nullable": False},
+        {"name": "restatement_sequence", "default": "1", "nullable": False},
+        {"name": "reporting_currency", "nullable": reporting_currency_nullable},
+    ]
+
+
+def test_postgres_fact_upgrade_replaces_stale_named_checks_and_hardens_currency(monkeypatch):
+    inspector = Mock()
+    inspector.get_columns.return_value = _postgres_fact_columns(reporting_currency_nullable=True)
+    inspector.get_check_constraints.return_value = [
+        {
+            "name": composite_metadata_store_module.MEMBER_RETURN_FACT_CURRENCY_CHECK,
+            "sqltext": "length(reporting_currency) = 3",
+        },
+        {
+            "name": composite_metadata_store_module.MEMBER_RETURN_FACT_SEQUENCE_CHECK,
+            "sqltext": "restatement_sequence >= 0",
+        },
+        {
+            "name": composite_metadata_store_module.MEMBER_RETURN_FACT_VERSION_CHECK,
+            "sqltext": composite_metadata_store_module.POSTGRES_MEMBER_RETURN_FACT_VERSION_CHECK_SQL,
+        },
+    ]
+    monkeypatch.setattr(composite_metadata_store_module, "inspect", lambda _connection: inspector)
+    connection = Mock()
+
+    composite_metadata_store_module._upgrade_postgres_member_return_fact_constraints(connection)
+
+    executed_sql = [str(call.args[0]) for call in connection.execute.call_args_list]
+    assert executed_sql == [
+        "ALTER TABLE composite_member_return_facts ALTER COLUMN reporting_currency SET NOT NULL",
+        "ALTER TABLE composite_member_return_facts "
+        "DROP CONSTRAINT ck_composite_member_return_facts_reporting_currency_canonical",
+        "ALTER TABLE composite_member_return_facts "
+        "DROP CONSTRAINT ck_composite_member_return_facts_restatement_sequence_positive",
+        "ALTER TABLE composite_member_return_facts "
+        "ADD CONSTRAINT ck_composite_member_return_facts_reporting_currency_canonical CHECK ("
+        "length(reporting_currency) = 3 AND reporting_currency = upper(reporting_currency) "
+        "AND substr(reporting_currency, 1, 1) BETWEEN 'A' AND 'Z' "
+        "AND substr(reporting_currency, 2, 1) BETWEEN 'A' AND 'Z' "
+        "AND substr(reporting_currency, 3, 1) BETWEEN 'A' AND 'Z')",
+        "ALTER TABLE composite_member_return_facts "
+        "ADD CONSTRAINT ck_composite_member_return_facts_restatement_sequence_positive CHECK ("
+        "restatement_sequence >= 1)",
+    ]
+
+
+def test_postgres_fact_upgrade_preserves_canonical_constraints_and_columns(monkeypatch):
+    inspector = Mock()
+    inspector.get_columns.return_value = _postgres_fact_columns(reporting_currency_nullable=False)
+    inspector.get_check_constraints.return_value = [
+        {
+            "name": composite_metadata_store_module.MEMBER_RETURN_FACT_CURRENCY_CHECK,
+            "sqltext": composite_metadata_store_module.POSTGRES_CANONICAL_REPORTING_CURRENCY_CHECK_SQL,
+        },
+        {
+            "name": composite_metadata_store_module.MEMBER_RETURN_FACT_SEQUENCE_CHECK,
+            "sqltext": "restatement_sequence >= 1",
+        },
+        {
+            "name": composite_metadata_store_module.MEMBER_RETURN_FACT_VERSION_CHECK,
+            "sqltext": composite_metadata_store_module.POSTGRES_MEMBER_RETURN_FACT_VERSION_CHECK_SQL,
+        },
+    ]
+    monkeypatch.setattr(composite_metadata_store_module, "inspect", lambda _connection: inspector)
+    connection = Mock()
+
+    composite_metadata_store_module._upgrade_postgres_member_return_fact_constraints(connection)
+
+    connection.execute.assert_not_called()
+
+
+def test_postgres_definition_upgrade_replaces_stale_named_currency_check(monkeypatch):
+    inspector = Mock()
+    inspector.get_columns.return_value = [{"name": "reporting_currency", "nullable": False}]
+    inspector.get_check_constraints.return_value = [
+        {
+            "name": composite_metadata_store_module.COMPOSITE_DEFINITION_CURRENCY_CHECK,
+            "sqltext": "length(reporting_currency) = 3",
+        }
+    ]
+    monkeypatch.setattr(composite_metadata_store_module, "inspect", lambda _connection: inspector)
+    connection = Mock()
+    connection.dialect.name = "postgresql"
+
+    composite_metadata_store_module._upgrade_postgres_definition_currency_constraint(connection)
+
+    executed_sql = [str(call.args[0]) for call in connection.execute.call_args_list]
+    assert executed_sql == [
+        "ALTER TABLE composite_definitions DROP CONSTRAINT ck_composite_definitions_reporting_currency_canonical",
+        "ALTER TABLE composite_definitions "
+        "ADD CONSTRAINT ck_composite_definitions_reporting_currency_canonical CHECK ("
+        "length(reporting_currency) = 3 AND reporting_currency = upper(reporting_currency) "
+        "AND substr(reporting_currency, 1, 1) BETWEEN 'A' AND 'Z' "
+        "AND substr(reporting_currency, 2, 1) BETWEEN 'A' AND 'Z' "
+        "AND substr(reporting_currency, 3, 1) BETWEEN 'A' AND 'Z')",
+    ]
+
+
+def test_postgres_definition_upgrade_preserves_canonical_currency_check(monkeypatch):
+    inspector = Mock()
+    inspector.get_columns.return_value = [{"name": "reporting_currency", "nullable": False}]
+    inspector.get_check_constraints.return_value = [
+        {
+            "name": composite_metadata_store_module.COMPOSITE_DEFINITION_CURRENCY_CHECK,
+            "sqltext": composite_metadata_store_module.POSTGRES_CANONICAL_REPORTING_CURRENCY_CHECK_SQL,
+        }
+    ]
+    monkeypatch.setattr(composite_metadata_store_module, "inspect", lambda _connection: inspector)
+    connection = Mock()
+    connection.dialect.name = "postgresql"
+
+    composite_metadata_store_module._upgrade_postgres_definition_currency_constraint(connection)
+
+    connection.execute.assert_not_called()
+
+
+def test_sqlite_direct_publication_requires_exact_durable_families_and_fences_late_inserts(tmp_path):
+    store = _store(tmp_path)
+    fact = CompositeMemberReturnFact.model_validate(
+        {
+            "composite_id": "DIRECT_SQL_PUBLICATION_FENCE",
+            "portfolio_id": "P1",
+            "period_start": "2026-01-01",
+            "period_end": "2026-01-31",
+            "return_value": "0.0100",
+            "beginning_market_value": "100.00",
+            "ending_market_value": "101.00",
+            "reporting_currency": "USD",
+            "calculation_id": "direct-sql-fence-p1",
+            "source_snapshot_id": "direct-sql-fence-p1",
+            "source_fingerprint": "sha256:direct-sql-fence-p1",
+        }
+    )
+    publication_insert = text(
+        """
+        INSERT INTO composite_member_return_fact_publications (
+            publication_key, composite_id, return_view, reporting_currency,
+            restatement_sequence, period_start, period_end, expected_families_json,
+            source_fingerprint
+        ) VALUES (
+            :publication_key, :composite_id, :return_view, :reporting_currency,
+            :restatement_sequence, :period_start, :period_end, :expected_families_json,
+            'sha256:direct-publication'
+        )
+        """
+    )
+    direct_fact_insert = text(
+        """
+        INSERT INTO composite_member_return_facts (
+            fact_key, composite_id, portfolio_id, period_start, period_end,
+            return_value, return_view, beginning_market_value, ending_market_value,
+            reporting_currency, calculation_id, source_snapshot_id, source_fingerprint,
+            restatement_version, restatement_sequence, status, reason_codes_json
+        ) VALUES (
+            'direct-sql-fence-p2', :composite_id, 'P2', :period_start, :period_end,
+            '0.02', :return_view, '100.00', '102.00', :reporting_currency,
+            'direct-sql-fence-p2', 'direct-sql-fence-p2', 'sha256:direct-sql-fence-p2',
+            'v1', :restatement_sequence, 'READY', '[]'
+        )
+        """
+    )
+    publication_values = {
+        "publication_key": _publication_key(
+            composite_id=fact.composite_id,
+            return_view=fact.return_view,
+            reporting_currency=fact.reporting_currency,
+            restatement_sequence=fact.restatement_sequence,
+        ),
+        "composite_id": fact.composite_id,
+        "return_view": fact.return_view.value,
+        "reporting_currency": fact.reporting_currency,
+        "restatement_sequence": fact.restatement_sequence,
+        "period_start": fact.period_start,
+        "period_end": fact.period_end,
+    }
+    try:
+        store.upsert_member_return_fact(fact)
+        with pytest.raises(IntegrityError):
+            with store._engine.begin() as connection:
+                connection.execute(publication_insert, publication_values | {"expected_families_json": "[]"})
+
+        with store._engine.begin() as connection:
+            connection.execute(
+                publication_insert,
+                publication_values
+                | {
+                    "expected_families_json": (
+                        '[{"period_end":"2026-01-31","period_start":"2026-01-01","portfolio_id":"P1"}]'
+                    )
+                },
+            )
+
+        with pytest.raises(IntegrityError):
+            with store._engine.begin() as connection:
+                connection.execute(direct_fact_insert, publication_values)
+
+        with store._engine.connect() as connection:
+            assert connection.exec_driver_sql(
+                "SELECT "
+                "(SELECT count(*) FROM composite_member_return_facts "
+                "WHERE composite_id = 'DIRECT_SQL_PUBLICATION_FENCE'), "
+                "(SELECT count(*) FROM composite_member_return_fact_publications "
+                "WHERE composite_id = 'DIRECT_SQL_PUBLICATION_FENCE')"
+            ).one() == (1, 1)
+    finally:
+        store.close()
 
 
 def test_sqlite_fresh_schema_rejects_invalid_direct_restatement_versions(tmp_path):
@@ -165,8 +479,20 @@ def test_sqlite_fresh_schema_rejects_non_integer_direct_restatement_sequences(tm
                 {"fact_key": "direct-valid-fact", "restatement_sequence": 1},
             )
             connection.execute(
-                publication_insert,
-                {"publication_key": "direct-valid-publication", "restatement_sequence": 1},
+                text(
+                    """
+                    INSERT INTO composite_member_return_fact_publications (
+                        publication_key, composite_id, return_view, reporting_currency,
+                        restatement_sequence, period_start, period_end, expected_families_json,
+                        source_fingerprint
+                    ) VALUES (
+                        'direct-valid-publication', 'DIRECT_SQL', 'NET_ACTUAL', 'USD', 1,
+                        '2026-01-01', '2026-01-31',
+                        '[{"period_end":"2026-01-31","period_start":"2026-01-01","portfolio_id":"P2"}]',
+                        'sha256:direct-sequence'
+                    )
+                    """
+                )
             )
         for invalid_sequence in (1.5, "abc"):
             with pytest.raises(IntegrityError):
@@ -405,20 +731,67 @@ def test_sqlite_upgraded_tables_reject_invalid_direct_identity_and_period_writes
                         },
                     )
 
+        for suffix, expected_families_json, source_fingerprint in (
+            ("malformed-json", "not-json", "sha256:upgraded-direct"),
+            ("non-list-manifest", "{}", "sha256:upgraded-direct"),
+            ("scalar-entry", '["not-an-object"]', "sha256:upgraded-direct"),
+            (
+                "missing-portfolio-id",
+                '[{"extra":"P1","period_end":"2026-01-31","period_start":"2026-01-01"}]',
+                "sha256:upgraded-direct",
+            ),
+            ("blob-manifest", b"[]", "sha256:upgraded-direct"),
+            (
+                "duplicate-family",
+                '[{"period_end":"2026-01-31","period_start":"2026-01-01","portfolio_id":"P1"},'
+                '{"period_end":"2026-01-31","period_start":"2026-01-01","portfolio_id":"P1"}]',
+                "sha256:upgraded-direct",
+            ),
+            (
+                "out-of-window",
+                '[{"period_end":"2026-02-28","period_start":"2026-02-01","portfolio_id":"P1"}]',
+                "sha256:upgraded-direct",
+            ),
+            ("blank-fingerprint", "[]", " \t"),
+        ):
+            with pytest.raises(IntegrityError):
+                with store._engine.begin() as connection:
+                    connection.execute(
+                        text(
+                            "INSERT INTO composite_member_return_fact_publications ("
+                            "publication_key, composite_id, return_view, reporting_currency, "
+                            "restatement_sequence, period_start, period_end, expected_families_json, "
+                            "source_fingerprint) VALUES ("
+                            ":publication_key, 'UPGRADED_DIRECT', 'NET_ACTUAL', 'USD', 1, "
+                            "'2026-01-01', '2026-01-31', :expected_families_json, :source_fingerprint)"
+                        ),
+                        {
+                            "publication_key": f"upgraded-publication-lineage-{suffix}",
+                            "expected_families_json": expected_families_json,
+                            "source_fingerprint": source_fingerprint,
+                        },
+                    )
+
         with store._engine.begin() as connection:
             connection.execute(
                 fact_insert,
                 valid_fact_fields | {"fact_key": "upgraded-valid-fact", "restatement_sequence": 1},
             )
             connection.execute(
-                publication_insert,
-                valid_publication_fields
-                | {
-                    "publication_key": "upgraded-valid-publication",
-                    "restatement_sequence": 1,
-                    "period_start": "2026-01-01",
-                    "period_end": "2026-01-31",
-                },
+                text(
+                    """
+                    INSERT INTO composite_member_return_fact_publications (
+                        publication_key, composite_id, return_view, reporting_currency,
+                        restatement_sequence, period_start, period_end, expected_families_json,
+                        source_fingerprint
+                    ) VALUES (
+                        'upgraded-valid-publication', 'UPGRADED_DIRECT', 'NET_ACTUAL', 'USD', 1,
+                        '2026-01-01', '2026-01-31',
+                        '[{"period_end":"2026-01-31","period_start":"2026-01-01","portfolio_id":"P1"}]',
+                        'sha256:upgraded-direct'
+                    )
+                    """
+                )
             )
         for invalid_update in (
             "UPDATE composite_member_return_fact_publications SET restatement_sequence = 1.5 "
@@ -535,6 +908,14 @@ def test_completed_sqlite_fact_payload_is_immutable_to_direct_writers(tmp_path):
         with pytest.raises(IntegrityError):
             with store._engine.begin() as connection:
                 connection.execute(
+                    text(
+                        "DELETE FROM composite_member_return_fact_publications "
+                        "WHERE composite_id = 'IMMUTABLE_COMPLETED_FACT'"
+                    )
+                )
+        with pytest.raises(IntegrityError):
+            with store._engine.begin() as connection:
+                connection.execute(
                     text("DELETE FROM composite_member_return_facts WHERE calculation_id = 'immutable-completed-fact'")
                 )
 
@@ -620,6 +1001,65 @@ def test_publication_schema_upgrade_refuses_missing_lineage_authority(tmp_path):
         store.close()
 
 
+@pytest.mark.parametrize(
+    ("expected_families_json", "source_fingerprint"),
+    [
+        (None, "sha256:retained"),
+        ("not-json", "sha256:retained"),
+        ('{"portfolio_id":"P1"}', "sha256:retained"),
+        (
+            '[{"period_end":"2026-01-31","period_start":"2026-01-01","portfolio_id":"P1"},'
+            '{"period_end":"2026-01-31","period_start":"2026-01-01","portfolio_id":"P1"}]',
+            "sha256:retained",
+        ),
+        ("[]", None),
+        ("[]", " \t"),
+    ],
+    ids=[
+        "null-manifest",
+        "malformed-json",
+        "non-list-manifest",
+        "duplicate-family",
+        "null-fingerprint",
+        "blank-fingerprint",
+    ],
+)
+def test_publication_schema_upgrade_refuses_invalid_retained_lineage(
+    tmp_path,
+    expected_families_json,
+    source_fingerprint,
+):
+    database_url = f"sqlite:///{tmp_path / 'invalid_retained_lineage.db'}"
+    engine = create_engine(database_url, future=True)
+    with engine.begin() as connection:
+        connection.exec_driver_sql(
+            "CREATE TABLE composite_member_return_fact_publications ("
+            "publication_key VARCHAR(80) PRIMARY KEY, composite_id VARCHAR(128) NOT NULL, "
+            "return_view VARCHAR(32) NOT NULL, reporting_currency VARCHAR(3) NOT NULL, "
+            "restatement_sequence INTEGER NOT NULL, period_start DATE NOT NULL, period_end DATE NOT NULL, "
+            "expected_families_json TEXT, source_fingerprint VARCHAR(256))"
+        )
+        connection.execute(
+            text(
+                "INSERT INTO composite_member_return_fact_publications VALUES ("
+                "'invalid-lineage', 'INVALID_LINEAGE', 'NET_ACTUAL', 'USD', 1, "
+                "'2026-01-01', '2026-01-31', :expected_families_json, :source_fingerprint)"
+            ),
+            {
+                "expected_families_json": expected_families_json,
+                "source_fingerprint": source_fingerprint,
+            },
+        )
+    engine.dispose()
+
+    store = CompositeMetadataStore(database_url)
+    try:
+        with pytest.raises(RuntimeError, match="invalid publication lineage"):
+            store.create_schema()
+    finally:
+        store.close()
+
+
 def test_sqlite_bootstrap_replaces_stale_same_named_validation_trigger(tmp_path):
     database_url = f"sqlite:///{tmp_path / 'stale_validation_trigger.db'}"
     engine = create_engine(database_url, future=True)
@@ -641,11 +1081,29 @@ def test_sqlite_bootstrap_replaces_stale_same_named_validation_trigger(tmp_path)
             "WHEN NEW.restatement_sequence < 1 "
             "BEGIN SELECT RAISE(ABORT, 'legacy sequence-only validation'); END"
         )
+        connection.exec_driver_sql(
+            "CREATE TRIGGER trg_composite_member_return_facts_immutable_update "
+            "BEFORE UPDATE ON composite_member_return_facts "
+            "BEGIN SELECT RAISE(ABORT, 'legacy immutable update'); END"
+        )
+        connection.exec_driver_sql(
+            "INSERT INTO composite_member_return_facts VALUES ("
+            "'legacy-lowercase', 'DIRECT_SQL', 'P0', '2026-01-01', '2026-01-31', "
+            "'0.01', 'NET_ACTUAL', '100.00', '101.00', 'usd', 'calc-legacy-lowercase', "
+            "'snapshot-legacy-lowercase', 'sha256:legacy-lowercase', 'v1', 1, 'READY', '[]')"
+        )
     engine.dispose()
 
     store = CompositeMetadataStore(database_url)
     try:
         store.create_schema()
+        with store._engine.connect() as connection:
+            assert (
+                connection.exec_driver_sql(
+                    "SELECT reporting_currency FROM composite_member_return_facts WHERE fact_key = 'legacy-lowercase'"
+                ).scalar_one()
+                == "USD"
+            )
         with pytest.raises(IntegrityError):
             with store._engine.begin() as connection:
                 connection.exec_driver_sql(
@@ -653,6 +1111,130 @@ def test_sqlite_bootstrap_replaces_stale_same_named_validation_trigger(tmp_path)
                     "'stale-trigger-proof', 'DIRECT_SQL', 'P1', '2026-01-01', '2026-01-31', "
                     "'0.01', 'NET_ACTUAL', '100.00', '101.00', 'USD', 'calc-stale-trigger', "
                     "'snapshot-stale-trigger', 'sha256:stale-trigger', '', 1, 'READY', '[]')"
+                )
+    finally:
+        store.close()
+
+
+def test_sqlite_failed_bootstrap_restores_legacy_data_and_guards(tmp_path):
+    database_url = f"sqlite:///{tmp_path / 'failed_bootstrap_rollback.db'}"
+    engine = create_engine(database_url, future=True)
+    with engine.begin() as connection:
+        connection.exec_driver_sql(
+            "CREATE TABLE composite_member_return_facts ("
+            "fact_key VARCHAR(360) PRIMARY KEY, composite_id VARCHAR(128) NOT NULL, "
+            "portfolio_id VARCHAR(128) NOT NULL, period_start DATE NOT NULL, period_end DATE NOT NULL, "
+            "return_value TEXT NOT NULL, return_view VARCHAR(32) NOT NULL, "
+            "beginning_market_value TEXT NOT NULL, ending_market_value TEXT NOT NULL, "
+            "reporting_currency VARCHAR(3) NOT NULL, calculation_id VARCHAR(64) NOT NULL, "
+            "source_snapshot_id VARCHAR(256) NOT NULL, source_fingerprint VARCHAR(256) NOT NULL, "
+            "restatement_version VARCHAR(64) NOT NULL, restatement_sequence INTEGER NOT NULL, "
+            "status VARCHAR(64) NOT NULL, reason_codes_json TEXT NOT NULL)"
+        )
+        connection.exec_driver_sql(
+            "CREATE TABLE composite_member_return_fact_publications ("
+            "publication_key VARCHAR(80) PRIMARY KEY, composite_id VARCHAR(128) NOT NULL, "
+            "return_view VARCHAR(32) NOT NULL, reporting_currency VARCHAR(3) NOT NULL, "
+            "restatement_sequence INTEGER NOT NULL, period_start DATE NOT NULL, period_end DATE NOT NULL, "
+            "expected_families_json TEXT, source_fingerprint VARCHAR(256))"
+        )
+        connection.exec_driver_sql(
+            "CREATE TRIGGER trg_composite_member_return_facts_validate_insert "
+            "BEFORE INSERT ON composite_member_return_facts "
+            "WHEN NEW.restatement_sequence < 1 "
+            "BEGIN SELECT RAISE(ABORT, 'legacy sequence-only validation'); END"
+        )
+        connection.exec_driver_sql(
+            "CREATE TRIGGER trg_composite_member_return_facts_immutable_update "
+            "BEFORE UPDATE ON composite_member_return_facts "
+            "BEGIN SELECT RAISE(ABORT, 'legacy immutable update'); END"
+        )
+        connection.exec_driver_sql(
+            "INSERT INTO composite_member_return_facts VALUES ("
+            "'legacy-lowercase', 'DIRECT_SQL', 'P0', '2026-01-01', '2026-01-31', "
+            "'0.01', 'NET_ACTUAL', '100.00', '101.00', 'usd', 'calc-legacy-lowercase', "
+            "'snapshot-legacy-lowercase', 'sha256:legacy-lowercase', 'v1', 1, 'READY', '[]')"
+        )
+        connection.exec_driver_sql(
+            "INSERT INTO composite_member_return_fact_publications VALUES ("
+            "'invalid-lineage', 'DIRECT_SQL', 'NET_ACTUAL', 'USD', 1, "
+            "'2026-01-01', '2026-01-31', 'not-json', '')"
+        )
+    engine.dispose()
+
+    store = CompositeMetadataStore(database_url)
+    try:
+        with pytest.raises(RuntimeError, match="invalid publication lineage"):
+            store.create_schema()
+        with store._engine.connect() as connection:
+            assert (
+                connection.exec_driver_sql(
+                    "SELECT reporting_currency FROM composite_member_return_facts WHERE fact_key = 'legacy-lowercase'"
+                ).scalar_one()
+                == "usd"
+            )
+            trigger_rows = dict(
+                connection.exec_driver_sql(
+                    "SELECT name, sql FROM sqlite_master WHERE type = 'trigger' AND name IN ("
+                    "'trg_composite_member_return_facts_validate_insert', "
+                    "'trg_composite_member_return_facts_immutable_update')"
+                ).all()
+            )
+        assert "legacy sequence-only validation" in trigger_rows["trg_composite_member_return_facts_validate_insert"]
+        assert "legacy immutable update" in trigger_rows["trg_composite_member_return_facts_immutable_update"]
+    finally:
+        store.close()
+
+
+def test_sqlite_failed_maintenance_restores_records_and_guards(tmp_path, monkeypatch):
+    store = _store(tmp_path)
+    fact = CompositeMemberReturnFact.model_validate(
+        {
+            "composite_id": "ROLLBACK_MAINTENANCE",
+            "portfolio_id": "P1",
+            "period_start": "2026-01-01",
+            "period_end": "2026-01-31",
+            "return_value": "0.0100",
+            "beginning_market_value": "100.00",
+            "ending_market_value": "101.00",
+            "reporting_currency": "USD",
+            "calculation_id": "rollback-maintenance",
+            "source_snapshot_id": "rollback-maintenance",
+            "source_fingerprint": "sha256:rollback-maintenance",
+        }
+    )
+    try:
+        store.upsert_member_return_fact(fact)
+        _complete_publication(store, fact)
+
+        def _fail_guard_recreation(_connection):
+            raise RuntimeError("injected guard recreation failure")
+
+        monkeypatch.setattr(
+            composite_metadata_store_module,
+            "_create_composite_fact_database_guards",
+            _fail_guard_recreation,
+        )
+        with pytest.raises(RuntimeError, match="injected guard recreation failure"):
+            store.clear_records_for_composites({fact.composite_id})
+
+        counts = store.count_records()
+        assert counts.member_return_facts == 1
+        with store._engine.connect() as connection:
+            assert (
+                connection.exec_driver_sql(
+                    "SELECT count(*) FROM composite_member_return_fact_publications "
+                    "WHERE composite_id = 'ROLLBACK_MAINTENANCE'"
+                ).scalar_one()
+                == 1
+            )
+        with pytest.raises(IntegrityError):
+            with store._engine.begin() as connection:
+                connection.execute(
+                    text(
+                        "DELETE FROM composite_member_return_fact_publications "
+                        "WHERE composite_id = 'ROLLBACK_MAINTENANCE'"
+                    )
                 )
     finally:
         store.close()
@@ -1306,6 +1888,11 @@ def test_pinned_completed_publication_rejects_durable_family_drift(tmp_path, dri
         _drop_sqlite_guard_for_restore_fixture(
             store,
             MEMBER_RETURN_FACT_COMPLETED_DELETE_TRIGGER,
+        )
+    else:
+        _drop_sqlite_guard_for_restore_fixture(
+            store,
+            composite_metadata_store_module.MEMBER_RETURN_FACT_COMPLETED_INSERT_TRIGGER,
         )
     with store._session() as session:
         if drift == "missing":

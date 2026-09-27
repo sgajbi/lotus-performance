@@ -376,23 +376,27 @@ Important validation expectations:
     Whitespace-only source version labels, including tabs and newlines, fail the same model-aligned
     bootstrap validation as empty labels. Retained publication periods with a null, non-text, or
     unparseable boundary, a noncanonical representation, or an end before their start, also fail
-    bootstrap explicitly. Request models reject Unicode lookalikes before case normalization.
+    bootstrap explicitly. Retained publication lineage must be a JSON-list manifest of exact,
+    unique, nonblank-portfolio, canonical-date families within the declared window and carry a
+    nonblank bounded fingerprint. Request models reject Unicode lookalikes before case normalization.
     SQLite schemas reject noncanonical definition, fact, and publication currencies, reject
     non-integer sequences and invalid fact version labels, and reject publication text outside
-    the supported Python calendar domain. Additive upgrades install equivalent insert/update
-    triggers after retained rows pass validation, replacing any same-named older trigger so later
-    direct SQL cannot remain governed by a stale weaker definition.
-    PostgreSQL upgrades make both validated sequence columns, publication currency, and both
-    publication period boundaries non-null and retrofit canonical-currency constraints for
+    the supported Python calendar domain. Additive upgrades use an explicit writer transaction,
+    drop managed guards before normalization, and install equivalent insert/update triggers after
+    retained rows pass validation. Rollback restores the original values and triggers together.
+    PostgreSQL upgrades make both validated sequence columns, publication currency, both
+    publication period boundaries, and both publication lineage columns non-null and retrofit canonical-currency constraints for
     definitions, facts, and publications plus positive-sequence and valid-period constraints.
     Runtime bootstrap and restore validation require the publication family-universe and source-fingerprint
     lineage columns; neither path invents lineage authority for an early table. Restore validation also checks the sequence column on facts
     and the period, family-universe, fingerprint, and sequence columns on publication manifests;
     table presence alone is insufficient recovery evidence.
     After bootstrap validation, PostgreSQL and SQLite database triggers make fact payloads and
-    completed publication manifests update-immutable and reject deletion of facts covered by a
-    completed publication. A correction is a new sequence; supported scoped cleanup removes the
-    manifest before deleting its facts in one local transaction.
+    completed publication manifests immutable and reject deletion of a manifest or its covered
+    facts. A correction is a new sequence; supported scoped cleanup locks facts before
+    publications, suspends only managed guards, removes the manifest before its facts, recreates
+    guards, and commits in one rollback-safe local transaction. Older cleanup/demo-seed binaries
+    must not overlap the guard cutover.
 
     `make quality-test-taxonomy-gate` now enforces the current measured preservation baseline
     directly. The exact API/runtime and contract/governance floors and the uncategorized ceiling

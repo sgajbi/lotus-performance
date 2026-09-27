@@ -37,13 +37,23 @@
   rather than merely lexically ordered text. Existing SQLite tables receive equivalent
   canonical-currency definition/fact/publication, positive-integer-sequence, fact-version-label,
   and publication-period write triggers after retained-row validation. Bootstrap replaces any
-  same-named older SQLite guard in the same transaction so a stale weak definition cannot survive.
+  same-named older SQLite guard in one explicit `BEGIN IMMEDIATE` transaction. Managed guards are
+  dropped before legacy normalization, recreated only after validation, and restored with the
+  original data if any upgrade step rolls back; a stale immutable trigger cannot block the
+  corrective normalization and leave the stronger guards uninstalled.
   Fresh definitions carry the same currency constraint. API models reject non-ASCII lookalikes before uppercasing.
+  Retained publication lineage must contain a non-null JSON-list manifest of exact, unique,
+  in-window portfolio/period families and a nonblank fingerprint of at most 256 characters.
+  PostgreSQL promotes both lineage columns to non-null, while PostgreSQL and SQLite install
+  direct-insert guards enforcing the same structure for future rows.
   After legacy normalization and validation complete, both PostgreSQL and SQLite install durable
   mutation guards on member-return facts: updates are rejected because corrections require a new
   restatement sequence, and facts belonging to a completed publication cannot be deleted. The
-  completed publication manifest is also update-immutable. The supported administrative clear
-  path removes the publication manifest first, then its facts, in one local transaction.
+  completed publication manifest cannot be updated or deleted directly. Supported administrative
+  clear methods acquire the fact-table then publication-table lock order, suspend only managed
+  guards, delete the manifest before its facts, recreate the guards, and commit as one local
+  transaction. Rollback restores both records and guards. Older cleanup or demo-seed binaries must
+  not overlap this migrated schema; use the matching application revision for maintenance.
   Retained publication periods must have two text-backed canonical `YYYY-MM-DD` date boundaries and a nonnegative interval
   before PostgreSQL promotes both boundaries and the validated publication currency to non-null;
   PostgreSQL also retrofits the definition currency constraint. An incomplete or malformed period fails

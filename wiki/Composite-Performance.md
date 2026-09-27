@@ -58,18 +58,23 @@ source-fingerprint lineage column is refused rather than assigned invented autho
 and strengthens an earlier space-only named constraint during upgrade. A validated nullable legacy
 version column is promoted to non-null. PostgreSQL upgrades reject
 incomplete or malformed retained publication periods,
-promote the validated publication currency and both period boundaries to non-null,
+reject null, malformed, duplicate, or out-of-window retained family manifests and blank source
+fingerprints, promote the validated publication currency, both period boundaries, and both lineage columns to non-null,
 and enforce canonical definition, fact, and publication currency plus positive sequence and valid
-period constraints. Request validation rejects Unicode currency lookalikes before uppercasing.
+period constraints. PostgreSQL and SQLite direct-insert guards enforce the same publication-lineage
+shape. Request validation rejects Unicode currency lookalikes before uppercasing.
 Fresh and upgraded SQLite schemas reject blank or overlong fact version labels, noncanonical
 definition/fact/publication currencies, non-integer fact/publication sequences, and publication dates outside the real year
-0001 through 9999 calendar domain from direct writes. Existing SQLite upgrades first
-require retained boundaries to use text storage and exact `YYYY-MM-DD` values, then install equivalent future-write
-triggers, replacing any same-named stale guard in the bootstrap transaction.
+0001 through 9999 calendar domain from direct writes. Existing SQLite upgrades establish a real
+writer transaction, suspend managed guards before normalization, require retained boundaries to
+use text storage and exact `YYYY-MM-DD` values, then install equivalent future-write triggers.
+Rollback restores both prior data and guard definitions.
 PostgreSQL and SQLite install mutation guards only after legacy validation: fact payloads and
-completed publication manifests cannot be updated in place, and completed facts cannot be deleted.
-Corrections are written as a new restatement sequence; supported cleanup deletes the manifest
-before its facts transactionally.
+completed publication manifests cannot be updated or deleted, and completed facts cannot be deleted.
+Corrections are written as a new restatement sequence; supported cleanup locks fact then publication
+tables, suspends the managed guards, deletes the manifest before its facts, recreates the guards,
+and commits transactionally. Cleanup or demo-seed tooling from an older revision must not overlap
+the migrated schema.
 
 - calculation status;
 - cumulative composite return;
