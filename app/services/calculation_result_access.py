@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from collections.abc import Mapping
 from typing import Any
+from uuid import UUID
 
 from app.core.application_responses import ApplicationHttpResponse
 from app.enterprise_authorization import _missing_headers_reason
@@ -14,7 +15,8 @@ from app.enterprise_request_context import (
 )
 from app.enterprise_response_envelopes import _authorization_denied_application_response
 from app.enterprise_runtime_config import _privileged_read_authz_enabled
-from app.services.execution_registry import ExecutionRecord
+from app.services.execution_registry import ExecutionRecord, execution_registry
+from core.errors import APINotFoundError
 
 _PORTFOLIO_ID_HEADER = "x-portfolio-id"
 _TENANT_ID_HEADER = "x-tenant-id"
@@ -42,6 +44,23 @@ def authorize_calculation_result_access(
     if denial_reason is None:
         return None
     return _authorization_denied_application_response(denial_reason)
+
+
+def authorize_persisted_calculation_resource_access(
+    *,
+    calculation_id: UUID,
+    headers: Mapping[str, Any] | None,
+    not_found_detail: str,
+) -> ApplicationHttpResponse | None:
+    """Authorize a child resource from its server-owned execution scope."""
+    execution = execution_registry.get_execution(calculation_id)
+    if execution is None:
+        if not _privileged_read_authz_enabled():
+            return None
+        raise APINotFoundError(not_found_detail)
+    if _privileged_read_authz_enabled() and not execution.tenant_id:
+        return _authorization_denied_application_response(_RESULT_TENANT_AUTHORITY_UNAVAILABLE_REASON)
+    return authorize_calculation_result_access(execution=execution, headers=headers)
 
 
 def _calculation_result_access_denial_reason(

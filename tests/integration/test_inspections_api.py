@@ -280,26 +280,53 @@ def test_twr_inspection_artifact_can_be_served_from_retained_payload(client):
     assert response.json() == {"fee_normalization_gap_count": 0}
 
 
-def test_twr_inspection_artifact_requires_privileged_read_identity_when_enabled(client, monkeypatch):
+@pytest.mark.parametrize("materialized", [False, True], ids=["retained-payload", "file-backed"])
+def test_twr_inspection_artifact_requires_privileged_read_identity_when_enabled(
+    client,
+    monkeypatch,
+    materialized,
+):
     monkeypatch.setenv("ENTERPRISE_ENFORCE_PRIVILEGED_READ_AUTHZ", "true")
     inspection_id = uuid4()
-
-    missing_identity_response = client.get(
-        f"/performance/inspections/{inspection_id}/artifacts/inspection_summary.json"
+    artifact_name = "inspection_summary.json"
+    marker = "SYNTHETIC_OWNER_ARTIFACT"
+    execution_registry.create_execution(
+        calculation_id=inspection_id,
+        tenant_id="synthetic-owner",
+        analytics_type="TWR_INSPECTION",
+        portfolio_id="SYNTHETIC_OWNER_PORTFOLIO",
     )
+    lineage_metadata_store.enqueue_lineage_payload(
+        calculation_id=inspection_id,
+        calculation_type="TWR_INSPECTION",
+        request_json="{}",
+        response_json="{}",
+        details={artifact_name: json.dumps({"marker": marker})},
+    )
+    lineage_metadata_store.mark_complete(inspection_id, artifact_names=[artifact_name])
+    if materialized:
+        artifact_dir = os.path.join(settings.LINEAGE_STORAGE_PATH, str(inspection_id))
+        os.makedirs(artifact_dir, exist_ok=True)
+        with open(os.path.join(artifact_dir, artifact_name), "w", encoding="utf-8") as artifact_file:
+            artifact_file.write(json.dumps({"marker": marker}))
+
+    artifact_path = f"/performance/inspections/{inspection_id}/artifacts/{artifact_name}"
+
+    missing_identity_response = client.get(artifact_path)
     assert missing_identity_response.status_code == 403
     assert missing_identity_response.json()["detail"] == "authorization_policy_denied"
     assert missing_identity_response.json()["reason"].startswith("missing_headers:")
+    assert marker not in missing_identity_response.text
 
     identity_headers = {
-        "X-Actor-Id": "advisor-1",
-        "X-Tenant-Id": "tenant-private-bank",
-        "X-Role": "advisor",
-        "X-Correlation-Id": "corr-1",
+        "X-Actor-Id": "review-operator",
+        "X-Tenant-Id": "synthetic-owner",
+        "X-Role": "operator",
+        "X-Correlation-Id": "corr-inspection-artifact-owner",
         "X-Service-Identity": "lotus-gateway",
     }
     denied_response = client.get(
-        f"/performance/inspections/{inspection_id}/artifacts/inspection_summary.json",
+        artifact_path,
         headers={**identity_headers, "X-Portfolio-Id": "OTHER-PORTFOLIO"},
     )
     assert denied_response.status_code == 403
@@ -309,11 +336,48 @@ def test_twr_inspection_artifact_requires_privileged_read_identity_when_enabled(
     }
 
     allowed_response = client.get(
-        f"/performance/inspections/{inspection_id}/artifacts/inspection_summary.json",
+        artifact_path,
         headers={**identity_headers, "X-Capabilities": "operations.runtime.read"},
     )
-    assert allowed_response.status_code == 404
-    assert allowed_response.json()["detail"] == "Inspection artifact not found."
+    assert allowed_response.status_code == 200
+    assert allowed_response.json() == {"marker": marker}
+
+    foreign_response = client.get(
+        artifact_path,
+        headers={
+            **identity_headers,
+            "X-Tenant-Id": "synthetic-foreign",
+            "X-Capabilities": "operations.runtime.read",
+        },
+    )
+    assert foreign_response.status_code == 403
+    assert foreign_response.json()["reason"] == "result_tenant_authority_mismatch"
+    assert marker not in foreign_response.text
+
+    missing_owner_id = uuid4()
+    execution_registry.create_execution(
+        calculation_id=missing_owner_id,
+        tenant_id="",
+        analytics_type="TWR_INSPECTION",
+        portfolio_id="SYNTHETIC_OWNER_PORTFOLIO",
+    )
+    lineage_metadata_store.enqueue_lineage_payload(
+        calculation_id=missing_owner_id,
+        calculation_type="TWR_INSPECTION",
+        request_json="{}",
+        response_json="{}",
+        details={"inspection_summary.json": '{"marker":"MUST_NOT_LEAK"}'},
+    )
+    lineage_metadata_store.mark_complete(missing_owner_id, artifact_names=["inspection_summary.json"])
+
+    response = client.get(
+        f"/performance/inspections/{missing_owner_id}/artifacts/inspection_summary.json",
+        headers={**identity_headers, "X-Capabilities": "operations.runtime.read"},
+    )
+
+    assert response.status_code == 403
+    assert response.json()["reason"] == "result_tenant_authority_unavailable"
+    assert "MUST_NOT_LEAK" not in response.text
 
 
 def test_twr_inspection_existing_calculation_subject_links_back_to_twr_lineage(client):

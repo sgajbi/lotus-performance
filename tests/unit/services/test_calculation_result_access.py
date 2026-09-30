@@ -1,24 +1,31 @@
 from uuid import uuid4
 
+import pytest
+
 from app.enterprise_response_envelopes import (
     _AUTHORIZATION_POLICY_DENIED_DETAIL,
     _RESPONSE_DETAIL_KEY,
     _RESPONSE_REASON_KEY,
 )
 from app.enterprise_runtime_config import _ENV_ENTERPRISE_ENFORCE_PRIVILEGED_READ_AUTHZ
+from app.services import calculation_result_access
 from app.services.calculation_result_access import (
     _RESULT_ACCESS_DENIED_REASON,
     _RESULT_TENANT_ACCESS_DENIED_REASON,
     _RESULT_TENANT_AUTHORITY_UNAVAILABLE_REASON,
     authorize_calculation_result_access,
+    authorize_persisted_calculation_resource_access,
 )
 from app.services.execution_registry import ExecutionRecord, ExecutionStatus
+from core.errors import APINotFoundError
 
 
-def _execution_record(*, portfolio_id: str | None = "PORT-1") -> ExecutionRecord:
+def _execution_record(
+    *, portfolio_id: str | None = "PORT-1", tenant_id: str | None = "tenant-private-bank"
+) -> ExecutionRecord:
     return ExecutionRecord(
         calculation_id=uuid4(),
-        tenant_id="tenant-private-bank",
+        tenant_id=tenant_id,
         analytics_type="TWR",
         portfolio_id=portfolio_id,
         execution_mode="async",
@@ -158,8 +165,7 @@ def test_calculation_result_access_denies_privileged_reader_from_a_different_ten
 
 def test_calculation_result_access_refuses_legacy_execution_without_authority(monkeypatch):
     monkeypatch.setenv(_ENV_ENTERPRISE_ENFORCE_PRIVILEGED_READ_AUTHZ, "true")
-    execution = _execution_record()
-    object.__setattr__(execution, "tenant_id", None)
+    execution = _execution_record(tenant_id=None)
 
     response = authorize_calculation_result_access(
         execution=execution,
@@ -168,3 +174,30 @@ def test_calculation_result_access_refuses_legacy_execution_without_authority(mo
 
     assert response is not None
     assert _response_body(response)[_RESPONSE_REASON_KEY] == _RESULT_TENANT_AUTHORITY_UNAVAILABLE_REASON
+    blank_execution = _execution_record(tenant_id="")
+    monkeypatch.setattr(calculation_result_access, "execution_registry", _ExecutionStore(blank_execution))
+    blank_response = authorize_persisted_calculation_resource_access(
+        calculation_id=blank_execution.calculation_id,
+        headers=_identity_headers(**{"X-Capabilities": "operations.runtime.read"}),
+        not_found_detail="Resource not found.",
+    )
+    assert blank_response is not None
+    assert _response_body(blank_response)[_RESPONSE_REASON_KEY] == _RESULT_TENANT_AUTHORITY_UNAVAILABLE_REASON
+
+    monkeypatch.setattr(calculation_result_access, "execution_registry", _ExecutionStore(None))
+    with pytest.raises(APINotFoundError, match="Resource not found"):
+        authorize_persisted_calculation_resource_access(
+            calculation_id=uuid4(),
+            headers=_identity_headers(**{"X-Capabilities": "operations.runtime.read"}),
+            not_found_detail="Resource not found.",
+        )
+
+
+class _ExecutionStore:
+    def __init__(self, execution: ExecutionRecord | None):
+        self.execution = execution
+
+    def get_execution(self, calculation_id):
+        if self.execution is not None and self.execution.calculation_id == calculation_id:
+            return self.execution
+        return None

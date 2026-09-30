@@ -39,6 +39,16 @@ endpoint-specific async result routes.
 The artifact route intentionally accepts filenames, not arbitrary paths. Unsafe path forms are
 rejected by lineage artifact filename validation before storage paths are resolved.
 
+## Authorization And Tenant Ownership
+
+When privileged-read authorization is enabled, both lineage inventory and artifact download require
+enterprise identity plus `operations.runtime.read`. The route then loads the durable calculation
+execution and compares the admitted `X-Tenant-Id` with its persisted `tenant_id` before reading
+lineage metadata, manifests, or files. Runtime-read capability does not grant cross-tenant access.
+Foreign-tenant requests receive the governed authorization-denied envelope without artifact content
+or metadata markers. Missing or blank durable tenant authority fails closed, while an absent durable
+execution is returned as the existing product-safe lineage-not-found response.
+
 ## Output Contract
 
 The lineage inventory response model is `app.models.lineage_responses.LineageResponse`.
@@ -149,7 +159,7 @@ Swagger now documents:
 | --- | --- | --- |
 | Model/schema | `tests/unit/app/test_lineage_openapi_contract.py` verifies lineage route, artifact route, and response schema documentation. | Strong after this pass. |
 | Service/unit | `tests/unit/services/test_lineage_service.py` covers materialization, atomic writes, manifest/metadata sync, runtime storage path resolution, and unsafe filename rejection. | Strong for artifact production and safety. |
-| Integration route tests | `tests/integration/test_lineage_api.py` covers end-to-end lineage capture/retrieval, stateful resolved request capture, benchmark resolved request capture, pending/failed states, 404, 503, controlled artifact download, unknown artifact rejection, missing manifest, inconsistent manifest, and missing artifact files. | Strong for endpoint behavior. |
+| Integration route tests | `tests/integration/test_lineage_api.py` covers end-to-end lineage capture/retrieval, stateful resolved request capture, benchmark resolved request capture, pending/failed states, 404, 503, controlled artifact download, owner success, foreign-tenant and missing-identity denial without marker leakage, missing durable ownership, unknown artifact rejection, missing manifest, inconsistent manifest, and missing artifact files. | Strong for endpoint behavior and tenant isolation. |
 | Docs/OpenAPI | Public docs regression covers API reference, complete service reference, reproducibility guide, and this certification document. OpenAPI and vocabulary gates validate schema metadata. | Strong after this pass. |
 | Downstream | Gateway evidence gap is filed as `lotus-gateway#110`. | Adequate with tracked follow-up. |
 

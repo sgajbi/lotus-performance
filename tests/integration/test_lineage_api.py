@@ -8,6 +8,7 @@ import pytest
 from fastapi.testclient import TestClient
 
 from app.core.config import get_settings
+from app.services.execution_registry import execution_registry
 from app.services.lineage_metadata_store import lineage_metadata_store
 from main import app
 from tests.conftest import drain_lineage_queue
@@ -71,6 +72,8 @@ def client():
     if os.path.exists(settings.LINEAGE_STORAGE_PATH):
         shutil.rmtree(settings.LINEAGE_STORAGE_PATH)
     os.makedirs(settings.LINEAGE_STORAGE_PATH)
+    execution_registry.create_schema()
+    execution_registry.clear_all_records()
     lineage_metadata_store.create_schema()
     lineage_metadata_store.clear_all_records()
 
@@ -80,10 +83,11 @@ def client():
     # Clean up after tests
     if os.path.exists(settings.LINEAGE_STORAGE_PATH):
         shutil.rmtree(settings.LINEAGE_STORAGE_PATH)
+    execution_registry.clear_all_records()
     lineage_metadata_store.clear_all_records()
 
 
-def test_lineage_end_to_end_flow(client):
+def test_lineage_end_to_end_flow(client, monkeypatch):
     """Tests the full lineage flow: TWR calc -> lineage capture -> lineage retrieval."""
     twr_payload = {
         "portfolio_id": "LINEAGE_TEST",
@@ -121,6 +125,54 @@ def test_lineage_end_to_end_flow(client):
     artifact_response = client.get(artifact_url)
     assert artifact_response.status_code == 200
     assert '"portfolio_id": "LINEAGE_TEST"' in artifact_response.text
+
+    monkeypatch.setenv("ENTERPRISE_ENFORCE_PRIVILEGED_READ_AUTHZ", "true")
+    identity_headers = {
+        "X-Actor-Id": "review-operator",
+        "X-Role": "operator",
+        "X-Service-Identity": "lotus-gateway",
+        "X-Correlation-Id": "corr-lineage-owner",
+        "X-Capabilities": "operations.runtime.read",
+    }
+    for path in (f"/performance/lineage/{calculation_id}", artifact_url):
+        owner_response = client.get(
+            path,
+            headers={**identity_headers, "X-Tenant-Id": "tenant-lineage-test"},
+        )
+        assert owner_response.status_code == 200
+
+        foreign_response = client.get(
+            path,
+            headers={**identity_headers, "X-Tenant-Id": "synthetic-foreign"},
+        )
+        assert foreign_response.status_code == 403
+        assert foreign_response.json()["reason"] == "result_tenant_authority_mismatch"
+        assert "LINEAGE_TEST" not in foreign_response.text
+
+        missing_identity_response = client.get(path, headers={"X-Tenant-Id": "tenant-lineage-test"})
+        assert missing_identity_response.status_code == 403
+        assert "LINEAGE_TEST" not in missing_identity_response.text
+
+    missing_owner_id = uuid4()
+    execution_registry.create_execution(
+        calculation_id=missing_owner_id,
+        tenant_id="",
+        analytics_type="TWR",
+        portfolio_id="LINEAGE_TEST",
+    )
+    lineage_metadata_store.create_pending_record(calculation_id=missing_owner_id, calculation_type="TWR")
+    missing_owner_response = client.get(
+        f"/performance/lineage/{missing_owner_id}",
+        headers={**identity_headers, "X-Tenant-Id": "tenant-lineage-test"},
+    )
+    assert missing_owner_response.status_code == 403
+    assert missing_owner_response.json()["reason"] == "result_tenant_authority_unavailable"
+
+    absent_resource_response = client.get(
+        f"/performance/lineage/{uuid4()}",
+        headers={**identity_headers, "X-Tenant-Id": "tenant-lineage-test"},
+    )
+    assert absent_resource_response.status_code == 404
 
 
 def test_stateful_twr_lineage_captures_resolved_request(client, monkeypatch):
