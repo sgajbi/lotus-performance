@@ -100,7 +100,16 @@ For each requested group, the engine computes active effects under the selected 
 - selection
 - interaction
 
-The current public contract supports Brinson-style attribution models.
+The current public contract supports two explicit Brinson decompositions:
+
+- Brinson-Fachler (`model="BF"`) reports allocation, benchmark-weighted selection, and a separate
+  interaction effect.
+- Brinson-Hood-Beebower (`model="BHB"`) reports allocation and portfolio-weighted combined
+  selection. Its `interaction` response field is zero because reporting the interaction separately
+  would double count active return.
+
+Both models retain the same response shape. The sum of the reported model-specific effects is the
+source-owned active-return reconciliation; consumers must not reconstruct or refold effects.
 
 ### 2. Multi-period linking
 

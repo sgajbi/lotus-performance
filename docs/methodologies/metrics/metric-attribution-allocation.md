@@ -54,6 +54,10 @@ Attribution Allocation Effect (`levels[].groups[].allocation`)
 - Brinson-Hood-Beebower:
   - `A_g,t = (w_p,g,t - w_b,g,t) * r_b,g,t`
 
+The reconciliation identity is model-specific: BF reports `A + S + I`, while BHB reports the
+two-effect decomposition `A + S` and returns the separate interaction field as zero because BHB
+selection is portfolio-weighted.
+
 2. Multi-period linking behavior:
 - `linking=NONE`: `A_g = sum_t A_g,t`
 - `linking!=NONE`: top-down scaling is applied:
@@ -95,7 +99,8 @@ Attribution Allocation Effect (`levels[].groups[].allocation`)
 ## Outputs
 - `results_by_period.<period>.levels[].groups[].allocation`
 - `results_by_period.<period>.levels[].totals.allocation`
-- `results_by_period.<period>.levels[].groups[].total_effect` includes allocation plus selection and interaction
+- `results_by_period.<period>.levels[].groups[].total_effect` includes allocation, selection, and
+  the model-specific interaction value (zero for BHB)
 - `benchmark_context` and `calculation_supportability` when source resolution emits bounded
   supportability metadata.
 

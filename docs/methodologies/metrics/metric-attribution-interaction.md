@@ -9,7 +9,8 @@ Attribution Interaction Effect (`levels[].groups[].interaction`)
   - stateful payload (`stateful_input`) resolved from lotus-core portfolio, position, benchmark
     assignment, and benchmark component sources
 - Modes: `BY_GROUP` and `BY_INSTRUMENT`
-- Interaction is computed for both Brinson models using the same formula.
+- Brinson-Fachler reports a separate interaction effect. Brinson-Hood-Beebower reports interaction
+  as zero because its portfolio-weighted selection already includes that interaction.
 
 ## Inputs
 - Group weights: `w_p`, `w_b`
@@ -41,8 +42,12 @@ Attribution Interaction Effect (`levels[].groups[].interaction`)
   evidence where available
 
 ## Methodology and Formulas
-1. Single-period interaction (both models):
-- `I_g,t = (w_p,g,t - w_b,g,t) * (r_p,g,t - r_b,g,t)`
+1. Single-period interaction by model:
+- Brinson-Fachler:
+  - `I_g,t = (w_p,g,t - w_b,g,t) * (r_p,g,t - r_b,g,t)`
+- Brinson-Hood-Beebower:
+  - `I_g,t = 0`; the portfolio-weighted selection term is the combined selection effect and already
+    contains the interaction contribution.
 
 2. Linking behavior:
 - `NONE`: `I_g = sum_t I_g,t`
@@ -55,7 +60,8 @@ Attribution Interaction Effect (`levels[].groups[].interaction`)
    timeseries, resolve benchmark assignment or explicit benchmark override, resolve benchmark
    component inputs, and normalize source rows into attribution panel fields.
 2. Build aligned panel and compute single-period effects.
-3. Extract interaction per group-date row.
+3. Calculate the separate Brinson-Fachler interaction or the explicit zero BHB interaction per
+   group-date row.
 4. If linking is enabled, compute `scale` from geometric and arithmetic active return and multiply interaction sums by that factor.
 5. Aggregate by requested hierarchy levels.
 6. Convert to pp in response objects.
@@ -73,7 +79,8 @@ Attribution Interaction Effect (`levels[].groups[].interaction`)
 ## Configuration Options
 - `linking`
 - `group_by`, `frequency`
-- `model` (does not change interaction formula but affects other effects and totals)
+- `model` (BF reports the three-effect decomposition; BHB reports a two-effect decomposition with
+  zero separate interaction)
 - `stateful_input.portfolio_id`, optional `stateful_input.benchmark_id`, dimensions, and source
   window fields when `input_mode=stateful`
 
@@ -92,6 +99,9 @@ Attribution Interaction Effect (`levels[].groups[].interaction`)
 
 - `I_g,t = 0.10 * 0.0100 = 0.0010`
 - Output pp: `0.0010 * 100 = 0.10`
+
+This worked formula is the Brinson-Fachler result. Under BHB the response maps the same field to
+`0.00` pp because the portfolio-weighted selection term carries the combined effect.
 
 Output mapping:
 - `levels[...].groups[...].interaction = 0.10`

@@ -18,15 +18,17 @@ def test_calculation_engine_version_is_not_deployable_app_version() -> None:
     assert settings.CALCULATION_ENGINE_VERSION != settings.APP_VERSION
 
 
-def test_canonical_income_methodology_has_new_reproducibility_identity() -> None:
-    assert CALCULATION_ENGINE_VERSION == "lotus-performance-calculation-engine.v4"
+def test_corrected_bhb_methodology_has_new_reproducibility_identity() -> None:
+    assert CALCULATION_ENGINE_VERSION == "lotus-performance-calculation-engine.v5"
     source_input = {
-        "portfolio_id": "INCOME_REPLAY",
-        "cash_flows": [{"amount": "850", "cash_flow_type": "income", "timing": "eod"}],
+        "portfolio_id": "BHB_REPLAY",
+        "model": "BHB",
+        "portfolio_groups_data": [{"weight": "0.60", "return": "0.10"}],
+        "benchmark_groups_data": [{"weight": "0.50", "return": "0.04"}],
     }
 
     old_fingerprint, old_hash = generate_canonical_hash_from_value(
-        source_input, "lotus-performance-calculation-engine.v2"
+        source_input, "lotus-performance-calculation-engine.v4"
     )
     new_fingerprint, new_hash = generate_canonical_hash_from_value(source_input, CALCULATION_ENGINE_VERSION)
 

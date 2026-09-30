@@ -1,7 +1,7 @@
 # Lotus Performance Test Taxonomy Inventory
 
 Report date: 2026-10-01
-Branch: `fix/545-546-xirr-qualification`
+Branch: `fix/547-bhb-decomposition`
 Mode: regression-blocking test taxonomy inventory; `make quality-test-taxonomy-gate` enforces
 minimum API/runtime and contract/governance breadth plus the current uncategorized-test ceiling.
 
@@ -23,8 +23,8 @@ python scripts/python_test_taxonomy_inventory.py --limit 30 --min-api-runtime-te
 | Metric | Value |
 | --- | ---: |
 | Test modules inventoried | 328 |
-| Test functions inventoried | 3906 |
-| Integration/API/runtime test functions | 779 |
+| Test functions inventoried | 3910 |
+| Integration/API/runtime test functions | 781 |
 | Contract/governance test functions | 194 |
 
 ## Test Functions By Suite
@@ -33,8 +33,8 @@ python scripts/python_test_taxonomy_inventory.py --limit 30 --min-api-runtime-te
 | --- | ---: | ---: |
 | benchmarks | 10 | 32 |
 | e2e | 1 | 21 |
-| integration | 28 | 370 |
-| unit | 289 | 3483 |
+| integration | 28 | 372 |
+| unit | 289 | 3485 |
 
 ## Test Functions By Family
 
@@ -44,8 +44,8 @@ above does sum to it, because a module belongs to exactly one suite.
 
 | Family | Test functions |
 | --- | ---: |
-| analytics_domain | 1890 |
-| api_or_runtime | 779 |
+| analytics_domain | 1894 |
+| api_or_runtime | 781 |
 | contract_or_governance | 194 |
 | observability_or_readiness | 565 |
 | quality_or_security | 268 |
@@ -62,8 +62,8 @@ above does sum to it, because a module belongs to exactly one suite.
 | 5 | `tests/unit/services/test_compute_job_store.py` | unit | 68 | observability_or_readiness |
 | 6 | `tests/unit/services/test_lineage_metadata_store.py` | unit | 62 | observability_or_readiness |
 | 7 | `tests/unit/app/test_openapi_enrichment.py` | unit | 61 | api_or_runtime |
-| 8 | `tests/unit/services/test_twr_inspection_source_economics.py` | unit | 58 | analytics_domain |
-| 9 | `tests/unit/engine/test_attribution.py` | unit | 57 | analytics_domain |
+| 8 | `tests/unit/engine/test_attribution.py` | unit | 59 | analytics_domain |
+| 9 | `tests/unit/services/test_twr_inspection_source_economics.py` | unit | 58 | analytics_domain |
 | 10 | `tests/unit/services/test_workspace_summary_service.py` | unit | 56 | analytics_domain |
 | 11 | `tests/unit/services/test_compute_executor_worker.py` | unit | 55 | observability_or_readiness |
 | 12 | `tests/integration/test_contribution_api.py` | integration | 53 | analytics_domain, api_or_runtime |
@@ -178,4 +178,14 @@ uncategorized ceiling remains `635`.
 The final XIRR qualification review adds four source test functions for truthful non-simple-root
 classification and deterministic combined-work rejection. Source test functions now measure
 `3,906`, API/runtime functions `779`, analytics-domain functions `1,890`, and the unchanged
+uncategorized ceiling remains `635`.
+
+The BHB decomposition correction adds three analytics-domain source test functions: exact
+positive/negative/zero interaction controls, linked-period reconciliation, and public API plus BF
+control evidence. Source test functions now measure `3,909`, API/runtime functions `780`,
+analytics-domain functions `1,893`, and the unchanged uncategorized ceiling remains `635`.
+
+The final acceptance-proof review adds one supported by-instrument HTTP regression using exact
+position valuations and independently derived sector effects. Source test functions now measure
+`3,910`, API/runtime functions `781`, analytics-domain functions `1,894`, and the unchanged
 uncategorized ceiling remains `635`.

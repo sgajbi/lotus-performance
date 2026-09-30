@@ -137,7 +137,7 @@ def test_calculate_single_period_brinson_hood_beebower(single_period_data):
     """Tests the Brinson-Hood-Beebower model calculation for a single period."""
     result_df = _calculate_single_period_effects(single_period_data, AttributionModel.BRINSON_HOOD_BEEBOWER)
     total_effects = result_df[["allocation", "selection", "interaction"]].sum().sum()
-    assert total_effects == pytest.approx(0.021)
+    assert total_effects == pytest.approx(0.020)
 
 
 def test_calculate_single_period_effects_matches_exact_brinson_fachler_formulas():
@@ -215,7 +215,74 @@ def test_calculate_single_period_effects_matches_exact_brinson_hood_beebower_for
     row = result_df.iloc[0]
     assert row["allocation"] == pytest.approx((0.60 - 0.50) * 0.04)
     assert row["selection"] == pytest.approx(0.60 * (0.05 - 0.04))
-    assert row["interaction"] == pytest.approx((0.60 - 0.50) * (0.05 - 0.04))
+    assert row["interaction"] == pytest.approx(0.0)
+
+
+@pytest.mark.parametrize(
+    ("portfolio_weights", "portfolio_returns", "expected_active_return"),
+    [
+        pytest.param([0.60, 0.40], [0.10, 0.00], 0.030, id="positive-interaction"),
+        pytest.param([0.40, 0.60], [0.10, 0.00], 0.010, id="negative-interaction"),
+        pytest.param([0.50, 0.50], [0.10, 0.00], 0.020, id="zero-interaction"),
+    ],
+)
+def test_brinson_hood_beebower_effects_reconcile_for_all_interaction_signs(
+    portfolio_weights: list[float],
+    portfolio_returns: list[float],
+    expected_active_return: float,
+) -> None:
+    benchmark_weights = [0.50, 0.50]
+    benchmark_returns = [0.04, 0.02]
+    frame = pd.DataFrame(
+        {
+            "w_p": portfolio_weights,
+            "w_b": benchmark_weights,
+            "r_base_p": portfolio_returns,
+            "r_base_b": benchmark_returns,
+        },
+        index=["Tech", "Health"],
+    )
+    frame["r_b_total"] = 0.03
+
+    result = _calculate_single_period_effects(frame, AttributionModel.BRINSON_HOOD_BEEBOWER)
+
+    independently_calculated_active_return = sum(
+        weight * group_return for weight, group_return in zip(portfolio_weights, portfolio_returns, strict=True)
+    ) - sum(weight * group_return for weight, group_return in zip(benchmark_weights, benchmark_returns, strict=True))
+    assert independently_calculated_active_return == pytest.approx(expected_active_return, abs=1e-12)
+    assert result["interaction"].tolist() == pytest.approx([0.0, 0.0], abs=1e-12)
+    assert result[["allocation", "selection", "interaction"]].to_numpy().sum() == pytest.approx(
+        independently_calculated_active_return,
+        abs=1e-12,
+    )
+
+
+def test_linked_brinson_hood_beebower_effects_reconcile_without_separate_interaction(
+    by_group_request_data: dict,
+) -> None:
+    by_group_request_data["model"] = "BHB"
+    request = AttributionRequest.model_validate(by_group_request_data)
+
+    effects_df, _ = run_attribution_calculations(request)
+    result, _ = aggregate_attribution_results(effects_df, request)
+
+    portfolio_period_returns = [0.015, 0.008]
+    benchmark_period_returns = [0.007, -0.0034]
+    independently_calculated_active_return = (
+        (1 + portfolio_period_returns[0]) * (1 + portfolio_period_returns[1]) - 1
+    ) - ((1 + benchmark_period_returns[0]) * (1 + benchmark_period_returns[1]) - 1)
+
+    assert effects_df["interaction"].tolist() == pytest.approx([0.0, 0.0, 0.0, 0.0], abs=1e-12)
+    assert result.levels[0].totals.interaction == pytest.approx(0.0, abs=1e-12)
+    assert result.reconciliation.total_active_return == pytest.approx(
+        independently_calculated_active_return * 100,
+        abs=1e-12,
+    )
+    assert result.reconciliation.sum_of_effects == pytest.approx(
+        independently_calculated_active_return * 100,
+        abs=1e-12,
+    )
+    assert result.reconciliation.residual == pytest.approx(0.0, abs=1e-12)
 
 
 def test_calculate_single_period_effects_preserves_frame_for_unsupported_model():

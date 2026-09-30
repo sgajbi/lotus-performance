@@ -38,6 +38,10 @@ The engine will support the two primary Brinson models, selectable via the `mode
   * **Logic:** The `engine/attribution.py` module will implement a strategy pattern to apply the correct formulas for Allocation and Selection effects. The Brinson-Fachler (`BF`) model remains the default.
       * **Brinson-Fachler (BF):** Allocation is measured against the benchmark's total return: $A\_i = (w\_{pi} - w\_{bi}) \\times (R\_{bi} - R\_b)$.
       * **Brinson-Hood-Beebower (BHB):** Allocation is measured against the benchmark group's return: $A\_i = (w\_{pi} - w\_{bi}) \\times R\_{bi}$.
+      * **Selection and interaction:** BF uses benchmark-weighted selection and reports interaction
+        separately. BHB uses portfolio-weighted combined selection
+        ($S_i = w_{pi} \\times (R_{pi} - R_{bi})$) and reports the separate interaction as zero;
+        adding the interaction again would double count active return.
 
 ### 3.3 Configurable Multi-Period Linking
 
@@ -142,3 +146,6 @@ To improve transparency, the response will include a dedicated `reconciliation` 
 5.  All new and existing unit and integration tests for the attribution feature are passing.
 6.  Documentation in **`docs/guides/api_reference.md`** and **`docs/guides/attribution_methodology.md`** is created or updated to reflect the new hierarchical capabilities and configuration options.
 7.  This RFC is formally approved before implementation begins.
+8.  Calculation hashes use the governed engine methodology identity. The BHB reconciliation
+    correction advances that identity so historical results cannot be represented as if they used
+    the corrected decomposition.

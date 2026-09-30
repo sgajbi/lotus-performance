@@ -48,6 +48,9 @@ Attribution Selection Effect (`levels[].groups[].selection`)
   - `S_g,t = w_b,g,t * (r_p,g,t - r_b,g,t)`
 - Brinson-Hood-Beebower:
   - `S_g,t = w_p,g,t * (r_p,g,t - r_b,g,t)`
+  - This is the combined BHB selection effect: portfolio weighting incorporates the
+    allocation/selection interaction, so BHB does not report that interaction again as a separate
+    effect.
 
 2. Linking behavior:
 - `NONE`: `S_g = sum_t S_g,t`
@@ -102,3 +105,6 @@ Brinson-Fachler example:
 
 Output mapping:
 - `levels[...].groups[...].selection = 0.50`
+
+For BHB, use the portfolio weight instead: with `w_p,g,t = 0.60`, the combined selection output is
+`0.60` pp and the separately reported interaction is `0.00` pp.

@@ -628,7 +628,10 @@ def _calculate_single_period_effects(df: pd.DataFrame, model: AttributionModel) 
     elif model == AttributionModel.BRINSON_HOOD_BEEBOWER:
         df["allocation"] = (df["w_p"] - df["w_b"]) * df["r_base_b"]
         df["selection"] = df["w_p"] * (df["r_base_p"] - df["r_base_b"])
-        df["interaction"] = (df["w_p"] - df["w_b"]) * (df["r_base_p"] - df["r_base_b"])
+        # BHB is presented as a two-effect decomposition: portfolio-weighted selection already
+        # includes the allocation/selection interaction, so a separate interaction would double
+        # count active return.
+        df["interaction"] = 0.0
     return df
 
 

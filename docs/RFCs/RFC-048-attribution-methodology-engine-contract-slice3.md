@@ -31,11 +31,14 @@ and support-safe evidence outputs.
 
 ## Methodology Decisions
 
-1. Existing Brinson-Fachler and Brinson-Hood-Beebower formulas remain unchanged.
+1. Brinson-Fachler remains a three-effect decomposition. Brinson-Hood-Beebower is a two-effect
+   decomposition: portfolio-weighted selection includes interaction, and the separately returned
+   interaction field is zero so active return is not double counted.
 2. Existing top-down linking behavior remains unchanged; Slice 3 adds `linking_scaling_skipped`
    evidence when arithmetic active return is zero and scaling cannot be applied.
-3. Interaction folding remains rejected for RFC 048: allocation, selection, and interaction remain
-   explicit source-authored fields so downstream consumers do not infer or fold effects locally.
+3. Allocation, selection, and interaction remain explicit source-authored response fields so
+   downstream consumers do not infer or fold effects locally. For BHB, the explicit interaction
+   value is zero and the selection field is the combined portfolio-weighted effect.
 4. Residual classification is intentionally bounded:
    - `immaterial`: absolute residual below `0.001` percentage points, `no_action`;
    - `watch`: absolute residual from `0.001` to below `0.01` percentage points, `review`;

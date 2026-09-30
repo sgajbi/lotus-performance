@@ -71,6 +71,44 @@ def _assert_authoritative_level_totals(level: dict) -> None:
     )
 
 
+def _single_period_sector_attribution_payload(
+    *,
+    model: str,
+    portfolio_weights: tuple[float, float],
+) -> dict:
+    return {
+        "portfolio_id": f"ATTRIB_{model}_INTERACTION",
+        "mode": "by_group",
+        "group_by": ["sector"],
+        "model": model,
+        "linking": "none",
+        "frequency": "daily",
+        "report_start_date": "2025-01-01",
+        "report_end_date": "2025-01-01",
+        "analyses": [{"period": "SI", "frequencies": ["daily"]}],
+        "portfolio_groups_data": [
+            {
+                "key": {"sector": "Tech"},
+                "observations": [{"date": "2025-01-01", "return_base": 0.10, "weight_bop": portfolio_weights[0]}],
+            },
+            {
+                "key": {"sector": "Health"},
+                "observations": [{"date": "2025-01-01", "return_base": 0.00, "weight_bop": portfolio_weights[1]}],
+            },
+        ],
+        "benchmark_groups_data": [
+            {
+                "key": {"sector": "Tech"},
+                "observations": [{"date": "2025-01-01", "return_base": 0.04, "weight_bop": 0.50}],
+            },
+            {
+                "key": {"sector": "Health"},
+                "observations": [{"date": "2025-01-01", "return_base": 0.02, "weight_bop": 0.50}],
+            },
+        ],
+    }
+
+
 @pytest.fixture()
 def client():
     if os.path.exists(settings.LINEAGE_STORAGE_PATH):
@@ -187,6 +225,155 @@ def test_attribution_endpoint_by_instrument_happy_path(client):
     assert tech_group["total_effect"] == pytest.approx(
         tech_group["allocation"] + tech_group["selection"] + tech_group["interaction"]
     )
+
+
+@pytest.mark.parametrize(
+    (
+        "model",
+        "portfolio_weights",
+        "expected_active_return_pct",
+        "expected_conventional_interaction_pct",
+        "expected_reported_interaction_pct",
+    ),
+    [
+        pytest.param("BHB", (0.60, 0.40), 3.0, 0.8, 0.0, id="bhb-positive-interaction"),
+        pytest.param("BHB", (0.40, 0.60), 1.0, -0.8, 0.0, id="bhb-negative-interaction"),
+        pytest.param("BHB", (0.50, 0.50), 2.0, 0.0, 0.0, id="bhb-zero-interaction"),
+        pytest.param("BF", (0.60, 0.40), 3.0, 0.8, 0.8, id="bf-positive-interaction-control"),
+    ],
+)
+def test_attribution_endpoint_reconciles_bhb_without_double_counting_interaction(
+    client,
+    model,
+    portfolio_weights,
+    expected_active_return_pct,
+    expected_conventional_interaction_pct,
+    expected_reported_interaction_pct,
+):
+    payload = _single_period_sector_attribution_payload(
+        model=model,
+        portfolio_weights=portfolio_weights,
+    )
+
+    response = client.post("/performance/attribution", json=payload)
+
+    assert response.status_code == 200
+    period = response.json()["results_by_period"]["SI"]
+    level = period["levels"][0]
+    _assert_authoritative_level_totals(level)
+    independently_calculated_portfolio_return_pct = (portfolio_weights[0] * 0.10 + portfolio_weights[1] * 0.00) * 100
+    independently_calculated_benchmark_return_pct = (0.50 * 0.04 + 0.50 * 0.02) * 100
+    independently_calculated_active_return_pct = (
+        independently_calculated_portfolio_return_pct - independently_calculated_benchmark_return_pct
+    )
+    conventional_interaction_pct = (
+        (portfolio_weights[0] - 0.50) * (0.10 - 0.04) + (portfolio_weights[1] - 0.50) * (0.00 - 0.02)
+    ) * 100
+
+    assert independently_calculated_active_return_pct == pytest.approx(expected_active_return_pct, abs=1e-12)
+    assert conventional_interaction_pct == pytest.approx(expected_conventional_interaction_pct, abs=1e-12)
+    assert level["interaction_total_pct"] == pytest.approx(expected_reported_interaction_pct, abs=1e-12)
+    assert level["total_effect_pct"] == pytest.approx(independently_calculated_active_return_pct, abs=1e-12)
+    assert period["reconciliation"]["total_active_return"] == pytest.approx(
+        independently_calculated_active_return_pct,
+        abs=1e-12,
+    )
+    assert period["reconciliation"]["sum_of_effects"] == pytest.approx(
+        independently_calculated_active_return_pct,
+        abs=1e-12,
+    )
+    assert period["reconciliation"]["residual"] == pytest.approx(0.0, abs=1e-12)
+    assert period["reconciliation"]["residual_materiality"]["classification"] == "immaterial"
+
+
+def test_attribution_endpoint_by_instrument_applies_corrected_bhb_decomposition(client):
+    payload = {
+        "portfolio_id": "ATTRIB_BHB_BY_INSTRUMENT",
+        "mode": "by_instrument",
+        "group_by": ["sector"],
+        "model": "BHB",
+        "linking": "none",
+        "frequency": "daily",
+        "report_start_date": "2025-01-01",
+        "report_end_date": "2025-01-01",
+        "analyses": [{"period": "SI", "frequencies": ["daily"]}],
+        "portfolio_data": {
+            "metric_basis": "NET",
+            "valuation_points": [{"perf_date": "2025-01-01", "begin_mv": 1000, "end_mv": 1060}],
+        },
+        "instruments_data": [
+            {
+                "instrument_id": "TECH_POSITION",
+                "meta": {"sector": "Tech"},
+                "valuation_points": [{"perf_date": "2025-01-01", "begin_mv": 600, "end_mv": 660}],
+            },
+            {
+                "instrument_id": "HEALTH_POSITION",
+                "meta": {"sector": "Health"},
+                "valuation_points": [{"perf_date": "2025-01-01", "begin_mv": 400, "end_mv": 400}],
+            },
+        ],
+        "benchmark_groups_data": [
+            {
+                "key": {"sector": "Tech"},
+                "observations": [{"date": "2025-01-01", "return_base": 0.04, "weight_bop": 0.50}],
+            },
+            {
+                "key": {"sector": "Health"},
+                "observations": [{"date": "2025-01-01", "return_base": 0.02, "weight_bop": 0.50}],
+            },
+        ],
+    }
+
+    response = client.post("/performance/attribution", json=payload)
+
+    assert response.status_code == 200
+    period = response.json()["results_by_period"]["SI"]
+    level = period["levels"][0]
+    _assert_authoritative_level_totals(level)
+    groups = {group["key"]["sector"]: group for group in level["groups"]}
+
+    assert groups["Tech"] == {
+        "key": {"sector": "Tech"},
+        "portfolio_weight_avg": pytest.approx(60.0),
+        "benchmark_weight_avg": pytest.approx(50.0),
+        "portfolio_return": pytest.approx(10.0),
+        "benchmark_return": pytest.approx(4.0),
+        "allocation": pytest.approx(0.4),
+        "selection": pytest.approx(3.6),
+        "interaction": pytest.approx(0.0),
+        "total_effect": pytest.approx(4.0),
+    }
+    assert groups["Health"] == {
+        "key": {"sector": "Health"},
+        "portfolio_weight_avg": pytest.approx(40.0),
+        "benchmark_weight_avg": pytest.approx(50.0),
+        "portfolio_return": pytest.approx(0.0),
+        "benchmark_return": pytest.approx(2.0),
+        "allocation": pytest.approx(-0.2),
+        "selection": pytest.approx(-0.8),
+        "interaction": pytest.approx(0.0),
+        "total_effect": pytest.approx(-1.0),
+    }
+
+    independently_calculated_active_return_pct = ((600 / 1000) * 0.10 + (400 / 1000) * 0.00) * 100 - (
+        0.50 * 0.04 + 0.50 * 0.02
+    ) * 100
+    assert independently_calculated_active_return_pct == pytest.approx(3.0, abs=1e-12)
+    assert level["allocation_total_pct"] == pytest.approx(0.2, abs=1e-12)
+    assert level["selection_total_pct"] == pytest.approx(2.8, abs=1e-12)
+    assert level["interaction_total_pct"] == pytest.approx(0.0, abs=1e-12)
+    assert level["total_effect_pct"] == pytest.approx(independently_calculated_active_return_pct, abs=1e-12)
+    assert period["reconciliation"]["total_active_return"] == pytest.approx(
+        independently_calculated_active_return_pct,
+        abs=1e-12,
+    )
+    assert period["reconciliation"]["sum_of_effects"] == pytest.approx(
+        independently_calculated_active_return_pct,
+        abs=1e-12,
+    )
+    assert period["reconciliation"]["residual"] == pytest.approx(0.0, abs=1e-12)
+    assert period["reconciliation"]["residual_materiality"]["classification"] == "immaterial"
 
 
 def test_attribution_lineage_flow(client):

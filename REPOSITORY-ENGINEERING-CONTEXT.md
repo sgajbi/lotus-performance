@@ -584,14 +584,19 @@ Important validation expectations:
     hierarchy `levels[].rows[].weight_avg`, and `average_weight_methodology_status` together. If a
     period is blocked, keep the legacy denominator and expose blocker reason codes instead of
     silently mixing denominators across surfaces.
-31. Runtime operator and status surfaces should degrade per source or component, not per endpoint.
+31. Brinson attribution decomposition is model-specific. Brinson-Fachler uses benchmark-weighted
+    selection and a separate interaction effect. Brinson-Hood-Beebower uses portfolio-weighted
+    combined selection and must emit zero separate interaction so active return is not double
+    counted. Preserve the common response shape and source-owned reconciliation across stateless,
+    stateful, single-period, and linked results; consumers must not refold these effects.
+32. Runtime operator and status surfaces should degrade per source or component, not per endpoint.
     Work-item and recovery reads for compute and lineage queues must keep the healthy queue usable
     when the other queue fails. Runtime status must mark only the failed component unavailable when
     queue, history, preview, or governed-action snapshot reads fail. Public reasons must be stable
     operational codes rather than raw exception class names, and structured support-safe diagnostics
     must include source/component, operation, stable reason, exception class, and safe context. Do
     not log raw calculation-id fragments or cursor identifiers from operator filters.
-32. Application-service port-boundary evidence is now measured separately from enforced router and
+33. Application-service port-boundary evidence is now measured separately from enforced router and
     engine/core import rules. `scripts/python_architecture_boundary_inventory.py` reports
     `APPLICATION_SERVICE_CONCRETE_STORE_IMPORT` findings as report-only while `--max-findings 0`
     continues to enforce zero router/core violations. `execution_polling_service` is the pilot
@@ -599,7 +604,7 @@ Important validation expectations:
     depends on that port, and the durable adapter owns concrete execution, compute-job, and async
     result stores. Continue migrating one workflow seam at a time instead of introducing a runtime
     service split.
-33. API request DTOs must cross into analytics workflow services through explicit request mappers
+34. API request DTOs must cross into analytics workflow services through explicit request mappers
     and workflow command objects. TWR, workspace-summary, contribution, benchmark, and
     returns-series routes now map validated request DTOs in `app.api.mappers` before calling the
     application workflow entry point. `ROUTE_WORKFLOW_DTO_DIRECT_CALL` is enforced by the
@@ -607,7 +612,7 @@ Important validation expectations:
     calls for those governed workflows. The current command objects intentionally preserve the
     validated request identity while the deeper field-native command migration proceeds in smaller
     behavior-preserving slices.
-34. The shared Compose lineage volume is initialized by the bounded
+35. The shared Compose lineage volume is initialized by the bounded
     `performance-lineage-volume-init` job before API, lineage-worker, compute-executor, or optional
     retention-worker startup. The initializer may run as root only to repair `/app/lineage_data` to
     UID/GID `10001:10001` and mode `0770`; all long-running workloads remain non-root. Preserve the

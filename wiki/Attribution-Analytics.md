@@ -36,6 +36,12 @@ locally.
     Contribution;
 13. governed `AttributionAnalytics:v1` data-product declaration and trust telemetry.
 
+The model choice governs the decomposition without changing the response shape. Brinson-Fachler
+reports allocation, benchmark-weighted selection, and separate interaction. Brinson-Hood-Beebower
+reports allocation and portfolio-weighted combined selection; its separate `interaction` field is
+zero so active return is not counted twice. Linked and single-period results reconcile using these
+model-specific effects, and downstream consumers must preserve them as authored.
+
 The current stateful public contract is intentionally fenced to:
 
 1. `mode="by_instrument"`;
@@ -177,7 +183,8 @@ Common current reasons:
 
 RFC 048 added deterministic regression coverage for:
 
-1. Brinson-Fachler allocation, selection, interaction, and active-contribution reconciliation;
+1. Brinson-Fachler three-effect and Brinson-Hood-Beebower two-effect decomposition, including
+   positive, negative, zero, and linked-period interaction controls;
 2. portfolio-only and benchmark-only segment union with source-order independence;
 3. missing classification, negative weights, benchmark-return gaps, and residual materiality;
 4. invalid multi-period linked return chains;
