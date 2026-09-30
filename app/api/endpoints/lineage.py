@@ -4,8 +4,10 @@ from uuid import UUID
 from fastapi import APIRouter, HTTPException, Path, Request, status
 from fastapi.responses import FileResponse
 
+from app.api.http_response_adapter import to_fastapi_response
 from app.models.lineage_responses import LineageResponse
 from app.models.platform_surfaces import ErrorDetailResponse
+from app.services.calculation_result_access import authorize_persisted_calculation_resource_access
 from app.services.execution_stage_errors import safe_unexpected_failure_message
 from app.services.lineage_artifact_service import resolve_lineage_artifact_file, resolve_lineage_response
 
@@ -57,6 +59,13 @@ async def get_lineage_data(
     ),
 ) -> LineageResponse:
     try:
+        access_denial = authorize_persisted_calculation_resource_access(
+            calculation_id=calculation_id,
+            headers=request.headers,
+            not_found_detail="Lineage data not found for the given calculation_id.",
+        )
+        if access_denial is not None:
+            return to_fastapi_response(access_denial)
         return resolve_lineage_response(
             calculation_id=calculation_id,
             artifact_url_factory=lambda artifact_name: str(
@@ -110,6 +119,7 @@ async def get_lineage_data(
     },
 )
 async def get_lineage_artifact(
+    request: Request,
     calculation_id: UUID = Path(
         description="Durable calculation identifier returned by an analytics endpoint.",
         examples=["2f4f3e0e-6e0e-4e0e-8e0e-2f4f3e0e6e0e"],
@@ -120,6 +130,13 @@ async def get_lineage_artifact(
     ),
 ):
     try:
+        access_denial = authorize_persisted_calculation_resource_access(
+            calculation_id=calculation_id,
+            headers=request.headers,
+            not_found_detail="Lineage artifact not found.",
+        )
+        if access_denial is not None:
+            return to_fastapi_response(access_denial)
         artifact = resolve_lineage_artifact_file(calculation_id=calculation_id, artifact_name=artifact_name)
     except Exception as exc:
         if not _is_application_http_error(exc):

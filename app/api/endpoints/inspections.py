@@ -12,6 +12,7 @@ from app.models.inspection_responses import TWRInspectionAcceptedResponse, TWRIn
 from app.models.platform_surfaces import ErrorDetailResponse
 from app.services.analytics_workflow_types import ANALYTICS_WORKFLOW_TWR_INSPECTION
 from app.services.async_result_service import resolve_async_result
+from app.services.calculation_result_access import authorize_persisted_calculation_resource_access
 from app.services.inspection.twr_inspection_artifact_service import (
     RetainedTWRInspectionArtifact,
     TWRInspectionArtifactFileReference,
@@ -153,6 +154,7 @@ def get_twr_inspection(
     },
 )
 def get_twr_inspection_artifact(
+    request: Request,
     inspection_id: UUID = Path(
         description="Completed TWR inspection identifier returned by POST /performance/inspections/twr.",
         examples=["9d000001-1111-4222-8333-abcdefabcdef"],
@@ -167,6 +169,13 @@ def get_twr_inspection_artifact(
     ),
 ):
     try:
+        access_denial = authorize_persisted_calculation_resource_access(
+            calculation_id=inspection_id,
+            headers=request.headers,
+            not_found_detail="Inspection artifact not found.",
+        )
+        if access_denial is not None:
+            return to_fastapi_response(access_denial)
         artifact = resolve_twr_inspection_artifact(inspection_id=inspection_id, artifact_name=artifact_name)
     except Exception as exc:
         if not _is_application_http_error(exc):

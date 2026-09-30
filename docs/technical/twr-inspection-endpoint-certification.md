@@ -87,6 +87,14 @@ downloads intentionally use the strict runtime-read capability rather than portf
 because supportability artifacts can contain source-quality, source-economics, reconciliation, and
 operator diagnostic evidence behind the protected inspection result.
 
+Capability admission is necessary but not sufficient. Before reading inspection metadata, a
+materialized file, or a retained payload, the artifact route loads the durable inspection execution
+and requires the admitted `X-Tenant-Id` to match its persisted `tenant_id`. A runtime-read operator
+from another tenant receives the governed authorization-denied envelope, and the response contains
+no artifact marker or content. Missing or blank legacy tenant authority fails closed while
+privileged-read authorization is enabled; an absent durable execution returns the same product-safe
+artifact-not-found response used for an unknown inspection.
+
 The artifact route accepts single file names only, not arbitrary paths. Path-like values using `..`,
 `/`, `\`, absolute paths, empty names, or control characters return `404` before storage paths are
 resolved. The same filename policy is applied to durable metadata names and retained-payload
@@ -197,7 +205,7 @@ Swagger now documents:
 | Model tests | Subject-mode validation rejects mixed or missing companion inputs. | Strong for request contract guardrails. |
 | Service tests | Runtime failure preservation, partial evidence behavior, verdict synthesis, owner summary, window scoping, and artifact materialization failures. | Strong for core orchestration behavior. |
 | Check-family unit tests | Source quality, calculation consistency, reconciliation, and source economics each have focused tests for domain-specific defect patterns. | Strong and domain-aware. |
-| Security tests | Privileged-read rule coverage proves inspection result and child artifact routes require `operations.runtime.read`; route-level integration coverage proves artifact download denies missing identity and non-privileged callers before artifact resolution. | Strong for controlled support-evidence access. |
+| Security tests | Privileged-read rule coverage proves inspection result and child artifact routes require `operations.runtime.read`; route-level integration coverage proves missing identity, foreign-tenant runtime readers, and missing durable tenant authority are denied before file or retained-payload access, while the owning tenant can retrieve both storage forms. | Strong for controlled support-evidence access. |
 | Integration tests | Async submission, execution polling, completed result retrieval, artifact file retrieval, retained-payload artifact fallback, missing-artifact errors, existing-calculation lineage, stateful reconciliation, and source-economics artifacts. | Strong route-level coverage. |
 | Docs/OpenAPI tests | TWR OpenAPI contract and public docs tests now cover supportability purpose, result behavior, artifact route, schema examples, and check inventory documentation. | Strong after this pass. |
 | Live canonical validation | `scripts/validate_canonical_twr_inspection.py` validates `PB_SG_GLOBAL_BAL_001` as of `2026-04-10` against live performance and lotus-core control-plane services, and can optionally require workflow-pack-backed `support_brief.md` plus bounded `workflow_pack_run` posture. | Available as runtime proof; run before PR or release evidence when the local stack is up. |
