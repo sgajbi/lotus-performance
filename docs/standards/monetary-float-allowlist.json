@@ -172,18 +172,6 @@
       "review_by": "2026-11-24"
     },
     {
-      "finding": "app/models/mwr_requests.py:22:rate_lower_bound: float = -0.999999999",
-      "justification": "Temporary approved monetary floating-point usage; convert to Decimal.",
-      "owner": "platform-governance",
-      "review_by": "2026-11-06"
-    },
-    {
-      "finding": "app/models/mwr_requests.py:23:rate_upper_bound: float = 1000.0",
-      "justification": "Temporary approved monetary floating-point usage; convert to Decimal.",
-      "owner": "platform-governance",
-      "review_by": "2026-11-06"
-    },
-    {
       "finding": "app/models/mwr_responses.py:27:rate_lower_bound: Optional[float] = Field(default=None, description=\"Lower searched annual rate bound.\")",
       "justification": "Temporary approved monetary floating-point usage; convert to Decimal.",
       "owner": "platform-governance",
@@ -454,18 +442,6 @@
       "review_by": "2026-11-06"
     },
     {
-      "finding": "engine/mwr.py:107:def f_log(log_rate: float) -> float:",
-      "justification": "Temporary approved monetary floating-point usage; convert to Decimal.",
-      "owner": "platform-governance",
-      "review_by": "2026-11-06"
-    },
-    {
-      "finding": "engine/mwr.py:108:return float(np.sum(values * np.exp(-log_rate * time_diffs)))",
-      "justification": "Temporary approved monetary floating-point usage; convert to Decimal.",
-      "owner": "platform-governance",
-      "review_by": "2026-11-06"
-    },
-    {
       "finding": "engine/mwr.py:21:def _net_same_day_flows(values: list[float], dates: list[date]) -> tuple[np.ndarray, np.ndarray]:",
       "justification": "Temporary approved monetary floating-point usage; convert to Decimal.",
       "owner": "platform-governance",
@@ -512,6 +488,30 @@
       "justification": "Temporary approved monetary floating-point usage; convert to Decimal.",
       "owner": "platform-governance",
       "review_by": "2026-11-06"
+    },
+    {
+      "finding": "engine/mwr.py:265:value_tolerance = max(tolerance * max(float(np.sum(np.abs(coefficients))), 1.0), 1e-8)",
+      "justification": "The XIRR exponential-polynomial solver scales its monetary residual tolerance in the same float domain as the existing cash-flow vector. Decimal migration remains governed by https://github.com/sgajbi/lotus-performance/issues/473.",
+      "owner": "platform-governance",
+      "review_by": "2026-11-24"
+    },
+    {
+      "finding": "engine/mwr.py:328:def evaluate(log_rate: float) -> float:",
+      "justification": "The XIRR exponential-polynomial objective returns a signed monetary residual while its input is a dimensionless log rate. Decimal migration remains governed by https://github.com/sgajbi/lotus-performance/issues/473.",
+      "owner": "platform-governance",
+      "review_by": "2026-11-24"
+    },
+    {
+      "finding": "engine/mwr.py:330:return float(np.sum(coefficients * np.exp(-log_rate * exponents)))",
+      "justification": "The XIRR exponential-polynomial objective sums the existing float cash-flow coefficients after dimensionless discounting. Decimal migration remains governed by https://github.com/sgajbi/lotus-performance/issues/473.",
+      "owner": "platform-governance",
+      "review_by": "2026-11-24"
+    },
+    {
+      "finding": "engine/mwr.py:370:value_tolerance: float,",
+      "justification": "The internal XIRR isolation helpers carry the scaled monetary residual tolerance in the existing float solver domain. Decimal migration remains governed by https://github.com/sgajbi/lotus-performance/issues/473.",
+      "owner": "platform-governance",
+      "review_by": "2026-11-24"
     }
   ]
 }

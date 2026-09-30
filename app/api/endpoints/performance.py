@@ -197,7 +197,10 @@ async def get_twr_result(calculation_id: UUID, request: Request) -> PerformanceR
         "supplied, and then runs the requested "
         "`mwr_method`. `XIRR` returns the annual IRR solved from irregular cash-flow dates; "
         "`MODIFIED_DIETZ` returns a period return using dated cash-flow weights; `DIETZ` returns "
-        "the midpoint Dietz period return."
+        "the midpoint Dietz period return. XIRR is successful only for one residual-qualified root "
+        "with supportable uniqueness and simple-root qualification; multiple or non-simple roots, "
+        "excessive controls, or unfinished solver termination remain "
+        "explicitly labeled Modified Dietz fallbacks with convergence diagnostics."
     ),
     responses=stateful_tenant_authority_responses(),
     openapi_extra=STATEFUL_TENANT_OPENAPI_EXTRA,

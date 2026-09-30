@@ -10,7 +10,7 @@ was used as a review input; the durable documentation is now Lotus-authored and 
 | --- | --- |
 | Use dated XIRR as the primary MWR calculation. | `/performance/mwr` uses XIRR-style dated cash-flow solving on an ACT/365 basis. |
 | Do not hide solver failures. | Responses carry `status`, `reason_codes`, `warnings`, `fallback_from`, `fallback_reason`, and `is_approximation`. |
-| Detect multiple roots and no-root profiles. | The solver scans the configured interval and emits `MULTIPLE_IRR_ROOTS_DETECTED` or `NO_ROOT_FOUND`. |
+| Detect multiple, non-simple, and no-root profiles. | The solver isolates roots and emits `MULTIPLE_IRR_ROOTS_DETECTED`, `NON_SIMPLE_IRR_ROOT_DETECTED`, or `NO_ROOT_FOUND` without inflating the unique-root count. |
 | Distinguish annualized and holding-period returns. | `money_weighted_return` remains the primary annualized value and `holding_period_return` is emitted separately. |
 | Net same-day cash flows deterministically. | Cash flows are normalized and netted by date before solving; tests prove order independence. |
 | Make support behavior operationally usable. | The MWR support playbook maps reason codes to support actions and client-safe explanations. |

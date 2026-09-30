@@ -4,9 +4,15 @@ from decimal import Decimal
 from typing import List, Literal, Optional
 from uuid import UUID, uuid4
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 from core.envelope import Annualization, Calendar, Flags, Output, Periods
+from engine.mwr_controls import (
+    XIRR_MAX_ITERATIONS,
+    XIRR_MAX_SCAN_STEPS,
+    XIRR_MIN_REQUEST_SCAN_STEPS,
+    xirr_solver_work_is_admitted,
+)
 
 
 class CashFlow(BaseModel):
@@ -60,12 +66,33 @@ class MWRSourcePreconvertedFXEvidence(BaseModel):
 
 
 class Solver(BaseModel):
-    method: str = "brent"
-    max_iter: int = 200
-    tolerance: float = 1e-10
-    rate_lower_bound: float = -0.999999999
-    rate_upper_bound: float = 1000.0
-    root_scan_steps: int = 512
+    model_config = ConfigDict(extra="forbid")
+
+    method: Literal["brent"] = "brent"
+    max_iter: int = Field(default=200, ge=1, le=XIRR_MAX_ITERATIONS)
+    tolerance: float = Field(default=1e-10, gt=0, allow_inf_nan=False)
+    rate_lower_bound: float = Field(  # monetary-float-allow: dimensionless annual return bound
+        default=-0.999999999, gt=-1, allow_inf_nan=False
+    )
+    rate_upper_bound: float = Field(  # monetary-float-allow: dimensionless annual return bound
+        default=1000.0, allow_inf_nan=False
+    )
+    root_scan_steps: int = Field(
+        default=512,
+        ge=XIRR_MIN_REQUEST_SCAN_STEPS,
+        le=XIRR_MAX_SCAN_STEPS,
+    )
+
+    @model_validator(mode="after")
+    def validate_rate_bounds(self) -> "Solver":
+        if self.rate_upper_bound <= self.rate_lower_bound:
+            raise ValueError("rate_upper_bound must be greater than rate_lower_bound")
+        if not xirr_solver_work_is_admitted(
+            root_scan_steps=self.root_scan_steps,
+            max_iter=self.max_iter,
+        ):
+            raise ValueError("root_scan_steps * max_iter exceeds the supported XIRR work budget")
+        return self
 
 
 class MoneyWeightedReturnRequestBase(BaseModel):

@@ -28,6 +28,7 @@ not be used to infer unsupported calculation behavior.
 | Reason code | Meaning | Support action |
 | --- | --- | --- |
 | `MULTIPLE_IRR_ROOTS_DETECTED` | The cash-flow profile can produce more than one valid IRR root. | Do not quote an arbitrary XIRR. Explain that the profile is economically ambiguous for IRR-style reporting and use the labeled fallback if present. |
+| `NON_SIMPLE_IRR_ROOT_DETECTED` | The profile has one unique repeated/tangent root, which is numerically non-simple and not safely supportable as quoted XIRR. | Preserve the reported unique-root count, do not describe it as multiple roots, and use the labeled fallback. |
 | `NO_ROOT_FOUND` | No root was found inside the configured solver interval. | Check for unusual valuation/cash-flow scale, data sign issues, and whether fallback was enabled. |
 | `NO_POSITIVE_AND_NEGATIVE_CASH_FLOW` | Investor cash flows do not contain both signs after normalization. | Validate the caller's contribution/withdrawal classification and source transaction mapping. |
 | `NO_ECONOMIC_CONTENT` | The request has no meaningful valuation or cash-flow economics. | Treat as not applicable, not as a normal zero return. |

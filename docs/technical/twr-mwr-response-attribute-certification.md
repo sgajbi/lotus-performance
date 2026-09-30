@@ -104,7 +104,7 @@ the daily returns.
 | `is_annualized_primary` | `true` when `money_weighted_return` is annualized XIRR; `false` for Dietz period return. |
 | `fallback_from` / `fallback_reason` | Present when XIRR falls back to Dietz; omitted for clean direct calculations. |
 | `is_approximation` | Indicates whether the emitted method is approximate. XIRR success is `false`; Dietz output is `true`. |
-| `convergence` | Present for XIRR convergence evidence; omitted for direct Dietz output. |
+| `convergence` | Present for attempted XIRR, including labeled Dietz fallback; carries unique-root count, non-simple-root state, residual, termination, configured controls/work units, and uniqueness-support evidence. Omitted for direct Dietz output. |
 | `cashflows_used` | Present when `emit_cashflows_used=true`; omitted when explicitly false. |
 | `cashflows_used[].amount` / `date` | Exact signed cash-flow schedule used by the engine. |
 | `start_date` | Earliest cash-flow date for stateless Dietz when no explicit start date is supplied; stateful uses requested window start. |

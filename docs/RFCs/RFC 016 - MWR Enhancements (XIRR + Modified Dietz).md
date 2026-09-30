@@ -72,7 +72,7 @@ normalizes them into canonical MWR inputs, and stamps source consumer identity s
 
 | Requested method | Implemented behavior |
 | --- | --- |
-| `XIRR` | Builds a dated solver vector from beginning market value, signed cash flows, and ending market value. Same-day solver flows are netted deterministically. The solver scans the configured log-rate interval and returns XIRR only when exactly one root is detected. |
+| `XIRR` | Builds a dated solver vector from beginning market value, signed cash flows, and ending market value. Same-day solver flows are netted deterministically. The solver combines configured log-rate partitions with derivative-root isolation and returns XIRR only when one residual-qualified root is detected and uniqueness is supportable. |
 | `MODIFIED_DIETZ` | Computes dated weighted capital using each cash flow's time remaining in the measurement window. This is a distinct path from Simple Dietz. |
 | `DIETZ` | Computes midpoint Dietz using half of net cash flow in the denominator. |
 
@@ -80,7 +80,8 @@ XIRR success returns `method="XIRR"`, `status="CALCULATED"`, `is_annualized_prim
 `is_approximation=false`.
 
 XIRR failure states such as no economic content, missing positive/negative solver flow, no root,
-multiple roots, and invalid solver bounds are not silently converted into arbitrary IRR values.
+multiple/close roots, a unique non-simple repeated/tangent root, invalid or excessive controls, iteration exhaustion, residual failure, and
+unsupported uniqueness proof are not silently converted into arbitrary IRR values.
 Fallback responses are labeled with `status="FALLBACK_USED"`, include the solver `reason_codes`,
 set `fallback_from="XIRR"`, and return Modified Dietz as the calculation method.
 

@@ -31,6 +31,25 @@ class Convergence(BaseModel):
     anchor_date: Optional[Date] = Field(default=None, description="Anchor date used for year-fraction calculation.")
     normalized_flow_count: Optional[int] = Field(default=None, description="Number of normalized solver flows.")
     gross_cash_flow_scale: Optional[float] = Field(default=None, description="Gross absolute solver-flow scale.")
+    termination_reason: Optional[str] = Field(
+        default=None,
+        description="Bounded numerical termination reason for the selected candidate, when applicable.",
+    )
+    uniqueness_supported: Optional[bool] = Field(
+        default=None,
+        description="Whether the solver established that no additional root exists in the configured bounds.",
+    )
+    non_simple_root_detected: Optional[bool] = Field(
+        default=None,
+        description="Whether a detected unique root is repeated/tangent and therefore not safely supportable as XIRR.",
+    )
+    root_scan_steps: Optional[int] = Field(default=None, description="Configured log-rate scan point count.")
+    tolerance: Optional[float] = Field(default=None, description="Configured relative solver tolerance.")
+    max_iterations: Optional[int] = Field(default=None, description="Configured per-candidate iteration limit.")
+    solver_work_units: Optional[int] = Field(
+        default=None,
+        description="Deterministic caller-controlled root-scan and iteration work units.",
+    )
 
 
 class MWRResult(BaseModel):

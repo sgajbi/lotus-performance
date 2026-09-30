@@ -19,7 +19,7 @@ def test_calculation_engine_version_is_not_deployable_app_version() -> None:
 
 
 def test_canonical_income_methodology_has_new_reproducibility_identity() -> None:
-    assert CALCULATION_ENGINE_VERSION == "lotus-performance-calculation-engine.v3"
+    assert CALCULATION_ENGINE_VERSION == "lotus-performance-calculation-engine.v4"
     source_input = {
         "portfolio_id": "INCOME_REPLAY",
         "cash_flows": [{"amount": "850", "cash_flow_type": "income", "timing": "eod"}],

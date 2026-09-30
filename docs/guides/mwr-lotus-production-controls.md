@@ -49,6 +49,7 @@ The solver is intentionally diagnostic:
 - same-day investor cash flows are netted after sign normalization;
 - root search scans the configured rate interval instead of depending on a single initial guess;
 - `MULTIPLE_IRR_ROOTS_DETECTED` is emitted when the cash-flow profile has more than one root;
+- `NON_SIMPLE_IRR_ROOT_DETECTED` is emitted when the profile has one unique repeated/tangent root;
 - `NO_ROOT_FOUND` is emitted when no valid root exists in the configured bounds;
 - `NO_POSITIVE_AND_NEGATIVE_CASH_FLOW` and `NO_ECONOMIC_CONTENT` prevent misleading normal-zero
   interpretations;

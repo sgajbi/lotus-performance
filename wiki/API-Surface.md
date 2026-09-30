@@ -88,6 +88,10 @@ calculation-quality metadata (`status`, `reason_codes`, `warnings`, `fallback_re
 `is_approximation`) plus `holding_period_return` and XIRR convergence diagnostics so demos,
 support workflows, and downstream UI panels can explain whether the value is an annualized XIRR, a
 Modified Dietz fallback, Simple Dietz result, or not calculable.
+Successful XIRR now requires explicit termination, scaled-residual, and uniqueness evidence.
+Close distinct roots, unique non-simple repeated/tangent roots, excessive or exhausted work
+budgets, and unsupported uniqueness proof remain labeled fallbacks; their convergence diagnostics
+preserve truthful unique-root counts and qualification state for operations and consumers.
 Current MWR inputs must be in one reporting currency. `cashflows_used` remains the legacy
 calculation-schedule echo. Stateless callers may supply complete
 `source_preconverted_fx_evidence`; lotus-performance validates it against the supplied

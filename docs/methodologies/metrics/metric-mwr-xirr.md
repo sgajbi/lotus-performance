@@ -7,7 +7,8 @@ Money-Weighted Return via XIRR (`money_weighted_return` when method resolves to 
   - stateless payload (`stateless_input.begin_mv`, `stateless_input.end_mv`, `stateless_input.cash_flows[]`)
   - legacy stateless top-level `begin_mv`, `end_mv`, and `cash_flows[]`
   - stateful payload (`stateful_input.window_start_date`) resolved from lotus-core portfolio timeseries
-- Path coverage: applies when `mwr_method="XIRR"` and exactly one dated XIRR root is detected
+- Path coverage: applies when `mwr_method="XIRR"`, exactly one dated XIRR root is detected,
+  its residual satisfies the configured tolerance, and uniqueness is supportable in the configured bounds
 - Currency semantics: governed by
   [RFC-020 multi-currency support matrix](../../technical/rfc-020-multi-currency-support-matrix.md)
 
@@ -99,10 +100,17 @@ Money-Weighted Return via XIRR (`money_weighted_return` when method resolves to 
 
 3. XIRR solve (`_xirr`):
 - Define `NPV(r) = sum_j V_j / (1 + r)^(tau_j)`.
-- The implementation scans the configured log-rate interval, brackets all sign-changing roots, and
-  refines each candidate with bisection.
-- If exactly one root is detected, the engine returns it.
-- If zero roots or multiple roots are detected, the engine does not choose an arbitrary rate.
+- The implementation transforms to `x = log(1 + r)`, retains the configured scan points, and uses
+  recursively isolated derivative roots as monotonic partition boundaries. This exposes close
+  crossing roots and repeated/tangent roots that a sign-only grid can miss. A repeated/tangent
+  root remains one unique root and is separately qualified as non-simple.
+- Cash-flow coefficient sign changes provide the root-count bound. Schedules with at most one sign
+  change need no derivative recursion. Nonconventional schedules with more than 64 normalized
+  nonzero terms fail closed when exhaustive uniqueness isolation would exceed the bounded work policy.
+- Each bracket is refined by bisection. A candidate is converged only when its NPV residual satisfies
+  `max(tolerance * gross_cash_flow_scale, 1e-8)`; exhausting `max_iter` or merely reaching the rate
+  interval tolerance is not convergence.
+- XIRR is returned only when exactly one converged candidate exists and uniqueness is supportable.
 
 4. Response mapping on convergence:
 - `money_weighted_return = 100 * r`
@@ -120,9 +128,10 @@ Money-Weighted Return via XIRR (`money_weighted_return` when method resolves to 
 3. Build signed cash-flow schedule for XIRR solve (`-begin`, `-cashflows`, `+end`).
 4. Net same-day solver flows and remove zero net rows.
 5. Reject empty/no-economic-content vectors and vectors without both positive and negative values.
-6. Scan the configured log-rate interval, refine roots by bisection, and count unique roots.
-7. Return XIRR only when exactly one root exists; otherwise enter the labeled Modified Dietz
-   fallback branch.
+6. Partition the configured log-rate interval with scan points and recursively isolated stationary
+   points, refine candidates by bisection, and count unique roots.
+7. Qualify termination, scaled residual, and uniqueness evidence.
+8. Return XIRR only for one qualified root; otherwise enter the labeled Modified Dietz fallback branch.
 
 ## Validation and Failure Behavior
 - Request schema enforces required fields and types.
@@ -143,13 +152,18 @@ Money-Weighted Return via XIRR (`money_weighted_return` when method resolves to 
   source-preconverted schedules may include complete `source_preconverted_fx_evidence`; incomplete
   or inconsistent evidence fails closed with HTTP 422.
 - `NO_ECONOMIC_CONTENT` returns `status="NOT_APPLICABLE"`.
-- `NO_POSITIVE_AND_NEGATIVE_CASH_FLOW`, `NO_ROOT_FOUND`, `MULTIPLE_IRR_ROOTS_DETECTED`, and
-  `INVALID_SOLVER_BOUNDS` enter a labeled Modified Dietz fallback unless no economic content exists.
+- `NO_POSITIVE_AND_NEGATIVE_CASH_FLOW`, `NO_ROOT_FOUND`, `MULTIPLE_IRR_ROOTS_DETECTED`,
+  `NON_SIMPLE_IRR_ROOT_DETECTED`,
+  `SOLVER_ITERATION_LIMIT_REACHED`, `SOLVER_RESIDUAL_OUT_OF_TOLERANCE`,
+  `XIRR_UNIQUENESS_NOT_SUPPORTED`, and `INVALID_SOLVER_BOUNDS` enter a labeled Modified Dietz
+  fallback unless no economic content exists.
 - Labeled fallback responses set `status="FALLBACK_USED"`, include `DIETZ_FALLBACK_USED` in
   `reason_codes`, set `fallback_from="XIRR"`, set `fallback_reason`, and set
   `is_approximation=true`.
 - `convergence` includes algorithm, searched bounds, day-count basis, anchor date, normalized flow
-  count, gross cash-flow scale, root count, residual NPV, and converged state when applicable.
+  count, gross cash-flow scale, configured scan/tolerance/iteration controls and work units, unique
+  root count, non-simple-root state, residual NPV, termination reason, uniqueness support, and converged state when applicable. XIRR fallback
+  retains these diagnostics.
 - Endpoint-level unexpected error handling: HTTP 500.
 
 ## Configuration Options
@@ -158,8 +172,14 @@ Money-Weighted Return via XIRR (`money_weighted_return` when method resolves to 
   `365.0`, and `ACT/ACT` uses `365.25` unless `annualization.periods_per_year` is supplied).
 - `annualization.periods_per_year`: overrides day-count denominator when supplied.
 - `solver.rate_lower_bound` and `solver.rate_upper_bound`: searched annual-rate bounds.
-- `solver.root_scan_steps`: number of log-rate scan points before bisection.
-- `solver.tolerance` and `solver.max_iter`: bisection termination controls.
+- `solver.method`: compatibility selector; only `brent` is accepted by the current request contract.
+- `solver.root_scan_steps`: bounded log-rate partition count (`32..2048`). It improves candidate
+  bracketing but is not used as proof that a root is unique.
+- `solver.tolerance`: positive finite residual/rate control.
+- `solver.max_iter`: positive bounded per-candidate bisection budget (`1..512`).
+- Combined caller-controlled work must satisfy `root_scan_steps * max_iter <= 409600`; excessive
+  combinations are rejected before root isolation at both request and engine boundaries.
+- Bounds must be finite, `rate_lower_bound > -1`, and `rate_upper_bound > rate_lower_bound`.
 
 ## Outputs
 Primary fields for this metric when XIRR succeeds:
@@ -175,6 +195,10 @@ Primary fields for this metric when XIRR succeeds:
 - `convergence.converged`
 - `convergence.root_count_detected`
 - `convergence.residual_npv`
+- `convergence.termination_reason`
+- `convergence.uniqueness_supported`
+- `convergence.non_simple_root_detected`
+- `convergence.solver_work_units`
 - `convergence.day_count_basis`
 - `cashflows_used` when `emit_cashflows_used=true`
 - `reporting_currency`

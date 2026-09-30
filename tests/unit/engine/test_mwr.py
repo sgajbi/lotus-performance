@@ -3,6 +3,7 @@ from datetime import date
 
 import numpy as np
 import pytest
+from pydantic import ValidationError
 
 import engine.mwr as mwr_module
 from app.models.mwr_requests import CashFlow, Solver
@@ -25,6 +26,8 @@ from engine.mwr import (
     _net_cash_flow_amounts_by_date,
     _net_same_day_flows,
     _resolve_mwr_period_bounds,
+    _RootCandidate,
+    _RootScan,
     _scan_xirr_roots,
     _simple_dietz_denominator,
     _successful_xirr_mwr_result,
@@ -33,11 +36,40 @@ from engine.mwr import (
     _xirr_initial_failure,
     _xirr_initial_failure_reason,
     _xirr_result_from_roots,
-    _xirr_root_candidate,
     _xirr_time_diffs,
     _zero_denominator_dietz_mwr_result,
     calculate_money_weighted_return,
 )
+from engine.mwr_controls import XIRR_MAX_WORK_UNITS, xirr_solver_work_is_admitted, xirr_solver_work_units
+
+
+def _annual_polynomial_values(*roots: float, scale: float = -100.0) -> np.ndarray:
+    """Build dated solver values from independently factored roots in ``x = 1 + r``."""
+    return scale * np.poly([1.0 + root for root in roots])
+
+
+@pytest.mark.parametrize(
+    "control",
+    [
+        {"tolerance": float("inf")},
+        {"tolerance": float("nan")},
+        {"rate_lower_bound": -1.0},
+        {"rate_lower_bound": 2.0, "rate_upper_bound": 1.0},
+        {"max_iter": 513},
+        {"root_scan_steps": 2_049},
+        {"max_iter": 201, "root_scan_steps": 2_048},
+        {"method": "newton"},
+    ],
+)
+def test_solver_rejects_non_finite_or_out_of_domain_controls(control):
+    with pytest.raises(ValidationError):
+        Solver.model_validate(control)
+
+
+def test_solver_combined_work_budget_is_deterministic_and_admits_the_documented_boundary():
+    assert xirr_solver_work_units(root_scan_steps=2_048, max_iter=200) == XIRR_MAX_WORK_UNITS
+    assert xirr_solver_work_is_admitted(root_scan_steps=2_048, max_iter=200) is True
+    assert xirr_solver_work_is_admitted(root_scan_steps=2_048, max_iter=201) is False
 
 
 @pytest.mark.parametrize(
@@ -130,6 +162,18 @@ def test_xirr_initial_failure_maps_invalid_solver_bounds():
     assert result["convergence"]["converged"] is False
 
 
+def test_xirr_rejects_invalid_direct_solver_controls():
+    result = _xirr(
+        values=np.array([-100.0, 110.0]),
+        dates=np.array([date(2025, 1, 1), date(2026, 1, 1)]),
+        tolerance=0.0,
+    )
+
+    assert result["rate"] is None
+    assert result["converged"] is False
+    assert result["reason_code"] == "INVALID_SOLVER_CONTROLS"
+
+
 def test_xirr_initial_failure_reason_maps_empty_and_one_sided_vectors():
     assert _xirr_initial_failure_reason(
         values=np.array([]),
@@ -176,8 +220,8 @@ def test_day_count_denominator_prefers_explicit_period_frequency_and_act_act_bas
     assert _day_count_denominator(Annualization(enabled=True, basis="ACT/ACT")) == pytest.approx(365.25)
 
 
-def test_bisect_root_returns_midpoint_after_iteration_budget_is_exhausted():
-    root, iterations = _bisect_root(
+def test_bisect_root_qualifies_final_midpoint_after_last_allowed_bracket_update():
+    candidate = _bisect_root(
         lambda candidate: candidate - 0.25,
         0.0,
         1.0,
@@ -186,8 +230,22 @@ def test_bisect_root_returns_midpoint_after_iteration_budget_is_exhausted():
         max_iter=1,
     )
 
-    assert root == pytest.approx(0.25)
-    assert iterations == 1
+    assert candidate.value == pytest.approx(0.25)
+    assert candidate.iterations == 1
+    assert candidate.converged is True
+    assert candidate.termination_reason == "residual_tolerance"
+
+    residual_failure = _bisect_root(
+        lambda value: value - 0.3,
+        0.0,
+        1.0,
+        value_tolerance=0.0,
+        rate_tolerance=1.0,
+        max_iter=10,
+    )
+    assert residual_failure.converged is False
+    assert residual_failure.termination_reason == "rate_tolerance_without_residual"
+    assert residual_failure.residual != 0.0
 
 
 def test_scan_xirr_roots_returns_single_residual_for_bracketed_schedule():
@@ -199,9 +257,6 @@ def test_scan_xirr_roots_returns_single_residual_for_bracketed_schedule():
         annualization=Annualization(enabled=False, basis="ACT/365"),
     )
 
-    def log_npv(log_rate: float) -> float:
-        return float(np.sum(values * np.exp(-log_rate * time_diffs)))
-
     roots = _scan_xirr_roots(
         values=values,
         time_diffs=time_diffs,
@@ -210,20 +265,18 @@ def test_scan_xirr_roots_returns_single_residual_for_bracketed_schedule():
         root_scan_steps=512,
         tolerance=1e-10,
         max_iter=200,
-        gross_cash_flow_scale=float(np.sum(np.abs(values))),
-        log_npv=log_npv,
     )
 
-    assert len(roots) == 1
-    root_rate, iterations, residual = roots[0]
-    assert root_rate == pytest.approx(0.1, abs=1e-8)
-    assert iterations > 0
-    assert residual == pytest.approx(0.0, abs=1e-6)
+    assert len(roots.candidates) == 1
+    candidate = roots.candidates[0]
+    assert candidate.value == pytest.approx(0.1, abs=1e-8)
+    assert candidate.iterations > 0
+    assert candidate.residual == pytest.approx(0.0, abs=1e-6)
+    assert candidate.converged is True
+    assert roots.uniqueness_supported is True
 
 
-def test_scan_xirr_roots_suppresses_duplicate_grid_root_candidates(monkeypatch):
-    monkeypatch.setattr(mwr_module, "_xirr_root_candidate", lambda **_kwargs: (0.1, 3))
-
+def test_scan_xirr_roots_suppresses_duplicate_grid_root_candidates():
     roots = _scan_xirr_roots(
         values=np.array([-100.0, 100.0]),
         time_diffs=np.array([0.0, 1.0]),
@@ -232,46 +285,10 @@ def test_scan_xirr_roots_suppresses_duplicate_grid_root_candidates(monkeypatch):
         root_scan_steps=32,
         tolerance=1e-10,
         max_iter=10,
-        gross_cash_flow_scale=200.0,
-        log_npv=lambda _log_rate: 0.0,
     )
 
-    assert len(roots) == 1
-    assert roots[0][0] == pytest.approx(0.1)
-    assert roots[0][1] == 3
-
-
-def test_xirr_root_candidate_ignores_non_finite_intervals():
-    candidate = _xirr_root_candidate(
-        previous_x=0.0,
-        previous_y=float("nan"),
-        current_x=1.0,
-        current_y=-1.0,
-        tolerance=1e-10,
-        max_iter=100,
-        gross_cash_flow_scale=1.0,
-        log_npv=lambda _rate: 0.0,
-    )
-
-    assert candidate is None
-
-
-def test_xirr_root_candidate_projects_exact_grid_root_without_bisection():
-    candidate = _xirr_root_candidate(
-        previous_x=0.0,
-        previous_y=0.0,
-        current_x=1.0,
-        current_y=-1.0,
-        tolerance=1e-10,
-        max_iter=100,
-        gross_cash_flow_scale=1.0,
-        log_npv=lambda _rate: 0.0,
-    )
-
-    assert candidate is not None
-    solver_value, iterations = candidate
-    assert solver_value == pytest.approx(0.0)
-    assert iterations == 0
+    assert len(roots.candidates) == 1
+    assert roots.candidates[0].value == pytest.approx(0.0)
 
 
 def test_scan_xirr_roots_detects_exact_upper_bound_root():
@@ -283,9 +300,6 @@ def test_scan_xirr_roots_detects_exact_upper_bound_root():
         annualization=Annualization(enabled=False, basis="ACT/365"),
     )
 
-    def log_npv(log_rate: float) -> float:
-        return float(np.sum(values * np.exp(-log_rate * time_diffs)))
-
     roots = _scan_xirr_roots(
         values=values,
         time_diffs=time_diffs,
@@ -294,13 +308,11 @@ def test_scan_xirr_roots_detects_exact_upper_bound_root():
         root_scan_steps=32,
         tolerance=1e-10,
         max_iter=200,
-        gross_cash_flow_scale=210.0,
-        log_npv=log_npv,
     )
 
-    assert len(roots) == 1
-    assert roots[0][0] == pytest.approx(0.1)
-    assert roots[0][1] == 0
+    assert len(roots.candidates) == 1
+    assert roots.candidates[0].value == pytest.approx(0.1)
+    assert roots.candidates[0].iterations == 0
 
 
 def test_xirr_result_from_roots_preserves_success_convergence_payload():
@@ -313,7 +325,21 @@ def test_xirr_result_from_roots_preserves_success_convergence_payload():
         gross_cash_flow_scale=210.0,
     )
 
-    result = _xirr_result_from_roots(roots=[(0.1, 17, 0.000001)], base_convergence=base_convergence)
+    result = _xirr_result_from_roots(
+        roots=_RootScan(
+            candidates=(
+                _RootCandidate(
+                    value=0.1,
+                    iterations=17,
+                    residual=0.000001,
+                    termination_reason="residual_tolerance",
+                    converged=True,
+                ),
+            ),
+            uniqueness_supported=True,
+        ),
+        base_convergence=base_convergence,
+    )
 
     assert result["converged"] is True
     assert result["rate"] == pytest.approx(0.1)
@@ -322,6 +348,26 @@ def test_xirr_result_from_roots_preserves_success_convergence_payload():
     assert result["convergence"]["iterations"] == 17
     assert result["convergence"]["residual"] == pytest.approx(0.000001)
     assert result["convergence"]["residual_npv"] == pytest.approx(0.000001)
+
+    unqualified = _xirr_result_from_roots(
+        roots=_RootScan(
+            candidates=(
+                _RootCandidate(
+                    value=0.1,
+                    iterations=4,
+                    residual=0.25,
+                    termination_reason="rate_tolerance_without_residual",
+                    converged=False,
+                ),
+            ),
+            uniqueness_supported=True,
+            failure_reason="SOLVER_RESIDUAL_OUT_OF_TOLERANCE",
+        ),
+        base_convergence=base_convergence,
+    )
+    assert unqualified["rate"] is None
+    assert unqualified["reason_code"] == "SOLVER_RESIDUAL_OUT_OF_TOLERANCE"
+    assert unqualified["convergence"]["converged"] is False
 
 
 def test_calculate_xirr_mwr_attempt_returns_successful_xirr_result():
@@ -846,6 +892,153 @@ def test_xirr_detects_multiple_roots_without_selecting_one():
     assert result["rate"] is None
     assert result["reason_code"] == "MULTIPLE_IRR_ROOTS_DETECTED"
     assert result["convergence"]["root_count_detected"] == 2
+
+
+@pytest.mark.parametrize(
+    "roots",
+    [
+        (0.12, 0.121, 0.5),
+        (0.10, 0.101, 0.5),
+        (0.10, 0.10, 0.5),
+    ],
+)
+def test_xirr_does_not_qualify_close_or_repeated_polynomial_roots_as_unique(roots):
+    values = _annual_polynomial_values(*roots)
+    for root_scan_steps in (32, 512, 2048):
+        result = _xirr(
+            values=values,
+            dates=np.array([date(2025 + offset, 1, 1) for offset in range(len(values))]),
+            annualization=Annualization(enabled=False, basis="ACT/365"),
+            root_scan_steps=root_scan_steps,
+        )
+
+        assert result["rate"] is None
+        assert result["converged"] is False
+        assert result["reason_code"] == "MULTIPLE_IRR_ROOTS_DETECTED"
+        assert result["convergence"]["root_count_detected"] >= 2
+
+
+def test_xirr_reports_one_unique_non_simple_root_without_claiming_multiple_roots():
+    values = np.array([-100.0, 220.0, -121.0])
+    result = _xirr(
+        values=values,
+        dates=np.array([date(2025, 1, 1), date(2026, 1, 1), date(2027, 1, 1)]),
+        annualization=Annualization(enabled=False, basis="ACT/365"),
+    )
+
+    # -100*x^2 + 220*x - 121 = -100*(x - 1.1)^2: one unique double root at r=10%.
+    assert np.polyval(values, 1.1) == pytest.approx(0.0, abs=1e-12)
+    assert result["rate"] is None
+    assert result["converged"] is False
+    assert result["reason_code"] == "NON_SIMPLE_IRR_ROOT_DETECTED"
+    assert result["convergence"]["root_count_detected"] == 1
+    assert result["convergence"]["non_simple_root_detected"] is True
+
+
+def test_xirr_rejects_excessive_combined_work_before_root_scanning(monkeypatch):
+    roots = tuple(index / 100 for index in range(1, 21))
+    values = _annual_polynomial_values(*roots)
+    dates = np.array([date(2000 + offset, 1, 1) for offset in range(len(values))])
+
+    monkeypatch.setattr(
+        mwr_module,
+        "_scan_xirr_roots",
+        lambda **_kwargs: pytest.fail("root scanning must not start for an excessive work budget"),
+    )
+    result = _xirr(
+        values=values,
+        dates=dates,
+        annualization=Annualization(enabled=False, basis="ACT/365"),
+        root_scan_steps=2_048,
+        max_iter=201,
+    )
+
+    assert result["reason_code"] == "INVALID_SOLVER_CONTROLS"
+    assert result["convergence"]["solver_work_units"] == 411_648
+
+
+def test_calculate_mwr_close_root_schedule_uses_independently_derived_labeled_fallback():
+    result = calculate_money_weighted_return(
+        begin_mv=100.0,
+        end_mv=188.328,
+        cash_flows=[
+            CashFlow(amount=-374.1, date=date(2026, 1, 1)),
+            CashFlow(amount=461.702, date=date(2027, 1, 1)),
+        ],
+        calculation_method="XIRR",
+        annualization=Annualization(enabled=False, basis="ACT/365"),
+        as_of=date(2028, 1, 1),
+        start_date=date(2025, 1, 1),
+    )
+
+    # Independent Modified Dietz oracle:
+    # numerator = 188.328 - 100 - (-374.1 + 461.702) = 0.726
+    # denominator = 100 - 374.1*(2/3) + 461.702*(1/3) = 4.500666...
+    assert result.mwr == pytest.approx(16.130943563916456)
+    assert result.method == "MODIFIED_DIETZ"
+    assert result.status == "FALLBACK_USED"
+    assert result.fallback_reason == "MULTIPLE_IRR_ROOTS_DETECTED"
+    assert result.warnings == ["FALLBACK_METHOD_USED"]
+    assert result.reason_codes == ["MULTIPLE_IRR_ROOTS_DETECTED", "DIETZ_FALLBACK_USED"]
+    assert result.is_approximation is True
+    assert result.convergence is not None
+    assert result.convergence.root_count_detected == 3
+    assert result.convergence.uniqueness_supported is True
+
+
+def test_xirr_budget_exhaustion_is_not_convergence_even_with_one_candidate():
+    result = _xirr(
+        values=np.array([-100.0, 110.0]),
+        dates=np.array([date(2025, 1, 1), date(2026, 1, 1)]),
+        annualization=Annualization(enabled=False, basis="ACT/365"),
+        max_iter=1,
+    )
+
+    assert result["rate"] is None
+    assert result["converged"] is False
+    assert result["reason_code"] == "SOLVER_ITERATION_LIMIT_REACHED"
+    assert result["convergence"]["root_count_detected"] == 1
+    assert result["convergence"]["converged"] is False
+    assert abs(result["convergence"]["residual_npv"]) > 1e-8
+
+
+def test_calculate_mwr_budget_exhaustion_preserves_solver_diagnostics_on_labeled_fallback():
+    result = calculate_money_weighted_return(
+        begin_mv=100.0,
+        end_mv=110.0,
+        cash_flows=[],
+        calculation_method="XIRR",
+        annualization=Annualization(enabled=False, basis="ACT/365"),
+        as_of=date(2026, 1, 1),
+        start_date=date(2025, 1, 1),
+        solver=Solver(max_iter=1),
+    )
+
+    assert result.method == "MODIFIED_DIETZ"
+    assert result.status == "FALLBACK_USED"
+    assert result.fallback_reason == "SOLVER_ITERATION_LIMIT_REACHED"
+    assert result.is_approximation is True
+    assert result.convergence is not None
+    assert result.convergence.converged is False
+    assert result.convergence.root_count_detected == 1
+    assert abs(result.convergence.residual_npv or 0.0) > 1e-8
+
+    ordinary = calculate_money_weighted_return(
+        begin_mv=100.0,
+        end_mv=110.0,
+        cash_flows=[],
+        calculation_method="XIRR",
+        annualization=Annualization(enabled=False, basis="ACT/365"),
+        as_of=date(2026, 1, 1),
+        start_date=date(2025, 1, 1),
+        solver=Solver(max_iter=200),
+    )
+    assert ordinary.method == "XIRR"
+    assert ordinary.status == "CALCULATED"
+    assert ordinary.mwr == pytest.approx(10.0, abs=1e-8)
+    assert ordinary.convergence is not None
+    assert ordinary.convergence.converged is True
+    assert ordinary.convergence.termination_reason == "residual_tolerance"
 
 
 def test_calculate_mwr_xirr_multiple_root_fallback_is_labeled():

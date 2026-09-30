@@ -24,6 +24,13 @@ class MWRConvergence:
     anchor_date: date | None = None
     normalized_flow_count: int | None = None
     gross_cash_flow_scale: float | None = None
+    termination_reason: str | None = None
+    uniqueness_supported: bool | None = None
+    non_simple_root_detected: bool | None = None
+    root_scan_steps: int | None = None
+    tolerance: float | None = None
+    max_iterations: int | None = None
+    solver_work_units: int | None = None
 
 
 @dataclass(frozen=True)

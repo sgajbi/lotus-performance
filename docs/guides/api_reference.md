@@ -230,8 +230,8 @@ remain in structured logs and durable evidence under the same correlation contex
   - stateful single-currency MWR emits `currency_evidence.conversion_evidence_status="not_required_single_currency_inputs"` when source and reporting currencies match
   - stateful cross-currency MWR keeps `currency_evidence.conversion_evidence_status="upstream_preconverted_missing_per_input_fx_metadata"`, so consumers must not infer per-input FX rates, conversion policy, or conversion fingerprints when those fields are absent
   - XIRR responses expose `status`, `reason_codes`, `warnings`, `holding_period_return`, `is_annualized_primary`, `fallback_from`, `fallback_reason`, and `is_approximation`
-  - XIRR convergence diagnostics expose root count, residual NPV, searched bounds, day-count basis, anchor date, normalized flow count, and gross solver-flow scale
-  - ambiguous XIRR cases such as no root or multiple roots are labeled and fall back to Dietz; consumers should use `status` and `fallback_reason` instead of inferring quality from `method` alone
+  - XIRR convergence diagnostics expose root count, residual NPV, termination reason, uniqueness support, configured controls, searched bounds, day-count basis, anchor date, normalized flow count, and gross solver-flow scale
+  - ambiguous or unqualified XIRR cases such as no root, multiple/close roots, a unique non-simple repeated/tangent root, iteration exhaustion, residual failure, excessive work controls, or unsupported uniqueness proof are labeled and fall back to Dietz; consumers should use `status`, `fallback_reason`, and `convergence` instead of inferring quality from `method` alone
   - lotus-performance stamps source consumer identity server-side for the stateful envelope
 
 ### `POST /performance/workspace-summary`

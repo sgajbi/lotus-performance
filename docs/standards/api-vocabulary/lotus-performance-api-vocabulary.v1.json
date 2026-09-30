@@ -8,7 +8,7 @@
       "openApiVersion": "3.1.0"
     }
   ],
-  "generatedAt": "2026-09-27T16:02:04.915190+00:00",
+  "generatedAt": "2026-09-30T19:51:21.379579+00:00",
   "attributeCatalog": [
     {
       "semanticId": "lotus.access_classification",
@@ -1361,7 +1361,14 @@
         "day_count_basis": "example_day_count_basis",
         "anchor_date": "2026-02-27",
         "normalized_flow_count": 1,
-        "gross_cash_flow_scale": 0.1234
+        "gross_cash_flow_scale": 0.1234,
+        "termination_reason": "example_termination_reason",
+        "uniqueness_supported": true,
+        "non_simple_root_detected": true,
+        "root_scan_steps": 1,
+        "tolerance": 0.1234,
+        "max_iterations": 1,
+        "solver_work_units": 1
       },
       "type": "object",
       "locations": [

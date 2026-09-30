@@ -128,7 +128,7 @@ The RFC-047 QA pack proves these contribution semantics:
   remains an internal flow. Portfolio TWR and inspection exclude income from external BOD/EOD
   totals while market-value return retains it. Dated sector group returns must reconcile to the portfolio return;
   unclassified raw income-like labels are not silently promoted;
-- calculation engine identity `lotus-performance-calculation-engine.v3` distinguishes this
+- calculation engine identity `lotus-performance-calculation-engine.v4` distinguishes this
   methodology from `v2`: the same canonical input fingerprint has a different calculation hash,
   so historical results must not be replayed as if they used the revised income treatment;
 - net fee drag can be carried by an explicit fee bucket when source metadata supplies `fee_pnl`;

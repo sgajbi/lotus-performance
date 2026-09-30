@@ -61,11 +61,12 @@ Optional controls include:
 The current engine behavior is:
 
 - `mwr_method="XIRR"` attempts an XIRR solve first
-- the XIRR path nets same-day solver flows, scans the configured log-rate interval, and returns
-  XIRR only when exactly one root is detected
+- the XIRR path nets same-day solver flows, partitions the configured log-rate interval with scan
+  points and recursively isolated stationary points, and returns XIRR only when one root is detected,
+  its residual is within tolerance, and uniqueness is supportable
 - if the XIRR path has no economic content, no positive and negative solver flows, no root,
-  multiple roots, or invalid solver bounds, the response is explicitly labeled rather than silently
-  selecting an arbitrary rate
+  multiple roots, a unique non-simple repeated/tangent root, invalid or excessive solver controls, iteration exhaustion, residual failure, or unsupported
+  uniqueness proof, the response is explicitly labeled rather than silently selecting an arbitrary rate
 - `mwr_method="MODIFIED_DIETZ"` uses weighted cash-flow capital based on each flow's time
   remaining in the measurement window
 - `mwr_method="DIETZ"` uses the midpoint Dietz computation path directly
@@ -85,6 +86,17 @@ of:
 - positive ending market value
 
 equal to zero across irregular cash-flow dates.
+
+For nonconventional schedules, stationary-point isolation detects close crossing roots and
+repeated/tangent roots that can be invisible to a fixed sign-change grid. The scan density remains
+configurable, but grid placement is not treated as uniqueness proof. A candidate becomes a
+successful XIRR only after scaled residual, termination, and uniqueness checks pass. A bounded
+Modified Dietz fallback retains the failed XIRR diagnostics.
+
+`root_count_detected` counts unique roots. A double root therefore reports one root together with
+`non_simple_root_detected=true` and `NON_SIMPLE_IRR_ROOT_DETECTED`; multiplicity is not mislabeled as
+multiple distinct roots. Request controls are individually bounded and must also satisfy
+`root_scan_steps * max_iter <= 409600` work units.
 
 The successful XIRR value is annualized. The response also includes `holding_period_return` so
 front-office and support users can distinguish the measured-period client outcome from the
@@ -236,6 +248,8 @@ MWR is documented in
     "converged": true,
     "algorithm": "log_rate_bracket_scan_bisection",
     "root_count_detected": 1,
+    "non_simple_root_detected": false,
+    "solver_work_units": 102400,
     "residual_npv": 0.000009008654160425067,
     "rate_lower_bound": -0.999999999,
     "rate_upper_bound": 1000.0,

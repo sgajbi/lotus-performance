@@ -1,7 +1,7 @@
 # Lotus Performance Test Taxonomy Inventory
 
-Report date: 2026-09-28
-Branch: `fix/538-composite-fact-versions`
+Report date: 2026-10-01
+Branch: `fix/545-546-xirr-qualification`
 Mode: regression-blocking test taxonomy inventory; `make quality-test-taxonomy-gate` enforces
 minimum API/runtime and contract/governance breadth plus the current uncategorized-test ceiling.
 
@@ -23,8 +23,8 @@ python scripts/python_test_taxonomy_inventory.py --limit 30 --min-api-runtime-te
 | Metric | Value |
 | --- | ---: |
 | Test modules inventoried | 328 |
-| Test functions inventoried | 3895 |
-| Integration/API/runtime test functions | 775 |
+| Test functions inventoried | 3906 |
+| Integration/API/runtime test functions | 779 |
 | Contract/governance test functions | 194 |
 
 ## Test Functions By Suite
@@ -33,8 +33,8 @@ python scripts/python_test_taxonomy_inventory.py --limit 30 --min-api-runtime-te
 | --- | ---: | ---: |
 | benchmarks | 10 | 32 |
 | e2e | 1 | 21 |
-| integration | 28 | 366 |
-| unit | 289 | 3476 |
+| integration | 28 | 370 |
+| unit | 289 | 3483 |
 
 ## Test Functions By Family
 
@@ -44,8 +44,8 @@ above does sum to it, because a module belongs to exactly one suite.
 
 | Family | Test functions |
 | --- | ---: |
-| analytics_domain | 1879 |
-| api_or_runtime | 775 |
+| analytics_domain | 1890 |
+| api_or_runtime | 779 |
 | contract_or_governance | 194 |
 | observability_or_readiness | 565 |
 | quality_or_security | 268 |
@@ -68,10 +68,10 @@ above does sum to it, because a module belongs to exactly one suite.
 | 11 | `tests/unit/services/test_compute_executor_worker.py` | unit | 55 | observability_or_readiness |
 | 12 | `tests/integration/test_contribution_api.py` | integration | 53 | analytics_domain, api_or_runtime |
 | 13 | `tests/unit/app/test_contribution_endpoint_helpers.py` | unit | 52 | analytics_domain, api_or_runtime |
-| 14 | `tests/unit/services/test_stateful_input_service.py` | unit | 51 | analytics_domain |
-| 15 | `tests/unit/services/test_twr_inspection_calculation_consistency.py` | unit | 51 | analytics_domain |
-| 16 | `tests/unit/services/test_twr_mode_service.py` | unit | 45 | analytics_domain |
-| 17 | `tests/unit/engine/test_mwr.py` | unit | 44 | analytics_domain |
+| 14 | `tests/unit/engine/test_mwr.py` | unit | 51 | analytics_domain |
+| 15 | `tests/unit/services/test_stateful_input_service.py` | unit | 51 | analytics_domain |
+| 16 | `tests/unit/services/test_twr_inspection_calculation_consistency.py` | unit | 51 | analytics_domain |
+| 17 | `tests/unit/services/test_twr_mode_service.py` | unit | 45 | analytics_domain |
 | 18 | `tests/unit/services/test_stateful_benchmark_input_service.py` | unit | 44 | analytics_domain |
 | 19 | `tests/integration/test_performance_api.py` | integration | 41 | api_or_runtime |
 | 20 | `tests/unit/services/test_composite_metadata_store.py` | unit | 40 | analytics_domain |
@@ -168,3 +168,14 @@ The final constraint-repair review adds five analytics-domain source functions c
 same-named PostgreSQL checks, nullable fact-currency hardening, invalid retained rows, and a
 DDL-free canonical second bootstrap. Source test functions now measure `3,895`, analytics-domain
 functions `1,879`, and the unchanged uncategorized ceiling remains `635`.
+
+The XIRR qualification slice adds seven analytics-domain source functions, including three
+registered HTTP contracts, for close/tangent root isolation, explicit termination evidence,
+invalid solver controls, telemetry, and durable response replay. Source test functions now measure
+`3,902`, API/runtime functions `778`, analytics-domain functions `1,886`, and the unchanged
+uncategorized ceiling remains `635`.
+
+The final XIRR qualification review adds four source test functions for truthful non-simple-root
+classification and deterministic combined-work rejection. Source test functions now measure
+`3,906`, API/runtime functions `779`, analytics-domain functions `1,890`, and the unchanged
+uncategorized ceiling remains `635`.

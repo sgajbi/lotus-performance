@@ -8,6 +8,7 @@ from app.core.config import get_settings
 from app.models.mwr_requests import MoneyWeightedReturnRequest
 from app.observability_contracts import PERFORMANCE_CALCULATION_SUPPORTABILITY_METRIC_LABELS
 from app.services.calculation_engine_version import calculation_engine_version
+from app.services.mwr_calculation_service import calculate_mwr_result
 from app.services.mwr_cash_flow_window_validation import MWR_CASH_FLOW_OUT_OF_WINDOW
 from core.repro import generate_canonical_hash
 from main import app
@@ -99,6 +100,153 @@ def test_calculate_mwr_endpoint_emits_solver_outcome_metric(client):
         'lotus_performance_mwr_solver_outcome_total{fallback_used="true",input_mode="stateless",'
         'method="MODIFIED_DIETZ",reason_code="DIETZ_FALLBACK_USED",status="FALLBACK_USED"}' in metrics.text
     )
+
+
+def test_calculate_mwr_endpoint_rejects_false_unique_close_root_qualification(client):
+    payload = {
+        "calculation_id": str(uuid4()),
+        "portfolio_id": "MWR_CLOSE_ROOT_QUALIFICATION",
+        "begin_mv": 100.0,
+        "end_mv": 188.328,
+        "start_date": "2025-01-01",
+        "as_of": "2028-01-01",
+        "cash_flows": [
+            {"amount": -374.1, "date": "2026-01-01"},
+            {"amount": 461.702, "date": "2027-01-01"},
+        ],
+        "mwr_method": "XIRR",
+        "annualization": {"enabled": False, "basis": "ACT/365"},
+    }
+    direct = calculate_mwr_result(MoneyWeightedReturnRequest.model_validate(payload))
+    response = client.post("/performance/mwr", json=payload)
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["money_weighted_return"] == pytest.approx(16.130943563916456)
+    assert body["money_weighted_return"] == pytest.approx(direct.mwr)
+    assert body["method"] == direct.method
+    assert body["status"] == direct.status
+    assert body["reason_codes"] == direct.reason_codes
+    assert body["warnings"] == direct.warnings
+    assert body["method"] == "MODIFIED_DIETZ"
+    assert body["status"] == "FALLBACK_USED"
+    assert body["fallback_reason"] == "MULTIPLE_IRR_ROOTS_DETECTED"
+    assert body["is_approximation"] is True
+    assert body["convergence"]["converged"] is False
+    assert body["convergence"]["root_count_detected"] == 3
+    assert body["calculation_supportability"]["state"] == "ready"
+
+
+def test_calculate_mwr_endpoint_labels_one_non_simple_root_truthfully(client):
+    payload = {
+        "calculation_id": str(uuid4()),
+        "portfolio_id": "MWR_NON_SIMPLE_ROOT",
+        "begin_mv": 100.0,
+        "end_mv": -121.0,
+        "start_date": "2025-01-01",
+        "as_of": "2027-01-01",
+        "cash_flows": [{"amount": -220.0, "date": "2026-01-01"}],
+        "mwr_method": "XIRR",
+        "annualization": {"enabled": False, "basis": "ACT/365"},
+    }
+    response = client.post("/performance/mwr", json=payload)
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["method"] == "MODIFIED_DIETZ"
+    assert body["status"] == "FALLBACK_USED"
+    assert body["fallback_reason"] == "NON_SIMPLE_IRR_ROOT_DETECTED"
+    assert body["convergence"]["root_count_detected"] == 1
+    assert body["convergence"]["non_simple_root_detected"] is True
+    metrics = client.get("/metrics")
+    assert metrics.status_code == 200
+    assert (
+        'lotus_performance_mwr_solver_outcome_total{fallback_used="true",input_mode="stateless",'
+        'method="MODIFIED_DIETZ",reason_code="NON_SIMPLE_IRR_ROOT_DETECTED",status="FALLBACK_USED"}' in metrics.text
+    )
+
+
+def test_calculate_mwr_endpoint_does_not_publish_budget_exhausted_midpoint(client):
+    calculation_id = str(uuid4())
+    payload = {
+        "calculation_id": calculation_id,
+        "portfolio_id": "MWR_BUDGET_QUALIFICATION",
+        "begin_mv": 100.0,
+        "end_mv": 110.0,
+        "start_date": "2025-01-01",
+        "as_of": "2026-01-01",
+        "cash_flows": [],
+        "mwr_method": "XIRR",
+        "solver": {"max_iter": 1},
+        "annualization": {"enabled": False, "basis": "ACT/365"},
+    }
+    direct = calculate_mwr_result(MoneyWeightedReturnRequest.model_validate(payload))
+    response = client.post("/performance/mwr", json=payload)
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["money_weighted_return"] != pytest.approx(8.530518589940073)
+    assert body["money_weighted_return"] == pytest.approx(direct.mwr)
+    assert body["method"] == direct.method
+    assert body["status"] == direct.status
+    assert body["reason_codes"] == direct.reason_codes
+    assert body["warnings"] == direct.warnings
+    assert body["method"] == "MODIFIED_DIETZ"
+    assert body["status"] == "FALLBACK_USED"
+    assert body["fallback_reason"] == "SOLVER_ITERATION_LIMIT_REACHED"
+    assert body["is_approximation"] is True
+    assert body["convergence"]["converged"] is False
+    assert body["convergence"]["root_count_detected"] == 1
+    assert abs(body["convergence"]["residual_npv"]) > 1e-8
+    assert body["calculation_supportability"]["state"] == "ready"
+    metrics = client.get("/metrics")
+    assert metrics.status_code == 200
+    assert (
+        'lotus_performance_mwr_solver_outcome_total{fallback_used="true",input_mode="stateless",'
+        'method="MODIFIED_DIETZ",reason_code="SOLVER_ITERATION_LIMIT_REACHED",status="FALLBACK_USED"}' in metrics.text
+    )
+    execution = client.get(f"/performance/executions/{calculation_id}")
+    assert execution.status_code == 200
+    stages = {stage["stage_name"]: stage for stage in execution.json()["stages"]}
+    assert stages["execution"]["status"] == "complete"
+    assert drain_lineage_queue() >= 1
+    persisted_response = client.get(f"/performance/lineage/{calculation_id}/artifacts/response.json")
+    assert persisted_response.status_code == 200
+    persisted_body = persisted_response.json()
+    assert persisted_body["method"] == body["method"]
+    assert persisted_body["fallback_reason"] == body["fallback_reason"]
+    assert persisted_body["convergence"] == body["convergence"]
+
+
+@pytest.mark.parametrize(
+    "solver",
+    [
+        {"max_iter": 0},
+        {"max_iter": -1},
+        {"tolerance": 0},
+        {"root_scan_steps": 1},
+        {"root_scan_steps": 2_049},
+        {"max_iter": 513},
+        {"root_scan_steps": 2_048, "max_iter": 201},
+        {"root_scan_steps": 10_000, "max_iter": 10_000},
+    ],
+)
+def test_calculate_mwr_endpoint_rejects_invalid_solver_controls(client, solver):
+    response = client.post(
+        "/performance/mwr",
+        json={
+            "portfolio_id": "MWR_INVALID_SOLVER_CONTROL",
+            "begin_mv": 100.0,
+            "end_mv": 110.0,
+            "start_date": "2025-01-01",
+            "as_of": "2026-01-01",
+            "cash_flows": [],
+            "mwr_method": "XIRR",
+            "solver": solver,
+        },
+    )
+
+    assert response.status_code == 422
 
 
 def test_calculate_mwr_endpoint_rejects_out_of_window_cash_flows(client):

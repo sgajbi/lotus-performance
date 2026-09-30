@@ -62,6 +62,12 @@ clamp_min(sum(increase(lotus_performance_mwr_solver_outcome_total[30m])), 1)
 ```
 
 ```promql
+sum(increase(lotus_performance_mwr_solver_outcome_total{reason_code="NON_SIMPLE_IRR_ROOT_DETECTED"}[30m]))
+/
+clamp_min(sum(increase(lotus_performance_mwr_solver_outcome_total[30m])), 1)
+```
+
+```promql
 sum(increase(lotus_performance_calculation_supportability_total{
   operation="mwr",
   supportability_state=~"empty|stale"
@@ -172,11 +178,13 @@ Use these panels for production operations, support review, and client-demo read
 | Fallback rate | `sum(increase(lotus_performance_mwr_solver_outcome_total{fallback_used="true"}[30m])) / clamp_min(sum(increase(lotus_performance_mwr_solver_outcome_total[30m])), 1)` | operations, support, business users |
 | No-root rate | `sum(increase(lotus_performance_mwr_solver_outcome_total{reason_code="NO_ROOT_FOUND"}[30m])) / clamp_min(sum(increase(lotus_performance_mwr_solver_outcome_total[30m])), 1)` | operations, engineering |
 | Multiple-root rate | `sum(increase(lotus_performance_mwr_solver_outcome_total{reason_code="MULTIPLE_IRR_ROOTS_DETECTED"}[30m])) / clamp_min(sum(increase(lotus_performance_mwr_solver_outcome_total[30m])), 1)` | support, business users |
+| Non-simple-root rate | `sum(increase(lotus_performance_mwr_solver_outcome_total{reason_code="NON_SIMPLE_IRR_ROOT_DETECTED"}[30m])) / clamp_min(sum(increase(lotus_performance_mwr_solver_outcome_total[30m])), 1)` | support, business users |
 | Source-data rejection rate | `sum(increase(lotus_performance_calculation_supportability_total{operation="mwr",supportability_state=~"empty|stale"}[30m])) / clamp_min(sum(increase(lotus_performance_calculation_supportability_total{operation="mwr"}[30m])), 1)` | operations, upstream data owners |
 
 ## Response Guidance
 
 - Treat `MULTIPLE_IRR_ROOTS_DETECTED` as a business-explainability signal, not as a platform outage.
+- Treat `NON_SIMPLE_IRR_ROOT_DETECTED` as a distinct numerical-supportability signal for one unique root; do not report it as multiple roots.
 - Treat `NO_ROOT_FOUND` as a data-shape or economics review signal until a runtime failure is proven.
 - Treat elevated source-data rejection as a data mesh escalation to the `lotus-core` source-data
   owner when stateful stale or insufficient observations are confirmed.

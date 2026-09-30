@@ -8,7 +8,37 @@ import numpy as np
 
 from core.annualize import periods_per_year_for_basis
 from core.envelope import Annualization
+from engine.mwr_controls import (
+    XIRR_MAX_ITERATIONS,
+    XIRR_MAX_SCAN_STEPS,
+    xirr_solver_work_is_admitted,
+    xirr_solver_work_units,
+)
 from engine.mwr_types import CashFlowLike, MWRConvergence, MWRResult, Number
+
+_XIRR_DISTINCT_ROOT_TOLERANCE = 1e-8
+_XIRR_MAX_UNIQUENESS_TERMS = 64
+
+
+@dataclass(frozen=True)
+class _RootCandidate:
+    value: float  # monetary-float-allow: dimensionless rate or log-rate candidate
+    iterations: int
+    residual: float
+    termination_reason: Literal[
+        "residual_tolerance",
+        "rate_tolerance_without_residual",
+        "iteration_limit",
+    ]
+    converged: bool
+
+
+@dataclass(frozen=True)
+class _RootScan:
+    candidates: tuple[_RootCandidate, ...]
+    uniqueness_supported: bool
+    failure_reason: str | None = None
+    non_simple_root_detected: bool = False
 
 
 def _day_count_denominator(annualization: Annualization) -> float:
@@ -40,19 +70,37 @@ def _npv_at_rate(values: np.ndarray, taus: np.ndarray, rate: float) -> float:
 
 def _bisect_root(
     func, left: float, right: float, *, value_tolerance: float, rate_tolerance: float, max_iter: int
-) -> tuple[float, int]:
+) -> _RootCandidate:
     left_value = func(left)
+    if abs(left_value) <= value_tolerance:
+        return _RootCandidate(left, 0, left_value, "residual_tolerance", True)
+    right_value = func(right)
+    if abs(right_value) <= value_tolerance:
+        return _RootCandidate(right, 0, right_value, "residual_tolerance", True)
     for iteration in range(1, max_iter + 1):
         middle = (left + right) / 2
         middle_value = func(middle)
-        if abs(middle_value) <= value_tolerance or abs(right - left) <= rate_tolerance:
-            return middle, iteration
+        if abs(middle_value) <= value_tolerance:
+            return _RootCandidate(middle, iteration, middle_value, "residual_tolerance", True)
+        if abs(right - left) <= rate_tolerance:
+            return _RootCandidate(
+                middle,
+                iteration,
+                middle_value,
+                "rate_tolerance_without_residual",
+                False,
+            )
         if left_value * middle_value <= 0:
             right = middle
+            right_value = middle_value
         else:
             left = middle
             left_value = middle_value
-    return (left + right) / 2, max_iter
+    middle = (left + right) / 2
+    middle_value = func(middle)
+    if abs(middle_value) <= value_tolerance:
+        return _RootCandidate(middle, max_iter, middle_value, "residual_tolerance", True)
+    return _RootCandidate(middle, max_iter, middle_value, "iteration_limit", False)
 
 
 def _build_xirr_base_convergence(
@@ -63,6 +111,10 @@ def _build_xirr_base_convergence(
     anchor_date: date | None,
     normalized_flow_count: int,
     gross_cash_flow_scale: float,
+    root_scan_steps: int | None = None,
+    tolerance: float | None = None,
+    max_iterations: int | None = None,
+    solver_work_units: int | None = None,
 ) -> dict:
     return {
         "algorithm": "log_rate_bracket_scan_bisection",
@@ -72,6 +124,10 @@ def _build_xirr_base_convergence(
         "anchor_date": anchor_date,
         "normalized_flow_count": normalized_flow_count,
         "gross_cash_flow_scale": gross_cash_flow_scale,
+        "root_scan_steps": root_scan_steps,
+        "tolerance": tolerance,
+        "max_iterations": max_iterations,
+        "solver_work_units": solver_work_units,
     }
 
 
@@ -144,7 +200,24 @@ def _xirr_has_one_sided_cash_flows(values: np.ndarray) -> bool:
 
 
 def _xirr_has_invalid_solver_bounds(*, rate_lower_bound, rate_upper_bound) -> bool:
-    return rate_lower_bound <= -1 or rate_upper_bound <= rate_lower_bound
+    return (
+        not isfinite(rate_lower_bound)
+        or not isfinite(rate_upper_bound)
+        or rate_lower_bound <= -1
+        or rate_upper_bound <= rate_lower_bound
+    )
+
+
+def _xirr_has_invalid_solver_controls(*, root_scan_steps: int, tolerance: float, max_iter: int) -> bool:
+    return (
+        root_scan_steps < 2
+        or root_scan_steps > XIRR_MAX_SCAN_STEPS
+        or not isfinite(tolerance)
+        or tolerance <= 0
+        or max_iter < 1
+        or max_iter > XIRR_MAX_ITERATIONS
+        or not xirr_solver_work_is_admitted(root_scan_steps=root_scan_steps, max_iter=max_iter)
+    )
 
 
 def _xirr_time_diffs(*, dates: np.ndarray, anchor_date: date, annualization: Annualization) -> np.ndarray:
@@ -161,74 +234,288 @@ def _scan_xirr_roots(
     root_scan_steps: int,
     tolerance: float,
     max_iter: int,
-    gross_cash_flow_scale: float,
-    log_npv: Callable[[float], float],
-) -> list[tuple[float, int, float]]:
+) -> _RootScan:
     x_min = log(1 + lower_bound)
     x_max = log(1 + upper_bound)
-    grid = np.linspace(x_min, x_max, max(root_scan_steps, 32))
-    roots: list[tuple[float, int, float]] = []
-    previous_x = float(grid[0])
-    previous_y = log_npv(previous_x)
-    for current_x_raw in grid[1:]:
-        current_x = float(current_x_raw)
-        current_y = log_npv(current_x)
-        candidate = _xirr_root_candidate(
-            previous_x=previous_x,
-            previous_y=previous_y,
-            current_x=current_x,
-            current_y=current_y,
-            tolerance=tolerance,
-            max_iter=max_iter,
-            gross_cash_flow_scale=gross_cash_flow_scale,
-            log_npv=log_npv,
+    log_scan = _isolate_exponential_roots(
+        coefficients=values,
+        exponents=time_diffs,
+        lower_bound=x_min,
+        upper_bound=x_max,
+        root_scan_steps=max(root_scan_steps, 32),
+        tolerance=tolerance,
+        max_iter=max_iter,
+    )
+    candidates = tuple(
+        _RootCandidate(
+            value=exp(candidate.value) - 1,
+            iterations=candidate.iterations,
+            residual=_npv_at_rate(values, time_diffs, exp(candidate.value) - 1),
+            termination_reason=candidate.termination_reason,
+            converged=candidate.converged,
         )
-        if candidate is not None:
-            candidate_value, iterations = candidate
-            if _is_distinct_xirr_candidate(candidate_value, roots):
-                residual = _npv_at_rate(values, time_diffs, candidate_value)
-                roots.append((candidate_value, iterations, residual))
-        previous_x, previous_y = current_x, current_y
-    return roots
+        for candidate in log_scan.candidates
+    )
+    return _RootScan(
+        candidates=candidates,
+        uniqueness_supported=log_scan.uniqueness_supported,
+        failure_reason=log_scan.failure_reason,
+        non_simple_root_detected=log_scan.non_simple_root_detected,
+    )
 
 
-def _xirr_root_candidate(
+def _isolate_exponential_roots(
     *,
-    previous_x,
-    previous_y,
-    current_x,
-    current_y,
-    tolerance,
-    max_iter,
-    gross_cash_flow_scale,
-    log_npv,
-):
-    if not isfinite(previous_y) or not isfinite(current_y):
-        return None
-    if abs(previous_y) <= tolerance:
-        return exp(previous_x) - 1, 0
-    if abs(current_y) <= tolerance:
-        return exp(current_x) - 1, 0
-    if previous_y * current_y >= 0:
-        return None
-    root_x, iterations = _bisect_root(
-        log_npv,
-        previous_x,
-        current_x,
-        value_tolerance=max(tolerance * max(gross_cash_flow_scale, 1.0), 1e-8),
+    coefficients: np.ndarray,
+    exponents: np.ndarray,
+    lower_bound: float,
+    upper_bound: float,
+    root_scan_steps: int,
+    tolerance: float,
+    max_iter: int,
+) -> _RootScan:
+    coefficients, exponents = _normalized_exponential_terms(coefficients=coefficients, exponents=exponents)
+    if len(coefficients) <= 1:
+        return _RootScan(candidates=(), uniqueness_supported=True)
+
+    value_tolerance = max(tolerance * max(float(np.sum(np.abs(coefficients))), 1.0), 1e-8)
+    evaluate = _exponential_function(coefficients=coefficients, exponents=exponents)
+    sign_changes = _coefficient_sign_changes(coefficients)
+    if sign_changes > 1 and len(coefficients) > _XIRR_MAX_UNIQUENESS_TERMS:
+        scan = _scan_monotonic_partitions(
+            evaluate=evaluate,
+            partition_points=np.linspace(lower_bound, upper_bound, root_scan_steps),
+            value_tolerance=value_tolerance,
+            rate_tolerance=tolerance,
+            max_iter=max_iter,
+        )
+        return _RootScan(
+            candidates=scan.candidates,
+            uniqueness_supported=False,
+            failure_reason="XIRR_UNIQUENESS_NOT_SUPPORTED",
+        )
+
+    stationary_scan = _stationary_point_scan(
+        coefficients=coefficients,
+        exponents=exponents,
+        lower_bound=lower_bound,
+        upper_bound=upper_bound,
+        root_scan_steps=root_scan_steps,
+        tolerance=tolerance,
+        max_iter=max_iter,
+        sign_changes=sign_changes,
+    )
+    partition_points = np.concatenate(
+        (
+            np.linspace(lower_bound, upper_bound, root_scan_steps),
+            np.array([candidate.value for candidate in stationary_scan.candidates]),
+        )
+    )
+    scan = _scan_monotonic_partitions(
+        evaluate=evaluate,
+        partition_points=partition_points,
+        value_tolerance=value_tolerance,
         rate_tolerance=tolerance,
         max_iter=max_iter,
     )
-    return exp(root_x) - 1, iterations
+    return _RootScan(
+        candidates=scan.candidates,
+        uniqueness_supported=stationary_scan.uniqueness_supported and scan.uniqueness_supported,
+        failure_reason=stationary_scan.failure_reason or scan.failure_reason,
+        non_simple_root_detected=_has_stationary_root(
+            candidates=scan.candidates,
+            stationary_candidates=stationary_scan.candidates,
+        ),
+    )
 
 
-def _is_distinct_xirr_candidate(solver_value, roots):
-    return all(abs(solver_value - existing_rate) > 1e-8 for existing_rate, _, _ in roots)
+def _normalized_exponential_terms(*, coefficients: np.ndarray, exponents: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
+    nonzero = coefficients != 0
+    retained_coefficients = np.asarray(coefficients[nonzero], dtype=float)
+    retained_exponents = np.asarray(exponents[nonzero], dtype=float)
+    if len(retained_exponents) == 0:
+        return retained_coefficients, retained_exponents
+    return retained_coefficients, retained_exponents - float(  # monetary-float-allow: dimensionless year fraction
+        np.min(retained_exponents)
+    )
 
 
-def _xirr_result_from_roots(*, roots: list[tuple[float, int, float]], base_convergence: dict) -> dict:
-    convergence = {**base_convergence, "root_count_detected": len(roots), "converged": False}
-    if not roots:
+def _exponential_function(*, coefficients: np.ndarray, exponents: np.ndarray) -> Callable[[float], float]:
+    def evaluate(log_rate: float) -> float:
+        with np.errstate(over="ignore", invalid="ignore"):
+            return float(np.sum(coefficients * np.exp(-log_rate * exponents)))
+
+    return evaluate
+
+
+def _coefficient_sign_changes(coefficients: np.ndarray) -> int:
+    signs = np.sign(coefficients[coefficients != 0])
+    return int(np.sum(signs[1:] != signs[:-1]))
+
+
+def _stationary_point_scan(
+    *,
+    coefficients: np.ndarray,
+    exponents: np.ndarray,
+    lower_bound: float,
+    upper_bound: float,
+    root_scan_steps: int,
+    tolerance: float,
+    max_iter: int,
+    sign_changes: int,
+) -> _RootScan:
+    if sign_changes <= 1:
+        return _RootScan(candidates=(), uniqueness_supported=True)
+    derivative_coefficients = -exponents * coefficients
+    derivative_terms = derivative_coefficients != 0
+    return _isolate_exponential_roots(
+        coefficients=derivative_coefficients[derivative_terms],
+        exponents=exponents[derivative_terms],
+        lower_bound=lower_bound,
+        upper_bound=upper_bound,
+        root_scan_steps=root_scan_steps,
+        tolerance=tolerance,
+        max_iter=max_iter,
+    )
+
+
+def _scan_monotonic_partitions(
+    *,
+    evaluate: Callable[[float], float],
+    partition_points: np.ndarray,
+    value_tolerance: float,
+    rate_tolerance: float,  # monetary-float-allow: dimensionless log-rate tolerance
+    max_iter: int,
+) -> _RootScan:
+    points = sorted({float(point) for point in partition_points if isfinite(float(point))})
+    roots = _exact_partition_roots(
+        evaluate=evaluate,
+        points=points,
+        value_tolerance=value_tolerance,
+    )
+    for candidate in _bracketed_partition_roots(
+        evaluate=evaluate,
+        points=points,
+        value_tolerance=value_tolerance,
+        rate_tolerance=rate_tolerance,
+        max_iter=max_iter,
+    ):
+        _append_distinct_root(roots, candidate)
+    return _RootScan(
+        candidates=tuple(sorted(roots, key=lambda candidate: candidate.value)),
+        uniqueness_supported=True,
+        failure_reason=_first_candidate_failure_reason(roots),
+    )
+
+
+def _exact_partition_roots(
+    *,
+    evaluate: Callable[[float], float],
+    points: list[float],
+    value_tolerance: float,
+) -> list[_RootCandidate]:
+    roots: list[_RootCandidate] = []
+    for point in points:
+        residual = evaluate(point)
+        if isfinite(residual) and abs(residual) <= value_tolerance:
+            _append_distinct_root(
+                roots,
+                _RootCandidate(point, 0, residual, "residual_tolerance", True),
+            )
+    return roots
+
+
+def _bracketed_partition_roots(
+    *,
+    evaluate: Callable[[float], float],
+    points: list[float],
+    value_tolerance: float,
+    rate_tolerance: float,  # monetary-float-allow: dimensionless log-rate tolerance
+    max_iter: int,
+) -> list[_RootCandidate]:
+    roots: list[_RootCandidate] = []
+    for left, right in zip(points, points[1:]):
+        left_value = evaluate(left)
+        right_value = evaluate(right)
+        if not isfinite(left_value) or not isfinite(right_value) or left_value * right_value >= 0:
+            continue
+        candidate = _bisect_root(
+            evaluate,
+            left,
+            right,
+            value_tolerance=value_tolerance,
+            rate_tolerance=rate_tolerance,
+            max_iter=max_iter,
+        )
+        roots.append(candidate)
+    return roots
+
+
+def _first_candidate_failure_reason(candidates: Sequence[_RootCandidate]) -> str | None:
+    return next(
+        (_candidate_failure_reason(candidate) for candidate in candidates if not candidate.converged),
+        None,
+    )
+
+
+def _has_stationary_root(
+    *,
+    candidates: Sequence[_RootCandidate],
+    stationary_candidates: Sequence[_RootCandidate],
+) -> bool:
+    return any(
+        stationary.converged
+        and any(abs(candidate.value - stationary.value) <= _XIRR_DISTINCT_ROOT_TOLERANCE for candidate in candidates)
+        for stationary in stationary_candidates
+    )
+
+
+def _append_distinct_root(roots: list[_RootCandidate], candidate: _RootCandidate) -> None:
+    for index, existing in enumerate(roots):
+        if abs(candidate.value - existing.value) <= _XIRR_DISTINCT_ROOT_TOLERANCE:
+            if candidate.converged and not existing.converged:
+                roots[index] = candidate
+            return
+    roots.append(candidate)
+
+
+def _candidate_failure_reason(candidate: _RootCandidate) -> str:
+    if candidate.termination_reason == "iteration_limit":
+        return "SOLVER_ITERATION_LIMIT_REACHED"
+    return "SOLVER_RESIDUAL_OUT_OF_TOLERANCE"
+
+
+def _xirr_result_from_roots(*, roots: _RootScan, base_convergence: dict) -> dict:
+    candidates = roots.candidates
+    root_count_detected = len(candidates)
+    convergence = {
+        **base_convergence,
+        "root_count_detected": root_count_detected,
+        "converged": False,
+        "uniqueness_supported": roots.uniqueness_supported,
+        "non_simple_root_detected": roots.non_simple_root_detected,
+    }
+    unqualified = _unqualified_root_result(roots=roots, convergence=convergence)
+    if unqualified is not None:
+        return unqualified
+    candidate = candidates[0]
+    if not candidate.converged:
+        return {
+            "rate": None,
+            "converged": False,
+            "notes": "XIRR candidate residual did not satisfy the configured tolerance.",
+            "reason_code": _candidate_failure_reason(candidate),
+            "convergence": _candidate_convergence(convergence=convergence, candidate=candidate),
+        }
+    return _successful_root_result(candidate=candidate, convergence=convergence)
+
+
+def _unqualified_root_result(*, roots: _RootScan, convergence: dict) -> dict | None:
+    candidates = roots.candidates
+    incomplete = _incomplete_qualification_result(roots=roots, convergence=convergence)
+    if incomplete is not None:
+        return incomplete
+    if not candidates:
         return {
             "rate": None,
             "converged": False,
@@ -236,7 +523,15 @@ def _xirr_result_from_roots(*, roots: list[tuple[float, int, float]], base_conve
             "reason_code": "NO_ROOT_FOUND",
             "convergence": convergence,
         }
-    if len(roots) > 1:
+    if roots.non_simple_root_detected and len(candidates) == 1:
+        return {
+            "rate": None,
+            "converged": False,
+            "notes": "The only XIRR root is repeated or tangent and is not safely supportable.",
+            "reason_code": "NON_SIMPLE_IRR_ROOT_DETECTED",
+            "convergence": convergence,
+        }
+    if len(candidates) > 1:
         return {
             "rate": None,
             "converged": False,
@@ -244,18 +539,47 @@ def _xirr_result_from_roots(*, roots: list[tuple[float, int, float]], base_conve
             "reason_code": "MULTIPLE_IRR_ROOTS_DETECTED",
             "convergence": convergence,
         }
-    rate, iterations, residual = roots[0]
+    return None
+
+
+def _incomplete_qualification_result(*, roots: _RootScan, convergence: dict) -> dict | None:
+    if roots.failure_reason is None and roots.uniqueness_supported:
+        return None
+    candidate = roots.candidates[0] if len(roots.candidates) == 1 else None
     return {
-        "rate": rate,
+        "rate": None,
+        "converged": False,
+        "notes": "XIRR candidate qualification did not complete within configured controls.",
+        "reason_code": roots.failure_reason or "XIRR_UNIQUENESS_NOT_SUPPORTED",
+        "convergence": _candidate_convergence(convergence=convergence, candidate=candidate),
+    }
+
+
+def _successful_root_result(*, candidate: _RootCandidate, convergence: dict) -> dict:
+    return {
+        "rate": candidate.value,
         "converged": True,
         "notes": "XIRR calculation successful.",
         "convergence": {
             **convergence,
-            "iterations": iterations,
-            "residual": residual,
-            "residual_npv": residual,
+            "iterations": candidate.iterations,
+            "residual": candidate.residual,
+            "residual_npv": candidate.residual,
+            "termination_reason": candidate.termination_reason,
             "converged": True,
         },
+    }
+
+
+def _candidate_convergence(*, convergence: dict, candidate: _RootCandidate | None) -> dict:
+    if candidate is None:
+        return convergence
+    return {
+        **convergence,
+        "iterations": candidate.iterations,
+        "residual": candidate.residual,
+        "residual_npv": candidate.residual,
+        "termination_reason": candidate.termination_reason,
     }
 
 
@@ -282,7 +606,21 @@ def _xirr(
         anchor_date=anchor_date,
         normalized_flow_count=int(len(values)),
         gross_cash_flow_scale=gross_cash_flow_scale,
+        root_scan_steps=root_scan_steps,
+        tolerance=tolerance,
+        max_iterations=max_iter,
+        solver_work_units=xirr_solver_work_units(root_scan_steps=root_scan_steps, max_iter=max_iter),
     )
+    if _xirr_has_invalid_solver_controls(
+        root_scan_steps=root_scan_steps,
+        tolerance=tolerance,
+        max_iter=max_iter,
+    ):
+        return _xirr_failure(
+            base_convergence=base_convergence,
+            notes="Invalid XIRR solver controls.",
+            reason_code="INVALID_SOLVER_CONTROLS",
+        )
     initial_failure = _xirr_initial_failure(
         values=values,
         gross_cash_flow_scale=gross_cash_flow_scale,
@@ -297,9 +635,6 @@ def _xirr(
         raise ValueError("XIRR anchor date is required after preflight validation.")
     time_diffs = _xirr_time_diffs(dates=dates, anchor_date=anchor_date, annualization=annualization)
 
-    def f_log(log_rate: float) -> float:
-        return float(np.sum(values * np.exp(-log_rate * time_diffs)))
-
     roots = _scan_xirr_roots(
         values=values,
         time_diffs=time_diffs,
@@ -308,8 +643,6 @@ def _xirr(
         root_scan_steps=root_scan_steps,
         tolerance=tolerance,
         max_iter=max_iter,
-        gross_cash_flow_scale=gross_cash_flow_scale,
-        log_npv=f_log,
     )
 
     return _xirr_result_from_roots(roots=roots, base_convergence=base_convergence)
@@ -336,6 +669,7 @@ class _MWRXirrAttempt:
     result: MWRResult | None
     notes: list[str]
     reason_code: str | None = None
+    convergence: MWRConvergence | None = None
 
 
 @dataclass(frozen=True)
@@ -414,9 +748,9 @@ def _not_applicable_xirr_mwr_attempt(
     )
 
 
-def _fallback_xirr_mwr_attempt(*, reason_code: str, notes: list[str]) -> _MWRXirrAttempt:
+def _fallback_xirr_mwr_attempt(*, reason_code: str, notes: list[str], convergence: MWRConvergence) -> _MWRXirrAttempt:
     notes.append("XIRR failed, falling back to Modified Dietz.")
-    return _MWRXirrAttempt(result=None, notes=notes, reason_code=reason_code)
+    return _MWRXirrAttempt(result=None, notes=notes, reason_code=reason_code, convergence=convergence)
 
 
 def _calculate_xirr_mwr_attempt(
@@ -462,7 +796,11 @@ def _calculate_xirr_mwr_attempt(
             convergence=convergence,
         )
 
-    return _fallback_xirr_mwr_attempt(reason_code=reason_code, notes=notes)
+    return _fallback_xirr_mwr_attempt(
+        reason_code=reason_code,
+        notes=notes,
+        convergence=convergence,
+    )
 
 
 def _calculate_xirr_solver_result(
@@ -521,6 +859,7 @@ def _calculate_dietz_mwr_result(
     period_days: int,
     notes: list[str],
     xirr_fallback_reason_code: str | None = None,
+    xirr_convergence: MWRConvergence | None = None,
 ) -> MWRResult:
     components = _dietz_return_components(
         begin_mv=begin_mv,
@@ -536,6 +875,7 @@ def _calculate_dietz_mwr_result(
             start_date=start_date,
             end_date=end_date,
             notes=notes,
+            convergence=xirr_convergence,
         )
 
     fallback_metadata = _dietz_fallback_metadata(
@@ -550,6 +890,7 @@ def _calculate_dietz_mwr_result(
         end_date=end_date,
         period_days=period_days,
         notes=notes,
+        convergence=xirr_convergence,
     )
 
 
@@ -559,6 +900,7 @@ def _zero_denominator_dietz_mwr_result(
     start_date: date,
     end_date: date,
     notes: list[str],
+    convergence: MWRConvergence | None = None,
 ) -> MWRResult:
     notes.append("Calculation resulted in a zero denominator.")
     return MWRResult(
@@ -569,6 +911,7 @@ def _zero_denominator_dietz_mwr_result(
         notes=notes,
         status="NOT_CALCULABLE",
         reason_codes=["ZERO_DENOMINATOR"],
+        convergence=convergence,
     )
 
 
@@ -581,6 +924,7 @@ def _calculated_dietz_mwr_result(
     end_date: date,
     period_days: int,
     notes: list[str],
+    convergence: MWRConvergence | None = None,
 ) -> MWRResult:
     if components.periodic_rate is None:
         raise ValueError("Dietz periodic rate is required for calculated MWR result.")
@@ -603,6 +947,7 @@ def _calculated_dietz_mwr_result(
         fallback_from=fallback_metadata.fallback_from,
         fallback_reason=fallback_metadata.fallback_reason,
         is_approximation=True,
+        convergence=convergence,
     )
 
 
@@ -751,6 +1096,7 @@ def calculate_money_weighted_return(
     bounds = _resolve_mwr_period_bounds(cash_flows=cash_flows, as_of=as_of, start_date=start_date)
     _validate_mwr_cash_flow_bounds(cash_flows=cash_flows, bounds=bounds)
     reason_code: str | None = None
+    xirr_convergence: MWRConvergence | None = None
 
     no_economic_content_result = _mwr_no_economic_content_result(
         begin_mv=begin_mv,
@@ -776,6 +1122,7 @@ def calculate_money_weighted_return(
             return xirr_attempt.result
         notes.extend(xirr_attempt.notes)
         reason_code = xirr_attempt.reason_code
+        xirr_convergence = xirr_attempt.convergence
 
     return _calculate_dietz_mwr_result(
         begin_mv=begin_mv,
@@ -788,4 +1135,5 @@ def calculate_money_weighted_return(
         period_days=bounds.period_days,
         notes=notes,
         xirr_fallback_reason_code=reason_code,
+        xirr_convergence=xirr_convergence,
     )
