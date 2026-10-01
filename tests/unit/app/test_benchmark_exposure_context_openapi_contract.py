@@ -16,6 +16,7 @@ def test_benchmark_exposure_context_openapi_documents_usage_and_fields() -> None
     row_schema = schemas["BenchmarkExposureRow"]
     response_schema = schemas["BenchmarkExposureContextResponse"]
     metadata_schema = schemas["BenchmarkExposureMetadata"]
+    source_quality_schema = schemas["BenchmarkExposureSourceQuality"]
 
     for field_name in [
         "portfolio_id",
@@ -64,4 +65,22 @@ def test_benchmark_exposure_context_openapi_documents_usage_and_fields() -> None
     assert response_schema["examples"][0]["metadata"]["correlation_id"] == "corr_benchmark_exposure_001"
     assert metadata_schema["properties"]["retrieval_metadata"]["description"]
     assert metadata_schema["properties"]["retrieval_metadata_quality"]["description"]
+    assert metadata_schema["properties"]["exposure_source_quality"]["description"]
     assert response_schema["examples"][0]["metadata"]["retrieval_metadata_quality"]["reason_codes"] == []
+    assert response_schema["examples"][0]["metadata"]["exposure_source_quality"] == {
+        "status": "complete",
+        "omitted_component_count": 0,
+        "omitted_point_count": 0,
+        "reason_codes": [],
+        "omissions": [],
+        "omissions_truncated": False,
+    }
+    for field_name in [
+        "status",
+        "omitted_component_count",
+        "omitted_point_count",
+        "reason_codes",
+        "omissions",
+        "omissions_truncated",
+    ]:
+        assert source_quality_schema["properties"][field_name]["description"]

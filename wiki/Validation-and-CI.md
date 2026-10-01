@@ -86,7 +86,7 @@ branch `main` at the exact merged SHA, while manual dispatch retains its selecte
 Rebase merges are evaluated per landed commit. The merged-PR dispatcher verifies the repository is
 rebase-only, enumerates the exact base-to-tip range, cross-checks the event commit count, and pins a
 Main Releasability run to every revision. A shipped-script harness runs that entire dispatch loop
-against temporary Git histories and a recording GitHub CLI boundary, including dropped, empty, and
+against isolated Git histories and a recording GitHub CLI boundary, including dropped, empty, and
 wrong ranges plus a workflow-touch revision. Those evidence runs use `cancel-in-progress: false`.
 The daily fail-closed coverage audit distinguishes missing or unverifiable evidence from a
 verdict-bearing historical failure; failures stay visible, while only missing/unknown coverage

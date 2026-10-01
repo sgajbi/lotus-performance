@@ -67,6 +67,13 @@ environment override remains available for automation. Cleanup therefore owns on
 CI-local containers, networks, and volumes; it must not remove the product runtime started from
 `docker-compose.yml` or a parallel worktree's CI-local project.
 
+The Docker lane copies the checkout into an ephemeral in-container workspace, then reconstructs
+the active worktree Git directory with a container-local `commondir` that points to the mounted
+Git common directory. This is required for a Windows worktree: its `.git` file can contain an
+absolute host path that is not meaningful inside a Linux container. It avoids global `GIT_DIR`
+settings, so Git repositories created by the test suite remain independent. The source checkout
+bind is read-only; tests that create temporary worktrees clean their own Git metadata.
+
 License compliance is a blocking release-readiness gate. `make license-compliance-gate` validates
 the repo MIT license declaration, `contracts/license-compliance-policy.v1.json`, and the generated
 `quality/license_compliance_inventory.md`. After any runtime or development dependency change,

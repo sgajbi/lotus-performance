@@ -57,6 +57,8 @@ CONTAINER_CI_PIPELINE_RUN_ID := $(call raw_environment_value,CONTAINER_CI_PIPELI
 
 CONTAINER_BUILD_TARGET ?= runtime
 CI_LOCAL_COMPOSE_PROJECT ?= $(shell python scripts/ci_local_compose_project.py)
+CI_LOCAL_GIT_DIR ?= $(shell git rev-parse --git-common-dir)
+CI_LOCAL_GIT_WORKTREE_DIR ?= $(shell git rev-parse --absolute-git-dir)
 
 install:
 	pip install -r requirements.txt
@@ -133,10 +135,10 @@ ci-local: lint check-deps domain-product-validate
 	$(MAKE) typecheck
 
 ci-local-docker:
-	docker compose --project-name "$(CI_LOCAL_COMPOSE_PROJECT)" -f docker-compose.ci-local.yml up --build --abort-on-container-exit --exit-code-from ci-local ci-local
+	CI_LOCAL_GIT_DIR=$(call shellquote,$(CI_LOCAL_GIT_DIR)) CI_LOCAL_GIT_WORKTREE_DIR=$(call shellquote,$(CI_LOCAL_GIT_WORKTREE_DIR)) docker compose --project-name "$(CI_LOCAL_COMPOSE_PROJECT)" -f docker-compose.ci-local.yml up --build --abort-on-container-exit --exit-code-from ci-local ci-local
 
 ci-local-docker-down:
-	docker compose --project-name "$(CI_LOCAL_COMPOSE_PROJECT)" -f docker-compose.ci-local.yml down -v --remove-orphans
+	CI_LOCAL_GIT_DIR=$(call shellquote,$(CI_LOCAL_GIT_DIR)) CI_LOCAL_GIT_WORKTREE_DIR=$(call shellquote,$(CI_LOCAL_GIT_WORKTREE_DIR)) docker compose --project-name "$(CI_LOCAL_COMPOSE_PROJECT)" -f docker-compose.ci-local.yml down -v --remove-orphans
 
 check-all: lint typecheck test-all
 

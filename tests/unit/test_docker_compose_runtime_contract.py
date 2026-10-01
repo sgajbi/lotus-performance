@@ -81,10 +81,33 @@ def test_ci_local_compose_lifecycle_uses_one_checkout_specific_project() -> None
     project_option = '--project-name "$(CI_LOCAL_COMPOSE_PROJECT)" -f docker-compose.ci-local.yml'
 
     assert "CI_LOCAL_COMPOSE_PROJECT ?= $(shell python scripts/ci_local_compose_project.py)" in makefile
+    assert "CI_LOCAL_GIT_DIR ?= $(shell git rev-parse --git-common-dir)" in makefile
+    assert "CI_LOCAL_GIT_WORKTREE_DIR ?= $(shell git rev-parse --absolute-git-dir)" in makefile
     assert makefile.count(project_option) == 2
+    assert (
+        makefile.count(
+            "CI_LOCAL_GIT_DIR=$(call shellquote,$(CI_LOCAL_GIT_DIR)) "
+            "CI_LOCAL_GIT_WORKTREE_DIR=$(call shellquote,$(CI_LOCAL_GIT_WORKTREE_DIR)) docker compose"
+        )
+        == 2
+    )
     assert "docker compose -f docker-compose.ci-local.yml down" not in makefile
     assert "apt-get install -y --no-install-recommends git make" in compose
     assert "git config --global --add safe.directory /workspace" in compose
+    assert "source: ." in compose
+    assert "target: /source" in compose
+    assert "read_only: true" in compose
+    assert "- /workspace" in compose
+    assert "source: ${CI_LOCAL_GIT_DIR:?CI_LOCAL_GIT_DIR must name the checkout Git common directory}" in compose
+    assert "target: /git-common" in compose
+    assert (
+        "source: ${CI_LOCAL_GIT_WORKTREE_DIR:?CI_LOCAL_GIT_WORKTREE_DIR must name the active Git directory}" in compose
+    )
+    assert "target: /git-worktree-source" in compose
+    assert "cp -a /source/. /workspace/" in compose
+    assert "cp -a /git-worktree-source/. /workspace/.git/" in compose
+    assert "printf '/git-common\\n' > /workspace/.git/commondir" in compose
+    assert "    environment:" not in compose
     assert "--requirement requirements.txt --requirement requirements-dev.txt" in compose
     assert "--requirements" not in compose
     assert "coverage report --fail-under=99" in compose

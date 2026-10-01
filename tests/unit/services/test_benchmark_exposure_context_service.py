@@ -7,7 +7,9 @@ import pytest
 from app.models.benchmark_exposure_context import (
     BenchmarkExposureContextRequest,
     BenchmarkExposureGroupingDimension,
+    BenchmarkExposureOmission,
     BenchmarkExposureRow,
+    BenchmarkExposureSourceQuality,
     BenchmarkExposureWindow,
 )
 from app.observability import correlation_id_var
@@ -17,6 +19,7 @@ from app.services.benchmark_exposure_context_service import (
     _benchmark_id_from_assignment_payload,
     _benchmark_id_from_assignment_response,
     _build_exposure_rows,
+    _build_exposure_rows_with_source_quality,
     _classification_group_for_dimension,
     _classification_labels_from_catalog_record,
     _classification_map_from_catalog_payload,
@@ -324,6 +327,7 @@ def test_benchmark_exposure_context_classification_helpers_normalize_inputs() ->
         [
             {"index_id": "IDX_B"},
             {"index_id": ""},
+            {"index_id": "   "},
             {"index_id": None},
             {"index_id": "IDX_A"},
             {"index_id": "IDX_B"},
@@ -334,6 +338,7 @@ def test_benchmark_exposure_context_classification_helpers_normalize_inputs() ->
             [
                 {"index_id": "IDX_B"},
                 {"index_id": ""},
+                {"index_id": "   "},
                 {"index_id": None},
                 {"index_id": "IDX_A"},
             ]
@@ -587,6 +592,166 @@ def test_build_exposure_rows_skips_invalid_component_shapes_and_rejects_invalid_
             grouping_dimensions=[BenchmarkExposureGroupingDimension.POSITION],
             classification_map={},
         )
+
+
+def test_build_exposure_rows_qualifies_every_omitted_source_component_and_point() -> None:
+    rows, quality = _build_exposure_rows_with_source_quality(
+        component_series=[
+            {"index_id": "IDX_GLOBAL_EQUITY", "points": [{"series_date": "2026-01-02", "component_weight": "0.60"}]},
+            {"index_id": "IDX_GLOBAL_BONDS", "points": [{"series_date": "2026-01-02"}]},
+            {"index_id": "", "points": [{"series_date": "2026-01-02", "component_weight": "0.10"}]},
+            {"index_id": "IDX_BAD_POINTS", "points": "not-a-list"},
+            {"index_id": "IDX_NO_HISTORY", "points": []},
+            {
+                "index_id": "IDX_MALFORMED",
+                "points": [None, {"series_date": None, "component_weight": "0.10"}],
+            },
+        ],
+        grouping_dimensions=[BenchmarkExposureGroupingDimension.POSITION],
+        classification_map={},
+    )
+
+    assert [(row.group_key, row.weight) for row in rows] == [("IDX_GLOBAL_EQUITY", Decimal("0.60"))]
+    assert quality.model_dump(mode="json") == {
+        "status": "incomplete",
+        "omitted_component_count": 3,
+        "omitted_point_count": 3,
+        "reason_codes": [
+            "EMPTY_POINTS",
+            "INVALID_POINTS_SHAPE",
+            "INVALID_POINT_SHAPE",
+            "MISSING_COMPONENT_ID",
+            "MISSING_COMPONENT_WEIGHT",
+            "MISSING_SERIES_DATE",
+        ],
+        "omissions": [
+            {
+                "component_id": "IDX_GLOBAL_BONDS",
+                "series_date": "2026-01-02",
+                "reason_code": "MISSING_COMPONENT_WEIGHT",
+            },
+            {"component_id": None, "series_date": None, "reason_code": "MISSING_COMPONENT_ID"},
+            {"component_id": "IDX_BAD_POINTS", "series_date": None, "reason_code": "INVALID_POINTS_SHAPE"},
+            {"component_id": "IDX_NO_HISTORY", "series_date": None, "reason_code": "EMPTY_POINTS"},
+            {"component_id": "IDX_MALFORMED", "series_date": None, "reason_code": "INVALID_POINT_SHAPE"},
+            {"component_id": "IDX_MALFORMED", "series_date": None, "reason_code": "MISSING_SERIES_DATE"},
+        ],
+        "omissions_truncated": False,
+    }
+
+
+def test_build_exposure_rows_preserves_zero_weight_without_an_omission() -> None:
+    rows, quality = _build_exposure_rows_with_source_quality(
+        component_series=[{"index_id": "IDX_CASH", "points": [{"series_date": "2026-01-02", "component_weight": "0"}]}],
+        grouping_dimensions=[BenchmarkExposureGroupingDimension.POSITION],
+        classification_map={},
+    )
+
+    assert [(row.group_key, row.weight) for row in rows] == [("IDX_CASH", Decimal("0"))]
+    assert quality.status == "complete"
+    assert quality.omitted_component_count == 0
+    assert quality.omitted_point_count == 0
+
+
+def test_build_exposure_rows_bounds_omission_details_without_losing_aggregate_evidence() -> None:
+    rows, quality = _build_exposure_rows_with_source_quality(
+        component_series=[
+            {
+                "index_id": "IDX_GLOBAL_BONDS",
+                "points": [{"series_date": "2026-01-02"} for _ in range(101)],
+            }
+        ],
+        grouping_dimensions=[BenchmarkExposureGroupingDimension.POSITION],
+        classification_map={},
+    )
+
+    assert rows == []
+    assert quality.status == "incomplete"
+    assert quality.omitted_component_count == 0
+    assert quality.omitted_point_count == 101
+    assert quality.reason_codes == ["MISSING_COMPONENT_WEIGHT"]
+    assert len(quality.omissions) == 100
+    assert quality.omissions_truncated is True
+
+
+@pytest.mark.parametrize("weight", ["NaN", "Infinity", "-Infinity"])
+def test_exposure_point_refuses_nonfinite_component_weight(weight: str) -> None:
+    with pytest.raises(APIError, match="invalid component_weight") as exc_info:
+        _exposure_point_series_date_and_weight({"series_date": "2026-01-02", "component_weight": weight})
+
+    assert exc_info.value.status_code == 422
+
+
+@pytest.mark.parametrize(
+    "series_date",
+    ["20260102", "2026-1-2", "2026-01-32", "2026-01-02T00:00:00Z"],
+)
+def test_exposure_point_marks_noncanonical_or_invalid_source_date_as_an_omission(series_date: str) -> None:
+    rows, quality = _build_exposure_rows_with_source_quality(
+        component_series=[
+            {
+                "index_id": "IDX_GLOBAL_EQUITY",
+                "points": [{"series_date": series_date, "component_weight": "0.60"}],
+            }
+        ],
+        grouping_dimensions=[BenchmarkExposureGroupingDimension.POSITION],
+        classification_map={},
+    )
+
+    assert rows == []
+    assert quality.status == "incomplete"
+    assert quality.reason_codes == ["INVALID_SERIES_DATE"]
+    assert quality.omissions[0].series_date is None
+
+
+@pytest.mark.parametrize(
+    "source_quality",
+    [
+        BenchmarkExposureSourceQuality.model_construct(
+            status="complete",
+            omitted_component_count=1,
+            omitted_point_count=0,
+            reason_codes=[],
+            omissions=[],
+            omissions_truncated=False,
+        ),
+        BenchmarkExposureSourceQuality.model_construct(
+            status="incomplete",
+            omitted_component_count=0,
+            omitted_point_count=0,
+            reason_codes=[],
+            omissions=[],
+            omissions_truncated=False,
+        ),
+        BenchmarkExposureSourceQuality.model_construct(
+            status="incomplete",
+            omitted_component_count=0,
+            omitted_point_count=2,
+            reason_codes=["MISSING_COMPONENT_WEIGHT", "INVALID_SERIES_DATE", "MISSING_COMPONENT_WEIGHT"],
+            omissions=[],
+            omissions_truncated=True,
+        ),
+        BenchmarkExposureSourceQuality.model_construct(
+            status="incomplete",
+            omitted_component_count=0,
+            omitted_point_count=1,
+            reason_codes=["MISSING_COMPONENT_WEIGHT"],
+            omissions=[
+                BenchmarkExposureOmission(
+                    component_id="IDX_GLOBAL_BONDS",
+                    series_date="2026-01-02",
+                    reason_code="MISSING_COMPONENT_WEIGHT",
+                )
+            ],
+            omissions_truncated=True,
+        ),
+    ],
+)
+def test_exposure_source_quality_model_rejects_contradictory_evidence(
+    source_quality: BenchmarkExposureSourceQuality,
+) -> None:
+    with pytest.raises(ValueError, match="exposure_source_quality"):
+        BenchmarkExposureSourceQuality.model_validate(source_quality.model_dump())
 
 
 def test_iter_component_exposure_points_yields_only_valid_component_point_lists() -> None:

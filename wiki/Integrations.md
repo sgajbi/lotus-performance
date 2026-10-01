@@ -53,7 +53,10 @@ Benchmark exposure context is the performance-owned derived integration view for
 attribution. It resolves benchmark assignment and component weights through `lotus-core`, then
 serves `POSITION`, `SECTOR`, `ASSET_CLASS`, and `ISSUER` rows at `frequency=DAILY`. Issuer rows use
 lotus-core index-catalog `classification_labels.issuer_id` and `issuer_name`; `POSITION` is the only
-grouping that carries `component_id`.
+grouping that carries `component_id`. Consumers must read the request-wide
+`metadata.exposure_source_quality` on every page: `incomplete` preserves valid source rows and
+bounded omission evidence but is not a complete benchmark and must not be renormalized. Zero
+weights remain valid; non-finite/non-numeric weights and an entirely unusable source are rejected.
 
 ## Stateful TWR source flow
 

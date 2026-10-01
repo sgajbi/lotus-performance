@@ -1,7 +1,7 @@
 # Lotus Performance Test Taxonomy Inventory
 
 Report date: 2026-10-01
-Branch: `fix/553-554-twr-fx-evidence`
+Branch: `fix/559-exposure-source-qualification`
 Mode: regression-blocking test taxonomy inventory; `make quality-test-taxonomy-gate` enforces
 minimum API/runtime and contract/governance breadth plus the current uncategorized-test ceiling.
 
@@ -23,8 +23,8 @@ python scripts/python_test_taxonomy_inventory.py --limit 30 --min-api-runtime-te
 | Metric | Value |
 | --- | ---: |
 | Test modules inventoried | 330 |
-| Test functions inventoried | 3992 |
-| Integration/API/runtime test functions | 799 |
+| Test functions inventoried | 4000 |
+| Integration/API/runtime test functions | 801 |
 | Contract/governance test functions | 196 |
 
 ## Test Functions By Suite
@@ -33,8 +33,8 @@ python scripts/python_test_taxonomy_inventory.py --limit 30 --min-api-runtime-te
 | --- | ---: | ---: |
 | benchmarks | 10 | 42 |
 | e2e | 1 | 21 |
-| integration | 28 | 390 |
-| unit | 291 | 3539 |
+| integration | 28 | 392 |
+| unit | 291 | 3545 |
 
 ## Test Functions By Family
 
@@ -44,8 +44,8 @@ above does sum to it, because a module belongs to exactly one suite.
 
 | Family | Test functions |
 | --- | ---: |
-| analytics_domain | 1957 |
-| api_or_runtime | 799 |
+| analytics_domain | 1965 |
+| api_or_runtime | 801 |
 | contract_or_governance | 196 |
 | observability_or_readiness | 568 |
 | quality_or_security | 268 |
@@ -212,6 +212,13 @@ and direct-engine boundaries. Source test functions now measure `3,974`, API/run
 The TWR strict-FX and daily currency-evidence slice plus final-review regressions add twelve
 analytics-domain source functions, five registered API/runtime functions, one
 observability/readiness inspection function, and one contract/governance documentation function.
-Source test functions now measure `3,992`, API/runtime functions `799`, contract/governance
-functions `196`, observability/readiness functions `568`, analytics-domain functions `1,957`, and
-the unchanged uncategorized ceiling remains `635`.
+At that recorded final-review baseline, source test functions measured `3,992`, API/runtime
+functions `799`, contract/governance functions `196`, observability/readiness functions `568`,
+analytics-domain functions `1,957`, and the unchanged uncategorized ceiling remained `635`.
+
+The benchmark-exposure source-qualification slice adds eight analytics-domain and API/runtime
+regression functions covering malformed source facts, empty component history, stable per-page
+qualification, finite weight refusal, canonical date admission, bounded omission evidence, and
+the response contract. Current source test functions measure `4,000`, API/runtime functions `801`,
+contract/governance functions `196`, observability/readiness functions `568`, analytics-domain
+functions `1,965`, and the unchanged uncategorized ceiling remains `635`.

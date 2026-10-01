@@ -25,7 +25,9 @@ It owns benchmark-aware performance calculations, contribution, attribution, ret
 Its benchmark exposure context integration surface supports `POSITION`, `SECTOR`, `ASSET_CLASS`,
 and `ISSUER` grouping dimensions at `frequency=DAILY`; issuer grouping is a performance-owned
 derived view over lotus-core index-catalog `classification_labels.issuer_id` and `issuer_name`
-source labels.
+source labels. It emits request-wide `metadata.exposure_source_quality` on every page: a complete
+declaration proves no source component or point was omitted, while an incomplete declaration keeps
+valid rows but requires consumers to refuse partial economic evidence rather than renormalizing it.
 
 ## Business And Domain Responsibility
 
@@ -345,9 +347,12 @@ Important validation expectations:
     `make quality-baseline-check` is the non-mutating freshness assertion in the required PR gate.
     It must fail when generated report inputs change without regeneration and pass after the
     reviewed refresh. The CI-local Docker lifecycle derives a stable checkout-specific Compose
-    project and uses it symmetrically for up and down. Do not remove that project scoping:
-    product-runtime and parallel-worktree containers, networks, and volumes are outside CI-local
-    teardown ownership.
+    project and uses it symmetrically for up and down. It copies the source into an ephemeral
+    container workspace and reconstructs the active Git worktree with a container-local
+    `commondir`, so Windows worktree `.git` pointers never leak host paths or globally override
+    temporary Git repositories created by tests. Do not remove that project scoping or portable
+    Git boundary: product-runtime and parallel-worktree containers, networks, volumes, and
+    checkout metadata are outside CI-local teardown ownership.
 11. `make demo-api-certification` is the single local demo-readiness API sweep. It calls the
    supported demo-critical calculation and integration APIs with deterministic synthetic data,
    seeds composite persisted-fact data repeatably, validates expected figures and capability

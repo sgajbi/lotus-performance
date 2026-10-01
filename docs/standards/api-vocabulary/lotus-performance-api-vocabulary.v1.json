@@ -8,7 +8,7 @@
       "openApiVersion": "3.1.0"
     }
   ],
-  "generatedAt": "2026-10-01T06:36:38.189539+00:00",
+  "generatedAt": "2026-10-01T11:51:35.488567+00:00",
   "attributeCatalog": [
     {
       "semanticId": "lotus.access_classification",
@@ -2187,6 +2187,22 @@
       ]
     },
     {
+      "semanticId": "lotus.exposure_source_quality",
+      "canonicalTerm": "exposure_source_quality",
+      "preferredName": "exposure_source_quality",
+      "description": "Request-wide completeness posture for benchmark exposure source economics.",
+      "example": {
+        "key": "value"
+      },
+      "type": "BenchmarkExposureSourceQuality",
+      "locations": [
+        "body"
+      ],
+      "observedTypes": [
+        "BenchmarkExposureSourceQuality"
+      ]
+    },
+    {
       "semanticId": "lotus.fail_fast",
       "canonicalTerm": "fail_fast",
       "preferredName": "fail_fast",
@@ -4155,6 +4171,68 @@
       ]
     },
     {
+      "semanticId": "lotus.omissions",
+      "canonicalTerm": "omissions",
+      "preferredName": "omissions",
+      "description": "Bounded source-safe identities and dates for omitted evidence. This list is a diagnostic sample; counts and reason_codes remain complete when it is truncated.",
+      "example": [
+        {
+          "component_id": "IDX_GLOBAL_BONDS",
+          "series_date": "2026-01-02",
+          "reason_code": "MISSING_COMPONENT_WEIGHT"
+        }
+      ],
+      "type": "array",
+      "locations": [
+        "body"
+      ],
+      "observedTypes": [
+        "array"
+      ]
+    },
+    {
+      "semanticId": "lotus.omissions_truncated",
+      "canonicalTerm": "omissions_truncated",
+      "preferredName": "omissions_truncated",
+      "description": "Whether omissions exceeded the bounded diagnostic list while the omission counts and reason codes remain complete.",
+      "example": true,
+      "type": "boolean",
+      "locations": [
+        "body"
+      ],
+      "observedTypes": [
+        "boolean"
+      ]
+    },
+    {
+      "semanticId": "lotus.omitted_component_count",
+      "canonicalTerm": "omitted_component_count",
+      "preferredName": "omitted_component_count",
+      "description": "Number of supplied component objects omitted because their identity or point collection was unusable.",
+      "example": 1,
+      "type": "integer",
+      "locations": [
+        "body"
+      ],
+      "observedTypes": [
+        "integer"
+      ]
+    },
+    {
+      "semanticId": "lotus.omitted_point_count",
+      "canonicalTerm": "omitted_point_count",
+      "preferredName": "omitted_point_count",
+      "description": "Number of supplied component points omitted because required exposure economics were missing or unusable.",
+      "example": 1,
+      "type": "integer",
+      "locations": [
+        "body"
+      ],
+      "observedTypes": [
+        "integer"
+      ]
+    },
+    {
       "semanticId": "lotus.operator_id",
       "canonicalTerm": "operator_id",
       "preferredName": "operator_id",
@@ -4954,6 +5032,20 @@
       "preferredName": "reason",
       "description": "Bounded reason explaining the supportability state.",
       "example": "calculation_complete",
+      "type": "string",
+      "locations": [
+        "body"
+      ],
+      "observedTypes": [
+        "string"
+      ]
+    },
+    {
+      "semanticId": "lotus.reason_code",
+      "canonicalTerm": "reason_code",
+      "preferredName": "reason_code",
+      "description": "Bounded reason why the supplied component or point could not form derived exposure evidence.",
+      "example": "INVALID_COMPONENT_SHAPE",
       "type": "string",
       "locations": [
         "body"
@@ -6208,6 +6300,20 @@
       ],
       "observedTypes": [
         "object"
+      ]
+    },
+    {
+      "semanticId": "lotus.series_date",
+      "canonicalTerm": "series_date",
+      "preferredName": "series_date",
+      "description": "Canonical series date used by lotus-performance APIs.",
+      "example": "2025-03-31",
+      "type": "string",
+      "locations": [
+        "body"
+      ],
+      "observedTypes": [
+        "string"
       ]
     },
     {
@@ -13401,6 +13507,86 @@
             "type": "object",
             "semanticId": "lotus.retrieval_metadata_quality",
             "attributeRef": "#/attributeCatalog/lotus.retrieval_metadata_quality"
+          },
+          {
+            "name": "metadata.exposure_source_quality",
+            "location": "body",
+            "required": false,
+            "type": "BenchmarkExposureSourceQuality",
+            "semanticId": "lotus.exposure_source_quality",
+            "attributeRef": "#/attributeCatalog/lotus.exposure_source_quality"
+          },
+          {
+            "name": "metadata.exposure_source_quality.status",
+            "location": "body",
+            "required": true,
+            "type": "string",
+            "semanticId": "lotus.status",
+            "attributeRef": "#/attributeCatalog/lotus.status"
+          },
+          {
+            "name": "metadata.exposure_source_quality.omitted_component_count",
+            "location": "body",
+            "required": true,
+            "type": "integer",
+            "semanticId": "lotus.omitted_component_count",
+            "attributeRef": "#/attributeCatalog/lotus.omitted_component_count"
+          },
+          {
+            "name": "metadata.exposure_source_quality.omitted_point_count",
+            "location": "body",
+            "required": true,
+            "type": "integer",
+            "semanticId": "lotus.omitted_point_count",
+            "attributeRef": "#/attributeCatalog/lotus.omitted_point_count"
+          },
+          {
+            "name": "metadata.exposure_source_quality.reason_codes",
+            "location": "body",
+            "required": false,
+            "type": "array",
+            "semanticId": "lotus.reason_codes",
+            "attributeRef": "#/attributeCatalog/lotus.reason_codes"
+          },
+          {
+            "name": "metadata.exposure_source_quality.omissions",
+            "location": "body",
+            "required": false,
+            "type": "array",
+            "semanticId": "lotus.omissions",
+            "attributeRef": "#/attributeCatalog/lotus.omissions"
+          },
+          {
+            "name": "metadata.exposure_source_quality.omissions[].component_id",
+            "location": "body",
+            "required": false,
+            "type": "string",
+            "semanticId": "lotus.component_id",
+            "attributeRef": "#/attributeCatalog/lotus.component_id"
+          },
+          {
+            "name": "metadata.exposure_source_quality.omissions[].series_date",
+            "location": "body",
+            "required": false,
+            "type": "string",
+            "semanticId": "lotus.series_date",
+            "attributeRef": "#/attributeCatalog/lotus.series_date"
+          },
+          {
+            "name": "metadata.exposure_source_quality.omissions[].reason_code",
+            "location": "body",
+            "required": true,
+            "type": "string",
+            "semanticId": "lotus.reason_code",
+            "attributeRef": "#/attributeCatalog/lotus.reason_code"
+          },
+          {
+            "name": "metadata.exposure_source_quality.omissions_truncated",
+            "location": "body",
+            "required": false,
+            "type": "boolean",
+            "semanticId": "lotus.omissions_truncated",
+            "attributeRef": "#/attributeCatalog/lotus.omissions_truncated"
           }
         ]
       }

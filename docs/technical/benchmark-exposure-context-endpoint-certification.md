@@ -58,10 +58,15 @@ The certification suite checks every output family:
 - retrieval counters for benchmark market-series and index catalog calls;
 - retrieval metadata quality with bounded reason code
   `MALFORMED_UPSTREAM_RETRIEVAL_METADATA_COUNT` when optional upstream telemetry is malformed;
+- request-wide `metadata.exposure_source_quality`, separate from retrieval telemetry, which is
+  `complete` only when every supplied component and point was usable. An `incomplete` result
+  preserves source weights without renormalization and reports bounded omission counts, reason
+  codes, and safe component/date identities on every page;
 - `POSITION` rows carry `component_id`, `group_key`, `group_label`, and decimal `weight`;
 - aggregate `SECTOR`, `ASSET_CLASS`, and `ISSUER` rows omit `component_id` and sum component
   weights by date and group;
-- for a fully covered date, weights by grouping dimension sum to `1.0`;
+- for a complete source date, weights by grouping dimension sum to `1.0`; an incomplete source
+  response must not be treated as a complete benchmark or scaled to one;
 - pagination returns a deterministic next-page token and no token on the final page.
 
 Weights are decimal fractions, not percentages. A row weight of `0.60` means 60% benchmark exposure.
@@ -86,6 +91,14 @@ workflow with an implementation exception; the endpoint defaults the affected co
 `MALFORMED_UPSTREAM_RETRIEVAL_METADATA_COUNT`. This distinguishes malformed telemetry from missing
 benchmark exposure rows without exposing raw upstream values.
 
+Benchmark exposure economics have a distinct completeness boundary. Missing or null weights,
+missing or unusable dates, unusable component identities, and malformed component/point shapes are
+not silently discarded: the endpoint returns the usable rows with
+`metadata.exposure_source_quality.status="incomplete"`, bounded reason/count evidence, and safe
+component/date identities. Zero is a valid exposure. Non-finite or non-numeric weights are a
+non-retryable validation refusal, and a source with no usable rows is a non-retryable `422`; neither
+outcome is represented as a complete empty benchmark.
+
 ## Downstream Consumers
 
 Current strategic downstream consumer:
@@ -95,6 +108,9 @@ Current strategic downstream consumer:
   - adapter: `src/app/services/benchmark_exposure_history.py`
   - usage: stateful active-risk attribution fetches benchmark exposure context with
     `frequency=DAILY`, `page_size=1000`, and supported grouping dimensions including issuer.
+  - required posture: reject an `incomplete` exposure-source-quality response rather than
+    calculating active-risk inputs from the remaining rows. Risk consumer acceptance remains a
+    separate receipt.
 
 `lotus-gateway` and `lotus-workbench` do not call this endpoint directly. They surface user-facing
 active-risk issuer attribution only through governed risk and gateway contracts.
@@ -180,7 +196,8 @@ Coverage added or confirmed:
 - model validation tests for inverted windows, empty dimensions, issuer gating, and non-daily
   frequency rejection;
 - service tests for assignment resolution, explicit benchmark bypass, grouping aggregation,
-  pagination, unsupported shapes, upstream failure mapping, and retrieval metadata;
+  omission qualification, zero preservation, finite-number refusal, pagination, unsupported
+  shapes, upstream failure mapping, and retrieval metadata;
 - API integration tests for lineage metadata, malformed optional retrieval telemetry degradation,
   every supported grouping dimension, row weight semantics, pagination, issuer rejection, and
   frequency rejection;

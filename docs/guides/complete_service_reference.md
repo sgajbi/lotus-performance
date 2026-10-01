@@ -1056,6 +1056,12 @@ Contract notes:
 - pagination uses `page.page_size` and `page.next_page_token`
 - malformed optional upstream `retrieval_metadata` counts default affected counters and expose
   `metadata.retrieval_metadata_quality` with `MALFORMED_UPSTREAM_RETRIEVAL_METADATA_COUNT`
+- `metadata.exposure_source_quality` is separate economic completeness evidence. An incomplete
+  response preserves usable source rows but must not be treated as a complete benchmark or
+  renormalized; it names bounded omitted component/point counts, reasons, and safe identities on
+  every page
+- zero is a valid weight; non-finite or non-numeric weights and a source with no usable rows are
+  non-retryable `422` validation outcomes
 - certification evidence lives in
   `docs/technical/benchmark-exposure-context-endpoint-certification.md`
 
@@ -1111,6 +1117,14 @@ Sample response excerpt:
       "warning_count": 0,
       "reason_codes": [],
       "invalid_fields": []
+    },
+    "exposure_source_quality": {
+      "status": "complete",
+      "omitted_component_count": 0,
+      "omitted_point_count": 0,
+      "reason_codes": [],
+      "omissions": [],
+      "omissions_truncated": false
     }
   }
 }

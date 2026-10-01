@@ -1,7 +1,8 @@
 from __future__ import annotations
 
 from collections.abc import Iterator
-from datetime import UTC, datetime
+from dataclasses import dataclass, field
+from datetime import UTC, date, datetime
 from decimal import Decimal, InvalidOperation
 from typing import Any
 
@@ -10,8 +11,11 @@ from app.models.benchmark_exposure_context import (
     BenchmarkExposureContextResponse,
     BenchmarkExposureGroupingDimension,
     BenchmarkExposureMetadata,
+    BenchmarkExposureOmission,
+    BenchmarkExposureOmissionReason,
     BenchmarkExposurePageResponse,
     BenchmarkExposureRow,
+    BenchmarkExposureSourceQuality,
 )
 from app.observability import source_product_correlation_id
 from app.services.offset_pagination import slice_offset_page
@@ -31,15 +35,81 @@ from core.errors import (
 
 _INVALID_OFFSET_PAGE_DETAIL = "page.page_token must be a numeric offset token returned by lotus-performance."
 _NEGATIVE_OFFSET_PAGE_DETAIL = "page.page_token must be non-negative."
+_MAX_EXPOSURE_OMISSION_DETAILS = 100
+
+
+@dataclass
+class _ExposureSourceOmissionTracker:
+    """Collect bounded, request-wide evidence for source facts excluded from exposure rows."""
+
+    omitted_component_count: int = 0
+    omitted_point_count: int = 0
+    reason_codes: set[BenchmarkExposureOmissionReason] = field(default_factory=set)
+    omissions: list[BenchmarkExposureOmission] = field(default_factory=list)
+    omissions_truncated: bool = False
+
+    def record_component(
+        self,
+        *,
+        component_id: str | None,
+        reason_code: BenchmarkExposureOmissionReason,
+    ) -> None:
+        self.omitted_component_count += 1
+        self._record(component_id=component_id, series_date=None, reason_code=reason_code)
+
+    def record_point(
+        self,
+        *,
+        component_id: str,
+        series_date: str | None,
+        reason_code: BenchmarkExposureOmissionReason,
+    ) -> None:
+        self.omitted_point_count += 1
+        self._record(
+            component_id=component_id,
+            series_date=_safe_source_date(series_date),
+            reason_code=reason_code,
+        )
+
+    def _record(
+        self,
+        *,
+        component_id: str | None,
+        series_date: date | None,
+        reason_code: BenchmarkExposureOmissionReason,
+    ) -> None:
+        self.reason_codes.add(reason_code)
+        if len(self.omissions) >= _MAX_EXPOSURE_OMISSION_DETAILS:
+            self.omissions_truncated = True
+            return
+        self.omissions.append(
+            BenchmarkExposureOmission(
+                component_id=component_id,
+                series_date=series_date,
+                reason_code=reason_code,
+            )
+        )
+
+    def source_quality(self) -> BenchmarkExposureSourceQuality:
+        omitted_count = self.omitted_component_count + self.omitted_point_count
+        return BenchmarkExposureSourceQuality(
+            status="incomplete" if omitted_count else "complete",
+            omitted_component_count=self.omitted_component_count,
+            omitted_point_count=self.omitted_point_count,
+            reason_codes=sorted(self.reason_codes),
+            omissions=self.omissions,
+            omissions_truncated=self.omissions_truncated,
+        )
 
 
 def _as_decimal(value: Any, *, field_name: str) -> Decimal:
     try:
-        return Decimal(str(value))
+        decimal_value = Decimal(str(value))
     except (InvalidOperation, ValueError) as exc:
-        raise APIUnprocessableEntityError(
-            f"benchmark exposure context payload has invalid {field_name}: {value}"
-        ) from exc
+        raise APIUnprocessableEntityError(f"benchmark exposure context payload has invalid {field_name}.") from exc
+    if not decimal_value.is_finite():
+        raise APIUnprocessableEntityError(f"benchmark exposure context payload has invalid {field_name}.")
+    return decimal_value
 
 
 async def build_benchmark_exposure_context(
@@ -58,7 +128,7 @@ async def build_benchmark_exposure_context(
         stateful_input_service=stateful_input_service,
         component_series=component_series,
     )
-    rows = _build_exposure_rows(
+    rows, exposure_source_quality = _build_exposure_rows_with_source_quality(
         component_series=component_series,
         grouping_dimensions=request.grouping_dimensions,
         classification_map=classification_map,
@@ -90,6 +160,7 @@ async def build_benchmark_exposure_context(
             request=request,
             market_payload=market_payload,
             index_catalog_count=index_catalog_count,
+            exposure_source_quality=exposure_source_quality,
         ),
     )
 
@@ -99,7 +170,7 @@ async def _retrieve_benchmark_component_series(
     request: BenchmarkExposureContextRequest,
     benchmark_id: str,
     stateful_input_service: StatefulInputService,
-) -> tuple[list[dict[str, Any]], dict[str, Any]]:
+) -> tuple[list[Any], dict[str, Any]]:
     market_status, market_payload = await stateful_input_service.get_benchmark_market_series(
         calculation_id=request.calculation_id,
         benchmark_id=benchmark_id,
@@ -123,6 +194,7 @@ def _benchmark_exposure_metadata(
     request: BenchmarkExposureContextRequest,
     market_payload: dict[str, Any],
     index_catalog_count: int,
+    exposure_source_quality: BenchmarkExposureSourceQuality | None = None,
 ) -> BenchmarkExposureMetadata:
     market_retrieval = parse_zero_default_retrieval_metadata(market_payload)
     return BenchmarkExposureMetadata(
@@ -135,6 +207,12 @@ def _benchmark_exposure_metadata(
             "index_catalog_page_count": index_catalog_count,
         },
         retrieval_metadata_quality=_retrieval_metadata_quality(market_retrieval),
+        exposure_source_quality=exposure_source_quality
+        or BenchmarkExposureSourceQuality(
+            status="complete",
+            omitted_component_count=0,
+            omitted_point_count=0,
+        ),
     )
 
 
@@ -155,7 +233,7 @@ def _component_series_from_market_response(
     benchmark_id: str,
     market_status: int,
     market_payload: dict[str, Any],
-) -> list[dict[str, Any]]:
+) -> list[Any]:
     if market_status == HTTP_404_NOT_FOUND:
         raise APINotFoundError(f"No benchmark market-series found for benchmark_id={benchmark_id}.")
     if market_status >= HTTP_400_BAD_REQUEST:
@@ -207,7 +285,7 @@ async def _classification_map_for_request(
     *,
     request: BenchmarkExposureContextRequest,
     stateful_input_service: StatefulInputService,
-    component_series: list[dict[str, Any]],
+    component_series: list[Any],
 ) -> dict[str, dict[str, str]]:
     if not _requires_index_catalog(request.grouping_dimensions):
         return {}
@@ -235,14 +313,16 @@ def _requires_index_catalog(grouping_dimensions: list[BenchmarkExposureGroupingD
     return any(dimension != BenchmarkExposureGroupingDimension.POSITION for dimension in grouping_dimensions)
 
 
-def _index_ids_for_component_series(component_series: list[dict[str, Any]]) -> list[str]:
+def _index_ids_for_component_series(component_series: list[Any]) -> list[str]:
     return sorted(set(_iter_component_index_ids(component_series)))
 
 
-def _iter_component_index_ids(component_series: list[dict[str, Any]]) -> Iterator[str]:
+def _iter_component_index_ids(component_series: list[Any]) -> Iterator[str]:
     for component in component_series:
+        if not isinstance(component, dict):
+            continue
         index_id = component.get("index_id")
-        if isinstance(index_id, str) and index_id:
+        if isinstance(index_id, str) and index_id.strip():
             yield index_id
 
 
@@ -271,24 +351,47 @@ def _classification_labels_from_catalog_record(record: Any) -> tuple[str, dict[s
     return index_id, _normalized_classification_labels(labels)
 
 
-def _parse_component_series(payload: dict[str, Any]) -> list[dict[str, Any]]:
+def _parse_component_series(payload: dict[str, Any]) -> list[Any]:
     component_series = payload.get("component_series")
     if not isinstance(component_series, list):
         raise APIUnprocessableEntityError("benchmark market-series payload missing component_series list.")
-    return [component for component in component_series if isinstance(component, dict)]
+    return component_series
 
 
 def _build_exposure_rows(
     *,
-    component_series: list[dict[str, Any]],
+    component_series: list[Any],
     grouping_dimensions: list[BenchmarkExposureGroupingDimension],
     classification_map: dict[str, dict[str, str]],
 ) -> list[BenchmarkExposureRow]:
+    rows, _ = _build_exposure_rows_with_source_quality(
+        component_series=component_series,
+        grouping_dimensions=grouping_dimensions,
+        classification_map=classification_map,
+    )
+    return rows
+
+
+def _build_exposure_rows_with_source_quality(
+    *,
+    component_series: list[Any],
+    grouping_dimensions: list[BenchmarkExposureGroupingDimension],
+    classification_map: dict[str, dict[str, str]],
+) -> tuple[list[BenchmarkExposureRow], BenchmarkExposureSourceQuality]:
     grouped_weights: dict[tuple[str, BenchmarkExposureGroupingDimension, str], Decimal] = {}
     labels: dict[tuple[BenchmarkExposureGroupingDimension, str], str] = {}
     component_ids: dict[tuple[BenchmarkExposureGroupingDimension, str], str | None] = {}
+    omission_tracker = _ExposureSourceOmissionTracker()
 
-    for index_id, points in _iter_component_exposure_points(component_series):
+    for component in component_series:
+        exposure_points = _component_exposure_points(component)
+        if exposure_points is None:
+            omission_tracker.record_component(
+                component_id=_safe_component_id(component),
+                reason_code=_component_omission_reason(component),
+            )
+            continue
+        index_id, points = exposure_points
         for point in points:
             _accumulate_exposure_point(
                 index_id=index_id,
@@ -298,9 +401,10 @@ def _build_exposure_rows(
                 grouped_weights=grouped_weights,
                 labels=labels,
                 component_ids=component_ids,
+                omission_tracker=omission_tracker,
             )
 
-    return [
+    rows = [
         BenchmarkExposureRow(
             valuation_date=series_date,
             component_id=component_ids.get((dimension, group_key)),
@@ -311,23 +415,45 @@ def _build_exposure_rows(
         )
         for (series_date, dimension, group_key), weight in sorted(grouped_weights.items())
     ]
+    return rows, omission_tracker.source_quality()
 
 
-def _iter_component_exposure_points(component_series: list[dict[str, Any]]) -> Iterator[tuple[str, list[Any]]]:
+def _iter_component_exposure_points(component_series: list[Any]) -> Iterator[tuple[str, list[Any]]]:
     for component in component_series:
         exposure_points = _component_exposure_points(component)
         if exposure_points is not None:
             yield exposure_points
 
 
-def _component_exposure_points(component: dict[str, Any]) -> tuple[str, list[Any]] | None:
+def _component_exposure_points(component: Any) -> tuple[str, list[Any]] | None:
+    if not isinstance(component, dict):
+        return None
     index_id = component.get("index_id")
-    if not isinstance(index_id, str) or not index_id:
+    if not isinstance(index_id, str) or not index_id.strip():
         return None
     points = component.get("points")
-    if not isinstance(points, list):
+    if not isinstance(points, list) or not points:
         return None
     return index_id, points
+
+
+def _safe_component_id(component: Any) -> str | None:
+    if not isinstance(component, dict):
+        return None
+    index_id = component.get("index_id")
+    return index_id if isinstance(index_id, str) and index_id.strip() else None
+
+
+def _component_omission_reason(component: Any) -> BenchmarkExposureOmissionReason:
+    if not isinstance(component, dict):
+        return "INVALID_COMPONENT_SHAPE"
+    if _safe_component_id(component) is None:
+        return "MISSING_COMPONENT_ID"
+    if not isinstance(component.get("points"), list):
+        return "INVALID_POINTS_SHAPE"
+    if not component["points"]:
+        return "EMPTY_POINTS"
+    raise AssertionError("usable components must not be recorded as omissions")
 
 
 def _accumulate_exposure_point(
@@ -339,9 +465,16 @@ def _accumulate_exposure_point(
     grouped_weights: dict[tuple[str, BenchmarkExposureGroupingDimension, str], Decimal],
     labels: dict[tuple[BenchmarkExposureGroupingDimension, str], str],
     component_ids: dict[tuple[BenchmarkExposureGroupingDimension, str], str | None],
+    omission_tracker: _ExposureSourceOmissionTracker | None = None,
 ) -> None:
-    point_facts = _exposure_point_series_date_and_weight(point)
+    point_facts, omission_reason = _qualified_exposure_point_facts(point)
     if point_facts is None:
+        if omission_tracker is not None and omission_reason is not None:
+            omission_tracker.record_point(
+                component_id=index_id,
+                series_date=_safe_series_date_text(point),
+                reason_code=omission_reason,
+            )
         return
     series_date, weight = point_facts
     for dimension in grouping_dimensions:
@@ -357,15 +490,44 @@ def _accumulate_exposure_point(
 
 
 def _exposure_point_series_date_and_weight(point: Any) -> tuple[str, Decimal] | None:
+    point_facts, _ = _qualified_exposure_point_facts(point)
+    return point_facts
+
+
+def _qualified_exposure_point_facts(
+    point: Any,
+) -> tuple[tuple[str, Decimal] | None, BenchmarkExposureOmissionReason | None]:
+    if not isinstance(point, dict):
+        return None, "INVALID_POINT_SHAPE"
+    series_date = point.get("series_date")
+    normalized_series_date = _safe_source_date(series_date)
+    if normalized_series_date is None:
+        missing_date = series_date is None or not isinstance(series_date, str) or not series_date.strip()
+        return None, "MISSING_SERIES_DATE" if missing_date else "INVALID_SERIES_DATE"
+    component_weight = point.get("component_weight")
+    if component_weight is None:
+        return None, "MISSING_COMPONENT_WEIGHT"
+    return (
+        (normalized_series_date.isoformat(), _as_decimal(component_weight, field_name="component_weight")),
+        None,
+    )
+
+
+def _safe_source_date(value: Any) -> date | None:
+    if not isinstance(value, str) or not value.strip():
+        return None
+    try:
+        parsed = date.fromisoformat(value)
+    except ValueError:
+        return None
+    return parsed if value == parsed.isoformat() else None
+
+
+def _safe_series_date_text(point: Any) -> str | None:
     if not isinstance(point, dict):
         return None
     series_date = point.get("series_date")
-    if not isinstance(series_date, str):
-        return None
-    component_weight = point.get("component_weight")
-    if component_weight is None:
-        return None
-    return series_date, _as_decimal(component_weight, field_name="component_weight")
+    return series_date if isinstance(series_date, str) else None
 
 
 def _group_identity(

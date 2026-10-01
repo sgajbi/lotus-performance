@@ -1,5 +1,17 @@
 # Mesh Data Products
 
+## Current Scope and Evidence
+
+This page indexes the implemented Performance data products and the evidence their consumers must
+preserve. Product declarations, route contracts, and focused tests establish the current scope;
+they do not establish production capacity or downstream acceptance.
+
+| Reader | Decision supported | Evidence path |
+| --- | --- | --- |
+| Product and demo | Which performance outputs are implemented and qualified | Read [Governed products](#governed-products), then [Supported Features](Supported-Features). |
+| Consumer engineers | Which source evidence must travel with the output | Use the product declaration and linked route contract; do not reconstruct economics downstream. |
+| Operators | Where to start when evidence is incomplete or stale | Follow the linked runbook and preserve the producer's declared supportability state. |
+
 ## Mesh role
 
 `lotus-performance` is a maturity-wave producer in the Lotus enterprise data mesh.
@@ -141,7 +153,10 @@
   anti-corrupted at the performance boundary; malformed count fields default affected counters and
   surface `metadata.retrieval_metadata_quality` with
   `MALFORMED_UPSTREAM_RETRIEVAL_METADATA_COUNT` rather than failing exposure-row generation or
-  leaking raw upstream values.
+  leaking raw upstream values. Economic source completeness is distinct: consumers must reject
+  `metadata.exposure_source_quality.status="incomplete"` rather than treating remaining rows as a
+  complete benchmark. The product preserves source weights and bounded omission evidence; it does
+  not infer or renormalize missing exposure.
 
 ## Governed upstream dependencies
 
