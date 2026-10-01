@@ -45,7 +45,7 @@ Governed base-URL examples:
 - analytics surfaces:
   TWR, MWR, benchmark, workspace summary, contribution, attribution
 - integration surfaces:
-  returns-series, benchmark exposure context, capabilities
+  returns-series, benchmark exposure context, group-return evidence, capabilities
 - operator surfaces:
   execution polling, lineage, runtime status, work items, recoveries, drills, retention
 
@@ -57,6 +57,16 @@ grouping that carries `component_id`. Consumers must read the request-wide
 `metadata.exposure_source_quality` on every page: `incomplete` preserves valid source rows and
 bounded omission evidence but is not a complete benchmark and must not be renormalized. Zero
 weights remain valid; non-finite/non-numeric weights and an entirely unusable source are rejected.
+
+Group-return evidence is the separate Performance-owned producer contract for Risk's empirical
+active-risk input. `POST /integration/attribution/group-return-evidence/v1` retrieves one admitted
+tenant's complete portfolio, position, benchmark-composition, index-price, and index-classification
+source cut. It publishes daily portfolio/benchmark group returns and beginning weights for one
+`ASSET_CLASS`, `COUNTRY`, `CURRENCY`, or `SECTOR` grouping, plus aggregate-return reconciliation
+and durable source fingerprints. Risk owns the downstream active-risk decomposition; this route
+does not grant a tenant, calculate risk attribution, silently fill gaps, renormalize partial
+components, or invent FX. Current Core source contracts do not expose a native upstream revision,
+so the response states that limitation while retaining the producer source-cut identity.
 
 ## Stateful TWR source flow
 

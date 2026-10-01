@@ -8,7 +8,7 @@
       "openApiVersion": "3.1.0"
     }
   ],
-  "generatedAt": "2026-10-01T11:51:35.488567+00:00",
+  "generatedAt": "2026-10-01T13:06:30.433202+00:00",
   "attributeCatalog": [
     {
       "semanticId": "lotus.access_classification",
@@ -44,6 +44,20 @@
       "preferredName": "acquired_at_utc",
       "description": "UTC timestamp when the reclaimed governed action originally acquired its lease.",
       "example": "example_acquired_at_utc",
+      "type": "string",
+      "locations": [
+        "body"
+      ],
+      "observedTypes": [
+        "string"
+      ]
+    },
+    {
+      "semanticId": "lotus.active_contribution",
+      "canonicalTerm": "active_contribution",
+      "preferredName": "active_contribution",
+      "description": "portfolio_weight * portfolio_group_return - benchmark_weight * benchmark_group_return.",
+      "example": "example_active_contribution",
       "type": "string",
       "locations": [
         "body"
@@ -177,6 +191,30 @@
       ],
       "observedTypes": [
         "number"
+      ]
+    },
+    {
+      "semanticId": "lotus.aggregate_returns",
+      "canonicalTerm": "aggregate_returns",
+      "preferredName": "aggregate_returns",
+      "description": "Performance metric value for aggregate returns.",
+      "example": [
+        {
+          "date": "2026-02-27",
+          "portfolio_return": "example_portfolio_return",
+          "weighted_portfolio_return": "example_weighted_portfolio_return",
+          "portfolio_reconciliation_delta": "example_portfolio_reconciliation_delta",
+          "benchmark_return": "example_benchmark_return",
+          "active_return": "example_active_return",
+          "group_active_contribution_delta": "example_group_active_contribution_delta"
+        }
+      ],
+      "type": "array",
+      "locations": [
+        "body"
+      ],
+      "observedTypes": [
+        "array"
       ]
     },
     {
@@ -602,6 +640,20 @@
       ]
     },
     {
+      "semanticId": "lotus.benchmark_group_return",
+      "canonicalTerm": "benchmark_group_return",
+      "preferredName": "benchmark_group_return",
+      "description": "Daily component-weighted benchmark return for the group.",
+      "example": "example_benchmark_group_return",
+      "type": "string",
+      "locations": [
+        "body"
+      ],
+      "observedTypes": [
+        "string"
+      ]
+    },
+    {
       "semanticId": "lotus.benchmark_groups_data",
       "canonicalTerm": "benchmark_groups_data",
       "preferredName": "benchmark_groups_data",
@@ -660,6 +712,20 @@
       ]
     },
     {
+      "semanticId": "lotus.benchmark_return",
+      "canonicalTerm": "benchmark_return",
+      "preferredName": "benchmark_return",
+      "description": "Performance metric value for benchmark return.",
+      "example": "example_benchmark_return",
+      "type": "string",
+      "locations": [
+        "body"
+      ],
+      "observedTypes": [
+        "string"
+      ]
+    },
+    {
       "semanticId": "lotus.benchmark_return_source",
       "canonicalTerm": "benchmark_return_source",
       "preferredName": "benchmark_return_source",
@@ -707,6 +773,20 @@
       "preferredName": "benchmark_version",
       "description": "Benchmark version/effective as-of marker used for the exposure context.",
       "example": "STANDARD_VALUE",
+      "type": "string",
+      "locations": [
+        "body"
+      ],
+      "observedTypes": [
+        "string"
+      ]
+    },
+    {
+      "semanticId": "lotus.benchmark_weight",
+      "canonicalTerm": "benchmark_weight",
+      "preferredName": "benchmark_weight",
+      "description": "Beginning-of-day benchmark group weight.",
+      "example": "example_benchmark_weight",
       "type": "string",
       "locations": [
         "body"
@@ -1406,6 +1486,22 @@
       ],
       "observedTypes": [
         "object"
+      ]
+    },
+    {
+      "semanticId": "lotus.coverage",
+      "canonicalTerm": "coverage",
+      "preferredName": "coverage",
+      "description": "Completeness posture. Incomplete economics are refused rather than silently dropped.",
+      "example": {
+        "key": "value"
+      },
+      "type": "GroupReturnEvidenceCoverage",
+      "locations": [
+        "body"
+      ],
+      "observedTypes": [
+        "GroupReturnEvidenceCoverage"
       ]
     },
     {
@@ -2159,6 +2255,20 @@
       ]
     },
     {
+      "semanticId": "lotus.execution_id",
+      "canonicalTerm": "execution_id",
+      "preferredName": "execution_id",
+      "description": "Unique execution identifier.",
+      "example": "EXECUTION_001",
+      "type": "string",
+      "locations": [
+        "body"
+      ],
+      "observedTypes": [
+        "string"
+      ]
+    },
+    {
       "semanticId": "lotus.execution_mode",
       "canonicalTerm": "execution_mode",
       "preferredName": "execution_mode",
@@ -2562,6 +2672,20 @@
       ]
     },
     {
+      "semanticId": "lotus.group_active_contribution_delta",
+      "canonicalTerm": "group_active_contribution_delta",
+      "preferredName": "group_active_contribution_delta",
+      "description": "group return evidence aggregate return field: group active contribution delta.",
+      "example": "example_group_active_contribution_delta",
+      "type": "string",
+      "locations": [
+        "body"
+      ],
+      "observedTypes": [
+        "string"
+      ]
+    },
+    {
       "semanticId": "lotus.group_by",
       "canonicalTerm": "group_by",
       "preferredName": "group_by",
@@ -2575,6 +2699,20 @@
       ],
       "observedTypes": [
         "array"
+      ]
+    },
+    {
+      "semanticId": "lotus.group_id",
+      "canonicalTerm": "group_id",
+      "preferredName": "group_id",
+      "description": "Stable canonical grouping identity, not a presentation label.",
+      "example": "GROUP_001",
+      "type": "string",
+      "locations": [
+        "body"
+      ],
+      "observedTypes": [
+        "string"
       ]
     },
     {
@@ -2616,7 +2754,8 @@
         "body"
       ],
       "observedTypes": [
-        "BenchmarkExposureGroupingDimension"
+        "BenchmarkExposureGroupingDimension",
+        "GroupReturnEvidenceGrouping"
       ]
     },
     {
@@ -4030,6 +4169,22 @@
       ]
     },
     {
+      "semanticId": "lotus.observed_dates",
+      "canonicalTerm": "observed_dates",
+      "preferredName": "observed_dates",
+      "description": "group return evidence coverage field: observed dates.",
+      "example": [
+        "2026-02-27"
+      ],
+      "type": "array",
+      "locations": [
+        "body"
+      ],
+      "observedTypes": [
+        "array"
+      ]
+    },
+    {
       "semanticId": "lotus.observed_value",
       "canonicalTerm": "observed_value",
       "preferredName": "observed_value",
@@ -4662,6 +4817,20 @@
       ]
     },
     {
+      "semanticId": "lotus.portfolio_group_return",
+      "canonicalTerm": "portfolio_group_return",
+      "preferredName": "portfolio_group_return",
+      "description": "Gross daily TWR for the portfolio group as a decimal ratio.",
+      "example": "example_portfolio_group_return",
+      "type": "string",
+      "locations": [
+        "body"
+      ],
+      "observedTypes": [
+        "string"
+      ]
+    },
+    {
       "semanticId": "lotus.portfolio_groups_data",
       "canonicalTerm": "portfolio_groups_data",
       "preferredName": "portfolio_groups_data",
@@ -4712,6 +4881,48 @@
       ],
       "observedTypes": [
         "object",
+        "string"
+      ]
+    },
+    {
+      "semanticId": "lotus.portfolio_reconciliation_delta",
+      "canonicalTerm": "portfolio_reconciliation_delta",
+      "preferredName": "portfolio_reconciliation_delta",
+      "description": "group return evidence aggregate return field: portfolio reconciliation delta.",
+      "example": "example_portfolio_reconciliation_delta",
+      "type": "string",
+      "locations": [
+        "body"
+      ],
+      "observedTypes": [
+        "string"
+      ]
+    },
+    {
+      "semanticId": "lotus.portfolio_return",
+      "canonicalTerm": "portfolio_return",
+      "preferredName": "portfolio_return",
+      "description": "Performance metric value for portfolio return.",
+      "example": "example_portfolio_return",
+      "type": "string",
+      "locations": [
+        "body"
+      ],
+      "observedTypes": [
+        "string"
+      ]
+    },
+    {
+      "semanticId": "lotus.portfolio_weight",
+      "canonicalTerm": "portfolio_weight",
+      "preferredName": "portfolio_weight",
+      "description": "Beginning-capital portfolio group weight.",
+      "example": "example_portfolio_weight",
+      "type": "string",
+      "locations": [
+        "body"
+      ],
+      "observedTypes": [
         "string"
       ]
     },
@@ -5227,6 +5438,20 @@
       ],
       "observedTypes": [
         "integer"
+      ]
+    },
+    {
+      "semanticId": "lotus.reconciliation_tolerance",
+      "canonicalTerm": "reconciliation_tolerance",
+      "preferredName": "reconciliation_tolerance",
+      "description": "Maximum permitted absolute daily return-ratio difference between source aggregate and group roll-up.",
+      "example": "example_reconciliation_tolerance",
+      "type": "string",
+      "locations": [
+        "body"
+      ],
+      "observedTypes": [
+        "string"
       ]
     },
     {
@@ -6010,6 +6235,20 @@
       ]
     },
     {
+      "semanticId": "lotus.return_basis",
+      "canonicalTerm": "return_basis",
+      "preferredName": "return_basis",
+      "description": "Performance metric value for return basis.",
+      "example": "example_return_basis",
+      "type": "string",
+      "locations": [
+        "body"
+      ],
+      "observedTypes": [
+        "string"
+      ]
+    },
+    {
       "semanticId": "lotus.return_fx",
       "canonicalTerm": "return_fx",
       "preferredName": "return_fx",
@@ -6447,6 +6686,29 @@
       ]
     },
     {
+      "semanticId": "lotus.snapshots",
+      "canonicalTerm": "snapshots",
+      "preferredName": "snapshots",
+      "description": "group return evidence source lineage field: snapshots.",
+      "example": [
+        {
+          "upstream_endpoint": "example_upstream_endpoint",
+          "source_identifier": "example_source_identifier",
+          "as_of_date": "2026-02-27",
+          "request_fingerprint": "example_request_fingerprint",
+          "response_fingerprint": "example_response_fingerprint",
+          "retrieval_status": "example_retrieval_status"
+        }
+      ],
+      "type": "array",
+      "locations": [
+        "body"
+      ],
+      "observedTypes": [
+        "array"
+      ]
+    },
+    {
       "semanticId": "lotus.sod_reset_shadow_days",
       "canonicalTerm": "sod_reset_shadow_days",
       "preferredName": "sod_reset_shadow_days",
@@ -6474,6 +6736,20 @@
       ],
       "observedTypes": [
         "Solver"
+      ]
+    },
+    {
+      "semanticId": "lotus.source_cut_id",
+      "canonicalTerm": "source_cut_id",
+      "preferredName": "source_cut_id",
+      "description": "Stable SHA-256 digest of the consumed economic context and evidence rows. It excludes execution IDs, serving timestamps, and unrelated source metadata.",
+      "example": "SOURCE_CUT_001",
+      "type": "string",
+      "locations": [
+        "body"
+      ],
+      "observedTypes": [
+        "string"
       ]
     },
     {
@@ -6518,6 +6794,22 @@
       ],
       "observedTypes": [
         "string"
+      ]
+    },
+    {
+      "semanticId": "lotus.source_lineage",
+      "canonicalTerm": "source_lineage",
+      "preferredName": "source_lineage",
+      "description": "Execution and source-cut identity for replay and restatement comparison.",
+      "example": {
+        "key": "value"
+      },
+      "type": "GroupReturnEvidenceSourceLineage",
+      "locations": [
+        "body"
+      ],
+      "observedTypes": [
+        "GroupReturnEvidenceSourceLineage"
       ]
     },
     {
@@ -7108,6 +7400,20 @@
       ]
     },
     {
+      "semanticId": "lotus.tenant_scope",
+      "canonicalTerm": "tenant_scope",
+      "preferredName": "tenant_scope",
+      "description": "group return evidence source lineage field: tenant scope.",
+      "example": "example_tenant_scope",
+      "type": "string",
+      "locations": [
+        "body"
+      ],
+      "observedTypes": [
+        "string"
+      ]
+    },
+    {
       "semanticId": "lotus.terminal_failure_count",
       "canonicalTerm": "terminal_failure_count",
       "preferredName": "terminal_failure_count",
@@ -7361,6 +7667,20 @@
       ]
     },
     {
+      "semanticId": "lotus.upstream_revision_status",
+      "canonicalTerm": "upstream_revision_status",
+      "preferredName": "upstream_revision_status",
+      "description": "group return evidence source lineage field: upstream revision status.",
+      "example": "example_upstream_revision_status",
+      "type": "string",
+      "locations": [
+        "body"
+      ],
+      "observedTypes": [
+        "string"
+      ]
+    },
+    {
       "semanticId": "lotus.upstream_snapshots",
       "canonicalTerm": "upstream_snapshots",
       "preferredName": "upstream_snapshots",
@@ -7401,6 +7721,20 @@
       ],
       "observedTypes": [
         "integer"
+      ]
+    },
+    {
+      "semanticId": "lotus.valuation_basis",
+      "canonicalTerm": "valuation_basis",
+      "preferredName": "valuation_basis",
+      "description": "group return evidence response field: valuation basis.",
+      "example": "example_valuation_basis",
+      "type": "string",
+      "locations": [
+        "body"
+      ],
+      "observedTypes": [
+        "string"
       ]
     },
     {
@@ -7485,6 +7819,20 @@
       ]
     },
     {
+      "semanticId": "lotus.weight_basis",
+      "canonicalTerm": "weight_basis",
+      "preferredName": "weight_basis",
+      "description": "group return evidence response field: weight basis.",
+      "example": "example_weight_basis",
+      "type": "string",
+      "locations": [
+        "body"
+      ],
+      "observedTypes": [
+        "string"
+      ]
+    },
+    {
       "semanticId": "lotus.weight_bop",
       "canonicalTerm": "weight_bop",
       "preferredName": "weight_bop",
@@ -7496,6 +7844,20 @@
       ],
       "observedTypes": [
         "number"
+      ]
+    },
+    {
+      "semanticId": "lotus.weighted_portfolio_return",
+      "canonicalTerm": "weighted_portfolio_return",
+      "preferredName": "weighted_portfolio_return",
+      "description": "Performance metric value for weighted portfolio return.",
+      "example": "example_weighted_portfolio_return",
+      "type": "string",
+      "locations": [
+        "body"
+      ],
+      "observedTypes": [
+        "string"
       ]
     },
     {
@@ -7526,7 +7888,8 @@
       ],
       "observedTypes": [
         "ReturnsWindow",
-        "BenchmarkExposureWindow"
+        "BenchmarkExposureWindow",
+        "GroupReturnEvidenceWindow"
       ]
     },
     {
@@ -13587,6 +13950,469 @@
             "type": "boolean",
             "semanticId": "lotus.omissions_truncated",
             "attributeRef": "#/attributeCatalog/lotus.omissions_truncated"
+          }
+        ]
+      }
+    },
+    {
+      "domain": "integration",
+      "method": "POST",
+      "path": "/integration/attribution/group-return-evidence/v1",
+      "operationId": "get_group_return_evidence_integration_attribution_group_return_evidence_v1_post",
+      "summary": "Publish source-owned group-return evidence for empirical active-risk attribution",
+      "request": {
+        "fields": [
+          {
+            "name": "calculation_id",
+            "location": "body",
+            "required": false,
+            "type": "string",
+            "semanticId": "lotus.calculation_id",
+            "attributeRef": "#/attributeCatalog/lotus.calculation_id"
+          },
+          {
+            "name": "portfolio_id",
+            "location": "body",
+            "required": true,
+            "type": "string",
+            "semanticId": "lotus.portfolio_id",
+            "attributeRef": "#/attributeCatalog/lotus.portfolio_id"
+          },
+          {
+            "name": "benchmark_id",
+            "location": "body",
+            "required": false,
+            "type": "string",
+            "semanticId": "lotus.benchmark_id",
+            "attributeRef": "#/attributeCatalog/lotus.benchmark_id"
+          },
+          {
+            "name": "as_of_date",
+            "location": "body",
+            "required": true,
+            "type": "string",
+            "semanticId": "lotus.as_of_date",
+            "attributeRef": "#/attributeCatalog/lotus.as_of_date"
+          },
+          {
+            "name": "window",
+            "location": "body",
+            "required": true,
+            "type": "GroupReturnEvidenceWindow",
+            "semanticId": "lotus.window",
+            "attributeRef": "#/attributeCatalog/lotus.window"
+          },
+          {
+            "name": "window.start_date",
+            "location": "body",
+            "required": true,
+            "type": "string",
+            "semanticId": "lotus.start_date",
+            "attributeRef": "#/attributeCatalog/lotus.start_date"
+          },
+          {
+            "name": "window.end_date",
+            "location": "body",
+            "required": true,
+            "type": "string",
+            "semanticId": "lotus.end_date",
+            "attributeRef": "#/attributeCatalog/lotus.end_date"
+          },
+          {
+            "name": "grouping_dimension",
+            "location": "body",
+            "required": true,
+            "type": "GroupReturnEvidenceGrouping",
+            "semanticId": "lotus.grouping_dimension",
+            "attributeRef": "#/attributeCatalog/lotus.grouping_dimension"
+          },
+          {
+            "name": "reporting_currency",
+            "location": "body",
+            "required": true,
+            "type": "string",
+            "semanticId": "lotus.reporting_currency",
+            "attributeRef": "#/attributeCatalog/lotus.reporting_currency"
+          }
+        ]
+      },
+      "response": {
+        "fields": [
+          {
+            "name": "contract_version",
+            "location": "body",
+            "required": false,
+            "type": "string",
+            "semanticId": "lotus.contract_version",
+            "attributeRef": "#/attributeCatalog/lotus.contract_version"
+          },
+          {
+            "name": "calculation_id",
+            "location": "body",
+            "required": true,
+            "type": "string",
+            "semanticId": "lotus.calculation_id",
+            "attributeRef": "#/attributeCatalog/lotus.calculation_id"
+          },
+          {
+            "name": "portfolio_id",
+            "location": "body",
+            "required": true,
+            "type": "string",
+            "semanticId": "lotus.portfolio_id",
+            "attributeRef": "#/attributeCatalog/lotus.portfolio_id"
+          },
+          {
+            "name": "benchmark_id",
+            "location": "body",
+            "required": true,
+            "type": "string",
+            "semanticId": "lotus.benchmark_id",
+            "attributeRef": "#/attributeCatalog/lotus.benchmark_id"
+          },
+          {
+            "name": "as_of_date",
+            "location": "body",
+            "required": true,
+            "type": "string",
+            "semanticId": "lotus.as_of_date",
+            "attributeRef": "#/attributeCatalog/lotus.as_of_date"
+          },
+          {
+            "name": "window",
+            "location": "body",
+            "required": true,
+            "type": "GroupReturnEvidenceWindow",
+            "semanticId": "lotus.window",
+            "attributeRef": "#/attributeCatalog/lotus.window"
+          },
+          {
+            "name": "window.start_date",
+            "location": "body",
+            "required": true,
+            "type": "string",
+            "semanticId": "lotus.start_date",
+            "attributeRef": "#/attributeCatalog/lotus.start_date"
+          },
+          {
+            "name": "window.end_date",
+            "location": "body",
+            "required": true,
+            "type": "string",
+            "semanticId": "lotus.end_date",
+            "attributeRef": "#/attributeCatalog/lotus.end_date"
+          },
+          {
+            "name": "grouping_dimension",
+            "location": "body",
+            "required": true,
+            "type": "GroupReturnEvidenceGrouping",
+            "semanticId": "lotus.grouping_dimension",
+            "attributeRef": "#/attributeCatalog/lotus.grouping_dimension"
+          },
+          {
+            "name": "reporting_currency",
+            "location": "body",
+            "required": true,
+            "type": "string",
+            "semanticId": "lotus.reporting_currency",
+            "attributeRef": "#/attributeCatalog/lotus.reporting_currency"
+          },
+          {
+            "name": "return_basis",
+            "location": "body",
+            "required": true,
+            "type": "string",
+            "semanticId": "lotus.return_basis",
+            "attributeRef": "#/attributeCatalog/lotus.return_basis"
+          },
+          {
+            "name": "valuation_basis",
+            "location": "body",
+            "required": true,
+            "type": "string",
+            "semanticId": "lotus.valuation_basis",
+            "attributeRef": "#/attributeCatalog/lotus.valuation_basis"
+          },
+          {
+            "name": "weight_basis",
+            "location": "body",
+            "required": true,
+            "type": "string",
+            "semanticId": "lotus.weight_basis",
+            "attributeRef": "#/attributeCatalog/lotus.weight_basis"
+          },
+          {
+            "name": "coverage",
+            "location": "body",
+            "required": true,
+            "type": "GroupReturnEvidenceCoverage",
+            "semanticId": "lotus.coverage",
+            "attributeRef": "#/attributeCatalog/lotus.coverage"
+          },
+          {
+            "name": "coverage.status",
+            "location": "body",
+            "required": false,
+            "type": "string",
+            "semanticId": "lotus.status",
+            "attributeRef": "#/attributeCatalog/lotus.status"
+          },
+          {
+            "name": "coverage.reason_codes",
+            "location": "body",
+            "required": false,
+            "type": "array",
+            "semanticId": "lotus.reason_codes",
+            "attributeRef": "#/attributeCatalog/lotus.reason_codes"
+          },
+          {
+            "name": "coverage.observed_dates",
+            "location": "body",
+            "required": false,
+            "type": "array",
+            "semanticId": "lotus.observed_dates",
+            "attributeRef": "#/attributeCatalog/lotus.observed_dates"
+          },
+          {
+            "name": "coverage.reconciliation_tolerance",
+            "location": "body",
+            "required": true,
+            "type": "string",
+            "semanticId": "lotus.reconciliation_tolerance",
+            "attributeRef": "#/attributeCatalog/lotus.reconciliation_tolerance"
+          },
+          {
+            "name": "aggregate_returns",
+            "location": "body",
+            "required": true,
+            "type": "array",
+            "semanticId": "lotus.aggregate_returns",
+            "attributeRef": "#/attributeCatalog/lotus.aggregate_returns"
+          },
+          {
+            "name": "aggregate_returns[].date",
+            "location": "body",
+            "required": true,
+            "type": "string",
+            "semanticId": "lotus.date",
+            "attributeRef": "#/attributeCatalog/lotus.date"
+          },
+          {
+            "name": "aggregate_returns[].portfolio_return",
+            "location": "body",
+            "required": true,
+            "type": "string",
+            "semanticId": "lotus.portfolio_return",
+            "attributeRef": "#/attributeCatalog/lotus.portfolio_return"
+          },
+          {
+            "name": "aggregate_returns[].weighted_portfolio_return",
+            "location": "body",
+            "required": true,
+            "type": "string",
+            "semanticId": "lotus.weighted_portfolio_return",
+            "attributeRef": "#/attributeCatalog/lotus.weighted_portfolio_return"
+          },
+          {
+            "name": "aggregate_returns[].portfolio_reconciliation_delta",
+            "location": "body",
+            "required": true,
+            "type": "string",
+            "semanticId": "lotus.portfolio_reconciliation_delta",
+            "attributeRef": "#/attributeCatalog/lotus.portfolio_reconciliation_delta"
+          },
+          {
+            "name": "aggregate_returns[].benchmark_return",
+            "location": "body",
+            "required": true,
+            "type": "string",
+            "semanticId": "lotus.benchmark_return",
+            "attributeRef": "#/attributeCatalog/lotus.benchmark_return"
+          },
+          {
+            "name": "aggregate_returns[].active_return",
+            "location": "body",
+            "required": true,
+            "type": "string",
+            "semanticId": "lotus.active_return",
+            "attributeRef": "#/attributeCatalog/lotus.active_return"
+          },
+          {
+            "name": "aggregate_returns[].group_active_contribution_delta",
+            "location": "body",
+            "required": true,
+            "type": "string",
+            "semanticId": "lotus.group_active_contribution_delta",
+            "attributeRef": "#/attributeCatalog/lotus.group_active_contribution_delta"
+          },
+          {
+            "name": "rows",
+            "location": "body",
+            "required": true,
+            "type": "array",
+            "semanticId": "lotus.rows",
+            "attributeRef": "#/attributeCatalog/lotus.rows"
+          },
+          {
+            "name": "rows[].date",
+            "location": "body",
+            "required": true,
+            "type": "string",
+            "semanticId": "lotus.date",
+            "attributeRef": "#/attributeCatalog/lotus.date"
+          },
+          {
+            "name": "rows[].group_id",
+            "location": "body",
+            "required": true,
+            "type": "string",
+            "semanticId": "lotus.group_id",
+            "attributeRef": "#/attributeCatalog/lotus.group_id"
+          },
+          {
+            "name": "rows[].group_label",
+            "location": "body",
+            "required": true,
+            "type": "string",
+            "semanticId": "lotus.group_label",
+            "attributeRef": "#/attributeCatalog/lotus.group_label"
+          },
+          {
+            "name": "rows[].portfolio_group_return",
+            "location": "body",
+            "required": true,
+            "type": "string",
+            "semanticId": "lotus.portfolio_group_return",
+            "attributeRef": "#/attributeCatalog/lotus.portfolio_group_return"
+          },
+          {
+            "name": "rows[].benchmark_group_return",
+            "location": "body",
+            "required": true,
+            "type": "string",
+            "semanticId": "lotus.benchmark_group_return",
+            "attributeRef": "#/attributeCatalog/lotus.benchmark_group_return"
+          },
+          {
+            "name": "rows[].portfolio_weight",
+            "location": "body",
+            "required": true,
+            "type": "string",
+            "semanticId": "lotus.portfolio_weight",
+            "attributeRef": "#/attributeCatalog/lotus.portfolio_weight"
+          },
+          {
+            "name": "rows[].benchmark_weight",
+            "location": "body",
+            "required": true,
+            "type": "string",
+            "semanticId": "lotus.benchmark_weight",
+            "attributeRef": "#/attributeCatalog/lotus.benchmark_weight"
+          },
+          {
+            "name": "rows[].active_contribution",
+            "location": "body",
+            "required": true,
+            "type": "string",
+            "semanticId": "lotus.active_contribution",
+            "attributeRef": "#/attributeCatalog/lotus.active_contribution"
+          },
+          {
+            "name": "source_lineage",
+            "location": "body",
+            "required": true,
+            "type": "GroupReturnEvidenceSourceLineage",
+            "semanticId": "lotus.source_lineage",
+            "attributeRef": "#/attributeCatalog/lotus.source_lineage"
+          },
+          {
+            "name": "source_lineage.execution_id",
+            "location": "body",
+            "required": true,
+            "type": "string",
+            "semanticId": "lotus.execution_id",
+            "attributeRef": "#/attributeCatalog/lotus.execution_id"
+          },
+          {
+            "name": "source_lineage.tenant_scope",
+            "location": "body",
+            "required": false,
+            "type": "string",
+            "semanticId": "lotus.tenant_scope",
+            "attributeRef": "#/attributeCatalog/lotus.tenant_scope"
+          },
+          {
+            "name": "source_lineage.source_cut_id",
+            "location": "body",
+            "required": true,
+            "type": "string",
+            "semanticId": "lotus.source_cut_id",
+            "attributeRef": "#/attributeCatalog/lotus.source_cut_id"
+          },
+          {
+            "name": "source_lineage.upstream_revision_status",
+            "location": "body",
+            "required": false,
+            "type": "string",
+            "semanticId": "lotus.upstream_revision_status",
+            "attributeRef": "#/attributeCatalog/lotus.upstream_revision_status"
+          },
+          {
+            "name": "source_lineage.snapshots",
+            "location": "body",
+            "required": false,
+            "type": "array",
+            "semanticId": "lotus.snapshots",
+            "attributeRef": "#/attributeCatalog/lotus.snapshots"
+          },
+          {
+            "name": "source_lineage.snapshots[].upstream_endpoint",
+            "location": "body",
+            "required": true,
+            "type": "string",
+            "semanticId": "lotus.upstream_endpoint",
+            "attributeRef": "#/attributeCatalog/lotus.upstream_endpoint"
+          },
+          {
+            "name": "source_lineage.snapshots[].source_identifier",
+            "location": "body",
+            "required": true,
+            "type": "string",
+            "semanticId": "lotus.source_identifier",
+            "attributeRef": "#/attributeCatalog/lotus.source_identifier"
+          },
+          {
+            "name": "source_lineage.snapshots[].as_of_date",
+            "location": "body",
+            "required": true,
+            "type": "string",
+            "semanticId": "lotus.as_of_date",
+            "attributeRef": "#/attributeCatalog/lotus.as_of_date"
+          },
+          {
+            "name": "source_lineage.snapshots[].request_fingerprint",
+            "location": "body",
+            "required": true,
+            "type": "string",
+            "semanticId": "lotus.request_fingerprint",
+            "attributeRef": "#/attributeCatalog/lotus.request_fingerprint"
+          },
+          {
+            "name": "source_lineage.snapshots[].response_fingerprint",
+            "location": "body",
+            "required": true,
+            "type": "string",
+            "semanticId": "lotus.response_fingerprint",
+            "attributeRef": "#/attributeCatalog/lotus.response_fingerprint"
+          },
+          {
+            "name": "source_lineage.snapshots[].retrieval_status",
+            "location": "body",
+            "required": true,
+            "type": "string",
+            "semanticId": "lotus.retrieval_status",
+            "attributeRef": "#/attributeCatalog/lotus.retrieval_status"
           }
         ]
       }

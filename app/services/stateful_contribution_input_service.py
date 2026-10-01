@@ -35,6 +35,7 @@ from app.services.stateful_position_row_service import (
     position_cash_flows_are_losslessly_normalizable,
     split_position_cash_flows_in_value_basis,
 )
+from app.services.stateful_position_source_completeness import position_source_rows_are_complete
 from app.services.stateful_retrieval_metadata import parse_retrieval_metadata
 from app.services.stateful_upstream_errors import raise_for_stateful_control_plane_unavailable
 from app.services.valuation_points_service import portfolio_timeseries_to_valuation_points
@@ -188,7 +189,7 @@ async def _retrieve_stateful_contribution_position_source(
     return _StatefulContributionPositionSource(
         rows=position_source.rows,
         retrieval_metadata=parse_retrieval_metadata(upstream_payload),
-        source_rows_complete=_position_source_rows_complete(
+        source_rows_complete=position_source_rows_are_complete(
             payload=upstream_payload,
             retained_row_count=len(position_source.rows),
         ),
@@ -278,31 +279,6 @@ def build_stateful_contribution_input(
             getattr(source_input, "position_source_rows_complete", False) and position_series.source_rows_complete
         ),
     )
-
-
-def _position_source_rows_complete(
-    *,
-    payload: dict[str, object],
-    retained_row_count: int,
-) -> bool:
-    metadata = payload.get("retrieval_metadata")
-    if not isinstance(metadata, dict):
-        return False
-    source_row_count = _non_negative_int_or_none(metadata.get("source_row_count"))
-    declared_retained_row_count = _non_negative_int_or_none(metadata.get("retained_row_count"))
-    discarded_source_row_count = _non_negative_int_or_none(metadata.get("discarded_source_row_count"))
-    return (
-        source_row_count is not None
-        and declared_retained_row_count == retained_row_count
-        and discarded_source_row_count == 0
-        and source_row_count >= retained_row_count
-    )
-
-
-def _non_negative_int_or_none(value: object) -> int | None:
-    if isinstance(value, bool) or not isinstance(value, int) or value < 0:
-        return None
-    return value
 
 
 def _stateful_position_reporting_currency(

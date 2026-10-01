@@ -1,5 +1,18 @@
 # API Surface
 
+`lotus-performance` publishes calculation evidence; it does not grant tenant authority, book
+transactions, or calculate downstream risk attribution. Every supported response must be interpreted
+with its source lineage and supportability evidence.
+
+## Reader map
+
+| Reader | Start here | Evidence posture |
+| --- | --- | --- |
+| API consumer | [Integration analytics surfaces](#integration-analytics-surfaces) | Versioned source contracts; reject qualified or failed evidence. |
+| Investment analyst | [Analytics surfaces](#analytics-surfaces) | Use the returned calculation, currency, and supportability evidence; do not rebuild financial figures downstream. |
+| Operator | [Operator and platform surfaces](#operator-and-platform-surfaces) | Confirm `/version` and readiness before investigating executions or artifacts. |
+| Risk consumer | [Group-return evidence](Group-Return-Evidence) | Performance supplies group economics only; Risk independently qualifies empirical attribution. |
+
 ## Surface groups
 
 `lotus-performance` exposes three major surface families:
@@ -9,6 +22,18 @@
 3. operator and platform surfaces
 
 Use this page as the short navigation layer. Use the deep guides for payload detail.
+
+## Integration analytics surfaces
+
+- `POST /integration/returns/series`
+- `POST /integration/benchmarks/exposure-context`
+- `POST /integration/attribution/group-return-evidence/v1`
+
+Group-return evidence is a synchronous, stateful-only producer contract for an admitted tenant.
+It returns one daily portfolio/benchmark grouping in a required common currency, aggregate and
+group reconciliation values, and durable source-cut lineage. It refuses incomplete or conflicting
+source economics. It does not perform active-risk attribution; `lotus-risk` owns that consumer
+calculation after independent acceptance.
 
 ## Analytics surfaces
 

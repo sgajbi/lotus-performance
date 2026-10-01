@@ -34,6 +34,7 @@ from app.services.stateful_position_row_service import (
     PositionValueBasis,
     split_position_cash_flows_in_value_basis,
 )
+from app.services.stateful_position_source_completeness import position_source_rows_are_complete
 from app.services.stateful_retrieval_metadata import parse_retrieval_metadata
 from app.services.stateful_upstream_errors import (
     raise_for_stateful_control_plane_unavailable,
@@ -66,6 +67,8 @@ class StatefulAttributionSourceInput:
     benchmark_retrieval_metadata: RetrievalMetadata
     index_records: list[dict[str, object]]
     index_retrieval_metadata: RetrievalMetadata
+    benchmark_currency: str | None = None
+    position_source_rows_complete: bool = False
 
 
 @dataclass(frozen=True)
@@ -95,6 +98,7 @@ class _StatefulAttributionSourceRetrievalRequest:
 class _StatefulAttributionPositionSource:
     rows: list[dict[str, object]]
     retrieval_metadata: RetrievalMetadata
+    source_rows_complete: bool
 
 
 @dataclass(frozen=True)
@@ -105,6 +109,7 @@ class _StatefulAttributionBenchmarkSource:
     retrieval_metadata: RetrievalMetadata
     index_records: list[dict[str, object]]
     index_retrieval_metadata: RetrievalMetadata
+    benchmark_currency: str
 
 
 @dataclass(frozen=True)
@@ -170,6 +175,8 @@ def _stateful_attribution_source_input_from_bundle(
         benchmark_retrieval_metadata=source_bundle.benchmark_source.retrieval_metadata,
         index_records=source_bundle.benchmark_source.index_records,
         index_retrieval_metadata=source_bundle.benchmark_source.index_retrieval_metadata,
+        benchmark_currency=source_bundle.benchmark_source.benchmark_currency,
+        position_source_rows_complete=source_bundle.position_source.source_rows_complete,
     )
 
 
@@ -255,9 +262,14 @@ async def _retrieve_stateful_attribution_position_source(
         source_label="stateful position timeseries source",
         upstream_status=upstream_status,
     )
+    rows = _parse_position_rows(upstream_payload)
     return _StatefulAttributionPositionSource(
-        rows=_parse_position_rows(upstream_payload),
+        rows=rows,
         retrieval_metadata=parse_retrieval_metadata(upstream_payload),
+        source_rows_complete=position_source_rows_are_complete(
+            payload=upstream_payload,
+            retained_row_count=len(rows),
+        ),
     )
 
 
@@ -299,6 +311,7 @@ async def _retrieve_stateful_attribution_benchmark_source(
         ),
         index_records=index_records,
         index_retrieval_metadata=RetrievalMetadata(chunk_count=1, page_count=1),
+        benchmark_currency=benchmark_input.benchmark_currency,
     )
 
 

@@ -23,6 +23,7 @@ It owns:
   `POST /performance/composites/inspect`)
 - canonical returns-series integration (`POST /integration/returns/series`)
 - benchmark exposure context (`POST /integration/benchmarks/exposure-context`)
+- tenant-scoped group-return evidence (`POST /integration/attribution/group-return-evidence/v1`)
 - execution polling, runtime control-plane, and lineage retrieval surfaces
 
 It does not own source-of-record portfolio, benchmark, index, FX, or reference datasets, and it
@@ -36,7 +37,7 @@ does not delegate performance conclusions to `lotus-core`.
    contract.
 4. Time-weighted return, money-weighted return, contribution, attribution, composite performance,
    returns-series, and benchmark exposure context are declared as governed data products under
-   `contracts/domain-data-products/`.
+   `contracts/domain-data-products/`; group-return evidence is a versioned integration contract.
 5. OpenAPI, API vocabulary, domain-product validation, migration, security, Docker parity, and
    container supply-chain evidence are part of the real merge gate.
 6. Compose initializes persisted lineage-volume ownership before any non-root API or worker starts;
@@ -433,6 +434,9 @@ Current request-model highlights:
   single reporting-currency schedule
 - benchmark exposure context is certified at `frequency=DAILY` for `POSITION`, `SECTOR`,
   `ASSET_CLASS`, and `ISSUER`; issuer groups use lotus-core index-catalog issuer labels
+- group-return evidence is a stateful, daily source-economics contract for Risk. It publishes one
+  reconciled `ASSET_CLASS`, `COUNTRY`, `CURRENCY`, or `SECTOR` grouping in a required common
+  currency and refuses incomplete, mismatched, duplicate, or unreconciled source facts
 - Older examples using `period_type` are not current
 - Older examples using `daily_data` are not current
 
@@ -464,6 +468,8 @@ Key deeper references:
   [wiki/Composite-Performance.md](wiki/Composite-Performance.md)
 - Benchmark Exposure Context Endpoint Certification:
   [docs/technical/benchmark-exposure-context-endpoint-certification.md](docs/technical/benchmark-exposure-context-endpoint-certification.md)
+- Group-Return Evidence Endpoint Certification:
+  [docs/technical/group-return-evidence-endpoint-certification.md](docs/technical/group-return-evidence-endpoint-certification.md)
 
 Additional async result references:
 

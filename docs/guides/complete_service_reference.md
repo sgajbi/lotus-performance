@@ -44,6 +44,7 @@ state, lineage evidence, and runtime work-item diagnostics.
 - composite performance analytics from persisted member-return facts
 - interaction-efficient multi-horizon workspace summary
 - canonical returns-series integration
+- tenant-scoped group-return evidence for empirical active-risk consumers
 - async execution offload for heavier workloads
 - execution polling and durable result retrieval
 - TWR inspection and supportability triage
@@ -96,6 +97,7 @@ Default deployment topology:
 | `POST /integration/returns/series` | canonical returns-series surface |
 | `GET /integration/returns/series/results/{calculation_id}` | retrieve async returns-series result |
 | `POST /integration/benchmarks/exposure-context` | benchmark exposure history for downstream active-risk attribution |
+| `POST /integration/attribution/group-return-evidence/v1` | reconciled portfolio and benchmark group-return evidence for empirical active-risk attribution |
 | `GET /integration/runtime-status` | bounded runtime health snapshot |
 | `GET /integration/runtime-work-items` | queue/work-item inspection |
 | `GET /integration/runtime-recoveries` | recovery-event inspection |

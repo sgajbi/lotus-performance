@@ -1,7 +1,7 @@
 # Lotus Performance Test Taxonomy Inventory
 
 Report date: 2026-10-01
-Branch: `fix/559-exposure-source-qualification`
+Branch: `feat/571-benchmark-group-return-evidence`
 Mode: regression-blocking test taxonomy inventory; `make quality-test-taxonomy-gate` enforces
 minimum API/runtime and contract/governance breadth plus the current uncategorized-test ceiling.
 
@@ -15,17 +15,17 @@ and quality family without executing tests or requiring coverage data.
 
 ```powershell
 python scripts/python_test_taxonomy_inventory.py --limit 30
-python scripts/python_test_taxonomy_inventory.py --limit 30 --min-api-runtime-tests 656 --min-contract-governance-tests 136 --max-uncategorized-tests 635
+python scripts/python_test_taxonomy_inventory.py --limit 30 --min-api-runtime-tests 656 --min-contract-governance-tests 136 --max-uncategorized-tests 626
 ```
 
 ## Summary
 
 | Metric | Value |
 | --- | ---: |
-| Test modules inventoried | 330 |
-| Test functions inventoried | 4000 |
-| Integration/API/runtime test functions | 801 |
-| Contract/governance test functions | 196 |
+| Test modules inventoried | 335 |
+| Test functions inventoried | 4031 |
+| Integration/API/runtime test functions | 805 |
+| Contract/governance test functions | 197 |
 
 ## Test Functions By Suite
 
@@ -33,8 +33,8 @@ python scripts/python_test_taxonomy_inventory.py --limit 30 --min-api-runtime-te
 | --- | ---: | ---: |
 | benchmarks | 10 | 42 |
 | e2e | 1 | 21 |
-| integration | 28 | 392 |
-| unit | 291 | 3545 |
+| integration | 29 | 395 |
+| unit | 295 | 3573 |
 
 ## Test Functions By Family
 
@@ -44,12 +44,12 @@ above does sum to it, because a module belongs to exactly one suite.
 
 | Family | Test functions |
 | --- | ---: |
-| analytics_domain | 1965 |
-| api_or_runtime | 801 |
-| contract_or_governance | 196 |
+| analytics_domain | 2005 |
+| api_or_runtime | 805 |
+| contract_or_governance | 197 |
 | observability_or_readiness | 568 |
 | quality_or_security | 268 |
-| uncategorized | 635 |
+| uncategorized | 626 |
 
 ## Largest Test Modules
 
@@ -216,9 +216,18 @@ At that recorded final-review baseline, source test functions measured `3,992`, 
 functions `799`, contract/governance functions `196`, observability/readiness functions `568`,
 analytics-domain functions `1,957`, and the unchanged uncategorized ceiling remained `635`.
 
-The benchmark-exposure source-qualification slice adds eight analytics-domain and API/runtime
+The benchmark-exposure source-qualification slice added eight analytics-domain and API/runtime
 regression functions covering malformed source facts, empty component history, stable per-page
 qualification, finite weight refusal, canonical date admission, bounded omission evidence, and
-the response contract. Current source test functions measure `4,000`, API/runtime functions `801`,
-contract/governance functions `196`, observability/readiness functions `568`, analytics-domain
-functions `1,965`, and the unchanged uncategorized ceiling remains `635`.
+the response contract.
+
+The group-return evidence slice adds service, durable-workflow, and registered API proof for
+heterogeneous and signed-hedge economics, zero exposure, income, source-cut replay, currency,
+classification, and stale/foreign lineage refusal. The taxonomy now classifies both that producer
+suite and the existing analytics-workflow-type suite as analytics-domain behavior. Current source
+test functions measure `4,031`, API/runtime functions `805`, contract/governance functions `197`,
+observability/readiness functions `568`, analytics-domain functions `2,005`, and uncategorized
+functions `626`. The blocking ceiling tightens from `635` to the measured `626`; no test was
+admitted by weakening a threshold. The final provider regressions add durable failure, source-counter,
+malformed-fact, negative-capital, reconciliation, source-fingerprint source-cut, and API window-refusal
+proof without growing the uncategorized backlog.

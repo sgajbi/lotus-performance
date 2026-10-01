@@ -1022,6 +1022,21 @@ Return semantics for the workspace surface are now explicit rather than inferred
   - downstream certification and consumer posture are recorded in
     `docs/technical/benchmark-exposure-context-endpoint-certification.md`
 
+### `POST /integration/attribution/group-return-evidence/v1`
+
+- purpose: publish aligned portfolio and benchmark group-return evidence for a downstream empirical active-risk consumer
+- request model: `app.models.group_return_evidence.GroupReturnEvidenceRequest`
+- response model: `app.models.group_return_evidence.GroupReturnEvidenceResponse`
+- execution mode: synchronous, stateful only
+- contract note:
+  - the route requires one admitted tenant, one portfolio, one `ASSET_CLASS`, `COUNTRY`, `CURRENCY`, or `SECTOR` grouping, and one uppercase common reporting currency
+  - it publishes decimal-ratio group returns, beginning weights, exact active-contribution rows, aggregate source/group reconciliation values, and durable source-cut lineage
+  - it refuses incomplete retained source rows, failed, stale or foreign source snapshots, missing or conflicting classifications, duplicate rows, misaligned calendars, currency mismatch, and unreconciled economics; it neither fills gaps nor invents FX
+  - `valuation_basis` identifies source-reported reporting-currency beginning/end values and `weight_basis` preserves signed portfolio capital, including a hedge group; no group is silently renormalized
+  - `source_cut_id` is stable for identical consumed economics and changes on source restatement or economic-context change; Core native revision IDs are not available in the current source contract and are explicitly marked unavailable
+  - lotus-performance owns source normalization and return evidence; lotus-risk owns any downstream active-risk decomposition and must independently accept the producer contract
+  - certification evidence: `docs/technical/group-return-evidence-endpoint-certification.md`
+
 ## Health and observability
 
 ### `GET /`

@@ -231,6 +231,28 @@
         "stateful"
       ],
       "supports_async": false
+    },
+    {
+      "contract_notes": [
+        "publishes source-owned gross TWR group economics and durable source-cut lineage; it does not calculate risk attribution",
+        "intended for lotus-risk empirical ACTIVE_RISK attribution after its independent consumer acceptance"
+      ],
+      "enabled": true,
+      "key": "group_return_evidence",
+      "options": [],
+      "path": "/integration/attribution/group-return-evidence/v1",
+      "poll_path_template": null,
+      "result_path_template": null,
+      "stateful_restrictions": [
+        "lotus-core remains the portfolio, benchmark, and classification system of record",
+        "v1 supports one ASSET_CLASS, COUNTRY, CURRENCY, or SECTOR grouping in one required common reporting currency",
+        "incomplete, duplicate, stale or foreign, calendar-misaligned, unreconciled, and currency-mismatched source facts are refused",
+        "conflicting classification labels are refused and signed portfolio-capital weights are preserved"
+      ],
+      "supported_input_modes": [
+        "stateful"
+      ],
+      "supports_async": false
     }
   ],
   "as_of_date": "2026-04-10",
@@ -271,6 +293,12 @@
       "description": "Performance-aligned benchmark exposure context derived from lotus-core benchmark lineage.",
       "enabled": true,
       "key": "performance.integration.benchmark_exposure_context",
+      "owner_service": "lotus-performance"
+    },
+    {
+      "description": "Tenant-scoped, reconciled portfolio and benchmark group-return evidence for empirical active-risk consumers.",
+      "enabled": true,
+      "key": "performance.integration.group_return_evidence",
       "owner_service": "lotus-performance"
     },
     {

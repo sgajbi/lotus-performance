@@ -12,6 +12,7 @@ from app.api.endpoints import (
     composites,
     contribution,
     executions,
+    group_return_evidence,
     health,
     inspections,
     integration_capabilities,
@@ -128,6 +129,7 @@ app.include_router(mandate_health_context.router, prefix="/performance")
 app.include_router(integration_capabilities.router, prefix="/integration")
 app.include_router(returns_series.router, prefix="/integration")
 app.include_router(benchmark_exposure_context.router, prefix="/integration")
+app.include_router(group_return_evidence.router, prefix="/integration")
 app.include_router(runtime_status.router, prefix="/integration")
 app.include_router(runtime_work_items.router, prefix="/integration")
 app.include_router(runtime_recoveries.router, prefix="/integration")

@@ -3,6 +3,7 @@ from app.services.analytics_workflow_types import (
     ANALYTICS_WORKFLOW_BENCHMARK,
     ANALYTICS_WORKFLOW_BENCHMARK_EXPOSURE_CONTEXT,
     ANALYTICS_WORKFLOW_CONTRIBUTION,
+    ANALYTICS_WORKFLOW_GROUP_RETURN_EVIDENCE,
     ANALYTICS_WORKFLOW_MWR,
     ANALYTICS_WORKFLOW_RETURNS_SERIES,
     ANALYTICS_WORKFLOW_TWR,
@@ -17,6 +18,10 @@ def test_benchmark_workflow_type_is_canonical():
 
 def test_benchmark_exposure_context_workflow_type_is_canonical():
     assert ANALYTICS_WORKFLOW_BENCHMARK_EXPOSURE_CONTEXT == "BENCHMARK_EXPOSURE_CONTEXT"
+
+
+def test_group_return_evidence_workflow_type_is_canonical():
+    assert ANALYTICS_WORKFLOW_GROUP_RETURN_EVIDENCE == "GROUP_RETURN_EVIDENCE"
 
 
 def test_attribution_workflow_type_is_canonical():

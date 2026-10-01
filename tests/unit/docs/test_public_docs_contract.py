@@ -1495,6 +1495,7 @@ def test_api_reference_documents_endpoint_level_capabilities_contract():
         "mandate_performance_health_context",
         "returns_series",
         "benchmark_exposure_context",
+        "group_return_evidence",
     }
     runtime_surface_keys = {
         str(surface["key"]) for surface in build_integration_capabilities_report().analytics_surfaces
