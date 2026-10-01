@@ -16,7 +16,7 @@ def test_build_integration_capabilities_report_default():
 
     assert report.supported_input_modes == ["stateful", "stateless"]
     assert report.policy_version == "tenant-default-v1"
-    assert len(report.features) == 13
+    assert len(report.features) == 14
     assert len(report.workflows) == 8
 
     features = {item["key"]: item for item in report.features}
@@ -69,6 +69,7 @@ def test_build_integration_capabilities_report_blank_values_keep_defaults(monkey
         "performance.analytics.benchmark",
         "performance.analytics.composite_twr",
         "performance.integration.benchmark_exposure_context",
+        "performance.integration.group_return_evidence",
         "performance.analytics.workspace_summary",
         "performance.support.twr_inspection",
         "performance.observability.calculation_supportability",
@@ -123,6 +124,7 @@ def test_feature_capabilities_preserve_publication_order_and_flags():
         "performance.analytics.attribution",
         "performance.analytics.benchmark",
         "performance.integration.benchmark_exposure_context",
+        "performance.integration.group_return_evidence",
         "performance.analytics.workspace_summary",
         "performance.analytics.composite_twr",
         "performance.support.twr_inspection",
@@ -134,6 +136,7 @@ def test_feature_capabilities_preserve_publication_order_and_flags():
     feature_flags = {feature["key"]: feature["enabled"] for feature in features}
     assert feature_flags["performance.analytics.attribution"] is False
     assert feature_flags["performance.integration.benchmark_exposure_context"] is False
+    assert feature_flags["performance.integration.group_return_evidence"] is False
     assert feature_flags["performance.analytics.workspace_summary"] is False
     assert feature_flags["performance.observability.calculation_supportability"] is True
     assert feature_flags["performance.execution.stateful"] is False

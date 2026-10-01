@@ -297,10 +297,14 @@ def test_integration_capabilities_advertises_every_supported_surface():
         "mandate_performance_health_context",
         "returns_series",
         "benchmark_exposure_context",
+        "group_return_evidence",
     }
     assert surfaces["mwr"]["supports_async"] is False
     assert surfaces["composite_twr"]["supports_async"] is False
     assert surfaces["mandate_performance_health_context"]["supports_async"] is False
+    assert surfaces["group_return_evidence"]["path"] == "/integration/attribution/group-return-evidence/v1"
+    assert surfaces["group_return_evidence"]["supports_async"] is False
+    assert surfaces["group_return_evidence"]["supported_input_modes"] == ["stateful"]
     for key in {
         "twr",
         "benchmark",

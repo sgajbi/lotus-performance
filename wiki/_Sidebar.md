@@ -10,6 +10,7 @@
 - [Time-Weighted Return](Time-Weighted-Return)
 - [Contribution Analytics](Contribution-Analytics)
 - [Attribution Analytics](Attribution-Analytics)
+- [Group-Return Evidence](Group-Return-Evidence)
 - [Composite Performance](Composite-Performance)
 - [Mesh Data Products](Mesh-Data-Products)
 

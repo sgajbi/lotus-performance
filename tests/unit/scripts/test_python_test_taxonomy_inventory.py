@@ -149,6 +149,22 @@ def test_benchmark_exposure_source_boundary():
 """,
         encoding="utf-8",
     )
+    group_return_file = service_dir / "test_group_return_evidence_service.py"
+    group_return_file.write_text(
+        """
+def test_group_return_evidence_reconciles_source_economics():
+    pass
+""",
+        encoding="utf-8",
+    )
+    analytics_workflow_types_file = service_dir / "test_analytics_workflow_types.py"
+    analytics_workflow_types_file.write_text(
+        """
+def test_analytics_workflow_type_is_stable():
+    pass
+""",
+        encoding="utf-8",
+    )
     config_file = tests_root / "unit" / "core" / "test_config.py"
     config_file.parent.mkdir(parents=True)
     config_file.write_text(
@@ -225,6 +241,8 @@ def test_legal_hold_source_projects_governed_retention_exclusions():
         1,
         1,
         1,
+        1,
+        1,
     ]
     api_module = modules_by_path["tests/integration/test_returns_api.py"]
     application_responses_module = modules_by_path["tests/unit/core/test_application_responses.py"]
@@ -248,6 +266,8 @@ def test_legal_hold_source_projects_governed_retention_exclusions():
     stateful_execution_policy_module = modules_by_path["tests/unit/services/test_stateful_execution_policy_service.py"]
     submission_fencing_module = modules_by_path["tests/unit/services/test_submission_fencing_service.py"]
     benchmark_module = modules_by_path["tests/unit/services/test_benchmark_exposure_context_service.py"]
+    group_return_module = modules_by_path["tests/unit/services/test_group_return_evidence_service.py"]
+    analytics_workflow_types_module = modules_by_path["tests/unit/services/test_analytics_workflow_types.py"]
     assert api_module.suite == "integration"
     assert "api_or_runtime" in api_module.families
     assert application_responses_module.suite == "unit"
@@ -286,6 +306,10 @@ def test_legal_hold_source_projects_governed_retention_exclusions():
     assert "api_or_runtime" in submission_fencing_module.families
     assert benchmark_module.suite == "unit"
     assert "analytics_domain" in benchmark_module.families
+    assert group_return_module.suite == "unit"
+    assert "analytics_domain" in group_return_module.families
+    assert analytics_workflow_types_module.suite == "unit"
+    assert "analytics_domain" in analytics_workflow_types_module.families
 
 
 def test_render_markdown_summarizes_test_taxonomy() -> None:

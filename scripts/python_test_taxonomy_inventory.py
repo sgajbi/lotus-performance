@@ -156,7 +156,13 @@ def _families_for_path(path: str) -> tuple[str, ...]:
             "twr",
             "mwr",
             "stateful_input",
+            "analytics_workflow_types",
             "returns_series",
+            # Group-return evidence is source-owned performance economics for a downstream
+            # risk consumer. It belongs with the attribution and benchmark calculation tests;
+            # leaving its producer and workflow regression suites uncategorized would consume
+            # governance slack without reflecting the additional financial coverage.
+            "group_return_evidence",
             "attribution",
             "contribution",
             "benchmark",

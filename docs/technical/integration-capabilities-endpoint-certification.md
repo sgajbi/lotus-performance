@@ -74,6 +74,7 @@ Certified surface keys:
 - `mandate_performance_health_context`
 - `returns_series`
 - `benchmark_exposure_context`
+- `group_return_evidence`
 
 `performance.observability.calculation_supportability` is the shared feature key for the
 implemented TWR, MWR, contribution, attribution, and returns-series supportability metric posture.
@@ -102,6 +103,11 @@ not selected through the normal analytics input-mode envelope.
 
 `benchmark_exposure_context` advertises only `stateful` because it is a performance-owned integration
 view over lotus-core benchmark lineage.
+
+`group_return_evidence` advertises only `stateful` because it publishes a tenant-bound, versioned
+source-economics cut for a downstream empirical active-risk consumer. It refuses incomplete,
+conflicting, stale, foreign, calendar-misaligned, unreconciled, or currency-mismatched facts and
+does not calculate risk attribution.
 
 `composite_twr` advertises `persisted_member_facts` because it calculates only from materialized
 composite member-return facts. It does not change the portfolio-level `twr` surface and does not

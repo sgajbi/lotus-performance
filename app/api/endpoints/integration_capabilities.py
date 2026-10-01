@@ -230,6 +230,26 @@ INTEGRATION_CAPABILITIES_RESPONSE_EXAMPLES = [
                 ],
                 "options": [],
             },
+            {
+                "key": "group_return_evidence",
+                "path": "/integration/attribution/group-return-evidence/v1",
+                "enabled": True,
+                "supported_input_modes": ["stateful"],
+                "supports_async": False,
+                "poll_path_template": None,
+                "result_path_template": None,
+                "stateful_restrictions": [
+                    "lotus-core remains the portfolio, benchmark, and classification system of record",
+                    "v1 supports one ASSET_CLASS, COUNTRY, CURRENCY, or SECTOR grouping in one required common reporting currency",
+                    "incomplete, duplicate, stale or foreign, calendar-misaligned, unreconciled, and currency-mismatched source facts are refused",
+                    "conflicting classification labels are refused and signed portfolio-capital weights are preserved",
+                ],
+                "contract_notes": [
+                    "publishes source-owned gross TWR group economics and durable source-cut lineage; it does not calculate risk attribution",
+                    "intended for lotus-risk empirical ACTIVE_RISK attribution after its independent consumer acceptance",
+                ],
+                "options": [],
+            },
         ],
         "features": [
             {
@@ -267,6 +287,12 @@ INTEGRATION_CAPABILITIES_RESPONSE_EXAMPLES = [
                 "enabled": True,
                 "owner_service": "lotus-performance",
                 "description": "Performance-aligned benchmark exposure context derived from lotus-core benchmark lineage.",
+            },
+            {
+                "key": "performance.integration.group_return_evidence",
+                "enabled": True,
+                "owner_service": "lotus-performance",
+                "description": "Tenant-scoped, reconciled portfolio and benchmark group-return evidence for empirical active-risk consumers.",
             },
             {
                 "key": "performance.analytics.workspace_summary",

@@ -168,6 +168,11 @@ def _integration_feature_capabilities(flags: IntegrationCapabilityFlags) -> list
             enabled=flags.benchmark_enabled and flags.stateful_mode_enabled,
             description="Performance-aligned benchmark exposure context derived from lotus-core benchmark lineage.",
         ),
+        _feature_capability(
+            key="performance.integration.group_return_evidence",
+            enabled=_group_return_evidence_enabled(flags),
+            description="Tenant-scoped, reconciled portfolio and benchmark group-return evidence for empirical active-risk consumers.",
+        ),
     ]
 
 
@@ -387,6 +392,30 @@ def _benchmark_exposure_context_enabled(flags: IntegrationCapabilityFlags) -> bo
     return flags.benchmark_enabled and flags.stateful_mode_enabled
 
 
+def _group_return_evidence_enabled(flags: IntegrationCapabilityFlags) -> bool:
+    return flags.attribution_enabled and flags.benchmark_enabled and flags.stateful_mode_enabled
+
+
+def _group_return_evidence_stateful_restrictions(flags: IntegrationCapabilityFlags) -> list[str]:
+    if not _group_return_evidence_enabled(flags):
+        return []
+    return [
+        "lotus-core remains the portfolio, benchmark, and classification system of record",
+        "v1 supports one ASSET_CLASS, COUNTRY, CURRENCY, or SECTOR grouping in one required common reporting currency",
+        "incomplete, duplicate, stale or foreign, calendar-misaligned, unreconciled, and currency-mismatched source facts are refused",
+        "conflicting classification labels are refused and signed portfolio-capital weights are preserved",
+    ]
+
+
+def _group_return_evidence_contract_notes(flags: IntegrationCapabilityFlags) -> list[str]:
+    if not _group_return_evidence_enabled(flags):
+        return []
+    return [
+        "publishes source-owned gross TWR group economics and durable source-cut lineage; it does not calculate risk attribution",
+        "intended for lotus-risk empirical ACTIVE_RISK attribution after its independent consumer acceptance",
+    ]
+
+
 def _benchmark_exposure_stateful_restrictions(flags: IntegrationCapabilityFlags) -> list[str]:
     if not _benchmark_exposure_context_enabled(flags):
         return []
@@ -505,6 +534,14 @@ def _build_analytics_surfaces(
             supported_input_modes=["stateful"] if flags.stateful_mode_enabled else [],
             stateful_restrictions=_benchmark_exposure_stateful_restrictions(flags),
             contract_notes=_benchmark_exposure_contract_notes(flags),
+        ),
+        _sync_analytics_surface(
+            key="group_return_evidence",
+            path="/integration/attribution/group-return-evidence/v1",
+            enabled=_group_return_evidence_enabled(flags),
+            supported_input_modes=["stateful"] if flags.stateful_mode_enabled else [],
+            stateful_restrictions=_group_return_evidence_stateful_restrictions(flags),
+            contract_notes=_group_return_evidence_contract_notes(flags),
         ),
     ]
 
