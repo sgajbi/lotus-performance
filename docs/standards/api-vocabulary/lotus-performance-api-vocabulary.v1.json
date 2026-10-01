@@ -8,7 +8,7 @@
       "openApiVersion": "3.1.0"
     }
   ],
-  "generatedAt": "2026-10-01T01:34:54.080517+00:00",
+  "generatedAt": "2026-10-01T06:36:38.189539+00:00",
   "attributeCatalog": [
     {
       "semanticId": "lotus.access_classification",
@@ -6748,7 +6748,7 @@
       "semanticId": "lotus.stateless_input",
       "canonicalTerm": "stateless_input",
       "preferredName": "stateless_input",
-      "description": "Stateless portfolio valuation observations. Preferred for new stateless integrations.",
+      "description": "Non-empty finite stateless portfolio valuation observations. Same-date conflicting economics are rejected. Preferred for new stateless integrations.",
       "example": {
         "valuation_points": [
           {
@@ -7315,7 +7315,7 @@
       "semanticId": "lotus.valuation_points",
       "canonicalTerm": "valuation_points",
       "preferredName": "valuation_points",
-      "description": "Deprecated compatibility stateless valuation input payload. Prefer stateless_input for new integrations.",
+      "description": "Deprecated compatibility stateless valuation input payload. When supplied it must be non-empty, finite, and free of same-date economic conflicts. Prefer stateless_input for new integrations.",
       "example": [
         {
           "perf_date": "2026-02-27",

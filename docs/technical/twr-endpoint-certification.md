@@ -44,6 +44,14 @@ Validated option families:
   stateless benchmark configuration, empty frequencies, unsupported extra inputs, and missing
   explicit-window start dates.
 
+Valuation-observation admission is shared by legacy and nested stateless requests, stateful source
+normalization, workspace summary, and the direct engine boundary. Public request tests reject empty
+histories. The shared executable matrix rejects non-finite values and same-business-date conflicts
+across `begin_mv`, `bod_cf`, `eod_cf`, `mgmt_fees`, and `end_mv`; accepts finite zero and negative
+values; and collapses only economically identical duplicates. The direct engine retains its
+existing empty-frame compatibility. Route tests verify the governed non-retryable `422` envelope,
+while a finite one-day control independently expects `(110 - 100) / 100 = 10%`.
+
 Gross/net support is limited to the current RFC-021 fee-basis contract: `NET` includes management
 fees in the daily numerator and `GROSS` excludes them. The shared `costs` request block,
 response-level `gross_net` bridge, `engine/costs.py`, and performance-fee HWM/hurdle state machine

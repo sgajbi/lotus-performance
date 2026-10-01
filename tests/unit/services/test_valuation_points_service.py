@@ -1,7 +1,12 @@
+from datetime import date
 from decimal import Decimal
 
 import pytest
 
+from app.services.stateful_performance_input_service import (
+    StatefulPortfolioInput,
+    build_stateful_portfolio_valuation_input,
+)
 from app.services.valuation_points_service import (
     _valuation_cashflow_component_for_role,
     _valuation_cashflow_total_component,
@@ -117,6 +122,120 @@ def test_portfolio_timeseries_to_valuation_points_rejects_empty_valid_observatio
         "code": "INSUFFICIENT_DATA",
         "message": "No valid valuation observations after canonical normalization.",
     }
+
+
+@pytest.mark.parametrize(
+    "observation",
+    [
+        {"valuation_date": "2026-03-12", "beginning_market_value": "NaN", "ending_market_value": "100"},
+        {"valuation_date": "2026-03-12", "beginning_market_value": "100", "ending_market_value": "Infinity"},
+        {
+            "valuation_date": "2026-03-12",
+            "beginning_market_value": "100",
+            "ending_market_value": "101",
+            "cash_flows": [{"amount": "-Infinity", "timing": "eod", "cash_flow_type": "fee"}],
+        },
+    ],
+)
+def test_portfolio_timeseries_to_valuation_points_rejects_non_finite_source_economics(observation):
+    with pytest.raises(APIError) as exc:
+        portfolio_timeseries_to_valuation_points(observations=[observation])
+
+    assert exc.value.status_code == 422
+    assert exc.value.detail["code"] == "INVALID_REQUEST"
+    assert "finite" in exc.value.detail["message"]
+
+
+@pytest.mark.parametrize(
+    ("mutation", "field_name"),
+    [
+        ({"beginning_market_value": "99"}, "begin_mv"),
+        ({"ending_market_value": "111"}, "end_mv"),
+        ({"cash_flows": [{"amount": "5", "timing": "bod"}]}, "bod_cf"),
+        ({"cash_flows": [{"amount": "-5", "timing": "eod"}]}, "eod_cf"),
+        ({"cash_flows": [{"amount": "-1", "timing": "eod", "cash_flow_type": "fee"}]}, "mgmt_fees"),
+    ],
+)
+def test_portfolio_timeseries_to_valuation_points_rejects_conflicting_normalized_source_dates(mutation, field_name):
+    first = {
+        "valuation_date": "2026-03-12",
+        "beginning_market_value": "100",
+        "ending_market_value": "110",
+        "cash_flows": [],
+    }
+    second = {**first, **mutation, "valuation_date": "2026-03-12T00:00:00Z"}
+
+    with pytest.raises(APIError) as exc:
+        portfolio_timeseries_to_valuation_points(observations=[first, second])
+
+    assert exc.value.status_code == 422
+    assert exc.value.detail["code"] == "INVALID_REQUEST"
+    assert field_name in exc.value.detail["message"]
+
+
+def test_portfolio_timeseries_to_valuation_points_deduplicates_identical_source_observations():
+    observation = {
+        "valuation_date": "2026-03-12",
+        "beginning_market_value": "100",
+        "ending_market_value": "110",
+        "cash_flows": [],
+    }
+
+    points = portfolio_timeseries_to_valuation_points(observations=[observation, observation.copy()])
+
+    assert len(points) == 1
+
+
+def test_stateful_valuation_input_deduplicates_identical_rows_but_preserves_source_counts():
+    observation = {
+        "valuation_date": "2026-01-15",
+        "beginning_market_value": "100",
+        "ending_market_value": "110",
+        "cash_flows": [],
+    }
+
+    result = build_stateful_portfolio_valuation_input(
+        source_input=StatefulPortfolioInput(
+            performance_start_date=date(2026, 1, 15),
+            observations=[observation, observation.copy()],
+        ),
+        report_end_date=date(2026, 1, 15),
+    )
+
+    assert len(result.valuation_points) == 1
+    assert result.source_quality_evidence.observation_count == 2
+    assert result.source_quality_evidence.valid_valuation_point_count == 1
+    assert result.source_quality_evidence.source_conflict_count == 0
+
+
+def test_stateful_valuation_input_rejects_conflicting_rows_before_calculation():
+    observations = [
+        {
+            "valuation_date": "2026-01-15",
+            "beginning_market_value": "100",
+            "ending_market_value": "110",
+            "cash_flows": [],
+        },
+        {
+            "valuation_date": "2026-01-15T00:00:00Z",
+            "beginning_market_value": "100",
+            "ending_market_value": "111",
+            "cash_flows": [],
+        },
+    ]
+
+    with pytest.raises(APIError) as exc:
+        build_stateful_portfolio_valuation_input(
+            source_input=StatefulPortfolioInput(
+                performance_start_date=date(2026, 1, 15),
+                observations=observations,
+            ),
+            report_end_date=date(2026, 1, 15),
+        )
+
+    assert exc.value.status_code == 422
+    assert exc.value.detail["code"] == "INVALID_REQUEST"
+    assert "end_mv" in exc.value.detail["message"]
 
 
 def test_valuation_point_from_observation_projects_decimal_values_and_cashflows():

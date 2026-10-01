@@ -32,6 +32,12 @@ Stateless mode accepts either:
 - legacy top-level `valuation_points`
 - or `stateless_input.valuation_points`
 
+The selected valuation history must contain at least one observation. `begin_mv`, `bod_cf`,
+`eod_cf`, `mgmt_fees`, and `end_mv` must all be finite. Lotus treats `perf_date` as the portfolio
+business date: identical observations for the same normalized date are admitted once, while any
+same-date disagreement in those five economic fields is rejected with `422` before calculation.
+The request does not carry revision authority, so input order never selects a winning economic row.
+
 Stateful mode uses:
 
 - `stateful_input`
@@ -109,9 +115,11 @@ supportability block is the source-owned front-office posture for the calculatio
 For stateful TWR, `calculation_supportability.source_quality_evidence` preserves the source
 quality view from `PortfolioTimeseriesInput` normalization. It identifies the source owner
 (`lotus-core`), source product, raw observation count, normalized valuation-point count, skipped
-observation count, unsupported cash-flow label count, duplicate-date source conflict count, latest
-source observation date, and bounded warnings such as `MISSING_VALUATION_POINTS`,
-`UNSUPPORTED_CASHFLOW_LABELS`, `SOURCE_DATE_CONFLICTS`, and `STALE_SOURCE_OBSERVATIONS`.
+observation count, unsupported cash-flow label count, latest source observation date, and bounded
+warnings such as `MISSING_VALUATION_POINTS`, `UNSUPPORTED_CASHFLOW_LABELS`, and
+`STALE_SOURCE_OBSERVATIONS`. Raw source counts remain intact when identical duplicates collapse to one admitted point;
+conflicting same-date economics fail admission rather than producing a calculation from an arbitrary
+row.
 
 The same posture is exported through
 `lotus_performance_calculation_supportability_total{operation="twr",supportability_state,reason,freshness_bucket}`.

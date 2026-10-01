@@ -13,7 +13,7 @@ from app.models.benchmark_analytics_requests import (
     BenchmarkStatelessInput,
 )
 from app.models.mwr_requests import Solver
-from app.models.requests import DailyInputData
+from app.models.requests import DailyInputData, admit_daily_input_data
 from app.models.twr_requests import TWRInputMode, TWRStatefulInput, TWRStatelessInput
 from common.enums import Frequency
 from core.envelope import Annualization, Calendar, FXRequestBlock, Output
@@ -189,7 +189,10 @@ class WorkspaceSummaryRequest(BaseModel):
     )
     stateless_input: TWRStatelessInput | None = Field(
         default=None,
-        description="Stateless portfolio valuation observations. Preferred for new stateless integrations.",
+        description=(
+            "Non-empty finite stateless portfolio valuation observations. Same-date conflicting economics are "
+            "rejected. Preferred for new stateless integrations."
+        ),
     )
     stateful_input: TWRStatefulInput | None = Field(
         default=None,
@@ -197,7 +200,10 @@ class WorkspaceSummaryRequest(BaseModel):
     )
     valuation_points: list[DailyInputData] = Field(
         default_factory=list,
-        description="Deprecated compatibility stateless valuation input payload. Prefer stateless_input for new integrations.",
+        description=(
+            "Deprecated compatibility stateless valuation input payload. When supplied it must be non-empty, finite, "
+            "and free of same-date economic conflicts. Prefer stateless_input for new integrations."
+        ),
     )
     include_benchmark: bool = Field(
         default=False,
@@ -254,6 +260,14 @@ class WorkspaceSummaryRequest(BaseModel):
         if not value:
             raise ValueError("periods list cannot be empty")
         return value
+
+    @field_validator("valuation_points")
+    @classmethod
+    def valuation_points_must_have_consistent_daily_economics(
+        cls,
+        value: list[DailyInputData],
+    ) -> list[DailyInputData]:
+        return admit_daily_input_data(value)
 
     @model_validator(mode="after")
     def validate_mode_payloads(self) -> "WorkspaceSummaryRequest":

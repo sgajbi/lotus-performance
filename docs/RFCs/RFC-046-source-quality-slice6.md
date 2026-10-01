@@ -6,6 +6,13 @@
 | Slice | 6 - Stateful Source Classification and Data Quality Evidence |
 | `lotus-performance` branch | `feat/rfc-046-twr-industry-evidence` |
 
+> Current-policy supersession: this slice records the historical evidence contract introduced by
+> RFC-046. The current valuation-admission boundary rejects conflicting same-business-date
+> economics before calculation, so `SOURCE_DATE_CONFLICTS` is no longer reachable on a successful
+> TWR response. Missing-point, unsupported-cash-flow, stale-source, classification, and raw source
+> count evidence remain supported; identical daily observations may collapse only after raw counts
+> are retained.
+
 ## Implementation
 
 Slice 6 preserves source-quality evidence from stateful `PortfolioTimeseriesInput` normalization

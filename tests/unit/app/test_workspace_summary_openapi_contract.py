@@ -37,6 +37,10 @@ def test_workspace_summary_openapi_describes_usage_and_schema_fields():
         assert request_schema["properties"][field_name]["description"]
 
     assert "Deprecated compatibility" in request_schema["properties"]["valuation_points"]["description"]
+    assert "non-empty" in request_schema["properties"]["valuation_points"]["description"]
+    assert "same-date economic conflicts" in request_schema["properties"]["valuation_points"]["description"]
+    stateless_input_schema = schemas["TWRStatelessInput"]
+    assert stateless_input_schema["properties"]["valuation_points"]["minItems"] == 1
 
     for field_name in ["period", "frequencies"]:
         assert period_schema["properties"][field_name]["description"]

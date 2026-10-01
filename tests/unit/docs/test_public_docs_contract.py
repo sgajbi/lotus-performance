@@ -721,6 +721,8 @@ def test_execution_polling_docs_reflect_certified_contract():
 def test_twr_guide_uses_current_request_shape():
     guide = _read("docs/guides/twr.md")
     certification = _read("docs/technical/twr-endpoint-certification.md")
+    rfc_index = _read("docs/RFCs/RFC-INDEX.md")
+    rfc_046_slice_6 = _read("docs/RFCs/RFC-046-source-quality-slice6.md")
 
     assert "analyses" in guide
     assert "valuation_points" in guide
@@ -757,6 +759,14 @@ def test_twr_guide_uses_current_request_shape():
     assert "Long and short sleeve handling" not in guide
     assert "Composite, group, and sleeve TWR" in guide
     assert "calculation is not part of the current `POST /performance/twr` contract" in guide
+    assert "all be finite" in guide
+    assert "input order never selects a winning economic row" in guide
+    assert "shared by legacy and nested stateless requests" in certification
+    assert "RFC-046 current-policy supersession" in rfc_index
+    assert "current valuation-admission contract rejects" in rfc_index.lower()
+    assert "conflicting same-business-date economics before calculation" in rfc_index
+    assert "Current-policy supersession" in rfc_046_slice_6
+    assert "`SOURCE_DATE_CONFLICTS` is no longer reachable" in rfc_046_slice_6
 
 
 def test_current_public_examples_use_canonical_since_inception_period_code():
@@ -1716,6 +1726,8 @@ def test_workspace_summary_guide_documents_explicit_return_vocabulary():
     assert "breakdown rows should emit `period_return`, `cumulative_return`, and `annualized_return`" in rfc
     assert "when `annualization.enabled=false`, `annualized_return` should remain present" in rfc
     assert "it should not fabricate pseudo market values or pseudo cash flows" in rfc
+    assert "same valuation-observation admission policy" in guide
+    assert "request order is not revision authority" in " ".join(guide.lower().split())
 
 
 def test_front_office_supportability_docs_cover_all_completed_calculation_surfaces():

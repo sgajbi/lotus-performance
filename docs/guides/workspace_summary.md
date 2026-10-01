@@ -39,6 +39,12 @@ Stateless callers provide:
 Legacy top-level `valuation_points` remains as deprecated compatibility input. New callers should
 use `stateless_input.valuation_points`.
 
+Both shapes use the same valuation-observation admission policy as `POST /performance/twr`: at
+least one observation is required, all five economic fields must be finite, identical same-date
+observations collapse deterministically, and conflicting same-date economics return `422`. Request
+order is not revision authority. This prevents workspace TWR and MWR blocks from calculating over
+different accidental winners for the same business date.
+
 Stateful callers provide:
 
 - `stateful_input`
