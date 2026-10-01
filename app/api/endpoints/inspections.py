@@ -13,6 +13,7 @@ from app.models.platform_surfaces import ErrorDetailResponse
 from app.services.analytics_workflow_types import ANALYTICS_WORKFLOW_TWR_INSPECTION
 from app.services.async_result_service import resolve_async_result
 from app.services.calculation_result_access import authorize_persisted_calculation_resource_access
+from app.services.core_tenant_authority import TENANT_HEADER, admitted_tenant_authority_from_header_values
 from app.services.inspection.twr_inspection_artifact_service import (
     RetainedTWRInspectionArtifact,
     TWRInspectionArtifactFileReference,
@@ -79,7 +80,12 @@ def _retained_inspection_artifact_response(artifact: RetainedTWRInspectionArtifa
     ),
     openapi_extra=INSPECTION_TENANT_OPENAPI_EXTRA,
 )
-def submit_twr_inspection(request: TWRInspectionRequest):
+def submit_twr_inspection(request: TWRInspectionRequest, http_request: Request):
+    # Validate the presented transport authority before the workflow reads the
+    # canonical tenant context. Observability deliberately cannot retain an
+    # invalid tenant, but collapsing malformed input to an empty context here
+    # would incorrectly report it as missing authority.
+    admitted_tenant_authority_from_header_values(http_request.headers.getlist(TENANT_HEADER))
     return to_fastapi_response(submit_twr_inspection_workflow(request))
 
 

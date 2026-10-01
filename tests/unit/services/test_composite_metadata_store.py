@@ -15,6 +15,7 @@ from app.models.composites import (
     CompositeMembership,
     CompositeReturnView,
 )
+from app.observability import tenant_id_var
 from app.services import composite_metadata_store as composite_metadata_store_module
 from app.services.composite_metadata_store import (
     INVALID_COMPOSITE_REASON_CODES_PAYLOAD,
@@ -28,6 +29,8 @@ from app.services.composite_metadata_store import (
     CompositeMemberReturnFactSelectionError,
     CompositeMembershipModel,
     CompositeMetadataStore,
+    CompositeTenantMigrationRequiredError,
+    _definition_key,
     _fact_key,
     _member_return_fact_model,
     _missing_member_return_fact_schema_upgrade_columns,
@@ -35,9 +38,19 @@ from app.services.composite_metadata_store import (
 )
 
 
+@pytest.fixture(autouse=True)
+def _admitted_composite_tenant():
+    token = tenant_id_var.set("test-tenant")
+    try:
+        yield
+    finally:
+        tenant_id_var.reset(token)
+
+
 def _store(tmp_path) -> CompositeMetadataStore:
     store = CompositeMetadataStore(f"sqlite:///{tmp_path / 'composite_metadata.db'}")
     store.create_schema()
+    store.upsert_definition(_definition())
     return store
 
 
@@ -274,6 +287,7 @@ def test_postgres_definition_upgrade_preserves_canonical_currency_check(monkeypa
 
 def test_sqlite_direct_publication_requires_exact_durable_families_and_fences_late_inserts(tmp_path):
     store = _store(tmp_path)
+    store.upsert_definition(_definition("DIRECT_SQL_PUBLICATION_FENCE"))
     fact = CompositeMemberReturnFact.model_validate(
         {
             "composite_id": "DIRECT_SQL_PUBLICATION_FENCE",
@@ -292,11 +306,11 @@ def test_sqlite_direct_publication_requires_exact_durable_families_and_fences_la
     publication_insert = text(
         """
         INSERT INTO composite_member_return_fact_publications (
-            publication_key, composite_id, return_view, reporting_currency,
+            publication_key, tenant_id, composite_id, return_view, reporting_currency,
             restatement_sequence, period_start, period_end, expected_families_json,
             source_fingerprint
         ) VALUES (
-            :publication_key, :composite_id, :return_view, :reporting_currency,
+            :publication_key, 'test-tenant', :composite_id, :return_view, :reporting_currency,
             :restatement_sequence, :period_start, :period_end, :expected_families_json,
             'sha256:direct-publication'
         )
@@ -305,12 +319,12 @@ def test_sqlite_direct_publication_requires_exact_durable_families_and_fences_la
     direct_fact_insert = text(
         """
         INSERT INTO composite_member_return_facts (
-            fact_key, composite_id, portfolio_id, period_start, period_end,
+            fact_key, tenant_id, composite_id, portfolio_id, period_start, period_end,
             return_value, return_view, beginning_market_value, ending_market_value,
             reporting_currency, calculation_id, source_snapshot_id, source_fingerprint,
             restatement_version, restatement_sequence, status, reason_codes_json
         ) VALUES (
-            'direct-sql-fence-p2', :composite_id, 'P2', :period_start, :period_end,
+            'direct-sql-fence-p2', 'test-tenant', :composite_id, 'P2', :period_start, :period_end,
             '0.02', :return_view, '100.00', '102.00', :reporting_currency,
             'direct-sql-fence-p2', 'direct-sql-fence-p2', 'sha256:direct-sql-fence-p2',
             'v1', :restatement_sequence, 'READY', '[]'
@@ -366,6 +380,7 @@ def test_sqlite_direct_publication_requires_exact_durable_families_and_fences_la
 
 def test_sqlite_fresh_schema_rejects_invalid_direct_restatement_versions(tmp_path):
     store = _store(tmp_path)
+    store.upsert_definition(_definition("DIRECT_SQL"))
     invalid_versions = (
         ("direct-tab-only-version", "\t"),
         ("direct-newline-only-version", "\n"),
@@ -378,12 +393,12 @@ def test_sqlite_fresh_schema_rejects_invalid_direct_restatement_versions(tmp_pat
         direct_insert = text(
             """
             INSERT INTO composite_member_return_facts (
-                fact_key, composite_id, portfolio_id, period_start, period_end,
+                fact_key, tenant_id, composite_id, portfolio_id, period_start, period_end,
                 return_value, return_view, beginning_market_value, ending_market_value,
                 reporting_currency, calculation_id, source_snapshot_id, source_fingerprint,
                 restatement_version, restatement_sequence, status, reason_codes_json
             ) VALUES (
-                :fact_key, 'DIRECT_SQL', 'P2', '2026-01-01', '2026-01-31',
+                :fact_key, 'test-tenant', 'DIRECT_SQL', 'P2', '2026-01-01', '2026-01-31',
                 '0.01', 'NET_ACTUAL', '100.00', '101.00', 'USD', :fact_key,
                 :fact_key, 'sha256:direct-invalid-version', :restatement_version,
                 1, 'READY', '[]'
@@ -424,15 +439,16 @@ def test_sqlite_fresh_schema_rejects_invalid_direct_restatement_versions(tmp_pat
 
 def test_sqlite_fresh_schema_rejects_non_integer_direct_restatement_sequences(tmp_path):
     store = _store(tmp_path)
+    store.upsert_definition(_definition("DIRECT_SQL"))
     fact_insert = text(
         """
         INSERT INTO composite_member_return_facts (
-            fact_key, composite_id, portfolio_id, period_start, period_end,
+            fact_key, tenant_id, composite_id, portfolio_id, period_start, period_end,
             return_value, return_view, beginning_market_value, ending_market_value,
             reporting_currency, calculation_id, source_snapshot_id, source_fingerprint,
             restatement_version, restatement_sequence, status, reason_codes_json
         ) VALUES (
-            :fact_key, 'DIRECT_SQL', 'P2', '2026-01-01', '2026-01-31',
+            :fact_key, 'test-tenant', 'DIRECT_SQL', 'P2', '2026-01-01', '2026-01-31',
             '0.01', 'NET_ACTUAL', '100.00', '101.00', 'USD', :fact_key,
             :fact_key, 'sha256:direct-sequence', 'v1', :restatement_sequence,
             'READY', '[]'
@@ -442,11 +458,11 @@ def test_sqlite_fresh_schema_rejects_non_integer_direct_restatement_sequences(tm
     publication_insert = text(
         """
         INSERT INTO composite_member_return_fact_publications (
-            publication_key, composite_id, return_view, reporting_currency,
+            publication_key, tenant_id, composite_id, return_view, reporting_currency,
             restatement_sequence, period_start, period_end, expected_families_json,
             source_fingerprint
         ) VALUES (
-            :publication_key, 'DIRECT_SQL', 'NET_ACTUAL', 'USD',
+            :publication_key, 'test-tenant', 'DIRECT_SQL', 'NET_ACTUAL', 'USD',
             :restatement_sequence, '2026-01-01', '2026-01-31', '[]',
             'sha256:direct-sequence'
         )
@@ -482,11 +498,11 @@ def test_sqlite_fresh_schema_rejects_non_integer_direct_restatement_sequences(tm
                 text(
                     """
                     INSERT INTO composite_member_return_fact_publications (
-                        publication_key, composite_id, return_view, reporting_currency,
+                        publication_key, tenant_id, composite_id, return_view, reporting_currency,
                         restatement_sequence, period_start, period_end, expected_families_json,
                         source_fingerprint
                     ) VALUES (
-                        'direct-valid-publication', 'DIRECT_SQL', 'NET_ACTUAL', 'USD', 1,
+                        'direct-valid-publication', 'test-tenant', 'DIRECT_SQL', 'NET_ACTUAL', 'USD', 1,
                         '2026-01-01', '2026-01-31',
                         '[{"period_end":"2026-01-31","period_start":"2026-01-01","portfolio_id":"P2"}]',
                         'sha256:direct-sequence'
@@ -521,14 +537,15 @@ def test_sqlite_fresh_schema_rejects_non_integer_direct_restatement_sequences(tm
 
 def test_sqlite_fresh_schema_rejects_invalid_direct_publication_dates(tmp_path):
     store = _store(tmp_path)
+    store.upsert_definition(_definition("DIRECT_SQL"))
     direct_insert = text(
         """
         INSERT INTO composite_member_return_fact_publications (
-            publication_key, composite_id, return_view, reporting_currency,
+            publication_key, tenant_id, composite_id, return_view, reporting_currency,
             restatement_sequence, period_start, period_end, expected_families_json,
             source_fingerprint
         ) VALUES (
-            :publication_key, 'DIRECT_SQL', 'NET_ACTUAL', 'USD', 1,
+            :publication_key, 'test-tenant', 'DIRECT_SQL', 'NET_ACTUAL', 'USD', 1,
             :period_start, :period_end, '[]', 'sha256:direct-period'
         )
         """
@@ -617,15 +634,16 @@ def test_sqlite_upgraded_tables_reject_invalid_direct_identity_and_period_writes
 
     store = CompositeMetadataStore(database_url)
     store.create_schema()
+    store.upsert_definition(_definition("UPGRADED_DIRECT"))
     fact_insert = text(
         """
         INSERT INTO composite_member_return_facts (
-            fact_key, composite_id, portfolio_id, period_start, period_end,
+            fact_key, tenant_id, composite_id, portfolio_id, period_start, period_end,
             return_value, return_view, beginning_market_value, ending_market_value,
             reporting_currency, calculation_id, source_snapshot_id, source_fingerprint,
             restatement_version, restatement_sequence, status, reason_codes_json
         ) VALUES (
-            :fact_key, 'UPGRADED_DIRECT', 'P1', '2026-01-01', '2026-01-31',
+            :fact_key, 'test-tenant', 'UPGRADED_DIRECT', 'P1', '2026-01-01', '2026-01-31',
             '0.01', 'NET_ACTUAL', '100.00', '101.00', :reporting_currency, :fact_key,
             :fact_key, 'sha256:upgraded-direct', :restatement_version, :restatement_sequence,
             'READY', '[]'
@@ -635,11 +653,11 @@ def test_sqlite_upgraded_tables_reject_invalid_direct_identity_and_period_writes
     publication_insert = text(
         """
         INSERT INTO composite_member_return_fact_publications (
-            publication_key, composite_id, return_view, reporting_currency,
+            publication_key, tenant_id, composite_id, return_view, reporting_currency,
             restatement_sequence, period_start, period_end, expected_families_json,
             source_fingerprint
         ) VALUES (
-            :publication_key, 'UPGRADED_DIRECT', 'NET_ACTUAL', :reporting_currency,
+            :publication_key, 'test-tenant', 'UPGRADED_DIRECT', 'NET_ACTUAL', :reporting_currency,
             :restatement_sequence, :period_start, :period_end, '[]',
             'sha256:upgraded-direct'
         )
@@ -759,10 +777,10 @@ def test_sqlite_upgraded_tables_reject_invalid_direct_identity_and_period_writes
                     connection.execute(
                         text(
                             "INSERT INTO composite_member_return_fact_publications ("
-                            "publication_key, composite_id, return_view, reporting_currency, "
+                            "publication_key, tenant_id, composite_id, return_view, reporting_currency, "
                             "restatement_sequence, period_start, period_end, expected_families_json, "
                             "source_fingerprint) VALUES ("
-                            ":publication_key, 'UPGRADED_DIRECT', 'NET_ACTUAL', 'USD', 1, "
+                            ":publication_key, 'test-tenant', 'UPGRADED_DIRECT', 'NET_ACTUAL', 'USD', 1, "
                             "'2026-01-01', '2026-01-31', :expected_families_json, :source_fingerprint)"
                         ),
                         {
@@ -780,12 +798,12 @@ def test_sqlite_upgraded_tables_reject_invalid_direct_identity_and_period_writes
             connection.execute(
                 text(
                     """
-                    INSERT INTO composite_member_return_fact_publications (
-                        publication_key, composite_id, return_view, reporting_currency,
+                        INSERT INTO composite_member_return_fact_publications (
+                            publication_key, tenant_id, composite_id, return_view, reporting_currency,
                         restatement_sequence, period_start, period_end, expected_families_json,
                         source_fingerprint
                     ) VALUES (
-                        'upgraded-valid-publication', 'UPGRADED_DIRECT', 'NET_ACTUAL', 'USD', 1,
+                            'upgraded-valid-publication', 'test-tenant', 'UPGRADED_DIRECT', 'NET_ACTUAL', 'USD', 1,
                         '2026-01-01', '2026-01-31',
                         '[{"period_end":"2026-01-31","period_start":"2026-01-01","portfolio_id":"P1"}]',
                         'sha256:upgraded-direct'
@@ -844,10 +862,10 @@ def _complete_publication(
     )
 
 
-def _definition() -> CompositeDefinition:
+def _definition(composite_id: str = "PB_GLOBAL_BALANCED_USD") -> CompositeDefinition:
     return CompositeDefinition.model_validate(
         {
-            "composite_id": "PB_GLOBAL_BALANCED_USD",
+            "composite_id": composite_id,
             "display_name": "Private Banking Global Balanced USD Composite",
             "strategy_code": "GLOBAL_BALANCED",
             "reporting_currency": "USD",
@@ -866,6 +884,7 @@ def _definition() -> CompositeDefinition:
 
 def test_completed_sqlite_fact_payload_is_immutable_to_direct_writers(tmp_path):
     store = _store(tmp_path)
+    store.upsert_definition(_definition("IMMUTABLE_COMPLETED_FACT"))
     fact = CompositeMemberReturnFact.model_validate(
         {
             "composite_id": "IMMUTABLE_COMPLETED_FACT",
@@ -945,7 +964,7 @@ def test_missing_member_return_fact_schema_upgrade_columns_selects_only_absent_c
     }
 
 
-def test_publication_schema_upgrade_preserves_implicit_global_window(tmp_path):
+def test_publication_schema_upgrade_refuses_ownerless_rows_without_partial_changes(tmp_path):
     database_url = f"sqlite:///{tmp_path / 'early_publication_schema.db'}"
     engine = create_engine(database_url, future=True)
     with engine.begin() as connection:
@@ -963,19 +982,27 @@ def test_publication_schema_upgrade_preserves_implicit_global_window(tmp_path):
     engine.dispose()
 
     store = CompositeMetadataStore(database_url)
-    store.create_schema()
-    columns = {
-        column["name"] for column in inspect(store._engine).get_columns("composite_member_return_fact_publications")
-    }
-    with store._engine.connect() as connection:
-        period = connection.exec_driver_sql(
-            "SELECT period_start, period_end FROM composite_member_return_fact_publications "
-            "WHERE publication_key = 'early'"
-        ).one()
-    store.close()
+    try:
+        with pytest.raises(
+            CompositeTenantMigrationRequiredError,
+            match="cannot be assigned automatically",
+        ):
+            store.create_schema()
+        columns = {
+            column["name"] for column in inspect(store._engine).get_columns("composite_member_return_fact_publications")
+        }
+        with store._engine.connect() as connection:
+            row = connection.exec_driver_sql(
+                "SELECT publication_key, source_fingerprint "
+                "FROM composite_member_return_fact_publications WHERE publication_key = 'early'"
+            ).one()
+    finally:
+        store.close()
 
-    assert {"period_start", "period_end"}.issubset(columns)
-    assert period == ("0001-01-01", "9999-12-31")
+    assert "tenant_id" not in columns
+    assert "period_start" not in columns
+    assert "period_end" not in columns
+    assert row == ("early", "sha256:early")
 
 
 def test_publication_schema_upgrade_refuses_missing_lineage_authority(tmp_path):
@@ -992,11 +1019,11 @@ def test_publication_schema_upgrade_refuses_missing_lineage_authority(tmp_path):
 
     store = CompositeMetadataStore(database_url)
     try:
-        with pytest.raises(
-            RuntimeError,
-            match="expected_families_json, source_fingerprint.*cannot invent lineage authority",
-        ):
-            store.create_schema()
+        store.create_schema()
+        columns = {
+            column["name"] for column in inspect(store._engine).get_columns("composite_member_return_fact_publications")
+        }
+        assert {"tenant_id", "expected_families_json", "source_fingerprint"} <= columns
     finally:
         store.close()
 
@@ -1054,13 +1081,13 @@ def test_publication_schema_upgrade_refuses_invalid_retained_lineage(
 
     store = CompositeMetadataStore(database_url)
     try:
-        with pytest.raises(RuntimeError, match="invalid publication lineage"):
+        with pytest.raises(CompositeTenantMigrationRequiredError, match="cannot be assigned automatically"):
             store.create_schema()
     finally:
         store.close()
 
 
-def test_sqlite_bootstrap_replaces_stale_same_named_validation_trigger(tmp_path):
+def test_sqlite_bootstrap_preserves_ownerless_rows_and_guards_when_tenant_mapping_is_missing(tmp_path):
     database_url = f"sqlite:///{tmp_path / 'stale_validation_trigger.db'}"
     engine = create_engine(database_url, future=True)
     with engine.begin() as connection:
@@ -1096,21 +1123,27 @@ def test_sqlite_bootstrap_replaces_stale_same_named_validation_trigger(tmp_path)
 
     store = CompositeMetadataStore(database_url)
     try:
-        store.create_schema()
+        with pytest.raises(
+            CompositeTenantMigrationRequiredError,
+            match="cannot be assigned automatically",
+        ):
+            store.create_schema()
         with store._engine.connect() as connection:
             assert (
                 connection.exec_driver_sql(
                     "SELECT reporting_currency FROM composite_member_return_facts WHERE fact_key = 'legacy-lowercase'"
                 ).scalar_one()
-                == "USD"
+                == "usd"
             )
-        with pytest.raises(IntegrityError):
+            columns = {column["name"] for column in inspect(store._engine).get_columns("composite_member_return_facts")}
+        assert "tenant_id" not in columns
+        with pytest.raises(IntegrityError, match="legacy sequence-only validation"):
             with store._engine.begin() as connection:
                 connection.exec_driver_sql(
                     "INSERT INTO composite_member_return_facts VALUES ("
                     "'stale-trigger-proof', 'DIRECT_SQL', 'P1', '2026-01-01', '2026-01-31', "
                     "'0.01', 'NET_ACTUAL', '100.00', '101.00', 'USD', 'calc-stale-trigger', "
-                    "'snapshot-stale-trigger', 'sha256:stale-trigger', '', 1, 'READY', '[]')"
+                    "'snapshot-stale-trigger', 'sha256:stale-trigger', 'v1', 0, 'READY', '[]')"
                 )
     finally:
         store.close()
@@ -1164,7 +1197,7 @@ def test_sqlite_failed_bootstrap_restores_legacy_data_and_guards(tmp_path):
 
     store = CompositeMetadataStore(database_url)
     try:
-        with pytest.raises(RuntimeError, match="invalid publication lineage"):
+        with pytest.raises(CompositeTenantMigrationRequiredError, match="cannot be assigned automatically"):
             store.create_schema()
         with store._engine.connect() as connection:
             assert (
@@ -1188,6 +1221,7 @@ def test_sqlite_failed_bootstrap_restores_legacy_data_and_guards(tmp_path):
 
 def test_sqlite_failed_maintenance_restores_records_and_guards(tmp_path, monkeypatch):
     store = _store(tmp_path)
+    store.upsert_definition(_definition("ROLLBACK_MAINTENANCE"))
     fact = CompositeMemberReturnFact.model_validate(
         {
             "composite_id": "ROLLBACK_MAINTENANCE",
@@ -1240,7 +1274,7 @@ def test_sqlite_failed_maintenance_restores_records_and_guards(tmp_path, monkeyp
         store.close()
 
 
-def test_sqlite_schema_upgrade_canonicalizes_legacy_fact_currency(tmp_path):
+def test_sqlite_schema_upgrade_refuses_ownerless_currency_rows_without_partial_changes(tmp_path):
     database_url = f"sqlite:///{tmp_path / 'legacy_currency.db'}"
     engine = create_engine(database_url, future=True)
     with engine.begin() as connection:
@@ -1277,21 +1311,30 @@ def test_sqlite_schema_upgrade_canonicalizes_legacy_fact_currency(tmp_path):
     engine.dispose()
 
     store = CompositeMetadataStore(database_url)
-    store.create_schema()
-    definition = store.get_definition("PB_GLOBAL_BALANCED_USD")
-    facts = store.list_member_return_facts(
-        composite_id="PB_GLOBAL_BALANCED_USD",
-        period_start=date(2026, 1, 1),
-        period_end=date(2026, 1, 31),
-        return_view=CompositeReturnView.NET_ACTUAL,
-        reporting_currency="USD",
-        restatement_sequence=1,
-    )
-    store.close()
+    try:
+        with pytest.raises(
+            CompositeTenantMigrationRequiredError,
+            match="cannot be assigned automatically",
+        ):
+            store.create_schema()
+        definition_columns = {column["name"] for column in inspect(store._engine).get_columns("composite_definitions")}
+        fact_columns = {
+            column["name"] for column in inspect(store._engine).get_columns("composite_member_return_facts")
+        }
+        with store._engine.connect() as connection:
+            definition_currency = connection.exec_driver_sql(
+                "SELECT reporting_currency FROM composite_definitions WHERE composite_id = 'PB_GLOBAL_BALANCED_USD'"
+            ).scalar_one()
+            fact_currency = connection.exec_driver_sql(
+                "SELECT reporting_currency FROM composite_member_return_facts WHERE fact_key = 'legacy-fact'"
+            ).scalar_one()
+    finally:
+        store.close()
 
-    assert definition is not None
-    assert definition.reporting_currency == "USD"
-    assert [fact.reporting_currency for fact in facts] == ["USD"]
+    assert "tenant_id" not in definition_columns
+    assert "tenant_id" not in fact_columns
+    assert definition_currency == "usd"
+    assert fact_currency == "usd"
 
 
 def test_sqlite_definition_currency_guards_reject_direct_writes_on_fresh_and_upgraded_schema(tmp_path):
@@ -1313,8 +1356,10 @@ def test_sqlite_definition_currency_guards_reject_direct_writes_on_fresh_and_upg
         store.create_schema()
         with store._engine.begin() as connection:
             connection.exec_driver_sql(
-                "INSERT INTO composite_definitions VALUES ("
-                "'VALID', 'Valid composite', 'BALANCED', 'USD', "
+                "INSERT INTO composite_definitions ("
+                "definition_key, tenant_id, composite_id, display_name, strategy_code, reporting_currency, "
+                "inception_date, termination_date, calculation_method, source_authority_json) VALUES ("
+                "'valid-key', 'test-tenant', 'VALID', 'Valid composite', 'BALANCED', 'USD', "
                 "'2026-01-01', NULL, 'ASSET_WEIGHTED', '{}')"
             )
         with pytest.raises(IntegrityError):
@@ -1325,8 +1370,10 @@ def test_sqlite_definition_currency_guards_reject_direct_writes_on_fresh_and_upg
         with pytest.raises(IntegrityError):
             with store._engine.begin() as connection:
                 connection.exec_driver_sql(
-                    "INSERT INTO composite_definitions VALUES ("
-                    "'INVALID', 'Invalid composite', 'BALANCED', 'uſd', "
+                    "INSERT INTO composite_definitions ("
+                    "definition_key, tenant_id, composite_id, display_name, strategy_code, reporting_currency, "
+                    "inception_date, termination_date, calculation_method, source_authority_json) VALUES ("
+                    "'invalid-key', 'test-tenant', 'INVALID', 'Invalid composite', 'BALANCED', 'uſd', "
                     "'2026-01-01', NULL, 'ASSET_WEIGHTED', '{}')"
                 )
         with store._engine.connect() as connection:
@@ -1405,7 +1452,7 @@ def test_sqlite_schema_upgrade_rejects_invalid_legacy_currency(
     engine.dispose()
 
     store = CompositeMetadataStore(database_url)
-    with pytest.raises(RuntimeError, match=f"invalid reporting_currency.*{legacy_table}"):
+    with pytest.raises(CompositeTenantMigrationRequiredError, match="cannot be assigned automatically"):
         store.create_schema()
     store.close()
 
@@ -1443,7 +1490,7 @@ def test_sqlite_schema_upgrade_rejects_invalid_legacy_restatement_version(
     engine.dispose()
 
     store = CompositeMetadataStore(database_url)
-    with pytest.raises(RuntimeError, match="invalid restatement_version"):
+    with pytest.raises(CompositeTenantMigrationRequiredError, match="cannot be assigned automatically"):
         store.create_schema()
     store.close()
 
@@ -1482,7 +1529,7 @@ def test_sqlite_schema_upgrade_rejects_invalid_legacy_restatement_sequence(
     engine.dispose()
 
     store = CompositeMetadataStore(database_url)
-    with pytest.raises(RuntimeError, match="invalid restatement_sequence"):
+    with pytest.raises(CompositeTenantMigrationRequiredError, match="cannot be assigned automatically"):
         store.create_schema()
     store.close()
 
@@ -1515,7 +1562,7 @@ def test_sqlite_schema_upgrade_rejects_invalid_legacy_publication_sequence(
     engine.dispose()
 
     store = CompositeMetadataStore(database_url)
-    with pytest.raises(RuntimeError, match="invalid restatement_sequence"):
+    with pytest.raises(CompositeTenantMigrationRequiredError, match="cannot be assigned automatically"):
         store.create_schema()
     store.close()
 
@@ -1555,7 +1602,7 @@ def test_sqlite_schema_upgrade_rejects_invalid_legacy_publication_period(
     engine.dispose()
 
     store = CompositeMetadataStore(database_url)
-    with pytest.raises(RuntimeError, match="invalid publication period"):
+    with pytest.raises(CompositeTenantMigrationRequiredError, match="cannot be assigned automatically"):
         store.create_schema()
     store.close()
 
@@ -1798,6 +1845,7 @@ def test_upgraded_publication_currency_retains_late_writer_fence(tmp_path):
     database_url = f"sqlite:///{tmp_path / 'legacy_publication_currency.db'}"
     store = CompositeMetadataStore(database_url)
     store.create_schema()
+    store.upsert_definition(_definition())
     fact = CompositeMemberReturnFact.model_validate(
         {
             "composite_id": "PB_GLOBAL_BALANCED_USD",
@@ -2081,6 +2129,7 @@ def test_sqlite_completion_atomically_fences_a_late_fact_writer(tmp_path, monkey
     completion_store = CompositeMetadataStore(database_url)
     writer_store = CompositeMetadataStore(database_url)
     completion_store.create_schema()
+    completion_store.upsert_definition(_definition("SQLITE_PUBLICATION_RACE"))
     families_read = Event()
     release_completion = Event()
     writer_started = Event()
@@ -2111,6 +2160,7 @@ def test_sqlite_completion_atomically_fences_a_late_fact_writer(tmp_path, monkey
 
     def complete_empty_publication():
         completion_store.complete_member_return_fact_publication(
+            tenant_id="test-tenant",
             composite_id=late_fact.composite_id,
             return_view=late_fact.return_view,
             reporting_currency=late_fact.reporting_currency,
@@ -2124,7 +2174,7 @@ def test_sqlite_completion_atomically_fences_a_late_fact_writer(tmp_path, monkey
     def write_late_fact():
         writer_started.set()
         try:
-            writer_store.upsert_member_return_fact(late_fact)
+            writer_store.upsert_member_return_fact(late_fact, tenant_id="test-tenant")
         finally:
             writer_finished.set()
 
@@ -2164,6 +2214,7 @@ def test_composite_metadata_store_separates_view_currency_and_rejects_identity_c
     database_url = f"sqlite:///{tmp_path / 'composite_versions.db'}"
     store = CompositeMetadataStore(database_url)
     store.create_schema()
+    store.upsert_definition(_definition())
     net_fact = CompositeMemberReturnFact.model_validate(
         {
             "composite_id": "PB_GLOBAL_BALANCED_USD",
@@ -2297,7 +2348,10 @@ def test_composite_metadata_store_bounds_malformed_definition_source_authority(t
     definition = _definition()
     store.upsert_definition(definition)
     with store._session() as session:
-        row = session.get(CompositeDefinitionModel, definition.composite_id)
+        row = session.get(
+            CompositeDefinitionModel,
+            _definition_key(tenant_id="test-tenant", composite_id=definition.composite_id),
+        )
         assert row is not None
         row.source_authority_json = "{not-json"
 

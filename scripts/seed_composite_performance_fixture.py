@@ -49,7 +49,7 @@ def _source_authority() -> dict[str, str]:
     }
 
 
-def _upsert_definition(composite_id: str, display_name: str, strategy_code: str) -> None:
+def _upsert_definition(tenant_id: str, composite_id: str, display_name: str, strategy_code: str) -> None:
     composite_metadata_store.upsert_definition(
         CompositeDefinition.model_validate(
             {
@@ -60,11 +60,12 @@ def _upsert_definition(composite_id: str, display_name: str, strategy_code: str)
                 "inception_date": "2026-01-01",
                 "source_authority": _source_authority(),
             }
-        )
+        ),
+        tenant_id=tenant_id,
     )
 
 
-def _upsert_membership(composite_id: str, portfolio_id: str) -> None:
+def _upsert_membership(tenant_id: str, composite_id: str, portfolio_id: str) -> None:
     composite_metadata_store.upsert_membership(
         CompositeMembership.model_validate(
             {
@@ -75,11 +76,12 @@ def _upsert_membership(composite_id: str, portfolio_id: str) -> None:
                 "discretionary": True,
                 "source_snapshot_id": f"lotus-manage-membership-{composite_id}-{portfolio_id}-2026-05-12",
             }
-        )
+        ),
+        tenant_id=tenant_id,
     )
 
 
-def _upsert_fact(seed: MemberReturnSeed) -> None:
+def _upsert_fact(tenant_id: str, seed: MemberReturnSeed) -> None:
     composite_metadata_store.upsert_member_return_fact(
         CompositeMemberReturnFact.model_validate(
             {
@@ -99,13 +101,15 @@ def _upsert_fact(seed: MemberReturnSeed) -> None:
                 "status": seed.status,
                 "reason_codes": list(seed.reason_codes),
             }
-        )
+        ),
+        tenant_id=tenant_id,
     )
 
 
-def _complete_publication(facts: tuple[MemberReturnSeed, ...]) -> None:
+def _complete_publication(tenant_id: str, facts: tuple[MemberReturnSeed, ...]) -> None:
     first = facts[0]
     composite_metadata_store.complete_member_return_fact_publication(
+        tenant_id=tenant_id,
         composite_id=first.composite_id,
         return_view=CompositeReturnView.NET_ACTUAL,
         reporting_currency="USD",
@@ -120,16 +124,18 @@ def _complete_publication(facts: tuple[MemberReturnSeed, ...]) -> None:
     )
 
 
-def seed_canonical_composite_fixture() -> None:
+def seed_canonical_composite_fixture(*, tenant_id: str) -> None:
     ready_composite_id = "PB_GLOBAL_BALANCED_USD"
     degraded_composite_id = "PB_GLOBAL_BALANCED_USD_DEGRADED"
 
     _upsert_definition(
+        tenant_id,
         ready_composite_id,
         "Private Banking Global Balanced USD Composite",
         "GLOBAL_BALANCED",
     )
     _upsert_definition(
+        tenant_id,
         degraded_composite_id,
         "Private Banking Global Balanced USD Composite - Degraded Evidence",
         "GLOBAL_BALANCED",
@@ -138,7 +144,7 @@ def seed_canonical_composite_fixture() -> None:
     portfolios = ("PB_SG_GLOBAL_BAL_001", "PB_SG_GLOBAL_BAL_002")
     for composite_id in (ready_composite_id, degraded_composite_id):
         for portfolio_id in portfolios:
-            _upsert_membership(composite_id, portfolio_id)
+            _upsert_membership(tenant_id, composite_id, portfolio_id)
 
     ready_facts = (
         MemberReturnSeed(
@@ -221,18 +227,19 @@ def seed_canonical_composite_fixture() -> None:
     )
 
     for fact in (*ready_facts, *degraded_facts):
-        _upsert_fact(fact)
-    _complete_publication(ready_facts)
-    _complete_publication(degraded_facts)
+        _upsert_fact(tenant_id, fact)
+    _complete_publication(tenant_id, ready_facts)
+    _complete_publication(tenant_id, degraded_facts)
 
 
 def main() -> None:
     parser = argparse.ArgumentParser(description="Seed deterministic RFC 049 composite performance live proof data.")
-    parser.parse_args()
+    parser.add_argument("--tenant-id", required=True, help="Admitted tenant that owns the seeded composite data.")
+    args = parser.parse_args()
 
     bootstrap_durable_metadata_stores()
-    seed_canonical_composite_fixture()
-    counts = composite_metadata_store.count_records()
+    seed_canonical_composite_fixture(tenant_id=args.tenant_id)
+    counts = composite_metadata_store.count_records(tenant_id=args.tenant_id)
     print(
         "Seeded RFC 049 composite fixture: "
         f"definitions={counts.definitions}, memberships={counts.memberships}, "

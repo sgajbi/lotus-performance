@@ -1,15 +1,32 @@
 from __future__ import annotations
 
+import json
 from decimal import Decimal
 
-from fastapi.testclient import TestClient
+import pytest
+from fastapi.testclient import TestClient as FastAPITestClient
 
 from app.models.composites import CompositeDefinition, CompositeMemberReturnFact
+from app.observability import tenant_id_var
 from app.services.composite_metadata_store import composite_metadata_store
 from main import app
 
 
-def _seed_definition() -> None:
+@pytest.fixture(autouse=True)
+def _admitted_composite_tenant():
+    token = tenant_id_var.set("test-tenant")
+    try:
+        yield
+    finally:
+        tenant_id_var.reset(token)
+
+
+def TestClient(*args, **kwargs):
+    kwargs.setdefault("headers", {"X-Tenant-Id": "test-tenant"})
+    return FastAPITestClient(*args, **kwargs)
+
+
+def _seed_definition(*, tenant_id: str = "test-tenant") -> None:
     composite_metadata_store.upsert_definition(
         CompositeDefinition.model_validate(
             {
@@ -27,7 +44,8 @@ def _seed_definition() -> None:
                     "policy_version": "composite-source-authority.v1",
                 },
             }
-        )
+        ),
+        tenant_id=tenant_id,
     )
 
 
@@ -42,6 +60,7 @@ def _seed_fact(
     reporting_currency: str = "USD",
     restatement_version: str = "v1",
     restatement_sequence: int = 1,
+    tenant_id: str = "test-tenant",
 ) -> CompositeMemberReturnFact:
     ending_market_value = Decimal(beginning_market_value) * (Decimal("1") + Decimal(return_value))
     fact = CompositeMemberReturnFact.model_validate(
@@ -64,13 +83,14 @@ def _seed_fact(
             "reason_codes": reason_codes or [],
         }
     )
-    composite_metadata_store.upsert_member_return_fact(fact)
+    composite_metadata_store.upsert_member_return_fact(fact, tenant_id=tenant_id)
     return fact
 
 
-def _complete_publication(*facts: CompositeMemberReturnFact) -> None:
+def _complete_publication(*facts: CompositeMemberReturnFact, tenant_id: str = "test-tenant") -> None:
     first = facts[0]
     composite_metadata_store.complete_member_return_fact_publication(
+        tenant_id=tenant_id,
         composite_id=first.composite_id,
         return_view=first.return_view,
         reporting_currency=first.reporting_currency,
@@ -117,6 +137,79 @@ def test_composite_twr_api_calculates_from_persisted_member_facts():
     assert payload["periods"][0]["member_contributions"][1]["beginning_asset_weight"] == "0.750000000000"
     assert payload["periods"][0]["member_contributions"][1]["source_fingerprint"] == "sha256:P2-NET_ACTUAL-1"
     assert payload["methodology"] == "persisted_member_return_asset_weighted_twr_v1"
+
+
+def test_composite_twr_api_scopes_identical_external_ids_by_admitted_tenant():
+    payload = {
+        "composite_id": "PB_GLOBAL_BALANCED_USD",
+        "period_start": "2026-01-01",
+        "period_end": "2026-01-31",
+        "restatement_sequence": 1,
+    }
+    with TestClient(app) as client:
+        for tenant_id, return_value in (("tenant-a", "0.0100"), ("tenant-b", "0.0700")):
+            composite_metadata_store.clear_all_records(tenant_id=tenant_id)
+            _seed_definition(tenant_id=tenant_id)
+            fact = _seed_fact("P1", return_value, "100.00", tenant_id=tenant_id)
+            _complete_publication(fact, tenant_id=tenant_id)
+
+        tenant_a = client.post(
+            "/performance/composites/twr",
+            json=payload,
+            headers={"X-Tenant-Id": "tenant-a"},
+        )
+        tenant_b = client.post(
+            "/performance/composites/twr",
+            json=payload,
+            headers={"X-Tenant-Id": "tenant-b"},
+        )
+
+    assert tenant_a.status_code == 200
+    assert tenant_a.json()["cumulative_return"] == "0.010000000000"
+    assert tenant_b.status_code == 200
+    assert tenant_b.json()["cumulative_return"] == "0.070000000000"
+
+
+def test_composite_inspection_api_isolates_two_tenants_and_refuses_foreign_only_identifier():
+    request = {
+        "inspection_id": "8d1e37d2-aeca-488c-bd43-77dbf6739103",
+        "composite_id": "PB_GLOBAL_BALANCED_USD",
+        "period_start": "2026-01-01",
+        "period_end": "2026-01-31",
+        "restatement_sequence": 1,
+    }
+    with TestClient(app) as client:
+        for tenant_id, return_value in (("tenant-a", "0.0100"), ("tenant-b", "0.0700")):
+            composite_metadata_store.clear_all_records(tenant_id=tenant_id)
+            _seed_definition(tenant_id=tenant_id)
+            fact = _seed_fact("P1", return_value, "100.00", tenant_id=tenant_id)
+            _complete_publication(fact, tenant_id=tenant_id)
+
+        responses = {
+            tenant_id: client.post(
+                "/performance/composites/inspect",
+                json=request,
+                headers={"X-Tenant-Id": tenant_id},
+            )
+            for tenant_id in ("tenant-a", "tenant-b")
+        }
+        composite_metadata_store.clear_all_records(tenant_id="tenant-a")
+        foreign_only = client.post(
+            "/performance/composites/inspect",
+            json=request,
+            headers={"X-Tenant-Id": "tenant-a"},
+        )
+        composite_metadata_store.clear_all_records(tenant_id="tenant-b")
+
+    expected_returns = {"tenant-a": "0.010000000000", "tenant-b": "0.070000000000"}
+    for tenant_id, response in responses.items():
+        assert response.status_code == 200
+        artifacts = {item["artifact_name"]: item for item in response.json()["artifacts"]}
+        lineage = json.loads(artifacts["lineage_manifest.json"]["artifact_content"])
+        assert lineage["tenant_id"] == tenant_id
+        assert expected_returns[tenant_id] in artifacts["composite_returns.csv"]["artifact_content"]
+    assert foreign_only.status_code == 404
+    assert foreign_only.json()["detail"]["code"] == "COMPOSITE_NOT_FOUND"
 
 
 def test_composite_twr_api_selects_immutable_net_versions_and_gross_view():

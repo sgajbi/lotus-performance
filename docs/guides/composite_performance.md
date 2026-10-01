@@ -10,6 +10,9 @@ data-product contracts.
 
 Supported now:
 
+- tenant-owned definitions, memberships, immutable facts, publications, replay, inspection, and cleanup;
+- tenant-local definition validation plus durable composite foreign keys for every membership,
+  fact, and publication write;
 - persisted member-return fact ingestion through the composite metadata store;
 - asset-weighted composite TWR from persisted member-return facts;
 - geometric linking across calculable periods;
@@ -63,6 +66,11 @@ The persisted fact model also enables:
 Route:
 
 `POST /performance/composites/twr`
+
+The caller must provide its admitted `X-Tenant-Id`. Tenant authority is transport context, not a
+request-body field. Missing or blank authority is refused with HTTP 401 and malformed authority
+with HTTP 400 before any composite lookup. The same external composite and portfolio identifiers
+may exist independently for different tenants.
 
 Use this endpoint when the requested composite, window, and member-return facts are already
 materialized in the composite metadata store.
@@ -186,13 +194,15 @@ Current artifacts:
 | `member_inputs.csv` | `operator_only` | Member fact inventory with returns, assets, status, reason codes, fingerprints, version labels, and numeric restatement sequences. |
 | `period_weights.csv` | `operator_only` | Member weights and contributions used by each calculated period. |
 | `composite_returns.csv` | `customer_consumable` | Period returns, cumulative returns, counts, dispersion, and reason codes. |
-| `lineage_manifest.json` | `operator_only` | Composite id, calculation status, source fingerprints, and restatement versions. |
-| `support_brief.md` | `operator_only` | Human support summary for audit and operations. |
+| `lineage_manifest.json` | `operator_only` | Tenant id, composite id, calculation status, source fingerprints, and restatement versions. |
+| `support_brief.md` | `operator_only` | Tenant-bound human support summary for audit and operations. |
 
 ## Status And Reason Codes
 
 | Condition | Endpoint behavior | Reason code |
 | --- | --- | --- |
+| Tenant authority missing or blank | HTTP 401 | `TENANT_AUTHORITY_REQUIRED` |
+| Tenant authority exceeds the governed bound | HTTP 400 | `TENANT_AUTHORITY_MALFORMED` |
 | Composite definition missing | HTTP 404 | `COMPOSITE_NOT_FOUND` |
 | Request end date before start date | HTTP 422 | Pydantic validation detail |
 | No persisted facts in requested window | HTTP 422 | `NO_MEMBER_RETURN_FACTS` |

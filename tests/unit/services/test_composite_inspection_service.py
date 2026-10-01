@@ -4,7 +4,10 @@ from datetime import date
 from decimal import Decimal
 from uuid import UUID
 
+import pytest
+
 from app.models.composites import CompositeDefinition, CompositeInspectionFinding, CompositeMemberReturnFact
+from app.observability import tenant_id_var
 from app.services.composite_calculation_service import CompositeDefinitionNotFoundError
 from app.services.composite_inspection_service import (
     _build_artifacts,
@@ -17,6 +20,15 @@ from app.services.composite_inspection_service import (
 )
 from app.services.composite_metadata_store import CompositeMetadataStore
 from engine.composites import CompositeCalculationResult, CompositeMemberContribution, CompositePeriodResult
+
+
+@pytest.fixture(autouse=True)
+def _admitted_composite_tenant():
+    token = tenant_id_var.set("test-tenant")
+    try:
+        yield
+    finally:
+        tenant_id_var.reset(token)
 
 
 def _store(tmp_path) -> CompositeMetadataStore:
@@ -122,7 +134,7 @@ def test_composite_inspection_generates_classified_artifacts(tmp_path):
     assert artifacts["lineage_manifest.json"].artifact_content == (
         '{"calculation_status": "READY", "composite_id": "PB_GLOBAL_BALANCED_USD", '
         '"restatement_sequences": [1], "restatement_versions": ["v1"], '
-        '"source_fingerprints": ["sha256:P1", "sha256:P2"]}'
+        '"source_fingerprints": ["sha256:P1", "sha256:P2"], "tenant_id": "test-tenant"}'
     )
     store.close()
 
@@ -169,7 +181,12 @@ def test_build_artifacts_preserves_names_classifications_lineage_and_brief():
         reason_codes=["missing_final_valuation"],
     )
 
-    artifacts = _build_artifacts(composite_id="PB_GLOBAL_BALANCED_USD", facts=[_fact("P1")], result=result)
+    artifacts = _build_artifacts(
+        tenant_id="test-tenant",
+        composite_id="PB_GLOBAL_BALANCED_USD",
+        facts=[_fact("P1")],
+        result=result,
+    )
     artifact_by_name = {artifact.artifact_name: artifact for artifact in artifacts}
 
     assert list(artifact_by_name) == [
@@ -187,7 +204,7 @@ def test_build_artifacts_preserves_names_classifications_lineage_and_brief():
     assert artifact_by_name["lineage_manifest.json"].artifact_content == (
         '{"calculation_status": "DEGRADED", "composite_id": "PB_GLOBAL_BALANCED_USD", '
         '"restatement_sequences": [1], "restatement_versions": ["v1"], '
-        '"source_fingerprints": ["sha256:P1"]}'
+        '"source_fingerprints": ["sha256:P1"], "tenant_id": "test-tenant"}'
     )
     assert "- Reason codes: missing_final_valuation" in artifact_by_name["support_brief.md"].artifact_content
 

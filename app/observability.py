@@ -17,6 +17,10 @@ from app.observability_contracts import (
     PERFORMANCE_CALCULATION_SUPPORTABILITY_METRIC_LABELS,
     PERFORMANCE_MWR_SOLVER_OUTCOME_METRIC_LABELS,
 )
+from app.services.core_tenant_authority import (
+    MalformedTenantAuthorityError,
+    admitted_tenant_authority_from_header_values,
+)
 from app.services.queue_metrics_service import DurableQueueCollector
 
 correlation_id_var: ContextVar[str] = ContextVar("correlation_id", default="")
@@ -192,8 +196,19 @@ def resolve_tenant_id(request: Request) -> str:
     A wholly blank header still resolves to ``""`` -- absence is preserved and
     never replaced by a default."""
 
-    presented = request.headers.get("X-Tenant-Id")
-    return presented.strip() if presented is not None else ""
+    getlist = getattr(request.headers, "getlist", None)
+    presented_values = (
+        getlist("X-Tenant-Id")
+        if callable(getlist)
+        else [request.headers["X-Tenant-Id"]]
+        if request.headers.get("X-Tenant-Id") is not None
+        else []
+    )
+    try:
+        authority = admitted_tenant_authority_from_header_values(presented_values)
+    except MalformedTenantAuthorityError:
+        return ""
+    return authority.tenant_id if authority is not None else ""
 
 
 def resolve_trace_id(request: Request) -> str:

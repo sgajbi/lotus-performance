@@ -12,15 +12,16 @@ def test_seed_canonical_composite_fixture_upserts_expected_records(tmp_path, mon
     store.create_schema()
     monkeypatch.setattr(seed_composite_performance_fixture, "composite_metadata_store", store)
 
-    seed_composite_performance_fixture.seed_canonical_composite_fixture()
-    seed_composite_performance_fixture.seed_canonical_composite_fixture()
+    seed_composite_performance_fixture.seed_canonical_composite_fixture(tenant_id="test-tenant")
+    seed_composite_performance_fixture.seed_canonical_composite_fixture(tenant_id="test-tenant")
 
-    counts = store.count_records()
+    counts = store.count_records(tenant_id="test-tenant")
     assert counts.definitions == 2
     assert counts.memberships == 4
     assert counts.member_return_facts == 6
 
     ready_facts = store.list_member_return_facts(
+        tenant_id="test-tenant",
         composite_id="PB_GLOBAL_BALANCED_USD",
         period_start=date(2026, 1, 1),
         period_end=date(2026, 2, 28),
@@ -34,6 +35,7 @@ def test_seed_canonical_composite_fixture_upserts_expected_records(tmp_path, mon
     assert all(fact.status == "READY" for fact in ready_facts)
 
     degraded_facts = store.list_member_return_facts(
+        tenant_id="test-tenant",
         composite_id="PB_GLOBAL_BALANCED_USD_DEGRADED",
         period_start=date(2026, 1, 1),
         period_end=date(2026, 1, 31),

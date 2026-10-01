@@ -1,6 +1,8 @@
 from __future__ import annotations
 
-from fastapi import APIRouter, HTTPException, status
+from typing import Annotated
+
+from fastapi import APIRouter, Depends, HTTPException, Request, status
 
 from app.api.http_status import HTTP_422_UNPROCESSABLE
 from app.models.composites import (
@@ -12,14 +14,83 @@ from app.models.composites import (
     CompositeTWRRequest,
     CompositeTWRResponse,
 )
+from app.models.platform_surfaces import ErrorDetailResponse
 from app.services.composite_calculation_service import (
     CompositeDefinitionNotFoundError,
     calculate_composite_twr_from_persisted_facts,
 )
 from app.services.composite_inspection_service import inspect_composite_twr_from_persisted_facts
 from app.services.composite_metadata_store import CompositeMemberReturnFactSelectionError
+from app.services.core_tenant_authority import (
+    COMPOSITE_TENANT_AUTHORITY_REQUIRED_DETAIL,
+    MALFORMED_TENANT_AUTHORITY_DETAIL,
+    MAX_TENANT_ID_LENGTH,
+    TENANT_HEADER,
+    admitted_tenant_authority_from_header_values,
+    require_composite_tenant_authority,
+)
 
 router = APIRouter(tags=["Performance"])
+
+
+def _required_composite_tenant(request: Request) -> str:
+    authority = admitted_tenant_authority_from_header_values(request.headers.getlist(TENANT_HEADER))
+    return require_composite_tenant_authority(authority).tenant_id
+
+
+COMPOSITE_TENANT_OPENAPI_EXTRA = {
+    "parameters": [
+        {
+            "name": TENANT_HEADER,
+            "in": "header",
+            "required": True,
+            "schema": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": MAX_TENANT_ID_LENGTH,
+                "example": "private-bank-sg",
+            },
+            "description": (
+                "Required admitted tenant authority for Performance-owned composite state. "
+                "Surrounding whitespace is trimmed; the service never mints or defaults this value."
+            ),
+        }
+    ]
+}
+
+
+COMPOSITE_TENANT_AUTHORITY_RESPONSES = {
+    400: {
+        "model": ErrorDetailResponse,
+        "description": (
+            "X-Tenant-Id was duplicated or its normalized value exceeds the supported 128-character authority bound."
+        ),
+        "content": {
+            "application/json": {
+                "example": {
+                    "detail": MALFORMED_TENANT_AUTHORITY_DETAIL,
+                    "error_code": "TENANT_AUTHORITY_MALFORMED",
+                    "message": MALFORMED_TENANT_AUTHORITY_DETAIL,
+                    "retryable": False,
+                }
+            }
+        },
+    },
+    401: {
+        "model": ErrorDetailResponse,
+        "description": "The composite request did not carry the required X-Tenant-Id authority.",
+        "content": {
+            "application/json": {
+                "example": {
+                    "detail": COMPOSITE_TENANT_AUTHORITY_REQUIRED_DETAIL,
+                    "error_code": "TENANT_AUTHORITY_REQUIRED",
+                    "message": COMPOSITE_TENANT_AUTHORITY_REQUIRED_DETAIL,
+                    "retryable": False,
+                }
+            }
+        },
+    },
+}
 
 
 COMPOSITE_NOT_FOUND_RESPONSE = {
@@ -146,14 +217,20 @@ def _period_response(item) -> CompositePeriodResultResponse:
     ),
     responses={
         200: {"description": "Composite TWR calculated from persisted member-return facts."},
+        **COMPOSITE_TENANT_AUTHORITY_RESPONSES,
         409: FACT_SELECTION_CONFLICT_RESPONSE,
         404: COMPOSITE_NOT_FOUND_RESPONSE,
         422: NO_MEMBER_RETURN_FACTS_RESPONSE,
     },
+    openapi_extra=COMPOSITE_TENANT_OPENAPI_EXTRA,
 )
-def calculate_composite_twr(request: CompositeTWRRequest) -> CompositeTWRResponse:
+def calculate_composite_twr(
+    request: CompositeTWRRequest,
+    tenant_id: Annotated[str, Depends(_required_composite_tenant)],
+) -> CompositeTWRResponse:
     try:
         result = calculate_composite_twr_from_persisted_facts(
+            tenant_id=tenant_id,
             composite_id=request.composite_id,
             period_start=request.period_start,
             period_end=request.period_end,
@@ -204,13 +281,19 @@ def calculate_composite_twr(request: CompositeTWRRequest) -> CompositeTWRRespons
     ),
     responses={
         200: {"description": "Composite inspection completed over persisted facts."},
+        **COMPOSITE_TENANT_AUTHORITY_RESPONSES,
         409: FACT_SELECTION_CONFLICT_RESPONSE,
         404: COMPOSITE_NOT_FOUND_RESPONSE,
     },
+    openapi_extra=COMPOSITE_TENANT_OPENAPI_EXTRA,
 )
-def inspect_composite_twr(request: CompositeInspectionRequest) -> CompositeInspectionResponse:
+def inspect_composite_twr(
+    request: CompositeInspectionRequest,
+    tenant_id: Annotated[str, Depends(_required_composite_tenant)],
+) -> CompositeInspectionResponse:
     try:
         return inspect_composite_twr_from_persisted_facts(
+            tenant_id=tenant_id,
             inspection_id=request.inspection_id,
             composite_id=request.composite_id,
             period_start=request.period_start,

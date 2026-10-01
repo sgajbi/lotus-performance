@@ -5,11 +5,21 @@ from datetime import date
 import pytest
 
 from app.models.composites import CompositeDefinition, CompositeMemberReturnFact
+from app.observability import tenant_id_var
 from app.services.composite_calculation_service import (
     CompositeDefinitionNotFoundError,
     calculate_composite_twr_from_persisted_facts,
 )
 from app.services.composite_metadata_store import CompositeMetadataStore
+
+
+@pytest.fixture(autouse=True)
+def _admitted_composite_tenant():
+    token = tenant_id_var.set("test-tenant")
+    try:
+        yield
+    finally:
+        tenant_id_var.reset(token)
 
 
 def _store(tmp_path) -> CompositeMetadataStore:

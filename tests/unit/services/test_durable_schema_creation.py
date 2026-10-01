@@ -66,6 +66,26 @@ def test_creating_twice_is_idempotent() -> None:
     assert inspect(engine).has_table("probe_table")
 
 
+def test_schema_preflight_runs_before_create_all_and_upgrade_runs_after() -> None:
+    engine = create_engine("sqlite://")
+    observations: list[tuple[str, bool]] = []
+
+    def preflight(connection) -> None:
+        observations.append(("preflight", inspect(connection).has_table("probe_table")))
+
+    def upgrade(connection) -> None:
+        observations.append(("upgrade", inspect(connection).has_table("probe_table")))
+
+    create_durable_schema(
+        engine,
+        _metadata(),
+        schema_preflights=(preflight,),
+        schema_upgrades=(upgrade,),
+    )
+
+    assert observations == [("preflight", False), ("upgrade", True)]
+
+
 def test_sqlite_does_not_attempt_an_advisory_lock() -> None:
     """`pg_advisory_xact_lock` does not exist on SQLite; calling it would break the working path."""
 

@@ -58,6 +58,11 @@
 
 - Owner: `app/services/composite_metadata_store.py`
 - Purpose: durable composite definition metadata for persisted composite performance facts
+- Tenant boundary: the primary identity is the admitted tenant plus external composite id; equal
+  external ids in two tenants are distinct durable definitions. The database enforces logical
+  uniqueness on `(tenant_id, composite_id)`, requires canonical trimmed tenant values, and reads by
+  that pair plus its deterministic `definition_key`; a mismatched opaque key is never trusted as
+  sufficient ownership evidence.
 - Identity integrity: canonical uppercase three-letter ASCII reporting currency is enforced by the
   request model and durable database. PostgreSQL retrofits the named constraint and non-null column;
   SQLite additive upgrades install insert/update guards after retained-row validation.
@@ -67,6 +72,10 @@
 
 - Owner: `app/services/composite_metadata_store.py`
 - Purpose: durable effective-dated composite membership metadata
+- Tenant boundary: membership identity and every composite/portfolio lookup include admitted tenant.
+- Parent integrity: every supported write first resolves a same-tenant definition and the database
+  enforces `(tenant_id, composite_id)` as a foreign key, so direct SQL and a concurrent definition
+  delete cannot create a cross-tenant or parentless membership.
 - Recovery role: supports composite member selection and period reconstruction after restart or restore
 
 ### `composite_member_return_facts`
@@ -81,6 +90,10 @@
   most 64 characters using the model's whitespace set, and rejects sequences whose SQLite storage
   class is not integer. The sequence has the same server-side default of `1` on fresh and upgraded schemas, while version labels are `VARCHAR(64)` and
   constrained nonblank. PostgreSQL applies the same version-label rules to direct SQL writers.
+- Tenant boundary: fact keys, unique dimensional identities, selection indexes, replay queries, and
+  cleanup predicates include admitted tenant.
+- Parent integrity: facts require the same-tenant definition in the writer transaction and carry a
+  durable `(tenant_id, composite_id)` foreign key to the definition identity.
 - Upgrade behavior: legacy lowercase three-letter currency values composed of original ASCII letters are canonicalized across
   composite definitions, member-return facts, and publication manifests in both PostgreSQL and
   supported local SQLite stores. Retained values containing whitespace, digits, symbols, or other
@@ -109,6 +122,10 @@
   numeric restatement sequence. The row declares its inclusive covered period, the exact
   source-declared portfolio/period family set, and its publication fingerprint. A publication only
   participates in latest selection when its period covers the requested window.
+- Tenant boundary: publication identity, advisory lock identity, database trigger joins, and exact
+  family validation include admitted tenant.
+- Parent integrity: publication completion requires the same-tenant definition in its transaction,
+  and the manifest carries the same durable composite-definition foreign key as memberships and facts.
 - Recovery role: distinguishes a complete generation that intentionally removes a prior family from
   a partial or interrupted write, without fabricating replacement financial facts
 - Read eligibility: an unpinned latest read requires a covering completed publication; durable fact
@@ -118,6 +135,10 @@
   fact writer commits between the read and manifest insert. Writer and completion lookups use the
   logical composite/view/currency/sequence identity, preserving the fence when a legacy lowercase
   currency is canonicalized but its identity-derived primary key predates that normalization.
+  Every supported definition, membership, fact, and publication write first takes a shared
+  tenant-maintenance fence. Tenant-wide cleanup takes its exclusive form before table locks;
+  composite-selective cleanup takes the shared tenant fence then exclusive locks for its sorted
+  composite identities. This prevents a new composite from appearing after cleanup enumeration.
 - Payload integrity: completed family-set comparison is paired with database mutation guards. A
   direct writer cannot change economics or lineage on an existing fact while retaining the same
   family identity, cannot rewrite a completed manifest's period, family set, or fingerprint, and

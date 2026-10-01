@@ -1,6 +1,7 @@
 from uuid import uuid4
 
 import pytest
+from starlette.requests import Request
 
 from app.api.endpoints import inspections as inspections_endpoint
 from app.api.endpoints.inspections import (
@@ -179,8 +180,18 @@ def test_submit_twr_inspection_endpoint_delegates_to_workflow(mocker):
         "app.api.endpoints.inspections.submit_twr_inspection_workflow",
         return_value=expected_response,
     )
+    admit_authority = mocker.patch(
+        "app.api.endpoints.inspections.admitted_tenant_authority_from_header_values",
+    )
+    http_request = Request(
+        {
+            "type": "http",
+            "headers": [(b"x-tenant-id", b"tenant-a")],
+        }
+    )
 
-    response = inspections_endpoint.submit_twr_inspection(request)
+    response = inspections_endpoint.submit_twr_inspection(request, http_request)
 
+    admit_authority.assert_called_once_with(["tenant-a"])
     workflow.assert_called_once_with(request)
     assert response is expected_response

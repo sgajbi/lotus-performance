@@ -146,11 +146,18 @@ def test_stateful_twr_inspection_refuses_missing_or_malformed_tenant_before_regi
         json=payload,
         headers={"X-Tenant-Id": "t" * 129},
     )
+    duplicate = client.post(
+        "/performance/inspections/twr",
+        json=payload,
+        headers=[("X-Tenant-Id", "tenant-a"), ("X-Tenant-Id", "tenant-b")],
+    )
 
     assert missing.status_code == 401
     assert missing.json()["error_code"] == "TENANT_AUTHORITY_REQUIRED"
     assert malformed.status_code == 400
     assert malformed.json()["error_code"] == "TENANT_AUTHORITY_MALFORMED"
+    assert duplicate.status_code == 400
+    assert duplicate.json()["error_code"] == "TENANT_AUTHORITY_MALFORMED"
     assert execution_registry.get_execution(inspection_id) is None
     assert compute_job_store.list_pending_jobs() == []
 
