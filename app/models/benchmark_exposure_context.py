@@ -44,8 +44,10 @@ class BenchmarkExposurePageRequest(BaseModel):
     )
     page_token: str | None = Field(
         default=None,
-        description="Opaque pagination token from a previous benchmark exposure context response.",
-        examples=["1000"],
+        description=(
+            "Opaque source-bound continuation from the previous response. Historical numeric offset "
+            "tokens remain readable for compatibility but cannot prove cross-page source consistency."
+        ),
     )
 
 
@@ -141,6 +143,12 @@ class BenchmarkExposurePageResponse(BaseModel):
     next_page_token: str | None = Field(
         default=None,
         description="Token for the next page, or null when all exposure rows have been returned.",
+    )
+    continuation_consistency: Literal["source_bound", "legacy_offset_unbound"] = Field(
+        description=(
+            "source_bound continuations reject a changed economic source on later pages; "
+            "legacy_offset_unbound identifies a caller-supplied numeric offset that cannot do so."
+        ),
     )
 
 
@@ -385,7 +393,10 @@ class BenchmarkExposureContextResponse(BaseModel):
                             "weight": "0.600000",
                         }
                     ],
-                    "page": {"next_page_token": _OPENAPI_ABSENT_PAGE_MARKER},
+                    "page": {
+                        "next_page_token": _OPENAPI_ABSENT_PAGE_MARKER,
+                        "continuation_consistency": "source_bound",
+                    },
                     "metadata": {
                         "source_system": "lotus-core",
                         "served_by": "lotus-performance",

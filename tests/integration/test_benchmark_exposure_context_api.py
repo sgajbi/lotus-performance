@@ -106,6 +106,22 @@ class _EmptyUsableExposureStatefulInputService(_RecordingStatefulInputService):
         )
 
 
+class _MutableExposureStatefulInputService(_RecordingStatefulInputService):
+    equity_weight = "0.60"
+    include_unusable_component = False
+    empty_source = False
+
+    async def get_benchmark_market_series(self, **kwargs):
+        status_code, payload = await super().get_benchmark_market_series(**kwargs)
+        if self.empty_source:
+            payload["component_series"] = []
+            return status_code, payload
+        payload["component_series"][0]["points"][0]["component_weight"] = self.equity_weight
+        if self.include_unusable_component:
+            payload["component_series"].append({"index_id": "IDX_UNUSABLE", "points": [{"series_date": "2026-01-02"}]})
+        return status_code, payload
+
+
 def test_benchmark_exposure_context_api_returns_performance_aligned_view(monkeypatch):
     stateful_service = _RecordingStatefulInputService()
     monkeypatch.setattr(
@@ -149,7 +165,8 @@ def test_benchmark_exposure_context_api_returns_performance_aligned_view(monkeyp
     assert body["frequency"] == "DAILY"
     assert body["reporting_currency"] == "USD"
     assert body["window"] == {"start_date": "2026-01-02", "end_date": "2026-01-02"}
-    assert body["page"]["next_page_token"] == "2"
+    assert body["page"]["next_page_token"].startswith("v1.2.")
+    assert body["page"]["continuation_consistency"] == "source_bound"
     assert {(row["grouping_dimension"], row["group_key"], row["weight"]) for row in body["rows"]} == {
         ("ASSET_CLASS", "ASSET_CLASS_Equity", "0.60"),
         ("ASSET_CLASS", "ASSET_CLASS_Fixed Income", "0.40"),
@@ -161,6 +178,7 @@ def test_benchmark_exposure_context_api_returns_performance_aligned_view(monkeyp
     assert next_response.status_code == 200
     next_body = next_response.json()
     assert next_body["page"].get("next_page_token") is None
+    assert next_body["page"]["continuation_consistency"] == "source_bound"
     assert {(row["grouping_dimension"], row["group_key"], row["weight"]) for row in next_body["rows"]} == {
         ("POSITION", "IDX_GLOBAL_EQUITY", "0.60"),
         ("POSITION", "IDX_GLOBAL_BONDS", "0.40"),
@@ -186,6 +204,114 @@ def test_benchmark_exposure_context_api_returns_performance_aligned_view(monkeyp
     assert stateful_service.assignment_calls[0]["portfolio_id"] == "PB_SG_GLOBAL_BAL_001"
     assert stateful_service.market_series_calls[0]["series_fields"] == ["component_weight"]
     assert stateful_service.market_series_calls[0]["target_currency"] == "USD"
+
+
+def test_benchmark_exposure_continuation_refuses_changed_economics_and_tenant(monkeypatch) -> None:
+    stateful_service = _MutableExposureStatefulInputService()
+    monkeypatch.setattr(
+        "app.services.benchmark_exposure_context_workflow_service.build_stateful_input_service",
+        lambda *, settings: stateful_service,
+    )
+    payload = {
+        "portfolio_id": "PB_SG_GLOBAL_BAL_001",
+        "as_of_date": "2026-01-02",
+        "window": {"start_date": "2026-01-02", "end_date": "2026-01-02"},
+        "frequency": "DAILY",
+        "reporting_currency": "USD",
+        "grouping_dimensions": ["POSITION", "SECTOR"],
+        "page": {"page_size": 2, "page_token": None},
+    }
+    with TestClient(app) as client:
+        first = client.post(
+            "/integration/benchmarks/exposure-context",
+            json=payload,
+            headers={"X-Tenant-Id": "tenant-a"},
+        )
+        assert first.status_code == 200
+        continuation = first.json()["page"]["next_page_token"]
+        assert continuation is not None
+        next_payload = {**payload, "page": {"page_size": 2, "page_token": continuation}}
+
+        unchanged = client.post(
+            "/integration/benchmarks/exposure-context",
+            json=next_payload,
+            headers={"X-Tenant-Id": "tenant-a"},
+        )
+        assert unchanged.status_code == 200
+
+        stateful_service.equity_weight = "0.600"
+        equivalent_representation = client.post(
+            "/integration/benchmarks/exposure-context",
+            json=next_payload,
+            headers={"X-Tenant-Id": "tenant-a"},
+        )
+        assert equivalent_representation.status_code == 200
+
+        stateful_service.equity_weight = "0.55"
+        restated = client.post(
+            "/integration/benchmarks/exposure-context",
+            json=next_payload,
+            headers={"X-Tenant-Id": "tenant-a"},
+        )
+        assert restated.status_code == 409
+        assert restated.json()["error_code"] == "BENCHMARK_EXPOSURE_PAGE_SOURCE_CHANGED"
+
+        stateful_service.empty_source = True
+        emptied = client.post(
+            "/integration/benchmarks/exposure-context",
+            json=next_payload,
+            headers={"X-Tenant-Id": "tenant-a"},
+        )
+        assert emptied.status_code == 409
+        stateful_service.empty_source = False
+
+        stateful_service.equity_weight = "0.60"
+        foreign_tenant = client.post(
+            "/integration/benchmarks/exposure-context",
+            json=next_payload,
+            headers={"X-Tenant-Id": "tenant-b"},
+        )
+        assert foreign_tenant.status_code == 409
+
+        changed_window = client.post(
+            "/integration/benchmarks/exposure-context",
+            json={**next_payload, "window": {"start_date": "2026-01-01", "end_date": "2026-01-02"}},
+            headers={"X-Tenant-Id": "tenant-a"},
+        )
+        assert changed_window.status_code == 409
+
+        malformed = client.post(
+            "/integration/benchmarks/exposure-context",
+            json={**payload, "page": {"page_size": 2, "page_token": "v1.2.invalid"}},
+            headers={"X-Tenant-Id": "tenant-a"},
+        )
+        assert malformed.status_code == 422
+
+
+def test_benchmark_exposure_continuation_binds_omission_quality(monkeypatch) -> None:
+    stateful_service = _MutableExposureStatefulInputService()
+    monkeypatch.setattr(
+        "app.services.benchmark_exposure_context_workflow_service.build_stateful_input_service",
+        lambda *, settings: stateful_service,
+    )
+    payload = {
+        "portfolio_id": "PB_SG_GLOBAL_BAL_001",
+        "as_of_date": "2026-01-02",
+        "window": {"start_date": "2026-01-02", "end_date": "2026-01-02"},
+        "grouping_dimensions": ["POSITION", "SECTOR"],
+        "page": {"page_size": 2, "page_token": None},
+    }
+    with TestClient(app) as client:
+        first = client.post("/integration/benchmarks/exposure-context", json=payload)
+        assert first.status_code == 200
+        continuation = first.json()["page"]["next_page_token"]
+        assert continuation is not None
+        stateful_service.include_unusable_component = True
+        changed_quality = client.post(
+            "/integration/benchmarks/exposure-context",
+            json={**payload, "page": {"page_size": 2, "page_token": continuation}},
+        )
+    assert changed_quality.status_code == 409
 
 
 def test_benchmark_exposure_context_api_degrades_malformed_retrieval_metadata(monkeypatch):
@@ -264,6 +390,7 @@ def test_benchmark_exposure_context_api_qualifies_partial_economics_on_every_pag
     }
     assert first_body["metadata"]["exposure_source_quality"] == expected_quality
     assert second_body["metadata"]["exposure_source_quality"] == expected_quality
+    assert second_body["page"]["continuation_consistency"] == "legacy_offset_unbound"
     assert {row["weight"] for row in [*first_body["rows"], *second_body["rows"]]} == {"0.30", "0.40", "0"}
 
 

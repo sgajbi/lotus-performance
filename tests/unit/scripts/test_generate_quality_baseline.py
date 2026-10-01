@@ -1,12 +1,31 @@
 from pathlib import Path
+from subprocess import CompletedProcess
+
+import pytest
 
 from scripts.generate_quality_baseline import (
     RepositoryStatistics,
+    _collected_tests,
     generated_reports,
     render_baseline_report,
     render_quality_scorecard,
     write_or_check_reports,
 )
+
+
+def test_collected_tests_rejects_partial_collection_with_error(monkeypatch):
+    monkeypatch.setattr(
+        "scripts.generate_quality_baseline.subprocess.run",
+        lambda *args, **kwargs: CompletedProcess(
+            args=["pytest", "--collect-only"],
+            returncode=1,
+            stdout="4496 tests collected, 1 error in 2.76s\n",
+            stderr="ERROR tests/unit/services/test_missing_import.py\n",
+        ),
+    )
+
+    with pytest.raises(RuntimeError, match="pytest collection failed \\(exit 1\\)"):
+        _collected_tests()
 
 
 def _stats() -> RepositoryStatistics:

@@ -1,7 +1,7 @@
 # Lotus Performance Test Taxonomy Inventory
 
 Report date: 2026-10-01
-Branch: `feat/571-benchmark-group-return-evidence`
+Branch: `fix/559-exposure-continuation`
 Mode: regression-blocking test taxonomy inventory; `make quality-test-taxonomy-gate` enforces
 minimum API/runtime and contract/governance breadth plus the current uncategorized-test ceiling.
 
@@ -23,8 +23,8 @@ python scripts/python_test_taxonomy_inventory.py --limit 30 --min-api-runtime-te
 | Metric | Value |
 | --- | ---: |
 | Test modules inventoried | 335 |
-| Test functions inventoried | 4031 |
-| Integration/API/runtime test functions | 805 |
+| Test functions inventoried | 4034 |
+| Integration/API/runtime test functions | 807 |
 | Contract/governance test functions | 197 |
 
 ## Test Functions By Suite
@@ -33,8 +33,8 @@ python scripts/python_test_taxonomy_inventory.py --limit 30 --min-api-runtime-te
 | --- | ---: | ---: |
 | benchmarks | 10 | 42 |
 | e2e | 1 | 21 |
-| integration | 29 | 395 |
-| unit | 295 | 3573 |
+| integration | 29 | 397 |
+| unit | 295 | 3574 |
 
 ## Test Functions By Family
 
@@ -44,11 +44,11 @@ above does sum to it, because a module belongs to exactly one suite.
 
 | Family | Test functions |
 | --- | ---: |
-| analytics_domain | 2005 |
-| api_or_runtime | 805 |
+| analytics_domain | 2007 |
+| api_or_runtime | 807 |
 | contract_or_governance | 197 |
 | observability_or_readiness | 568 |
-| quality_or_security | 268 |
+| quality_or_security | 269 |
 | uncategorized | 626 |
 
 ## Largest Test Modules
@@ -224,10 +224,15 @@ the response contract.
 The group-return evidence slice adds service, durable-workflow, and registered API proof for
 heterogeneous and signed-hedge economics, zero exposure, income, source-cut replay, currency,
 classification, and stale/foreign lineage refusal. The taxonomy now classifies both that producer
-suite and the existing analytics-workflow-type suite as analytics-domain behavior. Current source
-test functions measure `4,031`, API/runtime functions `805`, contract/governance functions `197`,
+suite and the existing analytics-workflow-type suite as analytics-domain behavior. At that merge,
+source test functions measured `4,031`, API/runtime functions `805`, contract/governance functions `197`,
 observability/readiness functions `568`, analytics-domain functions `2,005`, and uncategorized
 functions `626`. The blocking ceiling tightens from `635` to the measured `626`; no test was
 admitted by weakening a threshold. The final provider regressions add durable failure, source-counter,
 malformed-fact, negative-capital, reconciliation, source-fingerprint source-cut, and API window-refusal
 proof without growing the uncategorized backlog.
+
+The #559 continuation follow-up adds two registered API regressions and one quality-baseline
+failure regression. Current source test functions measure `4,034`, API/runtime functions `807`,
+analytics-domain functions `2,007`, quality/security functions `269`, and uncategorized functions
+remain `626`. The blocking floors and ceiling are unchanged.
