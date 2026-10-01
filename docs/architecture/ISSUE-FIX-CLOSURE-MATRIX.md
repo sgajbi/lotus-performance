@@ -1,5 +1,11 @@
 # Issue Fix Closure Matrix
 
+## Cycle 6 closure (2026-10-01)
+
+| Issue | Current implementation posture | Closure evidence required |
+| --- | --- | --- |
+| `#562` | Every successful `PerformanceComponentEconomics:v1` page is admitted against the requested portfolio, as-of date, chunk window, and row portfolio before accumulation. Missing or contradictory scope returns safe `502` evidence; optional contribution enrichment degrades without consuming rejected rows. | Focused unit and registered API proof, required PR/Main gates, exact-main validation, wiki publication, and verified issue evidence. |
+
 ## Cycle 5 closure (2026-09-09)
 
 The current Cycle 5 slice supersedes the older batch snapshot retained below as historical

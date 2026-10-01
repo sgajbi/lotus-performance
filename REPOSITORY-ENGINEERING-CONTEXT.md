@@ -100,7 +100,11 @@ Current repository posture:
     source-economics evidence for cashflow, fee, income, tax, realized P&L, and FX-context
     component-family supportability. The consumer must traverse Core component-economics pages,
     preserve source rows, lineage, request fingerprints, retrieval metadata, and consumed-page
-    totals. Preserve Core's per-page supportability verdicts: authoritative initial
+    totals. Every successful source page must carry the requested `portfolio_id`, `as_of_date`,
+    chunk `window.start_date` and `window.end_date`, and the requested `portfolio_id` on every
+    row. Missing or contradictory scope is rejected before accumulation with a bounded HTTP `502`
+    source-contract result; diagnostics identify only requested scope and rejected field names,
+    never foreign source values. Preserve Core's per-page supportability verdicts: authoritative initial
     `READY/NO_ACTIVITY` is a valid empty result, while `UNAVAILABLE/PAGE_EVIDENCE_CHANGED` is a
     refusal even when an earlier page contained rows. Use observed component families for
     source-backed contribution evidence only when the relevant position context contains actual

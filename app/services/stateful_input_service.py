@@ -19,6 +19,8 @@ from app.services.stateful_portfolio_source_port import (
 
 STATEFUL_UPSTREAM_PAGE_LIMIT_EXCEEDED_REASON = "stateful_upstream_page_limit_exceeded"
 STATEFUL_UPSTREAM_REPEATED_PAGE_CURSOR_REASON = "stateful_upstream_repeated_page_cursor"
+PERFORMANCE_COMPONENT_ECONOMICS_SCOPE_MISMATCH_REASON = "performance_component_economics_source_scope_mismatch"
+PERFORMANCE_COMPONENT_ECONOMICS_SOURCE_CONTRACT = "PerformanceComponentEconomics:v1"
 POSITION_SOURCE_GRAIN_FIELDS: tuple[str, ...] = (
     "account_id",
     "sub_account_id",
@@ -1386,6 +1388,15 @@ class StatefulInputService:
             )
             if status_code >= 400:
                 return status_code, payload
+            scope_failure = _performance_component_economics_scope_failure(
+                payload=payload,
+                portfolio_id=portfolio_id,
+                as_of_date=as_of_date,
+                chunk=chunk,
+                page_ordinal=accumulator.page_count + 1,
+            )
+            if scope_failure is not None:
+                return 502, scope_failure
             _record_performance_component_economics_payload(accumulator=accumulator, payload=payload)
 
             page_token = self._next_page_token(payload)
@@ -1981,6 +1992,68 @@ def _performance_component_economics_request_payload(
         "security_ids": sorted(set(security_ids or [])),
         "transaction_types": sorted(set(transaction_types or [])),
     }
+
+
+def _performance_component_economics_scope_failure(
+    *,
+    payload: dict[str, Any],
+    portfolio_id: str,
+    as_of_date: date,
+    chunk: DateChunk,
+    page_ordinal: int,
+) -> dict[str, Any] | None:
+    expected_window = {
+        "start_date": str(chunk.start_date),
+        "end_date": str(chunk.end_date),
+    }
+    rejected_fields = _performance_component_economics_rejected_scope_fields(
+        payload=payload,
+        portfolio_id=portfolio_id,
+        as_of_date=as_of_date,
+        expected_window=expected_window,
+    )
+    if not rejected_fields:
+        return None
+    return {
+        "error": "Core PerformanceComponentEconomics response scope is inconsistent with the request.",
+        "reason": PERFORMANCE_COMPONENT_ECONOMICS_SCOPE_MISMATCH_REASON,
+        "source_contract": PERFORMANCE_COMPONENT_ECONOMICS_SOURCE_CONTRACT,
+        "rejected_fields": rejected_fields,
+        "retrieval_metadata": {
+            "requested_portfolio_id": portfolio_id,
+            "requested_as_of_date": str(as_of_date),
+            "requested_window": expected_window,
+            "page_ordinal": page_ordinal,
+        },
+    }
+
+
+def _performance_component_economics_rejected_scope_fields(
+    *,
+    payload: dict[str, Any],
+    portfolio_id: str,
+    as_of_date: date,
+    expected_window: dict[str, str],
+) -> list[str]:
+    scope_checks = (
+        ("portfolio_id", payload.get("portfolio_id") == portfolio_id),
+        ("as_of_date", payload.get("as_of_date") == str(as_of_date)),
+        ("window", _performance_component_window_matches(payload.get("window"), expected_window)),
+        ("rows.portfolio_id", _performance_component_rows_match(payload.get("rows"), portfolio_id)),
+    )
+    return [field_name for field_name, matches in scope_checks if not matches]
+
+
+def _performance_component_window_matches(value: Any, expected_window: dict[str, str]) -> bool:
+    return isinstance(value, dict) and all(
+        value.get(field_name) == field_value for field_name, field_value in expected_window.items()
+    )
+
+
+def _performance_component_rows_match(value: Any, portfolio_id: str) -> bool:
+    return isinstance(value, list) and all(
+        isinstance(row, dict) and row.get("portfolio_id") == portfolio_id for row in value
+    )
 
 
 def _build_performance_component_economics_chunk_payload(

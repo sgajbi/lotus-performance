@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import hashlib
+import json
 from datetime import date
 from typing import Any
 from uuid import UUID, uuid4
@@ -167,9 +169,16 @@ class _CoreServiceStub:
             {
                 "product_name": "PerformanceComponentEconomics",
                 "product_version": "v1",
+                "portfolio_id": kwargs["portfolio_id"],
+                "as_of_date": str(kwargs["as_of_date"]),
+                "window": {
+                    "start_date": str(kwargs["start_date"]),
+                    "end_date": str(kwargs["end_date"]),
+                },
                 "rows": [
                     {
                         "transaction_id": f"TXN-{transaction_date}-1",
+                        "portfolio_id": kwargs["portfolio_id"],
                         "security_id": "SEC_1",
                         "transaction_date": transaction_date,
                         "trade_fee_components": [{"currency": "USD", "amount": "1.25", "evidence_count": 1}],
@@ -178,6 +187,7 @@ class _CoreServiceStub:
                     },
                     {
                         "transaction_id": f"TXN-{transaction_date}-2",
+                        "portfolio_id": kwargs["portfolio_id"],
                         "security_id": "SEC_2",
                         "transaction_date": transaction_date,
                         "trade_fee_components": [{"currency": "USD", "amount": "1.25", "evidence_count": 1}],
@@ -1626,6 +1636,12 @@ async def test_get_performance_component_economics_preserves_authoritative_empty
             return (
                 200,
                 {
+                    "portfolio_id": kwargs["portfolio_id"],
+                    "as_of_date": str(kwargs["as_of_date"]),
+                    "window": {
+                        "start_date": str(kwargs["start_date"]),
+                        "end_date": str(kwargs["end_date"]),
+                    },
                     "rows": [],
                     "supportability": {
                         "state": "READY",
@@ -1653,6 +1669,215 @@ async def test_get_performance_component_economics_preserves_authoritative_empty
 
 
 @pytest.mark.asyncio
+async def test_get_performance_component_economics_accepts_additive_window_metadata() -> None:
+    class _ExtendedWindowCoreService(_CoreServiceStub):
+        async def get_performance_component_economics(self, **kwargs):
+            status_code, payload = await super().get_performance_component_economics(**kwargs)
+            payload["window"]["calendar"] = "UTC"
+            return status_code, payload
+
+    service = StatefulInputService(core_service=_ExtendedWindowCoreService())
+    status_code, payload = await service.get_performance_component_economics(
+        portfolio_id="PORT_1",
+        as_of_date=date(2026, 1, 10),
+        start_date=date(2026, 1, 1),
+        end_date=date(2026, 1, 10),
+    )
+
+    assert status_code == 200
+    assert payload["supportability"]["state"] == "READY"
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    ("mutation", "rejected_field"),
+    [
+        ("foreign_header_portfolio", "portfolio_id"),
+        ("missing_header_portfolio", "portfolio_id"),
+        ("foreign_row_portfolio", "rows.portfolio_id"),
+        ("missing_row_portfolio", "rows.portfolio_id"),
+        ("wrong_as_of_date", "as_of_date"),
+        ("missing_as_of_date", "as_of_date"),
+        ("wrong_window", "window"),
+        ("missing_window", "window"),
+    ],
+)
+async def test_get_performance_component_economics_rejects_contradictory_page_scope(
+    mutation: str,
+    rejected_field: str,
+) -> None:
+    class _ContradictoryScopeCoreService(_CoreServiceStub):
+        async def get_performance_component_economics(self, **kwargs):
+            status_code, payload = await super().get_performance_component_economics(**kwargs)
+            if mutation == "foreign_header_portfolio":
+                payload["portfolio_id"] = "FOREIGN-PORTFOLIO"
+            elif mutation == "missing_header_portfolio":
+                payload.pop("portfolio_id")
+            elif mutation == "foreign_row_portfolio":
+                payload["rows"][0]["portfolio_id"] = "FOREIGN-PORTFOLIO"
+            elif mutation == "missing_row_portfolio":
+                payload["rows"][0].pop("portfolio_id")
+            elif mutation == "wrong_as_of_date":
+                payload["as_of_date"] = "2025-01-10"
+            elif mutation == "missing_as_of_date":
+                payload.pop("as_of_date")
+            elif mutation == "wrong_window":
+                payload["window"] = {
+                    "start_date": "2025-01-01",
+                    "end_date": "2025-01-10",
+                }
+            else:
+                payload.pop("window")
+            return status_code, payload
+
+    service = StatefulInputService(core_service=_ContradictoryScopeCoreService())
+    status_code, payload = await service.get_performance_component_economics(
+        portfolio_id="PORT_1",
+        as_of_date=date(2026, 1, 10),
+        start_date=date(2026, 1, 1),
+        end_date=date(2026, 1, 10),
+    )
+
+    assert status_code == 502
+    assert payload == {
+        "error": "Core PerformanceComponentEconomics response scope is inconsistent with the request.",
+        "reason": "performance_component_economics_source_scope_mismatch",
+        "source_contract": "PerformanceComponentEconomics:v1",
+        "rejected_fields": [rejected_field],
+        "retrieval_metadata": {
+            "requested_portfolio_id": "PORT_1",
+            "requested_as_of_date": "2026-01-10",
+            "requested_window": {
+                "start_date": "2026-01-01",
+                "end_date": "2026-01-10",
+            },
+            "page_ordinal": 1,
+        },
+    }
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    ("mutation", "rejected_field"),
+    [
+        ("foreign_header_portfolio", "portfolio_id"),
+        ("foreign_row_portfolio", "rows.portfolio_id"),
+        ("wrong_as_of_date", "as_of_date"),
+        ("wrong_window", "window"),
+    ],
+)
+async def test_get_performance_component_economics_rejects_later_page_scope_before_accumulation(
+    mutation: str,
+    rejected_field: str,
+) -> None:
+    class _LaterPageScopeMismatchCoreService(_CoreServiceStub):
+        async def get_performance_component_economics(self, **kwargs):
+            status_code, payload = await super().get_performance_component_economics(**kwargs)
+            if kwargs.get("page_token") is None:
+                payload["page"] = {"next_page_token": "page-2"}
+            elif mutation == "foreign_header_portfolio":
+                payload["portfolio_id"] = "FOREIGN-PORTFOLIO"
+            elif mutation == "foreign_row_portfolio":
+                payload["rows"][0]["portfolio_id"] = "FOREIGN-PORTFOLIO"
+            elif mutation == "wrong_as_of_date":
+                payload["as_of_date"] = "2025-01-10"
+            else:
+                payload["window"]["end_date"] = "2025-01-10"
+            return status_code, payload
+
+    core_service = _LaterPageScopeMismatchCoreService()
+    service = StatefulInputService(core_service=core_service)
+
+    status_code, payload = await service.get_performance_component_economics(
+        portfolio_id="PORT_1",
+        as_of_date=date(2026, 1, 10),
+        start_date=date(2026, 1, 1),
+        end_date=date(2026, 1, 10),
+    )
+
+    assert status_code == 502
+    assert payload["rejected_fields"] == [rejected_field]
+    assert payload["retrieval_metadata"]["page_ordinal"] == 2
+    assert len(core_service.performance_component_economics_calls) == 2
+    assert "rows" not in payload
+
+
+@pytest.mark.asyncio
+async def test_get_performance_component_economics_records_only_safe_failure_for_mismatched_chunk_scope(
+    tmp_path,
+) -> None:
+    class _SecondChunkScopeMismatchCoreService(_CoreServiceStub):
+        async def get_performance_component_economics(self, **kwargs):
+            status_code, payload = await super().get_performance_component_economics(**kwargs)
+            if kwargs["start_date"] == date(2027, 1, 1):
+                payload["portfolio_id"] = "FOREIGN-PORTFOLIO"
+            return status_code, payload
+
+    core_service = _SecondChunkScopeMismatchCoreService()
+    database_url = f"sqlite:///{tmp_path / 'execution.db'}"
+    execution_store = ExecutionRegistry(database_url)
+    execution_store.create_schema()
+    calculation_id = uuid4()
+    execution_store.create_execution(
+        calculation_id=calculation_id,
+        analytics_type="Contribution",
+        portfolio_id="PORT_1",
+    )
+    service = StatefulInputService(core_service=core_service, execution_store=execution_store)
+
+    status_code, payload = await service.get_performance_component_economics(
+        portfolio_id="PORT_1",
+        as_of_date=date(2027, 1, 1),
+        start_date=date(2025, 12, 31),
+        end_date=date(2027, 1, 1),
+        calculation_id=calculation_id,
+    )
+
+    assert status_code == 502
+    assert payload["rejected_fields"] == ["portfolio_id"]
+    reopened_store = ExecutionRegistry(database_url)
+    snapshots = [
+        snapshot
+        for snapshot in reopened_store.list_upstream_snapshots(calculation_id)
+        if snapshot.upstream_endpoint == "performance_component_economics"
+    ]
+    assert [snapshot.retrieval_status for snapshot in snapshots] == ["200", "502"]
+    failure_snapshot = snapshots[1]
+    expected_safe_fingerprint = hashlib.sha256(json.dumps(payload, sort_keys=True).encode("utf-8")).hexdigest()
+    assert failure_snapshot.response_fingerprint == expected_safe_fingerprint
+    foreign_payload = await core_service.get_performance_component_economics(
+        portfolio_id="PORT_1",
+        as_of_date=date(2027, 1, 1),
+        start_date=date(2027, 1, 1),
+        end_date=date(2027, 1, 1),
+    )
+    foreign_fingerprint = hashlib.sha256(json.dumps(foreign_payload[1], sort_keys=True).encode("utf-8")).hexdigest()
+    assert failure_snapshot.response_fingerprint != foreign_fingerprint
+
+    retry_service = StatefulInputService(
+        core_service=core_service,
+        execution_store=ExecutionRegistry(database_url),
+    )
+    retry_status, retry_payload = await retry_service.get_performance_component_economics(
+        portfolio_id="PORT_1",
+        as_of_date=date(2027, 1, 1),
+        start_date=date(2025, 12, 31),
+        end_date=date(2027, 1, 1),
+        calculation_id=calculation_id,
+    )
+    assert (retry_status, retry_payload) == (status_code, payload)
+    retried_snapshots = [
+        snapshot
+        for snapshot in ExecutionRegistry(database_url).list_upstream_snapshots(calculation_id)
+        if snapshot.upstream_endpoint == "performance_component_economics"
+    ]
+    assert [(snapshot.retrieval_status, snapshot.response_fingerprint) for snapshot in retried_snapshots] == [
+        ("200", snapshots[0].response_fingerprint),
+        ("502", expected_safe_fingerprint),
+    ]
+
+
+@pytest.mark.asyncio
 async def test_get_performance_component_economics_preserves_changed_evidence_refusal_after_partial_page():
     class _ChangedEvidenceCoreService(_CoreServiceStub):
         async def get_performance_component_economics(self, **kwargs):
@@ -1661,7 +1886,19 @@ async def test_get_performance_component_economics_preserves_changed_evidence_re
                 return (
                     200,
                     {
-                        "rows": [{"security_id": "SEC_1", "transaction_id": "TXN-1"}],
+                        "portfolio_id": kwargs["portfolio_id"],
+                        "as_of_date": str(kwargs["as_of_date"]),
+                        "window": {
+                            "start_date": str(kwargs["start_date"]),
+                            "end_date": str(kwargs["end_date"]),
+                        },
+                        "rows": [
+                            {
+                                "portfolio_id": kwargs["portfolio_id"],
+                                "security_id": "SEC_1",
+                                "transaction_id": "TXN-1",
+                            }
+                        ],
                         "supportability": {
                             "state": "DEGRADED",
                             "reason": "PERFORMANCE_COMPONENT_ECONOMICS_PAGE_PARTIAL",
@@ -1673,6 +1910,12 @@ async def test_get_performance_component_economics_preserves_changed_evidence_re
             return (
                 200,
                 {
+                    "portfolio_id": kwargs["portfolio_id"],
+                    "as_of_date": str(kwargs["as_of_date"]),
+                    "window": {
+                        "start_date": str(kwargs["start_date"]),
+                        "end_date": str(kwargs["end_date"]),
+                    },
                     "rows": [],
                     "supportability": {
                         "state": "UNAVAILABLE",
@@ -1753,6 +1996,13 @@ async def test_get_performance_component_economics_degrades_when_any_chunk_is_un
                 return (
                     200,
                     {
+                        "portfolio_id": kwargs["portfolio_id"],
+                        "as_of_date": str(kwargs["as_of_date"]),
+                        "window": {
+                            "start_date": str(kwargs["start_date"]),
+                            "end_date": str(kwargs["end_date"]),
+                        },
+                        "rows": [],
                         "supportability": {
                             "state": "UNAVAILABLE",
                             "reason": "PERFORMANCE_COMPONENT_ECONOMICS_UNAVAILABLE",
@@ -1760,7 +2010,7 @@ async def test_get_performance_component_economics_degrades_when_any_chunk_is_un
                             "supported_component_families": ["fee", "income", "tax"],
                             "observed_component_families": [],
                             "missing_component_families": ["fee", "income", "tax"],
-                        }
+                        },
                     },
                 )
             return await super().get_performance_component_economics(**kwargs)

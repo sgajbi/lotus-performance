@@ -19,9 +19,9 @@ snapshots are written under ignored `output/quality-baseline/`; curated source r
 | --- | ---: | --- |
 | Python files | 685 | `rg --files -g '*.py'` equivalent excluding local caches |
 | Python package markers | 22 | recursive `__init__.py` count |
-| Python LOC | 222,243 | recursive `.py` line count |
+| Python LOC | 222,754 | recursive `.py` line count |
 | Test modules | 329 | `tests/**/test_*.py` |
-| Collected tests | 4337 tests | `python -m pytest --collect-only -q` |
+| Collected tests | 4352 tests | `python -m pytest --collect-only -q` |
 | Configured CI workflows | 8 | `.github/workflows/*.yml` |
 | Repo-native baseline command | 1 | `make quality-baseline` |
 
@@ -29,15 +29,15 @@ snapshots are written under ignored `output/quality-baseline/`; curated source r
 
 | Rank | File | Lines |
 | ---: | --- | ---: |
-| 1 | `tests/unit/services/test_returns_series_service.py` | 3074 |
-| 2 | `app/services/composite_metadata_store.py` | 2993 |
-| 3 | `tests/integration/test_contribution_api.py` | 2980 |
+| 1 | `tests/integration/test_contribution_api.py` | 3137 |
+| 2 | `tests/unit/services/test_returns_series_service.py` | 3074 |
+| 3 | `app/services/composite_metadata_store.py` | 2993 |
 | 4 | `tests/unit/services/test_compute_executor_worker.py` | 2876 |
-| 5 | `tests/benchmarks/test_postgres_composite_fact_versions.py` | 2743 |
-| 6 | `tests/unit/services/test_runtime_status_service.py` | 2637 |
-| 7 | `tests/unit/services/test_stateful_input_service.py` | 2558 |
-| 8 | `app/services/stateful_input_service.py` | 2533 |
-| 9 | `tests/unit/docs/test_public_docs_contract.py` | 2494 |
+| 5 | `tests/unit/services/test_stateful_input_service.py` | 2808 |
+| 6 | `tests/benchmarks/test_postgres_composite_fact_versions.py` | 2743 |
+| 7 | `tests/unit/services/test_runtime_status_service.py` | 2637 |
+| 8 | `app/services/stateful_input_service.py` | 2606 |
+| 9 | `tests/unit/docs/test_public_docs_contract.py` | 2498 |
 | 10 | `tests/unit/services/test_composite_metadata_store.py` | 2409 |
 | 11 | `app/services/returns_series_service.py` | 2337 |
 | 12 | `tests/unit/app/test_request_path_runtime_settings.py` | 2276 |

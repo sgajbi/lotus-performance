@@ -177,14 +177,16 @@ async def test_retrieve_stateful_contribution_source_input_preserves_degraded_co
         _mock_retrieve_stateful_portfolio_input,
     )
     degraded_component_payload = {
-        "supportability": {
-            "state": "UNAVAILABLE",
-            "reason": "PERFORMANCE_COMPONENT_ECONOMICS_UNAVAILABLE",
-            "source_row_count": 0,
-            "observed_component_families": [],
-            "missing_component_families": ["fee", "income", "tax", "realized_fx_pnl"],
-            "supported_component_families": [],
-        }
+        "error": "Core PerformanceComponentEconomics response scope is inconsistent with the request.",
+        "reason": "performance_component_economics_source_scope_mismatch",
+        "source_contract": "PerformanceComponentEconomics:v1",
+        "rejected_fields": ["portfolio_id", "rows.portfolio_id"],
+        "retrieval_metadata": {
+            "requested_portfolio_id": "P1",
+            "requested_as_of_date": "2025-01-01",
+            "requested_window": {"start_date": "2025-01-01", "end_date": "2025-01-01"},
+            "page_ordinal": 1,
+        },
     }
     service = _ContributionInputServiceStub(
         payload={
@@ -205,7 +207,7 @@ async def test_retrieve_stateful_contribution_source_input_preserves_degraded_co
                 "discarded_source_row_count": 0,
             },
         },
-        component_status_code=503,
+        component_status_code=502,
         component_payload=degraded_component_payload,
     )
 
@@ -227,9 +229,26 @@ async def test_retrieve_stateful_contribution_source_input_preserves_degraded_co
     assert result.position_rows[0]["position_id"] == "POS_1"
     assert result.position_retrieval_metadata == RetrievalMetadata(chunk_count=1, page_count=1)
     assert result.position_source_rows_complete is True
-    assert result.performance_component_economics_status == 503
+    assert result.performance_component_economics_status == 502
     assert result.performance_component_economics_payload is degraded_component_payload
     assert service.component_calls[0]["security_ids"] == ["SEC_1"]
+
+    normalized = build_stateful_contribution_input(
+        source_input=result,
+        metric_basis="NET",
+        currency_mode="BASE_ONLY",
+        fx=None,
+        reporting_currency="USD",
+        portfolio_base_currency="USD",
+    )
+    component_context = normalized.positions_data[0].meta["_source_economics"]["performance_component_economics"]
+    assert component_context["retrieval_status"] == 502
+    assert component_context["supportability_state"] is None
+    assert component_context["source_rows"] == []
+    assert component_context["position_source_row_count"] == 0
+    assert component_context["observed_component_families"] == []
+    assert component_context["lineage"] == {}
+    assert component_context["request_fingerprints"] == []
 
 
 @pytest.mark.asyncio

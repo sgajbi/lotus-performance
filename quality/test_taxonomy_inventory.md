@@ -1,7 +1,7 @@
 # Lotus Performance Test Taxonomy Inventory
 
 Report date: 2026-10-01
-Branch: `fix/539-tenant-scoped-composites`
+Branch: `fix/562-component-scope-admission`
 Mode: regression-blocking test taxonomy inventory; `make quality-test-taxonomy-gate` enforces
 minimum API/runtime and contract/governance breadth plus the current uncategorized-test ceiling.
 
@@ -23,8 +23,8 @@ python scripts/python_test_taxonomy_inventory.py --limit 30 --min-api-runtime-te
 | Metric | Value |
 | --- | ---: |
 | Test modules inventoried | 329 |
-| Test functions inventoried | 3938 |
-| Integration/API/runtime test functions | 783 |
+| Test functions inventoried | 3943 |
+| Integration/API/runtime test functions | 784 |
 | Contract/governance test functions | 195 |
 
 ## Test Functions By Suite
@@ -33,8 +33,8 @@ python scripts/python_test_taxonomy_inventory.py --limit 30 --min-api-runtime-te
 | --- | ---: | ---: |
 | benchmarks | 10 | 42 |
 | e2e | 1 | 21 |
-| integration | 28 | 374 |
-| unit | 290 | 3501 |
+| integration | 28 | 375 |
+| unit | 290 | 3505 |
 
 ## Test Functions By Family
 
@@ -44,8 +44,8 @@ above does sum to it, because a module belongs to exactly one suite.
 
 | Family | Test functions |
 | --- | ---: |
-| analytics_domain | 1919 |
-| api_or_runtime | 783 |
+| analytics_domain | 1924 |
+| api_or_runtime | 784 |
 | contract_or_governance | 195 |
 | observability_or_readiness | 567 |
 | quality_or_security | 268 |
@@ -66,10 +66,10 @@ above does sum to it, because a module belongs to exactly one suite.
 | 9 | `tests/unit/services/test_twr_inspection_source_economics.py` | unit | 58 | analytics_domain |
 | 10 | `tests/unit/services/test_workspace_summary_service.py` | unit | 56 | analytics_domain |
 | 11 | `tests/unit/services/test_compute_executor_worker.py` | unit | 55 | observability_or_readiness |
-| 12 | `tests/integration/test_contribution_api.py` | integration | 53 | analytics_domain, api_or_runtime |
-| 13 | `tests/unit/app/test_contribution_endpoint_helpers.py` | unit | 52 | analytics_domain, api_or_runtime |
-| 14 | `tests/unit/engine/test_mwr.py` | unit | 51 | analytics_domain |
-| 15 | `tests/unit/services/test_stateful_input_service.py` | unit | 51 | analytics_domain |
+| 12 | `tests/unit/services/test_stateful_input_service.py` | unit | 55 | analytics_domain |
+| 13 | `tests/integration/test_contribution_api.py` | integration | 54 | analytics_domain, api_or_runtime |
+| 14 | `tests/unit/app/test_contribution_endpoint_helpers.py` | unit | 52 | analytics_domain, api_or_runtime |
+| 15 | `tests/unit/engine/test_mwr.py` | unit | 51 | analytics_domain |
 | 16 | `tests/unit/services/test_twr_inspection_calculation_consistency.py` | unit | 51 | analytics_domain |
 | 17 | `tests/unit/services/test_twr_mode_service.py` | unit | 45 | analytics_domain |
 | 18 | `tests/unit/services/test_stateful_benchmark_input_service.py` | unit | 44 | analytics_domain |
@@ -195,4 +195,10 @@ PostgreSQL migration/isolation contracts, one HTTP tenant-isolation regression, 
 migration rollback coverage. Final review adds definition-key integrity plus supported HTTP
 inspection isolation and foreign-only refusal. Source test functions now measure `3,938`,
 API/runtime functions `783`, analytics-domain functions `1,919`, and the unchanged uncategorized
+ceiling remains `635`.
+
+The component-economics source-scope admission slice adds four analytics-domain unit functions and
+one registered contribution API function for initial-page, later-page, multi-chunk durable retry,
+optional degradation, and valid-control proof. Source test functions now measure `3,943`,
+API/runtime functions `784`, analytics-domain functions `1,924`, and the unchanged uncategorized
 ceiling remains `635`.
