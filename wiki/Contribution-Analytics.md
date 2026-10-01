@@ -114,7 +114,11 @@ Source-backed component-economics claims require more than aggregate coverage fl
 retrieves all Core component-economics pages for the requested date chunks, preserves source rows,
 lineage, request fingerprints, retrieval metadata, and consumed-page totals, and only uses observed
 component families to clear unsupported contribution economics when the relevant position context
-contains actual Core-authored `source_rows`.
+contains actual Core-authored `source_rows`. Each successful page must match the requested
+portfolio, as-of date, and exact chunk boundaries, and every row must carry the requested portfolio.
+Missing or contradictory scope is rejected with bounded diagnostics before accumulation; because
+this is optional enrichment, contribution may continue as `SOURCE_LIMITED` from admitted portfolio
+and position inputs, but rejected rows never become usable component evidence.
 
 ## Edge-Case Semantics
 

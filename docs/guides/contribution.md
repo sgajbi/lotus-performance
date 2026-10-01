@@ -365,6 +365,12 @@ Use this block to understand what the contribution result was actually sourced f
   supportability family names alone are not enough to promote contribution evidence to
   source-backed. Broader price, FX attribution, corporate-action, derivative, cash, and residual
   P&L buckets remain unsupported unless a precise source contract supplies them.
+- every successful component-economics page must match the requested `portfolio_id`, `as_of_date`,
+  chunk `window.start_date`, and chunk `window.end_date`; every returned row must carry the same
+  requested `portfolio_id`. These fields are mandatory. Additive unrelated metadata remains
+  compatible, but missing or contradictory scope produces a safe HTTP `502` source-contract
+  rejection before rows, totals, lineage, or fingerprints can be accumulated. Diagnostics expose
+  the requested scope, rejected field names, and page ordinal without returning foreign values.
 - `degraded_economics`: degraded signals such as unsupported source cash-flow types, missing
   classification, unavailable or partial component-economics enrichment, or execution-only upstream
   snapshot lineage
@@ -379,7 +385,9 @@ attribution buckets that the source product does not explicitly support.
 `SOURCE_BACKED` therefore certifies the economics actually consumed by contribution, while
 `component_detail_status=LIMITED` and `unsupported_economics` preserve the narrower decomposition
 boundary. A failed, partial, or inconsistent component-economics retrieval remains degraded and
-keeps the overall stateful posture `SOURCE_LIMITED`.
+keeps the overall stateful posture `SOURCE_LIMITED`. Because component economics are optional
+enrichment, the registered contribution API may still return a supported calculation from admitted
+portfolio and position inputs; rejected component rows never become usable source economics.
 
 ## Source-Document Edge Semantics
 

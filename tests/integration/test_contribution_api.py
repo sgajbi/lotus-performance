@@ -1442,6 +1442,163 @@ def test_contribution_supports_stateful_input_mode(client, monkeypatch):
     assert "USD/EUR dates 2025-01-01, 2025-01-02" in partial.json()["detail"]
 
 
+def test_contribution_registered_api_degrades_rejected_component_scope_without_using_rows(
+    client,
+    monkeypatch,
+):
+    from datetime import date
+
+    from app.services.stateful_input_service import StatefulInputService
+    from app.services.stateful_performance_input_service import StatefulPortfolioInput
+
+    class _ControlledComponentCoreService:
+        foreign_scope = True
+
+        async def get_position_analytics_timeseries(self, **kwargs):  # noqa: ARG002
+            return (
+                200,
+                {
+                    "rows": [
+                        {
+                            "position_id": "SEC_1",
+                            "security_id": "SEC_1",
+                            "position_currency": "USD",
+                            "valuation_date": "2025-01-01",
+                            "beginning_market_value_portfolio_currency": "1000",
+                            "ending_market_value_portfolio_currency": "1010",
+                            "cash_flows": [],
+                            "dimensions": {"sector": "Technology"},
+                        },
+                        {
+                            "position_id": "SEC_1",
+                            "security_id": "SEC_1",
+                            "position_currency": "USD",
+                            "valuation_date": "2025-01-02",
+                            "beginning_market_value_portfolio_currency": "1010",
+                            "ending_market_value_portfolio_currency": "1020.1",
+                            "cash_flows": [],
+                            "dimensions": {"sector": "Technology"},
+                        },
+                    ]
+                },
+            )
+
+        async def get_performance_component_economics(self, **kwargs):
+            source_portfolio_id = "FOREIGN-PORTFOLIO" if self.foreign_scope else kwargs["portfolio_id"]
+            return (
+                200,
+                {
+                    "portfolio_id": source_portfolio_id,
+                    "as_of_date": str(kwargs["as_of_date"]),
+                    "window": {
+                        "start_date": str(kwargs["start_date"]),
+                        "end_date": str(kwargs["end_date"]),
+                    },
+                    "rows": [
+                        {
+                            "portfolio_id": source_portfolio_id,
+                            "security_id": "SEC_1",
+                            "transaction_id": "FOREIGN-TXN" if self.foreign_scope else "SOURCE-TXN",
+                            "transaction_date": "2025-01-01",
+                            "trade_fee_components": [{"currency": "USD", "amount": "99", "evidence_count": 1}],
+                        }
+                    ],
+                    "supportability": {
+                        "state": "READY",
+                        "reason": "PERFORMANCE_COMPONENT_ECONOMICS_READY",
+                        "source_row_count": 1,
+                        "observed_component_families": ["fee"],
+                        "supported_component_families": ["fee"],
+                        "missing_component_families": [],
+                    },
+                },
+            )
+
+    core_service = _ControlledComponentCoreService()
+    stateful_input_service = StatefulInputService(core_service=core_service)
+
+    async def _portfolio_input(**kwargs):  # noqa: ARG001
+        return StatefulPortfolioInput(
+            performance_start_date=date(2025, 1, 1),
+            portfolio_currency="USD",
+            reporting_currency="USD",
+            observations=[
+                {
+                    "valuation_date": "2025-01-01",
+                    "beginning_market_value": "1000",
+                    "ending_market_value": "1010",
+                },
+                {
+                    "valuation_date": "2025-01-02",
+                    "beginning_market_value": "1010",
+                    "ending_market_value": "1020.1",
+                },
+            ],
+        )
+
+    monkeypatch.setattr(
+        "app.services.contribution_mode_service.build_stateful_input_service",
+        lambda **kwargs: stateful_input_service,
+    )
+    monkeypatch.setattr(
+        "app.services.stateful_contribution_input_service.retrieve_stateful_portfolio_input",
+        _portfolio_input,
+    )
+
+    request_payload = {
+        "portfolio_id": "CONTRIB_STATEFUL",
+        "report_start_date": "2025-01-01",
+        "report_end_date": "2025-01-02",
+        "analyses": [{"period": "SI", "frequencies": ["daily"]}],
+        "input_mode": "stateful",
+        "stateful_input": {"dimensions": ["sector"]},
+    }
+    response = client.post(
+        "/performance/contribution",
+        json=request_payload,
+        headers={"X-Tenant-Id": "tenant-a"},
+    )
+
+    assert response.status_code == 200
+    body = response.json()
+    source_economics = body["source_economics_evidence"]
+    assert source_economics["status"] == "SOURCE_LIMITED"
+    assert source_economics["component_detail_status"] == "LIMITED"
+    assert "performance_component_economics_unavailable" in source_economics["degraded_economics"]
+    assert "source_component_fees" not in source_economics["available_economics"]
+    assert "fee_pnl" in source_economics["unsupported_economics"]
+    assert "FOREIGN-TXN" not in response.text
+
+    snapshots = [
+        snapshot
+        for snapshot in execution_registry.list_upstream_snapshots(UUID(body["calculation_id"]))
+        if snapshot.upstream_endpoint == "performance_component_economics"
+    ]
+    assert len(snapshots) == 1
+    assert snapshots[0].retrieval_status == "502"
+
+    core_service.foreign_scope = False
+    valid_response = client.post(
+        "/performance/contribution",
+        json=request_payload,
+        headers={"X-Tenant-Id": "tenant-a"},
+    )
+    assert valid_response.status_code == 200
+    valid_body = valid_response.json()
+    valid_source_economics = valid_body["source_economics_evidence"]
+    assert valid_source_economics["status"] == "SOURCE_BACKED"
+    assert "source_component_fees" in valid_source_economics["available_economics"]
+    assert "performance_component_economics_unavailable" not in valid_source_economics["degraded_economics"]
+    assert valid_body["results_by_period"] == body["results_by_period"]
+    valid_snapshots = [
+        snapshot
+        for snapshot in execution_registry.list_upstream_snapshots(UUID(valid_body["calculation_id"]))
+        if snapshot.upstream_endpoint == "performance_component_economics"
+    ]
+    assert len(valid_snapshots) == 1
+    assert valid_snapshots[0].retrieval_status == "200"
+
+
 @pytest.mark.parametrize(
     ("observation_date", "opening_portfolio_mv", "income"),
     [

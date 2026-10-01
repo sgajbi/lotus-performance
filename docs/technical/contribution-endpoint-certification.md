@@ -166,7 +166,12 @@ from portfolio and position timeseries. Multi-page reduction preserves Core's so
 `UNAVAILABLE/PAGE_EVIDENCE_CHANGED` remains unavailable after any populated partial page.
 Multi-chunk component-economics retrieval is source-backed only when every requested chunk is
 `READY`; partial chunk coverage remains degraded and must not
-clear component-P&L unsupported flags. Downstream consumers must preserve this block instead of
+clear component-P&L unsupported flags. Every successful page must include the requested portfolio,
+as-of date, exact chunk boundaries, and the requested portfolio on each row. Missing or
+contradictory scope returns a bounded HTTP `502` source-contract result before accumulation. The
+registered contribution route treats that optional result as degraded evidence, continues only
+from admitted portfolio and position inputs, and does not expose rejected rows or values.
+Downstream consumers must preserve this block instead of
 inferring source quality from rounded contribution totals.
 
 ## Data Product And Mesh Posture

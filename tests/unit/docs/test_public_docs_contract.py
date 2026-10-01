@@ -1382,10 +1382,14 @@ def test_contribution_guide_uses_current_request_shape():
         'mixed-currency stateful contribution in `currency_mode="BOTH"` fails closed with HTTP `422`' in certification
     )
     assert "zero-net and near-zero pre-allocation contribution cases" in certification_flat
+    assert "Every successful page must include the requested portfolio" in certification
+    assert "safe HTTP `502` source-contract" in guide
+    assert "rejected component rows never become usable source economics" in guide_flat
     assert "Hierarchy `weight_avg` uses the same active or reset-aware promoted denominator" in wiki
     assert "mixed-currency stateful contribution fails closed with HTTP `422`" in wiki
     assert "source_position_key" in wiki
     assert "zero-net and near-zero pre-allocation contribution cases" in wiki
+    assert "Missing or contradictory scope is rejected with bounded diagnostics" in wiki
     assert "fund or structured-product decomposition is not performed inside lotus-performance" in api_reference
     assert 'input_mode: "stateless" | "stateful"' in readme
     assert "lotus-performance stamps source consumer identity server-side" in readme

@@ -41,7 +41,13 @@
       "failure_posture": "degrade_to_partial",
       "validation_lanes": ["feature", "pr-merge"],
       "allowed_downstream_interpretation": "Optional source-economics evidence for contribution supportability; absence or partial coverage must not invent component P&L economics.",
-      "evidence_tests": ["tests/unit/services/test_core_integration_service.py", "tests/unit/services/test_contribution_source_economics.py"]
+      "evidence_tests": [
+        "tests/unit/services/test_core_integration_service.py",
+        "tests/unit/services/test_stateful_input_service.py",
+        "tests/unit/services/test_stateful_contribution_input_service.py",
+        "tests/unit/services/test_contribution_source_economics.py",
+        "tests/integration/test_contribution_api.py"
+      ]
     },
     {
       "client_method": "get_benchmark_assignment",

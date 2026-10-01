@@ -98,6 +98,14 @@ def test_upstream_dependency_inventory_covers_active_core_methods() -> None:
     assert declared_dependency["status"] == "consumer_declaration"
     assert declared_dependency["consumer_product_name"] == "RiskFreeSeriesWindow"
 
+    component_dependency = dependencies_by_method["get_performance_component_economics"]
+    assert component_dependency["failure_posture"] == "degrade_to_partial"
+    assert {
+        "tests/unit/services/test_stateful_input_service.py",
+        "tests/unit/services/test_stateful_contribution_input_service.py",
+        "tests/integration/test_contribution_api.py",
+    }.issubset(component_dependency["evidence_tests"])
+
 
 def test_upstream_dependency_inventory_validation_fails_when_active_method_is_missing(tmp_path) -> None:
     for declaration_path in LOCAL_DECLARATION_DIR.glob("*.json"):
