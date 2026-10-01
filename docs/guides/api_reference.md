@@ -1013,6 +1013,12 @@ Return semantics for the workspace surface are now explicit rather than inferred
   - malformed optional upstream `retrieval_metadata` counts default affected counters and set
     `metadata.retrieval_metadata_quality.status="degraded"` with
     `MALFORMED_UPSTREAM_RETRIEVAL_METADATA_COUNT`
+  - `metadata.exposure_source_quality` is separate economic completeness evidence. Consumers must
+    reject `status="incomplete"` rather than treating remaining weights as a complete benchmark;
+    the response preserves zero and supplied weights without renormalization and names bounded
+    omission counts, reasons, and safe component/date identities on every page
+  - non-finite or non-numeric weights and a source with no usable rows are non-retryable `422`
+    validation outcomes
   - downstream certification and consumer posture are recorded in
     `docs/technical/benchmark-exposure-context-endpoint-certification.md`
 

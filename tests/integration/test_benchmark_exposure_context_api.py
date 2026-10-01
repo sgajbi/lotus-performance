@@ -68,6 +68,44 @@ class _MalformedRetrievalMetadataStatefulInputService(_RecordingStatefulInputSer
         return status_code, payload
 
 
+class _PartialExposureStatefulInputService(_RecordingStatefulInputService):
+    async def get_benchmark_market_series(self, **kwargs):
+        self.market_series_calls.append(kwargs)
+        return (
+            200,
+            {
+                "component_series": [
+                    {
+                        "index_id": "IDX_GLOBAL_EQUITY",
+                        "points": [{"series_date": "2026-01-02", "component_weight": "0.30"}],
+                    },
+                    {
+                        "index_id": "IDX_GLOBAL_BONDS",
+                        "points": [{"series_date": "2026-01-02"}],
+                    },
+                    {
+                        "index_id": "IDX_GLOBAL_REAL_ASSETS",
+                        "points": [{"series_date": "2026-01-02", "component_weight": "0.40"}],
+                    },
+                    {
+                        "index_id": "IDX_GLOBAL_CASH",
+                        "points": [{"series_date": "2026-01-02", "component_weight": "0"}],
+                    },
+                ],
+                "retrieval_metadata": {"chunk_count": 1, "page_count": 1},
+            },
+        )
+
+
+class _EmptyUsableExposureStatefulInputService(_RecordingStatefulInputService):
+    async def get_benchmark_market_series(self, **kwargs):
+        self.market_series_calls.append(kwargs)
+        return (
+            200,
+            {"component_series": [{"index_id": "IDX_GLOBAL_BONDS", "points": [{"series_date": "2026-01-02"}]}]},
+        )
+
+
 def test_benchmark_exposure_context_api_returns_performance_aligned_view(monkeypatch):
     stateful_service = _RecordingStatefulInputService()
     monkeypatch.setattr(
@@ -182,6 +220,72 @@ def test_benchmark_exposure_context_api_degrades_malformed_retrieval_metadata(mo
         "reason_codes": ["MALFORMED_UPSTREAM_RETRIEVAL_METADATA_COUNT"],
         "invalid_fields": ["retrieval_metadata.chunk_count", "retrieval_metadata.page_count"],
     }
+
+
+def test_benchmark_exposure_context_api_qualifies_partial_economics_on_every_page(monkeypatch) -> None:
+    stateful_service = _PartialExposureStatefulInputService()
+    monkeypatch.setattr(
+        "app.services.benchmark_exposure_context_workflow_service.build_stateful_input_service",
+        lambda *, settings: stateful_service,
+    )
+    payload = {
+        "portfolio_id": "PB_SG_GLOBAL_BAL_001",
+        "as_of_date": "2026-01-02",
+        "window": {"start_date": "2026-01-02", "end_date": "2026-01-02"},
+        "frequency": "DAILY",
+        "grouping_dimensions": ["POSITION"],
+        "page": {"page_size": 2, "page_token": None},
+    }
+
+    with TestClient(app) as client:
+        first_response = client.post("/integration/benchmarks/exposure-context", json=payload)
+        second_response = client.post(
+            "/integration/benchmarks/exposure-context",
+            json={**payload, "page": {"page_size": 2, "page_token": "2"}},
+        )
+
+    assert first_response.status_code == 200
+    assert second_response.status_code == 200
+    first_body = first_response.json()
+    second_body = second_response.json()
+    expected_quality = {
+        "status": "incomplete",
+        "omitted_component_count": 0,
+        "omitted_point_count": 1,
+        "reason_codes": ["MISSING_COMPONENT_WEIGHT"],
+        "omissions": [
+            {
+                "component_id": "IDX_GLOBAL_BONDS",
+                "series_date": "2026-01-02",
+                "reason_code": "MISSING_COMPONENT_WEIGHT",
+            }
+        ],
+        "omissions_truncated": False,
+    }
+    assert first_body["metadata"]["exposure_source_quality"] == expected_quality
+    assert second_body["metadata"]["exposure_source_quality"] == expected_quality
+    assert {row["weight"] for row in [*first_body["rows"], *second_body["rows"]]} == {"0.30", "0.40", "0"}
+
+
+def test_benchmark_exposure_context_api_refuses_empty_usable_economics(monkeypatch) -> None:
+    stateful_service = _EmptyUsableExposureStatefulInputService()
+    monkeypatch.setattr(
+        "app.services.benchmark_exposure_context_workflow_service.build_stateful_input_service",
+        lambda *, settings: stateful_service,
+    )
+    payload = {
+        "portfolio_id": "PB_SG_GLOBAL_BAL_001",
+        "as_of_date": "2026-01-02",
+        "window": {"start_date": "2026-01-02", "end_date": "2026-01-02"},
+        "frequency": "DAILY",
+        "grouping_dimensions": ["POSITION"],
+    }
+
+    with TestClient(app) as client:
+        response = client.post("/integration/benchmarks/exposure-context", json=payload)
+
+    assert response.status_code == 422
+    assert "No usable benchmark exposure rows returned" in response.text
 
 
 def test_benchmark_exposure_context_api_returns_issuer_groups(monkeypatch) -> None:

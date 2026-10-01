@@ -2,10 +2,27 @@ services:
   ci-local:
     image: python:3.11-slim
     working_dir: /workspace
+    tmpfs:
+      - /workspace
     volumes:
-      - ./:/workspace
+      - type: bind
+        source: .
+        target: /source
+        read_only: true
+      - type: bind
+        source: ${CI_LOCAL_GIT_DIR:?CI_LOCAL_GIT_DIR must name the checkout Git common directory}
+        target: /git-common
+      - type: bind
+        source: ${CI_LOCAL_GIT_WORKTREE_DIR:?CI_LOCAL_GIT_WORKTREE_DIR must name the active Git directory}
+        target: /git-worktree-source
+        read_only: true
     command: >
       bash -lc "
+      cp -a /source/. /workspace/ &&
+      rm -f /workspace/.git &&
+      mkdir /workspace/.git &&
+      cp -a /git-worktree-source/. /workspace/.git/ &&
+      printf '/git-common\n' > /workspace/.git/commondir &&
       apt-get update &&
       apt-get install -y --no-install-recommends git make &&
       rm -rf /var/lib/apt/lists/* &&

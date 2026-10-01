@@ -144,6 +144,140 @@ class BenchmarkExposurePageResponse(BaseModel):
     )
 
 
+BenchmarkExposureOmissionReason = Literal[
+    "INVALID_COMPONENT_SHAPE",
+    "MISSING_COMPONENT_ID",
+    "INVALID_POINTS_SHAPE",
+    "EMPTY_POINTS",
+    "INVALID_POINT_SHAPE",
+    "MISSING_SERIES_DATE",
+    "INVALID_SERIES_DATE",
+    "MISSING_COMPONENT_WEIGHT",
+]
+
+
+class BenchmarkExposureOmission(BaseModel):
+    """One source component or point omitted from the derived exposure rows."""
+
+    component_id: str | None = Field(
+        default=None,
+        description=(
+            "Source component identity when it was safely usable for diagnosis; null when the "
+            "source identity itself was unusable."
+        ),
+        examples=["IDX_GLOBAL_BONDS"],
+    )
+    series_date: dt_date | None = Field(
+        default=None,
+        description=(
+            "Source observation date when it was safely parseable; null when the source date was missing or unusable."
+        ),
+        examples=["2026-01-02"],
+    )
+    reason_code: BenchmarkExposureOmissionReason = Field(
+        description="Bounded reason why the supplied component or point could not form derived exposure evidence.",
+        examples=["MISSING_COMPONENT_WEIGHT"],
+    )
+
+
+def _validate_complete_exposure_source_quality(quality: "BenchmarkExposureSourceQuality") -> None:
+    if any(
+        (
+            quality.omitted_component_count,
+            quality.omitted_point_count,
+            quality.reason_codes,
+            quality.omissions,
+            quality.omissions_truncated,
+        )
+    ):
+        raise ValueError("complete exposure_source_quality cannot contain omissions")
+
+
+def _validate_incomplete_exposure_source_quality(quality: "BenchmarkExposureSourceQuality") -> None:
+    _validate_incomplete_exposure_basics(quality)
+    _validate_exposure_reason_codes(quality)
+    _validate_exposure_omission_count(quality)
+    _validate_exposure_omission_reasons(quality)
+
+
+def _validate_incomplete_exposure_basics(quality: "BenchmarkExposureSourceQuality") -> None:
+    if quality.omitted_component_count + quality.omitted_point_count == 0 or not quality.reason_codes:
+        raise ValueError("incomplete exposure_source_quality requires omission counts and reason_codes")
+
+
+def _validate_exposure_reason_codes(quality: "BenchmarkExposureSourceQuality") -> None:
+    if quality.reason_codes != sorted(set(quality.reason_codes)):
+        raise ValueError("exposure_source_quality reason_codes must be unique and sorted")
+
+
+def _validate_exposure_omission_count(quality: "BenchmarkExposureSourceQuality") -> None:
+    omitted_count = quality.omitted_component_count + quality.omitted_point_count
+    if len(quality.omissions) > omitted_count:
+        raise ValueError("exposure_source_quality omissions cannot exceed omitted source facts")
+    if quality.omissions_truncated and len(quality.omissions) >= omitted_count:
+        raise ValueError("truncated exposure_source_quality must omit at least one source fact")
+    if not quality.omissions_truncated and len(quality.omissions) != omitted_count:
+        raise ValueError("untruncated exposure_source_quality must list every omitted source fact")
+
+
+def _validate_exposure_omission_reasons(quality: "BenchmarkExposureSourceQuality") -> None:
+    if not {omission.reason_code for omission in quality.omissions}.issubset(quality.reason_codes):
+        raise ValueError("exposure_source_quality omissions must use a declared reason_code")
+
+
+class BenchmarkExposureSourceQuality(BaseModel):
+    """Request-wide completeness posture for benchmark exposure source economics."""
+
+    status: Literal["complete", "incomplete"] = Field(
+        description=(
+            "Complete when every supplied source component and point was usable for the derived "
+            "exposure view; incomplete when any supplied source evidence was omitted."
+        )
+    )
+    omitted_component_count: int = Field(
+        ge=0,
+        description=(
+            "Number of supplied component objects omitted because their identity or point collection was unusable."
+        ),
+        examples=[1],
+    )
+    omitted_point_count: int = Field(
+        ge=0,
+        description=(
+            "Number of supplied component points omitted because required exposure economics were missing or unusable."
+        ),
+        examples=[2],
+    )
+    reason_codes: list[BenchmarkExposureOmissionReason] = Field(
+        default_factory=list,
+        description="Sorted bounded reason codes covering all omitted source components and points.",
+        examples=[["MISSING_COMPONENT_WEIGHT"]],
+    )
+    omissions: list[BenchmarkExposureOmission] = Field(
+        default_factory=list,
+        max_length=100,
+        description=(
+            "Bounded source-safe identities and dates for omitted evidence. This list is a "
+            "diagnostic sample; counts and reason_codes remain complete when it is truncated."
+        ),
+    )
+    omissions_truncated: bool = Field(
+        default=False,
+        description=(
+            "Whether omissions exceeded the bounded diagnostic list while the omission counts "
+            "and reason codes remain complete."
+        ),
+    )
+
+    @model_validator(mode="after")
+    def validate_completeness_evidence(self) -> "BenchmarkExposureSourceQuality":
+        if self.status == "complete":
+            _validate_complete_exposure_source_quality(self)
+        else:
+            _validate_incomplete_exposure_source_quality(self)
+        return self
+
+
 class BenchmarkExposureMetadata(BaseModel):
     source_system: Literal["lotus-core"] = Field(
         default="lotus-core",
@@ -183,6 +317,17 @@ class BenchmarkExposureMetadata(BaseModel):
                 "invalid_fields": ["retrieval_metadata.chunk_count"],
             }
         ],
+    )
+    exposure_source_quality: BenchmarkExposureSourceQuality = Field(
+        default_factory=lambda: BenchmarkExposureSourceQuality(
+            status="complete",
+            omitted_component_count=0,
+            omitted_point_count=0,
+        ),
+        description=(
+            "Request-wide economic completeness evidence for the derived exposure rows. It is "
+            "separate from retrieval_metadata_quality, which describes optional telemetry only."
+        ),
     )
 
 
@@ -258,6 +403,14 @@ class BenchmarkExposureContextResponse(BaseModel):
                             "warning_count": 0,
                             "reason_codes": [],
                             "invalid_fields": [],
+                        },
+                        "exposure_source_quality": {
+                            "status": "complete",
+                            "omitted_component_count": 0,
+                            "omitted_point_count": 0,
+                            "reason_codes": [],
+                            "omissions": [],
+                            "omissions_truncated": False,
                         },
                     },
                 }
