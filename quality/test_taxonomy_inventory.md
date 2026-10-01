@@ -1,7 +1,7 @@
 # Lotus Performance Test Taxonomy Inventory
 
 Report date: 2026-10-01
-Branch: `fix/562-component-scope-admission`
+Branch: `fix/555-557-valuation-observation-admission`
 Mode: regression-blocking test taxonomy inventory; `make quality-test-taxonomy-gate` enforces
 minimum API/runtime and contract/governance breadth plus the current uncategorized-test ceiling.
 
@@ -22,9 +22,9 @@ python scripts/python_test_taxonomy_inventory.py --limit 30 --min-api-runtime-te
 
 | Metric | Value |
 | --- | ---: |
-| Test modules inventoried | 329 |
-| Test functions inventoried | 3943 |
-| Integration/API/runtime test functions | 784 |
+| Test modules inventoried | 330 |
+| Test functions inventoried | 3974 |
+| Integration/API/runtime test functions | 794 |
 | Contract/governance test functions | 195 |
 
 ## Test Functions By Suite
@@ -33,8 +33,8 @@ python scripts/python_test_taxonomy_inventory.py --limit 30 --min-api-runtime-te
 | --- | ---: | ---: |
 | benchmarks | 10 | 42 |
 | e2e | 1 | 21 |
-| integration | 28 | 375 |
-| unit | 290 | 3505 |
+| integration | 28 | 385 |
+| unit | 291 | 3526 |
 
 ## Test Functions By Family
 
@@ -44,8 +44,8 @@ above does sum to it, because a module belongs to exactly one suite.
 
 | Family | Test functions |
 | --- | ---: |
-| analytics_domain | 1924 |
-| api_or_runtime | 784 |
+| analytics_domain | 1945 |
+| api_or_runtime | 794 |
 | contract_or_governance | 195 |
 | observability_or_readiness | 567 |
 | quality_or_security | 268 |
@@ -69,19 +69,19 @@ above does sum to it, because a module belongs to exactly one suite.
 | 12 | `tests/unit/services/test_stateful_input_service.py` | unit | 55 | analytics_domain |
 | 13 | `tests/integration/test_contribution_api.py` | integration | 54 | analytics_domain, api_or_runtime |
 | 14 | `tests/unit/app/test_contribution_endpoint_helpers.py` | unit | 52 | analytics_domain, api_or_runtime |
-| 15 | `tests/unit/engine/test_mwr.py` | unit | 51 | analytics_domain |
-| 16 | `tests/unit/services/test_twr_inspection_calculation_consistency.py` | unit | 51 | analytics_domain |
-| 17 | `tests/unit/services/test_twr_mode_service.py` | unit | 45 | analytics_domain |
-| 18 | `tests/unit/services/test_stateful_benchmark_input_service.py` | unit | 44 | analytics_domain |
-| 19 | `tests/integration/test_performance_api.py` | integration | 41 | api_or_runtime |
+| 15 | `tests/integration/test_performance_api.py` | integration | 51 | api_or_runtime |
+| 16 | `tests/unit/engine/test_mwr.py` | unit | 51 | analytics_domain |
+| 17 | `tests/unit/services/test_twr_inspection_calculation_consistency.py` | unit | 51 | analytics_domain |
+| 18 | `tests/unit/services/test_twr_mode_service.py` | unit | 45 | analytics_domain |
+| 19 | `tests/unit/services/test_stateful_benchmark_input_service.py` | unit | 44 | analytics_domain |
 | 20 | `tests/unit/services/test_composite_metadata_store.py` | unit | 40 | analytics_domain |
 | 21 | `tests/unit/services/test_operator_action_lease_service.py` | unit | 40 | uncategorized |
 | 22 | `tests/unit/engine/test_contribution.py` | unit | 39 | analytics_domain |
 | 23 | `tests/unit/services/test_stateful_contribution_input_service.py` | unit | 39 | analytics_domain |
-| 24 | `tests/unit/services/test_benchmark_exposure_context_service.py` | unit | 35 | analytics_domain |
-| 25 | `tests/unit/test_observability.py` | unit | 35 | observability_or_readiness |
-| 26 | `tests/unit/models/test_twr_requests.py` | unit | 32 | analytics_domain |
-| 27 | `tests/unit/models/test_workspace_summary_models.py` | unit | 32 | analytics_domain |
+| 24 | `tests/unit/models/test_twr_requests.py` | unit | 37 | analytics_domain |
+| 25 | `tests/unit/models/test_workspace_summary_models.py` | unit | 36 | analytics_domain |
+| 26 | `tests/unit/services/test_benchmark_exposure_context_service.py` | unit | 35 | analytics_domain |
+| 27 | `tests/unit/test_observability.py` | unit | 35 | observability_or_readiness |
 | 28 | `tests/unit/services/test_twr_inspection_reconciliation.py` | unit | 32 | analytics_domain |
 | 29 | `tests/integration/test_returns_series_api.py` | integration | 31 | analytics_domain, api_or_runtime |
 | 30 | `tests/unit/app/test_enterprise_readiness.py` | unit | 31 | observability_or_readiness |
@@ -202,3 +202,9 @@ one registered contribution API function for initial-page, later-page, multi-chu
 optional degradation, and valid-control proof. Source test functions now measure `3,943`,
 API/runtime functions `784`, analytics-domain functions `1,924`, and the unchanged uncategorized
 ceiling remains `635`.
+
+The valuation-observation admission slice adds twenty-one analytics-domain functions and ten
+registered HTTP functions for finite-value, non-empty-history, identical-deduplication, same-date
+conflict, date normalization, and required-boundary proof across stateless, stateful, workspace,
+and direct-engine boundaries. Source test functions now measure `3,974`, API/runtime functions
+`794`, analytics-domain functions `1,945`, and the unchanged uncategorized ceiling remains `635`.

@@ -15,10 +15,11 @@ from core.envelope import (
     HedgingRequestBlock,
     Output,
 )
+from core.valuation_observation_admission import admit_valuation_observations
 
 
 class DailyInputData(BaseModel):
-    model_config = ConfigDict(extra="forbid")
+    model_config = ConfigDict(extra="forbid", allow_inf_nan=False)
 
     perf_date: date = Field(..., description="The specific date of the observation in YYYY-MM-DD format.")
     begin_mv: float = Field(
@@ -37,6 +38,14 @@ class DailyInputData(BaseModel):
         description="Management or other fees charged for the day. Should be a negative value to reduce performance.",
     )
     end_mv: float = Field(..., description="The market value of the portfolio at the end of the day.")
+
+
+def admit_daily_input_data(value: List[DailyInputData]) -> List[DailyInputData]:
+    """Return the canonical first-occurrence list after daily economic admission."""
+    serialized = [point.model_dump(mode="python") for point in value]
+    admitted = admit_valuation_observations(serialized)
+    admitted_ids = {id(point) for point in admitted}
+    return [point for point, payload in zip(value, serialized, strict=True) if id(payload) in admitted_ids]
 
 
 class FeeEffect(BaseModel):
@@ -111,7 +120,10 @@ class PerformanceRequestBase(BaseModel):
 
     valuation_points: List[DailyInputData] = Field(
         ...,
-        description="Canonical portfolio valuation observations ordered by perf_date. Sequence is derived server-side.",
+        description=(
+            "Finite canonical portfolio valuation observations. Identical observations for a business date are "
+            "admitted once; conflicting economics for that date are rejected. Sequence is derived server-side."
+        ),
     )
     currency: str = Field("USD", description="The three-letter ISO currency code for the request (e.g., 'USD').")
     precision_mode: Literal["FLOAT64", "DECIMAL_STRICT"] = Field(
@@ -141,6 +153,14 @@ class PerformanceRequestBase(BaseModel):
         if not v:
             raise ValueError("analyses list cannot be empty")
         return v
+
+    @field_validator("valuation_points")
+    @classmethod
+    def valuation_points_must_have_consistent_daily_economics(
+        cls,
+        value: List[DailyInputData],
+    ) -> List[DailyInputData]:
+        return admit_daily_input_data(value)
 
 
 class PerformanceRequest(PerformanceRequestBase):

@@ -339,6 +339,58 @@ def test_workspace_summary_request_resolves_legacy_stateless_valuation_points():
     assert request.resolved_stateless_valuation_points()[0].perf_date.isoformat() == "2026-03-31"
 
 
+def test_workspace_summary_request_rejects_empty_nested_stateless_valuation_points():
+    payload = _base_stateless_payload()
+    payload["stateless_input"] = {"valuation_points": []}
+
+    with pytest.raises(ValueError, match="at least 1 item"):
+        WorkspaceSummaryRequest.model_validate(payload)
+
+
+@pytest.mark.parametrize("field_name", ["begin_mv", "bod_cf", "eod_cf", "mgmt_fees", "end_mv"])
+def test_workspace_summary_request_rejects_conflicting_legacy_daily_economics(field_name: str):
+    payload = _base_stateless_payload()
+    payload.pop("stateless_input")
+    first = {
+        "perf_date": "2026-03-31",
+        "begin_mv": 100.0,
+        "bod_cf": 1.0,
+        "eod_cf": -2.0,
+        "mgmt_fees": -0.5,
+        "end_mv": 110.0,
+    }
+    payload["valuation_points"] = [first, {**first, field_name: first[field_name] + 1.0}]
+
+    with pytest.raises(ValueError, match=field_name):
+        WorkspaceSummaryRequest.model_validate(payload)
+
+
+@pytest.mark.parametrize("field_name", ["begin_mv", "bod_cf", "eod_cf", "mgmt_fees", "end_mv"])
+def test_workspace_summary_request_rejects_non_finite_nested_economics(field_name: str):
+    payload = _base_stateless_payload()
+    point = payload["stateless_input"]["valuation_points"][0]
+    point[field_name] = "NaN"
+
+    with pytest.raises(ValueError, match="finite number"):
+        WorkspaceSummaryRequest.model_validate(payload)
+
+
+@pytest.mark.parametrize("shape", ["legacy", "nested"])
+def test_workspace_summary_request_canonicalizes_identical_same_day_observations(shape: str):
+    payload = _base_stateless_payload()
+    point = payload["stateless_input"]["valuation_points"][0]
+    points = [point, point.copy()]
+    if shape == "nested":
+        payload["stateless_input"] = {"valuation_points": points}
+    else:
+        payload.pop("stateless_input")
+        payload["valuation_points"] = points
+
+    request = WorkspaceSummaryRequest.model_validate(payload)
+
+    assert len(request.resolved_stateless_valuation_points()) == 1
+
+
 def test_workspace_benchmark_request_validates_mode_specific_requirements():
     payload = _base_stateful_payload()
     payload["include_benchmark"] = True

@@ -30,6 +30,15 @@ def test_twr_openapi_documents_async_execution_contract() -> None:
     source_quality_schema = spec["components"]["schemas"]["PerformanceSourceQualityEvidence"]
     assert "unsupported for TWR" in source_quality_schema["properties"]["unsupported_cashflow_count"]["description"]
     assert "source-quality warning codes" in source_quality_schema["properties"]["warnings"]["description"]
+    stateless_input_schema = spec["components"]["schemas"]["TWRStatelessInput"]
+    valuation_points = stateless_input_schema["properties"]["valuation_points"]
+    assert valuation_points["minItems"] == 1
+    assert "finite" in valuation_points["description"]
+    assert "conflicting economics" in valuation_points["description"]
+    legacy_valuation_points = spec["components"]["schemas"]["TWRAnalyticsRequest"]["properties"]["valuation_points"]
+    assert "finite" in legacy_valuation_points["description"]
+    assert "admitted once" in legacy_valuation_points["description"]
+    assert "conflicting daily economics" in legacy_valuation_points["description"]
     breakdown_item_schema = spec["components"]["schemas"]["ComparativeBreakdownItem"]
     assert "calculation_evidence" in breakdown_item_schema["properties"]
     assert (

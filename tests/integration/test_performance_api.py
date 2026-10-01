@@ -11,11 +11,13 @@ from app.models.benchmark_analytics_requests import BenchmarkInputMode
 from app.models.benchmark_requests import BenchmarkPerformanceRequest
 from app.models.requests import PerformanceRequest
 from app.models.twr_requests import TWRAnalyticsRequest, TWRResolvedExecutionRequest
+from app.models.workspace_summary_requests import WorkspaceSummaryRequest
 from app.observability_contracts import (
     PERFORMANCE_ANALYTICS_FRESHNESS_METRIC_LABELS,
     PERFORMANCE_CALCULATION_SUPPORTABILITY_METRIC_LABELS,
 )
 from app.services.calculation_engine_version import calculation_engine_version
+from app.services.reproducibility_service import generate_request_fingerprint
 from app.services.twr_calculation_service import generate_twr_request_hashes
 from app.services.twr_mode_service import ResolvedTWRRequest
 from core.repro import generate_canonical_hash_from_value
@@ -139,6 +141,250 @@ def test_twr_supportability_metric_labels_are_bounded_and_support_safe(client):
     for label in _FORBIDDEN_METRIC_LABELS:
         assert f"{label}=" not in supportability_lines[-1]
         assert f"{label}=" not in freshness_lines[-1]
+
+
+def _valuation_admission_twr_payload(*, nested: bool) -> dict[str, object]:
+    points = [
+        {
+            "perf_date": "2025-01-01",
+            "begin_mv": 100.0,
+            "bod_cf": 0.0,
+            "eod_cf": 0.0,
+            "mgmt_fees": 0.0,
+            "end_mv": 110.0,
+        }
+    ]
+    payload: dict[str, object] = {
+        "portfolio_id": "VALUATION_ADMISSION_ROUTE",
+        "performance_start_date": "2025-01-01",
+        "report_end_date": "2025-01-01",
+        "analyses": [{"period": "SI", "frequencies": ["daily"]}],
+        "metric_basis": "NET",
+        "input_mode": "stateless",
+    }
+    payload["stateless_input" if nested else "valuation_points"] = {"valuation_points": points} if nested else points
+    return payload
+
+
+@pytest.mark.parametrize("shape", ["legacy", "nested", "omitted"])
+def test_twr_route_rejects_empty_or_omitted_stateless_valuation_history(client, shape: str):
+    payload = _valuation_admission_twr_payload(nested=shape == "nested")
+    if shape == "nested":
+        payload["stateless_input"] = {"valuation_points": []}
+    elif shape == "legacy":
+        payload["valuation_points"] = []
+    else:
+        payload.pop("valuation_points")
+
+    response = client.post("/performance/twr", json=payload)
+
+    assert response.status_code == 422
+    assert response.json()["error_code"] == "VALIDATION_ERROR"
+    assert response.json()["retryable"] is False
+
+
+@pytest.mark.parametrize(
+    ("field_name", "nested", "precision_mode", "metric_basis", "reverse"),
+    [
+        ("begin_mv", False, "FLOAT64", "NET", False),
+        ("bod_cf", True, "DECIMAL_STRICT", "GROSS", True),
+        ("eod_cf", False, "DECIMAL_STRICT", "NET", True),
+        ("mgmt_fees", True, "FLOAT64", "GROSS", False),
+        ("end_mv", False, "FLOAT64", "NET", True),
+    ],
+)
+def test_twr_route_rejects_conflicting_same_day_economics(
+    client,
+    field_name: str,
+    nested: bool,
+    precision_mode: str,
+    metric_basis: str,
+    reverse: bool,
+):
+    payload = _valuation_admission_twr_payload(nested=nested)
+    payload["precision_mode"] = precision_mode
+    payload["metric_basis"] = metric_basis
+    container = payload["stateless_input"]["valuation_points"] if nested else payload["valuation_points"]
+    first = container[0]
+    container.append({**first, field_name: first[field_name] + 1.0})
+    if reverse:
+        container.reverse()
+
+    response = client.post("/performance/twr", json=payload)
+
+    assert response.status_code == 422
+    body = response.json()
+    assert body["error_code"] == "VALIDATION_ERROR"
+    assert body["retryable"] is False
+    assert field_name in str(body["validation_errors"])
+
+
+@pytest.mark.parametrize(
+    ("field_name", "non_finite", "nested", "precision_mode", "metric_basis"),
+    [
+        (
+            field_name,
+            non_finite,
+            index % 2 == 0,
+            "DECIMAL_STRICT" if index % 3 == 0 else "FLOAT64",
+            "GROSS" if index % 2 else "NET",
+        )
+        for index, (field_name, non_finite) in enumerate(
+            (field_name, non_finite)
+            for field_name in ("begin_mv", "bod_cf", "eod_cf", "mgmt_fees", "end_mv")
+            for non_finite in ("NaN", "Infinity", "-Infinity")
+        )
+    ],
+)
+def test_twr_route_rejects_non_finite_mixed_history(
+    client,
+    field_name: str,
+    non_finite: str,
+    nested: bool,
+    precision_mode: str,
+    metric_basis: str,
+):
+    payload = _valuation_admission_twr_payload(nested=nested)
+    payload["report_end_date"] = "2025-01-02"
+    payload["precision_mode"] = precision_mode
+    payload["metric_basis"] = metric_basis
+    container = payload["stateless_input"]["valuation_points"] if nested else payload["valuation_points"]
+    container[0][field_name] = non_finite
+    container.append({"perf_date": "2025-01-02", "begin_mv": 110.0, "end_mv": 121.0})
+
+    response = client.post("/performance/twr", json=payload)
+
+    assert response.status_code == 422
+    body = response.json()
+    assert body["error_code"] == "VALIDATION_ERROR"
+    assert body["retryable"] is False
+
+
+def test_twr_route_admits_finite_single_day_history_with_independent_return_expectation(client):
+    response = client.post("/performance/twr", json=_valuation_admission_twr_payload(nested=True))
+
+    assert response.status_code == 200
+    summary = response.json()["results_by_period"]["SI"]["portfolio"]["summary"]
+    assert summary["period_return"]["base"] == pytest.approx(10.0)
+
+
+def test_twr_route_deduplicates_economically_identical_same_day_observations(client):
+    payload = _valuation_admission_twr_payload(nested=True)
+    points = payload["stateless_input"]["valuation_points"]
+    points.append(points[0].copy())
+
+    response = client.post("/performance/twr", json=payload)
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["results_by_period"]["SI"]["portfolio"]["summary"]["period_return"]["base"] == pytest.approx(10.0)
+    assert body["calculation_supportability"]["input_row_count"] == 1
+
+
+@pytest.mark.parametrize("nested", [False, True])
+@pytest.mark.parametrize("precision_mode", ["FLOAT64", "DECIMAL_STRICT"])
+def test_twr_route_sorts_unique_dates_without_changing_independent_two_day_return(
+    client,
+    nested: bool,
+    precision_mode: str,
+):
+    payload = _valuation_admission_twr_payload(nested=nested)
+    payload["report_end_date"] = "2025-01-02"
+    payload["precision_mode"] = precision_mode
+    points = [
+        {"perf_date": "2025-01-02", "begin_mv": 110.0, "end_mv": 121.0},
+        {"perf_date": "2025-01-01", "begin_mv": 100.0, "end_mv": 110.0},
+    ]
+    if nested:
+        payload["stateless_input"] = {"valuation_points": points}
+    else:
+        payload["valuation_points"] = points
+
+    response = client.post("/performance/twr", json=payload)
+
+    assert response.status_code == 200
+    summary = response.json()["results_by_period"]["SI"]["portfolio"]["summary"]
+    assert summary["period_return"]["base"] == pytest.approx(21.0)
+
+
+def test_twr_route_preserves_stateful_no_data_source_context(client, monkeypatch):
+    async def _empty_source(**kwargs):  # noqa: ARG001
+        return 200, {"portfolio_open_date": "2025-01-01", "observations": []}
+
+    monkeypatch.setattr(
+        "app.services.stateful_performance_input_service.fetch_stateful_portfolio_timeseries",
+        _empty_source,
+    )
+    payload = _valuation_admission_twr_payload(nested=True)
+    payload.pop("stateless_input")
+    payload["input_mode"] = "stateful"
+    payload["stateful_input"] = {}
+
+    response = client.post("/performance/twr", json=payload)
+
+    assert response.status_code == 422
+    assert response.json()["detail"] == "Stateful source returned no observations."
+
+
+def test_workspace_summary_route_rejects_non_finite_mixed_history_before_aggregate_readiness(client):
+    payload = {
+        "portfolio_id": "WORKSPACE_VALUATION_ADMISSION",
+        "report_end_date": "2025-01-02",
+        "performance_start_date": "2025-01-01",
+        "input_mode": "stateless",
+        "periods": [{"period": "SI", "frequencies": ["daily"]}],
+        "stateless_input": {
+            "valuation_points": [
+                {"perf_date": "2025-01-01", "begin_mv": 100.0, "end_mv": "NaN"},
+                {"perf_date": "2025-01-02", "begin_mv": 110.0, "end_mv": 121.0},
+            ]
+        },
+    }
+
+    response = client.post("/performance/workspace-summary", json=payload)
+
+    assert response.status_code == 422
+    body = response.json()
+    assert body["error_code"] == "VALIDATION_ERROR"
+    assert body["retryable"] is False
+
+
+def test_workspace_summary_route_uses_one_canonical_row_for_identical_duplicates(client):
+    point = {"perf_date": "2025-01-01", "begin_mv": 100.0, "end_mv": 110.0}
+    payload = {
+        "portfolio_id": "WORKSPACE_IDENTICAL_DUPLICATE",
+        "report_end_date": "2025-01-01",
+        "performance_start_date": "2025-01-01",
+        "input_mode": "stateless",
+        "periods": [{"period": "SI", "frequencies": ["daily"]}],
+        "stateless_input": {"valuation_points": [point]},
+    }
+    duplicate_payload = {
+        **payload,
+        "stateless_input": {"valuation_points": [point, point.copy()]},
+    }
+
+    baseline = client.post("/performance/workspace-summary", json=payload)
+    duplicate = client.post("/performance/workspace-summary", json=duplicate_payload)
+
+    assert baseline.status_code == 200
+    assert duplicate.status_code == 200
+    baseline_body = baseline.json()
+    duplicate_body = duplicate.json()
+    assert duplicate_body["results_by_period"] == baseline_body["results_by_period"]
+    assert duplicate_body["audit"]["counts"]["input_rows"] == 1
+    assert duplicate_body["calculation_supportability"]["input_row_count"] == 1
+
+    fixed_calculation_id = str(uuid4())
+    baseline_request = WorkspaceSummaryRequest.model_validate({**payload, "calculation_id": fixed_calculation_id})
+    duplicate_request = WorkspaceSummaryRequest.model_validate(
+        {**duplicate_payload, "calculation_id": fixed_calculation_id}
+    )
+    engine_version = calculation_engine_version(get_settings())
+    assert generate_request_fingerprint(baseline_request, engine_version) == generate_request_fingerprint(
+        duplicate_request,
+        engine_version,
+    )
 
 
 def test_workspace_summary_endpoint_returns_multi_horizon_summary_blocks(client):
@@ -923,7 +1169,7 @@ def test_twr_stateful_portfolio_income_is_return_not_external_cashflow(client, m
     ] == pytest.approx(1.0)
 
 
-def test_twr_stateful_supportability_exposes_source_quality_warnings(client, monkeypatch):
+def test_twr_stateful_rejects_conflicting_source_economics_before_calculation(client, monkeypatch):
     async def _mock_fetch_stateful_portfolio_timeseries(**kwargs):  # noqa: ARG001
         return (
             200,
@@ -971,19 +1217,73 @@ def test_twr_stateful_supportability_exposes_source_quality_warnings(client, mon
 
     response = client.post("/performance/twr", json=payload)
 
+    assert response.status_code == 422
+    body = response.json()
+    assert body["error_code"] == "INVALID_REQUEST"
+    assert body["retryable"] is False
+    assert "conflicting valuation observations" in body["detail"]["message"]
+    assert "end_mv" in body["detail"]["message"]
+
+
+def test_twr_stateful_supportability_preserves_non_conflicting_source_quality_warnings(client, monkeypatch):
+    async def _mock_fetch_stateful_portfolio_timeseries(**kwargs):  # noqa: ARG001
+        return (
+            200,
+            {
+                "portfolio_open_date": "2024-12-31",
+                "observations": [
+                    {
+                        "valuation_date": "2025-01-01",
+                        "beginning_market_value": "1000",
+                        "ending_market_value": "1010",
+                        "source_classification": "official",
+                        "cash_flows": [{"cash_flow_type": "dividend", "amount": "5", "timing": "eod"}],
+                    },
+                    {
+                        "valuation_date": "2025-01-02",
+                        "beginning_market_value": None,
+                        "ending_market_value": "1020",
+                        "source_classification": "official",
+                    },
+                    {
+                        "valuation_date": "2025-01-03",
+                        "beginning_market_value": "1010",
+                        "ending_market_value": "1020.1",
+                        "source_classification": "manual_adjustment",
+                    },
+                ],
+            },
+        )
+
+    monkeypatch.setattr(
+        "app.services.stateful_performance_input_service.fetch_stateful_portfolio_timeseries",
+        _mock_fetch_stateful_portfolio_timeseries,
+    )
+    payload = {
+        "portfolio_id": "STATEFUL_TWR_SOURCE_QUALITY",
+        "performance_start_date": "2024-12-31",
+        "metric_basis": "NET",
+        "report_end_date": "2025-01-04",
+        "analyses": [{"period": "YTD", "frequencies": ["daily"]}],
+        "input_mode": "stateful",
+        "stateful_input": {},
+    }
+
+    response = client.post("/performance/twr", json=payload)
+
     assert response.status_code == 200
     supportability = response.json()["calculation_supportability"]
     assert supportability["state"] == "stale"
     assert supportability["reason"] == "stale_source_observations"
     source_quality = supportability["source_quality_evidence"]
-    assert source_quality["quality_state"] == "stale"
+    assert source_quality["observation_count"] == 3
+    assert source_quality["valid_valuation_point_count"] == 2
     assert source_quality["skipped_observation_count"] == 1
     assert source_quality["unsupported_cashflow_count"] == 1
-    assert source_quality["source_conflict_count"] == 1
+    assert source_quality["source_conflict_count"] == 0
     assert source_quality["warnings"] == [
         "MISSING_VALUATION_POINTS",
         "UNSUPPORTED_CASHFLOW_LABELS",
-        "SOURCE_DATE_CONFLICTS",
         "STALE_SOURCE_OBSERVATIONS",
     ]
     assert source_quality["source_classification_counts"] == {"manual_adjustment": 1, "official": 2}

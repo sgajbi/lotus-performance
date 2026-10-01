@@ -87,8 +87,8 @@ def test_create_engine_config():
 def test_create_engine_dataframe_happy_path():
     """Tests that a list of daily data dictionaries is correctly converted into a DataFrame."""
     api_valuation_points: List[Dict[str, Any]] = [
-        {"perf_date": "2025-01-01", "begin_mv": 1000},
-        {"perf_date": "2025-01-02", "begin_mv": 1010},
+        {"perf_date": "2025-01-01", "begin_mv": 1000, "end_mv": 1010},
+        {"perf_date": "2025-01-02", "begin_mv": 1010, "end_mv": 1020},
     ]
 
     engine_df = create_engine_dataframe(api_valuation_points)
@@ -109,7 +109,10 @@ def test_create_engine_dataframe_empty_input():
 
 def test_create_engine_dataframe_raises_error():
     """Tests that the adapter function correctly raises a ValueError for malformed input."""
-    malformed_api_data = [{"perf_date": "2025-01-01", "begin_mv": 1000}, "not_a_dictionary"]
+    malformed_api_data = [
+        {"perf_date": "2025-01-01", "begin_mv": 1000, "end_mv": 1010},
+        "not_a_dictionary",
+    ]
     with pytest.raises(ValueError, match="Failed to process daily data"):
         create_engine_dataframe(malformed_api_data)
 

@@ -638,6 +638,14 @@ Important validation expectations:
     lineage database URL is owned by the generated project; do not reintroduce inherited database,
     daemon, project, or port configuration. Retain local images because Compose image labels are not
     a safe ownership boundary on a shared daemon.
+36. Portfolio valuation observations cross one shared admission boundary before TWR or workspace
+    calculations. Public TWR and workspace requests require at least one observation. Across nested
+    and legacy stateless DTOs, stateful Core normalization, workspace summary, and direct engine
+    entry points, require finite economics; normalize `perf_date` as the portfolio business date;
+    retain the first of economically identical daily rows; and reject any same-date disagreement in
+    beginning value, beginning/end-of-day flows, management fees, or ending value. Input order is
+    not source revision authority. Preserve the direct engine's existing empty-frame compatibility
+    and raw stateful source counts when identical observations collapse.
 
 ## Standards And RFCs That Govern This Repository
 

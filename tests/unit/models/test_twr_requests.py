@@ -25,6 +25,34 @@ from app.models.twr_requests import (
 )
 
 
+@pytest.mark.parametrize("field_name", ["begin_mv", "bod_cf", "eod_cf", "mgmt_fees", "end_mv"])
+@pytest.mark.parametrize("non_finite_value", ["NaN", "Infinity", "-Infinity"])
+def test_daily_input_data_rejects_non_finite_economic_values(field_name, non_finite_value):
+    payload = {
+        "perf_date": "2025-01-01",
+        "begin_mv": 1000,
+        "bod_cf": 0,
+        "eod_cf": 0,
+        "mgmt_fees": 0,
+        "end_mv": 1010,
+    }
+    payload[field_name] = non_finite_value
+
+    with pytest.raises(ValidationError, match="finite number"):
+        DailyInputData.model_validate(payload)
+
+
+@pytest.mark.parametrize(
+    "point",
+    [
+        {"perf_date": "2025-01-01", "begin_mv": 0, "end_mv": 0},
+        {"perf_date": "2025-01-01", "begin_mv": -100, "end_mv": -90, "mgmt_fees": -1},
+    ],
+)
+def test_daily_input_data_preserves_finite_zero_and_negative_values(point):
+    assert DailyInputData.model_validate(point).model_dump(mode="json")["end_mv"] == point["end_mv"]
+
+
 @pytest.fixture
 def base_payload():
     return {
@@ -65,6 +93,75 @@ def test_twr_request_accepts_nested_stateless_payload(base_payload):
     assert request.stateless_input.valuation_points[0].end_mv == 1010
     stateless = request.to_stateless_performance_request()
     assert stateless.valuation_points[0].end_mv == 1010
+
+
+def test_twr_request_rejects_empty_nested_stateless_valuation_points(base_payload):
+    with pytest.raises(ValidationError, match="at least 1 item"):
+        TWRAnalyticsRequest.model_validate(
+            {
+                **base_payload,
+                "input_mode": "stateless",
+                "stateless_input": {"valuation_points": []},
+            }
+        )
+
+
+@pytest.mark.parametrize(
+    ("field_name", "conflicting_value"),
+    [
+        ("begin_mv", 99),
+        ("end_mv", 1011),
+        ("bod_cf", 5),
+        ("eod_cf", -5),
+        ("mgmt_fees", -1),
+    ],
+)
+@pytest.mark.parametrize("payload_shape", ["legacy", "nested"])
+def test_twr_request_rejects_conflicting_same_date_valuation_observations(
+    base_payload,
+    field_name,
+    conflicting_value,
+    payload_shape,
+):
+    first = {
+        "perf_date": "2025-01-01",
+        "begin_mv": 1000,
+        "end_mv": 1010,
+        "bod_cf": 0,
+        "eod_cf": 0,
+        "mgmt_fees": 0,
+    }
+    second = {**first, "perf_date": date(2025, 1, 1), field_name: conflicting_value}
+    payload = {**base_payload, "input_mode": "stateless"}
+    if payload_shape == "nested":
+        payload["stateless_input"] = {"valuation_points": [first, second]}
+    else:
+        payload["valuation_points"] = [first, second]
+
+    with pytest.raises(ValidationError, match=f"conflicting valuation observations.*{field_name}"):
+        TWRAnalyticsRequest.model_validate(payload)
+
+
+@pytest.mark.parametrize("payload_shape", ["legacy", "nested"])
+def test_twr_request_accepts_identical_same_date_valuation_observations(base_payload, payload_shape):
+    point = {
+        "perf_date": "2025-01-01",
+        "begin_mv": 1000,
+        "end_mv": 1010,
+        "bod_cf": 0,
+        "eod_cf": 0,
+        "mgmt_fees": 0,
+    }
+    payload = {**base_payload, "input_mode": "stateless"}
+    if payload_shape == "nested":
+        payload["stateless_input"] = {"valuation_points": [point, point.copy()]}
+    else:
+        payload["valuation_points"] = [point, point.copy()]
+
+    request = TWRAnalyticsRequest.model_validate(payload)
+
+    admitted_points = request.stateless_input.valuation_points if request.stateless_input else request.valuation_points
+    assert len(admitted_points) == 1
 
 
 def test_twr_request_rejects_missing_stateless_payload(base_payload):

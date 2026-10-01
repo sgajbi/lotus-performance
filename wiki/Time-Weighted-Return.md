@@ -10,6 +10,10 @@ TWR.
 Current `lotus-performance` TWR supports:
 
 - stateless caller-owned valuation input through `POST /performance/twr`
+- one shared valuation-observation admission rule across stateless, stateful, workspace, and direct
+  engine paths: finite economics, identical same-date deduplication, and rejection of conflicting
+  same-date economics without order-based winner selection; public TWR and workspace requests also
+  require at least one observation
 - stateful lotus-core sourced portfolio timeseries through `input_mode="stateful"`
 - synchronous execution for smaller requests
 - asynchronous execution and result polling for larger workloads
@@ -23,8 +27,9 @@ Current `lotus-performance` TWR supports:
 - daily calculation evidence with denominator basis, flow timing, signed adjusted capital,
   performance P&L, calculation status, linkability status, episode status, reason codes, and
   warnings
-- stateful source-quality evidence for missing valuation points, unsupported cash-flow labels,
-  stale source observations, and duplicate-date source conflicts
+- stateful source-quality evidence for missing valuation points, unsupported cash-flow labels, and
+  stale source observations; raw counts remain visible when identical source duplicates collapse,
+  while conflicting daily economics are rejected before calculation
 - benchmark supportability evidence for source/method, reporting currency, benchmark currency, FX
   decomposition posture, portfolio-vs-benchmark calendar overlap, missing benchmark dates, and
   bounded warning codes

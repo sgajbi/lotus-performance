@@ -3,7 +3,7 @@ from __future__ import annotations
 from datetime import date
 from enum import Enum
 
-from pydantic import BaseModel, ConfigDict, Field, model_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 from app.models.benchmark_analytics_requests import (
     BenchmarkInputMode,
@@ -12,7 +12,7 @@ from app.models.benchmark_analytics_requests import (
     BenchmarkStatelessInput,
 )
 from app.models.benchmark_requests import BenchmarkPerformanceRequest
-from app.models.requests import DailyInputData, PerformanceRequest, PerformanceRequestBase
+from app.models.requests import DailyInputData, PerformanceRequest, PerformanceRequestBase, admit_daily_input_data
 
 
 class TWRInputMode(str, Enum):
@@ -23,8 +23,17 @@ class TWRInputMode(str, Enum):
 class TWRStatelessInput(BaseModel):
     valuation_points: list[DailyInputData] = Field(
         ...,
-        description="Canonical stateless portfolio valuation observations ordered by perf_date. day sequence is derived server-side.",
+        min_length=1,
+        description=(
+            "One or more finite canonical portfolio valuation observations. Identical observations for a business date "
+            "are admitted once; conflicting economics for that date are rejected. Day sequence is derived server-side."
+        ),
     )
+
+    @field_validator("valuation_points")
+    @classmethod
+    def validate_valuation_observations(cls, value: list[DailyInputData]) -> list[DailyInputData]:
+        return admit_daily_input_data(value)
 
 
 class TWRStatefulInput(BaseModel):
@@ -250,7 +259,11 @@ class TWRAnalyticsRequest(PerformanceRequestBase):
     )
     valuation_points: list[DailyInputData] = Field(
         default_factory=list,
-        description="Legacy stateless valuation input payload using the same canonical valuation-point shape. Prefer stateless_input for new integrations.",
+        description=(
+            "Legacy stateless valuation input payload. Values must be finite; identical observations for a business "
+            "date are admitted once and conflicting daily economics are rejected. Prefer stateless_input for new "
+            "integrations."
+        ),
     )
 
     @model_validator(mode="after")
