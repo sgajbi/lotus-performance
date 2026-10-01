@@ -39,6 +39,7 @@ from app.services.calculation_supportability_service import (
     build_calculation_supportability,
     record_supportability_metric,
 )
+from app.services.currency_code_normalization import normalized_currency_code
 from app.services.execution_lifecycle_service import complete_execution_with_lineage
 from app.services.execution_registry import execution_registry
 from app.services.execution_stage_names import EXECUTION_STAGE_EXECUTION
@@ -191,6 +192,8 @@ class _DailyCalculationEvidenceInputs:
     signed_adjusted_capital: float
     adjusted_capital: float
     performance_pnl: float  # monetary-float-allow
+    local_daily_return: float  # monetary-float-allow
+    fx_daily_return: float  # monetary-float-allow
     daily_return: float  # monetary-float-allow
 
 
@@ -253,6 +256,7 @@ def _daily_calculation_evidence_inputs(
     performance_pnl = end_mv - bod_cf - begin_mv - eod_cf
     if metric_basis == "NET":
         performance_pnl += management_fees
+    daily_return = _as_numeric(row.get(PortfolioColumns.DAILY_ROR.value, 0))
     return _DailyCalculationEvidenceInputs(
         begin_mv=begin_mv,
         end_mv=end_mv,
@@ -262,7 +266,9 @@ def _daily_calculation_evidence_inputs(
         signed_adjusted_capital=signed_adjusted_capital,
         adjusted_capital=adjusted_capital,
         performance_pnl=performance_pnl,
-        daily_return=_as_numeric(row.get(PortfolioColumns.DAILY_ROR.value, 0)),
+        local_daily_return=_as_numeric(row.get("local_ror", daily_return)),
+        fx_daily_return=_as_numeric(row.get("fx_ror", 0)),
+        daily_return=daily_return,
     )
 
 
@@ -425,6 +431,8 @@ def _build_daily_calculation_evidence(
     row: pd.Series,
     *,
     metric_basis: str,
+    portfolio_currency: str | None = None,
+    reporting_currency: str | None = None,
 ) -> TWRDailyCalculationEvidence:
     inputs = _daily_calculation_evidence_inputs(row, metric_basis=metric_basis)
     classification = _classify_daily_calculation_evidence(row, inputs=inputs)
@@ -440,6 +448,10 @@ def _build_daily_calculation_evidence(
         signed_adjusted_capital=inputs.signed_adjusted_capital,
         adjusted_capital=inputs.adjusted_capital,
         performance_pnl=inputs.performance_pnl,
+        portfolio_currency=portfolio_currency,
+        reporting_currency=reporting_currency,
+        local_daily_return=inputs.local_daily_return,
+        fx_daily_return=inputs.fx_daily_return,
         daily_return=inputs.daily_return,
         status=classification.status,
         linkability_status=classification.linkability_status,
@@ -547,6 +559,8 @@ def _build_portfolio_breakdowns(
     breakdowns_data: dict[Frequency, list[dict]],
     include_timeseries: bool,
     metric_basis: str,
+    portfolio_currency: str | None,
+    reporting_currency: str | None,
 ) -> dict[Frequency, list[ComparativeBreakdownItem]]:
     breakdowns: dict[Frequency, list[ComparativeBreakdownItem]] = {}
     for frequency in requested_frequencies:
@@ -571,6 +585,8 @@ def _build_portfolio_breakdowns(
                     summary_data=summary_data,
                     include_timeseries=include_timeseries,
                     metric_basis=metric_basis,
+                    portfolio_currency=portfolio_currency,
+                    reporting_currency=reporting_currency,
                 )
             )
         breakdowns[frequency] = items
@@ -589,6 +605,8 @@ def _build_portfolio_breakdown_item(
     summary_data: dict,
     include_timeseries: bool,
     metric_basis: str,
+    portfolio_currency: str | None = None,
+    reporting_currency: str | None = None,
 ) -> ComparativeBreakdownItem:
     cumulative_df = period_slice_df[period_slice_df[PortfolioColumns.PERF_DATE.value] <= end_date].copy()
     return ComparativeBreakdownItem(
@@ -615,6 +633,8 @@ def _build_portfolio_breakdown_item(
             frequency=frequency,
             frequency_df=frequency_df,
             metric_basis=metric_basis,
+            portfolio_currency=portfolio_currency,
+            reporting_currency=reporting_currency,
         ),
     )
 
@@ -635,10 +655,17 @@ def _portfolio_breakdown_calculation_evidence(
     frequency: Frequency,
     frequency_df: pd.DataFrame,
     metric_basis: str,
+    portfolio_currency: str | None = None,
+    reporting_currency: str | None = None,
 ) -> TWRDailyCalculationEvidence | None:
     if frequency != Frequency.DAILY or frequency_df.empty:
         return None
-    return _build_daily_calculation_evidence(frequency_df.iloc[0], metric_basis=metric_basis)
+    return _build_daily_calculation_evidence(
+        frequency_df.iloc[0],
+        metric_basis=metric_basis,
+        portfolio_currency=portfolio_currency,
+        reporting_currency=reporting_currency,
+    )
 
 
 def _build_benchmark_breakdowns(
@@ -969,6 +996,10 @@ def _build_twr_portfolio_period_block(
     breakdowns_data: dict[Frequency, list[dict]],
 ) -> ComparativeAnalyticsBlock:
     portfolio_period_return = _calculate_total_return_from_slice(period_slice_df, daily_results_df)
+    portfolio_currency = normalized_currency_code(performance_request.currency)
+    reporting_currency = portfolio_currency
+    if performance_request.currency_mode == "BOTH":
+        reporting_currency = normalized_currency_code(performance_request.report_ccy) or portfolio_currency
     portfolio_breakdowns = _build_portfolio_breakdowns(
         period_slice_df=period_slice_df,
         daily_results_df=daily_results_df,
@@ -976,6 +1007,8 @@ def _build_twr_portfolio_period_block(
         breakdowns_data=breakdowns_data,
         include_timeseries=performance_request.output.include_timeseries,
         metric_basis=performance_request.metric_basis,
+        portfolio_currency=portfolio_currency,
+        reporting_currency=reporting_currency,
     )
     return ComparativeAnalyticsBlock(
         summary=ComparativeSummary(

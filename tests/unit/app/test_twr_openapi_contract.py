@@ -55,6 +55,11 @@ def test_twr_openapi_documents_async_execution_contract() -> None:
         in evidence_properties["signed_adjusted_capital"]["description"]
     )
     assert "percentage-point output units" in evidence_properties["daily_return"]["description"]
+    assert "Portfolio currency" in evidence_properties["portfolio_currency"]["description"]
+    assert "Currency basis" in evidence_properties["reporting_currency"]["description"]
+    assert "performance_pnl / adjusted_capital" in evidence_properties["local_daily_return"]["description"]
+    assert "post-hedge FX return" in evidence_properties["fx_daily_return"]["description"]
+    assert "local_daily_return" in evidence_properties["daily_return"]["description"]
     assert "geometric linking" in evidence_properties["linkability_status"]["description"]
     assert "TWR episode classification" in evidence_properties["episode_status"]["description"]
     assert "reason_codes" in evidence_properties

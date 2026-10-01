@@ -66,6 +66,7 @@ class DailyEvidenceExpectedValues:
     adjusted_capital: float
     external_inflows: float
     external_outflows: float
+    local_daily_return: float | None  # monetary-float-allow
     daily_return: float | None  # monetary-float-allow
 
 
@@ -593,7 +594,8 @@ def _expected_daily_calculation_values(evidence: TWRDailyCalculationEvidence) ->
         adjusted_capital=abs(adjusted_capital),
         external_inflows=expected_flows.external_inflows,
         external_outflows=expected_flows.external_outflows,
-        daily_return=_expected_daily_return(evidence),
+        local_daily_return=_expected_daily_return(evidence),
+        daily_return=_expected_reporting_daily_return(evidence),
     )
 
 
@@ -623,6 +625,19 @@ def _expected_daily_return(evidence: TWRDailyCalculationEvidence) -> float | Non
     return evidence.performance_pnl / evidence.adjusted_capital * 100
 
 
+def _expected_reporting_daily_return(
+    evidence: TWRDailyCalculationEvidence,
+) -> float | None:  # monetary-float-allow
+    local_return = _expected_daily_return(evidence)
+    if local_return is None:
+        return None
+    if evidence.local_daily_return is None and evidence.fx_daily_return is None:
+        return local_return
+    if evidence.local_daily_return is None or evidence.fx_daily_return is None:
+        return None
+    return ((1 + evidence.local_daily_return / 100) * (1 + evidence.fx_daily_return / 100) - 1) * 100
+
+
 def _daily_calculation_evidence_mismatches(
     *,
     evidence: TWRDailyCalculationEvidence,
@@ -637,6 +652,9 @@ def _daily_calculation_evidence_mismatches(
             item=item,
         )
     )
+    currency_basis_mismatch = _daily_currency_basis_mismatch(evidence)
+    if currency_basis_mismatch is not None:
+        mismatches["currency_return_basis"] = currency_basis_mismatch
     status_mismatch = _daily_zero_capital_status_mismatch(evidence)
     if status_mismatch is not None:
         mismatches["status"] = status_mismatch
@@ -644,6 +662,19 @@ def _daily_calculation_evidence_mismatches(
     if semantic_mismatches:
         mismatches["semantics"] = semantic_mismatches
     return mismatches
+
+
+def _daily_currency_basis_mismatch(evidence: TWRDailyCalculationEvidence) -> dict[str, object] | None:
+    basis = {
+        "portfolio_currency": evidence.portfolio_currency,
+        "reporting_currency": evidence.reporting_currency,
+        "local_daily_return": evidence.local_daily_return,
+        "fx_daily_return": evidence.fx_daily_return,
+    }
+    populated = [value is not None for value in basis.values()]
+    if all(populated) or not any(populated):
+        return None
+    return {"expected": "all currency-basis fields populated or all absent for legacy evidence", "actual": basis}
 
 
 def _daily_calculation_numeric_mismatches(
@@ -677,13 +708,8 @@ def _daily_calculation_numeric_mismatches(
         expected=expected.external_outflows,
         actual=evidence.external_outflows,
     )
-    if expected.daily_return is not None:
-        _record_numeric_mismatch(
-            mismatches=mismatches,
-            field="daily_return",
-            expected=expected.daily_return,
-            actual=evidence.daily_return,
-        )
+    _record_daily_currency_return_mismatches(mismatches=mismatches, expected=expected, evidence=evidence)
+    if evidence.status == "calculated":
         _record_numeric_mismatch(
             mismatches=mismatches,
             field="period_return.base",
@@ -691,6 +717,40 @@ def _daily_calculation_numeric_mismatches(
             actual=item.period_return.base,
         )
     return mismatches
+
+
+def _record_daily_currency_return_mismatches(
+    *,
+    mismatches: dict[str, dict[str, object]],
+    expected: DailyEvidenceExpectedValues,
+    evidence: TWRDailyCalculationEvidence,
+) -> None:
+    if evidence.local_daily_return is not None and expected.local_daily_return is not None:
+        _record_numeric_mismatch(
+            mismatches=mismatches,
+            field="local_daily_return",
+            expected=expected.local_daily_return,
+            actual=evidence.local_daily_return,
+        )
+    if (
+        evidence.portfolio_currency is not None
+        and evidence.reporting_currency is not None
+        and evidence.portfolio_currency == evidence.reporting_currency
+        and evidence.fx_daily_return is not None
+    ):
+        _record_numeric_mismatch(
+            mismatches=mismatches,
+            field="fx_daily_return",
+            expected=0.0,
+            actual=evidence.fx_daily_return,
+        )
+    if expected.daily_return is not None:
+        _record_numeric_mismatch(
+            mismatches=mismatches,
+            field="daily_return",
+            expected=expected.daily_return,
+            actual=evidence.daily_return,
+        )
 
 
 def _daily_zero_capital_status_mismatch(evidence: TWRDailyCalculationEvidence) -> dict[str, object] | None:

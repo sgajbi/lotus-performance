@@ -209,6 +209,19 @@ and outflows, management fees, signed adjusted capital before denominator policy
 performance P&L, daily return, calculation status, linkability status, episode status, reason codes,
 and warnings.
 
+Currency basis is explicit on every newly produced daily evidence row. `portfolio_currency` labels
+the market values, flows, fees, adjusted capital, and `performance_pnl`; `reporting_currency` labels
+`daily_return` and `period_return.base`. `local_daily_return` is independently reproducible as
+`performance_pnl / adjusted_capital * 100`. `fx_daily_return` is the effective post-hedge FX leg,
+and the reporting-currency return satisfies:
+
+`daily_return = ((1 + local_daily_return / 100) * (1 + fx_daily_return / 100) - 1) * 100`
+
+For same-currency calculations the FX leg is zero. The four additive basis fields are nullable only
+so previously persisted response artifacts remain readable; current service responses populate all
+four. Downstream consumers should not relabel portfolio-currency P&L as a reporting-currency
+numerator.
+
 The denominator basis is `absolute_begin_mv_plus_bod_cf`: Lotus uses the absolute value of
 beginning market value plus beginning-of-day external cash flow as the invested capital denominator.
 Beginning-of-day flows adjust invested capital. End-of-day flows are neutralized from performance
@@ -253,6 +266,11 @@ contains:
 - `local`
 - `fx`
 - `base`
+
+Both `FLOAT64` and `DECIMAL_STRICT` support this path. Strict mode preserves Decimal arithmetic
+through FX-rate and hedge-ratio composition. Exact prior/current EOD coverage is mandatory; missing
+usable coverage is a typed, non-retryable invalid-input response rather than a retryable server
+failure.
 
 See [multi_currency.md](multi_currency.md) for the detailed multi-currency path.
 

@@ -159,6 +159,18 @@ def test_currency_attribution_metric_docs_describe_total_effect_relationship():
         assert "total_effect" in content
 
 
+def test_twr_fx_methodology_documents_exact_fixings_strict_precision_and_daily_bridge():
+    content = _read(METRICS_DIR / "metric-twr-fx-return.md")
+
+    assert '`currency_mode="BOTH"`' in content
+    assert "exact prior-calendar-date EOD FX rate" in content
+    assert "do not forward-fill" in content
+    assert "non-retryable `400`" in content
+    assert "`DECIMAL_STRICT`" in content
+    assert "`calculation_evidence.local_daily_return`" in content
+    assert "performance_pnl / adjusted_capital * 100" in content
+
+
 def test_composite_twr_methodology_doc_is_implementation_backed():
     content = _read(METRICS_DIR / "metric-composite-twr.md")
     master_index = _read(METRICS_DIR / "master-index.md")

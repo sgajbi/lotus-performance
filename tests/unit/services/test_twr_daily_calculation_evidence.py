@@ -57,6 +57,32 @@ def test_daily_calculation_evidence_gross_excludes_management_fees():
     assert evidence.performance_pnl == 10.0
 
 
+def test_daily_calculation_evidence_reconciles_portfolio_pnl_through_fx_to_reporting_return():
+    evidence = _build_daily_calculation_evidence(
+        _row(
+            **{
+                PortfolioColumns.BEGIN_MV.value: 100.0,
+                PortfolioColumns.END_MV.value: 110.0,
+                PortfolioColumns.MGMT_FEES.value: 0.0,
+                PortfolioColumns.DAILY_ROR.value: 12.2,
+                "local_ror": 10.0,
+                "fx_ror": 2.0,
+            }
+        ),
+        metric_basis="GROSS",
+        portfolio_currency="EUR",
+        reporting_currency="USD",
+    )
+
+    assert evidence.portfolio_currency == "EUR"
+    assert evidence.reporting_currency == "USD"
+    assert evidence.performance_pnl / evidence.adjusted_capital * 100 == pytest.approx(evidence.local_daily_return)
+    assert evidence.fx_daily_return == pytest.approx(2.0)
+    assert evidence.daily_return == pytest.approx(
+        ((1 + evidence.local_daily_return / 100) * (1 + evidence.fx_daily_return / 100) - 1) * 100
+    )
+
+
 def test_daily_calculation_evidence_inputs_compute_flow_neutralized_values():
     inputs = _daily_calculation_evidence_inputs(_row(), metric_basis="NET")
 

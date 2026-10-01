@@ -285,6 +285,11 @@ Use these commands as the primary local contract:
    refuses a skip, a nonzero pytest exit, an empty collection, or any failure — a skip and a
    pass are the same colour to a lane, and telling them apart is the whole point (#489)
 
+Run `make test-unit` and `make test-integration` sequentially when they share one checkout. Both
+suites exercise the checkout-local SQLite execution store, so concurrent processes can reset or
+delete each other's execution rows and produce false missing-stage or stale-row failures. CI jobs
+are isolated checkouts; local parallel execution requires explicitly isolated database paths.
+
 ## Validation And CI Expectations
 
 `lotus-performance` uses explicit CI lanes:
