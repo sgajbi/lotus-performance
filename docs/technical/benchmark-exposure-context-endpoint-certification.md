@@ -67,7 +67,10 @@ The certification suite checks every output family:
   weights by date and group;
 - for a complete source date, weights by grouping dimension sum to `1.0`; an incomplete source
   response must not be treated as a complete benchmark or scaled to one;
-- pagination returns a deterministic next-page token and no token on the final page.
+- pagination returns a deterministic source-bound next-page token and no token on the final page.
+  Repeated reads of unchanged economics retain the token despite fresh calculation IDs and serving
+  timestamps. A source restatement, omission change, tenant switch, or request-scope change rejects
+  the continuation with `409 BENCHMARK_EXPOSURE_PAGE_SOURCE_CHANGED` before mixed pages are emitted.
 
 Weights are decimal fractions, not percentages. A row weight of `0.60` means 60% benchmark exposure.
 
@@ -98,6 +101,14 @@ not silently discarded: the endpoint returns the usable rows with
 component/date identities. Zero is a valid exposure. Non-finite or non-numeric weights are a
 non-retryable validation refusal, and a source with no usable rows is a non-retryable `422`; neither
 outcome is represented as a complete empty benchmark.
+
+The endpoint re-reads Core for each page; it does not hold a PostgreSQL or Core revision snapshot.
+Its opaque continuation binds the admitted tenant, request scope, resolved benchmark, all derived
+rows, and request-wide omission quality. This detects economic changes before a later page is
+served, but does not make a past source revision replayable. Historical caller-supplied numeric
+offsets remain accepted for compatibility and are explicitly labeled
+`page.continuation_consistency="legacy_offset_unbound"`; consumers needing consistent traversal
+must follow newly issued `source_bound` tokens. No source dates or weights are filled in.
 
 ## Downstream Consumers
 

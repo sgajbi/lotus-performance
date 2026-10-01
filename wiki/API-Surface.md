@@ -29,6 +29,11 @@ Use this page as the short navigation layer. Use the deep guides for payload det
 - `POST /integration/benchmarks/exposure-context`
 - `POST /integration/attribution/group-return-evidence/v1`
 
+Benchmark exposure pages now issue source-bound continuations. A Core economic restatement or
+request-scope change between pages returns a bounded `409`; restart from page one. Numeric offset
+inputs remain readable but are marked `legacy_offset_unbound` and do not prove a common source
+state. This is drift detection, not a retained historical snapshot or Risk acceptance receipt.
+
 Group-return evidence is a synchronous, stateful-only producer contract for an admitted tenant.
 It returns one daily portfolio/benchmark grouping in a required common currency, aggregate and
 group reconciliation values, and durable source-cut lineage. It refuses incomplete or conflicting

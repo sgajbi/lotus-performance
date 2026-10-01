@@ -17,6 +17,8 @@ def test_benchmark_exposure_context_openapi_documents_usage_and_fields() -> None
     response_schema = schemas["BenchmarkExposureContextResponse"]
     metadata_schema = schemas["BenchmarkExposureMetadata"]
     source_quality_schema = schemas["BenchmarkExposureSourceQuality"]
+    page_request_schema = schemas["BenchmarkExposurePageRequest"]
+    page_response_schema = schemas["BenchmarkExposurePageResponse"]
 
     for field_name in [
         "portfolio_id",
@@ -32,6 +34,15 @@ def test_benchmark_exposure_context_openapi_documents_usage_and_fields() -> None
 
     assert "DAILY only" in request_schema["properties"]["frequency"]["description"]
     assert request_schema["examples"][0]["grouping_dimensions"] == ["POSITION", "SECTOR", "ASSET_CLASS", "ISSUER"]
+    assert "source-bound continuation" in page_request_schema["properties"]["page_token"]["description"]
+    assert "continuation_consistency" in page_response_schema["required"]
+    assert "BENCHMARK_EXPOSURE_PAGE_SOURCE_CHANGED" in operation["responses"]["409"]["description"]
+    assert (
+        operation["responses"]["409"]["content"]["application/json"]["example"]["error_code"]
+        == "BENCHMARK_EXPOSURE_PAGE_SOURCE_CHANGED"
+    )
+    assert "legacy_offset_unbound" in page_response_schema["properties"]["continuation_consistency"]["description"]
+    assert response_schema["examples"][0]["page"]["continuation_consistency"] == "source_bound"
 
     for field_name in [
         "valuation_date",

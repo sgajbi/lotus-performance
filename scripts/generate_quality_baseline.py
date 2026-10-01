@@ -132,12 +132,14 @@ def _collected_tests(*, root: Path = ROOT) -> str:
         text=True,
         check=False,
     )
+    if completed.returncode != 0:
+        raise RuntimeError(f"pytest collection failed (exit {completed.returncode})")
     combined = "\n".join(part for part in (completed.stdout, completed.stderr) if part)
     for line in reversed(combined.splitlines()):
         match = re.search(r"(?P<count>\d+)\s+tests?\s+collected", line)
         if match:
             return f"{match.group('count')} tests"
-    return "collection failed" if completed.returncode else "unknown"
+    raise RuntimeError("pytest collection did not report a test count")
 
 
 def collect_repository_statistics(*, root: Path = ROOT, report_date: str | None = None) -> RepositoryStatistics:

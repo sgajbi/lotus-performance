@@ -32,11 +32,11 @@ from app.services.benchmark_exposure_context_service import (
     _iter_component_exposure_points,
     _iter_component_index_ids,
     _normalized_classification_labels,
-    _page_rows,
     _requires_index_catalog,
     _retrieve_benchmark_component_series,
     build_benchmark_exposure_context,
 )
+from app.services.benchmark_exposure_continuation import page_benchmark_exposure_rows
 from core.errors import APIError
 
 
@@ -289,7 +289,9 @@ async def test_build_benchmark_exposure_context_paginates_derived_rows() -> None
     )
 
     assert len(response.rows) == 2
-    assert response.page.next_page_token == "2"
+    assert response.page.next_page_token is not None
+    assert response.page.next_page_token.startswith("v1.2.")
+    assert response.page.continuation_consistency == "source_bound"
 
 
 @pytest.mark.asyncio
@@ -894,11 +896,22 @@ def test_page_rows_rejects_invalid_page_token_inputs() -> None:
         )
     ]
 
-    with pytest.raises(APIError, match="numeric offset token"):
-        _page_rows(rows=rows, page_size=10, page_token="bad")
+    quality = BenchmarkExposureSourceQuality(status="complete", omitted_component_count=0, omitted_point_count=0)
+
+    def page_for_token(token: str) -> None:
+        page_benchmark_exposure_rows(
+            request=_request(page={"page_size": 10, "page_token": token}),
+            benchmark_id="BMK_GLOBAL_60_40",
+            tenant_id="tenant-a",
+            rows=rows,
+            source_quality=quality,
+        )
+
+    with pytest.raises(APIError, match="must be a continuation"):
+        page_for_token("bad")
 
     with pytest.raises(APIError, match="must be non-negative"):
-        _page_rows(rows=rows, page_size=10, page_token="-1")
+        page_for_token("-1")
 
 
 @pytest.mark.asyncio

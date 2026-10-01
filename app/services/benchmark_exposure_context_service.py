@@ -17,8 +17,8 @@ from app.models.benchmark_exposure_context import (
     BenchmarkExposureRow,
     BenchmarkExposureSourceQuality,
 )
-from app.observability import source_product_correlation_id
-from app.services.offset_pagination import slice_offset_page
+from app.observability import source_product_correlation_id, tenant_id_var
+from app.services.benchmark_exposure_continuation import page_benchmark_exposure_rows
 from app.services.stateful_input_service import RetrievalMetadata, StatefulInputService
 from app.services.stateful_retrieval_metadata import (
     MALFORMED_RETRIEVAL_METADATA_COUNT_REASON,
@@ -33,8 +33,6 @@ from core.errors import (
     APIUnprocessableEntityError,
 )
 
-_INVALID_OFFSET_PAGE_DETAIL = "page.page_token must be a numeric offset token returned by lotus-performance."
-_NEGATIVE_OFFSET_PAGE_DETAIL = "page.page_token must be non-negative."
 _MAX_EXPOSURE_OMISSION_DETAILS = 100
 
 
@@ -133,16 +131,17 @@ async def build_benchmark_exposure_context(
         grouping_dimensions=request.grouping_dimensions,
         classification_map=classification_map,
     )
+    page = page_benchmark_exposure_rows(
+        request=request,
+        benchmark_id=benchmark_id,
+        tenant_id=tenant_id_var.get(),
+        rows=rows,
+        source_quality=exposure_source_quality,
+    )
     if not rows:
         raise APIUnprocessableEntityError(
             f"No usable benchmark exposure rows returned for benchmark_id={benchmark_id}."
         )
-
-    paged_rows, next_page_token = _page_rows(
-        rows=rows,
-        page_size=request.page.page_size,
-        page_token=request.page.page_token,
-    )
     index_catalog_count = 1 if classification_map else 0
 
     return BenchmarkExposureContextResponse(
@@ -154,8 +153,11 @@ async def build_benchmark_exposure_context(
         window=request.window,
         frequency=request.frequency,
         reporting_currency=request.reporting_currency,
-        rows=paged_rows,
-        page=BenchmarkExposurePageResponse(next_page_token=next_page_token),
+        rows=page.rows,
+        page=BenchmarkExposurePageResponse(
+            next_page_token=page.next_page_token,
+            continuation_consistency=page.consistency,
+        ),
         metadata=_benchmark_exposure_metadata(
             request=request,
             market_payload=market_payload,
@@ -584,19 +586,3 @@ def _issuer_group_identity(
     issuer_id = labels.get("issuer_id") or "UNKNOWN"
     issuer_name = labels.get("issuer_name") or issuer_id
     return f"ISSUER_{issuer_id}", issuer_name, None
-
-
-def _page_rows(
-    *,
-    rows: list[BenchmarkExposureRow],
-    page_size: int,
-    page_token: str | None,
-) -> tuple[list[BenchmarkExposureRow], str | None]:
-    page = slice_offset_page(
-        rows,
-        page_size=page_size,
-        page_token=page_token,
-        invalid_token_detail=_INVALID_OFFSET_PAGE_DETAIL,
-        negative_token_detail=_NEGATIVE_OFFSET_PAGE_DETAIL,
-    )
-    return page.items, page.next_page_token

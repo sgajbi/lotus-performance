@@ -28,6 +28,10 @@ derived view over lotus-core index-catalog `classification_labels.issuer_id` and
 source labels. It emits request-wide `metadata.exposure_source_quality` on every page: a complete
 declaration proves no source component or point was omitted, while an incomplete declaration keeps
 valid rows but requires consumers to refuse partial economic evidence rather than renormalizing it.
+Generated exposure continuations bind admitted tenant, request scope, resolved benchmark, normalized
+rows, and omission quality; a changed read refuses later pages with a bounded conflict. Legacy
+numeric offsets remain accepted but explicitly unbound. This does not retain a historical Core
+snapshot or supply missing business dates.
 
 ## Business And Domain Responsibility
 

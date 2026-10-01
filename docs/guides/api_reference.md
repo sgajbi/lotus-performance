@@ -1008,7 +1008,8 @@ Return semantics for the workspace surface are now explicit rather than inferred
   - row weights are returned as decimal fractions where `0.60` means a 60% benchmark exposure
   - `ISSUER` grouping uses `classification_labels.issuer_id` and `issuer_name` from lotus-core index catalog records
   - `POSITION` rows carry `component_id`; aggregate `SECTOR`, `ASSET_CLASS`, and `ISSUER` rows omit `component_id`
-  - pagination uses `page.page_size` and opaque `page.next_page_token` values returned by the endpoint
+  - pagination uses `page.page_size` and opaque, source-bound `page.next_page_token` values returned by the endpoint. Each page re-reads Core and rejects a changed economic result or admitted request scope with `409 BENCHMARK_EXPOSURE_PAGE_SOURCE_CHANGED`; restart at the first page. Serving timestamps and calculation IDs do not affect continuation identity
+  - historical numeric offset inputs remain readable for compatibility but `page.continuation_consistency="legacy_offset_unbound"` warns that they cannot establish cross-page source consistency; newly issued continuations report `source_bound`
   - lineage metadata includes `source_system="lotus-core"` and `served_by="lotus-performance"`
   - malformed optional upstream `retrieval_metadata` counts default affected counters and set
     `metadata.retrieval_metadata_quality.status="degraded"` with

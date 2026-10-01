@@ -8,7 +8,7 @@
       "openApiVersion": "3.1.0"
     }
   ],
-  "generatedAt": "2026-10-01T13:06:30.433202+00:00",
+  "generatedAt": "2026-10-01T15:53:06.669376+00:00",
   "attributeCatalog": [
     {
       "semanticId": "lotus.access_classification",
@@ -1372,6 +1372,20 @@
       "preferredName": "content_type",
       "description": "Artifact media type.",
       "example": "STANDARD_VALUE",
+      "type": "string",
+      "locations": [
+        "body"
+      ],
+      "observedTypes": [
+        "string"
+      ]
+    },
+    {
+      "semanticId": "lotus.continuation_consistency",
+      "canonicalTerm": "continuation_consistency",
+      "preferredName": "continuation_consistency",
+      "description": "source_bound continuations reject a changed economic source on later pages; legacy_offset_unbound identifies a caller-supplied numeric offset that cannot do so.",
+      "example": "source_bound",
       "type": "string",
       "locations": [
         "body"
@@ -13798,6 +13812,14 @@
             "type": "string",
             "semanticId": "lotus.next_page_token",
             "attributeRef": "#/attributeCatalog/lotus.next_page_token"
+          },
+          {
+            "name": "page.continuation_consistency",
+            "location": "body",
+            "required": true,
+            "type": "string",
+            "semanticId": "lotus.continuation_consistency",
+            "attributeRef": "#/attributeCatalog/lotus.continuation_consistency"
           },
           {
             "name": "metadata",

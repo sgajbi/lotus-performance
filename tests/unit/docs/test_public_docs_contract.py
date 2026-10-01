@@ -1517,6 +1517,8 @@ def test_benchmark_exposure_context_docs_reflect_certified_contract():
     assert "`ASSET_CLASS`, and `ISSUER`" in readme
     assert "`frequency=DAILY` is the only supported v1 frequency" in api_reference
     assert "row weights are returned as decimal fractions" in api_reference
+    assert "legacy_offset_unbound" in api_reference
+    assert "source-bound next-page token" in certification
     assert "`POSITION` rows carry `component_id`" in api_reference
     assert "docs/technical/benchmark-exposure-context-endpoint-certification.md" in api_reference
     assert "docs/technical/benchmark-exposure-context-endpoint-certification.md" in _read(
