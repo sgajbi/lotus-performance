@@ -1312,6 +1312,10 @@ def test_twr_mwr_response_attribute_certification_documents_field_level_checks()
 def test_methodology_index_points_to_current_guides():
     index = _read("docs/technical/methodology_index.md")
     master_index = _read("docs/methodologies/metrics/master-index.md")
+    context = _read("REPOSITORY-ENGINEERING-CONTEXT.md")
+    guide = _read("docs/guides/mwr.md")
+    fx_contract = _read("docs/technical/mwr-fx-contract-design.md")
+    certification = _read("docs/technical/mwr-endpoint-certification.md")
     xirr_methodology = _read("docs/methodologies/metrics/metric-mwr-xirr.md")
     dietz_methodology = _read("docs/methodologies/metrics/metric-mwr-dietz.md")
     integrations_wiki = _read("wiki/Integrations.md")
@@ -1337,6 +1341,24 @@ def test_methodology_index_points_to_current_guides():
     assert "reconstruct allocation, selection, interaction" in integrations_wiki
     assert "source-normalized attribution" in index
     assert "inputs; callers should consume emitted allocation" in index
+    for artifact in (
+        context,
+        guide,
+        fx_contract,
+        certification,
+        xirr_methodology,
+        dietz_methodology,
+        integrations_wiki,
+    ):
+        assert "source_currency/reporting_currency" in artifact
+        assert "0.01" in artifact
+
+    assert "does not authenticate the named FX source" in guide
+    assert "does not authenticate the named FX source" in integrations_wiki
+    assert "not FX-source authentication" in certification
+    assert "does not retrieve an independent rate" in fx_contract
+    assert "no external rate source is authenticated" in xirr_methodology
+    assert "no external rate source is authenticated" in dietz_methodology
 
 
 def test_standalone_guide_uses_current_engine_api():

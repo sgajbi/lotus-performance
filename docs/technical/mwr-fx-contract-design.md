@@ -20,10 +20,23 @@ echo proves the signed schedule used by the engine, not FX conversion provenance
 
 Stateless callers may now supply `source_preconverted_fx_evidence` for already converted inputs.
 When present, `lotus-performance` validates complete per-input FX provenance for both market values
-and every cash flow, rejects inconsistent reporting amounts or missing evidence with HTTP 422, and
-emits `currency_evidence.currency_mode="SOURCE_PRECONVERTED_WITH_FX_EVIDENCE"` with
+and every cash flow. The declared pair must exactly equal
+`source_currency/reporting_currency`; inverse quotes and alternate pair notation are not guessed.
+Same-currency evidence requires rate `1` and exact source/reporting amount equality. Cross-currency
+evidence is admitted only when Decimal `source_amount * fx_rate` differs from `reporting_amount` by
+no more than an absolute `0.01` reporting-currency units. If either cross-currency amount is zero,
+both must be zero; otherwise their signs must agree. Evidence admission also requires canonical
+uppercase three-letter request and component currency codes plus an uppercase canonical pair. This
+restriction is scoped to requests carrying FX evidence and does not migrate legacy no-evidence
+currency-token behavior. The service rejects inconsistent or missing evidence with HTTP 422 and emits
+`currency_evidence.currency_mode="SOURCE_PRECONVERTED_WITH_FX_EVIDENCE"` with
 `conversion_evidence_status="complete_source_preconverted_fx_metadata"`. This is a source-
 preconverted evidence contract, not an in-engine FX conversion contract.
+
+Canonical-token and pair-shape schema failures return HTTP `422` before execution registration, so
+execution and response-artifact lookups both return `404`. Structurally valid evidence that fails
+amount, sign, pair-direction, or same-currency semantic reconciliation returns service-level HTTP
+`422`; the failed execution remains queryable, but no successful `response.json` artifact exists.
 
 Current stateful execution does preserve the reporting-currency context that `lotus-core` already
 publishes on `PortfolioTimeseriesInput`. The MWR response now includes `reporting_currency` and a
@@ -71,6 +84,12 @@ carry enough evidence to make the reporting-currency schedule reproducible.
 | `conversion_policy` | Policy such as transaction-date spot, valuation-date spot, or source-preconverted. |
 | `conversion_timestamp` | Timestamp at which conversion evidence was assembled. |
 | `conversion_fingerprint` | Stable fingerprint for reproducibility and lineage tie-out. |
+
+The `0.01` reconciliation tolerance is a fixed absolute admission threshold, not an inferred
+currency minor-unit rule or a relative tolerance that grows with position size. Lotus-performance
+uses only the caller-declared source amount and applied source-to-reporting rate for this consistency
+check. It does not retrieve an independent rate, invert a pair, round the supplied schedule, or
+authenticate the upstream rate source.
 
 For stateful cross-currency MWR, this evidence must come from governed upstream analytics-input
 contracts before stateful MWR can claim complete per-input FX provenance. Single-currency stateful

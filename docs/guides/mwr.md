@@ -190,6 +190,22 @@ For stateless source-preconverted schedules, callers may provide complete
   currency, FX rate, rate source/version/date, conversion policy, conversion timestamp, and
   conversion fingerprint
 
+When FX evidence is supplied, request and evidence currency tokens must be canonical uppercase
+three-letter codes. Every declared `fx_pair` must exactly equal
+`source_currency/reporting_currency`; inverse or
+alternate quote notation is not inferred. Same-currency evidence requires rate `1` and exact amount
+equality. Cross-currency evidence uses Decimal arithmetic and admits only
+`abs(source_amount * fx_rate - reporting_amount) <= 0.01` reporting-currency units; zero amounts
+must match exactly, and nonzero source/reporting amounts must have the same sign. Contradictions
+fail with HTTP `422` before complete provenance is published. Requests without FX evidence retain
+their existing currency-token compatibility behavior.
+This proves internal consistency of the submitted evidence; it does not authenticate the named FX source.
+
+Schema-invalid currency tokens or pair shapes return `422` before execution registration; execution
+and response-artifact lookups therefore return `404`. Structurally valid evidence with a semantic
+contradiction returns service-level `422`, retains a queryable failed execution, and does not retain
+a successful response artifact.
+
 For cross-endpoint currency vocabulary, use the
 [RFC-020 multi-currency support matrix](../technical/rfc-020-multi-currency-support-matrix.md).
 

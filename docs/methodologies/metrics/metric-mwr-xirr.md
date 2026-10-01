@@ -38,9 +38,9 @@ Money-Weighted Return via XIRR (`money_weighted_return` when method resolves to 
 - `begin_mv`, `end_mv`, and `cash_flows[].amount` must be in one reporting currency before the
   XIRR solver runs.
 - Stateless callers may supply `source_preconverted_fx_evidence` for every market value and cash
-  flow. Lotus-performance validates that the supplied reporting amounts match the MWR inputs and
-  then emits `currency_evidence` with complete per-input FX provenance; the XIRR solver still
-  operates only on the reporting-currency schedule and does not convert source amounts.
+  flow. Lotus-performance validates the declared pair and reconciles each source amount, applied
+  rate, and reporting amount using Decimal arithmetic before emitting `currency_evidence`; the XIRR
+  solver still operates only on the reporting-currency schedule and does not convert source amounts.
 - Without `source_preconverted_fx_evidence`, `cashflows_used` is schedule evidence, not FX
   conversion provenance.
 - `money_weighted_return`, `mwr_annualized`, and `holding_period_return` are percentage points.
@@ -63,6 +63,7 @@ Money-Weighted Return via XIRR (`money_weighted_return` when method resolves to 
 - `SRC_j`: optional source-currency amount supplied in `source_preconverted_fx_evidence`
 - `FX_j`: optional positive FX rate supplied in `source_preconverted_fx_evidence`
 - `RCY`: reporting currency for all MWR engine inputs
+- `FX_TOL`: fixed absolute cross-currency reconciliation tolerance, `0.01` reporting-currency units
 
 ## Methodology and Formulas
 0. Optional source-preconverted FX evidence validation:
@@ -73,12 +74,19 @@ Money-Weighted Return via XIRR (`money_weighted_return` when method resolves to 
   `currency`.
 - For each component, `reporting_amount` must equal the corresponding MWR input amount:
   `begin_mv`, `end_mv`, or `cash_flows[i].amount`.
+- `fx_pair` must exactly equal `source_currency/reporting_currency`; inverse and alternate quote
+  notation are not inferred.
 - Required FX provenance fields are `source_amount`, `source_currency`, `fx_rate`, `fx_pair`,
   `fx_rate_date`, `fx_rate_source`, `fx_rate_version`, `conversion_policy`,
   `conversion_timestamp`, and `conversion_fingerprint`.
-- If `source_currency == reporting_currency`, `fx_rate` must equal `1`.
+- If `source_currency == reporting_currency`, `fx_rate` must equal `1` and `source_amount` must
+  exactly equal `reporting_amount`.
+- Otherwise `abs(source_amount * fx_rate - reporting_amount) <= FX_TOL`. A zero source or reporting
+  amount requires both amounts to be zero; nonzero amounts must have the same sign. Evidence-bearing
+  requests and components use canonical uppercase three-letter currency codes. The fixed absolute tolerance is not scaled by amount and
+  is not an inferred currency minor-unit rule.
 - These checks produce response provenance only; no source amount is converted inside the XIRR
-  engine.
+  engine and no external rate source is authenticated.
 
 1. Cash-flow vector construction (`calculate_money_weighted_return`):
 - `S` is the resolved measurement start date. In stateful mode it is the requested

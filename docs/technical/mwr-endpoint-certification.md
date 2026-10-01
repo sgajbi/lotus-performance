@@ -35,7 +35,12 @@ for that TWR lens.
 - `emit_cashflows_used=true` returns the exact signed cash-flow schedule used by the calculation.
 - `source_preconverted_fx_evidence` is optional for stateless requests whose inputs were converted
   upstream; when supplied, the endpoint validates complete per-input FX provenance and returns it
-  in `currency_evidence` without performing in-engine FX conversion.
+  in `currency_evidence` without performing in-engine FX conversion. Pair text must exactly match
+  `source_currency/reporting_currency`; same-currency rate and amounts must be `1` and exactly equal;
+  cross-currency Decimal multiplication must reconcile within an absolute `0.01`
+  reporting-currency-unit tolerance, with zero amounts matching exactly and nonzero signs agreeing.
+  Evidence-bearing requests require canonical uppercase three-letter request/component currencies
+  and the exact uppercase pair; no-evidence compatibility is unchanged.
 - `solver` controls searched annual-rate bounds, root scan density, tolerance, and maximum
   bisection iterations.
 
@@ -48,6 +53,15 @@ Stateless source-preconverted FX evidence fails closed when the evidence does no
 reporting-currency MWR inputs. This protects downstream consumers from accepting a mixed-currency
 story that cannot be reproduced from the submitted market values, cash flows, rate metadata, policy,
 timestamp, and conversion fingerprint.
+
+This is an internal consistency certification, not FX-source authentication. The service does not
+look up a second rate, infer an inverse quote, or certify that the named vendor/fixing supplied the
+evidence. A schema-invalid request, including a noncanonical evidence currency token or pair shape,
+returns HTTP `422` before workflow registration; both the execution lookup and `response.json`
+artifact lookup return `404`. Well-formed evidence that semantically contradicts the MWR inputs
+returns service-level HTTP `422` after registration; its execution remains retrievable with
+`status="failed"`, while the successful `response.json` artifact lookup returns `404`. Neither
+rejection path can publish `complete_source_preconverted_fx_metadata`.
 
 ## Upstream Integration
 

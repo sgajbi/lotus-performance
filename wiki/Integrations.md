@@ -1,5 +1,17 @@
 # Integrations
 
+## Reader Map
+
+This page describes the currently supported upstream, downstream, and operator integration
+contracts for `lotus-performance`. Contract-specific evidence and limitations are stated in the
+corresponding flow sections; planned integrations are not presented as runtime-ready behavior.
+
+Current scope and evidence posture:
+
+- use **Upstream dependencies** and **Contract grouping** for system boundaries;
+- use the TWR, MWR, contribution, and attribution source-flow sections for analytics ownership;
+- use the operator sections for execution, lineage, recovery, and runtime evidence.
+
 ## Downstream consumers
 
 Primary downstream consumers include:
@@ -79,7 +91,16 @@ Current MWR inputs are a single reporting-currency schedule. Gateway, Workbench,
 support tooling must not infer FX rates, conversion policy, or source-currency provenance from the
 legacy `cashflows_used` echo. Stateless callers may provide complete
 `source_preconverted_fx_evidence`; when present, downstream consumers should preserve the emitted
-`currency_evidence` and must not recalculate FX conversion or MWR locally.
+`currency_evidence` and must not recalculate FX conversion or MWR locally. Performance admits that
+evidence only when request/component currencies are canonical uppercase three-letter codes, the
+exact declared `source_currency/reporting_currency` pair agrees, same-currency rate and amounts
+are exactly consistent, and cross-currency Decimal multiplication reconciles within the fixed
+absolute `0.01` reporting-currency-unit tolerance with exact zero pairing and matching nonzero
+signs. The uppercase restriction is scoped to evidence-bearing requests. This validates submitted evidence consistency;
+it does not authenticate the named FX source or infer inverse quotes.
+Schema-invalid evidence tokens fail before execution registration, leaving execution and response
+artifact lookups at `404`; semantic contradictions retain a failed execution but no successful
+response artifact.
 Stateful single-currency MWR emits `not_required_single_currency_inputs` when source and reporting
 currencies match; cross-currency stateful MWR keeps the missing per-input FX metadata posture until
 the upstream source contract publishes rate, policy, version, and fingerprint evidence.

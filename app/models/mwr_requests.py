@@ -14,6 +14,10 @@ from engine.mwr_controls import (
     xirr_solver_work_is_admitted,
 )
 
+SOURCE_PRECONVERTED_FX_REPORTING_AMOUNT_TOLERANCE = Decimal("0.01")
+ISO_CURRENCY_CODE_PATTERN = r"^[A-Z]{3}$"
+FX_PAIR_PATTERN = r"^[A-Z]{3}/[A-Z]{3}$"
+
 
 class CashFlow(BaseModel):
     """Represents a single cash flow with its date and amount."""
@@ -25,12 +29,37 @@ class CashFlow(BaseModel):
 class MWRSourcePreconvertedFXComponent(BaseModel):
     """Per-input FX provenance for a value that was converted before MWR execution."""
 
-    source_amount: Decimal = Field(description="Amount in the source currency before upstream conversion.")
-    source_currency: str = Field(description="Currency of the source amount before upstream conversion.")
-    reporting_amount: Decimal = Field(description="Amount supplied to MWR in the reporting currency.")
-    reporting_currency: str = Field(description="Reporting currency used by the MWR calculation.")
+    source_amount: Decimal = Field(
+        allow_inf_nan=False,
+        description=(
+            "Finite amount in the source currency before upstream conversion. For cross-currency evidence, "
+            "source_amount multiplied by fx_rate must reconcile to reporting_amount within an absolute 0.01 "
+            "reporting-currency-unit tolerance."
+        ),
+    )
+    source_currency: str = Field(
+        pattern=ISO_CURRENCY_CODE_PATTERN,
+        description="Canonical uppercase three-letter currency code of the source amount before upstream conversion.",
+    )
+    reporting_amount: Decimal = Field(
+        allow_inf_nan=False,
+        description=(
+            "Finite amount supplied to MWR in the reporting currency. Same-currency evidence requires exact "
+            "source/reporting amount equality; cross-currency evidence uses the documented absolute 0.01 tolerance."
+        ),
+    )
+    reporting_currency: str = Field(
+        pattern=ISO_CURRENCY_CODE_PATTERN,
+        description="Canonical uppercase three-letter reporting currency used by the MWR calculation.",
+    )
     fx_rate: Decimal = Field(gt=0, description="Positive source-to-reporting FX rate applied upstream.")
-    fx_pair: str = Field(description="Currency pair used for upstream conversion, for example EUR/USD.")
+    fx_pair: str = Field(
+        pattern=FX_PAIR_PATTERN,
+        description=(
+            "Exact source-to-reporting currency pair, formed as source_currency/reporting_currency, for example "
+            "EUR/USD. Inverse quotes and alternative pair notation are not inferred."
+        ),
+    )
     fx_rate_date: date = Field(description="Date of the FX rate used for upstream conversion.")
     fx_rate_source: str = Field(description="Authoritative source of the FX rate.")
     fx_rate_version: str = Field(description="Version, snapshot, or fixing identifier for the FX rate.")
@@ -122,6 +151,22 @@ class MoneyWeightedReturnRequestBase(BaseModel):
             "it does not convert source-currency amounts inside the MWR engine."
         ),
     )
+
+    @model_validator(mode="after")
+    def validate_fx_evidence_request_currency_tokens(self) -> "MoneyWeightedReturnRequestBase":
+        if self.source_preconverted_fx_evidence is None:
+            return self
+        for field_name, value in (("currency", self.currency), ("report_ccy", self.report_ccy)):
+            if value is not None and not _is_canonical_currency_code(value):
+                raise ValueError(
+                    f"{field_name} must be a canonical uppercase three-letter currency code when "
+                    "source_preconverted_fx_evidence is supplied"
+                )
+        return self
+
+
+def _is_canonical_currency_code(value: str) -> bool:
+    return len(value) == 3 and value.isascii() and value.isalpha() and value == value.upper()
 
 
 class MoneyWeightedReturnRequest(MoneyWeightedReturnRequestBase):

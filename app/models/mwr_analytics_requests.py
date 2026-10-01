@@ -8,6 +8,87 @@ from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 from app.models.mwr_requests import CashFlow, MoneyWeightedReturnRequest, MoneyWeightedReturnRequestBase
 
+MWR_STATELESS_SOURCE_FX_REQUEST_EXAMPLE = {
+    "calculation_id": "2f4f3e0e-6e0e-4e0e-8e0e-2f4f3e0e6e0e",
+    "portfolio_id": "DEMO_DPM_EUR_001",
+    "input_mode": "stateless",
+    "mwr_method": "DIETZ",
+    "as_of": "2025-12-31",
+    "start_date": "2025-01-01",
+    "currency": "EUR",
+    "report_ccy": "USD",
+    "stateless_input": {
+        "begin_mv": 110000.0,
+        "end_mv": 126500.0,
+        "cash_flows": [{"amount": 5500.0, "date": "2025-06-30"}],
+    },
+    "source_preconverted_fx_evidence": {
+        "evidence_scope": "stateless_mwr_source_preconverted",
+        "market_values": [
+            {
+                "value_role": "beginning_market_value",
+                "source_amount": 100000.0,
+                "source_currency": "EUR",
+                "reporting_amount": 110000.0,
+                "reporting_currency": "USD",
+                "fx_rate": 1.1,
+                "fx_pair": "EUR/USD",
+                "fx_rate_date": "2025-01-01",
+                "fx_rate_source": "ECB_FIXING",
+                "fx_rate_version": "ECB-2025-01-01",
+                "conversion_policy": "valuation-date-close",
+                "conversion_timestamp": "2025-01-01T17:00:00Z",
+                "conversion_fingerprint": "fx-begin-example",
+            },
+            {
+                "value_role": "ending_market_value",
+                "source_amount": 115000.0,
+                "source_currency": "EUR",
+                "reporting_amount": 126500.0,
+                "reporting_currency": "USD",
+                "fx_rate": 1.1,
+                "fx_pair": "EUR/USD",
+                "fx_rate_date": "2025-12-31",
+                "fx_rate_source": "ECB_FIXING",
+                "fx_rate_version": "ECB-2025-12-31",
+                "conversion_policy": "valuation-date-close",
+                "conversion_timestamp": "2025-12-31T17:00:00Z",
+                "conversion_fingerprint": "fx-end-example",
+            },
+        ],
+        "cash_flows": [
+            {
+                "cash_flow_index": 0,
+                "cash_flow_date": "2025-06-30",
+                "source_amount": 5000.0,
+                "source_currency": "EUR",
+                "reporting_amount": 5500.0,
+                "reporting_currency": "USD",
+                "fx_rate": 1.1,
+                "fx_pair": "EUR/USD",
+                "fx_rate_date": "2025-06-30",
+                "fx_rate_source": "ECB_FIXING",
+                "fx_rate_version": "ECB-2025-06-30",
+                "conversion_policy": "cash-flow-date-close",
+                "conversion_timestamp": "2025-06-30T17:00:00Z",
+                "conversion_fingerprint": "fx-cashflow-example",
+            }
+        ],
+    },
+}
+
+MWR_STATEFUL_REQUEST_EXAMPLE = {
+    "calculation_id": "3f4f3e0e-6e0e-4e0e-8e0e-2f4f3e0e6e0e",
+    "portfolio_id": "PB_SG_GLOBAL_BAL_001",
+    "input_mode": "stateful",
+    "mwr_method": "XIRR",
+    "as_of": "2025-12-31",
+    "start_date": "2025-01-01",
+    "currency": "USD",
+    "report_ccy": "USD",
+    "stateful_input": {"window_start_date": "2025-01-01"},
+}
+
 
 class MWRInputMode(str, Enum):
     STATELESS = "stateless"
@@ -107,6 +188,11 @@ def _stateful_mwr_payload_issue(
 
 
 class MoneyWeightedReturnAnalyticsRequest(MoneyWeightedReturnRequestBase):
+    model_config = ConfigDict(
+        extra="forbid",
+        json_schema_extra={"examples": [MWR_STATELESS_SOURCE_FX_REQUEST_EXAMPLE, MWR_STATEFUL_REQUEST_EXAMPLE]},
+    )
+
     input_mode: MWRInputMode = Field(
         default=MWRInputMode.STATELESS,
         description="Execution mode for money-weighted return analytics.",
