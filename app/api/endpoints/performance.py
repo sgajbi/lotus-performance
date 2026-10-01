@@ -189,6 +189,12 @@ async def get_twr_result(calculation_id: UUID, request: Request) -> PerformanceR
         "cash-flow schedule; callers with upstream-converted source-currency inputs may supply complete "
         "`source_preconverted_fx_evidence` for every market value and cash flow so the response records "
         "validated FX provenance while the MWR engine still calculates on reporting-currency amounts. "
+        "Evidence-bearing request/component currencies must be canonical uppercase three-letter codes. "
+        "Each declared pair must exactly match source_currency/reporting_currency; same-currency evidence "
+        "requires rate 1 and exact amount equality; cross-currency source_amount multiplied by fx_rate must "
+        "reconcile within an absolute 0.01 reporting-currency-unit tolerance with matching nonzero signs. "
+        "No-evidence currency-token compatibility is unchanged. The service does not infer "
+        "inverse quotes or authenticate the named upstream FX source. "
         'Use `input_mode="stateful"` for lotus-core-sourced portfolio analytics input; '
         "lotus-performance reads the query-control-plane portfolio timeseries, normalizes explicit external "
         "cash flows and cross-observation carry-forward capital breaks into canonical MWR inputs, keeps "

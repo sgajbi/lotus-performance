@@ -598,6 +598,7 @@ def test_calculate_mwr_endpoint_accepts_complete_stateless_source_fx_evidence(cl
     assert response.status_code == 200
     body = response.json()
     assert body["input_mode"] == "stateless"
+    assert body["money_weighted_return"] == pytest.approx(9.75609756097561)
     assert body["reporting_currency"] == "USD"
     evidence = body["currency_evidence"]
     assert evidence["currency_mode"] == "SOURCE_PRECONVERTED_WITH_FX_EVIDENCE"
@@ -612,6 +613,15 @@ def test_calculate_mwr_endpoint_accepts_complete_stateless_source_fx_evidence(cl
     assert evidence["market_values_used"][0]["reporting_currency"] == "USD"
     assert evidence["cashflow_evidence"][0]["conversion_fingerprint"] == "fx-cashflow-001"
     assert evidence["cashflow_evidence"][0]["source_components"] == []
+
+    openapi = client.get("/openapi.json").json()
+    generated_example = openapi["paths"]["/performance/mwr"]["post"]["requestBody"]["content"]["application/json"][
+        "example"
+    ]
+    generated_example["calculation_id"] = str(uuid4())
+    example_response = client.post("/performance/mwr", json=generated_example)
+    assert example_response.status_code == 200
+    assert example_response.json()["money_weighted_return"] == pytest.approx(9.75609756097561)
 
 
 def test_calculate_mwr_endpoint_rejects_inconsistent_stateless_fx_evidence(client):
@@ -683,6 +693,166 @@ def test_calculate_mwr_endpoint_rejects_inconsistent_stateless_fx_evidence(clien
 
     assert response.status_code == 422
     assert "reporting_amount must match the MWR input amount" in response.json()["detail"]
+
+    contradictory_components = [
+        (
+            "market_values",
+            0,
+            {"source_amount": 1},
+            "market_values[beginning_market_value].source_amount multiplied by fx_rate",
+        ),
+        ("market_values", 0, {"fx_pair": "GBP/JPY"}, "fx_pair must equal EUR/USD"),
+        (
+            "market_values",
+            0,
+            {"source_amount": 100000, "source_currency": "USD", "fx_rate": 1, "fx_pair": "USD/USD"},
+            "source_amount must equal reporting_amount when source_currency equals reporting_currency",
+        ),
+        (
+            "market_values",
+            1,
+            {"source_amount": 1},
+            "market_values[ending_market_value].source_amount multiplied by fx_rate",
+        ),
+        ("cash_flows", 0, {"source_amount": 1}, "cash_flows[0].source_amount multiplied by fx_rate"),
+        (
+            "cash_flows",
+            0,
+            {"source_amount": 5000, "reporting_amount": -5500},
+            "source_amount and reporting_amount must have the same sign",
+        ),
+        (
+            "cash_flows",
+            0,
+            {"source_amount": "0.001", "reporting_amount": "-0.001", "fx_rate": "1"},
+            "source_amount and reporting_amount must have the same sign",
+        ),
+    ]
+    for component_group, component_index, overrides, expected_detail in contradictory_components:
+        calculation_id = str(uuid4())
+        contradictory_payload = _complete_stateless_source_fx_payload(calculation_id)
+        contradictory_payload["source_preconverted_fx_evidence"][component_group][component_index].update(overrides)
+        if component_group == "cash_flows" and "reporting_amount" in overrides:
+            contradictory_payload["cash_flows"][component_index]["amount"] = overrides["reporting_amount"]
+
+        contradictory_response = client.post("/performance/mwr", json=contradictory_payload)
+
+        assert contradictory_response.status_code == 422
+        assert expected_detail in contradictory_response.json()["detail"]
+        execution = client.get(f"/performance/executions/{calculation_id}")
+        assert execution.status_code == 200
+        assert execution.json()["status"] == "failed"
+        persisted_response = client.get(f"/performance/lineage/{calculation_id}/artifacts/response.json")
+        assert persisted_response.status_code == 404
+
+    invalid_currency_tokens = (
+        (("currency",), "eur"),
+        (("currency",), " EUR "),
+        (("report_ccy",), "usd"),
+        (("report_ccy",), " USD "),
+        (("source_preconverted_fx_evidence", "market_values", 0, "source_currency"), "eur"),
+        (("source_preconverted_fx_evidence", "market_values", 0, "source_currency"), " EUR "),
+        (("source_preconverted_fx_evidence", "market_values", 0, "reporting_currency"), "usd"),
+        (("source_preconverted_fx_evidence", "market_values", 0, "reporting_currency"), " USD "),
+        (("source_preconverted_fx_evidence", "market_values", 0, "fx_pair"), "eur/USD"),
+        (("source_preconverted_fx_evidence", "market_values", 0, "fx_pair"), " EUR/USD "),
+    )
+    for invalid_path, invalid_value in invalid_currency_tokens:
+        calculation_id = str(uuid4())
+        invalid_payload = _complete_stateless_source_fx_payload(calculation_id)
+        target = invalid_payload
+        for path_part in invalid_path[:-1]:
+            target = target[path_part]
+        target[invalid_path[-1]] = invalid_value
+
+        invalid_response = client.post("/performance/mwr", json=invalid_payload)
+
+        assert invalid_response.status_code == 422
+        execution = client.get(f"/performance/executions/{calculation_id}")
+        assert execution.status_code == 404
+        persisted_response = client.get(f"/performance/lineage/{calculation_id}/artifacts/response.json")
+        assert persisted_response.status_code == 404
+
+    no_evidence_lowercase_payload = {
+        "calculation_id": str(uuid4()),
+        "portfolio_id": "MWR_LEGACY_LOWERCASE_CURRENCY",
+        "begin_mv": 100.0,
+        "end_mv": 110.0,
+        "as_of": "2025-12-31",
+        "start_date": "2025-01-01",
+        "currency": "usd",
+        "cash_flows": [],
+        "mwr_method": "DIETZ",
+    }
+    no_evidence_response = client.post("/performance/mwr", json=no_evidence_lowercase_payload)
+    assert no_evidence_response.status_code == 200
+
+
+def _complete_stateless_source_fx_payload(calculation_id: str) -> dict:
+    return {
+        "calculation_id": calculation_id,
+        "portfolio_id": "MWR_FX_EVIDENCE_RECONCILIATION",
+        "begin_mv": 110000.0,
+        "end_mv": 126500.0,
+        "as_of": "2025-12-31",
+        "start_date": "2025-01-01",
+        "currency": "EUR",
+        "report_ccy": "USD",
+        "cash_flows": [{"amount": 5500.0, "date": "2025-06-30"}],
+        "mwr_method": "DIETZ",
+        "source_preconverted_fx_evidence": {
+            "market_values": [
+                {
+                    "value_role": "beginning_market_value",
+                    "source_amount": 100000.0,
+                    "source_currency": "EUR",
+                    "reporting_amount": 110000.0,
+                    "reporting_currency": "USD",
+                    "fx_rate": 1.1,
+                    "fx_pair": "EUR/USD",
+                    "fx_rate_date": "2025-01-01",
+                    "fx_rate_source": "ECB_FIXING",
+                    "fx_rate_version": "ECB-2025-01-01",
+                    "conversion_policy": "valuation-date-close",
+                    "conversion_timestamp": "2025-01-01T17:00:00Z",
+                    "conversion_fingerprint": "fx-begin-reconciliation",
+                },
+                {
+                    "value_role": "ending_market_value",
+                    "source_amount": 115000.0,
+                    "source_currency": "EUR",
+                    "reporting_amount": 126500.0,
+                    "reporting_currency": "USD",
+                    "fx_rate": 1.1,
+                    "fx_pair": "EUR/USD",
+                    "fx_rate_date": "2025-12-31",
+                    "fx_rate_source": "ECB_FIXING",
+                    "fx_rate_version": "ECB-2025-12-31",
+                    "conversion_policy": "valuation-date-close",
+                    "conversion_timestamp": "2025-12-31T17:00:00Z",
+                    "conversion_fingerprint": "fx-end-reconciliation",
+                },
+            ],
+            "cash_flows": [
+                {
+                    "cash_flow_index": 0,
+                    "cash_flow_date": "2025-06-30",
+                    "source_amount": 5000.0,
+                    "source_currency": "EUR",
+                    "reporting_amount": 5500.0,
+                    "reporting_currency": "USD",
+                    "fx_rate": 1.1,
+                    "fx_pair": "EUR/USD",
+                    "fx_rate_date": "2025-06-30",
+                    "fx_rate_source": "ECB_FIXING",
+                    "fx_rate_version": "ECB-2025-06-30",
+                    "conversion_policy": "cash-flow-date-close",
+                    "conversion_timestamp": "2025-06-30T17:00:00Z",
+                    "conversion_fingerprint": "fx-cashflow-reconciliation",
+                }
+            ],
+        },
+    }
 
 
 def test_mwr_stateful_hashes_follow_resolved_inputs(client, monkeypatch):

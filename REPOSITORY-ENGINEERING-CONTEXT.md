@@ -80,9 +80,17 @@ Current repository posture:
    manage consumers a source-owned portfolio-level FX attribution total instead of requiring local
    row summation.
 10. stateless MWR accepts complete `source_preconverted_fx_evidence`, validates per-input FX
-    provenance for beginning market value, ending market value, and every cash flow, and emits
-    `currency_evidence` while preserving the engine boundary that MWR calculates one
-    reporting-currency schedule and does not perform in-engine FX conversion.
+    provenance for beginning market value, ending market value, and every cash flow. The declared
+    request/component currencies must be canonical uppercase three-letter codes and the declared
+    pair must exactly match `source_currency/reporting_currency`; same-currency evidence requires
+    rate `1` and exact amount equality; cross-currency `source_amount * fx_rate` must reconcile to
+    `reporting_amount` within an absolute Decimal tolerance of `0.01` reporting-currency units,
+    with exact zero pairing and sign agreement for nonzero amounts. This strict token policy is
+    scoped to evidence-bearing requests; legacy no-evidence behavior is unchanged.
+    Schema-invalid tokens fail before registration and leave execution/artifact lookups at `404`;
+    structurally valid semantic contradictions retain a failed execution but no response artifact.
+    Valid evidence is emitted in `currency_evidence` while preserving the engine boundary that MWR
+    calculates one reporting-currency schedule and does not perform in-engine FX conversion.
 11. stateful contribution and attribution normalize source `position_currency`,
     `cash_flow_currency`, and `report_ccy` values by trimming whitespace and uppercasing before
     mixed-currency FX gating or cash-flow/position-currency comparison. Blank source currency

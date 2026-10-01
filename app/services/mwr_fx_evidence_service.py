@@ -5,6 +5,7 @@ from decimal import Decimal
 from typing import Any, Literal
 
 from app.models.mwr_requests import (
+    SOURCE_PRECONVERTED_FX_REPORTING_AMOUNT_TOLERANCE,
     MoneyWeightedReturnRequest,
     MWRMarketValueFXEvidence,
     MWRSourcePreconvertedFXComponent,
@@ -62,6 +63,9 @@ def _validated_source_preconverted_fx_inputs(
     request: MoneyWeightedReturnRequest,
     evidence: MWRSourcePreconvertedFXEvidence,
 ) -> _SourcePreconvertedMWRFXEvidenceInputs:
+    _validate_canonical_currency_code(request.currency, location="currency")
+    if request.report_ccy is not None:
+        _validate_canonical_currency_code(request.report_ccy, location="report_ccy")
     reporting_currency = request.report_ccy or request.currency
     beginning_evidence, ending_evidence = _validated_market_value_evidence(evidence.market_values)
     cash_flows_by_index = _validated_cash_flow_evidence_by_index(
@@ -86,6 +90,11 @@ def _validated_source_preconverted_fx_inputs(
         ending_market_value=ending_evidence,
         cash_flows_by_index=cash_flows_by_index,
     )
+
+
+def _validate_canonical_currency_code(value: str, *, location: str) -> None:
+    if len(value) != 3 or not value.isascii() or not value.isalpha() or value != value.upper():
+        _raise_fx_evidence_error(f"{location} must be a canonical uppercase three-letter currency code")
 
 
 def _market_value_response_evidence_items(
@@ -229,13 +238,47 @@ def _validate_component(
     reporting_currency: str,
     location: str,
 ) -> None:
+    _validate_component_required_text_fields(item, location=location)
     if item.reporting_currency != reporting_currency:
         _raise_fx_evidence_error(f"{location}.reporting_currency must match the MWR reporting currency")
     if _decimal(item.reporting_amount) != reporting_amount:
         _raise_fx_evidence_error(f"{location}.reporting_amount must match the MWR input amount")
-    if item.source_currency == item.reporting_currency and _decimal(item.fx_rate) != Decimal("1"):
+    expected_pair = f"{item.source_currency}/{item.reporting_currency}"
+    if item.fx_pair != expected_pair:
+        _raise_fx_evidence_error(f"{location}.fx_pair must equal {expected_pair}")
+    if item.source_currency == item.reporting_currency:
+        _validate_same_currency_component(item, location=location)
+        return
+    _validate_cross_currency_component(item, location=location)
+
+
+def _validate_same_currency_component(item: MWRSourcePreconvertedFXComponent, *, location: str) -> None:
+    if _decimal(item.fx_rate) != Decimal("1"):
         _raise_fx_evidence_error(f"{location}.fx_rate must be 1 when source_currency equals reporting_currency")
-    _validate_component_required_text_fields(item, location=location)
+    if _decimal(item.source_amount) != _decimal(item.reporting_amount):
+        _raise_fx_evidence_error(
+            f"{location}.source_amount must equal reporting_amount when source_currency equals reporting_currency"
+        )
+
+
+def _validate_cross_currency_component(item: MWRSourcePreconvertedFXComponent, *, location: str) -> None:
+    source_amount = _decimal(item.source_amount)
+    reporting_amount = _decimal(item.reporting_amount)
+    if (source_amount == 0) != (reporting_amount == 0):
+        _raise_fx_evidence_error(
+            f"{location}.source_amount and reporting_amount must both be zero when either converted amount is zero"
+        )
+    if source_amount != 0 and reporting_amount != 0 and (source_amount < 0) != (reporting_amount < 0):
+        _raise_fx_evidence_error(
+            f"{location}.source_amount and reporting_amount must have the same sign for cross-currency evidence"
+        )
+    expected_reporting_amount = source_amount * _decimal(item.fx_rate)
+    difference = abs(expected_reporting_amount - reporting_amount)
+    if difference > SOURCE_PRECONVERTED_FX_REPORTING_AMOUNT_TOLERANCE:
+        _raise_fx_evidence_error(
+            f"{location}.source_amount multiplied by fx_rate must match reporting_amount within "
+            f"{SOURCE_PRECONVERTED_FX_REPORTING_AMOUNT_TOLERANCE} reporting-currency units"
+        )
 
 
 def _validate_component_required_text_fields(item: MWRSourcePreconvertedFXComponent, *, location: str) -> None:

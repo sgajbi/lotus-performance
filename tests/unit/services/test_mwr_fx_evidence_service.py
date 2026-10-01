@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import pytest
+from pydantic import ValidationError
 
 from app.models.mwr_requests import MoneyWeightedReturnRequest
 from app.services.mwr_fx_evidence_service import (
@@ -98,6 +99,80 @@ def test_source_preconverted_mwr_currency_evidence_maps_valid_payload():
     assert evidence.market_values_used[0].conversion_status == "source_preconverted_with_fx_evidence"
     assert evidence.cashflow_evidence[0].conversion_fingerprint == "fx-cashflow"
 
+    for fx_rate in ("1.1", "1.099999901", "1.0999999"):
+        beginning = _market_value("beginning_market_value", 100000.0, 110000.0, "2025-01-01", "fx-begin")
+        beginning["fx_rate"] = fx_rate
+        rounded_evidence = build_source_preconverted_mwr_currency_evidence(
+            _request_with_evidence(
+                source_preconverted_fx_evidence={
+                    "market_values": [
+                        beginning,
+                        _market_value("ending_market_value", 115000.0, 126500.0, "2025-12-31", "fx-end"),
+                    ],
+                    "cash_flows": [_cash_flow()],
+                }
+            )
+        )
+        assert rounded_evidence is not None
+        assert rounded_evidence.conversion_evidence_status == "complete_source_preconverted_fx_metadata"
+
+    for reporting_amount, component in (
+        (-5500.0, _cash_flow(source_amount=-5000.0, reporting_amount=-5500.0)),
+        (0.0, _cash_flow(source_amount=0.0, reporting_amount=0.0)),
+        (
+            5500.0,
+            _cash_flow(
+                source_amount=5500.0,
+                source_currency="USD",
+                reporting_amount=5500.0,
+                reporting_currency="USD",
+                fx_rate=1,
+                fx_pair="USD/USD",
+            ),
+        ),
+    ):
+        signed_evidence = build_source_preconverted_mwr_currency_evidence(
+            _request_with_evidence(
+                cash_flows=[{"amount": reporting_amount, "date": "2025-06-30"}],
+                source_preconverted_fx_evidence={
+                    "market_values": [
+                        _market_value("beginning_market_value", 100000.0, 110000.0, "2025-01-01", "fx-begin"),
+                        _market_value("ending_market_value", 115000.0, 126500.0, "2025-12-31", "fx-end"),
+                    ],
+                    "cash_flows": [component],
+                },
+            )
+        )
+        assert signed_evidence is not None
+        assert signed_evidence.cashflow_evidence[0].reporting_amount == reporting_amount
+
+    for invalid_path, invalid_value in (
+        (("currency",), "eur"),
+        (("currency",), " EUR "),
+        (("report_ccy",), "usd"),
+        (("report_ccy",), " USD "),
+        (("source_preconverted_fx_evidence", "market_values", 0, "source_currency"), "eur"),
+        (("source_preconverted_fx_evidence", "market_values", 0, "source_currency"), " EUR "),
+        (("source_preconverted_fx_evidence", "market_values", 0, "reporting_currency"), "usd"),
+        (("source_preconverted_fx_evidence", "market_values", 0, "reporting_currency"), " USD "),
+        (("source_preconverted_fx_evidence", "market_values", 0, "fx_pair"), "eur/USD"),
+        (("source_preconverted_fx_evidence", "market_values", 0, "fx_pair"), " EUR/USD "),
+    ):
+        invalid_payload = _request_with_evidence().model_dump(mode="python")
+        target = invalid_payload
+        for path_part in invalid_path[:-1]:
+            target = target[path_part]
+        target[invalid_path[-1]] = invalid_value
+        with pytest.raises(ValidationError):
+            MoneyWeightedReturnRequest.model_validate(invalid_payload)
+
+    legacy_lowercase_request = _request_with_evidence(
+        currency="eur",
+        report_ccy="usd",
+        source_preconverted_fx_evidence=None,
+    )
+    assert build_source_preconverted_mwr_currency_evidence(legacy_lowercase_request) is None
+
 
 def test_cashflow_response_evidence_helpers_preserve_source_conversion_metadata():
     request = _request_with_evidence()
@@ -150,16 +225,10 @@ def test_market_value_response_evidence_items_preserve_valuation_dates_and_fx_pr
 
 
 def test_validate_component_required_text_fields_reports_missing_fields():
-    request = _request_with_evidence(
-        source_preconverted_fx_evidence={
-            "market_values": [
-                _market_value("beginning_market_value", 100000.0, 110000.0, "2025-01-01", "fx-begin"),
-                _market_value("ending_market_value", 115000.0, 126500.0, "2025-12-31", "fx-end"),
-            ],
-            "cash_flows": [_cash_flow(fx_pair=" ", conversion_fingerprint="")],
-        }
+    request = _request_with_evidence()
+    component = request.source_preconverted_fx_evidence.cash_flows[0].model_copy(
+        update={"fx_pair": " ", "conversion_fingerprint": ""}
     )
-    component = request.source_preconverted_fx_evidence.cash_flows[0]
 
     with pytest.raises(APIError, match="fx_pair, conversion_fingerprint") as exc:
         _validate_component_required_text_fields(component, location="source_preconverted_fx_evidence.cash_flows[0]")
@@ -223,30 +292,82 @@ def test_source_preconverted_mwr_currency_evidence_rejects_incomplete_collection
 
 
 @pytest.mark.parametrize(
-    "cash_flow_override, expected_message",
+    "component_target, component_override, expected_message",
     [
-        ({"cash_flow_date": "2025-07-01"}, "cash_flow_date must match"),
-        ({"reporting_currency": "CHF"}, "reporting_currency must match"),
-        ({"reporting_amount": 5501.0}, "reporting_amount must match"),
+        ("cash_flow", {"cash_flow_date": "2025-07-01"}, "cash_flow_date must match"),
+        ("cash_flow", {"reporting_currency": "CHF"}, "reporting_currency must match"),
+        ("cash_flow", {"reporting_amount": 5501.0}, "reporting_amount must match"),
         (
-            {"source_currency": "USD", "reporting_currency": "USD", "fx_rate": 1.1},
+            "cash_flow",
+            {"source_currency": "USD", "reporting_currency": "USD", "fx_rate": 1.1, "fx_pair": "USD/USD"},
             "fx_rate must be 1 when source_currency equals reporting_currency",
         ),
-        ({"conversion_policy": " "}, "missing required FX evidence fields"),
+        ("cash_flow", {"conversion_policy": " "}, "missing required FX evidence fields"),
+        ("beginning", {"source_amount": 1}, "source_amount multiplied by fx_rate must match reporting_amount"),
+        ("beginning", {"fx_pair": "GBP/JPY"}, "fx_pair must equal EUR/USD"),
+        (
+            "beginning",
+            {"source_amount": 100000, "source_currency": "USD", "fx_rate": 1, "fx_pair": "USD/USD"},
+            "source_amount must equal reporting_amount when source_currency equals reporting_currency",
+        ),
+        ("ending", {"source_amount": 1}, "source_amount multiplied by fx_rate must match reporting_amount"),
+        ("beginning", {"fx_rate": "1.099999899"}, "within 0.01 reporting-currency units"),
+        ("cash_flow", {"source_amount": 1, "reporting_amount": 0}, "must both be zero"),
+        (
+            "negative_cash_flow",
+            {"source_amount": 5000, "reporting_amount": -5500},
+            "source_amount and reporting_amount must have the same sign",
+        ),
+        (
+            "small_sign_cash_flow",
+            {"source_amount": "0.001", "reporting_amount": "-0.001", "fx_rate": "1"},
+            "source_amount and reporting_amount must have the same sign",
+        ),
+        ("second_cash_flow", {"source_amount": -1}, r"cash_flows\[1\].source_amount multiplied by fx_rate"),
     ],
 )
 def test_source_preconverted_mwr_currency_evidence_rejects_inconsistent_components(
-    cash_flow_override,
+    component_target,
+    component_override,
     expected_message,
 ):
+    beginning = _market_value("beginning_market_value", 100000.0, 110000.0, "2025-01-01", "fx-begin")
+    ending = _market_value("ending_market_value", 115000.0, 126500.0, "2025-12-31", "fx-end")
+    cash_flows = [_cash_flow()]
+    request_cash_flows = [{"amount": 5500.0, "date": "2025-06-30"}]
+    if component_target == "beginning":
+        beginning.update(component_override)
+    elif component_target == "ending":
+        ending.update(component_override)
+    elif component_target == "second_cash_flow":
+        request_cash_flows.append({"amount": -2200.0, "date": "2025-07-31"})
+        second_cash_flow = _cash_flow(
+            cash_flow_index=1,
+            cash_flow_date="2025-07-31",
+            source_amount=-2000,
+            reporting_amount=-2200,
+            fx_rate_date="2025-07-31",
+            conversion_timestamp="2025-07-31T17:00:00Z",
+            conversion_fingerprint="fx-cashflow-2",
+        )
+        second_cash_flow.update(component_override)
+        cash_flows.append(second_cash_flow)
+    elif component_target == "negative_cash_flow":
+        request_cash_flows[0]["amount"] = -5500.0
+        cash_flows[0].update(component_override)
+    elif component_target == "small_sign_cash_flow":
+        request_cash_flows[0]["amount"] = -0.001
+        cash_flows[0].update(component_override)
+    else:
+        if component_override.get("reporting_amount") == 0:
+            request_cash_flows[0]["amount"] = 0
+        cash_flows[0].update(component_override)
     request = _request_with_evidence(
+        cash_flows=request_cash_flows,
         source_preconverted_fx_evidence={
-            "market_values": [
-                _market_value("beginning_market_value", 100000.0, 110000.0, "2025-01-01", "fx-begin"),
-                _market_value("ending_market_value", 115000.0, 126500.0, "2025-12-31", "fx-end"),
-            ],
-            "cash_flows": [_cash_flow(**cash_flow_override)],
-        }
+            "market_values": [beginning, ending],
+            "cash_flows": cash_flows,
+        },
     )
 
     with pytest.raises(APIError, match=expected_message) as exc:
