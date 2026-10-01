@@ -5,8 +5,9 @@ TWR FX Return (`portfolio.summary.period_return.fx`)
 - Endpoint: `POST /performance/twr`
 - Request mode: stateless payload
 - Availability condition: FX leg exists only when engine FX path is active:
-  - `currency_mode` provided and not `BASE_ONLY`
+  - `currency_mode="BOTH"`
   - `fx.rates[]` present
+  - source and reporting currencies differ
 - If FX path is inactive, `portfolio.summary.period_return.fx` is `0.0`.
 - Cross-endpoint currency semantics are governed by
   [RFC-020 multi-currency support matrix](../../technical/rfc-020-multi-currency-support-matrix.md).
@@ -29,8 +30,8 @@ TWR FX Return (`portfolio.summary.period_return.fx`)
 - Internal rate ratios are decimal values before conversion to pp.
 
 ## Variable Dictionary
-- `S_t`: start FX rate for day `t` (rate at `t-1` after forward-fill reindex)
-- `E_t`: end FX rate for day `t` (rate at `t` after forward-fill reindex)
+- `S_t`: exact prior-calendar-date EOD FX rate for day `t`
+- `E_t`: exact same-date EOD FX rate for day `t`
 - `h_t`: hedge ratio for day `t` (default `0` when missing)
 - `f_t`: unhedged daily FX return in decimal
 - `f_t_hedged`: hedged daily FX return in decimal
@@ -59,7 +60,7 @@ TWR FX Return (`portfolio.summary.period_return.fx`)
 
 ## Step-by-Step Computation
 1. Validate base request and resolve periods.
-2. Activate FX path only if `currency_mode != BASE_ONLY` and `fx` block exists.
+2. Activate FX path only if `currency_mode="BOTH"`, an `fx` block exists, and source and reporting currencies differ.
 3. Construct start/end rates from the exact prior/current EOD fixings for each valuation date.
 4. Compute daily `fx_ror` (and apply hedge if provided).
 5. Compute slice-level `portfolio.summary.period_return.base` and `portfolio.summary.period_return.local`.
@@ -69,6 +70,10 @@ TWR FX Return (`portfolio.summary.period_return.fx`)
 - Same base endpoint validation and error handling.
 - Inactive FX inputs leave local/FX columns absent. An active cross-currency path requires non-empty coverage.
 - Missing, non-positive, non-finite, wrong-currency, or partial daily rate evidence is refused.
+- Missing exact dates, an empty usable rate set, or wrong-source rate rows are deterministic invalid inputs and
+  return a non-retryable `400`; non-positive and non-finite rate values fail request validation with `422`.
+- `DECIMAL_STRICT` converts caller-supplied FX and hedge-ratio numbers through their decimal string representation
+  and keeps local, effective FX, and combined return arithmetic in the Decimal domain.
 - If local period denominator is zero in decomposition formula, FX period return is forced to `0.0`.
 
 ## Configuration Options
@@ -87,6 +92,10 @@ Supporting fields used in decomposition identity:
 - `results_by_period.<period>.portfolio.summary.period_return.local`
 - top-level `currency_evidence`, including `applied_report_ccy`, `applied_pairs`, `fx_coverage`, and
   `fixing_policy`; `meta.report_ccy` remains the request echo.
+- daily `calculation_evidence.local_daily_return`, `fx_daily_return`, `portfolio_currency`, and
+  `reporting_currency`. For a calculated day, `performance_pnl / adjusted_capital * 100` reproduces
+  `local_daily_return`, while
+  `((1 + local_daily_return/100) * (1 + fx_daily_return/100) - 1) * 100` reproduces `daily_return`.
 
 ## Worked Example
 Assume for period `ITD` after linking daily rows:

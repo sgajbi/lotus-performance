@@ -7,7 +7,8 @@ from typing import Any
 import numpy as np
 import pandas as pd
 
-from engine.config import EngineConfig
+from engine.config import EngineConfig, PrecisionMode
+from engine.exceptions import InvalidEngineInputError
 from engine.rules import (
     calculate_account_reset_reason,
     calculate_initial_resets,
@@ -120,7 +121,9 @@ def _apply_local_daily_return_division(
         if safe_division_mask.any():
             local_ror.loc[safe_division_mask] = numerator[safe_division_mask] / denominator[safe_division_mask]
         return
-    np.divide(numerator, denominator, out=local_ror.to_numpy(copy=False), where=safe_division_mask)
+    if safe_division_mask.any():
+        mask = safe_division_mask.to_numpy(dtype=bool, copy=False)
+        local_ror.loc[safe_division_mask] = np.divide(numerator[mask], denominator[mask])
 
 
 def _should_decompose_currency(config: EngineConfig | None) -> bool:
@@ -150,15 +153,19 @@ def _fx_rate_series(config: EngineConfig) -> pd.Series:
         raise ValueError("FX daily return calculation requires FX configuration.")
     fx_rates_df = pd.DataFrame([rate.model_dump() for rate in config.fx.rates])
     if fx_rates_df.empty:
-        raise ValueError("FX daily return calculation requires at least one FX rate.")
+        raise InvalidEngineInputError("FX daily return calculation requires at least one FX rate.")
     if config.source_currency:
         normalized_source = config.source_currency.strip().upper()
         fx_rates_df = fx_rates_df[fx_rates_df["ccy"].str.strip().str.upper() == normalized_source]
     if fx_rates_df.empty:
-        raise ValueError(f"FX daily return calculation has no rates for source currency {config.source_currency}.")
+        raise InvalidEngineInputError(
+            f"FX daily return calculation has no rates for source currency {config.source_currency}."
+        )
     duplicate_key = ["date", "ccy"] if "ccy" in fx_rates_df.columns else ["date"]
     fx_rates_df.drop_duplicates(subset=duplicate_key, keep="last", inplace=True)
     fx_rates_df["date"] = pd.to_datetime(fx_rates_df["date"])
+    if config.precision_mode == PrecisionMode.DECIMAL_STRICT:
+        fx_rates_df["rate"] = fx_rates_df["rate"].map(lambda value: Decimal(str(value)))
     return fx_rates_df.set_index("date")["rate"].sort_index()
 
 
@@ -169,7 +176,7 @@ def _require_exact_fx_coverage(*, df: pd.DataFrame, config: EngineConfig, all_ra
     if not missing_dates:
         return
     formatted_dates = ", ".join(value.date().isoformat() for value in missing_dates)
-    raise ValueError(
+    raise InvalidEngineInputError(
         f"FX daily return calculation requires exact EOD prior/current rates for "
         f"{config.source_currency}/{config.report_ccy}; missing dates: {formatted_dates}."
     )
@@ -184,8 +191,15 @@ def _apply_hedging_to_fx_return(
     if hedge_series is None:
         return fx_ror
 
-    hedge_ratios = _hedge_ratios_for_dates(df[PortfolioColumns.PERF_DATE.value], hedge_series)
-    return fx_ror * (1.0 - hedge_ratios)
+    is_decimal_mode = config.precision_mode == PrecisionMode.DECIMAL_STRICT
+    hedge_ratios = _hedge_ratios_for_dates(
+        df[PortfolioColumns.PERF_DATE.value],
+        hedge_series,
+        source_currency=config.source_currency,
+        is_decimal_mode=is_decimal_mode,
+    )
+    one = Decimal(1) if is_decimal_mode else 1.0
+    return fx_ror * (one - hedge_ratios)
 
 
 def _ratio_hedge_series(config: EngineConfig) -> list[Any] | None:
@@ -194,14 +208,48 @@ def _ratio_hedge_series(config: EngineConfig) -> list[Any] | None:
     return list(config.hedging.series)
 
 
-def _hedge_ratios_for_dates(perf_dates: pd.Series, hedge_series: list[Any]) -> pd.Series:
+def _hedge_ratios_for_dates(
+    perf_dates: pd.Series,
+    hedge_series: list[Any],
+    *,
+    source_currency: str | None = None,
+    is_decimal_mode: bool = False,
+) -> pd.Series:
+    zero = Decimal(0) if is_decimal_mode else 0.0
     hedge_series_df = pd.DataFrame([series.model_dump() for series in hedge_series])
     if hedge_series_df.empty:
-        return pd.Series(0.0, index=perf_dates.index)
+        return _zero_hedge_ratios(perf_dates, zero=zero, is_decimal_mode=is_decimal_mode)
 
     hedge_series_df["date"] = pd.to_datetime(hedge_series_df["date"])
+    hedge_series_df = _source_currency_hedge_rows(hedge_series_df, source_currency=source_currency)
+    if hedge_series_df.empty:
+        return _zero_hedge_ratios(perf_dates, zero=zero, is_decimal_mode=is_decimal_mode)
+    hedge_series_df = hedge_series_df.drop_duplicates(subset=["date"], keep="last")
+    if is_decimal_mode:
+        hedge_series_df["hedge_ratio"] = hedge_series_df["hedge_ratio"].map(lambda value: Decimal(str(value)))
     hedge_map = hedge_series_df.set_index("date")["hedge_ratio"]
-    return perf_dates.map(hedge_map).fillna(0.0)
+    return perf_dates.map(hedge_map).fillna(zero)
+
+
+def _zero_hedge_ratios(
+    perf_dates: pd.Series,
+    *,
+    zero: Decimal | float,
+    is_decimal_mode: bool,
+) -> pd.Series:
+    dtype = object if is_decimal_mode else None
+    return pd.Series([zero] * len(perf_dates), index=perf_dates.index, dtype=dtype)
+
+
+def _source_currency_hedge_rows(
+    hedge_series_df: pd.DataFrame,
+    *,
+    source_currency: str | None,
+) -> pd.DataFrame:
+    if not source_currency or "ccy" not in hedge_series_df.columns:
+        return hedge_series_df
+    normalized_source = source_currency.strip().upper()
+    return hedge_series_df[hedge_series_df["ccy"].str.strip().str.upper() == normalized_source]
 
 
 def calculate_cumulative_ror(df: pd.DataFrame, config):

@@ -24,9 +24,10 @@ Current `lotus-performance` TWR supports:
 - top-level `currency_evidence` proving the applied reporting currency, FX pairs, coverage, source,
   and fixing policy; `meta.report_ccy` remains a request echo
 - reset and no-investment-period diagnostics
-- daily calculation evidence with denominator basis, flow timing, signed adjusted capital,
-  performance P&L, calculation status, linkability status, episode status, reason codes, and
-  warnings
+- daily calculation evidence with denominator basis, flow timing, portfolio/reporting currency
+  labels, signed adjusted capital, portfolio-currency performance P&L, local return, effective
+  post-hedge FX return, reporting return, calculation status, linkability status, episode status,
+  reason codes, and warnings
 - stateful source-quality evidence for missing valuation points, unsupported cash-flow labels, and
   stale source observations; raw counts remain visible when identical source duplicates collapse,
   while conflicting daily economics are rejected before calculation
@@ -48,7 +49,7 @@ understand whether the return is usable, explainable, benchmark-aware, and sourc
 | Product question | Implementation-backed answer |
 | --- | --- |
 | What return was earned? | Period and breakdown returns are emitted under `results_by_period`. |
-| How was each daily return produced? | Portfolio daily rows carry `calculation_evidence` with method, denominator, flow timing, adjusted capital, performance P&L, status, reasons, and warnings. |
+| How was each daily return produced? | Portfolio daily rows carry `calculation_evidence` with method, denominator, flow timing, portfolio/reporting currency basis, adjusted capital, performance P&L, local return, effective post-hedge FX return, reporting return, status, reasons, and warnings. |
 | Can the daily return be geometrically linked? | `linkability_status` distinguishes `linkable`, `reset_boundary`, `not_calculated`, and `not_linkable`. |
 | Did the portfolio path remain economically continuous? | `episode_status` identifies normal open periods, reset boundaries, no-investment rows, and rows outside the governed period. |
 | Is the source data trustworthy enough? | `calculation_supportability` and, for stateful TWR, `source_quality_evidence` expose source freshness and degraded-state posture. |

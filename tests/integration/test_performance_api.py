@@ -810,6 +810,10 @@ def test_calculate_twr_endpoint_legacy_path_and_diagnostics(client):
     assert no_flow_evidence["end_mv"] == 101000.0
     assert no_flow_evidence["adjusted_capital"] == 100000.0
     assert no_flow_evidence["performance_pnl"] == 1000.0
+    assert no_flow_evidence["portfolio_currency"] == "USD"
+    assert no_flow_evidence["reporting_currency"] == "USD"
+    assert no_flow_evidence["local_daily_return"] == pytest.approx(1.0)
+    assert no_flow_evidence["fx_daily_return"] == pytest.approx(0.0)
     assert no_flow_evidence["daily_return"] == pytest.approx(1.0)
     assert no_flow_evidence["status"] == "calculated"
     assert no_flow_evidence["reason_codes"] == ["FLOW_NEUTRALIZED_DAILY_RETURN"]
@@ -987,6 +991,236 @@ def test_calculate_twr_endpoint_multi_currency(client):
     rejected = client.post("/performance/twr", json=payload)
     assert rejected.status_code == 422
     assert rejected.json()["error_code"] == "FX_REPORT_CURRENCY_REQUIRED"
+
+
+@pytest.mark.parametrize("precision_mode", ["FLOAT64", "DECIMAL_STRICT"])
+def test_twr_cross_currency_daily_evidence_reconciles_local_fx_and_reporting_returns(client, precision_mode):
+    payload = {
+        "portfolio_id": f"TWR_FX_EVIDENCE_{precision_mode}",
+        "currency": "eur" if precision_mode == "DECIMAL_STRICT" else "EUR",
+        "precision_mode": precision_mode,
+        "performance_start_date": "2026-01-05",
+        "metric_basis": "GROSS",
+        "report_end_date": "2026-01-07",
+        "analyses": [{"period": "SI", "frequencies": ["daily", "monthly"]}],
+        "annualization": {"enabled": False, "basis": "ACT/365"},
+        "valuation_points": [
+            {"perf_date": "2026-01-05", "begin_mv": 100.0, "end_mv": 110.0},
+            {"perf_date": "2026-01-06", "begin_mv": 110.0, "bod_cf": 11.0, "end_mv": 108.9},
+            {"perf_date": "2026-01-07", "begin_mv": 108.9, "eod_cf": 5.0, "end_mv": 135.68},
+        ],
+        "currency_mode": "BOTH",
+        "report_ccy": "usd" if precision_mode == "DECIMAL_STRICT" else "USD",
+        "fx": {
+            "rates": [
+                {"date": "2026-01-04", "ccy": "EUR", "rate": 1.0},
+                {"date": "2026-01-05", "ccy": "EUR", "rate": 1.02},
+                {"date": "2026-01-06", "ccy": "EUR", "rate": 0.969},
+                {"date": "2026-01-07", "ccy": "EUR", "rate": 1.0659},
+            ]
+        },
+    }
+
+    response = client.post("/performance/twr", json=payload)
+
+    assert response.status_code == 200, response.text
+    portfolio = response.json()["results_by_period"]["SI"]["portfolio"]
+    daily_items = portfolio["breakdowns"]["daily"]
+    expected_local = [10.0, -10.0, 20.0]
+    expected_fx = [2.0, -5.0, 10.0]
+    expected_base = [12.2, -14.5, 32.0]
+    for item, local_return, fx_return, base_return in zip(
+        daily_items, expected_local, expected_fx, expected_base, strict=True
+    ):
+        evidence = item["calculation_evidence"]
+        assert evidence["portfolio_currency"] == "EUR"
+        assert evidence["reporting_currency"] == "USD"
+        assert evidence["local_daily_return"] == pytest.approx(local_return)
+        assert evidence["fx_daily_return"] == pytest.approx(fx_return)
+        assert evidence["performance_pnl"] / evidence["adjusted_capital"] * 100 == pytest.approx(local_return)
+        assert evidence["daily_return"] == pytest.approx(base_return)
+        assert item["period_return"]["base"] == pytest.approx(base_return)
+        assert ((1 + local_return / 100) * (1 + fx_return / 100) - 1) * 100 == pytest.approx(base_return)
+
+    summary = portfolio["summary"]["period_return"]
+    monthly = portfolio["breakdowns"]["monthly"][0]["period_return"]
+    for return_value in (summary, monthly):
+        assert return_value["local"] == pytest.approx(18.8)
+        assert return_value["fx"] == pytest.approx(6.59)
+        assert return_value["base"] == pytest.approx(26.62892)
+
+
+@pytest.mark.parametrize("currency_mode", ["BASE_ONLY", "LOCAL_ONLY"])
+def test_twr_inactive_fx_mode_labels_daily_evidence_in_portfolio_currency(client, currency_mode):
+    response = client.post(
+        "/performance/twr",
+        json={
+            "portfolio_id": f"TWR_INACTIVE_FX_{currency_mode}",
+            "currency": "eur",
+            "performance_start_date": "2026-01-05",
+            "metric_basis": "GROSS",
+            "report_end_date": "2026-01-05",
+            "analyses": [{"period": "SI", "frequencies": ["daily"]}],
+            "valuation_points": [{"perf_date": "2026-01-05", "begin_mv": 100.0, "end_mv": 110.0}],
+            "currency_mode": currency_mode,
+            "report_ccy": "USD",
+        },
+    )
+
+    assert response.status_code == 200, response.text
+    evidence = response.json()["results_by_period"]["SI"]["portfolio"]["breakdowns"]["daily"][0]["calculation_evidence"]
+    assert evidence["portfolio_currency"] == "EUR"
+    assert evidence["reporting_currency"] == "EUR"
+    assert evidence["local_daily_return"] == pytest.approx(10.0)
+    assert evidence["fx_daily_return"] == pytest.approx(0.0)
+    assert evidence["daily_return"] == pytest.approx(10.0)
+
+
+@pytest.mark.parametrize("precision_mode", ["FLOAT64", "DECIMAL_STRICT"])
+@pytest.mark.parametrize(
+    ("scenario", "hedge_series", "expected_fx", "expected_base"),
+    [
+        (
+            "wrong_currency",
+            [{"date": "2026-01-05", "ccy": "JPY", "hedge_ratio": 0.5}],
+            2.0,
+            12.2,
+        ),
+        (
+            "duplicate_source_currency",
+            [
+                {"date": "2026-01-05", "ccy": "EUR", "hedge_ratio": 0.25},
+                {"date": "2026-01-05", "ccy": "eur", "hedge_ratio": 0.5},
+            ],
+            1.0,
+            11.1,
+        ),
+    ],
+)
+def test_twr_applies_only_deterministic_source_currency_hedge(
+    client,
+    precision_mode,
+    scenario,
+    hedge_series,
+    expected_fx,
+    expected_base,
+):
+    response = client.post(
+        "/performance/twr",
+        json={
+            "portfolio_id": f"TWR_HEDGE_SCOPE_{scenario}_{precision_mode}",
+            "currency": "EUR",
+            "precision_mode": precision_mode,
+            "performance_start_date": "2026-01-05",
+            "metric_basis": "GROSS",
+            "report_end_date": "2026-01-05",
+            "analyses": [{"period": "SI", "frequencies": ["daily"]}],
+            "valuation_points": [{"perf_date": "2026-01-05", "begin_mv": 100.0, "end_mv": 110.0}],
+            "currency_mode": "BOTH",
+            "report_ccy": "USD",
+            "fx": {
+                "rates": [
+                    {"date": "2026-01-04", "ccy": "EUR", "rate": 1.0},
+                    {"date": "2026-01-05", "ccy": "EUR", "rate": 1.02},
+                ]
+            },
+            "hedging": {
+                "mode": "RATIO",
+                "series": hedge_series,
+            },
+        },
+    )
+
+    assert response.status_code == 200, response.text
+    item = response.json()["results_by_period"]["SI"]["portfolio"]["breakdowns"]["daily"][0]
+    evidence = item["calculation_evidence"]
+    assert evidence["local_daily_return"] == pytest.approx(10.0)
+    assert evidence["fx_daily_return"] == pytest.approx(expected_fx)
+    assert evidence["daily_return"] == pytest.approx(expected_base)
+    assert item["period_return"]["base"] == pytest.approx(expected_base)
+
+
+@pytest.mark.parametrize("precision_mode", ["FLOAT64", "DECIMAL_STRICT"])
+@pytest.mark.parametrize(
+    ("metric_basis", "expected_pnl", "expected_local_return", "expected_reporting_return"),
+    [
+        ("GROSS", 11.0, 11.0 / 120.0 * 100, 11.0 / 120.0 * 100),
+        ("NET", 10.0, 10.0 / 120.0 * 100, 10.0 / 120.0 * 100),
+    ],
+)
+def test_twr_zero_fx_evidence_preserves_flow_and_fee_basis(
+    client,
+    precision_mode,
+    metric_basis,
+    expected_pnl,
+    expected_local_return,
+    expected_reporting_return,
+):
+    response = client.post(
+        "/performance/twr",
+        json={
+            "portfolio_id": f"TWR_ZERO_FX_{metric_basis}_{precision_mode}",
+            "currency": "EUR",
+            "precision_mode": precision_mode,
+            "performance_start_date": "2026-01-05",
+            "metric_basis": metric_basis,
+            "report_end_date": "2026-01-05",
+            "analyses": [{"period": "SI", "frequencies": ["daily"]}],
+            "valuation_points": [
+                {
+                    "perf_date": "2026-01-05",
+                    "begin_mv": 100.0,
+                    "bod_cf": 20.0,
+                    "eod_cf": -5.0,
+                    "mgmt_fees": -1.0,
+                    "end_mv": 126.0,
+                }
+            ],
+            "currency_mode": "BOTH",
+            "report_ccy": "USD",
+            "fx": {
+                "rates": [
+                    {"date": "2026-01-04", "ccy": "EUR", "rate": 1.02},
+                    {"date": "2026-01-05", "ccy": "EUR", "rate": 1.02},
+                ]
+            },
+        },
+    )
+
+    assert response.status_code == 200, response.text
+    item = response.json()["results_by_period"]["SI"]["portfolio"]["breakdowns"]["daily"][0]
+    evidence = item["calculation_evidence"]
+    assert evidence["adjusted_capital"] == pytest.approx(120.0)
+    assert evidence["performance_pnl"] == pytest.approx(expected_pnl)
+    assert evidence["local_daily_return"] == pytest.approx(expected_local_return)
+    assert evidence["fx_daily_return"] == pytest.approx(0.0)
+    assert evidence["daily_return"] == pytest.approx(expected_reporting_return)
+    assert item["period_return"]["base"] == pytest.approx(expected_reporting_return)
+
+
+@pytest.mark.parametrize("precision_mode", ["FLOAT64", "DECIMAL_STRICT"])
+def test_twr_missing_exact_fx_coverage_is_typed_non_retryable_input_failure(client, precision_mode):
+    response = client.post(
+        "/performance/twr",
+        json={
+            "portfolio_id": f"TWR_MISSING_FX_{precision_mode}",
+            "currency": "EUR",
+            "precision_mode": precision_mode,
+            "performance_start_date": "2026-01-05",
+            "metric_basis": "GROSS",
+            "report_end_date": "2026-01-05",
+            "analyses": [{"period": "SI", "frequencies": ["daily"]}],
+            "valuation_points": [{"perf_date": "2026-01-05", "begin_mv": 100.0, "end_mv": 110.0}],
+            "currency_mode": "BOTH",
+            "report_ccy": "USD",
+            "fx": {"rates": [{"date": "2026-01-05", "ccy": "EUR", "rate": 1.02}]},
+        },
+    )
+
+    assert response.status_code == 400
+    assert response.json()["error_code"] == "INVALID_REQUEST"
+    assert response.json()["retryable"] is False
+    assert "missing dates: 2026-01-04" in response.json()["detail"]
 
 
 def test_calculate_twr_endpoint_with_data_policy(client):

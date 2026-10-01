@@ -238,7 +238,7 @@ def test_reproducibility_docs_govern_calculation_engine_version_identity():
     for document in (reproducibility, service_reference, ci_quality_gates, wiki_validation):
         assert "CALCULATION_ENGINE_VERSION" in document
 
-    assert "lotus-performance-calculation-engine.v5" in reproducibility
+    assert "lotus-performance-calculation-engine.v6" in reproducibility
     assert "not the deployable build version" in reproducibility
     assert "make calculation-engine-version-gate" in reproducibility
     assert "APP_VERSION" in reproducibility
@@ -734,6 +734,11 @@ def test_twr_guide_uses_current_request_shape():
     assert "benchmark_context" in guide
     assert "summary.cumulative_return" in guide
     assert "calculation_evidence" in guide
+    assert "`portfolio_currency` labels" in guide
+    assert "`reporting_currency` labels" in guide
+    assert "`local_daily_return` is independently reproducible" in guide
+    assert "`fx_daily_return` is the effective post-hedge FX leg" in guide
+    assert "previously persisted response artifacts remain readable" in guide
     assert "absolute_begin_mv_plus_bod_cf" in guide
     assert "Beginning-of-day flows adjust invested capital" in guide
     assert "`linkability_status` explains whether the day can participate in geometric linking" in guide
@@ -1906,6 +1911,8 @@ def test_twr_inspection_checks_guide_lists_current_check_inventory():
     assert "RELATIVE_PERFORMANCE_BENCHMARK_BLOCK_MISSING" in guide
     assert "BENCHMARK_RELATIVE_PERFORMANCE_BLOCK_MISSING" in guide
     assert "RELATIVE_BREAKDOWN_BUCKET_ALIGNMENT_MISMATCH" in guide
+    assert "DAILY_CALCULATION_EVIDENCE_MISMATCH" in guide
+    assert "effective FX bridge to reporting return" in guide
     assert "WEEKEND_OBSERVATIONS_PRESENT" in guide
     assert "STALE_VALUATION_SERIES_DETECTED" in guide
     assert "NONPOSITIVE_DAILY_CAPITAL_BASE_DETECTED" in guide

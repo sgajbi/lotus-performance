@@ -1,7 +1,7 @@
 # Lotus Performance Test Taxonomy Inventory
 
 Report date: 2026-10-01
-Branch: `fix/555-557-valuation-observation-admission`
+Branch: `fix/553-554-twr-fx-evidence`
 Mode: regression-blocking test taxonomy inventory; `make quality-test-taxonomy-gate` enforces
 minimum API/runtime and contract/governance breadth plus the current uncategorized-test ceiling.
 
@@ -23,9 +23,9 @@ python scripts/python_test_taxonomy_inventory.py --limit 30 --min-api-runtime-te
 | Metric | Value |
 | --- | ---: |
 | Test modules inventoried | 330 |
-| Test functions inventoried | 3974 |
-| Integration/API/runtime test functions | 794 |
-| Contract/governance test functions | 195 |
+| Test functions inventoried | 3992 |
+| Integration/API/runtime test functions | 799 |
+| Contract/governance test functions | 196 |
 
 ## Test Functions By Suite
 
@@ -33,8 +33,8 @@ python scripts/python_test_taxonomy_inventory.py --limit 30 --min-api-runtime-te
 | --- | ---: | ---: |
 | benchmarks | 10 | 42 |
 | e2e | 1 | 21 |
-| integration | 28 | 385 |
-| unit | 291 | 3526 |
+| integration | 28 | 390 |
+| unit | 291 | 3539 |
 
 ## Test Functions By Family
 
@@ -44,10 +44,10 @@ above does sum to it, because a module belongs to exactly one suite.
 
 | Family | Test functions |
 | --- | ---: |
-| analytics_domain | 1945 |
-| api_or_runtime | 794 |
-| contract_or_governance | 195 |
-| observability_or_readiness | 567 |
+| analytics_domain | 1957 |
+| api_or_runtime | 799 |
+| contract_or_governance | 196 |
+| observability_or_readiness | 568 |
 | quality_or_security | 268 |
 | uncategorized | 635 |
 
@@ -64,27 +64,27 @@ above does sum to it, because a module belongs to exactly one suite.
 | 7 | `tests/unit/app/test_openapi_enrichment.py` | unit | 61 | api_or_runtime |
 | 8 | `tests/unit/engine/test_attribution.py` | unit | 59 | analytics_domain |
 | 9 | `tests/unit/services/test_twr_inspection_source_economics.py` | unit | 58 | analytics_domain |
-| 10 | `tests/unit/services/test_workspace_summary_service.py` | unit | 56 | analytics_domain |
-| 11 | `tests/unit/services/test_compute_executor_worker.py` | unit | 55 | observability_or_readiness |
-| 12 | `tests/unit/services/test_stateful_input_service.py` | unit | 55 | analytics_domain |
-| 13 | `tests/integration/test_contribution_api.py` | integration | 54 | analytics_domain, api_or_runtime |
-| 14 | `tests/unit/app/test_contribution_endpoint_helpers.py` | unit | 52 | analytics_domain, api_or_runtime |
-| 15 | `tests/integration/test_performance_api.py` | integration | 51 | api_or_runtime |
-| 16 | `tests/unit/engine/test_mwr.py` | unit | 51 | analytics_domain |
-| 17 | `tests/unit/services/test_twr_inspection_calculation_consistency.py` | unit | 51 | analytics_domain |
+| 10 | `tests/integration/test_performance_api.py` | integration | 56 | api_or_runtime |
+| 11 | `tests/unit/services/test_workspace_summary_service.py` | unit | 56 | analytics_domain |
+| 12 | `tests/unit/services/test_compute_executor_worker.py` | unit | 55 | observability_or_readiness |
+| 13 | `tests/unit/services/test_stateful_input_service.py` | unit | 55 | analytics_domain |
+| 14 | `tests/integration/test_contribution_api.py` | integration | 54 | analytics_domain, api_or_runtime |
+| 15 | `tests/unit/services/test_twr_inspection_calculation_consistency.py` | unit | 53 | analytics_domain |
+| 16 | `tests/unit/app/test_contribution_endpoint_helpers.py` | unit | 52 | analytics_domain, api_or_runtime |
+| 17 | `tests/unit/engine/test_mwr.py` | unit | 51 | analytics_domain |
 | 18 | `tests/unit/services/test_twr_mode_service.py` | unit | 45 | analytics_domain |
 | 19 | `tests/unit/services/test_stateful_benchmark_input_service.py` | unit | 44 | analytics_domain |
 | 20 | `tests/unit/services/test_composite_metadata_store.py` | unit | 40 | analytics_domain |
 | 21 | `tests/unit/services/test_operator_action_lease_service.py` | unit | 40 | uncategorized |
 | 22 | `tests/unit/engine/test_contribution.py` | unit | 39 | analytics_domain |
 | 23 | `tests/unit/services/test_stateful_contribution_input_service.py` | unit | 39 | analytics_domain |
-| 24 | `tests/unit/models/test_twr_requests.py` | unit | 37 | analytics_domain |
-| 25 | `tests/unit/models/test_workspace_summary_models.py` | unit | 36 | analytics_domain |
-| 26 | `tests/unit/services/test_benchmark_exposure_context_service.py` | unit | 35 | analytics_domain |
-| 27 | `tests/unit/test_observability.py` | unit | 35 | observability_or_readiness |
-| 28 | `tests/unit/services/test_twr_inspection_reconciliation.py` | unit | 32 | analytics_domain |
-| 29 | `tests/integration/test_returns_series_api.py` | integration | 31 | analytics_domain, api_or_runtime |
-| 30 | `tests/unit/app/test_enterprise_readiness.py` | unit | 31 | observability_or_readiness |
+| 24 | `tests/unit/engine/test_ror.py` | unit | 37 | analytics_domain |
+| 25 | `tests/unit/models/test_twr_requests.py` | unit | 37 | analytics_domain |
+| 26 | `tests/unit/models/test_workspace_summary_models.py` | unit | 36 | analytics_domain |
+| 27 | `tests/unit/services/test_benchmark_exposure_context_service.py` | unit | 35 | analytics_domain |
+| 28 | `tests/unit/test_observability.py` | unit | 35 | observability_or_readiness |
+| 29 | `tests/unit/services/test_twr_inspection_reconciliation.py` | unit | 32 | analytics_domain |
+| 30 | `tests/integration/test_returns_series_api.py` | integration | 31 | analytics_domain, api_or_runtime |
 
 The #502 request-path proof added a module driving the real application over HTTP for tenant admission - admitted, absent, blank and concurrent two-tenant requests, each asserting the outbound Core call - raising inventoried modules to `317`, source test functions to `3634`, and API/runtime tests to `699`. Later review fixes in the same PR added the padded-tenant refusals and the returns-series authority regression, which are counted in those figures. Uncategorized tests are unchanged at `876`: every added module classifies as api_or_runtime, so the ceiling this gate governs was neither approached nor raised.
 
@@ -208,3 +208,10 @@ registered HTTP functions for finite-value, non-empty-history, identical-dedupli
 conflict, date normalization, and required-boundary proof across stateless, stateful, workspace,
 and direct-engine boundaries. Source test functions now measure `3,974`, API/runtime functions
 `794`, analytics-domain functions `1,945`, and the unchanged uncategorized ceiling remains `635`.
+
+The TWR strict-FX and daily currency-evidence slice plus final-review regressions add twelve
+analytics-domain source functions, five registered API/runtime functions, one
+observability/readiness inspection function, and one contract/governance documentation function.
+Source test functions now measure `3,992`, API/runtime functions `799`, contract/governance
+functions `196`, observability/readiness functions `568`, analytics-domain functions `1,957`, and
+the unchanged uncategorized ceiling remains `635`.

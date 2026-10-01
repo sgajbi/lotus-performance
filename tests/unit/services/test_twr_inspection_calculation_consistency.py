@@ -2,6 +2,8 @@ from datetime import date
 from math import isclose
 from types import SimpleNamespace
 
+import pytest
+
 from app.models.responses import (
     ComparativeAnalyticsBlock,
     ComparativeBreakdownItem,
@@ -695,6 +697,128 @@ def test_calculation_consistency_checks_daily_calculation_evidence():
 
     assert result.findings == []
     assert result.evidence_summary["daily_calculation_evidence_rows_checked"] == 1
+
+
+def test_calculation_consistency_reconciles_local_pnl_fx_bridge_and_reporting_return():
+    evidence = TWRDailyCalculationEvidence(
+        begin_mv=100.0,
+        end_mv=110.0,
+        bod_cf=0.0,
+        eod_cf=0.0,
+        external_inflows=0.0,
+        external_outflows=0.0,
+        management_fees=0.0,
+        signed_adjusted_capital=100.0,
+        adjusted_capital=100.0,
+        performance_pnl=10.0,
+        portfolio_currency="EUR",
+        reporting_currency="USD",
+        local_daily_return=10.0,
+        fx_daily_return=2.0,
+        daily_return=12.2,
+        status="calculated",
+        reason_codes=["FLOW_NEUTRALIZED_DAILY_RETURN"],
+        warnings=[],
+    )
+
+    assert (
+        _daily_calculation_evidence_mismatches(
+            evidence=evidence,
+            item=_daily_evidence_block(evidence=evidence, period_return=12.2).breakdowns[Frequency.DAILY][0],
+        )
+        == {}
+    )
+
+    evidence.local_daily_return = 9.0
+    local_mismatches = _daily_calculation_evidence_mismatches(
+        evidence=evidence,
+        item=_daily_evidence_block(evidence=evidence, period_return=12.2).breakdowns[Frequency.DAILY][0],
+    )
+    assert local_mismatches["local_daily_return"] == {"expected": 10.0, "actual": 9.0}
+    assert local_mismatches["daily_return"]["expected"] == pytest.approx(11.18)
+
+    evidence.local_daily_return = 10.0
+    evidence.fx_daily_return = 3.0
+    fx_mismatches = _daily_calculation_evidence_mismatches(
+        evidence=evidence,
+        item=_daily_evidence_block(evidence=evidence, period_return=12.2).breakdowns[Frequency.DAILY][0],
+    )
+    assert fx_mismatches["daily_return"]["expected"] == pytest.approx(13.3)
+
+    evidence.fx_daily_return = 2.0
+    evidence.daily_return = 13.0
+    base_mismatches = _daily_calculation_evidence_mismatches(
+        evidence=evidence,
+        item=_daily_evidence_block(evidence=evidence, period_return=13.0).breakdowns[Frequency.DAILY][0],
+    )
+    assert base_mismatches["daily_return"] == {"expected": pytest.approx(12.2), "actual": 13.0}
+
+
+def test_calculation_consistency_rejects_partial_currency_basis_evidence_but_accepts_legacy_absence():
+    legacy = TWRDailyCalculationEvidence(
+        begin_mv=100.0,
+        end_mv=110.0,
+        bod_cf=0.0,
+        eod_cf=0.0,
+        external_inflows=0.0,
+        external_outflows=0.0,
+        management_fees=0.0,
+        signed_adjusted_capital=100.0,
+        adjusted_capital=100.0,
+        performance_pnl=10.0,
+        daily_return=10.0,
+        status="calculated",
+        reason_codes=["FLOW_NEUTRALIZED_DAILY_RETURN"],
+        warnings=[],
+    )
+    item = _daily_evidence_block(evidence=legacy, period_return=10.0).breakdowns[Frequency.DAILY][0]
+    assert "currency_return_basis" not in _daily_calculation_evidence_mismatches(evidence=legacy, item=item)
+
+    partial = legacy.model_copy(update={"portfolio_currency": "EUR", "local_daily_return": 10.0})
+    partial_item = _daily_evidence_block(evidence=partial, period_return=10.0).breakdowns[Frequency.DAILY][0]
+    mismatch = _daily_calculation_evidence_mismatches(evidence=partial, item=partial_item)
+
+    assert mismatch["currency_return_basis"]["actual"] == {
+        "portfolio_currency": "EUR",
+        "reporting_currency": None,
+        "local_daily_return": 10.0,
+        "fx_daily_return": None,
+    }
+    assert "local_daily_return" not in mismatch
+
+    corrupt_partial = legacy.model_copy(
+        update={
+            "portfolio_currency": "EUR",
+            "reporting_currency": "USD",
+            "local_daily_return": 9.0,
+            "daily_return": 999.0,
+        }
+    )
+    corrupt_item = _daily_evidence_block(evidence=corrupt_partial, period_return=888.0).breakdowns[Frequency.DAILY][0]
+    corrupt_mismatch = _daily_calculation_evidence_mismatches(evidence=corrupt_partial, item=corrupt_item)
+
+    assert "currency_return_basis" in corrupt_mismatch
+    assert corrupt_mismatch["local_daily_return"] == {"expected": 10.0, "actual": 9.0}
+    assert corrupt_mismatch["period_return.base"] == {"expected": 999.0, "actual": 888.0}
+
+    missing_local = legacy.model_copy(
+        update={
+            "portfolio_currency": "EUR",
+            "reporting_currency": "USD",
+            "fx_daily_return": 2.0,
+            "daily_return": 999.0,
+        }
+    )
+    missing_local_item = _daily_evidence_block(evidence=missing_local, period_return=888.0).breakdowns[Frequency.DAILY][
+        0
+    ]
+    missing_local_mismatch = _daily_calculation_evidence_mismatches(
+        evidence=missing_local,
+        item=missing_local_item,
+    )
+
+    assert "currency_return_basis" in missing_local_mismatch
+    assert missing_local_mismatch["period_return.base"] == {"expected": 999.0, "actual": 888.0}
 
 
 def test_calculation_consistency_flags_daily_calculation_evidence_mismatch():

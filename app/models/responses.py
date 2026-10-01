@@ -163,11 +163,48 @@ class TWRDailyCalculationEvidence(BaseModel):
         examples=[1025000.0],
     )
     performance_pnl: NumericOutput = Field(
-        description="Flow-neutralized performance P&L numerator used for the daily return.",
+        description=(
+            "Flow-neutralized performance P&L numerator in portfolio currency used to derive local_daily_return."
+        ),
         examples=[12500.0],
     )
+    portfolio_currency: str | None = Field(
+        default=None,
+        description=(
+            "Portfolio currency of begin_mv, end_mv, cash flows, fees, adjusted capital, and performance P&L. "
+            "Null is retained only for compatibility with calculation evidence produced before currency-basis publication."
+        ),
+        examples=["EUR"],
+    )
+    reporting_currency: str | None = Field(
+        default=None,
+        description=(
+            "Currency basis of daily_return and period_return.base. Null is retained only for compatibility with "
+            "calculation evidence produced before currency-basis publication."
+        ),
+        examples=["USD"],
+    )
+    local_daily_return: NumericOutput | None = Field(
+        default=None,
+        description=(
+            "Portfolio-currency daily return in percentage-point units, reproducible as "
+            "performance_pnl / adjusted_capital * 100 when status is calculated."
+        ),
+        examples=[10.0],
+    )
+    fx_daily_return: NumericOutput | None = Field(
+        default=None,
+        description=(
+            "Effective post-hedge FX return in percentage-point units bridging local_daily_return to daily_return."
+        ),
+        examples=[2.0],
+    )
     daily_return: NumericOutput = Field(
-        description="Daily return in percentage-point output units. Example: 1.25 means 1.25%, not 125%.",
+        description=(
+            "Reporting-currency daily return in percentage-point output units. It equals "
+            "((1 + local_daily_return / 100) * (1 + fx_daily_return / 100) - 1) * 100. "
+            "Example: 1.25 means 1.25%, not 125%."
+        ),
         examples=[1.25],
     )
     status: TWRDailyCalculationEvidenceStatus = Field(

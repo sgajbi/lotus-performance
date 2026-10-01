@@ -1,12 +1,15 @@
 # tests/unit/engine/test_ror.py
+from dataclasses import replace
 from datetime import date
 from decimal import Decimal
 
 import pandas as pd
 import pytest
+from pydantic import ValidationError
 
 from core.envelope import HedgingRequestBlock
-from engine.config import EngineConfig, FXRequestBlock
+from engine.config import EngineConfig, FXRequestBlock, PrecisionMode
+from engine.exceptions import InvalidEngineInputError
 from engine.periods import get_effective_period_start_dates
 from engine.ror import (
     _apply_hedging_to_fx_return,
@@ -75,6 +78,42 @@ def sample_df():
         df[PortfolioColumns.PERF_DATE], config
     )
     return df
+
+
+def _decimal_daily_return_frame(*, end_mv: str = "110") -> pd.DataFrame:
+    return pd.DataFrame(
+        {
+            PortfolioColumns.PERF_DATE: pd.to_datetime(["2025-01-01"]),
+            PortfolioColumns.BEGIN_MV: [Decimal("100")],
+            PortfolioColumns.BOD_CF: [Decimal("0")],
+            PortfolioColumns.EOD_CF: [Decimal("0")],
+            PortfolioColumns.MGMT_FEES: [Decimal("0")],
+            PortfolioColumns.END_MV: [Decimal(end_mv)],
+            PortfolioColumns.EFFECTIVE_PERIOD_START_DATE: pd.to_datetime(["2025-01-01"]),
+        }
+    )
+
+
+def _decimal_fx_config(*, hedging: HedgingRequestBlock | None = None) -> EngineConfig:
+    return EngineConfig(
+        performance_start_date=date(2025, 1, 1),
+        report_end_date=date(2025, 1, 1),
+        metric_basis="GROSS",
+        period_type="YTD",
+        precision_mode=PrecisionMode.DECIMAL_STRICT,
+        currency_mode="BOTH",
+        source_currency="EUR",
+        report_ccy="USD",
+        fx=FXRequestBlock.model_validate(
+            {
+                "rates": [
+                    {"date": "2024-12-31", "ccy": "EUR", "rate": 1.0},
+                    {"date": "2025-01-01", "ccy": "EUR", "rate": 1.02},
+                ]
+            }
+        ),
+        hedging=hedging,
+    )
 
 
 def test_daily_ror_net_basis(sample_df):
@@ -335,6 +374,130 @@ def test_daily_ror_fx_decomposition():
     assert ror_df[PortfolioColumns.DAILY_ROR.value].iloc[1] == pytest.approx(0.06481, abs=1e-5)
 
 
+def test_daily_ror_decimal_strict_fx_decomposition_preserves_decimal_domain():
+    df = _decimal_daily_return_frame()
+    config = _decimal_fx_config()
+
+    result = calculate_daily_ror(df, metric_basis="GROSS", config=config)
+
+    assert result["local_ror"].iloc[0] == Decimal("10.0")
+    assert result["fx_ror"].iloc[0] == Decimal("2.00")
+    assert result[PortfolioColumns.DAILY_ROR.value].iloc[0] == Decimal("12.200")
+    assert all(
+        isinstance(result[column].iloc[0], Decimal)
+        for column in ("local_ror", "fx_ror", PortfolioColumns.DAILY_ROR.value)
+    )
+
+
+def test_daily_ror_decimal_strict_applies_ratio_hedge_without_leaving_decimal_domain():
+    hedging = HedgingRequestBlock.model_validate(
+        {"mode": "RATIO", "series": [{"date": "2025-01-01", "ccy": "EUR", "hedge_ratio": 0.5}]}
+    )
+
+    result = calculate_daily_ror(
+        _decimal_daily_return_frame(),
+        metric_basis="GROSS",
+        config=_decimal_fx_config(hedging=hedging),
+    )
+
+    # Raw FX return is 2%; a 50% hedge leaves 1%, and (1.10 * 1.01) - 1 = 11.1%.
+    assert result["fx_ror"].iloc[0] == Decimal("1.000")
+    assert result[PortfolioColumns.DAILY_ROR.value].iloc[0] == Decimal("11.1000")
+    assert isinstance(result["fx_ror"].iloc[0], Decimal)
+    assert isinstance(result[PortfolioColumns.DAILY_ROR.value].iloc[0], Decimal)
+
+
+@pytest.mark.parametrize("precision_mode", [PrecisionMode.FLOAT64, PrecisionMode.DECIMAL_STRICT])
+def test_daily_ror_ignores_hedge_rows_for_another_currency(precision_mode: PrecisionMode):
+    hedging = HedgingRequestBlock.model_validate(
+        {"mode": "RATIO", "series": [{"date": "2025-01-01", "ccy": "JPY", "hedge_ratio": 0.5}]}
+    )
+    config = replace(_decimal_fx_config(hedging=hedging), precision_mode=precision_mode)
+    frame = (
+        _decimal_daily_return_frame()
+        if precision_mode == PrecisionMode.DECIMAL_STRICT
+        else pd.DataFrame(
+            {
+                PortfolioColumns.PERF_DATE: pd.to_datetime(["2025-01-01"]),
+                PortfolioColumns.BEGIN_MV: [100.0],
+                PortfolioColumns.BOD_CF: [0.0],
+                PortfolioColumns.EOD_CF: [0.0],
+                PortfolioColumns.MGMT_FEES: [0.0],
+                PortfolioColumns.END_MV: [110.0],
+                PortfolioColumns.EFFECTIVE_PERIOD_START_DATE: pd.to_datetime(["2025-01-01"]),
+            }
+        )
+    )
+
+    result = calculate_daily_ror(frame, metric_basis="GROSS", config=config)
+
+    expected_fx = Decimal("2.00") if precision_mode == PrecisionMode.DECIMAL_STRICT else pytest.approx(2.0)
+    expected_base = Decimal("12.200") if precision_mode == PrecisionMode.DECIMAL_STRICT else pytest.approx(12.2)
+    assert result["fx_ror"].iloc[0] == expected_fx
+    assert result[PortfolioColumns.DAILY_ROR.value].iloc[0] == expected_base
+
+
+def test_daily_ror_decimal_strict_same_currency_does_not_require_fx_conversion():
+    config = replace(
+        _decimal_fx_config(),
+        source_currency="USD",
+        report_ccy="usd",
+        fx=FXRequestBlock.model_validate({"rates": []}),
+    )
+
+    result = calculate_daily_ror(_decimal_daily_return_frame(), metric_basis="GROSS", config=config)
+
+    assert list(result.columns) == [PortfolioColumns.DAILY_ROR.value]
+    assert result[PortfolioColumns.DAILY_ROR.value].iloc[0] == Decimal("10.0")
+
+
+@pytest.mark.parametrize(
+    ("supplied_date", "missing_date"),
+    [("2025-01-01", "2024-12-31"), ("2024-12-31", "2025-01-01")],
+)
+def test_calculate_fx_daily_return_decimal_strict_requires_exact_prior_and_current_coverage(
+    supplied_date: str,
+    missing_date: str,
+):
+    config = replace(
+        _decimal_fx_config(),
+        fx=FXRequestBlock.model_validate({"rates": [{"date": supplied_date, "ccy": "EUR", "rate": 1.02}]}),
+    )
+
+    with pytest.raises(InvalidEngineInputError, match=f"missing dates: {missing_date}"):
+        _calculate_fx_daily_return(_decimal_daily_return_frame(), config)
+
+
+def test_calculate_fx_daily_return_decimal_strict_refuses_wrong_source_currency():
+    config = replace(
+        _decimal_fx_config(),
+        fx=FXRequestBlock.model_validate(
+            {
+                "rates": [
+                    {"date": "2024-12-31", "ccy": "JPY", "rate": 0.006},
+                    {"date": "2025-01-01", "ccy": "JPY", "rate": 0.0061},
+                ]
+            }
+        ),
+    )
+
+    with pytest.raises(InvalidEngineInputError, match="no rates for source currency EUR"):
+        _calculate_fx_daily_return(_decimal_daily_return_frame(), config)
+
+
+def test_calculate_fx_daily_return_decimal_strict_refuses_empty_rate_set_as_engine_input():
+    config = replace(_decimal_fx_config(), fx=FXRequestBlock.model_validate({"rates": []}))
+
+    with pytest.raises(InvalidEngineInputError, match="requires at least one FX rate"):
+        _calculate_fx_daily_return(_decimal_daily_return_frame(), config)
+
+
+@pytest.mark.parametrize("invalid_rate", [0, -1, float("nan"), float("inf"), float("-inf")])
+def test_fx_request_model_rejects_non_positive_and_non_finite_rates_before_engine(invalid_rate: float):
+    with pytest.raises(ValidationError):
+        FXRequestBlock.model_validate({"rates": [{"date": "2025-01-01", "ccy": "EUR", "rate": invalid_rate}]})
+
+
 def test_daily_ror_fx_decomposition_with_hedging():
     """Tests that the hedge_ratio correctly dampens the calculated FX return."""
     df = pd.DataFrame(
@@ -418,6 +581,28 @@ def test_hedge_ratios_for_dates_empty_series_defaults_to_zero():
     hedge_ratios = _hedge_ratios_for_dates(perf_dates, [])
 
     assert hedge_ratios.tolist() == [0.0, 0.0]
+
+
+def test_hedge_ratios_for_dates_filters_currency_and_uses_last_duplicate_for_date():
+    hedging = HedgingRequestBlock.model_validate(
+        {
+            "mode": "RATIO",
+            "series": [
+                {"date": date(2025, 1, 1), "ccy": "JPY", "hedge_ratio": 1.0},
+                {"date": date(2025, 1, 1), "ccy": "EUR", "hedge_ratio": 0.25},
+                {"date": date(2025, 1, 1), "ccy": "eur", "hedge_ratio": 0.50},
+            ],
+        }
+    )
+    perf_dates = pd.Series(pd.to_datetime(["2025-01-01", "2025-01-02"]))
+
+    hedge_ratios = _hedge_ratios_for_dates(
+        perf_dates,
+        list(hedging.series),
+        source_currency=" EUR ",
+    )
+
+    assert hedge_ratios.tolist() == [0.50, 0.0]
 
 
 def test_apply_hedging_to_fx_return_returns_original_series_without_ratio_hedge():
@@ -518,7 +703,7 @@ def test_calculate_fx_daily_return_refuses_missing_prior_date_instead_of_zero_re
         fx=FXRequestBlock.model_validate({"rates": [{"date": "2025-01-02", "ccy": "EUR", "rate": 1.2}]}),
     )
 
-    with pytest.raises(ValueError, match="missing dates: 2025-01-01"):
+    with pytest.raises(InvalidEngineInputError, match="missing dates: 2025-01-01"):
         _calculate_fx_daily_return(df, config)
 
 

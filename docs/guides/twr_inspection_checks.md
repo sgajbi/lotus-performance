@@ -110,6 +110,7 @@ These findings are owned by `lotus-performance` and point to served-response ari
 | `RELATIVE_BREAKDOWN_CUMULATIVE_MISMATCH` | relative breakdown cumulative return does not equal portfolio minus benchmark for the same bucket | expected vs actual bucket values |
 | `PORTFOLIO_BREAKDOWN_LINK_MISMATCH` | portfolio breakdown buckets do not geometrically link to the served summary | linked return vs served summary |
 | `BENCHMARK_BREAKDOWN_LINK_MISMATCH` | benchmark breakdown buckets do not geometrically link to the served summary | linked return vs served summary |
+| `DAILY_CALCULATION_EVIDENCE_MISMATCH` | daily evidence does not reconcile capital and portfolio-currency P&L to local return, the effective FX bridge to reporting return, or the reporting return to the served daily bucket | expected vs actual capital, flow, local-return, FX-bridge, reporting-return, status, and semantic fields |
 
 Primary evidence surface:
 
