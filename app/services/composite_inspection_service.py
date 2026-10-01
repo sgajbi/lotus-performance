@@ -12,8 +12,10 @@ from app.models.composites import (
     CompositeInspectionResponse,
     CompositeReturnView,
 )
+from app.observability import tenant_id_var
 from app.services.composite_calculation_service import CompositeDefinitionNotFoundError
 from app.services.composite_metadata_store import CompositeMetadataStore, composite_metadata_store
+from app.services.core_tenant_authority import admitted_tenant_authority, require_composite_tenant_authority
 from app.services.durable_store_runtime import RuntimeStoreProxy
 from engine.composites import CompositePeriodResult, calculate_asset_weighted_composite_twr
 
@@ -87,6 +89,7 @@ def _csv_artifact(
 
 def inspect_composite_twr_from_persisted_facts(
     *,
+    tenant_id: str | None = None,
     inspection_id: UUID,
     composite_id: str,
     period_start: dt_date,
@@ -96,12 +99,16 @@ def inspect_composite_twr_from_persisted_facts(
     restatement_sequence: int | None = None,
     store: CompositeMetadataStore | RuntimeStoreProxy[CompositeMetadataStore] = composite_metadata_store,
 ) -> CompositeInspectionResponse:
-    definition = store.get_definition(composite_id)
+    tenant_id = require_composite_tenant_authority(
+        admitted_tenant_authority(tenant_id_var.get() if tenant_id is None else tenant_id),
+    ).tenant_id
+    definition = store.get_definition(composite_id, tenant_id=tenant_id)
     if definition is None:
         raise CompositeDefinitionNotFoundError(f"Composite definition not found: {composite_id}")
 
     selected_reporting_currency = reporting_currency or definition.reporting_currency
     facts = store.list_member_return_facts(
+        tenant_id=tenant_id,
         composite_id=composite_id,
         period_start=period_start,
         period_end=period_end,
@@ -111,7 +118,7 @@ def inspect_composite_twr_from_persisted_facts(
     )
     result = calculate_asset_weighted_composite_twr(composite_id=composite_id, member_return_facts=facts)
     findings = _build_findings(result_status=result.status, reason_codes=result.reason_codes, fact_count=len(facts))
-    artifacts = _build_artifacts(composite_id=composite_id, facts=facts, result=result)
+    artifacts = _build_artifacts(tenant_id=tenant_id, composite_id=composite_id, facts=facts, result=result)
 
     return CompositeInspectionResponse(
         inspection_id=inspection_id,
@@ -211,8 +218,9 @@ def _period_weight_rows(period_results: list[CompositePeriodResult]) -> list[dic
     ]
 
 
-def _lineage_manifest(*, composite_id: str, facts, result) -> dict[str, object]:
+def _lineage_manifest(*, tenant_id: str, composite_id: str, facts, result) -> dict[str, object]:
     return {
+        "tenant_id": tenant_id,
         "composite_id": composite_id,
         "calculation_status": result.status,
         "source_fingerprints": sorted({fact.source_fingerprint for fact in facts}),
@@ -221,9 +229,10 @@ def _lineage_manifest(*, composite_id: str, facts, result) -> dict[str, object]:
     }
 
 
-def _support_brief(*, composite_id: str, facts, result) -> str:
+def _support_brief(*, tenant_id: str, composite_id: str, facts, result) -> str:
     return (
         f"# Composite Inspection Brief\n\n"
+        f"- Tenant: {tenant_id}\n"
         f"- Composite: {composite_id}\n"
         f"- Status: {result.status}\n"
         f"- Periods inspected: {len(result.period_results)}\n"
@@ -232,7 +241,7 @@ def _support_brief(*, composite_id: str, facts, result) -> str:
     )
 
 
-def _build_artifacts(*, composite_id: str, facts, result) -> list[CompositeInspectionArtifact]:
+def _build_artifacts(*, tenant_id: str, composite_id: str, facts, result) -> list[CompositeInspectionArtifact]:
     return [
         _csv_artifact(
             name="member_inputs.csv",
@@ -256,13 +265,16 @@ def _build_artifacts(*, composite_id: str, facts, result) -> list[CompositeInspe
             "lineage_manifest.json",
             "application/json",
             "operator_only",
-            json.dumps(_lineage_manifest(composite_id=composite_id, facts=facts, result=result), sort_keys=True),
+            json.dumps(
+                _lineage_manifest(tenant_id=tenant_id, composite_id=composite_id, facts=facts, result=result),
+                sort_keys=True,
+            ),
         ),
         _artifact(
             "support_brief.md",
             "text/markdown",
             "operator_only",
-            _support_brief(composite_id=composite_id, facts=facts, result=result),
+            _support_brief(tenant_id=tenant_id, composite_id=composite_id, facts=facts, result=result),
         ),
     ]
 

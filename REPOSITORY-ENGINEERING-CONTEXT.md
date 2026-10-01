@@ -523,19 +523,25 @@ Important validation expectations:
     SQLite busy-timeout policy. Do not add store-local `create_engine(...)` calls for durable
     runtime metadata; extend the shared policy or add a narrow adapter when a new durable store has
     different operational evidence.
-25. Lineage inspection list queries are query-plan governed operator paths. Active, failed, all,
+25. Composite metadata is tenant-owned durable state. The admitted tenant must scope definitions,
+    memberships, immutable fact and publication identities, selection/replay, inspection evidence,
+    publication locks and database trigger joins, counts, and cleanup. Missing authority is a
+    refusal, not a single-tenant default. Bootstrap refuses populated pre-tenant composite tables
+    until an operator supplies a complete reviewed ownership migration; it may replace an empty
+    legacy composite schema only after proving every affected table has no rows.
+26. Lineage inspection list queries are query-plan governed operator paths. Active, failed, all,
     and reclaimable inspection statements must keep `calculation_type` filters index-backed through
     lineage-record and lineage-payload composite indexes; PostgreSQL plan-contract tests cover the
     active, failed, all, and reclaimable statements, allowing derived-order sorts only where the
     view orders by computed active-since age.
-26. Upstream lotus-core and Lotus AI HTTP calls use the shared resilience layer and, under the
+27. Upstream lotus-core and Lotus AI HTTP calls use the shared resilience layer and, under the
     FastAPI lifespan, a managed `httpx.AsyncClient` pool keyed by timeout. Stateful chunked
     retrieval should tune `STATEFUL_INPUT_MAX_CONCURRENT_CHUNKS` together with
     `UPSTREAM_HTTP_MAX_CONNECTIONS`, `UPSTREAM_HTTP_MAX_KEEPALIVE_CONNECTIONS`, and
     `UPSTREAM_HTTP_KEEPALIVE_EXPIRY_SECONDS` before proposing a runtime transport split. Upstream
     timeout, retry, backoff, and connection-pool settings are validated during `Settings`
     construction so invalid operator values fail fast before request execution.
-26. Application services should use framework-neutral `core.errors.APIError` subclasses for
+28. Application services should use framework-neutral `core.errors.APIError` subclasses for
     validation, source-unavailable, not-found, conflict, and retryability semantics. FastAPI
     `HTTPException`, `status`, and `JSONResponse` belong at the API adapter boundary. When a
     service must express an explicit HTTP outcome such as `202 Accepted` or authorization denial,

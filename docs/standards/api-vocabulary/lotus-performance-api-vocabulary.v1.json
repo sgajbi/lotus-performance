@@ -8,7 +8,7 @@
       "openApiVersion": "3.1.0"
     }
   ],
-  "generatedAt": "2026-09-30T19:51:21.379579+00:00",
+  "generatedAt": "2026-10-01T01:34:54.080517+00:00",
   "attributeCatalog": [
     {
       "semanticId": "lotus.access_classification",
@@ -7617,6 +7617,30 @@
       "name": "x_tenant_id",
       "kind": "request_option",
       "location": "header",
+      "required": true,
+      "type": "string",
+      "description": "Required admitted tenant authority for Performance-owned composite state. Surrounding whitespace is trimmed; the service never mints or defaults this value.",
+      "example": "private-bank-sg",
+      "allowedValues": [],
+      "semanticId": "lotus.x_tenant_id",
+      "attributeRef": "#/attributeCatalog/lotus.x_tenant_id"
+    },
+    {
+      "name": "x_tenant_id",
+      "kind": "request_option",
+      "location": "header",
+      "required": true,
+      "type": "string",
+      "description": "Required admitted tenant authority for Performance-owned composite state. Surrounding whitespace is trimmed; the service never mints or defaults this value.",
+      "example": "private-bank-sg",
+      "allowedValues": [],
+      "semanticId": "lotus.x_tenant_id",
+      "attributeRef": "#/attributeCatalog/lotus.x_tenant_id"
+    },
+    {
+      "name": "x_tenant_id",
+      "kind": "request_option",
+      "location": "header",
       "required": false,
       "type": "string",
       "description": "Required when input_mode selects a stateful path. The admitted tenant is canonicalised by trimming surrounding whitespace and is carried to lotus-core; it is never minted or defaulted by lotus-performance.",
@@ -10612,6 +10636,14 @@
       "request": {
         "fields": [
           {
+            "name": "X-Tenant-Id",
+            "location": "header",
+            "required": true,
+            "type": "string",
+            "semanticId": "lotus.x_tenant_id",
+            "attributeRef": "#/attributeCatalog/lotus.x_tenant_id"
+          },
+          {
             "name": "calculation_id",
             "location": "body",
             "required": false,
@@ -10986,6 +11018,14 @@
       "summary": "Inspect composite TWR persisted facts and evidence artifacts",
       "request": {
         "fields": [
+          {
+            "name": "X-Tenant-Id",
+            "location": "header",
+            "required": true,
+            "type": "string",
+            "semanticId": "lotus.x_tenant_id",
+            "attributeRef": "#/attributeCatalog/lotus.x_tenant_id"
+          },
           {
             "name": "inspection_id",
             "location": "body",

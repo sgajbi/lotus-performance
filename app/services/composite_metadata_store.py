@@ -9,7 +9,23 @@ from datetime import date as dt_date
 from hashlib import sha256
 from typing import Any, Iterator
 
-from sqlalchemy import CheckConstraint, Date, Index, String, Text, and_, cast, func, inspect, literal, or_, select, text
+from sqlalchemy import (
+    CheckConstraint,
+    Date,
+    ForeignKeyConstraint,
+    Index,
+    String,
+    Text,
+    and_,
+    cast,
+    event,
+    func,
+    inspect,
+    literal,
+    or_,
+    select,
+    text,
+)
 from sqlalchemy.engine import Connection
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import DeclarativeBase, Mapped, Session, mapped_column, sessionmaker
@@ -20,6 +36,8 @@ from app.models.composites import (
     CompositeMembership,
     CompositeReturnView,
 )
+from app.observability import tenant_id_var
+from app.services.core_tenant_authority import admitted_tenant_authority, require_composite_tenant_authority
 from app.services.durable_database_engine import create_durable_database_engine
 from app.services.durable_schema_creation import create_durable_schema
 from app.services.durable_store_json import load_json_object_or_none, load_json_string_list_or_default
@@ -77,6 +95,14 @@ SQLITE_MEMBER_RETURN_FACT_VERSION_CHECK_SQL = (
     "length(restatement_version) BETWEEN 1 AND 64 AND length(trim(restatement_version, "
     + SQLITE_STRIP_CHARACTERS_SQL
     + ")) > 0"
+)
+POSTGRES_TENANT_ID_CHECK_SQL = (
+    "length(tenant_id) >= 1 AND length(tenant_id) <= 128 AND tenant_id = btrim(tenant_id, "
+    + POSTGRES_STRIP_CHARACTERS_SQL
+    + ")"
+)
+SQLITE_TENANT_ID_CHECK_SQL = (
+    "length(tenant_id) BETWEEN 1 AND 128 AND tenant_id = trim(tenant_id, " + SQLITE_STRIP_CHARACTERS_SQL + ")"
 )
 PUBLICATION_CURRENCY_CHECK = "ck_composite_fact_publications_reporting_currency_canonical"
 PUBLICATION_SEQUENCE_CHECK = "ck_composite_fact_publications_restatement_sequence_positive"
@@ -151,9 +177,21 @@ class CompositeDefinitionModel(Base):
             CANONICAL_REPORTING_CURRENCY_CHECK_SQL,
             name=COMPOSITE_DEFINITION_CURRENCY_CHECK,
         ),
+        CheckConstraint(SQLITE_TENANT_ID_CHECK_SQL, name="ck_composite_definitions_tenant_id").ddl_if(dialect="sqlite"),
+        CheckConstraint(POSTGRES_TENANT_ID_CHECK_SQL, name="ck_composite_definitions_tenant_id").ddl_if(
+            dialect="postgresql"
+        ),
+        Index(
+            "uq_composite_definitions_tenant_composite",
+            "tenant_id",
+            "composite_id",
+            unique=True,
+        ),
     )
 
-    composite_id: Mapped[str] = mapped_column(String(128), primary_key=True)
+    definition_key: Mapped[str] = mapped_column(String(80), primary_key=True)
+    tenant_id: Mapped[str] = mapped_column(String(128), nullable=False)
+    composite_id: Mapped[str] = mapped_column(String(128), nullable=False)
     display_name: Mapped[str] = mapped_column(String(256), nullable=False)
     strategy_code: Mapped[str] = mapped_column(String(128), nullable=False)
     reporting_currency: Mapped[str] = mapped_column(String(3), nullable=False)
@@ -166,11 +204,33 @@ class CompositeDefinitionModel(Base):
 class CompositeMembershipModel(Base):
     __tablename__ = "composite_memberships"
     __table_args__ = (
-        Index("ix_composite_memberships_composite_effective", "composite_id", "effective_from", "effective_to"),
-        Index("ix_composite_memberships_portfolio_effective", "portfolio_id", "effective_from", "effective_to"),
+        ForeignKeyConstraint(
+            ["tenant_id", "composite_id"],
+            ["composite_definitions.tenant_id", "composite_definitions.composite_id"],
+            name="fk_composite_memberships_tenant_definition",
+        ),
+        CheckConstraint(SQLITE_TENANT_ID_CHECK_SQL, name="ck_composite_memberships_tenant_id").ddl_if(dialect="sqlite"),
+        CheckConstraint(POSTGRES_TENANT_ID_CHECK_SQL, name="ck_composite_memberships_tenant_id").ddl_if(
+            dialect="postgresql"
+        ),
+        Index(
+            "ix_composite_memberships_composite_effective",
+            "tenant_id",
+            "composite_id",
+            "effective_from",
+            "effective_to",
+        ),
+        Index(
+            "ix_composite_memberships_portfolio_effective",
+            "tenant_id",
+            "portfolio_id",
+            "effective_from",
+            "effective_to",
+        ),
     )
 
     membership_key: Mapped[str] = mapped_column(String(320), primary_key=True)
+    tenant_id: Mapped[str] = mapped_column(String(128), nullable=False)
     composite_id: Mapped[str] = mapped_column(String(128), nullable=False)
     portfolio_id: Mapped[str] = mapped_column(String(128), nullable=False)
     effective_from: Mapped[dt_date] = mapped_column(Date, nullable=False)
@@ -184,6 +244,17 @@ class CompositeMembershipModel(Base):
 class CompositeMemberReturnFactModel(Base):
     __tablename__ = "composite_member_return_facts"
     __table_args__ = (
+        ForeignKeyConstraint(
+            ["tenant_id", "composite_id"],
+            ["composite_definitions.tenant_id", "composite_definitions.composite_id"],
+            name="fk_composite_member_return_facts_tenant_definition",
+        ),
+        CheckConstraint(SQLITE_TENANT_ID_CHECK_SQL, name="ck_composite_member_return_facts_tenant_id").ddl_if(
+            dialect="sqlite"
+        ),
+        CheckConstraint(POSTGRES_TENANT_ID_CHECK_SQL, name="ck_composite_member_return_facts_tenant_id").ddl_if(
+            dialect="postgresql"
+        ),
         CheckConstraint(
             CANONICAL_REPORTING_CURRENCY_CHECK_SQL,
             name=MEMBER_RETURN_FACT_CURRENCY_CHECK,
@@ -197,11 +268,24 @@ class CompositeMemberReturnFactModel(Base):
             SQLITE_MEMBER_RETURN_FACT_VERSION_CHECK_SQL,
             name=MEMBER_RETURN_FACT_VERSION_CHECK,
         ).ddl_if(dialect="sqlite"),
-        Index("ix_composite_member_return_facts_composite_period", "composite_id", "period_start", "period_end"),
-        Index("ix_composite_member_return_facts_portfolio_period", "portfolio_id", "period_start", "period_end"),
+        Index(
+            "ix_composite_member_return_facts_composite_period",
+            "tenant_id",
+            "composite_id",
+            "period_start",
+            "period_end",
+        ),
+        Index(
+            "ix_composite_member_return_facts_portfolio_period",
+            "tenant_id",
+            "portfolio_id",
+            "period_start",
+            "period_end",
+        ),
         Index("ix_composite_member_return_facts_status", "status"),
         Index(
             "uq_composite_member_return_facts_sequence_identity",
+            "tenant_id",
             "composite_id",
             "portfolio_id",
             "period_start",
@@ -213,6 +297,7 @@ class CompositeMemberReturnFactModel(Base):
         ),
         Index(
             "uq_composite_member_return_facts_version_identity",
+            "tenant_id",
             "composite_id",
             "portfolio_id",
             "period_start",
@@ -224,6 +309,7 @@ class CompositeMemberReturnFactModel(Base):
         ),
         Index(
             "ix_composite_member_return_facts_latest_selection",
+            "tenant_id",
             "composite_id",
             "return_view",
             "reporting_currency",
@@ -235,6 +321,7 @@ class CompositeMemberReturnFactModel(Base):
     )
 
     fact_key: Mapped[str] = mapped_column(String(360), primary_key=True)
+    tenant_id: Mapped[str] = mapped_column(String(128), nullable=False)
     composite_id: Mapped[str] = mapped_column(String(128), nullable=False)
     portfolio_id: Mapped[str] = mapped_column(String(128), nullable=False)
     period_start: Mapped[dt_date] = mapped_column(Date, nullable=False)
@@ -256,6 +343,17 @@ class CompositeMemberReturnFactModel(Base):
 class CompositeMemberReturnFactPublicationModel(Base):
     __tablename__ = "composite_member_return_fact_publications"
     __table_args__ = (
+        ForeignKeyConstraint(
+            ["tenant_id", "composite_id"],
+            ["composite_definitions.tenant_id", "composite_definitions.composite_id"],
+            name="fk_composite_fact_publications_tenant_definition",
+        ),
+        CheckConstraint(SQLITE_TENANT_ID_CHECK_SQL, name="ck_composite_fact_publications_tenant_id").ddl_if(
+            dialect="sqlite"
+        ),
+        CheckConstraint(POSTGRES_TENANT_ID_CHECK_SQL, name="ck_composite_fact_publications_tenant_id").ddl_if(
+            dialect="postgresql"
+        ),
         CheckConstraint(
             CANONICAL_REPORTING_CURRENCY_CHECK_SQL,
             name=PUBLICATION_CURRENCY_CHECK,
@@ -278,6 +376,7 @@ class CompositeMemberReturnFactPublicationModel(Base):
         ).ddl_if(dialect="sqlite"),
         Index(
             "uq_composite_fact_publication_identity",
+            "tenant_id",
             "composite_id",
             "return_view",
             "reporting_currency",
@@ -287,6 +386,7 @@ class CompositeMemberReturnFactPublicationModel(Base):
     )
 
     publication_key: Mapped[str] = mapped_column(String(80), primary_key=True)
+    tenant_id: Mapped[str] = mapped_column(String(128), nullable=False)
     composite_id: Mapped[str] = mapped_column(String(128), nullable=False)
     return_view: Mapped[str] = mapped_column(String(32), nullable=False)
     reporting_currency: Mapped[str] = mapped_column(String(3), nullable=False)
@@ -311,21 +411,389 @@ class CompositeMetadataCounts:
     member_return_facts: int
 
 
-def _membership_key(membership: CompositeMembership) -> str:
+def _scoped_key(values: dict[str, object]) -> str:
+    identity = json.dumps(values, sort_keys=True, separators=(",", ":"), default=str)
+    return f"sha256:{sha256(identity.encode('utf-8')).hexdigest()}"
+
+
+def _definition_key(*, tenant_id: str, composite_id: str) -> str:
+    return _scoped_key({"tenant_id": tenant_id, "composite_id": composite_id})
+
+
+def _membership_key(membership: CompositeMembership, *, tenant_id: str) -> str:
     effective_to = membership.effective_to.isoformat() if membership.effective_to else "open"
-    return f"{membership.composite_id}|{membership.portfolio_id}|{membership.effective_from.isoformat()}|{effective_to}"
+    return _scoped_key(
+        {
+            "tenant_id": tenant_id,
+            "composite_id": membership.composite_id,
+            "portfolio_id": membership.portfolio_id,
+            "effective_from": membership.effective_from,
+            "effective_to": effective_to,
+        }
+    )
 
 
 class CompositeMemberReturnFactConflictError(ValueError):
     """The immutable fact identity already exists with different economics or lineage."""
 
 
+class CompositeDefinitionIdentityConflictError(ValueError):
+    """A definition key is bound to a different tenant/composite logical identity."""
+
+
+class CompositeDefinitionOwnershipError(ValueError):
+    """A tenant-scoped child write has no definition owned by that tenant."""
+
+
 class CompositeMemberReturnFactSelectionError(ValueError):
     """The explicit selection is absent or the unpinned latest sequence is incomplete."""
 
 
-def _fact_identity_values(fact: CompositeMemberReturnFact) -> dict[str, str | int]:
+class CompositeTenantMigrationRequiredError(RuntimeError):
+    """Legacy ownerless composite rows require an explicit, reviewed tenant mapping."""
+
+
+@dataclass(frozen=True)
+class _CompositeTenantTableShape:
+    identity_columns: frozenset[str]
+    primary_key: tuple[str, ...]
+    tenant_unique_indexes: dict[str, tuple[str, ...]]
+    tenant_check_name: str
+    definition_foreign_key_name: str | None = None
+
+
+COMPOSITE_TENANT_TABLE_SHAPES = {
+    "composite_definitions": _CompositeTenantTableShape(
+        identity_columns=frozenset({"definition_key", "tenant_id", "composite_id"}),
+        primary_key=("definition_key",),
+        tenant_unique_indexes={
+            "uq_composite_definitions_tenant_composite": ("tenant_id", "composite_id"),
+        },
+        tenant_check_name="ck_composite_definitions_tenant_id",
+    ),
+    "composite_memberships": _CompositeTenantTableShape(
+        identity_columns=frozenset(
+            {"membership_key", "tenant_id", "composite_id", "portfolio_id", "effective_from", "effective_to"}
+        ),
+        primary_key=("membership_key",),
+        tenant_unique_indexes={},
+        tenant_check_name="ck_composite_memberships_tenant_id",
+        definition_foreign_key_name="fk_composite_memberships_tenant_definition",
+    ),
+    "composite_member_return_facts": _CompositeTenantTableShape(
+        identity_columns=frozenset(
+            {
+                "fact_key",
+                "tenant_id",
+                "composite_id",
+                "portfolio_id",
+                "period_start",
+                "period_end",
+                "return_view",
+                "reporting_currency",
+                "restatement_version",
+                "restatement_sequence",
+            }
+        ),
+        primary_key=("fact_key",),
+        tenant_unique_indexes={
+            "uq_composite_member_return_facts_sequence_identity": (
+                "tenant_id",
+                "composite_id",
+                "portfolio_id",
+                "period_start",
+                "period_end",
+                "return_view",
+                "reporting_currency",
+                "restatement_sequence",
+            ),
+            "uq_composite_member_return_facts_version_identity": (
+                "tenant_id",
+                "composite_id",
+                "portfolio_id",
+                "period_start",
+                "period_end",
+                "return_view",
+                "reporting_currency",
+                "restatement_version",
+            ),
+        },
+        tenant_check_name="ck_composite_member_return_facts_tenant_id",
+        definition_foreign_key_name="fk_composite_member_return_facts_tenant_definition",
+    ),
+    "composite_member_return_fact_publications": _CompositeTenantTableShape(
+        identity_columns=frozenset(
+            {
+                "publication_key",
+                "tenant_id",
+                "composite_id",
+                "return_view",
+                "reporting_currency",
+                "restatement_sequence",
+            }
+        ),
+        primary_key=("publication_key",),
+        tenant_unique_indexes={
+            "uq_composite_fact_publication_identity": (
+                "tenant_id",
+                "composite_id",
+                "return_view",
+                "reporting_currency",
+                "restatement_sequence",
+            ),
+        },
+        tenant_check_name="ck_composite_fact_publications_tenant_id",
+        definition_foreign_key_name="fk_composite_fact_publications_tenant_definition",
+    ),
+}
+
+
+def _identity_column_shape_issues(columns: dict[str, Any], target: _CompositeTenantTableShape) -> list[str]:
+    issues: list[str] = []
+    missing_identity_columns = sorted(target.identity_columns - columns.keys())
+    if missing_identity_columns:
+        issues.append("missing identity columns " + ", ".join(missing_identity_columns))
+    tenant_column = columns.get("tenant_id")
+    if tenant_column is not None and tenant_column["nullable"]:
+        issues.append("tenant_id is nullable")
+    return issues
+
+
+def _primary_key_shape_issues(inspector: Any, table_name: str, expected: tuple[str, ...]) -> list[str]:
+    installed_primary_key = tuple(inspector.get_pk_constraint(table_name).get("constrained_columns") or ())
+    return (
+        []
+        if installed_primary_key == expected
+        else [f"primary key is {installed_primary_key!r}, expected {expected!r}"]
+    )
+
+
+def _installed_unique_indexes(inspector: Any, table_name: str) -> dict[str, tuple[str, ...]]:
     return {
+        index["name"]: tuple(index["column_names"])
+        for index in inspector.get_indexes(table_name)
+        if index.get("unique") and index.get("name")
+    }
+
+
+def _required_unique_index_shape_issues(
+    installed: dict[str, tuple[str, ...]],
+    expected: dict[str, tuple[str, ...]],
+) -> list[str]:
+    return [
+        f"unique index {index_name} is {installed.get(index_name)!r}, expected {expected_columns!r}"
+        for index_name, expected_columns in expected.items()
+        if installed.get(index_name) != expected_columns
+    ]
+
+
+def _global_unique_index_shape_issues(
+    installed: dict[str, tuple[str, ...]],
+    expected: dict[str, tuple[str, ...]],
+) -> list[str]:
+    return [
+        f"global unique index {index_name} uses {installed_columns!r}"
+        for index_name, installed_columns in installed.items()
+        if index_name not in expected and "tenant_id" not in installed_columns
+    ]
+
+
+def _global_unique_constraint_shape_issues(inspector: Any, table_name: str) -> list[str]:
+    constraints = inspector.get_unique_constraints(table_name)
+    return [
+        f"global unique constraint {constraint.get('name')!r} uses {tuple(constraint.get('column_names') or ())!r}"
+        for constraint in constraints
+        if "tenant_id" not in tuple(constraint.get("column_names") or ())
+    ]
+
+
+def _tenant_check_shape_issues(
+    inspector: Any,
+    table_name: str,
+    target: _CompositeTenantTableShape,
+) -> list[str]:
+    installed = {
+        constraint["name"]: constraint.get("sqltext") or ""
+        for constraint in inspector.get_check_constraints(table_name)
+    }
+    expected_sql = (
+        POSTGRES_TENANT_ID_CHECK_SQL if inspector.bind.dialect.name == "postgresql" else SQLITE_TENANT_ID_CHECK_SQL
+    )
+    installed_sql = installed.get(target.tenant_check_name)
+    if installed_sql is not None and _normalize_postgres_check_definition(
+        installed_sql
+    ) == _normalize_postgres_check_definition(expected_sql):
+        return []
+    return [f"tenant check {target.tenant_check_name} is missing or stale"]
+
+
+def _definition_foreign_key_shape_issues(
+    inspector: Any,
+    table_name: str,
+    target: _CompositeTenantTableShape,
+) -> list[str]:
+    if target.definition_foreign_key_name is None:
+        return []
+    foreign_keys = {foreign_key.get("name"): foreign_key for foreign_key in inspector.get_foreign_keys(table_name)}
+    installed = foreign_keys.get(target.definition_foreign_key_name)
+    installed_shape = (
+        {
+            "constrained_columns": tuple(installed.get("constrained_columns") or ()),
+            "referred_columns": tuple(installed.get("referred_columns") or ()),
+            "referred_table": installed.get("referred_table"),
+        }
+        if installed is not None
+        else None
+    )
+    expected_shape = {
+        "constrained_columns": ("tenant_id", "composite_id"),
+        "referred_columns": ("tenant_id", "composite_id"),
+        "referred_table": "composite_definitions",
+    }
+    if installed_shape == expected_shape:
+        return []
+    return [f"foreign key {target.definition_foreign_key_name} is missing or stale"]
+
+
+def _composite_table_shape_issues(
+    inspector: Any,
+    table_name: str,
+    target: _CompositeTenantTableShape,
+) -> list[str]:
+    columns = {column["name"]: column for column in inspector.get_columns(table_name)}
+    installed_unique_indexes = _installed_unique_indexes(inspector, table_name)
+    return [
+        *_identity_column_shape_issues(columns, target),
+        *_primary_key_shape_issues(inspector, table_name, target.primary_key),
+        *_required_unique_index_shape_issues(installed_unique_indexes, target.tenant_unique_indexes),
+        *_global_unique_index_shape_issues(installed_unique_indexes, target.tenant_unique_indexes),
+        *_global_unique_constraint_shape_issues(inspector, table_name),
+        *_tenant_check_shape_issues(inspector, table_name, target),
+        *_definition_foreign_key_shape_issues(inspector, table_name, target),
+    ]
+
+
+def _partial_composite_table_shapes(inspector: Any, existing_tables: set[str]) -> dict[str, list[str]]:
+    return {
+        table_name: issues
+        for table_name in sorted(existing_tables)
+        if (issues := _composite_table_shape_issues(inspector, table_name, COMPOSITE_TENANT_TABLE_SHAPES[table_name]))
+    }
+
+
+def _composite_table_has_rows(connection: Connection, table_name: str) -> bool:
+    table = Base.metadata.tables[table_name]
+    return connection.execute(select(literal(1)).select_from(table).limit(1)).first() is not None
+
+
+def _populated_composite_tables(connection: Connection, existing_tables: set[str]) -> list[str]:
+    return [table_name for table_name in sorted(existing_tables) if _composite_table_has_rows(connection, table_name)]
+
+
+def _rebuild_empty_composite_tables(connection: Connection) -> None:
+    for table in reversed(Base.metadata.sorted_tables):
+        table.drop(connection, checkfirst=True)
+    # This helper runs inside ``create_durable_schema``'s locked transaction. Create
+    # the replacement tables individually so the repository's direct-create-all
+    # guard continues to enforce the shared concurrent-bootstrap boundary.
+    for table in Base.metadata.sorted_tables:
+        table.create(connection)
+
+
+def _upgrade_empty_legacy_composite_schema_for_tenant_scope(connection: Connection) -> None:
+    """Rebuild only an empty partial tenant schema; never infer ownership for durable rows."""
+
+    inspector = inspect(connection)
+    existing_tables = set(COMPOSITE_TENANT_TABLE_SHAPES).intersection(inspector.get_table_names())
+    partial_shapes = _partial_composite_table_shapes(inspector, existing_tables)
+    if not partial_shapes or _populated_composite_tables(connection, existing_tables):
+        return
+    _rebuild_empty_composite_tables(connection)
+
+
+def _current_partial_composite_table_shapes(connection: Connection) -> tuple[set[str], dict[str, list[str]]]:
+    inspector = inspect(connection)
+    existing_tables = set(COMPOSITE_TENANT_TABLE_SHAPES).intersection(inspector.get_table_names())
+    return existing_tables, _partial_composite_table_shapes(inspector, existing_tables)
+
+
+def _is_supported_pre_sequence_shape(partial_shapes: dict[str, list[str]]) -> bool:
+    fact_issues = partial_shapes.get("composite_member_return_facts", [])
+    all_issues = [issue for issues in partial_shapes.values() for issue in issues]
+    return "missing identity columns restatement_sequence" in fact_issues and all(
+        issue == "missing identity columns restatement_sequence"
+        or (issue.startswith("unique index ") and " is None, expected " in issue)
+        for issue in all_issues
+    )
+
+
+def _raise_partial_composite_tenant_schema(
+    connection: Connection,
+    existing_tables: set[str],
+    partial_shapes: dict[str, list[str]],
+) -> None:
+    populated_tables = _populated_composite_tables(connection, existing_tables)
+    shape_evidence = "; ".join(f"{table_name}: {', '.join(issues)}" for table_name, issues in partial_shapes.items())
+    raise CompositeTenantMigrationRequiredError(
+        "Partial composite schema records cannot be assigned automatically. Supply an explicit, "
+        "reviewed tenant migration before upgrading. Populated tables: "
+        + (", ".join(populated_tables) or "none")
+        + ". Incompatible shapes: "
+        + shape_evidence
+    )
+
+
+def _require_current_composite_tenant_schema(connection: Connection) -> None:
+    """Refuse populated partial target shapes before any schema mutation."""
+
+    existing_tables, partial_shapes = _current_partial_composite_table_shapes(connection)
+    if not partial_shapes or _is_supported_pre_sequence_shape(partial_shapes):
+        return
+    _raise_partial_composite_tenant_schema(connection, existing_tables, partial_shapes)
+
+
+def _require_current_composite_tenant_schema_after_upgrades(connection: Connection) -> None:
+    existing_tables, partial_shapes = _current_partial_composite_table_shapes(connection)
+    if partial_shapes:
+        _raise_partial_composite_tenant_schema(connection, existing_tables, partial_shapes)
+
+
+def _create_composite_definition_indexes(connection: Connection) -> None:
+    columns = {column["name"] for column in inspect(connection).get_columns("composite_definitions")}
+    if {"definition_key", "tenant_id", "composite_id"} <= columns:
+        for index in CompositeDefinitionModel.__table__.indexes:
+            index.create(connection, checkfirst=True)
+
+
+def _upgrade_postgres_tenant_constraints(connection: Connection) -> None:
+    if connection.dialect.name != "postgresql":
+        return
+    managed_constraints = {
+        "composite_definitions": "ck_composite_definitions_tenant_id",
+        "composite_memberships": "ck_composite_memberships_tenant_id",
+        "composite_member_return_facts": "ck_composite_member_return_facts_tenant_id",
+        "composite_member_return_fact_publications": "ck_composite_fact_publications_tenant_id",
+    }
+    for table_name, constraint_name in managed_constraints.items():
+        columns = {column["name"] for column in inspect(connection).get_columns(table_name)}
+        if "tenant_id" not in columns:
+            continue
+        installed = {
+            constraint["name"]: constraint.get("sqltext") or ""
+            for constraint in inspect(connection).get_check_constraints(table_name)
+        }
+        _replace_stale_postgres_check_constraints(
+            connection,
+            table_name,
+            installed,
+            {constraint_name: (POSTGRES_TENANT_ID_CHECK_SQL, POSTGRES_TENANT_ID_CHECK_SQL)},
+        )
+
+
+def _fact_identity_values(fact: CompositeMemberReturnFact, *, tenant_id: str | None = None) -> dict[str, str | int]:
+    tenant_id = _admitted_composite_tenant_id(tenant_id)
+    return {
+        "tenant_id": tenant_id,
         "composite_id": fact.composite_id,
         "portfolio_id": fact.portfolio_id,
         "period_start": fact.period_start.isoformat(),
@@ -337,20 +805,23 @@ def _fact_identity_values(fact: CompositeMemberReturnFact) -> dict[str, str | in
     }
 
 
-def _fact_key(fact: CompositeMemberReturnFact) -> str:
-    identity = json.dumps(_fact_identity_values(fact), sort_keys=True, separators=(",", ":"))
+def _fact_key(fact: CompositeMemberReturnFact, *, tenant_id: str | None = None) -> str:
+    identity = json.dumps(_fact_identity_values(fact, tenant_id=tenant_id), sort_keys=True, separators=(",", ":"))
     return f"sha256:{sha256(identity.encode('utf-8')).hexdigest()}"
 
 
 def _publication_key(
     *,
+    tenant_id: str | None = None,
     composite_id: str,
     return_view: CompositeReturnView,
     reporting_currency: str,
     restatement_sequence: int,
 ) -> str:
+    tenant_id = _admitted_composite_tenant_id(tenant_id)
     identity = json.dumps(
         {
+            "tenant_id": tenant_id,
             "composite_id": composite_id,
             "reporting_currency": reporting_currency,
             "restatement_sequence": restatement_sequence,
@@ -367,6 +838,95 @@ def _publication_lock_key(publication_key: str) -> int:
     return unsigned if unsigned < 2**63 else unsigned - 2**64
 
 
+def _advisory_lock_key(scope: str, *, tenant_id: str, composite_id: str | None = None) -> int:
+    values: dict[str, object] = {"scope": scope, "tenant_id": tenant_id}
+    if composite_id is not None:
+        values["composite_id"] = composite_id
+    return _publication_lock_key(_scoped_key(values))
+
+
+def _lock_composite_tenant_identity(session: Session, tenant_id: str, *, exclusive: bool) -> None:
+    if session.bind is None:
+        return
+    if session.bind.dialect.name == "sqlite":
+        if not session.in_transaction():
+            session.execute(text("BEGIN IMMEDIATE"))
+        return
+    if session.bind.dialect.name == "postgresql":
+        lock_function = func.pg_advisory_xact_lock if exclusive else func.pg_advisory_xact_lock_shared
+        session.execute(select(lock_function(_advisory_lock_key("composite-tenant-maintenance", tenant_id=tenant_id))))
+
+
+def _lock_composite_definition_identity(
+    session: Session,
+    *,
+    tenant_id: str,
+    composite_id: str,
+    exclusive: bool,
+) -> None:
+    if session.bind is None or session.bind.dialect.name != "postgresql":
+        return
+    lock_function = func.pg_advisory_xact_lock if exclusive else func.pg_advisory_xact_lock_shared
+    session.execute(
+        select(
+            lock_function(
+                _advisory_lock_key(
+                    "composite-definition",
+                    tenant_id=tenant_id,
+                    composite_id=composite_id,
+                )
+            )
+        )
+    )
+
+
+def _lock_composite_maintenance_scope(
+    connection: Connection,
+    *,
+    tenant_id: str,
+    composite_ids: set[str] | None,
+) -> None:
+    if connection.dialect.name == "sqlite":
+        connection.exec_driver_sql("BEGIN IMMEDIATE")
+        return
+    if connection.dialect.name != "postgresql":
+        return
+    tenant_lock_function = func.pg_advisory_xact_lock if composite_ids is None else func.pg_advisory_xact_lock_shared
+    connection.execute(
+        select(tenant_lock_function(_advisory_lock_key("composite-tenant-maintenance", tenant_id=tenant_id)))
+    )
+    for composite_id in sorted(composite_ids or ()):
+        connection.execute(
+            select(
+                func.pg_advisory_xact_lock(
+                    _advisory_lock_key(
+                        "composite-definition",
+                        tenant_id=tenant_id,
+                        composite_id=composite_id,
+                    )
+                )
+            )
+        )
+
+
+def _require_composite_definition_for_write(
+    session: Session,
+    *,
+    tenant_id: str,
+    composite_id: str,
+) -> None:
+    definition_key = _definition_key(tenant_id=tenant_id, composite_id=composite_id)
+    exists = session.scalar(
+        select(CompositeDefinitionModel.definition_key).where(
+            CompositeDefinitionModel.definition_key == definition_key,
+            CompositeDefinitionModel.tenant_id == tenant_id,
+            CompositeDefinitionModel.composite_id == composite_id,
+        )
+    )
+    if exists is None:
+        raise CompositeDefinitionOwnershipError("Composite definition is unavailable for this tenant-scoped write")
+
+
 def _lock_fact_publication_identity(
     session: Session,
     publication_key: str,
@@ -380,7 +940,8 @@ def _lock_fact_publication_identity(
         # writer reservation before either a fact writer or publication completion
         # observes the family set, preventing a writer from committing between the
         # completion read and immutable manifest insert.
-        session.execute(text("BEGIN IMMEDIATE"))
+        if not session.in_transaction():
+            session.execute(text("BEGIN IMMEDIATE"))
         return
     if session.bind.dialect.name == "postgresql":
         lock_function = func.pg_advisory_xact_lock if exclusive else func.pg_advisory_xact_lock_shared
@@ -478,9 +1039,13 @@ def _member_return_fact_from_row(row: Any) -> CompositeMemberReturnFact:
     )
 
 
-def _member_return_fact_model(fact: CompositeMemberReturnFact) -> CompositeMemberReturnFactModel:
+def _member_return_fact_model(
+    fact: CompositeMemberReturnFact, *, tenant_id: str | None = None
+) -> CompositeMemberReturnFactModel:
+    tenant_id = _admitted_composite_tenant_id(tenant_id)
     return CompositeMemberReturnFactModel(
-        fact_key=_fact_key(fact),
+        fact_key=_fact_key(fact, tenant_id=tenant_id),
+        tenant_id=tenant_id,
         composite_id=fact.composite_id,
         portfolio_id=fact.portfolio_id,
         period_start=fact.period_start,
@@ -503,8 +1068,11 @@ def _member_return_fact_model(fact: CompositeMemberReturnFact) -> CompositeMembe
 def _find_member_return_fact_identity_collision(
     session: Session,
     fact: CompositeMemberReturnFact,
+    *,
+    tenant_id: str,
 ) -> CompositeMemberReturnFactModel | None:
     statement = select(CompositeMemberReturnFactModel).where(
+        CompositeMemberReturnFactModel.tenant_id == tenant_id,
         CompositeMemberReturnFactModel.composite_id == fact.composite_id,
         CompositeMemberReturnFactModel.portfolio_id == fact.portfolio_id,
         CompositeMemberReturnFactModel.period_start == fact.period_start,
@@ -730,8 +1298,10 @@ def _publication_lineage_is_invalid(
 def _reject_invalid_publication_lineage(connection: Connection) -> None:
     table = CompositeMemberReturnFactPublicationModel.__table__
     facts_table = CompositeMemberReturnFactModel.__table__
+    has_tenant_scope = "tenant_id" in {column["name"] for column in inspect(connection).get_columns(table.name)}
     retained_lineage = connection.execute(
         select(
+            table.c.tenant_id if has_tenant_scope else literal(None),
             table.c.composite_id,
             table.c.return_view,
             table.c.reporting_currency,
@@ -744,6 +1314,7 @@ def _reject_invalid_publication_lineage(connection: Connection) -> None:
     )
     invalid_lineage_count = 0
     for (
+        tenant_id,
         composite_id,
         return_view,
         reporting_currency,
@@ -762,18 +1333,21 @@ def _reject_invalid_publication_lineage(connection: Connection) -> None:
             invalid_lineage_count += 1
             continue
         expected_families = _parse_fact_families(expected_families_json)
+        fact_filters = [
+            facts_table.c.composite_id == composite_id,
+            facts_table.c.return_view == return_view,
+            facts_table.c.reporting_currency == reporting_currency,
+            facts_table.c.restatement_sequence == restatement_sequence,
+        ]
+        if has_tenant_scope:
+            fact_filters.insert(0, facts_table.c.tenant_id == tenant_id)
         actual_families = set(
             connection.execute(
                 select(
                     facts_table.c.portfolio_id,
                     facts_table.c.period_start,
                     facts_table.c.period_end,
-                ).where(
-                    facts_table.c.composite_id == composite_id,
-                    facts_table.c.return_view == return_view,
-                    facts_table.c.reporting_currency == reporting_currency,
-                    facts_table.c.restatement_sequence == restatement_sequence,
-                )
+                ).where(*fact_filters)
             )
         )
         if actual_families != expected_families:
@@ -989,6 +1563,7 @@ def _normalize_postgres_check_definition(definition: str) -> str:
 
 
 def _upgrade_publication_schema(connection: Connection) -> None:
+    table_name = CompositeMemberReturnFactPublicationModel.__tablename__
     _require_publication_lineage_columns(connection)
     _add_missing_publication_columns(connection)
     _reject_invalid_publication_sequences(connection)
@@ -996,8 +1571,9 @@ def _upgrade_publication_schema(connection: Connection) -> None:
     _reject_invalid_publication_lineage(connection)
     if connection.dialect.name == "postgresql":
         _upgrade_postgres_publication_constraints(connection)
-    for index in CompositeMemberReturnFactPublicationModel.__table__.indexes:
-        index.create(connection, checkfirst=True)
+    if "tenant_id" in {column["name"] for column in inspect(connection).get_columns(table_name)}:
+        for index in CompositeMemberReturnFactPublicationModel.__table__.indexes:
+            index.create(connection, checkfirst=True)
 
 
 def _upgrade_postgres_definition_currency_constraint(connection: Connection) -> None:
@@ -1186,7 +1762,8 @@ def _create_sqlite_composite_fact_validation_guards(connection: Connection) -> N
               THEN (
                   SELECT count(*)
                   FROM composite_member_return_facts AS fact
-                  WHERE fact.composite_id = NEW.composite_id
+                  WHERE fact.tenant_id = NEW.tenant_id
+                    AND fact.composite_id = NEW.composite_id
                     AND fact.return_view = NEW.return_view
                     AND fact.reporting_currency = NEW.reporting_currency
                     AND fact.restatement_sequence = NEW.restatement_sequence
@@ -1202,7 +1779,8 @@ def _create_sqlite_composite_fact_validation_guards(connection: Connection) -> N
                   WHERE NOT EXISTS (
                       SELECT 1
                       FROM composite_member_return_facts AS fact
-                      WHERE fact.composite_id = NEW.composite_id
+                      WHERE fact.tenant_id = NEW.tenant_id
+                        AND fact.composite_id = NEW.composite_id
                         AND fact.return_view = NEW.return_view
                         AND fact.reporting_currency = NEW.reporting_currency
                         AND fact.restatement_sequence = NEW.restatement_sequence
@@ -1266,7 +1844,8 @@ def _create_sqlite_member_return_fact_immutability_guards(connection: Connection
         WHEN EXISTS (
             SELECT 1
             FROM composite_member_return_fact_publications AS publication
-            WHERE publication.composite_id = NEW.composite_id
+            WHERE publication.tenant_id = NEW.tenant_id
+              AND publication.composite_id = NEW.composite_id
               AND publication.return_view = NEW.return_view
               AND publication.reporting_currency = NEW.reporting_currency
               AND publication.restatement_sequence = NEW.restatement_sequence
@@ -1292,7 +1871,8 @@ def _create_sqlite_member_return_fact_immutability_guards(connection: Connection
         WHEN EXISTS (
             SELECT 1
             FROM composite_member_return_fact_publications AS publication
-            WHERE publication.composite_id = OLD.composite_id
+            WHERE publication.tenant_id = OLD.tenant_id
+              AND publication.composite_id = OLD.composite_id
               AND publication.return_view = OLD.return_view
               AND publication.reporting_currency = OLD.reporting_currency
               AND publication.restatement_sequence = OLD.restatement_sequence
@@ -1323,9 +1903,15 @@ def _create_sqlite_publication_immutability_guard(connection: Connection) -> Non
 
 
 def _create_postgres_member_return_fact_immutability_guards(connection: Connection) -> None:
+    # The tenant argument changes the PostgreSQL function signature. PostgreSQL
+    # overloads instead of replacing a function when argument types differ, so
+    # remove the pre-tenant helper explicitly rather than leaving callable stale
+    # lock semantics in the schema.
+    connection.exec_driver_sql("DROP FUNCTION IF EXISTS composite_fact_publication_lock_key(text, text, text, bigint)")
     connection.exec_driver_sql(
         """
         CREATE OR REPLACE FUNCTION composite_fact_publication_lock_key(
+            p_tenant_id text,
             p_composite_id text,
             p_return_view text,
             p_reporting_currency text,
@@ -1337,7 +1923,7 @@ def _create_postgres_member_return_fact_immutability_guards(connection: Connecti
         PARALLEL SAFE
         AS $$
             SELECT hashtextextended(
-                p_composite_id || chr(31) || p_return_view || chr(31) ||
+                p_tenant_id || chr(31) || p_composite_id || chr(31) || p_return_view || chr(31) ||
                 p_reporting_currency || chr(31) || p_restatement_sequence::text,
                 0
             )
@@ -1352,6 +1938,7 @@ def _create_postgres_member_return_fact_immutability_guards(connection: Connecti
         AS $$
         BEGIN
             PERFORM pg_advisory_xact_lock_shared(composite_fact_publication_lock_key(
+                NEW.tenant_id,
                 NEW.composite_id,
                 NEW.return_view,
                 NEW.reporting_currency,
@@ -1360,7 +1947,8 @@ def _create_postgres_member_return_fact_immutability_guards(connection: Connecti
             IF EXISTS (
                 SELECT 1
                 FROM composite_member_return_fact_publications AS publication
-                WHERE publication.composite_id = NEW.composite_id
+                WHERE publication.tenant_id = NEW.tenant_id
+                  AND publication.composite_id = NEW.composite_id
                   AND publication.return_view = NEW.return_view
                   AND publication.reporting_currency = NEW.reporting_currency
                   AND publication.restatement_sequence = NEW.restatement_sequence
@@ -1389,7 +1977,8 @@ def _create_postgres_member_return_fact_immutability_guards(connection: Connecti
             IF EXISTS (
                 SELECT 1
                 FROM composite_member_return_fact_publications AS publication
-                WHERE publication.composite_id = OLD.composite_id
+                WHERE publication.tenant_id = OLD.tenant_id
+                  AND publication.composite_id = OLD.composite_id
                   AND publication.return_view = OLD.return_view
                   AND publication.reporting_currency = OLD.reporting_currency
                   AND publication.restatement_sequence = OLD.restatement_sequence
@@ -1455,6 +2044,7 @@ def _create_postgres_publication_lineage_guard(connection: Connection) -> None:
             actual_family_count integer;
         BEGIN
             PERFORM pg_advisory_xact_lock(composite_fact_publication_lock_key(
+                NEW.tenant_id,
                 NEW.composite_id,
                 NEW.return_view,
                 NEW.reporting_currency,
@@ -1542,7 +2132,8 @@ def _create_postgres_publication_lineage_guard(connection: Connection) -> None:
             SELECT count(*)
             INTO actual_family_count
             FROM composite_member_return_facts AS fact
-            WHERE fact.composite_id = NEW.composite_id
+            WHERE fact.tenant_id = NEW.tenant_id
+              AND fact.composite_id = NEW.composite_id
               AND fact.return_view = NEW.return_view
               AND fact.reporting_currency = NEW.reporting_currency
               AND fact.restatement_sequence = NEW.restatement_sequence;
@@ -1553,7 +2144,8 @@ def _create_postgres_publication_lineage_guard(connection: Connection) -> None:
                     WHERE NOT EXISTS (
                         SELECT 1
                         FROM composite_member_return_facts AS fact
-                        WHERE fact.composite_id = NEW.composite_id
+                        WHERE fact.tenant_id = NEW.tenant_id
+                          AND fact.composite_id = NEW.composite_id
                           AND fact.return_view = NEW.return_view
                           AND fact.reporting_currency = NEW.reporting_currency
                           AND fact.restatement_sequence = NEW.restatement_sequence
@@ -1831,6 +2423,7 @@ def _accept_idempotent_publication_or_raise_conflict(
 def _find_member_return_fact_publication(
     session: Session,
     *,
+    tenant_id: str,
     composite_id: str,
     return_view: CompositeReturnView,
     reporting_currency: str,
@@ -1840,6 +2433,7 @@ def _find_member_return_fact_publication(
 
     return session.execute(
         select(CompositeMemberReturnFactPublicationModel).where(
+            CompositeMemberReturnFactPublicationModel.tenant_id == tenant_id,
             CompositeMemberReturnFactPublicationModel.composite_id == composite_id,
             CompositeMemberReturnFactPublicationModel.return_view == return_view.value,
             CompositeMemberReturnFactPublicationModel.reporting_currency == reporting_currency,
@@ -1848,9 +2442,19 @@ def _find_member_return_fact_publication(
     ).scalar_one_or_none()
 
 
+def _enable_sqlite_foreign_keys(dbapi_connection: Any, _connection_record: Any) -> None:
+    cursor = dbapi_connection.cursor()
+    try:
+        cursor.execute("PRAGMA foreign_keys=ON")
+    finally:
+        cursor.close()
+
+
 class CompositeMetadataStore:
     def __init__(self, database_url: str):
         self._engine = create_durable_database_engine(database_url)
+        if self._engine.dialect.name == "sqlite":
+            event.listen(self._engine, "connect", _enable_sqlite_foreign_keys)
         self._session_factory = sessionmaker(bind=self._engine, future=True)
 
     def close(self) -> None:
@@ -1860,12 +2464,19 @@ class CompositeMetadataStore:
         create_durable_schema(
             self._engine,
             Base.metadata,
+            schema_preflights=(
+                _upgrade_empty_legacy_composite_schema_for_tenant_scope,
+                _require_current_composite_tenant_schema,
+            ),
             schema_upgrades=(
                 _drop_composite_fact_database_guards,
                 _upgrade_legacy_composite_currencies,
                 _upgrade_postgres_definition_currency_constraint,
                 self._upgrade_member_return_fact_schema,
                 _upgrade_publication_schema,
+                _create_composite_definition_indexes,
+                _require_current_composite_tenant_schema_after_upgrades,
+                _upgrade_postgres_tenant_constraints,
                 _create_composite_fact_database_guards,
             ),
         )
@@ -1879,7 +2490,8 @@ class CompositeMetadataStore:
         _reject_invalid_member_return_fact_versions(connection)
         if connection.dialect.name == "postgresql":
             _upgrade_postgres_member_return_fact_constraints(connection)
-        _create_member_return_fact_indexes(connection)
+        if "tenant_id" in existing_columns:
+            _create_member_return_fact_indexes(connection)
 
     @contextmanager
     def _session(self) -> Iterator[Session]:
@@ -1894,13 +2506,21 @@ class CompositeMetadataStore:
             session.close()
 
     @contextmanager
-    def _unguarded_maintenance_connection(self) -> Iterator[Connection]:
+    def _unguarded_maintenance_connection(
+        self,
+        *,
+        tenant_id: str,
+        composite_ids: set[str] | None,
+    ) -> Iterator[Connection]:
         """Suspend immutable guards only inside one locked rollback-safe transaction."""
 
         with self._engine.begin() as connection:
-            if connection.dialect.name == "sqlite":
-                connection.exec_driver_sql("BEGIN IMMEDIATE")
-            elif connection.dialect.name == "postgresql":
+            _lock_composite_maintenance_scope(
+                connection,
+                tenant_id=tenant_id,
+                composite_ids=composite_ids,
+            )
+            if connection.dialect.name == "postgresql":
                 # Match publication completion's fact-before-publication lock
                 # order so maintenance cannot form a cross-table deadlock.
                 connection.exec_driver_sql("LOCK TABLE composite_member_return_facts IN ACCESS EXCLUSIVE MODE")
@@ -1916,42 +2536,72 @@ class CompositeMetadataStore:
             else:
                 _create_composite_fact_database_guards(connection)
 
-    def clear_all_records(self) -> None:
-        with self._unguarded_maintenance_connection() as connection:
-            connection.execute(CompositeMemberReturnFactPublicationModel.__table__.delete())
-            connection.execute(CompositeMemberReturnFactModel.__table__.delete())
-            connection.execute(CompositeMembershipModel.__table__.delete())
-            connection.execute(CompositeDefinitionModel.__table__.delete())
+    def clear_all_records(self, *, tenant_id: str | None = None) -> None:
+        tenant_id = _admitted_composite_tenant_id(tenant_id)
+        with self._unguarded_maintenance_connection(tenant_id=tenant_id, composite_ids=None) as connection:
+            for model in (
+                CompositeMemberReturnFactPublicationModel,
+                CompositeMemberReturnFactModel,
+                CompositeMembershipModel,
+                CompositeDefinitionModel,
+            ):
+                connection.execute(model.__table__.delete().where(model.tenant_id == tenant_id))
 
-    def clear_records_for_composites(self, composite_ids: set[str]) -> None:
+    def clear_records_for_composites(self, composite_ids: set[str], *, tenant_id: str | None = None) -> None:
+        tenant_id = _admitted_composite_tenant_id(tenant_id)
         if not composite_ids:
             return
-        with self._unguarded_maintenance_connection() as connection:
+        with self._unguarded_maintenance_connection(
+            tenant_id=tenant_id,
+            composite_ids=composite_ids,
+        ) as connection:
             connection.execute(
                 CompositeMemberReturnFactPublicationModel.__table__.delete().where(
-                    CompositeMemberReturnFactPublicationModel.composite_id.in_(composite_ids)
+                    CompositeMemberReturnFactPublicationModel.tenant_id == tenant_id,
+                    CompositeMemberReturnFactPublicationModel.composite_id.in_(composite_ids),
                 )
             )
             connection.execute(
                 CompositeMemberReturnFactModel.__table__.delete().where(
-                    CompositeMemberReturnFactModel.composite_id.in_(composite_ids)
+                    CompositeMemberReturnFactModel.tenant_id == tenant_id,
+                    CompositeMemberReturnFactModel.composite_id.in_(composite_ids),
                 )
             )
             connection.execute(
                 CompositeMembershipModel.__table__.delete().where(
-                    CompositeMembershipModel.composite_id.in_(composite_ids)
+                    CompositeMembershipModel.tenant_id == tenant_id,
+                    CompositeMembershipModel.composite_id.in_(composite_ids),
                 )
             )
             connection.execute(
                 CompositeDefinitionModel.__table__.delete().where(
-                    CompositeDefinitionModel.composite_id.in_(composite_ids)
+                    CompositeDefinitionModel.tenant_id == tenant_id,
+                    CompositeDefinitionModel.composite_id.in_(composite_ids),
                 )
             )
 
-    def upsert_definition(self, definition: CompositeDefinition) -> None:
+    def upsert_definition(self, definition: CompositeDefinition, *, tenant_id: str | None = None) -> None:
+        tenant_id = _admitted_composite_tenant_id(tenant_id)
+        definition_key = _definition_key(tenant_id=tenant_id, composite_id=definition.composite_id)
         with self._session() as session:
+            _lock_composite_tenant_identity(session, tenant_id, exclusive=False)
+            _lock_composite_definition_identity(
+                session,
+                tenant_id=tenant_id,
+                composite_id=definition.composite_id,
+                exclusive=True,
+            )
+            existing = session.get(CompositeDefinitionModel, definition_key)
+            if existing is not None and (
+                existing.tenant_id != tenant_id or existing.composite_id != definition.composite_id
+            ):
+                raise CompositeDefinitionIdentityConflictError(
+                    "Composite definition key is already bound to a different tenant/composite identity"
+                )
             session.merge(
                 CompositeDefinitionModel(
+                    definition_key=definition_key,
+                    tenant_id=tenant_id,
                     composite_id=definition.composite_id,
                     display_name=definition.display_name,
                     strategy_code=definition.strategy_code,
@@ -1963,9 +2613,17 @@ class CompositeMetadataStore:
                 )
             )
 
-    def get_definition(self, composite_id: str) -> CompositeDefinition | None:
+    def get_definition(self, composite_id: str, *, tenant_id: str | None = None) -> CompositeDefinition | None:
+        tenant_id = _admitted_composite_tenant_id(tenant_id)
         with self._session() as session:
-            row = session.get(CompositeDefinitionModel, composite_id)
+            definition_key = _definition_key(tenant_id=tenant_id, composite_id=composite_id)
+            row = session.execute(
+                select(CompositeDefinitionModel).where(
+                    CompositeDefinitionModel.definition_key == definition_key,
+                    CompositeDefinitionModel.tenant_id == tenant_id,
+                    CompositeDefinitionModel.composite_id == composite_id,
+                )
+            ).scalar_one_or_none()
             if row is None:
                 return None
             source_authority = _load_json_object(
@@ -1988,11 +2646,25 @@ class CompositeMetadataStore:
                 }
             )
 
-    def upsert_membership(self, membership: CompositeMembership) -> None:
+    def upsert_membership(self, membership: CompositeMembership, *, tenant_id: str | None = None) -> None:
+        tenant_id = _admitted_composite_tenant_id(tenant_id)
         with self._session() as session:
+            _lock_composite_tenant_identity(session, tenant_id, exclusive=False)
+            _lock_composite_definition_identity(
+                session,
+                tenant_id=tenant_id,
+                composite_id=membership.composite_id,
+                exclusive=False,
+            )
+            _require_composite_definition_for_write(
+                session,
+                tenant_id=tenant_id,
+                composite_id=membership.composite_id,
+            )
             session.merge(
                 CompositeMembershipModel(
-                    membership_key=_membership_key(membership),
+                    membership_key=_membership_key(membership, tenant_id=tenant_id),
+                    tenant_id=tenant_id,
                     composite_id=membership.composite_id,
                     portfolio_id=membership.portfolio_id,
                     effective_from=membership.effective_from,
@@ -2004,11 +2676,15 @@ class CompositeMetadataStore:
                 )
             )
 
-    def list_memberships(self, composite_id: str) -> list[CompositeMembership]:
+    def list_memberships(self, composite_id: str, *, tenant_id: str | None = None) -> list[CompositeMembership]:
+        tenant_id = _admitted_composite_tenant_id(tenant_id)
         with self._session() as session:
             statement = (
                 select(CompositeMembershipModel)
-                .where(CompositeMembershipModel.composite_id == composite_id)
+                .where(
+                    CompositeMembershipModel.tenant_id == tenant_id,
+                    CompositeMembershipModel.composite_id == composite_id,
+                )
                 .order_by(CompositeMembershipModel.effective_from, CompositeMembershipModel.portfolio_id)
             )
             rows = session.execute(statement).scalars().all()
@@ -2028,26 +2704,41 @@ class CompositeMetadataStore:
                 for row in rows
             ]
 
-    def upsert_member_return_fact(self, fact: CompositeMemberReturnFact) -> None:
+    def upsert_member_return_fact(self, fact: CompositeMemberReturnFact, *, tenant_id: str | None = None) -> None:
+        tenant_id = _admitted_composite_tenant_id(tenant_id)
         session = self._session_factory()
         try:
             publication_key = _publication_key(
+                tenant_id=tenant_id,
                 composite_id=fact.composite_id,
                 return_view=fact.return_view,
                 reporting_currency=fact.reporting_currency,
                 restatement_sequence=fact.restatement_sequence,
             )
+            _lock_composite_tenant_identity(session, tenant_id, exclusive=False)
+            _lock_composite_definition_identity(
+                session,
+                tenant_id=tenant_id,
+                composite_id=fact.composite_id,
+                exclusive=False,
+            )
             # Writers share the publication fence so independent member facts can
             # proceed concurrently. Publication completion takes the exclusive form,
             # which waits for every admitted writer before attesting the exact set.
             _lock_fact_publication_identity(session, publication_key, exclusive=False)
-            collision = _find_member_return_fact_identity_collision(session, fact)
+            _require_composite_definition_for_write(
+                session,
+                tenant_id=tenant_id,
+                composite_id=fact.composite_id,
+            )
+            collision = _find_member_return_fact_identity_collision(session, fact, tenant_id=tenant_id)
             if collision is not None:
                 _accept_idempotent_fact_or_raise_conflict(collision, fact)
                 return
             if (
                 _find_member_return_fact_publication(
                     session,
+                    tenant_id=tenant_id,
                     composite_id=fact.composite_id,
                     return_view=fact.return_view,
                     reporting_currency=fact.reporting_currency,
@@ -2059,11 +2750,11 @@ class CompositeMetadataStore:
                     "Completed composite fact publication is immutable; a new family cannot be "
                     f"added after completion: sequence={fact.restatement_sequence}"
                 )
-            session.add(_member_return_fact_model(fact))
+            session.add(_member_return_fact_model(fact, tenant_id=tenant_id))
             session.commit()
         except IntegrityError as exc:
             session.rollback()
-            collision = _find_member_return_fact_identity_collision(session, fact)
+            collision = _find_member_return_fact_identity_collision(session, fact, tenant_id=tenant_id)
             if collision is None:
                 raise
             try:
@@ -2079,6 +2770,7 @@ class CompositeMetadataStore:
     def complete_member_return_fact_publication(
         self,
         *,
+        tenant_id: str | None = None,
         composite_id: str,
         return_view: CompositeReturnView,
         reporting_currency: str,
@@ -2089,6 +2781,7 @@ class CompositeMetadataStore:
         source_fingerprint: str,
     ) -> None:
         """Durably attest the exact fact universe for one immutable sequence."""
+        tenant_id = _admitted_composite_tenant_id(tenant_id)
         _validate_member_return_fact_publication_request(
             reporting_currency=reporting_currency,
             restatement_sequence=restatement_sequence,
@@ -2099,6 +2792,7 @@ class CompositeMetadataStore:
         )
 
         publication_key = _publication_key(
+            tenant_id=tenant_id,
             composite_id=composite_id,
             return_view=return_view,
             reporting_currency=reporting_currency,
@@ -2106,10 +2800,23 @@ class CompositeMetadataStore:
         )
         expected_families_json = _serialize_fact_families(expected_families)
         with self._session() as session:
+            _lock_composite_tenant_identity(session, tenant_id, exclusive=False)
+            _lock_composite_definition_identity(
+                session,
+                tenant_id=tenant_id,
+                composite_id=composite_id,
+                exclusive=False,
+            )
             _lock_fact_publication_identity(session, publication_key, exclusive=True)
+            _require_composite_definition_for_write(
+                session,
+                tenant_id=tenant_id,
+                composite_id=composite_id,
+            )
             actual_families = _member_return_fact_families(
                 session,
                 filters=(
+                    CompositeMemberReturnFactModel.tenant_id == tenant_id,
                     CompositeMemberReturnFactModel.composite_id == composite_id,
                     CompositeMemberReturnFactModel.return_view == return_view.value,
                     CompositeMemberReturnFactModel.reporting_currency == reporting_currency,
@@ -2124,6 +2831,7 @@ class CompositeMetadataStore:
 
             existing = _find_member_return_fact_publication(
                 session,
+                tenant_id=tenant_id,
                 composite_id=composite_id,
                 return_view=return_view,
                 reporting_currency=reporting_currency,
@@ -2142,6 +2850,7 @@ class CompositeMetadataStore:
             session.add(
                 CompositeMemberReturnFactPublicationModel(
                     publication_key=publication_key,
+                    tenant_id=tenant_id,
                     composite_id=composite_id,
                     return_view=return_view.value,
                     reporting_currency=reporting_currency,
@@ -2156,6 +2865,7 @@ class CompositeMetadataStore:
     def list_member_return_facts(
         self,
         *,
+        tenant_id: str | None = None,
         composite_id: str,
         period_start: dt_date,
         period_end: dt_date,
@@ -2163,8 +2873,10 @@ class CompositeMetadataStore:
         reporting_currency: str,
         restatement_sequence: int | None = None,
     ) -> list[CompositeMemberReturnFact]:
+        tenant_id = _admitted_composite_tenant_id(tenant_id)
         with self._session() as session:
             publication_identity_filters = (
+                CompositeMemberReturnFactPublicationModel.tenant_id == tenant_id,
                 CompositeMemberReturnFactPublicationModel.composite_id == composite_id,
                 CompositeMemberReturnFactPublicationModel.return_view == return_view.value,
                 CompositeMemberReturnFactPublicationModel.reporting_currency == reporting_currency,
@@ -2175,6 +2887,7 @@ class CompositeMetadataStore:
                 CompositeMemberReturnFactPublicationModel.period_end >= period_end,
             )
             filters = (
+                CompositeMemberReturnFactModel.tenant_id == tenant_id,
                 CompositeMemberReturnFactModel.composite_id == composite_id,
                 CompositeMemberReturnFactModel.period_start >= period_start,
                 CompositeMemberReturnFactModel.period_end <= period_end,
@@ -2219,12 +2932,19 @@ class CompositeMetadataStore:
             )
             return [_member_return_fact_from_row(row) for row in rows]
 
-    def count_records(self) -> CompositeMetadataCounts:
+    def count_records(self, *, tenant_id: str | None = None) -> CompositeMetadataCounts:
+        tenant_id = _admitted_composite_tenant_id(tenant_id)
         with self._session() as session:
             return CompositeMetadataCounts(
-                definitions=session.query(CompositeDefinitionModel).count(),
-                memberships=session.query(CompositeMembershipModel).count(),
-                member_return_facts=session.query(CompositeMemberReturnFactModel).count(),
+                definitions=session.query(CompositeDefinitionModel)
+                .filter(CompositeDefinitionModel.tenant_id == tenant_id)
+                .count(),
+                memberships=session.query(CompositeMembershipModel)
+                .filter(CompositeMembershipModel.tenant_id == tenant_id)
+                .count(),
+                member_return_facts=session.query(CompositeMemberReturnFactModel)
+                .filter(CompositeMemberReturnFactModel.tenant_id == tenant_id)
+                .count(),
             )
 
 
@@ -2244,6 +2964,11 @@ def get_composite_metadata_store(*, database_url: str | None = None) -> Composit
 
 
 composite_metadata_store = RuntimeStoreProxy(get_composite_metadata_store)
+
+
+def _admitted_composite_tenant_id(presented: str | None) -> str:
+    authority = admitted_tenant_authority(tenant_id_var.get() if presented is None else presented)
+    return require_composite_tenant_authority(authority).tenant_id
 
 
 def _load_json_object(raw_payload: str, *, row_identifier: str, payload_name: str) -> dict[str, Any] | None:

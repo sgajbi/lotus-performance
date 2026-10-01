@@ -3,6 +3,7 @@ from datetime import datetime
 
 import pytest
 from fastapi import Response
+from starlette.datastructures import Headers
 
 from app import (
     enterprise_audit_emission,
@@ -696,6 +697,12 @@ def test_audit_identity_from_headers_uses_governed_missing_value_fallbacks():
         _AUDIT_PAYLOAD_ROLE_KEY: _UNKNOWN_ROLE,
         _AUDIT_PAYLOAD_CORRELATION_ID_KEY: _EMPTY_AUDIT_CORRELATION_ID,
     }
+
+
+def test_audit_identity_does_not_select_between_duplicate_tenant_headers():
+    identity = _audit_identity_from_headers(Headers(raw=[(b"x-tenant-id", b"tenant-a"), (b"x-tenant-id", b"tenant-b")]))
+
+    assert identity[_AUDIT_PAYLOAD_TENANT_ID_KEY] == _DEFAULT_TENANT_ID
 
 
 def test_allowed_audit_metadata_classifies_write_surfaces():

@@ -20,6 +20,7 @@ real application over HTTP.
 from __future__ import annotations
 
 import pytest
+from starlette.datastructures import Headers
 
 from app.observability import resolve_tenant_id, tenant_id_var
 from app.services.core_tenant_authority import TENANT_HEADER, MissingTenantAuthorityError
@@ -53,6 +54,16 @@ class TestResolvingTheTenantFromTheRequest:
 
         resolved = resolve_tenant_id(_Request({}))
         assert not resolved.startswith(("req_", "corr_", "tenant_"))
+
+    def test_duplicate_tenant_headers_are_not_admitted_to_request_context(self) -> None:
+        request = _Request({})
+        request.headers = Headers(
+            raw=[
+                (b"x-tenant-id", b"tenant-a"),
+                (b"x-tenant-id", b"tenant-b"),
+            ]
+        )
+        assert resolve_tenant_id(request) == ""
 
 
 class TestTheFactoryCarriesTheAdmittedTenant:

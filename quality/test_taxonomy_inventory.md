@@ -1,7 +1,7 @@
 # Lotus Performance Test Taxonomy Inventory
 
 Report date: 2026-10-01
-Branch: `fix/547-bhb-decomposition`
+Branch: `fix/539-tenant-scoped-composites`
 Mode: regression-blocking test taxonomy inventory; `make quality-test-taxonomy-gate` enforces
 minimum API/runtime and contract/governance breadth plus the current uncategorized-test ceiling.
 
@@ -22,19 +22,19 @@ python scripts/python_test_taxonomy_inventory.py --limit 30 --min-api-runtime-te
 
 | Metric | Value |
 | --- | ---: |
-| Test modules inventoried | 328 |
-| Test functions inventoried | 3910 |
-| Integration/API/runtime test functions | 781 |
-| Contract/governance test functions | 194 |
+| Test modules inventoried | 329 |
+| Test functions inventoried | 3938 |
+| Integration/API/runtime test functions | 783 |
+| Contract/governance test functions | 195 |
 
 ## Test Functions By Suite
 
 | Suite | Modules | Test functions |
 | --- | ---: | ---: |
-| benchmarks | 10 | 32 |
+| benchmarks | 10 | 42 |
 | e2e | 1 | 21 |
-| integration | 28 | 372 |
-| unit | 289 | 3485 |
+| integration | 28 | 374 |
+| unit | 290 | 3501 |
 
 ## Test Functions By Family
 
@@ -44,10 +44,10 @@ above does sum to it, because a module belongs to exactly one suite.
 
 | Family | Test functions |
 | --- | ---: |
-| analytics_domain | 1894 |
-| api_or_runtime | 781 |
-| contract_or_governance | 194 |
-| observability_or_readiness | 565 |
+| analytics_domain | 1919 |
+| api_or_runtime | 783 |
+| contract_or_governance | 195 |
+| observability_or_readiness | 567 |
 | quality_or_security | 268 |
 | uncategorized | 635 |
 
@@ -56,7 +56,7 @@ above does sum to it, because a module belongs to exactly one suite.
 | Rank | Module | Suite | Test functions | Families |
 | ---: | --- | --- | ---: | --- |
 | 1 | `tests/unit/services/test_returns_series_service.py` | unit | 96 | analytics_domain |
-| 2 | `tests/unit/app/test_enterprise_readiness_additional.py` | unit | 87 | observability_or_readiness |
+| 2 | `tests/unit/app/test_enterprise_readiness_additional.py` | unit | 88 | observability_or_readiness |
 | 3 | `tests/unit/services/test_stateful_attribution_input_service.py` | unit | 71 | analytics_domain |
 | 4 | `tests/unit/docs/test_public_docs_contract.py` | unit | 68 | contract_or_governance |
 | 5 | `tests/unit/services/test_compute_job_store.py` | unit | 68 | observability_or_readiness |
@@ -189,3 +189,10 @@ The final acceptance-proof review adds one supported by-instrument HTTP regressi
 position valuations and independently derived sector effects. Source test functions now measure
 `3,910`, API/runtime functions `781`, analytics-domain functions `1,894`, and the unchanged
 uncategorized ceiling remains `635`.
+
+The tenant-scoped composite persistence slice adds one analytics-domain unit module, three
+PostgreSQL migration/isolation contracts, one HTTP tenant-isolation regression, and focused
+migration rollback coverage. Final review adds definition-key integrity plus supported HTTP
+inspection isolation and foreign-only refusal. Source test functions now measure `3,938`,
+API/runtime functions `783`, analytics-domain functions `1,919`, and the unchanged uncategorized
+ceiling remains `635`.

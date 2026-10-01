@@ -24,6 +24,7 @@ from main import app  # noqa: E402
 from scripts.seed_composite_performance_fixture import seed_canonical_composite_fixture  # noqa: E402
 
 DEMO_COMPOSITE_FIXTURE_IDS = {"PB_GLOBAL_BALANCED_USD", "PB_GLOBAL_BALANCED_USD_DEGRADED"}
+DEMO_TENANT_ID = "lotus-demo"
 
 
 @dataclass(frozen=True)
@@ -34,7 +35,7 @@ class CertificationCheck:
 
 
 def _post_json(client: TestClient, path: str, payload: dict[str, Any]) -> dict[str, Any]:
-    response = client.post(path, json=payload)
+    response = client.post(path, json=payload, headers={"X-Tenant-Id": DEMO_TENANT_ID})
     if response.status_code != 200:
         raise AssertionError(f"{path} returned HTTP {response.status_code}: {response.text}")
     return response.json()
@@ -464,8 +465,8 @@ def _certify_mandate_health_context(client: TestClient) -> CertificationCheck:
 
 def _certify_composite_twr(client: TestClient) -> CertificationCheck:
     bootstrap_durable_metadata_stores()
-    composite_metadata_store.clear_records_for_composites(DEMO_COMPOSITE_FIXTURE_IDS)
-    seed_canonical_composite_fixture()
+    composite_metadata_store.clear_records_for_composites(DEMO_COMPOSITE_FIXTURE_IDS, tenant_id=DEMO_TENANT_ID)
+    seed_canonical_composite_fixture(tenant_id=DEMO_TENANT_ID)
     body = _post_json(
         client,
         "/performance/composites/twr",

@@ -4,6 +4,27 @@
 - Persistence mode: **durable metadata schema** in current architecture.
 - Migration policy: **versioned migration contract** remains mandatory as a governance control.
 - Runtime schema ownership: application/bootstrap code may create or extend durable metadata tables only through deterministic, test-backed, **additive upgrade** logic.
+- Composite tenant scoping is fail-closed for retained ownerless rows. Bootstrap never assigns a
+  default tenant or uses first-reader ownership. An operator must first provide a complete reviewed
+  source-to-tenant ownership mapping through a separately governed data migration. Until that
+  mapping is applied, bootstrap aborts in the same transaction and leaves both schema and rows
+  unchanged. A pre-tenant schema is rebuilt automatically only when every composite table is
+  proven empty, because no ownership or financial evidence can be lost or inferred.
+- The prerequisite migration must use an authoritative, operator-reviewed row-to-tenant mapping
+  covering definitions, memberships, facts, and publications. It must reject missing, duplicate,
+  blank, or ambiguous ownership; rebuild tenant-derived opaque keys and tenant-prefixed uniqueness
+  in one transaction; reconcile per-table row counts and composite/fact/publication relationships;
+  and commit only after every retained row validates against the target schema. Bootstrap can be
+  retried after that migration commits. A startup flag or first-reader assignment is not supported.
+- The target composite schema rejects non-canonical tenant values, enforces one definition per
+  `(tenant_id, composite_id)`, and binds definition reads to the tenant, external id, and derived
+  key together. Bootstrap refuses populated schemas with missing or stale managed tenant checks
+  before DDL; it does not accept a merely present `tenant_id` column as proof that ownership
+  integrity is complete. Empty partial schemas are rebuilt transactionally with canonical checks.
+  Membership, fact, and publication rows also require named foreign keys from
+  `(tenant_id, composite_id)` to that definition identity. Supported writers perform an explicit
+  tenant-local parent lookup for a typed, non-disclosing refusal; the foreign key closes the
+  concurrent delete/write race for direct and supported writers.
 
 ## Deterministic Checks
 
@@ -15,9 +36,10 @@
   runbook language, and restore-drill behavior.
 - CI executes `make migration-smoke` on all PRs.
 - Durable-store schema tests must prove new columns/indexes can be applied without breaking existing metadata tables.
-- Runtime bootstrap and apply evidence must fail closed when an existing composite publication table lacks
-  `expected_families_json` or `source_fingerprint`; table-name presence alone is not successful
-  migration evidence.
+- Runtime bootstrap and apply evidence must fail closed when a populated existing composite
+  publication table lacks `expected_families_json` or `source_fingerprint`; table-name presence
+  alone is not successful migration evidence. An empty partial table may be rebuilt atomically
+  because it contains no lineage authority to preserve or infer.
 - The composite immutable-fact upgrade backfills legacy rows to `restatement_sequence=1`, preserves
   their existing opaque primary keys and payloads, and adds idempotent unique indexes for numeric
   sequence identity and source version-label identity plus durable reporting-currency,
@@ -50,7 +72,9 @@
   mutation guards on member-return facts: updates are rejected because corrections require a new
   restatement sequence, and facts belonging to a completed publication cannot be deleted. The
   completed publication manifest cannot be updated or deleted directly. Supported administrative
-  clear methods acquire the fact-table then publication-table lock order, suspend only managed
+  clear methods first acquire the tenant maintenance fence (exclusive for tenant-wide cleanup;
+  shared followed by sorted exclusive composite locks for selected cleanup), then acquire the
+  fact-table and publication-table lock order, suspend only managed
   guards, delete the manifest before its facts, recreate the guards, and commit as one local
   transaction. Rollback restores both records and guards. Older cleanup or demo-seed binaries must
   not overlap this migrated schema; use the matching application revision for maintenance.

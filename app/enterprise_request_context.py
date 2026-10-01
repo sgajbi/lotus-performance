@@ -1,5 +1,10 @@
 from typing import Any, Mapping
 
+from app.services.core_tenant_authority import (
+    MalformedTenantAuthorityError,
+    admitted_tenant_authority_from_header_values,
+)
+
 _AUDIT_PAYLOAD_ACTOR_ID_KEY = "actor_id"
 _AUDIT_PAYLOAD_TENANT_ID_KEY = "tenant_id"
 _AUDIT_PAYLOAD_ROLE_KEY = "role"
@@ -43,11 +48,27 @@ def _has_service_identity(normalized_headers: Mapping[str, str]) -> bool:
     return bool(normalized_headers.get(_SERVICE_IDENTITY_HEADER) or normalized_headers.get(_AUTHORIZATION_HEADER))
 
 
+def _audit_tenant_id(headers: Mapping[str, Any], normalized_headers: Mapping[str, str]) -> str:
+    getlist = getattr(headers, "getlist", None)
+    presented_values = (
+        getlist(_TENANT_ID_HEADER)
+        if callable(getlist)
+        else [normalized_headers[_TENANT_ID_HEADER]]
+        if normalized_headers.get(_TENANT_ID_HEADER)
+        else []
+    )
+    try:
+        authority = admitted_tenant_authority_from_header_values(presented_values)
+    except MalformedTenantAuthorityError:
+        return _DEFAULT_TENANT_ID
+    return authority.tenant_id if authority is not None else _DEFAULT_TENANT_ID
+
+
 def _audit_identity_from_headers(headers: Mapping[str, Any]) -> dict[str, str]:
     normalized = _normalized_headers(headers)
     return {
         _AUDIT_PAYLOAD_ACTOR_ID_KEY: normalized.get(_ACTOR_ID_HEADER) or _UNKNOWN_ACTOR_ID,
-        _AUDIT_PAYLOAD_TENANT_ID_KEY: normalized.get(_TENANT_ID_HEADER) or _DEFAULT_TENANT_ID,
+        _AUDIT_PAYLOAD_TENANT_ID_KEY: _audit_tenant_id(headers, normalized),
         _AUDIT_PAYLOAD_ROLE_KEY: normalized.get(_ROLE_HEADER) or _UNKNOWN_ROLE,
         _AUDIT_PAYLOAD_CORRELATION_ID_KEY: normalized.get(
             _CORRELATION_ID_HEADER,

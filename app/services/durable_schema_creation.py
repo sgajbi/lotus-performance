@@ -51,12 +51,17 @@ def create_durable_schema(
     engine: Engine,
     metadata: MetaData,
     *,
+    schema_preflights: Sequence[Callable[[Connection], None]] = (),
     schema_upgrades: Sequence[Callable[[Connection], None]] = (),
 ) -> None:
     """Create and upgrade `metadata`'s tables as one serialised PostgreSQL operation.
 
     SQLite uses the same transaction boundary without an advisory statement. The durable SQLite
     deployments are single-process and `pg_advisory_xact_lock` does not exist there.
+
+    Store-specific preflights run under the schema lock before ``create_all`` so a populated,
+    incompatible table can be refused without adjacent table or index DDL. Upgrades run only after
+    the target metadata tables exist.
     """
 
     with engine.begin() as connection:
@@ -68,6 +73,8 @@ def create_durable_schema(
             # rollback-safe, so acquire the writer transaction explicitly
             # before create_all or any schema upgrade can mutate the catalog.
             connection.exec_driver_sql("BEGIN IMMEDIATE")
+        for preflight_schema in schema_preflights:
+            preflight_schema(connection)
         # Bound to the locked connection on purpose: the DDL and the lock share one transaction, so
         # the lock cannot be released before the tables and upgrades it protects exist. The ordinary
         # configured lock and statement timeouts are back in force for the DDL itself.

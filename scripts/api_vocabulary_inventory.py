@@ -203,9 +203,13 @@ def _extract_request_fields(
                 "required": bool(parameter.get("required", False)),
                 "type": _schema_type(schema),
                 "description": parameter.get("description") or schema.get("description") or _fallback_description(name),
-                "example": parameter.get("example")
-                if parameter.get("example") is not None
-                else _fallback_example(name, schema),
+                "example": (
+                    parameter.get("example")
+                    if parameter.get("example") is not None
+                    else schema.get("example")
+                    if schema.get("example") is not None
+                    else _fallback_example(name, schema)
+                ),
                 "allowedValues": schema.get("enum", []),
                 "semanticId": _semantic_id(name),
                 "attributeRef": f"#/attributeCatalog/{_semantic_id(name)}",

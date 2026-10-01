@@ -17,6 +17,10 @@ needed for audit, operations, support, downstream consumers, and client-demo pre
 
 Supported after RFC-049 implementation proof:
 
+- admitted-tenant isolation across definitions, memberships, facts, publication fences, replay,
+  inspection evidence, and supported cleanup;
+- same-tenant definition validation and durable parent foreign keys for memberships, facts, and
+  publication manifests;
 - persisted member-return fact based composite TWR;
 - asset-weighted period returns;
 - geometric linking across calculable periods;
@@ -37,6 +41,13 @@ The calculation endpoint is:
 
 `POST /performance/composites/twr`
 
+Both composite endpoints require admitted `X-Tenant-Id` transport authority. Tenant scope is not a
+body claim or a default: missing/blank authority is refused before durable access, and identical
+external composite ids remain independent across tenants. Inspection lineage and support briefs
+carry the admitted tenant so evidence cannot be detached from its ownership context. Definition
+selection verifies the canonical tenant, external composite id, and deterministic durable key
+together; an opaque key alone cannot authorize a read.
+
 It accepts a `composite_id`, inclusive date window, optional `calculation_id`, return view,
 reporting currency, and optional numeric restatement sequence. Omission selects the greatest numeric
 candidate visible for the request and requires a completed durable publication manifest whose exact
@@ -53,8 +64,9 @@ Publication fencing uses the logical composite, return-view, reporting-currency,
 identity. A legacy primary key cannot bypass the fence after currency canonicalization. Bootstrap
 rejects retained non-integer or nonpositive fact/publication sequences and whitespace-only source
 version labels. It only canonicalizes original ASCII currency case variants; Unicode lookalikes are
-never normalized into an accepted code. An early publication table missing its expected-family or
-source-fingerprint lineage column is refused rather than assigned invented authority. PostgreSQL also rejects space-, tab-, or newline-only labels from direct writers
+never normalized into an accepted code. A populated early publication table missing its expected-family or
+source-fingerprint lineage column is refused rather than assigned invented authority; an empty
+partial table is rebuilt atomically. PostgreSQL also rejects space-, tab-, or newline-only labels from direct writers
 and strengthens an earlier space-only named constraint during upgrade. A validated nullable legacy
 version column is promoted to non-null. PostgreSQL upgrades reject
 incomplete or malformed retained publication periods,
@@ -71,8 +83,10 @@ use text storage and exact `YYYY-MM-DD` values, then install equivalent future-w
 Rollback restores both prior data and guard definitions.
 PostgreSQL and SQLite install mutation guards only after legacy validation: fact payloads and
 completed publication manifests cannot be updated or deleted, and completed facts cannot be deleted.
-Corrections are written as a new restatement sequence; supported cleanup locks fact then publication
-tables, suspends the managed guards, deletes the manifest before its facts, recreates the guards,
+Corrections are written as a new restatement sequence. Memberships, facts, and publications require
+a same-tenant definition through explicit writer validation and durable composite foreign keys.
+Supported writers share a tenant maintenance fence; tenant-wide cleanup takes it exclusively, then
+locks fact and publication tables, suspends the managed guards, deletes the manifest before its facts, recreates the guards,
 and commits transactionally. Cleanup or demo-seed tooling from an older revision must not overlap
 the migrated schema.
 

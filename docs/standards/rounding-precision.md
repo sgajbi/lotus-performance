@@ -60,7 +60,8 @@ it away; `tests/unit/scripts/test_monetary_float_usage.py` fails when an orphane
 
 The 2026-09-22 review of expired cohort #472 retired 35 dimensionless-ratio or docstring
 matches at their source sites. Eight actual market-value, benchmark-price, and FX-conversion
-boundaries retain finding-specific dated allowances through 2026-09-30 under #530. That short
+boundaries retain finding-specific dated allowances through 2026-10-08 under #530 after the
+2026-10-01 re-review confirmed that the compatibility migration remains open. That short
 allowance is not evidence of Decimal migration or production precision certification; #530 owns
 the compatibility and golden-vector work. The guard still blocks stale and newly introduced
 unapproved monetary floats.

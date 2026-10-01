@@ -13,6 +13,7 @@ a service that can invent a tenant can serve one tenant's data to another.
 
 from __future__ import annotations
 
+from collections.abc import Sequence
 from dataclasses import dataclass
 
 from core.errors import HTTP_400_BAD_REQUEST, HTTP_401_UNAUTHORIZED, APIError
@@ -21,6 +22,9 @@ from core.errors import HTTP_400_BAD_REQUEST, HTTP_401_UNAUTHORIZED, APIError
 #: are optional there and are not minted here.
 TENANT_HEADER = "X-Tenant-Id"
 MAX_TENANT_ID_LENGTH = 128
+MALFORMED_TENANT_AUTHORITY_DETAIL = f"X-Tenant-Id must not exceed {MAX_TENANT_ID_LENGTH} characters after trimming."
+DUPLICATE_TENANT_AUTHORITY_DETAIL = "X-Tenant-Id must be supplied exactly once."
+COMPOSITE_TENANT_AUTHORITY_REQUIRED_DETAIL = "Performance composite access requires an admitted X-Tenant-Id."
 
 
 class TenantAuthorityError(APIError):
@@ -110,10 +114,10 @@ class TenantAuthority:
 class MalformedTenantAuthorityError(TenantAuthorityError):
     """The normalized caller tenant exceeds Core's canonical identity bound."""
 
-    def __init__(self) -> None:
+    def __init__(self, detail: str = MALFORMED_TENANT_AUTHORITY_DETAIL) -> None:
         super().__init__(
             status_code=HTTP_400_BAD_REQUEST,
-            detail=f"X-Tenant-Id must not exceed {MAX_TENANT_ID_LENGTH} characters after trimming.",
+            detail=detail,
             error_code="TENANT_AUTHORITY_MALFORMED",
             retryable=False,
         )
@@ -136,6 +140,14 @@ def admitted_tenant_authority(presented: str) -> TenantAuthority | None:
     return TenantAuthority(tenant_id=normalized)
 
 
+def admitted_tenant_authority_from_header_values(presented_values: Sequence[str]) -> TenantAuthority | None:
+    """Admit one tenant header value; refuse ambiguous duplicate authority."""
+
+    if len(presented_values) > 1:
+        raise MalformedTenantAuthorityError(DUPLICATE_TENANT_AUTHORITY_DETAIL)
+    return admitted_tenant_authority(presented_values[0] if presented_values else "")
+
+
 def require_tenant_authority(authority: TenantAuthority | None, *, operation: str) -> TenantAuthority:
     """Return the authority, or refuse the read.
 
@@ -146,4 +158,24 @@ def require_tenant_authority(authority: TenantAuthority | None, *, operation: st
 
     if authority is None:
         raise MissingTenantAuthorityError(operation)
+    return authority
+
+
+class MissingCompositeTenantAuthorityError(TenantAuthorityError):
+    """Raised when a Performance-owned composite operation lacks tenant authority."""
+
+    def __init__(self) -> None:
+        super().__init__(
+            status_code=HTTP_401_UNAUTHORIZED,
+            detail=COMPOSITE_TENANT_AUTHORITY_REQUIRED_DETAIL,
+            error_code="TENANT_AUTHORITY_REQUIRED",
+            retryable=False,
+        )
+
+
+def require_composite_tenant_authority(authority: TenantAuthority | None) -> TenantAuthority:
+    """Return tenant authority for Performance-owned composite state or refuse locally."""
+
+    if authority is None:
+        raise MissingCompositeTenantAuthorityError()
     return authority
