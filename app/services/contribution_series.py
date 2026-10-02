@@ -252,16 +252,30 @@ def _build_hierarchy_from_adjusted_position_series(
     )
 
     summary["portfolio_contribution"] = _as_numeric(adjusted_df["adjusted_contribution"].sum()) * 100
-    if request.currency_mode == "BOTH" and position_contributions is not None and not adjusted_df.empty:
-        summary["local_contribution"] = sum(
-            position.local_contribution
-            for position in position_contributions
-            if position.local_contribution is not None
-        )
-        summary["fx_contribution"] = sum(
-            position.fx_contribution for position in position_contributions if position.fx_contribution is not None
-        )
+    _populate_hierarchy_summary_components(
+        summary,
+        request=request,
+        position_contributions=position_contributions,
+        adjusted_df=adjusted_df,
+    )
     return {"summary": summary, "levels": response_levels}
+
+
+def _populate_hierarchy_summary_components(
+    summary: dict[str, Any],
+    *,
+    request: ContributionRequest,
+    position_contributions: list[PositionContribution] | None,
+    adjusted_df: pd.DataFrame,
+) -> None:
+    if request.currency_mode != "BOTH" or position_contributions is None or adjusted_df.empty:
+        return
+    summary["local_contribution"] = sum(
+        position.local_contribution for position in position_contributions if position.local_contribution is not None
+    )
+    summary["fx_contribution"] = sum(
+        position.fx_contribution for position in position_contributions if position.fx_contribution is not None
+    )
 
 
 def _prepared_hierarchy_frames_or_source_membership_fallback(
