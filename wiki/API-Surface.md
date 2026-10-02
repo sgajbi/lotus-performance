@@ -71,6 +71,17 @@ supportability, or supportability-reason evidence return HTTP `422` with
 `FAIL_FAST_SOFT_WARNING` instead of a `200` degraded result. Initial async `202 Accepted` envelopes
 are not rejected before execution completes because warning posture is not yet known.
 
+`POST /performance/benchmark` publishes daily and linked benchmark returns. In
+`return_source="calculated"` mode, it derives component returns from supplied return observations
+or price-derived index points. Each daily base, local, and FX total uses the same raw
+beginning-of-day exposure basis: it is the sum of the relevant component return multiplied by the
+beginning weight. Period and non-daily returns geometrically link those daily totals; they are not
+component sums. Partial, leveraged, zero, and offsetting signed exposures are not renormalized to a
+unit-weight portfolio; weight-sum diagnostics remain evidence and never authorize a different
+return basis. Price-derived inputs must provide valid prior/current observations for every
+component before a return is published. In `return_source="vendor_series"` mode, authored
+`benchmark_return_points` supply the benchmark series instead of the calculated component path.
+
 Async and supportability routes:
 
 - `GET /performance/executions/{calculation_id}`
