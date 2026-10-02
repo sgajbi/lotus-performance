@@ -13,6 +13,7 @@ from app.services.async_result_service import (
     _is_active_async_job_status,
     _require_compute_job,
     _resolve_compute_job_result,
+    _resolve_retained_execution_result,
     resolve_async_result,
 )
 from app.services.async_result_store import AsyncResultRecord, AsyncResultStatus
@@ -42,15 +43,15 @@ class _ResultStore:
 
 
 class _JobStore:
-    def __init__(self, job: ComputeJobRecord) -> None:
+    def __init__(self, job: ComputeJobRecord | None) -> None:
         self._job = job
         self.requested_tenants: list[str] = []
 
-    def get_job(self, calculation_id: UUID) -> ComputeJobRecord:
+    def get_job(self, calculation_id: UUID) -> ComputeJobRecord | None:
         del calculation_id
         return self._job
 
-    def get_job_for_tenant(self, calculation_id: UUID, *, tenant_id: str) -> ComputeJobRecord:
+    def get_job_for_tenant(self, calculation_id: UUID, *, tenant_id: str) -> ComputeJobRecord | None:
         del calculation_id
         self.requested_tenants.append(tenant_id)
         return self._job
@@ -62,6 +63,12 @@ class _ExecutionStore:
 
     def get_execution(self, calculation_id: UUID) -> ExecutionRecord | None:
         del calculation_id
+        return self._execution
+
+    def get_execution_for_tenant(self, calculation_id: UUID, *, tenant_id: str) -> ExecutionRecord | None:
+        del calculation_id
+        if self._execution is None or self._execution.tenant_id != tenant_id:
+            return None
         return self._execution
 
 
@@ -123,6 +130,9 @@ def _execution_record(
     *,
     portfolio_id: str | None = "PORT-1",
     tenant_id: str | None = "tenant-private-bank",
+    status: ExecutionStatus = ExecutionStatus.COMPLETE,
+    response_payload: dict[str, Any] | None = None,
+    error_message: str | None = None,
 ) -> ExecutionRecord:
     return ExecutionRecord(
         calculation_id=calculation_id,
@@ -130,16 +140,17 @@ def _execution_record(
         analytics_type="ReturnsSeries",
         portfolio_id=portfolio_id,
         execution_mode="async",
-        status=ExecutionStatus.COMPLETE,
+        status=status,
         requested_window={},
         input_fingerprint=None,
         calculation_hash=None,
-        error_message=None,
+        error_message=error_message,
         created_at_utc="2026-06-13T00:00:00Z",
         started_at_utc=None,
         completed_at_utc=None,
         stages=[],
         upstream_snapshots=[],
+        response_payload=response_payload,
     )
 
 
@@ -324,6 +335,60 @@ def test_resolve_async_result_allows_same_portfolio_access(monkeypatch):
     )
 
     assert response == _AsyncResponse(calculation_id=calculation_id, status="complete")
+
+
+def test_resolve_async_result_falls_back_to_authorized_retained_execution(monkeypatch):
+    calculation_id = uuid4()
+    execution = _execution_record(
+        calculation_id,
+        response_payload={"calculation_id": str(calculation_id), "status": "complete"},
+    )
+    result_store = _ResultStore()
+    job_store = _JobStore(None)
+    monkeypatch.setattr(async_result_service, "execution_registry", _ExecutionStore(execution))
+    monkeypatch.setattr(async_result_service, "async_result_store", result_store)
+    monkeypatch.setattr(async_result_service, "compute_job_store", job_store)
+
+    response = resolve_async_result(
+        calculation_id=calculation_id,
+        expected_analytics_type="ReturnsSeries",
+        response_model=_AsyncResponse,
+        accepted_response_factory=_accepted_response,
+        not_found_detail="not found",
+        failed_detail="failed",
+        request_headers=_identity_headers(**{"X-Portfolio-Id": "PORT-1"}),
+    )
+
+    assert response == _AsyncResponse(calculation_id=calculation_id, status="complete")
+    assert result_store.requested_tenants == ["tenant-private-bank"]
+    assert job_store.requested_tenants == ["tenant-private-bank"]
+
+
+@pytest.mark.parametrize("retained_state", ["missing", "failed", "response_missing"])
+def test_resolve_retained_execution_result_refuses_unavailable_states(retained_state):
+    calculation_id = uuid4()
+    execution = None
+    if retained_state == "failed":
+        execution = _execution_record(
+            calculation_id,
+            status=ExecutionStatus.FAILED,
+            error_message="retained execution failed",
+        )
+    elif retained_state == "response_missing":
+        execution = _execution_record(calculation_id)
+
+    with pytest.raises(APIError) as exc_info:
+        _resolve_retained_execution_result(
+            calculation_id=calculation_id,
+            execution=execution,
+            expected_analytics_type="ReturnsSeries",
+            response_model=_AsyncResponse,
+            not_found_detail="not found",
+            failed_detail="failed",
+        )
+
+    assert exc_info.value.status_code == (409 if retained_state == "failed" else 404)
+    assert exc_info.value.detail == ("retained execution failed" if retained_state == "failed" else "not found")
 
 
 def test_resolve_async_result_uses_persisted_empty_authority_for_stateless_poll(monkeypatch):

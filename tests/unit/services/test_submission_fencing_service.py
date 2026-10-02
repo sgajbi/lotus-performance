@@ -6,7 +6,7 @@ from pydantic import BaseModel
 
 from app.observability import tenant_id_var
 from app.services.compute_job_store import ComputeJobRegistrationResult, ComputeJobRegistrationStatus
-from app.services.execution_registry import ExecutionRegistrationResult, ExecutionRegistrationStatus
+from app.services.execution_registry import ExecutionRegistrationResult, ExecutionRegistrationStatus, ExecutionStatus
 from app.services.execution_stage_names import EXECUTION_STAGE_SUBMISSION
 from app.services.submission_fencing_service import (
     _complete_async_submission_stage_if_needed,
@@ -176,7 +176,7 @@ def test_stateless_submission_preserves_legitimate_tenant_absence(mocker):
     assert register_job.call_args.kwargs["tenant_id"] == ""
 
 
-def test_register_async_submission_replay_does_not_reopen_submission_stage(mocker):
+def test_register_async_submission_replay_repairs_interrupted_submission_stage(mocker):
     calculation_id = uuid4()
     mocker.patch(
         "app.services.submission_fencing_service.execution_registry.register_execution",
@@ -188,6 +188,9 @@ def test_register_async_submission_replay_does_not_reopen_submission_stage(mocke
     )
     start_stage = mocker.patch("app.services.submission_fencing_service.execution_registry.start_stage")
     complete_stage = mocker.patch("app.services.submission_fencing_service.execution_registry.complete_stage")
+    complete_if_in_progress = mocker.patch(
+        "app.services.submission_fencing_service.execution_registry.complete_stage_if_in_progress"
+    )
     mocker.patch(
         "app.services.submission_fencing_service.compute_job_store.register_job",
         return_value=ComputeJobRegistrationResult(status=ComputeJobRegistrationStatus.REPLAY),
@@ -208,6 +211,11 @@ def test_register_async_submission_replay_does_not_reopen_submission_stage(mocke
     assert response.status_code == 202
     start_stage.assert_not_called()
     complete_stage.assert_not_called()
+    complete_if_in_progress.assert_called_once_with(
+        calculation_id,
+        EXECUTION_STAGE_SUBMISSION,
+        details={"offload_reason": "large_input"},
+    )
 
 
 def test_register_async_submission_replay_self_heals_missing_job(mocker):
@@ -244,6 +252,68 @@ def test_register_async_submission_replay_self_heals_missing_job(mocker):
     complete_stage.assert_called_once_with(
         calculation_id, EXECUTION_STAGE_SUBMISSION, details={"offload_reason": "large_input"}
     )
+
+
+@pytest.mark.parametrize("terminal_status", [ExecutionStatus.COMPLETE, ExecutionStatus.FAILED])
+def test_register_async_submission_terminal_replay_does_not_recreate_missing_job(mocker, terminal_status):
+    calculation_id = uuid4()
+    mocker.patch(
+        "app.services.submission_fencing_service.execution_registry.register_execution",
+        return_value=ExecutionRegistrationResult(
+            status=ExecutionRegistrationStatus.REPLAY,
+            existing_status=terminal_status,
+            existing_execution_mode="async",
+        ),
+    )
+    start_stage = mocker.patch("app.services.submission_fencing_service.execution_registry.start_stage")
+    complete_stage = mocker.patch("app.services.submission_fencing_service.execution_registry.complete_stage")
+    register_job = mocker.patch("app.services.submission_fencing_service.compute_job_store.register_job")
+
+    response = register_async_submission_or_raise(
+        calculation_id=calculation_id,
+        analytics_type="Attribution",
+        portfolio_id="P1",
+        requested_window={"requested_periods": ["SI"]},
+        input_fingerprint="fingerprint",
+        calculation_hash="hash",
+        request_payload={"calculation_id": str(calculation_id)},
+        offload_reason="caller_idempotency_key",
+        accepted_response_factory=_accepted_response_factory,
+    )
+
+    assert response.status_code == 202
+    register_job.assert_not_called()
+    start_stage.assert_not_called()
+    complete_stage.assert_not_called()
+
+
+def test_register_async_submission_compute_complete_replay_does_not_recreate_missing_job(mocker):
+    calculation_id = uuid4()
+    mocker.patch(
+        "app.services.submission_fencing_service.execution_registry.register_execution",
+        return_value=ExecutionRegistrationResult(
+            status=ExecutionRegistrationStatus.REPLAY,
+            existing_status=ExecutionStatus.RUNNING,
+            existing_execution_mode="async",
+            response_payload_available=True,
+        ),
+    )
+    register_job = mocker.patch("app.services.submission_fencing_service.compute_job_store.register_job")
+
+    response = register_async_submission_or_raise(
+        calculation_id=calculation_id,
+        analytics_type="Attribution",
+        portfolio_id="P1",
+        requested_window={"requested_periods": ["SI"]},
+        input_fingerprint="fingerprint",
+        calculation_hash="hash",
+        request_payload={"calculation_id": str(calculation_id)},
+        offload_reason="caller_idempotency_key",
+        accepted_response_factory=_accepted_response_factory,
+    )
+
+    assert response.status_code == 202
+    register_job.assert_not_called()
 
 
 def test_register_async_submission_conflict_on_job_payload_drift_raises_409(mocker):
@@ -359,6 +429,44 @@ def test_register_async_submission_cleans_up_new_execution_when_job_registration
     assert "RuntimeError: queue unavailable" in caplog.text
 
 
+def test_register_async_submission_preserves_key_binding_when_job_commit_is_ambiguous(mocker, caplog):
+    calculation_id = uuid4()
+    mocker.patch(
+        "app.services.submission_fencing_service.execution_registry.register_execution",
+        return_value=ExecutionRegistrationResult(status=ExecutionRegistrationStatus.CREATED),
+    )
+    mocker.patch("app.services.submission_fencing_service.execution_registry.start_stage")
+    delete_execution = mocker.patch("app.services.submission_fencing_service.execution_registry.delete_execution")
+    mocker.patch(
+        "app.services.submission_fencing_service.compute_job_store.register_job",
+        side_effect=RuntimeError("connection lost after commit"),
+    )
+
+    tenant_token = tenant_id_var.set("tenant-private-bank")
+    try:
+        with caplog.at_level(logging.WARNING, logger="app.services.submission_fencing_service"):
+            with pytest.raises(RuntimeError, match="connection lost after commit"):
+                register_async_submission_or_raise(
+                    calculation_id=calculation_id,
+                    analytics_type="Attribution",
+                    portfolio_id="P1",
+                    requested_window={"requested_periods": ["SI"]},
+                    input_fingerprint="fingerprint",
+                    calculation_hash="hash",
+                    request_payload={"calculation_id": str(calculation_id)},
+                    offload_reason="idempotent_submission",
+                    accepted_response_factory=_accepted_response_factory,
+                    submission_idempotency_key_hash="b" * 64,
+                    submission_identity_fingerprint="sha256:identity",
+                    submission_contract_version="attribution-submission-v1",
+                )
+    finally:
+        tenant_id_var.reset(tenant_token)
+
+    delete_execution.assert_not_called()
+    assert f"Async compute job registration failed for calculation_id={calculation_id}" in caplog.text
+
+
 def test_register_async_submission_preserves_job_error_when_cleanup_fails(mocker, caplog):
     calculation_id = uuid4()
     mocker.patch(
@@ -451,10 +559,13 @@ def test_complete_async_submission_stage_helper_self_heals_recreated_replay_job(
     )
 
 
-def test_complete_async_submission_stage_helper_leaves_replayed_job_stage_closed(mocker):
+def test_complete_async_submission_stage_helper_repairs_replayed_job_stage_if_interrupted(mocker):
     calculation_id = uuid4()
     start_stage = mocker.patch("app.services.submission_fencing_service.execution_registry.start_stage")
     complete_stage = mocker.patch("app.services.submission_fencing_service.execution_registry.complete_stage")
+    complete_if_in_progress = mocker.patch(
+        "app.services.submission_fencing_service.execution_registry.complete_stage_if_in_progress"
+    )
 
     _complete_async_submission_stage_if_needed(
         calculation_id=calculation_id,
@@ -466,6 +577,11 @@ def test_complete_async_submission_stage_helper_leaves_replayed_job_stage_closed
 
     start_stage.assert_not_called()
     complete_stage.assert_not_called()
+    complete_if_in_progress.assert_called_once_with(
+        calculation_id,
+        EXECUTION_STAGE_SUBMISSION,
+        details={"offload_reason": "large_input"},
+    )
 
 
 def test_promote_existing_execution_defers_execution_mutation_until_job_registration_succeeds(mocker):

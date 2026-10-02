@@ -584,6 +584,10 @@ class AttributionResponse(BaseModel):
 class AttributionAcceptedResponse(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
+    state: Literal["accepted"] = Field(
+        default="accepted",
+        description="Stable lifecycle state for an accepted asynchronous attribution request.",
+    )
     calculation_id: UUID = Field(
         description="Stable calculation handle for the accepted attribution request.",
         examples=["209da27d-f3f4-4e64-97c5-a2eb1d4fe4f3"],

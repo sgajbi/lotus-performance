@@ -23,23 +23,23 @@ python scripts/python_architecture_boundary_inventory.py --limit 80 --max-findin
 
 | Metric | Value |
 | --- | ---: |
-| Architecture boundary findings | 63 |
+| Architecture boundary findings | 66 |
 | Enforced findings | 0 |
-| Report-only findings | 63 |
+| Report-only findings | 66 |
 | Distinct rules | 1 |
-| Distinct files | 44 |
+| Distinct files | 45 |
 
 ## Findings By Rule
 
 | Rule | Count |
 | --- | ---: |
-| `APPLICATION_SERVICE_CONCRETE_STORE_IMPORT` | 63 |
+| `APPLICATION_SERVICE_CONCRETE_STORE_IMPORT` | 66 |
 
 ## Findings By Area
 
 | Area | Count |
 | --- | ---: |
-| Application services | 63 |
+| Application services | 66 |
 
 ## Findings
 
@@ -74,8 +74,8 @@ modules do not import application DTOs, adapters, or FastAPI primitives for the 
 TWR, workspace-summary, contribution, benchmark, and returns-series routes no longer pass raw
 request DTOs directly into workflow services.
 
-The new application-service rule found `63` report-only concrete durable-store imports across `44`
-files. The execution polling workflow is the pilot seam: its route now receives an
+The application-service rule currently finds `66` report-only concrete durable-store imports across
+`45` files. The execution polling workflow is the pilot seam: its route now receives an
 `ExecutionPollingStore` through an API dependency, the application service depends on the port, and
 the durable store access lives in `app.adapters.execution_polling_store`.
 

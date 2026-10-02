@@ -51,7 +51,16 @@ class Base(DeclarativeBase):
 
 class AnalyticsExecutionModel(Base):
     __tablename__ = "analytics_execution"
-    __table_args__ = (Index("ix_execution_terminal_retention", "status", "completed_at_utc", "created_at_utc"),)
+    __table_args__ = (
+        Index("ix_execution_terminal_retention", "status", "completed_at_utc", "created_at_utc"),
+        Index(
+            "ux_execution_submission_idempotency",
+            "tenant_id",
+            "analytics_type",
+            "submission_idempotency_key_hash",
+            unique=True,
+        ),
+    )
 
     calculation_id: Mapped[str] = mapped_column(String(36), primary_key=True)
     # Nullable only for rows created before durable tenant identity existed.
@@ -64,6 +73,9 @@ class AnalyticsExecutionModel(Base):
     # Nullable only for executions admitted before retained payload custody existed.
     request_json: Mapped[str | None] = mapped_column(Text, nullable=True)
     response_json: Mapped[str | None] = mapped_column(Text, nullable=True)
+    submission_idempotency_key_hash: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    submission_identity_fingerprint: Mapped[str | None] = mapped_column(Text, nullable=True)
+    submission_contract_version: Mapped[str | None] = mapped_column(String(64), nullable=True)
     input_fingerprint: Mapped[str | None] = mapped_column(Text, nullable=True)
     calculation_hash: Mapped[str | None] = mapped_column(Text, nullable=True)
     error_message: Mapped[str | None] = mapped_column(Text, nullable=True)
@@ -168,6 +180,9 @@ class ExecutionRegistrationResult:
     status: ExecutionRegistrationStatus
     existing_status: ExecutionStatus | None = None
     existing_execution_mode: str | None = None
+    calculation_id: UUID | None = None
+    request_payload: dict[str, Any] | None = None
+    response_payload_available: bool = False
 
 
 def _execution_model_for_registration(
@@ -182,6 +197,9 @@ def _execution_model_for_registration(
     calculation_hash: str | None,
     created_at: datetime,
     request_json: str | None = None,
+    submission_idempotency_key_hash: str | None = None,
+    submission_identity_fingerprint: str | None = None,
+    submission_contract_version: str | None = None,
 ) -> AnalyticsExecutionModel:
     return AnalyticsExecutionModel(
         calculation_id=str(calculation_id),
@@ -193,6 +211,9 @@ def _execution_model_for_registration(
         requested_window_json=requested_window_json,
         request_json=request_json,
         response_json=None,
+        submission_idempotency_key_hash=submission_idempotency_key_hash,
+        submission_identity_fingerprint=submission_identity_fingerprint,
+        submission_contract_version=submission_contract_version,
         input_fingerprint=input_fingerprint,
         calculation_hash=calculation_hash,
         error_message=None,
@@ -211,6 +232,13 @@ def _existing_execution_registration_result(
         status=status,
         existing_status=ExecutionStatus(existing.status),
         existing_execution_mode=existing.execution_mode,
+        calculation_id=UUID(existing.calculation_id),
+        request_payload=_load_json_object(
+            existing.request_json,
+            calculation_id=existing.calculation_id,
+            payload_name="retained request",
+        ),
+        response_payload_available=existing.response_json is not None,
     )
 
 
@@ -382,6 +410,7 @@ class ExecutionRegistry:
             schema_upgrades=(
                 self._ensure_tenant_id_column,
                 self._ensure_retained_payload_columns,
+                self._ensure_submission_idempotency_columns,
                 self._ensure_runtime_indexes,
             ),
         )
@@ -499,6 +528,9 @@ class ExecutionRegistry:
         input_fingerprint: str | None = None,
         calculation_hash: str | None = None,
         request_payload: dict[str, Any] | None = None,
+        submission_idempotency_key_hash: str | None = None,
+        submission_identity_fingerprint: str | None = None,
+        submission_contract_version: str | None = None,
     ) -> ExecutionRegistrationResult:
         canonical_tenant_id = tenant_id.strip()
         now = datetime.now(timezone.utc)
@@ -515,13 +547,20 @@ class ExecutionRegistry:
             input_fingerprint=input_fingerprint,
             calculation_hash=calculation_hash,
             created_at=now,
+            submission_idempotency_key_hash=submission_idempotency_key_hash,
+            submission_identity_fingerprint=submission_identity_fingerprint,
+            submission_contract_version=submission_contract_version,
         )
 
         session = self._session_factory()
         try:
             session.add(execution)
             session.commit()
-            return ExecutionRegistrationResult(status=ExecutionRegistrationStatus.CREATED)
+            return ExecutionRegistrationResult(
+                status=ExecutionRegistrationStatus.CREATED,
+                calculation_id=calculation_id,
+                request_payload=request_payload,
+            )
         except IntegrityError as exc:
             session.rollback()
             return self._registration_result_for_duplicate_execution(
@@ -535,6 +574,9 @@ class ExecutionRegistry:
                 requested_window_json=requested_window_json,
                 input_fingerprint=input_fingerprint,
                 calculation_hash=calculation_hash,
+                submission_idempotency_key_hash=submission_idempotency_key_hash,
+                submission_identity_fingerprint=submission_identity_fingerprint,
+                submission_contract_version=submission_contract_version,
             )
         finally:
             session.close()
@@ -598,7 +640,11 @@ class ExecutionRegistry:
 
     def start_stage(self, calculation_id: UUID, stage_name: str, details: dict[str, Any] | None = None) -> None:
         with self._session() as session:
-            self._get_execution_model(session, calculation_id)
+            # Stage rows are keyed by execution and may be created concurrently by
+            # idempotent submission replays.  Locking the durable parent makes the
+            # subsequent read-or-create atomic without relying on dialect-specific
+            # upsert syntax.
+            self._get_execution_model(session, calculation_id, for_update=True)
             stage = session.get(AnalyticsExecutionStageModel, (str(calculation_id), stage_name))
             now = datetime.now(timezone.utc)
             if stage is None:
@@ -621,6 +667,7 @@ class ExecutionRegistry:
 
     def complete_stage(self, calculation_id: UUID, stage_name: str, details: dict[str, Any] | None = None) -> None:
         with self._session() as session:
+            self._get_execution_model(session, calculation_id, for_update=True)
             stage = self._get_stage_model(session, calculation_id, stage_name)
             now = datetime.now(timezone.utc)
             stage.status = ExecutionStageStatus.COMPLETE.value
@@ -629,6 +676,28 @@ class ExecutionRegistry:
             if details is not None:
                 stage.details_json = json.dumps(details, sort_keys=True)
             stage.error_message = None
+
+    def complete_stage_if_in_progress(
+        self,
+        calculation_id: UUID,
+        stage_name: str,
+        details: dict[str, Any] | None = None,
+    ) -> bool:
+        """Complete a crash-interrupted stage without rewriting an already terminal stage."""
+
+        with self._session() as session:
+            self._get_execution_model(session, calculation_id, for_update=True)
+            stage = session.get(AnalyticsExecutionStageModel, (str(calculation_id), stage_name))
+            if stage is None:
+                return False
+            if stage.status != ExecutionStageStatus.IN_PROGRESS.value:
+                return False
+            stage.status = ExecutionStageStatus.COMPLETE.value
+            stage.completed_at_utc = datetime.now(timezone.utc)
+            if details is not None:
+                stage.details_json = json.dumps(details, sort_keys=True)
+            stage.error_message = None
+            return True
 
     def complete_stage_and_execution(
         self,
@@ -861,8 +930,19 @@ class ExecutionRegistry:
             .order_by(AnalyticsUpstreamSnapshotModel.created_at_utc.asc())
         )
 
-    def _get_execution_model(self, session: Session, calculation_id: UUID) -> AnalyticsExecutionModel:
-        execution = session.get(AnalyticsExecutionModel, str(calculation_id))
+    def _get_execution_model(
+        self,
+        session: Session,
+        calculation_id: UUID,
+        *,
+        for_update: bool = False,
+    ) -> AnalyticsExecutionModel:
+        if for_update:
+            execution = session.execute(
+                self._build_execution_lookup_statement(calculation_id).with_for_update()
+            ).scalar_one_or_none()
+        else:
+            execution = session.get(AnalyticsExecutionModel, str(calculation_id))
         if execution is None:
             raise KeyError(f"Execution record not found: {calculation_id}")
         return execution
@@ -887,6 +967,12 @@ class ExecutionRegistry:
                 "ON analytics_execution (status, completed_at_utc, created_at_utc)"
             )
         )
+        connection.execute(
+            text(
+                "CREATE UNIQUE INDEX IF NOT EXISTS ux_execution_submission_idempotency "
+                "ON analytics_execution (tenant_id, analytics_type, submission_idempotency_key_hash)"
+            )
+        )
 
     def _registration_result_for_duplicate_execution(
         self,
@@ -901,10 +987,35 @@ class ExecutionRegistry:
         requested_window_json: str,
         input_fingerprint: str | None,
         calculation_hash: str | None,
+        submission_idempotency_key_hash: str | None,
+        submission_identity_fingerprint: str | None,
+        submission_contract_version: str | None,
     ) -> ExecutionRegistrationResult:
+        if submission_idempotency_key_hash is not None:
+            existing_by_idempotency_key = session.scalar(
+                select(AnalyticsExecutionModel).where(
+                    AnalyticsExecutionModel.tenant_id == tenant_id,
+                    AnalyticsExecutionModel.analytics_type == analytics_type,
+                    AnalyticsExecutionModel.submission_idempotency_key_hash == submission_idempotency_key_hash,
+                )
+            )
+            if existing_by_idempotency_key is not None:
+                is_replay = (
+                    existing_by_idempotency_key.submission_identity_fingerprint == submission_identity_fingerprint
+                    and existing_by_idempotency_key.submission_contract_version == submission_contract_version
+                )
+                return _existing_execution_registration_result(
+                    status=(ExecutionRegistrationStatus.REPLAY if is_replay else ExecutionRegistrationStatus.CONFLICT),
+                    existing=existing_by_idempotency_key,
+                )
         existing = session.get(AnalyticsExecutionModel, str(calculation_id))
         if existing is None:
             raise integrity_error
+        if submission_idempotency_key_hash is not None:
+            return _existing_execution_registration_result(
+                status=ExecutionRegistrationStatus.CONFLICT,
+                existing=existing,
+            )
         if self._is_replay_of_existing_execution(
             existing=existing,
             analytics_type=analytics_type,
@@ -963,6 +1074,22 @@ class ExecutionRegistry:
             connection.execute(text("ALTER TABLE analytics_execution ADD COLUMN request_json TEXT"))
         if "response_json" not in columns:
             connection.execute(text("ALTER TABLE analytics_execution ADD COLUMN response_json TEXT"))
+
+    def _ensure_submission_idempotency_columns(self, connection: Connection) -> None:
+        inspector = inspect(connection)
+        if "analytics_execution" not in inspector.get_table_names():
+            return
+        columns = {column["name"] for column in inspector.get_columns("analytics_execution")}
+        if "submission_idempotency_key_hash" not in columns:
+            connection.execute(
+                text("ALTER TABLE analytics_execution ADD COLUMN submission_idempotency_key_hash VARCHAR(64)")
+            )
+        if "submission_identity_fingerprint" not in columns:
+            connection.execute(text("ALTER TABLE analytics_execution ADD COLUMN submission_identity_fingerprint TEXT"))
+        if "submission_contract_version" not in columns:
+            connection.execute(
+                text("ALTER TABLE analytics_execution ADD COLUMN submission_contract_version VARCHAR(64)")
+            )
 
 
 _store_cache: dict[str, ExecutionRegistry] = {}

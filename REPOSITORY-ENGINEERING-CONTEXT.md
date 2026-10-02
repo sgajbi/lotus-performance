@@ -164,7 +164,8 @@ Current repository posture:
     headers are emitted on success and error responses, and `HTTP_SECURITY_HSTS_ENABLED` is used
     only when the service owns the HTTPS boundary rather than delegating TLS to ingress. Local
     canonical Docker deployments must allow `host.docker.internal` because `lotus-gateway` reaches
-    `lotus-performance` through that Docker-to-host alias.
+    `lotus-performance` through that Docker-to-host alias. Every supported browser-facing custom
+    request header, including `Idempotency-Key`, must remain in the centralized CORS allowlist.
 19. API runtime serialization uses standard FastAPI/Pydantic response-model behavior. Do not add
     global null stripping: OpenAPI nullable fields must be returned as explicit JSON `null` values
     unless a route explicitly documents sparse `response_model_exclude_none=True` behavior.
@@ -742,6 +743,18 @@ Important validation expectations:
     component returns to compatibility floats. Position beginning/ending values and portfolio
     ending values covered by the public request contract also retain exact decimal text at admission;
     compatibility response models may serialize Decimal monetary values as JSON numbers.
+41. Attribution callers may request durable retry-safe acceptance with `Idempotency-Key`. The
+    mapping is persisted on the execution row as a hash, scoped by admitted tenant and analytics
+    type, and bound to a versioned material-request fingerprint that excludes `calculation_id`.
+    Exact retries must reuse the retained request and original handle; changed payloads must return
+    `ATTRIBUTION_IDEMPOTENCY_CONFLICT` without mutation or disclosure. Keyed work requires tenant
+    authority and follows execution retention. Bind replay identity to the engine-independent input
+    fingerprint so methodology upgrades do not reject an otherwise identical retry. A retained
+    response fences compute requeue before lineage completion and provides the authorized result
+    fallback after shorter-lived async-result and compute-job rows are removed. A replayed job must
+    complete an interrupted submission stage without rewriting an already terminal stage. Serialize
+    concurrent stage creation on the durable parent execution. Preserve keyed execution bindings
+    across ambiguous job-registration outcomes. Do not store or log raw keys.
 
 ## Standards And RFCs That Govern This Repository
 

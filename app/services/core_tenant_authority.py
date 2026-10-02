@@ -85,6 +85,21 @@ class MissingStatefulSubmissionTenantAuthorityError(TenantAuthorityError):
         )
 
 
+class MissingIdempotentSubmissionTenantAuthorityError(TenantAuthorityError):
+    """Raised before a caller-keyed durable job can be accepted without authority."""
+
+    def __init__(self) -> None:
+        super().__init__(
+            status_code=HTTP_401_UNAUTHORIZED,
+            detail=(
+                "Idempotency-Key requires X-Tenant-Id before durable execution is registered. "
+                "The idempotency namespace is tenant-scoped and this service does not infer tenant authority."
+            ),
+            error_code="TENANT_AUTHORITY_REQUIRED",
+            retryable=False,
+        )
+
+
 @dataclass(frozen=True)
 class TenantAuthority:
     """A tenant admitted by the caller, carried to Core unchanged.

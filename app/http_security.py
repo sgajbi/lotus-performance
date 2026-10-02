@@ -26,6 +26,7 @@ SECURITY_HEADERS = {
 ENTERPRISE_CORS_ALLOWED_HEADERS = [
     "Authorization",
     "Content-Type",
+    "Idempotency-Key",
     "X-Actor-Id",
     "X-Capabilities",
     "X-Correlation-Id",

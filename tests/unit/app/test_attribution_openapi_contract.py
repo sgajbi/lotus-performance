@@ -10,6 +10,16 @@ def test_attribution_openapi_documents_private_banking_usage_and_error_paths() -
     assert "front-office users" in attribution_post["description"]
     assert "lotus-core analytics-input contracts" in attribution_post["description"]
     assert "downstream systems should not infer totals" in attribution_post["description"]
+    assert "Idempotency-Key" in attribution_post["description"]
+    idempotency_parameter = next(
+        parameter for parameter in attribution_post["parameters"] if parameter["name"] == "idempotency-key"
+    )
+    assert idempotency_parameter["in"] == "header"
+    assert idempotency_parameter["required"] is False
+    idempotency_string_schema = next(
+        schema for schema in idempotency_parameter["schema"]["anyOf"] if schema.get("type") == "string"
+    )
+    assert idempotency_string_schema["maxLength"] == 255
     for status_code in ("202", "400", "409", "422", "500"):
         assert status_code in attribution_post["responses"]
     assert "poll_path" in str(attribution_post["responses"]["202"])
@@ -51,6 +61,9 @@ def test_attribution_openapi_documents_status_reason_and_supportability_fields()
     assert response_example["portfolio_id"] == "PB_SG_GLOBAL_BAL_001"
     assert response_example["results_by_period"]["SI"]["status"] == "partial"
     assert response_example["results_by_period"]["SI"]["reason_codes"] == ["off_benchmark_exposure"]
+
+    accepted_schema = schemas["AttributionAcceptedResponse"]
+    assert accepted_schema["properties"]["state"]["const"] == "accepted"
 
     period_schema = schemas["SinglePeriodAttributionResult"]
     for field_name in (

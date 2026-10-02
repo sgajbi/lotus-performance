@@ -44,7 +44,7 @@ link the commit, command, or CI artifact that proves the change.
 | --- | ---: | ---: | --- | --- |
 | Max cyclomatic complexity | unknown | 8 | enforced | `quality/complexity_inventory.md` via `scripts/python_complexity_inventory.py`; `make quality-complexity-gate` |
 | High-complexity functions | unknown | 0 | enforced | rank D-F functions in `quality/complexity_inventory.md`; `make quality-complexity-gate` |
-| Average maintainability index | unknown | 56.50 | measured | `quality/complexity_inventory.md` via `scripts/python_complexity_inventory.py` |
+| Average maintainability index | unknown | 55.49 | measured | `quality/complexity_inventory.md` via `scripts/python_complexity_inventory.py` |
 | Largest functions by LOC | unknown | 81 | measured | `quality/function_size_inventory.md` via `scripts/python_function_size_inventory.py`; `StatefulInputService._fetch_position_chunk(...)` remains the largest production function at `81` lines |
 
 ## Architecture
@@ -55,7 +55,7 @@ link the commit, command, or CI artifact that proves the change.
 | Routers importing infrastructure directly | unknown | 0 | enforced | `ROUTER_DIRECT_BOUNDARY_IMPORT` absent from `quality/architecture_boundary_inventory.md`; `make quality-architecture-gate` |
 | Engine/core importing framework or infra code | unknown | 0 | enforced | `DOMAIN_INFRA_OR_FRAMEWORK_IMPORT` absent from `quality/architecture_boundary_inventory.md`; `make quality-architecture-gate` |
 | Route workflow direct DTO calls | unknown | 0 | enforced | `ROUTE_WORKFLOW_DTO_DIRECT_CALL` absent from `quality/architecture_boundary_inventory.md`; `make quality-architecture-gate` |
-| Application-service concrete-store imports | unknown | 63 | measured | `APPLICATION_SERVICE_CONCRETE_STORE_IMPORT` in `quality/architecture_boundary_inventory.md`; report-only after execution polling pilot moved behind `ExecutionPollingStore` |
+| Application-service concrete-store imports | unknown | 66 | measured | `APPLICATION_SERVICE_CONCRETE_STORE_IMPORT` in `quality/architecture_boundary_inventory.md`; report-only after execution polling pilot moved behind `ExecutionPollingStore` |
 | Large production service hotspots | 3 | 8 | measured | `returns_series_service.py`, `stateful_input_service.py`, `compute_job_store.py`, `twr_service.py`, `stateful_attribution_input_service.py`, `lineage_metadata_store.py`, `workspace_summary_service.py`, and `calculation_consistency.py` exceed 1,000 LOC |
 | Router/middleware oversized function findings (`--threshold 80`) | unknown | 0 | enforced | `quality/router_middleware_thinness_inventory.md`; `make quality-router-thinness-gate` |
 
@@ -76,11 +76,11 @@ link the commit, command, or CI artifact that proves the change.
 | Metric | Baseline | Current | Status | Evidence |
 | --- | ---: | ---: | --- | --- |
 | Test modules | 228 | 340 | measured | `rg --files tests -g 'test_*.py'` |
-| Collected tests | 2,035 | 4,826 | measured | `python -m pytest --collect-only -q` |
+| Collected tests | 2,035 | 4,850 | measured | `python -m pytest --collect-only -q` |
 | Line coverage | unknown | 99.58% | measured | `quality/coverage_inventory.md` via `make branch-coverage-baseline` (`3,013` unit, `308` integration, and `21` e2e tests under branch coverage; `21,154` covered lines of `21,244` statements) |
 | Branch coverage | unknown | 98.00% | measured | `quality/coverage_inventory.md` via `make branch-coverage-baseline` (`3,013` unit, `308` integration, and `21` e2e tests under branch coverage; `4,318` covered branches of `4,406`, `88` missing branches, `88` partial branches) |
-| Integration/API/runtime test functions | unknown | 851 | enforced | `quality/test_taxonomy_inventory.md`; `make quality-test-taxonomy-gate` |
-| Contract/governance test functions | unknown | 201 | enforced | `quality/test_taxonomy_inventory.md`; `make quality-test-taxonomy-gate` |
+| Integration/API/runtime test functions | unknown | 866 | enforced | `quality/test_taxonomy_inventory.md`; `make quality-test-taxonomy-gate` |
+| Contract/governance test functions | unknown | 203 | enforced | `quality/test_taxonomy_inventory.md`; `make quality-test-taxonomy-gate` |
 | Uncategorized test functions | unknown | 565 | enforced ceiling | `quality/test_taxonomy_inventory.md`; `make quality-test-taxonomy-gate`; #542 classified source-correction and runtime-retention evidence, then tightened the ceiling to the measured tree. |
 
 ## Security And Dependencies

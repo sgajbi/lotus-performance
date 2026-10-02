@@ -8,7 +8,7 @@
       "openApiVersion": "3.1.0"
     }
   ],
-  "generatedAt": "2026-10-02T20:49:57.389031+00:00",
+  "generatedAt": "2026-10-02T22:28:35.498910+00:00",
   "attributeCatalog": [
     {
       "semanticId": "lotus.access_classification",
@@ -3121,6 +3121,20 @@
       ],
       "observedTypes": [
         "number"
+      ]
+    },
+    {
+      "semanticId": "lotus.idempotency_key",
+      "canonicalTerm": "idempotency_key",
+      "preferredName": "idempotency_key",
+      "description": "Canonical idempotency key used by lotus-performance APIs.",
+      "example": null,
+      "type": "string",
+      "locations": [
+        "header"
+      ],
+      "observedTypes": [
+        "string"
       ]
     },
     {
@@ -8559,6 +8573,18 @@
       "attributeRef": "#/attributeCatalog/lotus.x_tenant_id"
     },
     {
+      "name": "idempotency_key",
+      "kind": "request_option",
+      "location": "header",
+      "required": false,
+      "type": "string",
+      "description": "Optional tenant-scoped durable submission key. Exact retries return the original accepted handle; reusing the key for a different material request returns 409. Requires X-Tenant-Id.",
+      "example": "STANDARD_VALUE",
+      "allowedValues": [],
+      "semanticId": "lotus.idempotency_key",
+      "attributeRef": "#/attributeCatalog/lotus.idempotency_key"
+    },
+    {
       "name": "x_tenant_id",
       "kind": "request_option",
       "location": "header",
@@ -11024,6 +11050,14 @@
       "summary": "Calculate Multi-Level Performance Attribution",
       "request": {
         "fields": [
+          {
+            "name": "idempotency-key",
+            "location": "header",
+            "required": false,
+            "type": "string",
+            "semanticId": "lotus.idempotency_key",
+            "attributeRef": "#/attributeCatalog/lotus.idempotency_key"
+          },
           {
             "name": "X-Tenant-Id",
             "location": "header",

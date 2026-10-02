@@ -1,12 +1,15 @@
 from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime, timedelta, timezone
-from threading import Event, current_thread
+from threading import Barrier, Event, current_thread
 from time import monotonic
 from uuid import UUID, uuid4
 
 import pytest
+from pydantic import BaseModel
 from sqlalchemy import Column, MetaData, String, Table, event, inspect, text
 
+from app.observability import tenant_id_var
+from app.services import submission_fencing_service
 from app.services.async_result_store import AsyncResultStore, AsyncResultTenantConflictError
 from app.services.compute_job_store import ComputeJobRegistrationStatus, ComputeJobStore
 from app.services.durable_database_engine import (
@@ -17,7 +20,13 @@ from app.services.durable_schema_creation import (
     DURABLE_SCHEMA_ADVISORY_LOCK_KEY,
     create_durable_schema,
 )
-from app.services.execution_registry import ExecutionRegistrationStatus, ExecutionRegistry, ExecutionStatus
+from app.services.execution_registry import (
+    ExecutionRegistrationStatus,
+    ExecutionRegistry,
+    ExecutionStageStatus,
+    ExecutionStatus,
+)
+from app.services.execution_stage_names import EXECUTION_STAGE_SUBMISSION
 from app.services.lineage_metadata_store import (
     LineageMetadataStore,
     LineagePayloadLeaseOwnershipError,
@@ -34,6 +43,18 @@ POSTGRES_CONCURRENCY_ROWS = 20
 POSTGRES_CONCURRENCY_CLAIM_LIMIT = 10
 
 
+class _AcceptedSubmission(BaseModel):
+    calculation_id: str
+    poll_path: str
+
+
+def _accepted_submission(calculation_id: UUID) -> _AcceptedSubmission:
+    return _AcceptedSubmission(
+        calculation_id=str(calculation_id),
+        poll_path=f"/performance/executions/{calculation_id}",
+    )
+
+
 def _source_correction_payload(*, correction_id: str, source_revision: str) -> dict[str, str | dict[str, str]]:
     return {
         "correction_id": correction_id,
@@ -48,6 +69,162 @@ def _source_correction_payload(*, correction_id: str, source_revision: str) -> d
         "correction_reason": "PostgreSQL contention contract.",
         "source_authorization": {"issuer": "lotus-core", "evidence_id": correction_id},
     }
+
+
+def test_postgres_attribution_idempotency_contention_and_restart_return_one_handle(monkeypatch):
+    database_url = get_postgres_database_url()
+    execution_store = ExecutionRegistry(database_url)
+    job_store = ComputeJobStore(database_url)
+    execution_store.create_schema()
+    job_store.create_schema()
+    job_store.clear_all_records()
+    execution_store.clear_all_records()
+    monkeypatch.setattr(submission_fencing_service, "execution_registry", execution_store)
+    monkeypatch.setattr(submission_fencing_service, "compute_job_store", job_store)
+
+    calculation_ids = tuple(uuid4() for _ in range(8))
+    start = Barrier(len(calculation_ids))
+    request_payload = {"portfolio_id": "PORT-IDEMPOTENT", "report_end_date": "2026-09-30"}
+    common = {
+        "analytics_type": "Attribution",
+        "portfolio_id": "PORT-IDEMPOTENT",
+        "requested_window": {"report_end_date": "2026-09-30"},
+        "input_fingerprint": "sha256:attribution-input",
+        "calculation_hash": "sha256:attribution-calculation",
+        "request_payload": request_payload,
+        "offload_reason": "postgres_contention_contract",
+        "accepted_response_factory": _accepted_submission,
+        "requires_tenant_authority": True,
+        "submission_idempotency_key_hash": "b" * 64,
+        "submission_identity_fingerprint": "sha256:attribution-identity",
+        "submission_contract_version": "attribution-submission-v1",
+    }
+
+    def _submit(calculation_id: UUID):
+        tenant_token = tenant_id_var.set("tenant-idempotency")
+        try:
+            start.wait(timeout=10)
+            return submission_fencing_service.register_async_submission_or_raise(
+                calculation_id=calculation_id,
+                **common,
+            )
+        finally:
+            tenant_id_var.reset(tenant_token)
+
+    with ThreadPoolExecutor(max_workers=len(calculation_ids)) as executor:
+        responses = list(executor.map(_submit, calculation_ids, timeout=30))
+
+    assert {response.status_code for response in responses} == {202}
+    resolved_ids = {response.content["calculation_id"] for response in responses}
+    assert len(resolved_ids) == 1
+    resolved_id = UUID(resolved_ids.pop())
+    execution = execution_store.get_execution(resolved_id)
+    job = job_store.get_job(resolved_id)
+    assert execution is not None
+    assert job is not None
+    assert [pending.calculation_id for pending in job_store.list_pending_jobs(limit=20)] == [resolved_id]
+    assert [stage.stage_name for stage in execution.stages] == [EXECUTION_STAGE_SUBMISSION]
+    assert execution.stages[0].status == ExecutionStageStatus.COMPLETE
+
+    restarted_execution_store = ExecutionRegistry(database_url)
+    restarted_job_store = ComputeJobStore(database_url)
+    restarted_execution_store.create_schema()
+    restarted_job_store.create_schema()
+    monkeypatch.setattr(submission_fencing_service, "execution_registry", restarted_execution_store)
+    monkeypatch.setattr(submission_fencing_service, "compute_job_store", restarted_job_store)
+    tenant_token = tenant_id_var.set("tenant-idempotency")
+    try:
+        replay = submission_fencing_service.register_async_submission_or_raise(
+            calculation_id=uuid4(),
+            **common,
+        )
+    finally:
+        tenant_id_var.reset(tenant_token)
+
+    assert replay.status_code == 202
+    assert replay.content["calculation_id"] == str(resolved_id)
+    restarted_execution = restarted_execution_store.get_execution(resolved_id)
+    assert restarted_execution is not None
+    assert len(restarted_execution.stages) == 1
+    assert restarted_execution.stages[0].status == ExecutionStageStatus.COMPLETE
+
+    conflict = restarted_execution_store.register_execution(
+        calculation_id=uuid4(),
+        tenant_id="tenant-idempotency",
+        analytics_type="Attribution",
+        portfolio_id="PORT-CHANGED",
+        execution_mode="async",
+        requested_window={"report_end_date": "2026-09-30"},
+        request_payload={"portfolio_id": "PORT-CHANGED"},
+        submission_idempotency_key_hash="b" * 64,
+        submission_identity_fingerprint="sha256:changed-identity",
+        submission_contract_version="attribution-submission-v1",
+    )
+    assert conflict.status == ExecutionRegistrationStatus.CONFLICT
+    assert conflict.calculation_id == resolved_id
+
+
+def test_postgres_attribution_retry_preserves_binding_after_ambiguous_job_commit(monkeypatch):
+    database_url = get_postgres_database_url()
+    execution_store = ExecutionRegistry(database_url)
+    job_store = ComputeJobStore(database_url)
+    execution_store.create_schema()
+    job_store.create_schema()
+    job_store.clear_all_records()
+    execution_store.clear_all_records()
+
+    class _CommitThenDisconnectJobStore:
+        def register_job(self, **kwargs):
+            job_store.register_job(**kwargs)
+            raise RuntimeError("connection lost after commit")
+
+    monkeypatch.setattr(submission_fencing_service, "execution_registry", execution_store)
+    monkeypatch.setattr(submission_fencing_service, "compute_job_store", _CommitThenDisconnectJobStore())
+    original_calculation_id = uuid4()
+    common = {
+        "analytics_type": "Attribution",
+        "portfolio_id": "PORT-AMBIGUOUS-COMMIT",
+        "requested_window": {"report_end_date": "2026-09-30"},
+        "input_fingerprint": "sha256:ambiguous-input",
+        "calculation_hash": "sha256:ambiguous-calculation",
+        "request_payload": {"portfolio_id": "PORT-AMBIGUOUS-COMMIT", "report_end_date": "2026-09-30"},
+        "offload_reason": "postgres_ambiguous_commit_contract",
+        "accepted_response_factory": _accepted_submission,
+        "requires_tenant_authority": True,
+        "submission_idempotency_key_hash": "c" * 64,
+        "submission_identity_fingerprint": "sha256:ambiguous-identity",
+        "submission_contract_version": "attribution-submission-v1",
+    }
+    tenant_token = tenant_id_var.set("tenant-ambiguous-commit")
+    try:
+        with pytest.raises(RuntimeError, match="connection lost after commit"):
+            submission_fencing_service.register_async_submission_or_raise(
+                calculation_id=original_calculation_id,
+                **common,
+            )
+    finally:
+        tenant_id_var.reset(tenant_token)
+
+    assert execution_store.get_execution(original_calculation_id) is not None
+    assert job_store.get_job(original_calculation_id) is not None
+
+    monkeypatch.setattr(submission_fencing_service, "compute_job_store", job_store)
+    tenant_token = tenant_id_var.set("tenant-ambiguous-commit")
+    try:
+        replay = submission_fencing_service.register_async_submission_or_raise(
+            calculation_id=uuid4(),
+            **common,
+        )
+    finally:
+        tenant_id_var.reset(tenant_token)
+
+    assert replay.status_code == 202
+    assert replay.content["calculation_id"] == str(original_calculation_id)
+    assert [pending.calculation_id for pending in job_store.list_pending_jobs(limit=20)] == [original_calculation_id]
+    execution = execution_store.get_execution(original_calculation_id)
+    assert execution is not None
+    assert len(execution.stages) == 1
+    assert execution.stages[0].status == ExecutionStageStatus.COMPLETE
 
 
 def test_postgres_source_correction_registration_is_tenant_scoped_and_restart_durable():

@@ -14,12 +14,22 @@
 
 ## Idempotency and Write Semantics
 
-- lotus-performance primary APIs are analytical compute endpoints and are read-only with no core persistent business writes.
+- lotus-performance primary APIs are analytical compute endpoints and do not mutate lotus-core
+  business records. Async execution metadata and results are durable service-owned state.
 - lotus-performance does not mutate lotus-core core records.
-- Any future write endpoint must implement `Idempotency-Key` and replay-safe dedupe rules.
+- `POST /performance/attribution` accepts an optional tenant-scoped `Idempotency-Key`. Keyed work is
+  accepted durably, exact retries return the original handle, and changed material requests return
+  a typed non-retryable conflict. Engine upgrades do not change submission identity. A retained
+  response fences re-execution while lineage is pending and serves as the authorized fallback after
+  shorter-lived result/job rows are removed. Retry also repairs a submission stage interrupted after
+  durable job registration; concurrent stage creation is serialized on the execution row. Only a
+  SHA-256 key hash is retained. An ambiguous job-registration outcome preserves the binding so retry
+  cannot admit a second execution beside a possibly committed job.
+- New durable write or submission endpoints must implement the same replay-safe principle.
 - Evidence:
   - `app/api/endpoints/performance.py`
-  - `app/api/endpoints/analytics.py`
+  - `app/services/execution_registry.py`
+  - `app/services/submission_fencing_service.py`
 
 ## Atomicity Boundaries
 
@@ -40,8 +50,10 @@
 
 ## Concurrency and Conflict Policy
 
-- No hidden mutable shared state in core analytics execution paths.
+- No process-local mutable state may be the source of durable replay identity.
 - Deterministic canonical hashing is used for reproducibility evidence.
+- Idempotency identity excludes caller-generated `calculation_id`, includes the material request and
+  versioned source-resolution policy, and is uniquely scoped by tenant and analytics type.
 - Evidence:
   - `core/repro.py`
   - `tests/unit/core/test_repro.py`
@@ -62,4 +74,3 @@
 ## Deviations
 
 - Any write-side mutation introduced in lotus-performance without idempotency/atomic controls requires ADR with expiry review date.
-

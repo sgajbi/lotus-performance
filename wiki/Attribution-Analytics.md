@@ -35,6 +35,7 @@ locally.
 12. non-null shared `meta`, `diagnostics`, and `audit` footer blocks aligned with TWR, MWR, and
     Contribution;
 13. governed `AttributionAnalytics:v1` data-product declaration and trust telemetry.
+14. optional tenant-scoped durable submission replay through `Idempotency-Key`.
 
 The model choice governs the decomposition without changing the response shape. Brinson-Fachler
 reports allocation, benchmark-weighted selection, and separate interaction. Brinson-Hood-Beebower
@@ -111,6 +112,26 @@ The Prometheus metric is:
 
 Metric labels are bounded and must not contain portfolio, client, account, benchmark, calculation,
 trace, correlation, request, response, or security values.
+
+Caller-keyed submissions also emit
+`lotus_performance_idempotent_submission_total{analytics_type="Attribution",outcome}` with bounded
+`accepted`, `replay`, and `conflict` outcomes. The service retains only the key hash.
+
+## Retry-Safe Submission
+
+Send `Idempotency-Key` with `X-Tenant-Id` when a client needs durable at-most-one attribution
+acceptance across timeouts or restarts. The first request returns `202` with `state="accepted"`.
+An exact retry returns the original calculation and polling paths even if the caller generated a
+new `calculation_id`. Reusing the key for a different material request returns non-retryable `409`
+`ATTRIBUTION_IDEMPOTENCY_CONFLICT`. Bindings follow execution retention; unkeyed stateless calls
+retain the existing synchronous or threshold-offload behavior. A retained terminal execution is
+never requeued when its older compute-job row has already been removed; a retained response also
+fences requeue while lineage remains pending. Authorized reads fall back to that retained response
+after async-result and compute-job rows have been removed. Calculation-engine version changes do
+not invalidate an otherwise identical submission replay. If a crash follows durable job registration,
+the retry completes the interrupted submission stage without duplicating the job. Concurrent first
+delivery serializes stage creation and retains one completed submission stage. An ambiguous job
+commit preserves the key binding so retry cannot admit duplicate work.
 
 The top-level shared footer is also part of the support contract. Attribution `diagnostics` summarize
 period status counts, residual materiality counts, supportability evidence counts, and source-limit
