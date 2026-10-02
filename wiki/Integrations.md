@@ -158,7 +158,8 @@ components.
 Carino residual allocation follows each position's measured local/FX proportions, so a
 same-currency residual is not relabelled as a currency effect when another position has FX.
 Stateful `BOTH` rejects a consumed dated position row without source currency; a later row's
-currency never supplies earlier-date authority.
+currency never supplies earlier-date authority. Differing dated currencies for one engine position
+also fail closed before metadata is collapsed.
 The [contribution guide](https://github.com/sgajbi/lotus-performance/blob/main/docs/guides/contribution.md)
 defines this response boundary.
 

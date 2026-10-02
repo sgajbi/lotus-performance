@@ -3228,10 +3228,37 @@ def test_contribution_stateful_same_currency_decomposition_availability(client, 
     assert body["currency_evidence"]["fx_coverage"] == "none"
 
 
-def test_contribution_stateful_both_rejects_dated_position_currency_gap(client, monkeypatch):
+@pytest.mark.parametrize(
+    ("first_currency", "expected_error"),
+    [(None, "POSITION_CURRENCY_INCOMPLETE"), ("EUR", "POSITION_CURRENCY_CONFLICT")],
+)
+@pytest.mark.parametrize("reverse_rows", [False, True])
+def test_contribution_stateful_both_rejects_dated_position_currency_gap(
+    client, monkeypatch, first_currency, expected_error, reverse_rows
+):
     from types import SimpleNamespace
 
     async def _source(**kwargs):  # noqa: ARG001
+        position_rows = [
+            {
+                "position_id": "SEC_1",
+                "valuation_date": "2025-01-01",
+                **({"position_currency": first_currency} if first_currency else {}),
+                "beginning_market_value_portfolio_currency": "1000",
+                "ending_market_value_portfolio_currency": "1010",
+                "cash_flows": [],
+            },
+            {
+                "position_id": "SEC_1",
+                "valuation_date": "2025-01-02",
+                "position_currency": "USD",
+                "beginning_market_value_portfolio_currency": "1010",
+                "ending_market_value_portfolio_currency": "1020",
+                "cash_flows": [],
+            },
+        ]
+        if reverse_rows:
+            position_rows.reverse()
         return SimpleNamespace(
             portfolio_input=SimpleNamespace(
                 portfolio_currency="USD",
@@ -3240,23 +3267,7 @@ def test_contribution_stateful_both_rejects_dated_position_currency_gap(client, 
                     {"valuation_date": "2025-01-02", "beginning_market_value": "1010", "ending_market_value": "1020"},
                 ],
             ),
-            position_rows=[
-                {
-                    "position_id": "SEC_1",
-                    "valuation_date": "2025-01-01",
-                    "beginning_market_value_portfolio_currency": "1000",
-                    "ending_market_value_portfolio_currency": "1010",
-                    "cash_flows": [],
-                },
-                {
-                    "position_id": "SEC_1",
-                    "valuation_date": "2025-01-02",
-                    "position_currency": "USD",
-                    "beginning_market_value_portfolio_currency": "1010",
-                    "ending_market_value_portfolio_currency": "1020",
-                    "cash_flows": [],
-                },
-            ],
+            position_rows=position_rows,
         )
 
     monkeypatch.setattr("app.services.contribution_mode_service.retrieve_stateful_contribution_source_input", _source)
@@ -3269,13 +3280,19 @@ def test_contribution_stateful_both_rejects_dated_position_currency_gap(client, 
             "analyses": [{"period": "SI", "frequencies": ["daily"]}],
             "currency_mode": "BOTH",
             "report_ccy": "USD",
+            "fx": {
+                "rates": [
+                    {"ccy": "EUR", "date": "2024-12-31", "rate": 1.1},
+                    {"ccy": "EUR", "date": "2025-01-01", "rate": 1.1},
+                ]
+            },
             "input_mode": "stateful",
             "stateful_input": {},
         },
     )
 
     assert response.status_code == 422, response.text
-    assert response.json()["error_code"] == "POSITION_CURRENCY_INCOMPLETE"
+    assert response.json()["error_code"] == expected_error
 
 
 def test_contribution_stateful_currency_mode_both_requires_fx_for_mixed_currency_positions(client, monkeypatch):

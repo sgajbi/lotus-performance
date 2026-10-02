@@ -631,7 +631,8 @@ Important validation expectations:
     fields unavailable for that period. Determine consumed positions from the calculated period
     slice, so an unpriced request entry cannot suppress valid decomposition. Do not fall back to
     portfolio currency for this evidence. Stateful `BOTH` must reject a consumed dated row missing
-    `position_currency` before per-position metadata could overwrite that gap with a later value.
+    `position_currency` or conflicting dated currencies for one engine position before per-position
+    metadata could overwrite that evidence with the last row's value.
 31. Brinson attribution decomposition is model-specific. Brinson-Fachler uses benchmark-weighted
     selection and a separate interaction effect. Brinson-Hood-Beebower uses portfolio-weighted
     combined selection and must emit zero separate interaction so active return is not double
