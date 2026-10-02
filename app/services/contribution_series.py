@@ -200,13 +200,14 @@ def _build_hierarchy_from_adjusted_position_series(
     source_position_window_complete: bool | None = None,
     position_series: list[PositionContributionSeries],
     position_contributions: list[PositionContribution] | None = None,
+    decompose_currency: bool = False,
     position_average_weights: pd.DataFrame | None = None,
     position_weight_components: pd.DataFrame | None = None,
     proven_position_inception_dates: dict[str, date] | None = None,
     request: ContributionRequest,
 ) -> dict[str, Any]:
     """Builds hierarchy rows from the same adjusted daily position series emitted to clients."""
-    summary = _initial_hierarchy_summary(request)
+    summary = _initial_hierarchy_summary(request, decompose_currency=decompose_currency)
     calendar_df = portfolio_period_slice_df if portfolio_period_slice_df is not None else period_slice_df
     observed_dates = (
         observation_date_set(calendar_df[PortfolioColumns.PERF_DATE.value])
@@ -254,8 +255,8 @@ def _build_hierarchy_from_adjusted_position_series(
     summary["portfolio_contribution"] = _as_numeric(adjusted_df["adjusted_contribution"].sum()) * 100
     _populate_hierarchy_summary_components(
         summary,
-        request=request,
         position_contributions=position_contributions,
+        decompose_currency=decompose_currency,
         adjusted_df=adjusted_df,
     )
     return {"summary": summary, "levels": response_levels}
@@ -264,11 +265,11 @@ def _build_hierarchy_from_adjusted_position_series(
 def _populate_hierarchy_summary_components(
     summary: dict[str, Any],
     *,
-    request: ContributionRequest,
     position_contributions: list[PositionContribution] | None,
+    decompose_currency: bool,
     adjusted_df: pd.DataFrame,
 ) -> None:
-    if request.currency_mode != "BOTH" or position_contributions is None or adjusted_df.empty:
+    if not decompose_currency or position_contributions is None or adjusted_df.empty:
         return
     summary["local_contribution"] = sum(
         position.local_contribution for position in position_contributions if position.local_contribution is not None
@@ -388,13 +389,13 @@ def _apply_effective_source_hierarchy_memberships(
     )
 
 
-def _initial_hierarchy_summary(request: ContributionRequest) -> dict[str, Any]:
+def _initial_hierarchy_summary(request: ContributionRequest, *, decompose_currency: bool) -> dict[str, Any]:
     summary = {
         "portfolio_contribution": 0.0,
         "coverage_mv_pct": 100.0,
         "weighting_scheme": request.weighting_scheme.value,
     }
-    if request.currency_mode == "BOTH":
+    if decompose_currency:
         summary["local_contribution"] = 0.0
         summary["fx_contribution"] = 0.0
     return summary

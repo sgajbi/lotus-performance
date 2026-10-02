@@ -23,8 +23,8 @@ python scripts/python_test_taxonomy_inventory.py --limit 30 --min-api-runtime-te
 | Metric | Value |
 | --- | ---: |
 | Test modules inventoried | 335 |
-| Test functions inventoried | 4045 |
-| Integration/API/runtime test functions | 816 |
+| Test functions inventoried | 4046 |
+| Integration/API/runtime test functions | 817 |
 | Contract/governance test functions | 197 |
 
 ## Test Functions By Suite
@@ -33,7 +33,7 @@ python scripts/python_test_taxonomy_inventory.py --limit 30 --min-api-runtime-te
 | --- | ---: | ---: |
 | benchmarks | 10 | 42 |
 | e2e | 1 | 21 |
-| integration | 29 | 404 |
+| integration | 29 | 405 |
 | unit | 295 | 3578 |
 
 ## Test Functions By Family
@@ -44,8 +44,8 @@ above does sum to it, because a module belongs to exactly one suite.
 
 | Family | Test functions |
 | --- | ---: |
-| analytics_domain | 2017 |
-| api_or_runtime | 816 |
+| analytics_domain | 2018 |
+| api_or_runtime | 817 |
 | contract_or_governance | 197 |
 | observability_or_readiness | 568 |
 | quality_or_security | 269 |
@@ -61,8 +61,8 @@ above does sum to it, because a module belongs to exactly one suite.
 | 4 | `tests/unit/docs/test_public_docs_contract.py` | unit | 68 | contract_or_governance |
 | 5 | `tests/unit/services/test_compute_job_store.py` | unit | 68 | observability_or_readiness |
 | 6 | `tests/unit/services/test_lineage_metadata_store.py` | unit | 62 | observability_or_readiness |
-| 7 | `tests/unit/app/test_openapi_enrichment.py` | unit | 61 | api_or_runtime |
-| 8 | `tests/integration/test_contribution_api.py` | integration | 60 | analytics_domain, api_or_runtime |
+| 7 | `tests/integration/test_contribution_api.py` | integration | 61 | analytics_domain, api_or_runtime |
+| 8 | `tests/unit/app/test_openapi_enrichment.py` | unit | 61 | api_or_runtime |
 | 9 | `tests/unit/engine/test_attribution.py` | unit | 59 | analytics_domain |
 | 10 | `tests/unit/services/test_twr_inspection_source_economics.py` | unit | 58 | analytics_domain |
 | 11 | `tests/integration/test_performance_api.py` | integration | 56 | api_or_runtime |
@@ -242,7 +242,7 @@ envelope and bounded 4xx-metric regressions. Current measured source functions a
 API/runtime functions `812`, analytics-domain functions `2,013`; the enforced uncategorized ceiling
 stays `626`.
 
-The #549 contribution availability slice adds two parameterized registered-HTTP economics tests,
+The #549 contribution availability slice adds three parameterized registered-HTTP economics tests,
 one OpenAPI contract test, and one residual-allocation service regression. Current source test
-functions measure `4,045`, API/runtime functions `816`, analytics-domain functions `2,017`, and
+functions measure `4,046`, API/runtime functions `817`, analytics-domain functions `2,018`, and
 uncategorized functions remain `626`. Existing floors and ceilings are unchanged.

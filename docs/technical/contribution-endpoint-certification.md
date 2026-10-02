@@ -92,6 +92,10 @@ Every certified contribution response must satisfy these invariants for each res
   regressions cover these availability semantics. In `BOTH`, Carino residual allocation follows
   pre-allocation local/FX proportions; same-currency HTTP controls prove a residual remains local,
   while mixed-component and zero-net engine controls preserve reconciliation.
+- A stateless `BOTH` request without consumed position `meta.currency` still computes total
+  contribution but publishes null local/FX position and hierarchy-summary fields. Mixed known and
+  unknown positions make the whole decomposition unavailable; the engine must not default an
+  unknown position's local return to zero and present the remainder as FX.
 
 The hierarchy path now builds rows from the same residual-adjusted daily position series used for
 position output. This prevents hierarchy rows from drifting away from first-class position

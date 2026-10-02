@@ -626,6 +626,9 @@ Important validation expectations:
     and leave local/FX null. For `BOTH`, use the engine's local/FX residual proportions when Carino
     allocation changes position totals; assigning the entire residual to FX is economically false
     for same-currency positions.
+    `BOTH` alone is insufficient authority: if any consumed position lacks engine-used
+    `meta.currency`, keep total contribution but leave all position and hierarchy-summary local/FX
+    fields unavailable. Do not fall back to portfolio currency for this evidence.
 31. Brinson attribution decomposition is model-specific. Brinson-Fachler uses benchmark-weighted
     selection and a separate interaction effect. Brinson-Hood-Beebower uses portfolio-weighted
     combined selection and must emit zero separate interaction so active return is not double

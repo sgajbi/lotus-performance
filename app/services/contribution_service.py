@@ -349,6 +349,7 @@ def _build_flat_contribution_position_assembly(
         period_methodology_context=period_methodology_context,
         reset_aware_average_weight_mode=reset_aware_average_weight_mode,
     )
+    decompose_currency = _contribution_currency_decomposition_available(request)
     position_totals_result = build_residual_adjusted_position_totals(
         period_slice_df=period_slice_df,
         average_weight_df=period_methodology_context.average_weight_shadow_df,
@@ -356,7 +357,7 @@ def _build_flat_contribution_position_assembly(
         smoothing_method=request.smoothing.method,
         average_weight_columns=["average_weight", "reset_aware_average_weight_shadow"],
         residual_allocation_weight_column="selected_average_weight",
-        decompose_currency=request.currency_mode == "BOTH",
+        decompose_currency=decompose_currency,
         selected_average_weight_source_column=selected_average_weight_column,
     )
     position_contributions = build_position_contributions(
@@ -365,6 +366,7 @@ def _build_flat_contribution_position_assembly(
         period_start_date=period.start_date,
         period_end_date=period.end_date,
         average_weight_column="selected_average_weight",
+        decompose_currency=decompose_currency,
     )
     _position_series, daily_series, emitted_position_series = _build_period_contribution_series_outputs(
         period_slice_df=period_slice_df,
@@ -399,6 +401,7 @@ def _build_hierarchy_contribution_position_assembly(
         period_methodology_context=period_methodology_context,
         reset_aware_average_weight_mode=reset_aware_average_weight_mode,
     )
+    decompose_currency = _contribution_currency_decomposition_available(request)
     position_totals_result = build_residual_adjusted_position_totals(
         period_slice_df=period_slice_df,
         average_weight_df=period_methodology_context.average_weight_shadow_df,
@@ -406,7 +409,7 @@ def _build_hierarchy_contribution_position_assembly(
         smoothing_method=request.smoothing.method,
         average_weight_columns=["average_weight", "reset_aware_average_weight_shadow"],
         residual_allocation_weight_column="selected_average_weight",
-        decompose_currency=request.currency_mode == "BOTH",
+        decompose_currency=decompose_currency,
         selected_average_weight_source_column=selected_average_weight_column,
     )
     position_contributions = build_position_contributions(
@@ -415,6 +418,7 @@ def _build_hierarchy_contribution_position_assembly(
         period_start_date=period.start_date,
         period_end_date=period.end_date,
         average_weight_column="selected_average_weight",
+        decompose_currency=decompose_currency,
     )
     position_series, daily_series, emitted_position_series = _build_period_contribution_series_outputs(
         period_slice_df=period_slice_df,
@@ -430,6 +434,7 @@ def _build_hierarchy_contribution_position_assembly(
         source_position_window_complete=source_position_window_complete,
         position_series=position_series,
         position_contributions=position_contributions,
+        decompose_currency=decompose_currency,
         position_average_weights=position_totals_result.totals_df[["position_id", "selected_average_weight"]],
         position_weight_components=_selected_average_weight_components(
             period_slice_df,
@@ -447,6 +452,13 @@ def _build_hierarchy_contribution_position_assembly(
         emitted_position_series=emitted_position_series,
         hierarchy_results=hierarchy_results,
         residual_allocation_applied=position_totals_result.residual_allocation_applied,
+    )
+
+
+def _contribution_currency_decomposition_available(request: ContributionRequest) -> bool:
+    """Do not treat an engine defaulted local return as source currency evidence."""
+    return request.currency_mode == "BOTH" and all(
+        normalized_currency_code(position.meta.get("currency")) is not None for position in request.positions_data
     )
 
 

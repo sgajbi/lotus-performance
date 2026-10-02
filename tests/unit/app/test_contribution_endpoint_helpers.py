@@ -1243,6 +1243,7 @@ def test_build_position_contributions_sorts_and_truncates_top_n(mocker):
         period_start_date=pd.Timestamp("2025-01-01").date(),
         period_end_date=pd.Timestamp("2025-01-02").date(),
         average_weight_column="average_weight",
+        decompose_currency=False,
         top_n=1,
     )
 
@@ -1558,13 +1559,14 @@ def test_build_hierarchy_from_adjusted_position_series_handles_empty_and_unclass
     empty_result = _build_hierarchy_from_adjusted_position_series(
         period_slice_df=pd.DataFrame(),
         position_series=[],
+        decompose_currency=False,
         request=request,
     )
     assert empty_result["levels"] == []
     assert empty_result["summary"]["portfolio_contribution"] == 0.0
     assert empty_result["summary"]["coverage_mv_pct"] == 100.0
-    assert empty_result["summary"]["local_contribution"] == 0.0
-    assert empty_result["summary"]["fx_contribution"] == 0.0
+    assert "local_contribution" not in empty_result["summary"]
+    assert "fx_contribution" not in empty_result["summary"]
 
     filtered_result = _build_hierarchy_from_adjusted_position_series(
         period_slice_df=pd.DataFrame(

@@ -194,6 +194,7 @@ def build_position_contributions(
     period_start_date,
     period_end_date,
     average_weight_column: str,
+    decompose_currency: bool,
     top_n: int | None = None,
 ) -> list[PositionContribution]:
     positions_by_id = {position.position_id: position for position in request.positions_data}
@@ -208,10 +209,8 @@ def build_position_contributions(
                 period_start_date=period_start_date,
                 period_end_date=period_end_date,
             ),
-            local_contribution=(
-                _as_numeric(row["local_contribution"]) * 100 if request.currency_mode == "BOTH" else None
-            ),
-            fx_contribution=(_as_numeric(row["fx_contribution"]) * 100 if request.currency_mode == "BOTH" else None),
+            local_contribution=(_as_numeric(row["local_contribution"]) * 100 if decompose_currency else None),
+            fx_contribution=(_as_numeric(row["fx_contribution"]) * 100 if decompose_currency else None),
         )
         for _, row in totals_df.iterrows()
     ]
