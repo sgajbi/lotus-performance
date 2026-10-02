@@ -15,6 +15,8 @@ def test_mwr_openapi_explains_capital_timing_purpose_and_modes() -> None:
     assert "cross-observation carry-forward capital breaks" in mwr_post["description"]
     assert "annual IRR" in mwr_post["description"]
     assert "dated cash-flow weights" in mwr_post["description"]
+    assert "(start_date, end_date]" in mwr_post["description"]
+    assert "rejected before durable registration" in mwr_post["description"]
     assert "midpoint Dietz period return" in mwr_post["description"]
     assert "source_preconverted_fx_evidence" in mwr_post["description"]
     assert "validated FX provenance" in mwr_post["description"]
@@ -26,7 +28,7 @@ def test_mwr_openapi_explains_capital_timing_purpose_and_modes() -> None:
     request_schema = spec["components"]["schemas"]["MoneyWeightedReturnAnalyticsRequest"]
     assert "source_preconverted_fx_evidence" in request_schema["properties"]
     request_examples = request_schema["examples"]
-    assert len(request_examples) == 2
+    assert len(request_examples) == 3
     for request_example in request_examples:
         MoneyWeightedReturnAnalyticsRequest.model_validate(request_example)
     generated_example = mwr_post["requestBody"]["content"]["application/json"]["example"]
@@ -53,6 +55,11 @@ def test_mwr_openapi_explains_capital_timing_purpose_and_modes() -> None:
     assert "calculation_supportability" in response_schema["properties"]
     assert "reporting_currency" in response_schema["properties"]
     assert "currency_evidence" in response_schema["properties"]
+    meta_schema = spec["components"]["schemas"]["Meta"]
+    assert "calendar_evidence" in meta_schema["properties"]
+    convergence_schema = spec["components"]["schemas"]["Convergence"]
+    assert "calendar_version" in convergence_schema["properties"]
+    assert "business_day_count" in convergence_schema["properties"]
     assert "source freshness" in response_schema["properties"]["calculation_supportability"]["description"]
     evidence_schema = spec["components"]["schemas"]["MWRCurrencyEvidence"]
     assert "market_values_used" in evidence_schema["properties"]

@@ -16,6 +16,7 @@ from app.models.mwr_requests import Solver
 from app.models.requests import DailyInputData, admit_daily_input_data
 from app.models.twr_requests import TWRInputMode, TWRStatefulInput, TWRStatelessInput
 from common.enums import Frequency
+from core.business_calendar import canonical_business_calendar_id
 from core.envelope import Annualization, Calendar, FXRequestBlock, Output
 from core.workspace_periods import WorkspacePeriodType
 
@@ -271,6 +272,8 @@ class WorkspaceSummaryRequest(BaseModel):
 
     @model_validator(mode="after")
     def validate_mode_payloads(self) -> "WorkspaceSummaryRequest":
+        if self.annualization.basis == "BUS/252":
+            canonical_business_calendar_id(self.calendar)
         if self.input_mode == TWRInputMode.STATELESS:
             _validate_workspace_summary_stateless_inputs(self)
         else:

@@ -170,6 +170,9 @@ def _families_for_path(path: str) -> tuple[str, ...]:
             "attribution",
             "contribution",
             "benchmark",
+            # Business-calendar selection determines the elapsed-period denominator used by
+            # annualized performance calculations; its tests are financial-domain evidence.
+            "business_calendar",
             # Composite definitions, persisted member facts, asset weighting, restatement
             # selection, and inspection are performance-calculation domain behavior. Leaving
             # these suites uncategorized made a correctness regression spend governance slack

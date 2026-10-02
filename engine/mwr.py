@@ -7,7 +7,8 @@ from typing import Callable, Literal, Sequence
 import numpy as np
 
 from core.annualize import periods_per_year_for_basis
-from core.envelope import Annualization
+from core.business_calendar import BusinessDayEvidence, business_day_counts, business_day_evidence
+from core.envelope import Annualization, Calendar
 from engine.mwr_controls import (
     XIRR_MAX_ITERATIONS,
     XIRR_MAX_SCAN_STEPS,
@@ -220,9 +221,50 @@ def _xirr_has_invalid_solver_controls(*, root_scan_steps: int, tolerance: float,
     )
 
 
-def _xirr_time_diffs(*, dates: np.ndarray, anchor_date: date, annualization: Annualization) -> np.ndarray:
+def _elapsed_measure(
+    *,
+    start_date: date,
+    end_date: date,
+    annualization: Annualization,
+    calendar: Calendar,
+) -> int:
+    if annualization.basis == "BUS/252":
+        return business_day_evidence(
+            calendar=calendar,
+            start_date=start_date,
+            end_date=end_date,
+        ).business_day_count
+    return max((end_date - start_date).days, 0)
+
+
+def _xirr_time_diffs(
+    *,
+    dates: np.ndarray,
+    anchor_date: date,
+    annualization: Annualization,
+    calendar: Calendar | None = None,
+) -> np.ndarray:
     day_count = _day_count_denominator(annualization)
-    return np.array([(d - anchor_date).days / day_count for d in dates])
+    applied_calendar = calendar or Calendar()
+    if annualization.basis == "BUS/252":
+        _, elapsed_measures = business_day_counts(
+            calendar=applied_calendar,
+            start_date=anchor_date,
+            end_dates=list(dates),
+        )
+        return np.array([elapsed_measure / day_count for elapsed_measure in elapsed_measures])
+    return np.array(
+        [
+            _elapsed_measure(
+                start_date=anchor_date,
+                end_date=d,
+                annualization=annualization,
+                calendar=applied_calendar,
+            )
+            / day_count
+            for d in dates
+        ]
+    )
 
 
 def _scan_xirr_roots(
@@ -588,6 +630,7 @@ def _xirr(
     dates: np.ndarray,
     *,
     annualization: Annualization | None = None,
+    calendar: Calendar | None = None,
     rate_lower_bound: float = -0.999999999,
     rate_upper_bound: float = 1000.0,
     root_scan_steps: int = 512,
@@ -596,6 +639,7 @@ def _xirr(
 ) -> dict:
     """Calculates XIRR using log-rate bracket scanning and bisection refinement."""
     annualization = annualization or Annualization(enabled=False, basis="ACT/365")
+    calendar = calendar or Calendar()
     values, dates = _net_same_day_flows(list(values), list(dates))
     gross_cash_flow_scale = float(np.sum(np.abs(values)))
     anchor_date = dates.min() if len(dates) else None
@@ -610,6 +654,14 @@ def _xirr(
         tolerance=tolerance,
         max_iterations=max_iter,
         solver_work_units=xirr_solver_work_units(root_scan_steps=root_scan_steps, max_iter=max_iter),
+    )
+    base_convergence.update(
+        _xirr_calendar_metadata(
+            anchor_date=anchor_date,
+            dates=dates,
+            annualization=annualization,
+            calendar=calendar,
+        )
     )
     if _xirr_has_invalid_solver_controls(
         root_scan_steps=root_scan_steps,
@@ -633,7 +685,12 @@ def _xirr(
 
     if anchor_date is None:
         raise ValueError("XIRR anchor date is required after preflight validation.")
-    time_diffs = _xirr_time_diffs(dates=dates, anchor_date=anchor_date, annualization=annualization)
+    time_diffs = _xirr_time_diffs(
+        dates=dates,
+        anchor_date=anchor_date,
+        annualization=annualization,
+        calendar=calendar,
+    )
 
     roots = _scan_xirr_roots(
         values=values,
@@ -646,6 +703,32 @@ def _xirr(
     )
 
     return _xirr_result_from_roots(roots=roots, base_convergence=base_convergence)
+
+
+def _xirr_calendar_convergence(evidence: BusinessDayEvidence) -> dict[str, object]:
+    return {
+        "trading_calendar": evidence.calendar_id,
+        "calendar_version": evidence.calendar_version,
+        "day_count_interval": evidence.session_interval,
+        "business_day_count": evidence.business_day_count,
+    }
+
+
+def _xirr_calendar_metadata(
+    *,
+    anchor_date: date | None,
+    dates: np.ndarray,
+    annualization: Annualization,
+    calendar: Calendar,
+) -> dict[str, object]:
+    if anchor_date is None or not len(dates) or annualization.basis != "BUS/252":
+        return {}
+    evidence = business_day_evidence(
+        calendar=calendar,
+        start_date=anchor_date,
+        end_date=dates.max(),
+    )
+    return _xirr_calendar_convergence(evidence)
 
 
 def _dietz_denominator(*, begin_mv, cash_flows, start_date, end_date, method):
@@ -708,12 +791,15 @@ def _successful_xirr_mwr_attempt(
     end_date: date,
     period_days: int,
     convergence: MWRConvergence,
+    calendar: Calendar | None = None,
 ) -> _MWRXirrAttempt:
+    applied_calendar = calendar or Calendar()
     notes = [xirr_result["notes"]]
     return _MWRXirrAttempt(
         result=_successful_xirr_mwr_result(
             rate=xirr_result["rate"],
             annualization=annualization,
+            calendar=applied_calendar,
             start_date=start_date,
             end_date=end_date,
             period_days=period_days,
@@ -763,13 +849,16 @@ def _calculate_xirr_mwr_attempt(
     end_date: date,
     period_days: int,
     solver=None,
+    calendar: Calendar | None = None,
 ) -> _MWRXirrAttempt:
+    applied_calendar = calendar or Calendar()
     xirr_start_date = start_date
     xirr_result = _calculate_xirr_solver_result(
         begin_mv=begin_mv,
         end_mv=end_mv,
         cash_flows=cash_flows,
         annualization=annualization,
+        calendar=applied_calendar,
         start_date=xirr_start_date,
         end_date=end_date,
         solver=solver,
@@ -779,6 +868,7 @@ def _calculate_xirr_mwr_attempt(
         return _successful_xirr_mwr_attempt(
             xirr_result=xirr_result,
             annualization=annualization,
+            calendar=applied_calendar,
             start_date=xirr_start_date,
             end_date=end_date,
             period_days=period_days,
@@ -812,6 +902,7 @@ def _calculate_xirr_solver_result(
     start_date: date,
     end_date: date,
     solver=None,
+    calendar: Calendar | None = None,
 ):
     dates = [start_date] + [cf.date for cf in cash_flows] + [end_date]
     values = [-begin_mv] + [-cf.amount for cf in cash_flows] + [end_mv]
@@ -820,6 +911,7 @@ def _calculate_xirr_solver_result(
         np.array(values),
         np.array(dates),
         annualization=annualization,
+        calendar=calendar or Calendar(),
         rate_lower_bound=getattr(solver, "rate_lower_bound", -0.999999999),
         rate_upper_bound=getattr(solver, "rate_upper_bound", 1000.0),
         root_scan_steps=getattr(solver, "root_scan_steps", 512),
@@ -828,11 +920,27 @@ def _calculate_xirr_solver_result(
     )
 
 
-def _successful_xirr_mwr_result(*, rate, annualization, start_date, end_date, period_days, notes, convergence):
+def _successful_xirr_mwr_result(
+    *,
+    rate,
+    annualization,
+    start_date,
+    end_date,
+    period_days,
+    notes,
+    convergence,
+    calendar=None,
+):
     holding_period_return = None
     if period_days > 0:
         day_count = _day_count_denominator(annualization)
-        holding_period_return = (((1 + rate) ** (period_days / day_count)) - 1) * 100
+        elapsed_measure = _elapsed_measure(
+            start_date=start_date,
+            end_date=end_date,
+            annualization=annualization,
+            calendar=calendar or Calendar(),
+        )
+        holding_period_return = (((1 + rate) ** (elapsed_measure / day_count)) - 1) * 100
     return MWRResult(
         mwr=rate * 100,
         mwr_annualized=rate * 100,
@@ -860,6 +968,7 @@ def _calculate_dietz_mwr_result(
     notes: list[str],
     xirr_fallback_reason_code: str | None = None,
     xirr_convergence: MWRConvergence | None = None,
+    calendar: Calendar | None = None,
 ) -> MWRResult:
     components = _dietz_return_components(
         begin_mv=begin_mv,
@@ -886,6 +995,7 @@ def _calculate_dietz_mwr_result(
         components=components,
         fallback_metadata=fallback_metadata,
         annualization=annualization,
+        calendar=calendar or Calendar(),
         start_date=start_date,
         end_date=end_date,
         period_days=period_days,
@@ -925,6 +1035,7 @@ def _calculated_dietz_mwr_result(
     period_days: int,
     notes: list[str],
     convergence: MWRConvergence | None = None,
+    calendar: Calendar | None = None,
 ) -> MWRResult:
     if components.periodic_rate is None:
         raise ValueError("Dietz periodic rate is required for calculated MWR result.")
@@ -933,7 +1044,9 @@ def _calculated_dietz_mwr_result(
         mwr_annualized=_annualized_dietz_rate(
             periodic_rate=components.periodic_rate,
             annualization=annualization,
-            period_days=period_days,
+            calendar=calendar or Calendar(),
+            start_date=start_date,
+            end_date=end_date,
         ),
         method=components.method,
         start_date=start_date,
@@ -991,13 +1104,41 @@ def _annualized_dietz_rate(
     *,
     periodic_rate,
     annualization: Annualization,
-    period_days: int,
+    period_days: int | None = None,
+    calendar: Calendar | None = None,
+    start_date: date | None = None,
+    end_date: date | None = None,
 ) -> float | None:
-    if not annualization.enabled or period_days <= 0:
+    elapsed_measure = _dietz_elapsed_measure(
+        period_days=period_days,
+        start_date=start_date,
+        end_date=end_date,
+        annualization=annualization,
+        calendar=calendar,
+    )
+    if not annualization.enabled or elapsed_measure <= 0:
         return None
     ppy = _day_count_denominator(annualization)
-    scale = ppy / period_days
+    scale = ppy / elapsed_measure
     return ((1 + periodic_rate) ** scale - 1) * 100
+
+
+def _dietz_elapsed_measure(
+    *,
+    period_days: int | None,
+    start_date: date | None,
+    end_date: date | None,
+    annualization: Annualization,
+    calendar: Calendar | None,
+) -> int:
+    if start_date is not None and end_date is not None:
+        return _elapsed_measure(
+            start_date=start_date,
+            end_date=end_date,
+            annualization=annualization,
+            calendar=calendar or Calendar(),
+        )
+    return period_days or 0
 
 
 def _dietz_fallback_metadata(
@@ -1086,6 +1227,7 @@ def calculate_money_weighted_return(
     annualization: Annualization,
     as_of: date,
     start_date: date | None = None,
+    calendar: Calendar | None = None,
     solver=None,
 ) -> MWRResult:
     """
@@ -1093,6 +1235,7 @@ def calculate_money_weighted_return(
     Returns a simple MWRResult data object.
     """
     notes = []
+    calendar = calendar or Calendar()
     bounds = _resolve_mwr_period_bounds(cash_flows=cash_flows, as_of=as_of, start_date=start_date)
     _validate_mwr_cash_flow_bounds(cash_flows=cash_flows, bounds=bounds)
     reason_code: str | None = None
@@ -1113,6 +1256,7 @@ def calculate_money_weighted_return(
             end_mv=end_mv,
             cash_flows=cash_flows,
             annualization=annualization,
+            calendar=calendar,
             start_date=bounds.start_date,
             end_date=bounds.end_date,
             period_days=bounds.period_days,
@@ -1130,6 +1274,7 @@ def calculate_money_weighted_return(
         cash_flows=cash_flows,
         calculation_method=calculation_method,
         annualization=annualization,
+        calendar=calendar,
         start_date=bounds.start_date,
         end_date=bounds.end_date,
         period_days=bounds.period_days,

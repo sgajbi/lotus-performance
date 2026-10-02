@@ -3,7 +3,7 @@ from __future__ import annotations
 import asyncio
 from collections.abc import Coroutine
 from concurrent.futures import ThreadPoolExecutor
-from dataclasses import dataclass
+from dataclasses import asdict, dataclass
 from datetime import date
 from decimal import Decimal, localcontext
 from typing import Any, TypeVar, cast
@@ -70,7 +70,8 @@ from app.services.twr_service import (
     _iter_frequency_windows,
 )
 from common.enums import Frequency
-from core.envelope import Audit, Diagnostics, Meta
+from core.business_calendar import business_day_evidence
+from core.envelope import Audit, Calendar, CalendarEvidence, Diagnostics, Meta
 from core.errors import APIBadRequestError, APIUnprocessableEntityError
 from core.repro import generate_canonical_hash
 from core.workspace_periods import ResolvedWorkspacePeriod, resolve_workspace_periods
@@ -1087,15 +1088,28 @@ def _workspace_summary_meta(
     input_fingerprint: str,
     calculation_hash: str,
 ) -> Meta:
+    master_start = min(period.start_date for period in resolved_periods)
+    calendar_evidence = None
+    if request.annualization.basis == "BUS/252":
+        calendar_evidence = CalendarEvidence(
+            **asdict(
+                business_day_evidence(
+                    calendar=request.calendar,
+                    start_date=master_start,
+                    end_date=request.report_end_date,
+                )
+            )
+        )
     return Meta(
         calculation_id=request.calculation_id,
         engine_version=calculation_engine_version(settings),
         precision_mode=request.precision_mode,
         annualization=request.annualization,
         calendar=request.calendar,
+        calendar_evidence=calendar_evidence,
         periods={
             "requested": [item.period.value for item in request.periods],
-            "master_start": str(min(period.start_date for period in resolved_periods)),
+            "master_start": str(master_start),
             "master_end": str(request.report_end_date),
         },
         input_fingerprint=input_fingerprint,
@@ -1174,6 +1188,7 @@ def _build_workspace_period_summary_result(
         gross_daily_results_df=gross_daily_results_df,
         frequencies=frequencies,
         annualization=request.annualization,
+        calendar=request.calendar,
     )
     benchmark_block, active_block = _build_workspace_benchmark_and_active_blocks(
         benchmark_input=benchmark_input,
@@ -1181,6 +1196,7 @@ def _build_workspace_period_summary_result(
         resolved_period=resolved_period,
         frequencies=frequencies,
         annualization=request.annualization,
+        calendar=request.calendar,
         net_summary=portfolio_twr.net,
         gross_summary=portfolio_twr.gross,
     )
@@ -1205,6 +1221,7 @@ def _build_workspace_period_twr_pair(
     gross_daily_results_df: pd.DataFrame,
     frequencies: list[Frequency],
     annualization: Any,
+    calendar: Any = None,
 ) -> WorkspaceBasisPair:
     return WorkspaceBasisPair(
         net=_build_workspace_period_performance_block(
@@ -1213,6 +1230,7 @@ def _build_workspace_period_twr_pair(
             daily_results_df=net_daily_results_df,
             frequencies=frequencies,
             annualization=annualization,
+            calendar=calendar,
         ),
         gross=_build_workspace_period_performance_block(
             resolved_period=resolved_period,
@@ -1220,6 +1238,7 @@ def _build_workspace_period_twr_pair(
             daily_results_df=gross_daily_results_df,
             frequencies=frequencies,
             annualization=annualization,
+            calendar=calendar,
         ),
     )
 
@@ -1231,6 +1250,7 @@ def _build_workspace_period_performance_block(
     daily_results_df: pd.DataFrame,
     frequencies: list[Frequency],
     annualization: Any,
+    calendar: Any = None,
 ) -> WorkspacePerformanceBlock:
     return _build_workspace_performance_block(
         portfolio_slice=portfolio_slice,
@@ -1243,6 +1263,7 @@ def _build_workspace_period_performance_block(
         full_daily_df=daily_results_df,
         frequencies=frequencies,
         annualization=annualization,
+        calendar=calendar,
     )
 
 
@@ -1266,6 +1287,7 @@ def _build_workspace_benchmark_and_active_blocks(
     resolved_period: ResolvedWorkspacePeriod,
     frequencies: list[Frequency],
     annualization: Any,
+    calendar: Any = None,
     net_summary: WorkspacePerformanceBlock,
     gross_summary: WorkspacePerformanceBlock,
 ) -> tuple[WorkspaceBenchmarkBlock | None, WorkspaceActiveBlock | None]:
@@ -1286,6 +1308,7 @@ def _build_workspace_benchmark_and_active_blocks(
         full_benchmark_df=benchmark_daily_df,
         frequencies=frequencies,
         annualization=annualization,
+        calendar=calendar,
         benchmark_input=benchmark_input,
     )
     return benchmark_block, _build_workspace_active_block(
@@ -1338,6 +1361,7 @@ def _build_workspace_performance_block(
     full_daily_df: pd.DataFrame,
     frequencies: list[Frequency],
     annualization,
+    calendar=None,
 ) -> WorkspacePerformanceBlock:
     summary_return = _to_workspace_return_value(
         _build_return_value_from_decomposition(_calculate_total_return_from_slice(period_daily_slice, full_daily_df))
@@ -1352,6 +1376,7 @@ def _build_workspace_performance_block(
                 start_date=_date_from_boundary(portfolio_slice[PortfolioColumns.PERF_DATE.value].min()),
                 end_date=_date_from_boundary(portfolio_slice[PortfolioColumns.PERF_DATE.value].max()),
                 annualization=annualization,
+                calendar=calendar,
                 business_day_count=len(period_daily_slice),
             ),
         ),
@@ -1361,6 +1386,7 @@ def _build_workspace_performance_block(
             full_daily_df=full_daily_df,
             frequencies=frequencies,
             annualization=annualization,
+            calendar=calendar,
         ),
     )
 
@@ -1372,6 +1398,7 @@ def _build_workspace_performance_breakdowns(
     full_daily_df: pd.DataFrame,
     frequencies: list[Frequency],
     annualization,
+    calendar=None,
 ) -> dict[Frequency, list[WorkspaceBreakdownItem]]:
     breakdowns: dict[Frequency, list[WorkspaceBreakdownItem]] = {}
     portfolio_start_date = _date_from_boundary(portfolio_slice[PortfolioColumns.PERF_DATE.value].min())
@@ -1396,6 +1423,7 @@ def _build_workspace_performance_breakdowns(
                     full_daily_df=full_daily_df,
                     portfolio_start_date=portfolio_start_date,
                     annualization=annualization,
+                    calendar=calendar,
                 )
             )
         breakdowns[frequency] = items
@@ -1434,6 +1462,7 @@ def _build_workspace_performance_breakdown_item(
     full_daily_df: pd.DataFrame,
     portfolio_start_date: date,
     annualization,
+    calendar=None,
 ) -> WorkspaceBreakdownItem:
     period_return = _to_workspace_return_value(
         _build_return_value_from_decomposition(
@@ -1457,6 +1486,7 @@ def _build_workspace_performance_breakdown_item(
             start_date=portfolio_start_date,
             end_date=window.end_date,
             annualization=annualization,
+            calendar=calendar,
             business_day_count=len(window.cumulative_daily_df),
         ),
     )
@@ -1468,6 +1498,7 @@ def _build_workspace_benchmark_block(
     full_benchmark_df: pd.DataFrame,
     frequencies: list[Frequency],
     annualization,
+    calendar=None,
     benchmark_input: ResolvedWorkspaceBenchmarkInput,
 ) -> WorkspaceBenchmarkBlock:
     summary_return = _to_workspace_return_value(_calculate_benchmark_return_from_slice(benchmark_slice))
@@ -1480,6 +1511,7 @@ def _build_workspace_benchmark_block(
                 start_date=_date_from_boundary(benchmark_slice["date"].min()),
                 end_date=_date_from_boundary(benchmark_slice["date"].max()),
                 annualization=annualization,
+                calendar=calendar,
                 business_day_count=len(benchmark_slice),
             ),
         ),
@@ -1488,6 +1520,7 @@ def _build_workspace_benchmark_block(
             full_benchmark_df=full_benchmark_df,
             frequencies=frequencies,
             annualization=annualization,
+            calendar=calendar,
         ),
         benchmark_id=benchmark_input.benchmark_id,
         benchmark_currency=benchmark_input.benchmark_request.benchmark_currency,
@@ -1502,6 +1535,7 @@ def _build_workspace_benchmark_breakdowns(
     full_benchmark_df: pd.DataFrame,
     frequencies: list[Frequency],
     annualization,
+    calendar=None,
 ) -> dict[Frequency, list[WorkspaceBreakdownItem]]:
     breakdowns: dict[Frequency, list[WorkspaceBreakdownItem]] = {}
     for frequency in frequencies:
@@ -1528,6 +1562,7 @@ def _build_workspace_benchmark_breakdowns(
                         start_date=_date_from_boundary(benchmark_slice["date"].min()),
                         end_date=window_end_date,
                         annualization=annualization,
+                        calendar=calendar,
                         business_day_count=len(cumulative_df),
                     ),
                 )
@@ -1552,6 +1587,7 @@ def _build_workspace_mwr_summary(
         annualization=request.annualization,
         as_of=period.end_date,
         start_date=period.start_date,
+        calendar=request.calendar,
         solver=request.solver,
     )
     return WorkspaceMoneyWeightedReturnSummary(
@@ -1623,6 +1659,7 @@ def _annualize_return_value(
     start_date: date,
     end_date: date,
     annualization,
+    calendar=None,
     business_day_count: int,
 ) -> WorkspaceReturnValue:
     return WorkspaceReturnValue(
@@ -1631,6 +1668,7 @@ def _annualize_return_value(
             start_date=start_date,
             end_date=end_date,
             annualization=annualization,
+            calendar=calendar,
             business_day_count=business_day_count,
         ),
         local=(
@@ -1641,6 +1679,7 @@ def _annualize_return_value(
                 start_date=start_date,
                 end_date=end_date,
                 annualization=annualization,
+                calendar=calendar,
                 business_day_count=business_day_count,
             )
         ),
@@ -1652,6 +1691,7 @@ def _annualize_return_value(
                 start_date=start_date,
                 end_date=end_date,
                 annualization=annualization,
+                calendar=calendar,
                 business_day_count=business_day_count,
             )
         ),
@@ -1664,6 +1704,7 @@ def _annualize_percentage(
     start_date: date,
     end_date: date,
     annualization,
+    calendar=None,
     business_day_count: int,
 ) -> Decimal:
     if not getattr(annualization, "enabled", True):
@@ -1671,9 +1712,16 @@ def _annualize_percentage(
     elapsed_days = max((end_date - start_date).days + 1, 1)
     if elapsed_days <= 365:
         return value_pct
+    applied_business_day_count = business_day_count
+    if annualization.basis == "BUS/252" and calendar is not None:
+        applied_business_day_count = business_day_evidence(
+            calendar=calendar or Calendar(),
+            start_date=start_date,
+            end_date=end_date,
+        ).business_day_count
     periods_per_year, elapsed_measure = _annualization_periods_and_elapsed_measure(
         annualization=annualization,
-        business_day_count=business_day_count,
+        business_day_count=applied_business_day_count,
         elapsed_days=elapsed_days,
     )
     if elapsed_measure <= 0:

@@ -436,6 +436,8 @@ Current request-model highlights:
 - MWR stateless requests may supply complete `source_preconverted_fx_evidence`; the service
   validates per-input FX provenance and emits `currency_evidence` while still computing on a
   single reporting-currency schedule
+- MWR and Workspace `BUS/252` annualization uses versioned `(start_date, end_date]` business
+  sessions and returns applied calendar evidence; it does not substitute calendar days or sparse row counts
 - benchmark exposure context is certified at `frequency=DAILY` for `POSITION`, `SECTOR`,
   `ASSET_CLASS`, and `ISSUER`; issuer groups use lotus-core index-catalog issuer labels
 - group-return evidence is a stateful, daily source-economics contract for Risk. It publishes one

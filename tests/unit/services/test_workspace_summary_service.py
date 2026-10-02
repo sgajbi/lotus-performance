@@ -68,7 +68,7 @@ from app.services.workspace_summary_service import (
     workspace_longest_requested_window_days,
 )
 from common.enums import Frequency
-from core.envelope import Diagnostics
+from core.envelope import Calendar, Diagnostics
 from core.errors import APIError
 from core.workspace_periods import ResolvedWorkspacePeriod
 
@@ -1999,6 +1999,19 @@ def test_annualization_periods_and_elapsed_measure_uses_business_day_basis_defau
         business_day_count=200,
         elapsed_days=365,
     ) == (252, 200)
+
+
+def test_workspace_bus_252_annualization_uses_calendar_sessions_not_observed_rows():
+    annualized = _annualize_percentage(
+        Decimal("12.5"),
+        start_date=date(2024, 1, 1),
+        end_date=date(2025, 1, 2),
+        annualization=SimpleNamespace(enabled=True, periods_per_year=None, basis="BUS/252"),
+        calendar=Calendar(type="BUSINESS", trading_calendar="WEEKDAY"),
+        business_day_count=1,
+    )
+
+    assert annualized == Decimal("11.94715560351358175216286570")
 
 
 def test_annualization_periods_and_elapsed_measure_uses_calendar_basis_and_explicit_periods():

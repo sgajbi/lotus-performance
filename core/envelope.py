@@ -60,8 +60,17 @@ class DataPolicy(BaseModel):
 
 # --- Shared Request Components ---
 class Calendar(BaseModel):
-    type: Literal["BUSINESS", "NATURAL"] = "BUSINESS"
-    trading_calendar: Optional[str] = "NYSE"
+    type: Literal["BUSINESS", "NATURAL"] = Field("BUSINESS", description="Calendar class. BUS/252 requires BUSINESS.")
+    trading_calendar: Optional[str] = Field(
+        "NYSE", description="Calendar identifier. BUS/252 supports NYSE/XNYS and fixed WEEKDAY."
+    )
+
+
+class CalendarEvidence(BaseModel):
+    calendar_id: str
+    calendar_version: str
+    session_interval: Literal["(start_date, end_date]"] = "(start_date, end_date]"
+    business_day_count: int | None = None
 
 
 class Annualization(BaseModel):
@@ -170,6 +179,7 @@ class Meta(BaseModel):
     precision_mode: Literal["FLOAT64", "DECIMAL_STRICT"]
     annualization: Annualization
     calendar: Calendar
+    calendar_evidence: CalendarEvidence | None = None
     periods: Dict
     input_fingerprint: Optional[str] = None
     calculation_hash: Optional[str] = None

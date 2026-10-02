@@ -174,7 +174,9 @@ Current repository posture:
     when supplied by `lotus-core`, reports bounded `source_cashflow_quality` inclusion/exclusion
     counts, and treats absent lifecycle identity as explicit supportability posture. Dietz
     annualization honors explicit `periods_per_year` first, then day-count conventions including
-    `BUS/252`.
+    `BUS/252`. BUS/252 must use `core.business_calendar` for `(start_date, end_date]` session
+    counting across MWR XIRR, Dietz annualization, and Workspace; do not substitute calendar days
+    or observed-row counts. Supported identifiers are pinned `NYSE`/`XNYS` and `WEEKDAY:v1`.
 21. Every durable store must route schema creation through
     `app.services.durable_schema_creation.create_durable_schema`; direct `MetaData.create_all`
     calls can reintroduce concurrent PostgreSQL catalog races. All stores share one

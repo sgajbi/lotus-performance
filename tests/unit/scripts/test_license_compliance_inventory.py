@@ -28,8 +28,8 @@ def test_license_compliance_inventory_matches_policy() -> None:
     packages_by_name = {package.normalized_name: package for package in packages}
 
     assert issues == []
-    assert len(packages) == 47
-    # setuptools is the 47th. It is not imported by application code, but the runtime
+    assert len(packages) == 51
+    # setuptools is not imported by application code, but the runtime
     # image installs and retains it, so a licence gate that inventoried only the two
     # requirements files never evaluated a package the image actually ships. It is
     # declared once in requirements-image.txt, which both the Dockerfile and the

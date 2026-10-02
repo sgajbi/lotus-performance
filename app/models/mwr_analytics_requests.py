@@ -89,6 +89,18 @@ MWR_STATEFUL_REQUEST_EXAMPLE = {
     "stateful_input": {"window_start_date": "2025-01-01"},
 }
 
+MWR_BUS_252_REQUEST_EXAMPLE = {
+    "calculation_id": "4f4f3e0e-6e0e-4e0e-8e0e-2f4f3e0e6e0e",
+    "portfolio_id": "DEMO_BUS_252_001",
+    "input_mode": "stateless",
+    "mwr_method": "XIRR",
+    "as_of": "2025-07-01",
+    "start_date": "2025-01-01",
+    "calendar": {"type": "BUSINESS", "trading_calendar": "WEEKDAY"},
+    "annualization": {"enabled": True, "basis": "BUS/252"},
+    "stateless_input": {"begin_mv": 1000.0, "end_mv": 1020.0, "cash_flows": []},
+}
+
 
 class MWRInputMode(str, Enum):
     STATELESS = "stateless"
@@ -190,7 +202,13 @@ def _stateful_mwr_payload_issue(
 class MoneyWeightedReturnAnalyticsRequest(MoneyWeightedReturnRequestBase):
     model_config = ConfigDict(
         extra="forbid",
-        json_schema_extra={"examples": [MWR_STATELESS_SOURCE_FX_REQUEST_EXAMPLE, MWR_STATEFUL_REQUEST_EXAMPLE]},
+        json_schema_extra={
+            "examples": [
+                MWR_STATELESS_SOURCE_FX_REQUEST_EXAMPLE,
+                MWR_STATEFUL_REQUEST_EXAMPLE,
+                MWR_BUS_252_REQUEST_EXAMPLE,
+            ]
+        },
     )
 
     input_mode: MWRInputMode = Field(

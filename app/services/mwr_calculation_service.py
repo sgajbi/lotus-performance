@@ -24,7 +24,8 @@ from app.services.fail_fast_policy import enforce_core_analytics_fail_fast
 from app.services.mwr_mode_service import ResolvedMWRRequest, resolve_mwr_request
 from app.services.reproducibility_service import generate_request_fingerprint
 from app.services.submission_fencing_service import register_sync_execution_or_raise
-from core.envelope import Audit, Diagnostics, Meta
+from core.business_calendar import business_day_evidence
+from core.envelope import Audit, CalendarEvidence, Diagnostics, Meta
 from core.errors import APIError, APIInternalServerError
 from engine.mwr import calculate_money_weighted_return
 from engine.mwr_types import MWRResult
@@ -59,6 +60,7 @@ def calculate_mwr_result(request: MoneyWeightedReturnRequest) -> MWRResult:
         annualization=request.annualization,
         as_of=request.as_of,
         start_date=request.start_date,
+        calendar=request.calendar,
         solver=request.solver,
     )
 
@@ -182,6 +184,7 @@ def _build_mwr_response_payload(
             precision_mode=mwr_request.precision_mode,
             annualization=mwr_request.annualization,
             calendar=mwr_request.calendar,
+            calendar_evidence=_mwr_calendar_evidence(mwr_request=mwr_request, mwr_result=mwr_result),
             periods={"type": "EXPLICIT", "start": str(mwr_result.start_date), "end": str(mwr_result.end_date)},
             input_fingerprint=input_fingerprint,
             calculation_hash=calculation_hash,
@@ -194,6 +197,22 @@ def _build_mwr_response_payload(
         ),
         "audit": Audit(counts=_mwr_audit_counts(resolved_request=resolved_request, mwr_request=mwr_request)),
     }
+
+
+def _mwr_calendar_evidence(
+    *, mwr_request: MoneyWeightedReturnRequest, mwr_result: MWRResult
+) -> CalendarEvidence | None:
+    if mwr_request.annualization.basis != "BUS/252":
+        return None
+    return CalendarEvidence(
+        **asdict(
+            business_day_evidence(
+                calendar=mwr_request.calendar,
+                start_date=mwr_result.start_date,
+                end_date=mwr_result.end_date,
+            )
+        )
+    )
 
 
 def _mwr_reporting_currency(*, resolved_request: ResolvedMWRRequest) -> str | None:

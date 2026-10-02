@@ -12,8 +12,8 @@ Mode: generated first-party and third-party dependency license evidence.
 
 | Metric | Value |
 | --- | ---: |
-| Packages inventoried | 47 |
-| Allowed packages | 45 |
+| Packages inventoried | 51 |
+| Allowed packages | 49 |
 | Review-required packages with active exception | 2 |
 | Blocked packages | 0 |
 | Review-required packages missing exception | 0 |
@@ -30,12 +30,14 @@ Mode: generated first-party and third-party dependency license evidence.
 | `colorama` | runtime | `colorama==0.4.6` | `0.4.6` | BSD License | Classifier | allowed | - | - |
 | `coverage` | development | `coverage==7.10.6` | `7.10.6` | Apache-2.0 | License | allowed | - | - |
 | `deptry` | development | `deptry==0.25.1` | `0.25.1` | MIT | License-Expression | allowed | - | - |
+| `exchange-calendars` | runtime | `exchange-calendars==4.13.2` | `4.13.2` | Apache-2.0 | License-Expression | allowed | - | - |
 | `fastapi` | runtime | `fastapi==0.136.3` | `0.136.3` | MIT | License-Expression | allowed | - | - |
 | `h11` | runtime | `h11==0.16.0` | `0.16.0` | MIT | License | allowed | - | - |
 | `httpcore` | runtime | `httpcore==1.0.9` | `1.0.9` | BSD-3-Clause | License-Expression | allowed | - | - |
 | `httpx` | development, runtime | `httpx==0.28.1` | `0.28.1` | BSD-3-Clause | License | allowed | - | - |
 | `httpx2` | development | `httpx2==2.12.0` | `2.12.0` | BSD-3-Clause | License-Expression | allowed | - | - |
 | `idna` | runtime | `idna==3.18` | `3.18` | BSD-3-Clause | License-Expression | allowed | - | - |
+| `korean-lunar-calendar` | runtime | `korean-lunar-calendar==0.4.0` | `0.4.0` | MIT | License-Expression | allowed | - | - |
 | `mypy` | development | `mypy==1.20.2` | `1.20.2` | MIT | License-Expression | allowed | - | - |
 | `numpy` | runtime | `numpy==2.3.2` | `2.3.2` | Copyright (c) 2005-2025, NumPy Developers. All rights reserved. Redistribution and use in source and binary forms, with or without modification, are permitted p | License | allowed | - | - |
 | `packaging` | runtime | `packaging==25.0` | `25.0` | Apache Software License; BSD License | Classifier | allowed | - | - |
@@ -48,6 +50,7 @@ Mode: generated first-party and third-party dependency license evidence.
 | `pydantic` | runtime | `pydantic==2.11.7` | `2.11.7` | MIT | License-Expression | allowed | - | - |
 | `pydantic_core` | runtime | `pydantic_core==2.33.2` | `2.33.2` | MIT | License | allowed | - | - |
 | `pydantic-settings` | runtime | `pydantic-settings==2.10.1` | `2.10.1` | MIT | License-Expression | allowed | - | - |
+| `pyluach` | runtime | `pyluach==2.3.0` | `2.3.0` | MIT License | Classifier | allowed | - | - |
 | `pytest` | development | `pytest==9.0.3` | `9.0.3` | MIT | License-Expression | allowed | - | - |
 | `pytest-asyncio` | development | `pytest-asyncio==1.3.0` | `1.3.0` | Apache-2.0 | License-Expression | allowed | - | - |
 | `pytest-benchmark` | development | `pytest-benchmark==4.0.0` | `4.0.0` | BSD-2-Clause | License | allowed | - | - |
@@ -64,6 +67,7 @@ Mode: generated first-party and third-party dependency license evidence.
 | `sniffio` | runtime | `sniffio==1.3.1` | `1.3.1` | MIT OR Apache-2.0 | License | allowed | - | - |
 | `SQLAlchemy` | development, runtime | `SQLAlchemy==2.0.39` | `2.0.39` | MIT | License | allowed | - | - |
 | `starlette` | runtime | `starlette==1.3.1` | `1.3.1` | BSD-3-Clause | License-Expression | allowed | - | - |
+| `toolz` | runtime | `toolz==1.1.0` | `1.1.0` | BSD-3-Clause | License-Expression | allowed | - | - |
 | `typing_extensions` | runtime | `typing_extensions==4.15.0` | `4.15.0` | PSF-2.0 | License-Expression | allowed | - | - |
 | `typing-inspection` | runtime | `typing-inspection==0.4.2` | `0.4.2` | MIT | License-Expression | allowed | - | - |
 | `tzdata` | runtime | `tzdata==2025.3` | `2025.3` | Apache-2.0 | License | allowed | - | - |

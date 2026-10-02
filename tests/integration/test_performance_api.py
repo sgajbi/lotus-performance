@@ -857,6 +857,71 @@ def test_workspace_summary_endpoint_annualizes_periods_longer_than_one_year(clie
     assert annualized == pytest.approx(expected_annualized, rel=1e-3)
 
 
+def test_workspace_summary_endpoint_uses_bus_252_calendar_not_sparse_observation_count(client):
+    calculation_id = str(uuid4())
+    payload = {
+        "calculation_id": calculation_id,
+        "portfolio_id": "WORKSPACE_SUMMARY_BUS_252",
+        "report_end_date": "2026-12-31",
+        "performance_start_date": "2024-12-31",
+        "input_mode": "stateless",
+        "stateless_input": {
+            "valuation_points": [
+                {"perf_date": "2025-01-01", "begin_mv": 1000.0, "end_mv": 1000.0},
+                {"perf_date": "2026-12-31", "begin_mv": 1000.0, "end_mv": 1210.0},
+            ]
+        },
+        "periods": [{"period": "2Y", "frequencies": ["yearly"]}],
+        "calendar": {"type": "BUSINESS", "trading_calendar": "WEEKDAY"},
+        "annualization": {"enabled": True, "basis": "BUS/252"},
+    }
+
+    response = client.post("/performance/workspace-summary", json=payload)
+
+    assert response.status_code == 200
+    body = response.json()
+    summary = body["results_by_period"]["2Y"]["portfolio_twr"]["net"]["summary"]
+    assert summary["period_return"]["base"] == pytest.approx(21.0)
+    assert summary["annualized_return"]["base"] == pytest.approx(((1.21) ** (252 / 521) - 1) * 100)
+    assert body["results_by_period"]["2Y"]["money_weighted_return"]["annualized_return"] == pytest.approx(
+        ((1.21) ** (252 / 521) - 1) * 100,
+        abs=5e-8,
+    )
+    assert body["meta"]["calendar_evidence"] == {
+        "calendar_id": "WEEKDAY",
+        "calendar_version": "WEEKDAY:v1",
+        "session_interval": "(start_date, end_date]",
+        "business_day_count": 521,
+    }
+
+
+def test_workspace_summary_rejects_unusable_bus_252_calendar_before_registration(client):
+    calculation_id = str(uuid4())
+    response = client.post(
+        "/performance/workspace-summary",
+        json={
+            "calculation_id": calculation_id,
+            "portfolio_id": "WORKSPACE_SUMMARY_BUS_252_INVALID",
+            "report_end_date": "2026-12-31",
+            "performance_start_date": "2024-12-31",
+            "input_mode": "stateless",
+            "stateless_input": {
+                "valuation_points": [
+                    {"perf_date": "2025-01-01", "begin_mv": 1000.0, "end_mv": 1000.0},
+                    {"perf_date": "2026-12-31", "begin_mv": 1000.0, "end_mv": 1210.0},
+                ]
+            },
+            "periods": [{"period": "2Y", "frequencies": ["yearly"]}],
+            "calendar": {"type": "BUSINESS", "trading_calendar": "UNKNOWN"},
+            "annualization": {"enabled": True, "basis": "BUS/252"},
+        },
+    )
+
+    assert response.status_code == 422
+    assert response.json()["error_code"] == "VALIDATION_ERROR"
+    assert client.get(f"/performance/executions/{calculation_id}").status_code == 404
+
+
 def test_workspace_summary_endpoint_honors_disabled_annualization_for_multi_year_returns(client):
     payload = {
         "portfolio_id": "WORKSPACE_SUMMARY_2Y_ANNUALIZATION_DISABLED",

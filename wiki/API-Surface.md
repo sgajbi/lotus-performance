@@ -154,7 +154,10 @@ market values, source cash-flow components, bounded `source_cashflow_quality` in
 counts, and source transaction/event lifecycle identity when supplied upstream. Cash-flow dates are
 validated against the resolved measurement window before calculation; out-of-window input is
 rejected with `MWR_CASH_FLOW_OUT_OF_WINDOW`. Dietz annualization honors explicit
-`periods_per_year` first and then the selected day-count convention, including `BUS/252`.
+`periods_per_year` first and then the selected day-count convention. `BUS/252` counts
+`(start_date, end_date]` sessions using pinned `NYSE`/`XNYS` exchange data or fixed `WEEKDAY:v1`;
+MWR XIRR and Workspace use the same policy. Missing or unsupported calendars fail before durable
+registration, and responses publish the applied version in `meta.calendar_evidence`.
 Single-currency stateful responses emit `not_required_single_currency_inputs` when source and
 reporting currencies match. Cross-currency stateful responses keep the explicit
 `upstream_preconverted_missing_per_input_fx_metadata` posture.
