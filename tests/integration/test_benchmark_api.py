@@ -276,6 +276,48 @@ def test_calculate_benchmark_endpoint_supports_stateless_component_price_points(
     assert body["meta"]["input_fingerprint"] != raw_input_fingerprint
 
 
+def test_calculate_benchmark_endpoint_accepts_exact_decimal_price_and_fx_text(client):
+    response = client.post(
+        "/performance/benchmark",
+        json={
+            "benchmark_id": "BMK_EXACT_DECIMAL_PRICE_FX",
+            "benchmark_start_date": "2026-01-02",
+            "report_end_date": "2026-01-02",
+            "analyses": [{"period": "SI", "frequencies": ["daily"]}],
+            "input_mode": "stateless",
+            "return_source": "calculated",
+            "output": {"include_timeseries": True},
+            "stateless_input": {
+                "benchmark_currency": "USD",
+                "component_price_points": [
+                    {
+                        "component_id": "IDX_EUR",
+                        "perf_date": "2026-01-01",
+                        "weight_bop": 1,
+                        "index_price": "100.00",
+                        "component_currency": "EUR",
+                        "fx_rate_to_benchmark": "1.2000",
+                    },
+                    {
+                        "component_id": "IDX_EUR",
+                        "perf_date": "2026-01-02",
+                        "weight_bop": 1,
+                        "index_price": "101.00",
+                        "component_currency": "EUR",
+                        "fx_rate_to_benchmark": "1.2120",
+                    },
+                ],
+            },
+        },
+    )
+
+    assert response.status_code == 200, response.text
+    daily = response.json()["results_by_period"]["SI"]["daily_returns"][0]
+    assert daily["benchmark_return_local"] == pytest.approx(1.0)
+    assert daily["benchmark_return_fx"] == pytest.approx(1.0)
+    assert daily["benchmark_return"] == pytest.approx(2.01)
+
+
 def test_stateless_price_derived_endpoint_preserves_all_exposure_bases(client):
     cases = (
         ((0.6, 0.0), (1.2, 0.6), 1.8072),

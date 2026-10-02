@@ -69,7 +69,9 @@ In calculated mode:
 
 - lotus-performance derives component daily returns
 - stateless callers may provide either precomputed component returns or raw component price points
-- when raw price points are supplied, lotus-performance derives component daily returns before contribution math
+- raw `index_price` and `fx_rate_to_benchmark` values accept JSON numbers or exact decimal text;
+  lotus-performance retains Decimal through price normalization and converts only the derived
+  dimensionless returns to the compatibility output type
 - lotus-performance computes daily component contributions
 - lotus-performance sums component contributions into benchmark daily return
 - lotus-performance geometrically links daily benchmark return into period return
@@ -99,7 +101,8 @@ For each component and date, the benchmark engine calculates daily component ret
 currency.
 
 If the sourced component price series is not already in benchmark currency, lotus-performance
-normalizes price levels using FX rates before deriving return.
+normalizes price levels using FX rates before deriving return. Both operands remain Decimal through
+that multiplication and division; missing FX evidence is refused rather than inferred.
 
 ### 2. Daily component contribution
 

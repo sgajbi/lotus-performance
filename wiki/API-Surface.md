@@ -79,7 +79,9 @@ beginning weight. Period and non-daily returns geometrically link those daily to
 component sums. Partial, leveraged, zero, and offsetting signed exposures are not renormalized to a
 unit-weight portfolio; weight-sum diagnostics remain evidence and never authorize a different
 return basis. Price-derived inputs must provide valid prior/current observations for every
-component before a return is published. In `return_source="vendor_series"` mode, authored
+component before a return is published. `index_price` and `fx_rate_to_benchmark` accept JSON
+numbers or exact decimal text and remain Decimal through price normalization; only the derived
+dimensionless return uses the compatibility numeric output. In `return_source="vendor_series"` mode, authored
 `benchmark_return_points` supply the benchmark series instead of the calculated component path.
 
 Async and supportability routes:

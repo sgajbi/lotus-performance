@@ -5,6 +5,7 @@ from uuid import UUID, uuid4
 
 from pydantic import AfterValidator, BaseModel, ConfigDict, Field, field_validator
 
+from app.models.numeric_types import ExactDecimalInput
 from app.models.requests import Analysis  # Import the new shared model
 from common.enums import WeightingScheme
 from core.envelope import (
@@ -26,9 +27,12 @@ class PositionDailyData(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     perf_date: date = Field(..., description="Observation date for the valuation point.")
-    begin_mv: float = Field(..., description="Beginning market value before any cash flows.")
-    end_mv: float = Field(  # monetary value; Decimal migration tracked by issue #530
+    begin_mv: ExactDecimalInput = Field(
+        ..., allow_inf_nan=False, description="Beginning market value before any cash flows."
+    )
+    end_mv: ExactDecimalInput = Field(
         ...,
+        allow_inf_nan=False,
         description=(
             "Ending market value after market movement and booked management fees. Contribution "
             "normalizes this after-fee value at the shared return-engine boundary."

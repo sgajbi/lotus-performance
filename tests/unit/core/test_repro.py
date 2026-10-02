@@ -1,4 +1,6 @@
 # tests/unit/core/test_repro.py
+from decimal import Decimal
+
 import pytest
 
 from app.models.requests import PerformanceRequest
@@ -32,7 +34,7 @@ def test_generate_canonical_hash_is_deterministic(sample_twr_request):
 def test_generate_canonical_hash_is_sensitive_to_data_change(sample_twr_request):
     """Tests that the hash changes if a data value changes."""
     _, hash1 = generate_canonical_hash(sample_twr_request, "v1.0.0")
-    sample_twr_request.valuation_points[0].end_mv = 1021.0  # Change one value
+    sample_twr_request.valuation_points[0].end_mv = Decimal("1021.0")  # Change one value
     _, hash2 = generate_canonical_hash(sample_twr_request, "v1.0.0")
     assert hash1 != hash2
 

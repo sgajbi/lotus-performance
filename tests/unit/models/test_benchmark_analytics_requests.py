@@ -1,10 +1,12 @@
 from datetime import date
+from decimal import Decimal
 
 import pytest
 from pydantic import ValidationError
 
 from app.models.benchmark_analytics_requests import (
     BenchmarkAnalyticsRequest,
+    BenchmarkComponentPricePointInput,
     BenchmarkReturnSource,
     BenchmarkStatefulInput,
     BenchmarkStatelessInput,
@@ -37,6 +39,22 @@ def test_benchmark_analytics_request_schema_documents_public_examples():
         field_schema = schema["properties"][field_name]
         assert field_schema["description"]
         assert field_schema["examples"]
+
+
+def test_benchmark_price_point_preserves_exact_price_and_fx_text():
+    point = BenchmarkComponentPricePointInput.model_validate(
+        {
+            "component_id": "IDX_EUR",
+            "perf_date": "2026-01-02",
+            "weight_bop": 1,
+            "index_price": "10000000000000000.01",
+            "component_currency": "EUR",
+            "fx_rate_to_benchmark": "1.0000000000000001",
+        }
+    )
+
+    assert point.index_price == Decimal("10000000000000000.01")
+    assert point.fx_rate_to_benchmark == Decimal("1.0000000000000001")
 
 
 @pytest.fixture

@@ -1,5 +1,6 @@
 # tests/unit/adapters/test_api_adapter.py
 from datetime import date
+from decimal import Decimal
 from typing import Any, Dict, List
 
 import pandas as pd
@@ -132,6 +133,20 @@ def test_format_breakdowns_for_response_daily(sample_engine_outputs):
     nested_daily = result_item.daily_data[0]
     assert "begin_mv" in nested_daily
     assert PortfolioColumns.BEGIN_MV.value in nested_daily
+
+
+def test_performance_summary_retains_decimal_end_value_with_numeric_json_compatibility():
+    summary = PerformanceSummary.model_validate(
+        {
+            "begin_mv": 100,
+            "end_mv": "10000000000000000.01",
+            "net_cash_flow": 0,
+            "period_return_pct": 1,
+        }
+    )
+
+    assert summary.end_mv == Decimal("10000000000000000.01")
+    assert isinstance(summary.model_dump(mode="json")["end_mv"], float)
 
 
 def test_format_breakdowns_for_response_monthly(sample_engine_outputs):

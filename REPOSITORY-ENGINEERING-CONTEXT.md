@@ -735,6 +735,11 @@ Important validation expectations:
     returns through average-weight shadows, Carino factors, residual allocation, hierarchy, and
     daily/position series reconciliation. Compatibility DTO serialization may emit JSON numbers,
     but no intermediate path may introduce float defaults or silently fall back to `FLOAT64`.
+40. Governed stateless benchmark `index_price` and `fx_rate_to_benchmark` inputs retain Decimal
+    through local and cross-currency price normalization. Convert only the derived dimensionless
+    component returns to compatibility floats. Position beginning/ending values and portfolio
+    ending values covered by the public request contract also retain exact decimal text at admission;
+    compatibility response models may serialize Decimal monetary values as JSON numbers.
 
 ## Standards And RFCs That Govern This Repository
 

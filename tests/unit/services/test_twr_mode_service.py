@@ -1,4 +1,5 @@
 from datetime import date
+from decimal import Decimal
 from types import SimpleNamespace
 from typing import cast
 from uuid import uuid4
@@ -273,7 +274,7 @@ async def test_resolve_twr_request_sources_stateful_payload(monkeypatch):
         "2025-01-01",
         "2025-01-02",
     ]
-    assert resolved.performance_request.valuation_points[1].end_mv == 1020.1
+    assert resolved.performance_request.valuation_points[1].end_mv == Decimal("1020.1")
     assert str(resolved.performance_request.performance_start_date) == "2024-12-31"
 
 

@@ -8,6 +8,7 @@ from uuid import UUID, uuid4
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 from app.models.benchmark_requests import BenchmarkPerformanceRequest
+from app.models.numeric_types import ExactDecimalInput
 from app.models.requests import Analysis
 from core.envelope import Annualization, Calendar, Output
 from core.periods import PeriodType
@@ -71,8 +72,9 @@ class BenchmarkComponentPricePointInput(BaseModel):
         description="Beginning-of-day component benchmark weight as a decimal ratio.",
         examples=[0.4],
     )
-    index_price: float = Field(
+    index_price: ExactDecimalInput = Field(
         ...,
+        allow_inf_nan=False,
         description="Component price or index level observed on the benchmark date.",
         examples=[101.25],
     )
@@ -81,8 +83,9 @@ class BenchmarkComponentPricePointInput(BaseModel):
         description="Optional component currency for the price observation.",
         examples=["EUR"],
     )
-    fx_rate_to_benchmark: float | None = Field(
+    fx_rate_to_benchmark: ExactDecimalInput | None = Field(
         default=None,
+        allow_inf_nan=False,
         description="Optional FX rate used to normalize the component price into benchmark currency.",
         examples=[1.212],
     )

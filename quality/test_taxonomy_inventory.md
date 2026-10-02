@@ -1,7 +1,7 @@
 # Lotus Performance Test Taxonomy Inventory
 
 Report date: 2026-10-03
-Branch: `fix/507-stateless-empty-fx-refusal`
+Branch: `fix/530-decimal-monetary-boundaries`
 Mode: regression-blocking test taxonomy inventory; `make quality-test-taxonomy-gate` enforces
 minimum API/runtime and contract/governance breadth plus the current uncategorized-test ceiling.
 
@@ -23,8 +23,8 @@ python scripts/python_test_taxonomy_inventory.py --limit 30 --min-api-runtime-te
 | Metric | Value |
 | --- | ---: |
 | Test modules inventoried | 339 |
-| Test functions inventoried | 4130 |
-| Integration/API/runtime test functions | 844 |
+| Test functions inventoried | 4138 |
+| Integration/API/runtime test functions | 847 |
 | Contract/governance test functions | 201 |
 
 ## Test Functions By Suite
@@ -33,8 +33,8 @@ python scripts/python_test_taxonomy_inventory.py --limit 30 --min-api-runtime-te
 | --- | ---: | ---: |
 | benchmarks | 10 | 45 |
 | e2e | 1 | 21 |
-| integration | 30 | 430 |
-| unit | 298 | 3634 |
+| integration | 30 | 432 |
+| unit | 298 | 3640 |
 
 ## Test Functions By Family
 
@@ -44,11 +44,11 @@ above does sum to it, because a module belongs to exactly one suite.
 
 | Family | Test functions |
 | --- | ---: |
-| analytics_domain | 2071 |
-| api_or_runtime | 844 |
+| analytics_domain | 2078 |
+| api_or_runtime | 847 |
 | contract_or_governance | 201 |
 | observability_or_readiness | 683 |
-| quality_or_security | 269 |
+| quality_or_security | 270 |
 | uncategorized | 565 |
 
 ## Largest Test Modules
@@ -57,7 +57,7 @@ above does sum to it, because a module belongs to exactly one suite.
 | ---: | --- | --- | ---: | --- |
 | 1 | `tests/unit/services/test_returns_series_service.py` | unit | 96 | analytics_domain |
 | 2 | `tests/unit/app/test_enterprise_readiness_additional.py` | unit | 88 | observability_or_readiness |
-| 3 | `tests/integration/test_contribution_api.py` | integration | 72 | analytics_domain, api_or_runtime |
+| 3 | `tests/integration/test_contribution_api.py` | integration | 73 | analytics_domain, api_or_runtime |
 | 4 | `tests/unit/services/test_stateful_attribution_input_service.py` | unit | 71 | analytics_domain |
 | 5 | `tests/unit/docs/test_public_docs_contract.py` | unit | 69 | contract_or_governance |
 | 6 | `tests/unit/services/test_compute_job_store.py` | unit | 69 | observability_or_readiness |
@@ -80,7 +80,7 @@ above does sum to it, because a module belongs to exactly one suite.
 | 23 | `tests/unit/services/test_operator_action_lease_service.py` | unit | 40 | uncategorized |
 | 24 | `tests/unit/services/test_stateful_contribution_input_service.py` | unit | 39 | analytics_domain |
 | 25 | `tests/unit/engine/test_ror.py` | unit | 37 | analytics_domain |
-| 26 | `tests/unit/models/test_twr_requests.py` | unit | 37 | analytics_domain |
+| 26 | `tests/unit/models/test_twr_requests.py` | unit | 38 | analytics_domain |
 | 27 | `tests/unit/models/test_workspace_summary_models.py` | unit | 36 | analytics_domain |
 | 28 | `tests/unit/test_observability.py` | unit | 36 | observability_or_readiness |
 | 29 | `tests/unit/services/test_twr_inspection_reconciliation.py` | unit | 32 | analytics_domain |
@@ -300,3 +300,8 @@ The #507 applied-FX admission slice adds registered legacy/nested, flat/hierarch
 same-currency, foreign-currency, and strict-decimal regressions. Source test functions measure
 `4,130`, API/runtime functions `844`, analytics-domain functions `2,071`, and uncategorized
 functions remain `565`; no floor or ceiling changed.
+
+The #530 Decimal-boundary slice adds exact model, service, inspection, adapter, contribution API,
+and benchmark API regressions. Source test functions measure `4,138`, API/runtime functions `847`,
+analytics-domain functions `2,078`, and uncategorized functions remain `565`; no floor or ceiling
+changed.

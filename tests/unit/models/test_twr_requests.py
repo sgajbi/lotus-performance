@@ -1,4 +1,5 @@
 from datetime import date
+from decimal import Decimal
 from types import SimpleNamespace
 
 import pytest
@@ -23,6 +24,18 @@ from app.models.twr_requests import (
     _validate_twr_benchmark_inclusion,
     _vendor_series_stateless_twr_benchmark_input_issue,
 )
+
+
+def test_daily_input_data_preserves_exact_ending_market_value_text():
+    point = DailyInputData.model_validate(
+        {
+            "perf_date": "2026-01-02",
+            "begin_mv": 100,
+            "end_mv": "10000000000000000.01",
+        }
+    )
+
+    assert point.end_mv == Decimal("10000000000000000.01")
 
 
 @pytest.mark.parametrize("field_name", ["begin_mv", "bod_cf", "eod_cf", "mgmt_fees", "end_mv"])
@@ -50,7 +63,9 @@ def test_daily_input_data_rejects_non_finite_economic_values(field_name, non_fin
     ],
 )
 def test_daily_input_data_preserves_finite_zero_and_negative_values(point):
-    assert DailyInputData.model_validate(point).model_dump(mode="json")["end_mv"] == point["end_mv"]
+    dumped_end_mv = DailyInputData.model_validate(point).model_dump(mode="json")["end_mv"]
+
+    assert Decimal(dumped_end_mv) == Decimal(str(point["end_mv"]))
 
 
 @pytest.fixture
