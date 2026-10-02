@@ -212,6 +212,47 @@ def test_contribution_both_without_position_currency_does_not_fabricate_fx(clien
         assert period["summary"]["fx_contribution"] is None
 
 
+@pytest.mark.parametrize("with_hierarchy", [False, True])
+def test_contribution_both_ignores_unpriced_position_for_currency_evidence(client, with_hierarchy):
+    payload = {
+        "portfolio_id": "SYNTHETIC_UNPRICED_POSITION",
+        "currency": "USD",
+        "report_ccy": "USD",
+        "currency_mode": "BOTH",
+        "report_start_date": "2025-01-01",
+        "report_end_date": "2025-01-01",
+        "analyses": [{"period": "SI", "frequencies": ["daily"]}],
+        "portfolio_data": {
+            "metric_basis": "NET",
+            "valuation_points": [{"perf_date": "2025-01-01", "begin_mv": 1000, "end_mv": 1100}],
+        },
+        "positions_data": [
+            {
+                "position_id": "PRICED_USD_STOCK",
+                "meta": {"currency": "USD", "sector": "ONE"},
+                "valuation_points": [{"perf_date": "2025-01-01", "begin_mv": 1000, "end_mv": 1100}],
+            },
+            {"position_id": "UNPRICED_STOCK", "meta": {}, "valuation_points": []},
+        ],
+    }
+    if with_hierarchy:
+        payload["hierarchy"] = ["sector"]
+
+    response = client.post("/performance/contribution", json=payload)
+    assert response.status_code == 200, response.text
+    period = response.json()["results_by_period"]["SI"]
+    assert period["total_portfolio_return"] == pytest.approx(10.0)
+    assert len(period["position_contributions"]) == 1
+    position = period["position_contributions"][0]
+    assert position["position_id"] == "PRICED_USD_STOCK"
+    assert position["total_contribution"] == pytest.approx(10.0)
+    assert position["local_contribution"] == pytest.approx(10.0)
+    assert position["fx_contribution"] == pytest.approx(0.0)
+    if with_hierarchy:
+        assert period["summary"]["local_contribution"] == pytest.approx(10.0)
+        assert period["summary"]["fx_contribution"] == pytest.approx(0.0)
+
+
 @pytest.mark.parametrize("hierarchy_mode", ["flat", "classified", "excluded"])
 def test_contribution_same_currency_carino_residual_does_not_become_fx(client, hierarchy_mode):
     payload = {

@@ -31,12 +31,12 @@ class PositionContribution(BaseModel):
     total_return: float = Field(description="Position return in percentage-point output units.", examples=[4.96])
     local_contribution: Optional[float] = Field(
         default=None,
-        description="Local-market contribution in percentage points when currency_mode=BOTH and every position has consumed currency evidence; null otherwise.",
+        description="Local-market contribution in percentage points when currency_mode=BOTH and every position consumed in the period has currency evidence; null otherwise.",
         examples=[1.1],
     )
     fx_contribution: Optional[float] = Field(
         default=None,
-        description="FX contribution in percentage points when currency_mode=BOTH and every position has consumed currency evidence; null otherwise.",
+        description="FX contribution in percentage points when currency_mode=BOTH and every position consumed in the period has currency evidence; null otherwise.",
         examples=[0.14],
     )
 

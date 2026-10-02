@@ -481,7 +481,7 @@ Return semantics for the workspace surface are now explicit rather than inferred
     and share the same active or reset-aware promoted denominator
   - `position_contributions` remains the primary ranking surface for top/bottom contributor views
   - position local/FX contribution fields are numeric only for `currency_mode=BOTH` with complete
-    consumed `meta.currency` on every position; otherwise both are null. A populated decomposable
+    consumed `meta.currency` on every position calculated in that period; otherwise both are null. A populated decomposable
     hierarchy summary aggregates the position components,
     while hierarchy row local/FX fields remain null because dated row decomposition is unavailable
   - optional `hierarchy` rows reconcile to the same residual-adjusted `total_contribution` as the position rows

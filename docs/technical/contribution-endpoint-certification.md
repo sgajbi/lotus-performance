@@ -96,6 +96,9 @@ Every certified contribution response must satisfy these invariants for each res
   contribution but publishes null local/FX position and hierarchy-summary fields. Mixed known and
   unknown positions make the whole decomposition unavailable; the engine must not default an
   unknown position's local return to zero and present the remainder as FX.
+- Currency availability is evaluated against positions actually calculated in each period, not
+  every request entry. A position with no valuation points does not suppress a priced same-currency
+  position's 10pp local / 0pp FX explanation; flat and hierarchy HTTP controls prove this.
 
 The hierarchy path now builds rows from the same residual-adjusted daily position series used for
 position output. This prevents hierarchy rows from drifting away from first-class position

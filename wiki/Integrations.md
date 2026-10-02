@@ -147,8 +147,9 @@ supportability metadata. Gateway, Workbench, risk, and reporting consumers shoul
 emitted contribution response; they must not reconstruct position contribution from TWR, MWR,
 attribution, or raw source rows.
 
-Position local/FX fields are numeric only for `currency_mode=BOTH` with complete consumed position
-`meta.currency`; omitted, `BASE_ONLY`, `LOCAL_ONLY`, and currency-incomplete `BOTH` requests
+Position local/FX fields are numeric only for `currency_mode=BOTH` with complete `meta.currency`
+for positions calculated in that period; unpriced request entries do not affect availability.
+Omitted, `BASE_ONLY`, `LOCAL_ONLY`, and currency-incomplete `BOTH` requests
 return null for both. A populated decomposable hierarchy summary aggregates the
 position components, but dated hierarchy rows currently expose only total contribution and leave
 local/FX null. Consumers must not turn those null fields into zero or infer FX as total minus zero.

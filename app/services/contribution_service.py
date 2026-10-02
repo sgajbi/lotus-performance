@@ -349,7 +349,7 @@ def _build_flat_contribution_position_assembly(
         period_methodology_context=period_methodology_context,
         reset_aware_average_weight_mode=reset_aware_average_weight_mode,
     )
-    decompose_currency = _contribution_currency_decomposition_available(request)
+    decompose_currency = _contribution_currency_decomposition_available(request, period_slice_df)
     position_totals_result = build_residual_adjusted_position_totals(
         period_slice_df=period_slice_df,
         average_weight_df=period_methodology_context.average_weight_shadow_df,
@@ -401,7 +401,7 @@ def _build_hierarchy_contribution_position_assembly(
         period_methodology_context=period_methodology_context,
         reset_aware_average_weight_mode=reset_aware_average_weight_mode,
     )
-    decompose_currency = _contribution_currency_decomposition_available(request)
+    decompose_currency = _contribution_currency_decomposition_available(request, period_slice_df)
     position_totals_result = build_residual_adjusted_position_totals(
         period_slice_df=period_slice_df,
         average_weight_df=period_methodology_context.average_weight_shadow_df,
@@ -455,10 +455,16 @@ def _build_hierarchy_contribution_position_assembly(
     )
 
 
-def _contribution_currency_decomposition_available(request: ContributionRequest) -> bool:
-    """Do not treat an engine defaulted local return as source currency evidence."""
-    return request.currency_mode == "BOTH" and all(
-        normalized_currency_code(position.meta.get("currency")) is not None for position in request.positions_data
+def _contribution_currency_decomposition_available(request: ContributionRequest, period_slice_df: pd.DataFrame) -> bool:
+    """Require source currency for every position actually consumed in this period."""
+    if request.currency_mode != "BOTH" or period_slice_df.empty:
+        return False
+    positions_by_id = {position.position_id: position for position in request.positions_data}
+    consumed_position_ids = set(period_slice_df["position_id"].dropna().astype(str))
+    return bool(consumed_position_ids) and all(
+        position_id in positions_by_id
+        and normalized_currency_code(positions_by_id[position_id].meta.get("currency")) is not None
+        for position_id in consumed_position_ids
     )
 
 

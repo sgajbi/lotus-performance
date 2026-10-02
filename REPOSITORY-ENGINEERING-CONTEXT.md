@@ -628,7 +628,9 @@ Important validation expectations:
     for same-currency positions.
     `BOTH` alone is insufficient authority: if any consumed position lacks engine-used
     `meta.currency`, keep total contribution but leave all position and hierarchy-summary local/FX
-    fields unavailable. Do not fall back to portfolio currency for this evidence.
+    fields unavailable for that period. Determine consumed positions from the calculated period
+    slice, so an unpriced request entry cannot suppress valid decomposition. Do not fall back to
+    portfolio currency for this evidence.
 31. Brinson attribution decomposition is model-specific. Brinson-Fachler uses benchmark-weighted
     selection and a separate interaction effect. Brinson-Hood-Beebower uses portfolio-weighted
     combined selection and must emit zero separate interaction so active return is not double
