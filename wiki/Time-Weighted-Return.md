@@ -36,6 +36,9 @@ Current `lotus-performance` TWR supports:
   bounded warning codes
 - lineage and reproducibility artifacts for durable workflows
 - bounded calculation supportability metadata and Prometheus freshness posture
+- explicit requested, supplied, and effective history windows with complete, partial, or unknown
+  coverage qualification; partial results are labelled `available_window` and never padded with
+  invented zero returns
 - TWR inspection workflows for deeper source-quality and reconciliation evidence
 - async inspection of resolved stateful TWR calculations using durable compute-job request payloads
   when API-local lineage materialization is not yet visible
@@ -52,10 +55,17 @@ understand whether the return is usable, explainable, benchmark-aware, and sourc
 | How was each daily return produced? | Portfolio daily rows carry `calculation_evidence` with method, denominator, flow timing, portfolio/reporting currency basis, adjusted capital, performance P&L, local return, effective post-hedge FX return, reporting return, status, reasons, and warnings. |
 | Can the daily return be geometrically linked? | `linkability_status` distinguishes `linkable`, `reset_boundary`, `not_calculated`, and `not_linkable`. |
 | Did the portfolio path remain economically continuous? | `episode_status` identifies normal open periods, reset boundaries, no-investment rows, and rows outside the governed period. |
-| Is the source data trustworthy enough? | `calculation_supportability` and, for stateful TWR, `source_quality_evidence` expose source freshness and degraded-state posture. |
+| Is the source data trustworthy enough? | `calculation_supportability`, `history_coverage`, and, for stateful TWR, `source_quality_evidence` expose source freshness, requested-versus-available history, and degraded-state posture. |
+| Does since-inception mean the requested inception? | `history_coverage` publishes requested, supplied, and effective windows. `requested_window` is complete; `available_window` is partial or unknown and must not be presented as fully qualified SI. |
+| Can an extreme requested span exhaust a worker? | TWR and workspace-summary reject resolved master windows greater than 36,600 days with HTTP 422 and `PERFORMANCE_HISTORY_COVERAGE_WINDOW_TOO_LARGE`; raw inception does not enlarge a shorter requested horizon. Request-resolvable bounds fail before durable submission, while source-derived inception is checked immediately after resolution and before time-series retrieval or date expansion. If the caller supplied a start date, the authoritative Core inception returned with the time series is revalidated before normalization or calculation. Stateful fixed horizons retrieve only their resolved master window. |
 | Is the benchmark comparison supportable? | `benchmark_context.supportability_evidence` exposes benchmark source, currency posture, FX decomposition, calendar overlap, missing dates, and warning codes. |
 | Can operations reproduce or investigate the result? | Async execution, lineage, inspection, and artifact routes preserve durable evidence. |
 | Can a just-completed async TWR run be inspected reliably? | The inspector resolves the durable response and falls back to the compute-job request payload if lineage request materialization has not yet reached the API container. |
+
+For a named but unattested business calendar, only one contiguous missing run of at most two
+weekdays remains `unknown`; repeated short gaps or a longer run are `partial`. A no-observation
+result does not claim venue-calendar ambiguity. Workspace `covered_*` dates describe the complete
+admitted source range, while `effective_*` dates remain scoped to the requested master window.
 
 ## Business Flow
 
@@ -160,6 +170,10 @@ Current governed boundaries:
   composite TWR calculation
 - long/short exposure handling inside portfolio TWR is portfolio exposure behavior, not sleeve
   performance reporting
+- `BUSINESS` history coverage excludes weekends, but the request's venue name is not a holiday
+  feed. Isolated named-calendar weekday gaps remain `unknown`; sustained gaps are `partial` unless
+  explicitly excluded by portfolio `ignore_days`. One immediate inception boundary can be
+  supported by the first observation's beginning-market-value baseline.
 
 ## References
 

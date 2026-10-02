@@ -16,6 +16,18 @@ def test_twr_openapi_documents_async_execution_contract() -> None:
     assert supportability_schema["properties"]["state"]["description"].startswith("Bounded supportability state")
     assert "freshness_bucket" in supportability_schema["properties"]
     assert "source_quality_evidence" in supportability_schema["properties"]
+    assert "history_coverage" in supportability_schema["properties"]
+    history_schema = spec["components"]["schemas"]["PerformanceHistoryCoverage"]
+    assert set(history_schema["required"]) >= {
+        "status",
+        "calculation_basis",
+        "requested_start_date",
+        "requested_end_date",
+        "calendar_basis",
+    }
+    assert history_schema["properties"]["status"]["enum"] == ["complete", "partial", "unknown"]
+    assert "never implies zero return" in history_schema["properties"]["calculation_basis"]["description"]
+    assert "venue holidays are not inferred" in history_schema["properties"]["calendar_basis"]["description"]
     benchmark_context_schema = spec["components"]["schemas"]["TWRBenchmarkContext"]
     assert "supportability_evidence" in benchmark_context_schema["properties"]
     benchmark_evidence_schema = spec["components"]["schemas"]["TWRBenchmarkSupportabilityEvidence"]

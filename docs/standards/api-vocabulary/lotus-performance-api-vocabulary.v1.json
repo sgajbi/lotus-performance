@@ -8,7 +8,7 @@
       "openApiVersion": "3.1.0"
     }
   ],
-  "generatedAt": "2026-10-01T15:53:06.669376+00:00",
+  "generatedAt": "2026-10-02T07:09:12.980766+00:00",
   "attributeCatalog": [
     {
       "semanticId": "lotus.access_classification",
@@ -2834,6 +2834,35 @@
       "preferredName": "hierarchy",
       "description": "Optional hierarchy dimensions such as asset_class, sector, country, currency, or position_id. When supplied, the response includes summary and level rows that reconcile to period contribution.",
       "example": "STANDARD_VALUE",
+      "type": "object",
+      "locations": [
+        "body"
+      ],
+      "observedTypes": [
+        "object"
+      ]
+    },
+    {
+      "semanticId": "lotus.history_coverage",
+      "canonicalTerm": "history_coverage",
+      "preferredName": "history_coverage",
+      "description": "Requested, covered, and effective valuation-history windows for TWR-compatible calculations. Null only for analytics families that do not yet publish this evidence.",
+      "example": {
+        "calculation_basis": "requested_window",
+        "calendar_basis": "business_weekdays",
+        "covered_end_date": "2026-01-02",
+        "covered_start_date": "2026-01-01",
+        "effective_end_date": "2026-01-02",
+        "effective_start_date": "2026-01-01",
+        "missing_required_observation_count": 0,
+        "missing_required_observation_dates_sample": [],
+        "reason_codes": [
+          "covered_window_matches_requested_window"
+        ],
+        "requested_end_date": "2026-01-02",
+        "requested_start_date": "2026-01-01",
+        "status": "complete"
+      },
       "type": "object",
       "locations": [
         "body"
@@ -10138,6 +10167,14 @@
             "type": "object",
             "semanticId": "lotus.source_quality_evidence",
             "attributeRef": "#/attributeCatalog/lotus.source_quality_evidence"
+          },
+          {
+            "name": "calculation_supportability.history_coverage",
+            "location": "body",
+            "required": false,
+            "type": "object",
+            "semanticId": "lotus.history_coverage",
+            "attributeRef": "#/attributeCatalog/lotus.history_coverage"
           },
           {
             "name": "calculation_supportability.metric_labels",

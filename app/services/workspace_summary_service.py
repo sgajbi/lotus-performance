@@ -17,7 +17,7 @@ from app.models.benchmark_requests import BenchmarkPerformanceRequest
 from app.models.mwr_analytics_requests import MWRInputMode
 from app.models.mwr_requests import CashFlow
 from app.models.requests import DailyInputData, PerformanceRequest
-from app.models.responses import PerformanceCalculationSupportability
+from app.models.responses import PerformanceCalculationSupportability, PerformanceHistoryCoverage
 from app.models.source_quality import PerformanceSourceQualityEvidence
 from app.models.twr_requests import TWRInputMode
 from app.models.workspace_summary_requests import WorkspaceBenchmarkRequest, WorkspaceSummaryRequest
@@ -49,6 +49,10 @@ from app.services.execution_lifecycle_service import complete_execution_with_lin
 from app.services.execution_registry import execution_registry
 from app.services.execution_stage_names import EXECUTION_STAGE_EXECUTION
 from app.services.performance_diagnostics_projection import build_performance_diagnostics
+from app.services.performance_history_coverage_service import (
+    assess_performance_history_coverage,
+    validate_performance_history_window,
+)
 from app.services.portfolio_source_service import build_stateful_input_service
 from app.services.service_identity import LOTUS_PERFORMANCE_CONSUMER_SYSTEM
 from app.services.stateful_benchmark_input_service import build_stateful_benchmark_input
@@ -86,6 +90,7 @@ class ResolvedWorkspacePortfolioInput:
     source_details: dict[str, int]
     source_quality_evidence: PerformanceSourceQualityEvidence | None = None
     portfolio_currency: str | None = None
+    coverage_observation_dates: tuple[date, ...] | None = None
 
 
 @dataclass(frozen=True)
@@ -115,6 +120,15 @@ class _WorkspacePerformanceBreakdownWindow:
 @dataclass(frozen=True)
 class _WorkspaceSummaryProjection:
     results_by_period: dict[str, WorkspacePeriodSummaryResult]
+
+
+@dataclass(frozen=True)
+class _WorkspaceSupportabilityEvidence:
+    input_row_count: int
+    latest_observation_date: date | None
+    in_window_benchmark_df: pd.DataFrame
+    benchmark_coverage_complete: bool
+    history_coverage: PerformanceHistoryCoverage
 
 
 def workspace_longest_requested_window_days(request: WorkspaceSummaryRequest) -> int:
@@ -420,13 +434,15 @@ async def _build_stateful_workspace_portfolio_input_async(
         explicit_start_date=request.report_start_date,
     )
     master_start_date = min(period.start_date for period in resolved_periods)
+    master_end_date = max(period.end_date for period in resolved_periods)
+    validate_performance_history_window(start=master_start_date, end=master_end_date)
     source_input = await retrieve_stateful_portfolio_input(
         settings=settings,
         calculation_id=request.calculation_id,
         portfolio_id=request.portfolio_id,
         as_of_date=request.report_end_date,
         start_date=master_start_date,
-        end_date=request.report_end_date,
+        end_date=master_end_date,
         reporting_currency=request.report_ccy,
         consumer_system=LOTUS_PERFORMANCE_CONSUMER_SYSTEM,
     )
@@ -434,10 +450,15 @@ async def _build_stateful_workspace_portfolio_input_async(
         source_input=source_input,
         report_end_date=request.report_end_date,
     )
+    _validate_workspace_source_performance_window(
+        request=request,
+        source_performance_start_date=normalized.performance_start_date,
+    )
+    valuation_points = [DailyInputData.model_validate(point) for point in normalized.valuation_points]
     return ResolvedWorkspacePortfolioInput(
         input_mode=MWRInputMode.STATEFUL,
         performance_start_date=normalized.performance_start_date,
-        valuation_points=[DailyInputData.model_validate(point) for point in normalized.valuation_points],
+        valuation_points=valuation_points,
         observations=normalized.observations,
         source_details={
             "portfolio_chunk_count": source_input.retrieval_metadata.chunk_count,
@@ -445,6 +466,25 @@ async def _build_stateful_workspace_portfolio_input_async(
         },
         source_quality_evidence=normalized.source_quality_evidence,
         portfolio_currency=getattr(source_input, "portfolio_currency", None),
+        coverage_observation_dates=tuple(point.perf_date for point in valuation_points),
+    )
+
+
+def _validate_workspace_source_performance_window(
+    *,
+    request: WorkspaceSummaryRequest,
+    source_performance_start_date: date,
+) -> None:
+    """Revalidate the authoritative source inception before normalization/calculation."""
+    source_periods = resolve_workspace_periods(
+        [item.period for item in request.periods],
+        as_of=request.report_end_date,
+        performance_start_date=source_performance_start_date,
+        explicit_start_date=request.report_start_date,
+    )
+    validate_performance_history_window(
+        start=min(period.start_date for period in source_periods),
+        end=max(period.end_date for period in source_periods),
     )
 
 
@@ -459,6 +499,7 @@ def _build_stateless_workspace_portfolio_input(request: WorkspaceSummaryRequest)
         observations=[point.model_dump(mode="python") for point in valuation_points],
         source_details={"portfolio_chunk_count": 0, "portfolio_page_count": 0},
         source_quality_evidence=None,
+        coverage_observation_dates=tuple(point.perf_date for point in valuation_points),
     )
 
 
@@ -515,7 +556,17 @@ def _trim_portfolio_input_to_master_window(
         source_details=portfolio_input.source_details,
         source_quality_evidence=portfolio_input.source_quality_evidence,
         portfolio_currency=getattr(portfolio_input, "portfolio_currency", None),
+        coverage_observation_dates=_workspace_coverage_observation_dates(portfolio_input),
     )
+
+
+def _workspace_coverage_observation_dates(
+    portfolio_input: ResolvedWorkspacePortfolioInput,
+) -> tuple[date, ...]:
+    admitted_dates = getattr(portfolio_input, "coverage_observation_dates", None)
+    if admitted_dates is not None:
+        return admitted_dates
+    return tuple(point.perf_date for point in portfolio_input.valuation_points)
 
 
 def _workspace_observation_in_master_window(
@@ -825,10 +876,47 @@ def _resolve_workspace_summary_supportability(
     benchmark_daily_df: pd.DataFrame | None,
     daily_results_df: pd.DataFrame,
 ) -> PerformanceCalculationSupportability:
-    input_row_count = len(portfolio_input.valuation_points)
-    latest_observation_date = None
-    if not daily_results_df.empty:
-        latest_observation_date = observation_date_series(daily_results_df[PortfolioColumns.PERF_DATE.value]).max()
+    evidence = _workspace_summary_supportability_evidence(
+        request=request,
+        resolved_periods=resolved_periods,
+        portfolio_input=portfolio_input,
+        benchmark_input=benchmark_input,
+        benchmark_daily_df=benchmark_daily_df,
+        daily_results_df=daily_results_df,
+    )
+    unavailable = _unavailable_workspace_supportability(
+        request=request,
+        emitted_result_count=emitted_result_count,
+        portfolio_input=portfolio_input,
+        benchmark_input=benchmark_input,
+        evidence=evidence,
+    )
+    if unavailable is not None:
+        return unavailable
+    return build_calculation_supportability(
+        input_row_count=evidence.input_row_count,
+        resolved_period_count=emitted_result_count,
+        latest_observation_date=_supported_workspace_latest_observation_date(
+            benchmark_input=benchmark_input,
+            evidence=evidence,
+        ),
+        report_end_date=request.report_end_date,
+        benchmark_row_count=len(evidence.in_window_benchmark_df),
+        minimum_input_row_count=2,
+        source_quality_evidence=portfolio_input.source_quality_evidence,
+        history_coverage=evidence.history_coverage,
+    )
+
+
+def _workspace_summary_supportability_evidence(
+    *,
+    request: WorkspaceSummaryRequest,
+    resolved_periods: list[ResolvedWorkspacePeriod],
+    portfolio_input: ResolvedWorkspacePortfolioInput,
+    benchmark_input: ResolvedWorkspaceBenchmarkInput | None,
+    benchmark_daily_df: pd.DataFrame | None,
+    daily_results_df: pd.DataFrame,
+) -> _WorkspaceSupportabilityEvidence:
     in_window_benchmark_df, benchmark_coverage_complete = _workspace_summary_benchmark_supportability_evidence(
         request=request,
         resolved_periods=resolved_periods,
@@ -836,40 +924,76 @@ def _resolve_workspace_summary_supportability(
         benchmark_daily_df=benchmark_daily_df,
         daily_results_df=daily_results_df,
     )
-    benchmark_row_count = len(in_window_benchmark_df)
-    if input_row_count < 2 or emitted_result_count <= 0:
+    return _WorkspaceSupportabilityEvidence(
+        input_row_count=len(portfolio_input.valuation_points),
+        latest_observation_date=_latest_workspace_observation_date(daily_results_df),
+        in_window_benchmark_df=in_window_benchmark_df,
+        benchmark_coverage_complete=benchmark_coverage_complete,
+        history_coverage=assess_performance_history_coverage(
+            requested_start_date=min(period.start_date for period in resolved_periods),
+            requested_end_date=max(period.end_date for period in resolved_periods),
+            observation_dates=(
+                portfolio_input.coverage_observation_dates
+                if portfolio_input.coverage_observation_dates is not None
+                else tuple(point.perf_date for point in portfolio_input.valuation_points)
+            ),
+            calendar_type=request.calendar.type,
+            trading_calendar=request.calendar.trading_calendar,
+        ),
+    )
+
+
+def _latest_workspace_observation_date(daily_results_df: pd.DataFrame) -> date | None:
+    if daily_results_df.empty:
+        return None
+    return observation_date_series(daily_results_df[PortfolioColumns.PERF_DATE.value]).max()
+
+
+def _unavailable_workspace_supportability(
+    *,
+    request: WorkspaceSummaryRequest,
+    emitted_result_count: int,
+    portfolio_input: ResolvedWorkspacePortfolioInput,
+    benchmark_input: ResolvedWorkspaceBenchmarkInput | None,
+    evidence: _WorkspaceSupportabilityEvidence,
+) -> PerformanceCalculationSupportability | None:
+    benchmark_row_count = len(evidence.in_window_benchmark_df)
+    if evidence.input_row_count < 2 or emitted_result_count <= 0:
         return build_calculation_supportability(
-            input_row_count=input_row_count,
+            input_row_count=evidence.input_row_count,
             resolved_period_count=emitted_result_count,
-            latest_observation_date=latest_observation_date,
+            latest_observation_date=evidence.latest_observation_date,
             report_end_date=request.report_end_date,
             benchmark_row_count=benchmark_row_count,
             minimum_input_row_count=2,
             source_quality_evidence=portfolio_input.source_quality_evidence,
+            history_coverage=evidence.history_coverage,
         )
-    if benchmark_input is not None:
-        if not benchmark_coverage_complete:
-            return PerformanceCalculationSupportability(
-                state="degraded",
-                reason="benchmark_unavailable",
-                freshness_bucket="unknown",
-                input_row_count=input_row_count,
-                resolved_period_count=emitted_result_count,
-                benchmark_row_count=benchmark_row_count,
-                source_quality_evidence=portfolio_input.source_quality_evidence,
-            )
-        benchmark_latest_observation_date = observation_date_series(in_window_benchmark_df["date"]).max()
-        if latest_observation_date is None or benchmark_latest_observation_date < latest_observation_date:
-            latest_observation_date = benchmark_latest_observation_date
-    return build_calculation_supportability(
-        input_row_count=input_row_count,
-        resolved_period_count=emitted_result_count,
-        latest_observation_date=latest_observation_date,
-        report_end_date=request.report_end_date,
-        benchmark_row_count=benchmark_row_count,
-        minimum_input_row_count=2,
-        source_quality_evidence=portfolio_input.source_quality_evidence,
-    )
+    if benchmark_input is not None and not evidence.benchmark_coverage_complete:
+        return PerformanceCalculationSupportability(
+            state="degraded",
+            reason="benchmark_unavailable",
+            freshness_bucket="unknown",
+            input_row_count=evidence.input_row_count,
+            resolved_period_count=emitted_result_count,
+            benchmark_row_count=benchmark_row_count,
+            source_quality_evidence=portfolio_input.source_quality_evidence,
+            history_coverage=evidence.history_coverage,
+        )
+    return None
+
+
+def _supported_workspace_latest_observation_date(
+    *,
+    benchmark_input: ResolvedWorkspaceBenchmarkInput | None,
+    evidence: _WorkspaceSupportabilityEvidence,
+) -> date | None:
+    if benchmark_input is None:
+        return evidence.latest_observation_date
+    benchmark_latest = observation_date_series(evidence.in_window_benchmark_df["date"]).max()
+    if evidence.latest_observation_date is None or benchmark_latest < evidence.latest_observation_date:
+        return benchmark_latest
+    return evidence.latest_observation_date
 
 
 def _workspace_summary_benchmark_supportability_evidence(

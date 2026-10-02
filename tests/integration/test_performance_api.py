@@ -1,4 +1,5 @@
 # tests/integration/test_performance_api.py
+from datetime import date
 from uuid import UUID, uuid4
 
 import pytest
@@ -86,6 +87,23 @@ def test_twr_reports_reset_events_when_requested(client):
         "resolved_period_count": 1,
         "benchmark_row_count": 0,
         "source_quality_evidence": None,
+        "history_coverage": {
+            "status": "complete",
+            "calculation_basis": "requested_window",
+            "requested_start_date": "2024-12-31",
+            "requested_end_date": "2025-01-04",
+            "covered_start_date": "2025-01-01",
+            "covered_end_date": "2025-01-04",
+            "effective_start_date": "2025-01-01",
+            "effective_end_date": "2025-01-04",
+            "calendar_basis": "business_weekdays",
+            "missing_required_observation_count": 0,
+            "missing_required_observation_dates_sample": [],
+            "reason_codes": [
+                "covered_window_matches_requested_window",
+                "beginning_market_value_baseline_applied",
+            ],
+        },
         "metric_labels": _EXPECTED_SUPPORTABILITY_METRIC_LABELS,
     }
 
@@ -387,6 +405,110 @@ def test_workspace_summary_route_uses_one_canonical_row_for_identical_duplicates
     )
 
 
+@pytest.mark.parametrize("endpoint", ["/performance/twr", "/performance/workspace-summary"])
+def test_history_coverage_routes_reject_unreasonably_large_requested_windows(client, endpoint: str):
+    calculation_id = str(uuid4())
+    common = {
+        "calculation_id": calculation_id,
+        "portfolio_id": "HISTORY_WINDOW_BOUND",
+        "performance_start_date": "0001-01-01",
+        "report_end_date": "9999-12-31",
+        "input_mode": "stateless",
+        "calendar": {"type": "NATURAL", "trading_calendar": None},
+    }
+    points = [
+        {"perf_date": "0001-01-01", "begin_mv": 100.0, "end_mv": 101.0},
+        {"perf_date": "9999-12-31", "begin_mv": 101.0, "end_mv": 102.0},
+    ]
+    if endpoint.endswith("workspace-summary"):
+        payload = {
+            **common,
+            "periods": [{"period": "SI", "frequencies": ["daily"]}],
+            "stateless_input": {"valuation_points": points},
+        }
+    else:
+        payload = {
+            **common,
+            "analyses": [{"period": "SI", "frequencies": ["daily"]}],
+            "metric_basis": "NET",
+            "stateless_input": {"valuation_points": points},
+        }
+
+    response = client.post(endpoint, json=payload)
+
+    assert response.status_code == 422
+    assert response.json()["error_code"] == "PERFORMANCE_HISTORY_COVERAGE_WINDOW_TOO_LARGE"
+    assert client.get(f"/performance/executions/{calculation_id}").status_code == 404
+
+
+@pytest.mark.parametrize("endpoint", ["/performance/twr", "/performance/workspace-summary"])
+def test_history_coverage_routes_validate_resolved_window_not_portfolio_inception(client, endpoint: str):
+    common = {
+        "portfolio_id": "OLD_PORTFOLIO_SHORT_WINDOW",
+        "performance_start_date": "1900-01-01",
+        "report_end_date": "2026-01-01",
+        "input_mode": "stateless",
+        "calendar": {"type": "NATURAL", "trading_calendar": None},
+    }
+    points = [
+        {"perf_date": "2025-01-02", "begin_mv": 100.0, "end_mv": 101.0},
+        {"perf_date": "2026-01-01", "begin_mv": 101.0, "end_mv": 102.0},
+    ]
+    if endpoint.endswith("workspace-summary"):
+        payload = {
+            **common,
+            "periods": [{"period": "1Y", "frequencies": ["daily"]}],
+            "stateless_input": {"valuation_points": points},
+        }
+    else:
+        payload = {
+            **common,
+            "analyses": [{"period": "1Y", "frequencies": ["daily"]}],
+            "metric_basis": "NET",
+            "stateless_input": {"valuation_points": points},
+        }
+
+    response = client.post(endpoint, json=payload)
+
+    assert response.status_code == 200
+    coverage = response.json()["calculation_supportability"]["history_coverage"]
+    assert coverage["requested_start_date"] == "2025-01-02"
+    assert coverage["requested_end_date"] == "2026-01-01"
+
+
+def test_workspace_summary_preserves_admitted_covered_bounds_outside_effective_window(client):
+    points = [
+        {
+            "perf_date": date(2026, 1, day).isoformat(),
+            "begin_mv": 100.0 + day,
+            "end_mv": 101.0 + day,
+        }
+        for day in range(1, 11)
+    ]
+    response = client.post(
+        "/performance/workspace-summary",
+        json={
+            "portfolio_id": "WORKSPACE_COVERED_BOUNDS",
+            "performance_start_date": "2026-01-01",
+            "report_start_date": "2026-01-05",
+            "report_end_date": "2026-01-10",
+            "input_mode": "stateless",
+            "calendar": {"type": "NATURAL", "trading_calendar": None},
+            "periods": [{"period": "EXPLICIT", "frequencies": ["daily"]}],
+            "stateless_input": {"valuation_points": points},
+        },
+    )
+
+    assert response.status_code == 200
+    coverage = response.json()["calculation_supportability"]["history_coverage"]
+    assert coverage["requested_start_date"] == "2026-01-05"
+    assert coverage["covered_start_date"] == "2026-01-01"
+    assert coverage["covered_end_date"] == "2026-01-10"
+    assert coverage["effective_start_date"] == "2026-01-05"
+    assert coverage["effective_end_date"] == "2026-01-10"
+    assert coverage["status"] == "complete"
+
+
 def test_workspace_summary_endpoint_returns_multi_horizon_summary_blocks(client):
     payload = {
         "portfolio_id": "WORKSPACE_SUMMARY_TEST",
@@ -460,11 +582,97 @@ def test_workspace_summary_endpoint_returns_multi_horizon_summary_blocks(client)
     )
     assert "period_return" in ytd["benchmark"]["breakdowns"]["daily"][0]
     assert data["audit"]["counts"]["input_rows"] == 2
-    assert data["calculation_supportability"]["state"] == "ready"
+    assert data["calculation_supportability"]["state"] == "degraded"
+    assert data["calculation_supportability"]["reason"] == "partial_history_coverage"
+    assert data["calculation_supportability"]["history_coverage"]["status"] == "partial"
+    assert data["calculation_supportability"]["history_coverage"]["calculation_basis"] == "available_window"
     assert data["calculation_supportability"]["freshness_bucket"] == "current"
     assert data["calculation_supportability"]["input_row_count"] == 2
     assert data["calculation_supportability"]["resolved_period_count"] == 2
     assert data["calculation_supportability"]["benchmark_row_count"] == 2
+
+
+def test_twr_qualifies_since_inception_result_with_sustained_missing_leading_history(client):
+    payload = {
+        "portfolio_id": "synthetic-partial-history",
+        "performance_start_date": "2025-01-01",
+        "report_end_date": "2026-01-06",
+        "analyses": [{"period": "SI", "frequencies": ["daily"]}],
+        "metric_basis": "NET",
+        "valuation_points": [
+            {"perf_date": "2026-01-05", "begin_mv": 100.0, "end_mv": 101.0},
+            {"perf_date": "2026-01-06", "begin_mv": 101.0, "end_mv": 102.0},
+        ],
+    }
+
+    response = client.post("/performance/twr", json=payload)
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["results_by_period"]["SI"]["portfolio"]["summary"]["period_return"]["base"] == pytest.approx(2.0)
+    supportability = body["calculation_supportability"]
+    assert supportability["state"] == "degraded"
+    assert supportability["reason"] == "partial_history_coverage"
+    assert supportability["freshness_bucket"] == "current"
+    assert supportability["history_coverage"] == {
+        "status": "partial",
+        "calculation_basis": "available_window",
+        "requested_start_date": "2025-01-01",
+        "requested_end_date": "2026-01-06",
+        "covered_start_date": "2026-01-05",
+        "covered_end_date": "2026-01-06",
+        "effective_start_date": "2026-01-05",
+        "effective_end_date": "2026-01-06",
+        "calendar_basis": "business_weekdays",
+        "missing_required_observation_count": 263,
+        "missing_required_observation_dates_sample": [
+            "2025-01-01",
+            "2025-01-02",
+            "2025-01-03",
+            "2025-01-06",
+            "2025-01-07",
+            "2025-01-08",
+            "2025-01-09",
+            "2025-01-10",
+            "2025-01-13",
+            "2025-01-14",
+        ],
+        "reason_codes": ["leading_history_missing"],
+    }
+    assert body["meta"]["periods"]["master_start"] == "2025-01-01"
+    assert body["diagnostics"]["effective_period_start"] == "2025-01-01"
+
+
+def test_twr_history_coverage_honors_explicit_portfolio_ignore_day(client):
+    response = client.post(
+        "/performance/twr",
+        json={
+            "portfolio_id": "EXPLICIT_HISTORY_OVERRIDE",
+            "performance_start_date": "2026-01-01",
+            "report_end_date": "2026-01-03",
+            "analyses": [{"period": "SI", "frequencies": ["daily"]}],
+            "metric_basis": "NET",
+            "calendar": {"type": "NATURAL", "trading_calendar": None},
+            "valuation_points": [
+                {"perf_date": "2026-01-01", "begin_mv": 100.0, "end_mv": 101.0},
+                {"perf_date": "2026-01-03", "begin_mv": 101.0, "end_mv": 102.0},
+            ],
+            "data_policy": {
+                "ignore_days": [
+                    {"entity_type": "PORTFOLIO", "entity_id": "EXPLICIT_HISTORY_OVERRIDE", "dates": ["2026-01-02"]}
+                ]
+            },
+        },
+    )
+
+    assert response.status_code == 200
+    supportability = response.json()["calculation_supportability"]
+    assert supportability["state"] == "ready"
+    assert supportability["history_coverage"]["status"] == "complete"
+    assert supportability["history_coverage"]["reason_codes"] == [
+        "covered_window_matches_requested_window",
+        "explicit_ignored_dates_applied",
+    ]
 
 
 def test_workspace_summary_endpoint_reconciles_all_summary_figures(client):
@@ -1521,6 +1729,58 @@ def test_twr_stateful_supportability_preserves_non_conflicting_source_quality_wa
         "STALE_SOURCE_OBSERVATIONS",
     ]
     assert source_quality["source_classification_counts"] == {"manual_adjustment": 1, "official": 2}
+
+
+def test_twr_stateful_since_inception_preserves_partial_source_window_qualification(client, monkeypatch):
+    class _StatefulPortfolioStub:
+        async def get_portfolio_reference(self, **kwargs):  # noqa: ARG002
+            return 200, {"portfolio_open_date": "2025-01-01"}
+
+        async def get_portfolio_timeseries(self, **kwargs):  # noqa: ARG002
+            return (
+                200,
+                {
+                    "portfolio_open_date": "2025-01-01",
+                    "observations": [
+                        {
+                            "valuation_date": "2026-01-05",
+                            "beginning_market_value": "100",
+                            "ending_market_value": "101",
+                            "source_classification": "official",
+                        },
+                        {
+                            "valuation_date": "2026-01-06",
+                            "beginning_market_value": "101",
+                            "ending_market_value": "102",
+                            "source_classification": "official",
+                        },
+                    ],
+                },
+            )
+
+    monkeypatch.setattr(
+        "app.services.twr_mode_service.build_stateful_input_service",
+        lambda settings: _StatefulPortfolioStub(),  # noqa: ARG005
+    )
+    response = client.post(
+        "/performance/twr",
+        json={
+            "portfolio_id": "STATEFUL_PARTIAL_SI",
+            "metric_basis": "NET",
+            "report_end_date": "2026-01-06",
+            "analyses": [{"period": "SI", "frequencies": ["daily"]}],
+            "input_mode": "stateful",
+            "stateful_input": {},
+        },
+    )
+
+    assert response.status_code == 200
+    supportability = response.json()["calculation_supportability"]
+    assert supportability["state"] == "degraded"
+    assert supportability["reason"] == "partial_history_coverage"
+    assert supportability["history_coverage"]["requested_start_date"] == "2025-01-01"
+    assert supportability["history_coverage"]["effective_start_date"] == "2026-01-05"
+    assert supportability["history_coverage"]["reason_codes"] == ["leading_history_missing"]
 
 
 def test_twr_supports_explicit_period_for_stateful_requests(client, monkeypatch):

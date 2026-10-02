@@ -466,6 +466,23 @@ Important validation expectations:
     as valuation points, cash flows, benchmark observations, period requests, and lineage rows as
     order-sensitive evidence unless an endpoint mapper explicitly documents and tests a
     schema-aware business-key sort before hashing. Do not add global list sorting in `core/repro.py`.
+    TWR and workspace-summary supportability must also qualify the requested master window against
+    admitted portfolio observations. Preserve `history_coverage` requested, covered, and effective
+    dates through stateful/stateless and benchmark-relative paths. A partial or unknown window is
+    an `available_window` result and cannot be promoted to fully qualified since-inception
+    performance; never synthesize zero returns for absent history. `BUSINESS` means weekdays, not
+    an inferred venue holiday feed. Isolated gaps under a named but unattested venue calendar are
+    unknown only for one contiguous run of at most two weekdays; repeated short gaps and sustained
+    gaps are partial. Portfolio `data_policy.ignore_days` is the explicit exclusion mechanism, and
+    one immediate boundary may be supported by the first observation's beginning-market-value
+    baseline. Validate the resolved requested master window, not raw portfolio inception: reject
+    spans greater than 36,600 days before durable submission when request bounds are sufficient,
+    or immediately after source-derived inception resolution and before time-series retrieval or
+    date expansion. Revalidate the authoritative inception returned with the Core time series
+    before normalization or calculation when a caller-supplied start avoided reference lookup.
+    Stateful fixed horizons retrieve only the resolved master window rather than full portfolio
+    history. Preserve full admitted workspace observations for `covered_*`, and
+    restrict `effective_*` to the requested master window.
 17. `PR Auto Merge` must use `LOTUS_AUTOMERGE_TOKEN` as the merge actor. If that governed token is
     absent, the workflow skips with a warning instead of merging with `GITHUB_TOKEN`, so the merged
     mainline commit can receive normal Main Releasability evidence from an authorized merge actor.

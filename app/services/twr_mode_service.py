@@ -17,6 +17,7 @@ from app.services.benchmark_assignment_service import resolve_benchmark_identity
 from app.services.execution_registry import execution_registry
 from app.services.execution_stage_errors import execution_stage_failure_detail
 from app.services.execution_stage_names import EXECUTION_STAGE_NORMALIZATION, EXECUTION_STAGE_RETRIEVAL
+from app.services.performance_history_coverage_service import validate_performance_history_window
 from app.services.portfolio_source_service import build_stateful_input_service
 from app.services.service_identity import LOTUS_PERFORMANCE_CONSUMER_SYSTEM
 from app.services.stateful_benchmark_input_service import (
@@ -33,6 +34,7 @@ from app.services.stateful_performance_input_service import (
 from app.services.stateful_upstream_errors import raise_for_stateful_control_plane_unavailable
 from app.services.stateless_benchmark_input_service import normalize_stateless_component_observations
 from core.errors import APIBadRequestError, APIUnprocessableEntityError
+from core.periods import resolve_periods
 
 
 @dataclass(frozen=True)
@@ -367,6 +369,15 @@ async def _resolve_twr_portfolio_source_input(
         request=request,
         stateful_input_service=stateful_input_service,
     )
+    resolved_periods = resolve_periods(
+        [analysis.period for analysis in request.analyses],
+        request.report_end_date,
+        resolved_start_date,
+        explicit_start_date=request.report_start_date,
+    )
+    master_start_date = min(period.start_date for period in resolved_periods)
+    master_end_date = max(period.end_date for period in resolved_periods)
+    validate_performance_history_window(start=master_start_date, end=master_end_date)
     uses_derived_start_date = request.performance_start_date is None
     portfolio_input = await retrieve_stateful_portfolio_input(
         settings=settings,
@@ -374,10 +385,14 @@ async def _resolve_twr_portfolio_source_input(
         calculation_id=request.calculation_id,
         portfolio_id=request.portfolio_id,
         as_of_date=request.report_end_date,
-        start_date=resolved_start_date,
-        end_date=request.report_end_date,
+        start_date=master_start_date,
+        end_date=master_end_date,
         reporting_currency=request.report_ccy,
         consumer_system=LOTUS_PERFORMANCE_CONSUMER_SYSTEM,
+    )
+    _validate_twr_source_performance_window(
+        request=request,
+        source_performance_start_date=portfolio_input.performance_start_date,
     )
     return _ResolvedTWRPortfolioSourceInput(
         portfolio_input=portfolio_input,
@@ -387,6 +402,24 @@ async def _resolve_twr_portfolio_source_input(
             "portfolio_chunk_count": portfolio_input.retrieval_metadata.chunk_count,
             "portfolio_page_count": portfolio_input.retrieval_metadata.page_count,
         },
+    )
+
+
+def _validate_twr_source_performance_window(
+    *,
+    request: TWRAnalyticsRequest,
+    source_performance_start_date: date,
+) -> None:
+    """Revalidate the authoritative source inception before normalization/calculation."""
+    source_periods = resolve_periods(
+        [analysis.period for analysis in request.analyses],
+        request.report_end_date,
+        source_performance_start_date,
+        explicit_start_date=request.report_start_date,
+    )
+    validate_performance_history_window(
+        start=min(period.start_date for period in source_periods),
+        end=max(period.end_date for period in source_periods),
     )
 
 

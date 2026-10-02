@@ -6,6 +6,7 @@ from typing import Any
 from app.models.responses import (
     PerformanceCalculationSupportability,
     PerformanceFreshnessBucket,
+    PerformanceHistoryCoverage,
     PerformanceSupportabilityReason,
     PerformanceSupportabilityState,
 )
@@ -62,6 +63,7 @@ def _supportability_state_and_reason(
     resolved_period_count: int,
     freshness_bucket: PerformanceFreshnessBucket,
     source_quality_evidence: PerformanceSourceQualityEvidence | None,
+    history_coverage: PerformanceHistoryCoverage | None = None,
 ) -> tuple[PerformanceSupportabilityState, PerformanceSupportabilityReason]:
     empty_state = _empty_supportability_state_and_reason(
         input_row_count=input_row_count,
@@ -74,6 +76,10 @@ def _supportability_state_and_reason(
         return "stale", "stale_source_observations"
     if _has_degraded_source_quality(source_quality_evidence):
         return "degraded", "calculation_quality_issue"
+    if history_coverage is not None and history_coverage.status == "partial":
+        return "degraded", "partial_history_coverage"
+    if history_coverage is not None and history_coverage.status == "unknown":
+        return "degraded", "unknown_history_coverage"
     return "ready", "calculation_complete"
 
 
@@ -99,6 +105,7 @@ def build_calculation_supportability(
     benchmark_row_count: int = 0,
     minimum_input_row_count: int = 1,
     source_quality_evidence: PerformanceSourceQualityEvidence | None = None,
+    history_coverage: PerformanceHistoryCoverage | None = None,
 ) -> PerformanceCalculationSupportability:
     freshness_bucket = resolve_freshness_bucket(
         latest_observation_date=latest_observation_date,
@@ -110,6 +117,7 @@ def build_calculation_supportability(
         resolved_period_count=resolved_period_count,
         freshness_bucket=freshness_bucket,
         source_quality_evidence=source_quality_evidence,
+        history_coverage=history_coverage,
     )
 
     return PerformanceCalculationSupportability(
@@ -120,6 +128,7 @@ def build_calculation_supportability(
         resolved_period_count=resolved_period_count,
         benchmark_row_count=benchmark_row_count,
         source_quality_evidence=source_quality_evidence,
+        history_coverage=history_coverage,
     )
 
 

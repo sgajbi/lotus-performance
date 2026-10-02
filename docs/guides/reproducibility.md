@@ -37,7 +37,7 @@ key and prove that the calculation output and evidence contract remain unchanged
 Calculation hashes use the governed calculation engine version token, not the deployable build
 version. In other words, the calculation engine version is not the deployable build version. The
 current source is `Settings.CALCULATION_ENGINE_VERSION`, which defaults to
-`lotus-performance-calculation-engine.v7` and is exposed through the same helper for TWR, MWR,
+`lotus-performance-calculation-engine.v8` and is exposed through the same helper for TWR, MWR,
 contribution, attribution, benchmark, workspace-summary, TWR inspection, and returns-series hash
 paths. The token is intentionally separate from `APP_VERSION`, Git SHA, OCI image labels, image
 digest, CI run id, and `/version` build metadata.
@@ -47,8 +47,10 @@ compatibility semantics, or governed reproducibility behavior changes in a way t
 new calculation identity for the same economic input. Do not change it merely because the service is
 rebuilt, retagged, promoted across environments, or receives a non-methodology runtime patch.
 
-Version `v7` supersedes `v6` for attribution linking's scale-aware ill-conditioned-denominator
-policy. Version `v6` superseded `v5` for TWR cross-currency evidence, strict-decimal FX arithmetic, and
+Version `v8` supersedes `v7` for requested-versus-available TWR history qualification and its
+durable supportability semantics. Version `v7` superseded `v6` for attribution linking's
+scale-aware ill-conditioned-denominator policy. Version `v6` superseded `v5` for TWR
+cross-currency evidence, strict-decimal FX arithmetic, and
 currency-scoped hedge selection. Version `v5` superseded `v4` for corrected BHB attribution.
 Version `v4` supersedes `v3` for XIRR root-isolation, termination, residual, and uniqueness
 qualification. The global token deliberately changes the calculation hash for every family because

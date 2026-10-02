@@ -54,6 +54,8 @@ def test_workspace_summary_openapi_describes_usage_and_schema_fields():
     assert "currency_evidence" in response_schema["properties"]
     assert "calculation_supportability" in response_schema["properties"]
     assert "calculation_supportability" in response_schema["required"]
+    supportability_schema = schemas["PerformanceCalculationSupportability"]
+    assert "history_coverage" in supportability_schema["properties"]
     assert set(currency_evidence_schema["required"]) >= {
         "portfolio_base_currency",
         "requested_report_ccy",

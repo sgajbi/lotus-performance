@@ -238,7 +238,7 @@ def test_reproducibility_docs_govern_calculation_engine_version_identity():
     for document in (reproducibility, service_reference, ci_quality_gates, wiki_validation):
         assert "CALCULATION_ENGINE_VERSION" in document
 
-    assert "lotus-performance-calculation-engine.v7" in reproducibility
+    assert "lotus-performance-calculation-engine.v8" in reproducibility
     assert "not the deployable build version" in reproducibility
     assert "make calculation-engine-version-gate" in reproducibility
     assert "APP_VERSION" in reproducibility
@@ -744,6 +744,10 @@ def test_twr_guide_uses_current_request_shape():
     assert "`linkability_status` explains whether the day can participate in geometric linking" in guide
     assert "`episode_status` explains the row's TWR episode" in guide
     assert "calculation_supportability.source_quality_evidence" in guide
+    assert "history_coverage.calculation_basis" in guide
+    assert "never inserts zero returns" in guide
+    assert "venue_calendar_not_attested" in guide
+    assert "beginning-market-value baseline" in guide
     assert "UNSUPPORTED_CASHFLOW_LABELS" in guide
     assert "benchmark_context.supportability_evidence" in guide
     assert "BENCHMARK_CALENDAR_GAP" in guide
@@ -760,6 +764,9 @@ def test_twr_guide_uses_current_request_shape():
     assert "`lotus-risk`" in certification
     assert "Test Pyramid Assessment" in certification
     assert "long-window results are not front-office safe" in certification
+    assert "calculation_supportability.history_coverage" in certification
+    assert "(101/100) * (102/101) - 1 = 2%" in certification
+    assert "This is an additive schema change" in certification
     assert "Long and short exposure handling" in guide
     assert "Long and short sleeve handling" not in guide
     assert "Composite, group, and sleeve TWR" in guide
@@ -816,6 +823,8 @@ def test_twr_documentation_map_and_wiki_navigation_are_present():
     assert "lotus-core source authority" in wiki_page
     assert "daily calculation evidence" in wiki_page
     assert "Benchmark Evidence" in wiki_page
+    assert "available_window" in wiki_page
+    assert "invented zero returns" in wiki_page
     assert "composite, group, and sleeve TWR are not promoted" in wiki_page
     assert "[Time-Weighted Return](Time-Weighted-Return)" in wiki_sidebar
     assert "[Supported Features](Supported-Features)" in wiki_sidebar

@@ -17,11 +17,11 @@ snapshots are written under ignored `output/quality-baseline/`; curated source r
 
 | Area | Current value | Evidence |
 | --- | ---: | --- |
-| Python files | 698 | `rg --files -g '*.py'` equivalent excluding local caches |
+| Python files | 700 | `rg --files -g '*.py'` equivalent excluding local caches |
 | Python package markers | 22 | recursive `__init__.py` count |
-| Python LOC | 229,636 | recursive `.py` line count |
-| Test modules | 335 | `tests/**/test_*.py` |
-| Collected tests | 4632 tests | `python -m pytest --collect-only -q` |
+| Python LOC | 231,144 | recursive `.py` line count |
+| Test modules | 336 | `tests/**/test_*.py` |
+| Collected tests | 4661 tests | `python -m pytest --collect-only -q` |
 | Configured CI workflows | 8 | `.github/workflows/*.yml` |
 | Repo-native baseline command | 1 | `make quality-baseline` |
 
@@ -29,21 +29,21 @@ snapshots are written under ignored `output/quality-baseline/`; curated source r
 
 | Rank | File | Lines |
 | ---: | --- | ---: |
-| 1 | `tests/integration/test_contribution_api.py` | 3538 |
+| 1 | `tests/integration/test_contribution_api.py` | 3539 |
 | 2 | `tests/unit/services/test_returns_series_service.py` | 3074 |
 | 3 | `app/services/composite_metadata_store.py` | 2993 |
-| 4 | `tests/unit/services/test_compute_executor_worker.py` | 2876 |
-| 5 | `tests/unit/services/test_stateful_input_service.py` | 2808 |
-| 6 | `tests/benchmarks/test_postgres_composite_fact_versions.py` | 2743 |
-| 7 | `tests/integration/test_performance_api.py` | 2675 |
+| 4 | `tests/integration/test_performance_api.py` | 2935 |
+| 5 | `tests/unit/services/test_compute_executor_worker.py` | 2876 |
+| 6 | `tests/unit/services/test_stateful_input_service.py` | 2808 |
+| 7 | `tests/benchmarks/test_postgres_composite_fact_versions.py` | 2743 |
 | 8 | `tests/unit/services/test_runtime_status_service.py` | 2637 |
 | 9 | `app/services/stateful_input_service.py` | 2606 |
-| 10 | `tests/unit/docs/test_public_docs_contract.py` | 2546 |
+| 10 | `tests/unit/docs/test_public_docs_contract.py` | 2555 |
 | 11 | `tests/unit/services/test_composite_metadata_store.py` | 2409 |
 | 12 | `app/services/returns_series_service.py` | 2337 |
 | 13 | `tests/unit/app/test_request_path_runtime_settings.py` | 2276 |
-| 14 | `tests/unit/services/test_stateful_attribution_input_service.py` | 2176 |
-| 15 | `tests/integration/test_attribution_api.py` | 2115 |
+| 14 | `tests/unit/services/test_workspace_summary_service.py` | 2266 |
+| 15 | `tests/unit/services/test_stateful_attribution_input_service.py` | 2176 |
 
 ## Required Inventory Outputs
 

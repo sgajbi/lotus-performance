@@ -20,6 +20,7 @@ from app.services.engine_exception_mapping_service import map_engine_exception_t
 from app.services.execution_lifecycle_service import record_execution_failure
 from app.services.execution_registry import execution_registry
 from app.services.execution_stage_errors import is_mappable_application_error, safe_unexpected_failure_message
+from app.services.performance_history_coverage_service import validate_performance_history_window
 from app.services.reproducibility_service import generate_request_fingerprint, generate_value_fingerprint
 from app.services.stateful_execution_policy_service import (
     finalize_resolved_stateful_execution,
@@ -32,6 +33,7 @@ from app.services.submission_fencing_service import (
 from app.services.twr_mode_service import resolve_twr_request
 from app.services.twr_service import calculate_twr_response
 from core.errors import APIError, APIInternalServerError
+from core.periods import resolve_periods
 
 
 @dataclass(frozen=True)
@@ -296,6 +298,17 @@ def _twr_execution_window_benchmark_id(
 async def calculate_twr_workflow(command: TWRWorkflowCommand) -> PerformanceResponse | ApplicationHttpResponse:
     """Resolve, fence, execute, and map errors for one TWR analytics request."""
     request = workflow_request(command, TWRAnalyticsRequest)
+    if request.performance_start_date is not None:
+        requested_periods = resolve_periods(
+            [analysis.period for analysis in request.analyses],
+            request.report_end_date,
+            request.performance_start_date,
+            explicit_start_date=request.report_start_date,
+        )
+        validate_performance_history_window(
+            start=min(period.start_date for period in requested_periods),
+            end=max(period.end_date for period in requested_periods),
+        )
     require_reporting_currency_for_both(currency_mode=request.currency_mode, requested_report_ccy=request.report_ccy)
     settings = get_settings()
     submission_context = _build_twr_workflow_submission_context(

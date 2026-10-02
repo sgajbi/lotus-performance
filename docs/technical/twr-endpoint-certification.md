@@ -75,11 +75,33 @@ scraping Prometheus metadata. The implementation-backed proof covers both the JS
 actual Prometheus exposition, and verifies that portfolio, account, client, benchmark, calculation,
 security, trace, correlation, request body, and response body values are not labels.
 
+TWR and workspace-summary additionally publish `calculation_supportability.history_coverage`.
+It separates the requested window, the supplied source window, and the effective in-window
+observations. `complete/requested_window` is the only fully qualified posture. `partial` or
+`unknown` uses `available_window`, degrades supportability, and never invents zero returns for
+missing dates. The exact #543 regression asks for 2025-01-01 through 2026-01-06, supplies only
+2026-01-05 and 2026-01-06, and independently expects `(101/100) * (102/101) - 1 = 2%` over the
+available window plus `leading_history_missing`—not a fully qualified SI claim. The registered
+stateful test derives the same requested start from Core's `portfolio_open_date`; workspace proof
+preserves the qualification alongside benchmark and active-return blocks.
+
+Calendar and baseline semantics are explicit: `NATURAL` requires every date; `BUSINESS` requires
+weekdays but does not infer venue holidays from a calendar name. An isolated named-calendar gap is
+therefore unknown, while a sustained gap is partial. Portfolio-scoped `data_policy.ignore_days`
+is an explicit exclusion. One immediate period boundary can be evidenced by the first return
+observation's beginning market value. Leading, interior, trailing, complete, explicit-exclusion,
+baseline, migration-cutoff, stateless, and stateful cases have focused regression coverage.
+
+This is an additive schema change. Consumers should tolerate the new shared field, which is null
+for analytics families without history qualification. Consumers that previously treated
+`meta.periods.master_start` or `diagnostics.effective_period_start` as source-coverage evidence
+must use `history_coverage.status`, `calculation_basis`, and `effective_*` instead.
+
 Implemented operation scope now includes `operation="twr"`, `operation="mwr"`,
 `operation="contribution"`, and `operation="attribution"` for completed synchronous calculations
-and completed async result payloads. Workspace summary, benchmark, and returns-series
-supportability remain separate implementation work and must not be inferred from this endpoint
-proof.
+and completed async result payloads. Workspace summary also emits calculation supportability and
+history coverage; benchmark and returns-series supportability remain separate contracts and must
+not be inferred from this endpoint proof.
 
 ## Downstream Consumers
 
@@ -204,8 +226,8 @@ omission, and independently recomputed daily/cumulative return math.
 | Layer | Coverage | Assessment |
 | --- | --- | --- |
 | Model and validation tests | Request mode validation, stateless-vs-stateful exclusivity, benchmark inclusion rules, empty frequencies, explicit-window validation, and extra-field rejection. | Strong. These tests protect client-facing contract semantics before engine execution. |
-| Engine and service tests | TWR linking, reset behavior, multi-currency behavior, benchmark-aware output, valuation normalization, source-quality inspection, source-economics inspection, and reconciliation checks. | Strong. These tests cover financial behavior and the inspector’s supportability findings. |
-| Integration tests | `/performance/twr`, async result retrieval, execution lineage, stateful source resolution, benchmark-aware TWR, returns-series tie-out, contribution tie-out, and inspector execution. | Strong. These tests protect route-level behavior and cross-surface consistency inside lotus-performance. |
+| Engine and service tests | TWR linking, reset behavior, multi-currency behavior, benchmark-aware output, valuation normalization, history coverage/calendar/baseline qualification, source-quality inspection, source-economics inspection, and reconciliation checks. | Strong. These tests cover financial behavior and the inspector’s supportability findings. |
+| Integration tests | `/performance/twr`, async result retrieval, execution lineage, stateful source resolution, requested-versus-available SI history, workspace/benchmark-relative propagation, benchmark-aware TWR, returns-series tie-out, contribution tie-out, and inspector execution. | Strong. These tests protect route-level behavior and cross-surface consistency inside lotus-performance. |
 | Documentation and OpenAPI tests | Public docs contract, OpenAPI enrichment, OpenAPI quality gate, API vocabulary inventory, and TWR-specific async Swagger regression. | Strong after this pass. Swagger now advertises the runtime 202 path and result polling semantics. |
 | Cross-repo consumer tests | `lotus-gateway` upstream client and performance workspace tests; `lotus-risk` performance-client and stateful risk adapter tests. | Strong for known consumers. Gateway calls `/performance/twr`; risk correctly consumes `/integration/returns/series` instead of duplicating TWR. |
 | Live canonical probes | Stateful canonical TWR, TWR option matrix, inspector probe, gateway Workbench performance routes, and gateway risk routes for `PB_SG_GLOBAL_BAL_001`. | Adequate for endpoint certification, with a governed caveat on long-window historical source quality. |

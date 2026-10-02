@@ -175,6 +175,9 @@ def _families_for_path(path: str) -> tuple[str, ...]:
             "source_cashflow_taxonomy",
             "stateful_position_row",
             "valuation_points_service",
+            # Requested-versus-available history is calculation-domain evidence even though the
+            # focused service name does not carry the generic `calculation` or `twr` tokens.
+            "performance_history",
             # The workspace summary surface resolves observation windows and builds period
             # breakdowns over published performance results — the same material the tokens above
             # classify. It was absent from this list, so all of its tests fell to `uncategorized`

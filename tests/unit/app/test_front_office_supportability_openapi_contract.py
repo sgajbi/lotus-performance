@@ -23,6 +23,7 @@ def test_front_office_calculation_surfaces_expose_supportability_contract() -> N
         "input_row_count",
         "resolved_period_count",
         "benchmark_row_count",
+        "history_coverage",
         "metric_labels",
     }
     metric_labels = supportability_schema["properties"]["metric_labels"]

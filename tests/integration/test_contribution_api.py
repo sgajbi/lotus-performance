@@ -72,6 +72,7 @@ def test_contribution_endpoint_happy_path_and_envelope(client, happy_path_payloa
         "resolved_period_count": 1,
         "benchmark_row_count": 0,
         "source_quality_evidence": None,
+        "history_coverage": None,
         "metric_labels": _EXPECTED_SUPPORTABILITY_METRIC_LABELS,
     }
     smoothing_evidence = response_data["results_by_period"]["SI"]["smoothing_evidence"]
