@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from datetime import date
+from decimal import Decimal
 from math import isfinite
 from typing import Any
 
@@ -89,7 +90,7 @@ def _build_residual_adjusted_position_timeseries(
 
 def _target_total_contribution_by_position(
     position_contributions: list[PositionContribution],
-) -> dict[str, float]:
+) -> dict[str, Any]:
     return {
         position_contribution.position_id: (position_contribution.total_contribution or 0.0) / 100
         for position_contribution in position_contributions
@@ -99,7 +100,7 @@ def _target_total_contribution_by_position(
 def _residual_adjusted_position_timeseries_rows(
     period_slice_df: pd.DataFrame,
     *,
-    target_total_by_position: dict[str, float],
+    target_total_by_position: dict[str, Any],
 ) -> list[dict[str, Any]]:
     adjusted_rows: list[dict[str, Any]] = []
     for position_id, position_slice in period_slice_df.sort_values(
@@ -140,21 +141,29 @@ def _residual_adjusted_position_rows(
     *,
     position_id: str,
     position_slice: pd.DataFrame,
-    target_total: float,
+    target_total: Any,
 ) -> list[dict[str, Any]]:
     raw_total = _as_numeric(position_slice["smoothed_contribution"].sum())
+    target_total, zero, one, decimal_mode = _residual_numeric_domain(raw_total, target_total)
     residual_delta = target_total - raw_total
 
-    if "daily_weight" in position_slice.columns:
-        allocation_weights = numeric_series(position_slice["daily_weight"], default=0.0).abs()
-    else:
-        allocation_weights = pd.Series(0.0, index=position_slice.index)
-    if allocation_weights.sum() <= 0:
-        allocation_weights = pd.Series(1.0, index=position_slice.index)
-
-    normalized_weights = allocation_weights / allocation_weights.sum()
-    adjusted_contributions = numeric_series(position_slice["smoothed_contribution"], default=0.0) + (
-        normalized_weights * residual_delta
+    allocation_weights = _residual_allocation_weights(
+        position_slice,
+        zero=zero,
+        one=one,
+    )
+    normalized_weights = _normalized_allocation_weights(
+        allocation_weights,
+        decimal_mode=decimal_mode,
+    )
+    raw_contributions = numeric_series(position_slice["smoothed_contribution"], default=zero)
+    adjusted_contributions = pd.Series(
+        [
+            _value_in_numeric_domain(raw_contribution, decimal_mode=decimal_mode) + normalized_weight * residual_delta
+            for raw_contribution, normalized_weight in zip(raw_contributions, normalized_weights, strict=True)
+        ],
+        index=position_slice.index,
+        dtype=object if decimal_mode else None,
     )
     return [
         {
@@ -164,6 +173,51 @@ def _residual_adjusted_position_rows(
         }
         for row_index, (_, row) in enumerate(position_slice.iterrows())
     ]
+
+
+def _residual_numeric_domain(
+    raw_total: Any,
+    target_total: Any,
+) -> tuple[Any, Decimal | float, Decimal | float, bool]:
+    decimal_mode = isinstance(raw_total, Decimal)
+    if decimal_mode:
+        return Decimal(str(target_total)), Decimal(0), Decimal(1), True
+    return target_total, 0.0, 1.0, False
+
+
+def _residual_allocation_weights(
+    position_slice: pd.DataFrame,
+    *,
+    zero: Decimal | float,
+    one: Decimal | float,
+) -> pd.Series:
+    if "daily_weight" in position_slice.columns:
+        allocation_weights = numeric_series(position_slice["daily_weight"], default=zero).abs()
+    else:
+        allocation_weights = pd.Series(zero, index=position_slice.index)
+    if allocation_weights.sum() <= zero:
+        return pd.Series(one, index=position_slice.index)
+    return allocation_weights
+
+
+def _normalized_allocation_weights(
+    allocation_weights: pd.Series,
+    *,
+    decimal_mode: bool,
+) -> pd.Series:
+    allocation_weight_total = _value_in_numeric_domain(allocation_weights.sum(), decimal_mode=decimal_mode)
+    return pd.Series(
+        [
+            _value_in_numeric_domain(allocation_weight, decimal_mode=decimal_mode) / allocation_weight_total
+            for allocation_weight in allocation_weights
+        ],
+        index=allocation_weights.index,
+        dtype=object if decimal_mode else None,
+    )
+
+
+def _value_in_numeric_domain(value: Any, *, decimal_mode: bool) -> Any:
+    return Decimal(str(value)) if decimal_mode else value
 
 
 def _build_residual_adjusted_daily_contribution_series(

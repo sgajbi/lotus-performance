@@ -1,3 +1,4 @@
+from decimal import Decimal
 from typing import Protocol
 
 import numpy as np
@@ -6,6 +7,7 @@ import pandas as pd
 from engine.schema import PortfolioColumns
 
 CARINO_ZERO_RETURN_TOLERANCE = 1e-12
+DECIMAL_CARINO_ZERO_RETURN_TOLERANCE = Decimal("1e-12")
 
 
 class ContributionSmoothingLike(Protocol):
@@ -13,8 +15,8 @@ class ContributionSmoothingLike(Protocol):
 
 
 def _calculate_carino_factor_for_return(
-    portfolio_return: float,  # monetary-float-allow: dimensionless return
-) -> float:  # monetary-float-allow: dimensionless Carino factor
+    portfolio_return: Decimal | float,  # monetary-float-allow: dimensionless return
+) -> Decimal | float:  # monetary-float-allow: dimensionless Carino factor
     """Returns the Carino linking factor for a single return when the log domain is valid.
 
     Domain meaning:
@@ -22,7 +24,15 @@ def _calculate_carino_factor_for_return(
     factor remains strictly positive. When the portfolio path falls to ``-100%`` or below, that
     assumption breaks and the caller must avoid Carino adjustments for that episode.
     """
-    if 1 + portfolio_return <= 0:
+    if isinstance(portfolio_return, Decimal):
+        one = Decimal(1)
+        if one + portfolio_return <= 0:
+            return one
+        if abs(portfolio_return) <= DECIMAL_CARINO_ZERO_RETURN_TOLERANCE:
+            return one
+        return (one + portfolio_return).ln() / portfolio_return
+
+    if 1.0 + portfolio_return <= 0:
         return 1.0
     if np.isclose(portfolio_return, 0.0, atol=CARINO_ZERO_RETURN_TOLERANCE):
         return 1.0
@@ -31,9 +41,13 @@ def _calculate_carino_factor_for_return(
 
 def _carino_smoothing_domain_is_valid(portfolio_return_series: pd.Series) -> bool:
     """Reports whether Carino smoothing is mathematically valid for a linked portfolio path."""
-    numeric_returns = pd.to_numeric(portfolio_return_series, errors="coerce")
-    gross_return_factors = 1 + numeric_returns
-    return bool(gross_return_factors.gt(0).all())
+    for portfolio_return in portfolio_return_series:
+        if pd.isna(portfolio_return):
+            return False
+        one = Decimal(1) if isinstance(portfolio_return, Decimal) else 1.0
+        if one + portfolio_return <= 0:
+            return False
+    return True
 
 
 def _calculate_carino_factors(ror_series: pd.Series) -> pd.Series:
@@ -41,14 +55,11 @@ def _calculate_carino_factors(ror_series: pd.Series) -> pd.Series:
     if not isinstance(ror_series.index, pd.DatetimeIndex):
         ror_series.index = pd.to_datetime(ror_series.index)
 
+    factors = [_calculate_carino_factor_for_return(portfolio_return) for portfolio_return in ror_series]
     return pd.Series(
-        [
-            _calculate_carino_factor_for_return(
-                float(portfolio_return)  # monetary-float-allow: dimensionless return
-            )
-            for portfolio_return in ror_series
-        ],
+        factors,
         index=ror_series.index,
+        dtype=object if any(isinstance(value, Decimal) for value in factors) else None,
     )
 
 
@@ -70,7 +81,14 @@ def apply_contribution_smoothing(
         return contribution_df
 
     portfolio_df_indexed = portfolio_df.set_index(PortfolioColumns.PERF_DATE.value)
-    port_ror_series = portfolio_df_indexed[PortfolioColumns.DAILY_ROR.value] / 100
+    decimal_mode = any(
+        isinstance(value, Decimal)
+        for value in portfolio_df_indexed[PortfolioColumns.DAILY_ROR.value]
+        if pd.notna(value)
+    )
+    hundred = Decimal(100) if decimal_mode else 100.0
+    one = Decimal(1) if decimal_mode else 1.0
+    port_ror_series = portfolio_df_indexed[PortfolioColumns.DAILY_ROR.value] / hundred
     if not _carino_smoothing_domain_is_valid(port_ror_series):
         contribution_df["smoothed_local_contribution"] = contribution_df["raw_local_contribution"]
         contribution_df["smoothed_fx_contribution"] = contribution_df["raw_fx_contribution"]
@@ -78,7 +96,7 @@ def apply_contribution_smoothing(
         return contribution_df
 
     k_daily = _calculate_carino_factors(port_ror_series)
-    port_total_ror = float((1 + port_ror_series).prod() - 1)
+    port_total_ror = (one + port_ror_series).prod() - one
     k_total = _calculate_carino_factor_for_return(port_total_ror)
 
     contribution_df = pd.merge(

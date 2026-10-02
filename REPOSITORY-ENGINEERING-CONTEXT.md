@@ -728,6 +728,10 @@ Important validation expectations:
     once for NET and removes it once for GROSS. Apply the same translation after entity-scoped
     `data_policy` overrides and across master-window and period recomputation paths; do not change
     direct TWR input semantics or normalize only one output shape.
+39. Contribution `DECIMAL_STRICT` execution must preserve one Decimal numeric domain from engine
+    returns through average-weight shadows, Carino factors, residual allocation, hierarchy, and
+    daily/position series reconciliation. Compatibility DTO serialization may emit JSON numbers,
+    but no intermediate path may introduce float defaults or silently fall back to `FLOAT64`.
 
 ## Standards And RFCs That Govern This Repository
 

@@ -1,6 +1,7 @@
 # engine/contribution.py
 from dataclasses import dataclass, replace
 from datetime import date as dt_date
+from decimal import Decimal
 from typing import Any, Dict, Iterator, Mapping, Protocol, Sequence, Tuple
 
 import numpy as np
@@ -31,6 +32,7 @@ __all__ = [
 ]
 
 _RESIDUAL_DENOMINATOR_TOLERANCE = 1e-12
+_DECIMAL_RESIDUAL_DENOMINATOR_TOLERANCE = Decimal("1e-12")
 _DAILY_CONTRIBUTION_REQUIRED_COLUMNS = (
     "position_id",
     PortfolioColumns.PERF_DATE.value,
@@ -170,13 +172,20 @@ def _calculate_daily_instrument_contributions(
         df["capital_inst"] = df[PortfolioColumns.BEGIN_MV.value] + df[PortfolioColumns.BOD_CF.value]
         df["capital_port"] = df[f"{PortfolioColumns.BEGIN_MV.value}_port"] + df[f"{PortfolioColumns.BOD_CF.value}_port"]
 
-    with np.errstate(divide="ignore", invalid="ignore"):
-        daily_weight = df["capital_inst"] / df["capital_port"]
-    df["daily_weight"] = daily_weight.replace([np.inf, -np.inf], np.nan).fillna(0.0)
+    decimal_mode = _series_uses_decimal(df["capital_inst"]) or _series_uses_decimal(df["capital_port"])
+    zero = Decimal(0) if decimal_mode else 0.0
+    hundred = Decimal(100) if decimal_mode else 100.0
+    df["daily_weight"] = _safe_daily_weight(
+        df["capital_inst"],
+        df["capital_port"],
+        decimal_mode=decimal_mode,
+    )
 
-    df["raw_local_contribution"] = df["daily_weight"] * (df.get("local_ror", 0.0) / 100)
-    df["raw_fx_contribution"] = df["daily_weight"] * (df.get("fx_ror", 0.0) / 100)
-    df["raw_contribution"] = df["daily_weight"] * (df[PortfolioColumns.DAILY_ROR.value] / 100)
+    local_ror = _numeric_column_or_zero(df, "local_ror", zero=zero, decimal_mode=decimal_mode)
+    fx_ror = _numeric_column_or_zero(df, "fx_ror", zero=zero, decimal_mode=decimal_mode)
+    df["raw_local_contribution"] = df["daily_weight"] * (local_ror / hundred)
+    df["raw_fx_contribution"] = df["daily_weight"] * (fx_ror / hundred)
+    df["raw_contribution"] = df["daily_weight"] * (df[PortfolioColumns.DAILY_ROR.value] / hundred)
     df = apply_contribution_smoothing(df, portfolio_df, smoothing)
 
     nip_reset_dates = portfolio_df[
@@ -184,9 +193,50 @@ def _calculate_daily_instrument_contributions(
     ][PortfolioColumns.PERF_DATE.value]
 
     contrib_cols = ["smoothed_contribution", "smoothed_local_contribution", "smoothed_fx_contribution"]
-    df.loc[df[PortfolioColumns.PERF_DATE.value].isin(nip_reset_dates), contrib_cols] = 0.0
+    df.loc[df[PortfolioColumns.PERF_DATE.value].isin(nip_reset_dates), contrib_cols] = zero
 
     return df
+
+
+def _series_uses_decimal(series: pd.Series) -> bool:
+    return any(isinstance(value, Decimal) for value in series if pd.notna(value))
+
+
+def _safe_daily_weight(
+    numerator: pd.Series,
+    denominator: pd.Series,
+    *,
+    decimal_mode: bool,
+) -> pd.Series:
+    zero = Decimal(0) if decimal_mode else 0.0
+    if decimal_mode:
+        return pd.Series(
+            [
+                zero if pd.isna(amount) or pd.isna(value) or value == zero else amount / value
+                for amount, value in zip(numerator, denominator, strict=True)
+            ],
+            index=numerator.index,
+            dtype=object,
+        )
+    with np.errstate(divide="ignore", invalid="ignore"):
+        daily_weight = numerator / denominator
+    return daily_weight.replace([np.inf, -np.inf], np.nan).fillna(zero)
+
+
+def _numeric_column_or_zero(
+    frame: pd.DataFrame,
+    column_name: str,
+    *,
+    zero: Decimal | float,
+    decimal_mode: bool,
+) -> pd.Series:
+    if column_name in frame.columns:
+        return frame[column_name]
+    return pd.Series(
+        [zero] * len(frame),
+        index=frame.index,
+        dtype=object if decimal_mode else None,
+    )
 
 
 def _prepare_hierarchical_data(request: ContributionRequestLike) -> ContributionPreparedData:
@@ -332,7 +382,8 @@ def _ensure_same_currency_local_fx_columns(
     ):
         return
     position_results_df["local_ror"] = position_results_df[PortfolioColumns.DAILY_ROR.value]
-    position_results_df["fx_ror"] = 0.0
+    zero = Decimal(0) if _series_uses_decimal(position_results_df[PortfolioColumns.DAILY_ROR.value]) else 0.0
+    position_results_df["fx_ror"] = zero
 
 
 def _apply_position_fx_capital_conversion(
@@ -388,8 +439,11 @@ def calculate_hierarchical_contribution(request: ContributionRequestLike) -> Tup
         instruments_df, portfolio_results_df, request.weighting_scheme, request.smoothing
     )
 
-    port_ror_series = portfolio_results_df[PortfolioColumns.DAILY_ROR.value] / 100
-    total_portfolio_return = (1 + port_ror_series).prod() - 1
+    decimal_mode = _series_uses_decimal(portfolio_results_df[PortfolioColumns.DAILY_ROR.value])
+    hundred = Decimal(100) if decimal_mode else 100.0
+    one = Decimal(1) if decimal_mode else 1.0
+    port_ror_series = portfolio_results_df[PortfolioColumns.DAILY_ROR.value] / hundred
+    total_portfolio_return = (one + port_ror_series).prod() - one
 
     results = build_hierarchical_contribution_result(
         daily_contributions_df,
@@ -563,19 +617,33 @@ def _apply_carino_residual_allocation(
 
 def _local_fx_residual_proportions(
     *,
-    local_contribution_sum: float,
-    fx_contribution_sum: float,
-    total_contribution_sum: float,
-) -> tuple[float, float]:
-    if abs(total_contribution_sum) > _RESIDUAL_DENOMINATOR_TOLERANCE:
+    local_contribution_sum: Any,
+    fx_contribution_sum: Any,
+    total_contribution_sum: Any,
+) -> tuple[Any, Any]:
+    if any(
+        isinstance(value, Decimal) for value in (local_contribution_sum, fx_contribution_sum, total_contribution_sum)
+    ):
+        local_contribution_sum = Decimal(str(local_contribution_sum))
+        fx_contribution_sum = Decimal(str(fx_contribution_sum))
+        total_contribution_sum = Decimal(str(total_contribution_sum))
+        tolerance: Decimal | float = _DECIMAL_RESIDUAL_DENOMINATOR_TOLERANCE
+        one: Decimal | float = Decimal(1)
+        zero: Decimal | float = Decimal(0)
+    else:
+        tolerance = _RESIDUAL_DENOMINATOR_TOLERANCE
+        one = 1.0
+        zero = 0.0
+
+    if abs(total_contribution_sum) > tolerance:
         return (
             local_contribution_sum / total_contribution_sum,
             fx_contribution_sum / total_contribution_sum,
         )
 
     absolute_component_sum = abs(local_contribution_sum) + abs(fx_contribution_sum)
-    if absolute_component_sum <= _RESIDUAL_DENOMINATOR_TOLERANCE:
-        return 1.0, 0.0
+    if absolute_component_sum <= tolerance:
+        return one, zero
 
     local_share = abs(local_contribution_sum) / absolute_component_sum
-    return local_share, 1.0 - local_share
+    return local_share, one - local_share

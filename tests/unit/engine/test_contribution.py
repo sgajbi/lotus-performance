@@ -1,5 +1,6 @@
 # tests/unit/engine/test_contribution.py
 from dataclasses import dataclass
+from decimal import Decimal
 
 import pandas as pd
 import pytest
@@ -231,6 +232,13 @@ def test_calculate_carino_factors():
     assert k_zero.iloc[0] == 1.0
 
 
+def test_calculate_carino_factors_preserves_decimal_domain():
+    factor = _calculate_carino_factors(pd.Series([Decimal("0.10")])).iloc[0]
+
+    assert isinstance(factor, Decimal)
+    assert factor == (Decimal("1.10").ln() / Decimal("0.10"))
+
+
 def test_carino_factors_match_source_docs_two_day_example():
     """Carino industry example: +10% then -10% links to -1% with F_t = k_t / K."""
     ror_series = pd.Series(
@@ -424,6 +432,42 @@ def test_calculate_daily_contributions_zero_portfolio_capital_forces_zero_weight
     assert row["raw_contribution"] == 0.0
     assert row["raw_local_contribution"] == 0.0
     assert row["raw_fx_contribution"] == 0.0
+
+
+def test_calculate_daily_contributions_missing_decimal_capital_forces_zero_weight():
+    instruments_df = pd.DataFrame(
+        [
+            {
+                "perf_date": pd.Timestamp("2025-01-01"),
+                "position_id": "P1",
+                "begin_mv": Decimal("NaN"),
+                "bod_cf": Decimal(0),
+                "daily_ror": Decimal("2"),
+                "local_ror": Decimal("2"),
+                "fx_ror": Decimal(0),
+            }
+        ]
+    )
+    portfolio_df = pd.DataFrame(
+        [
+            {
+                "perf_date": pd.Timestamp("2025-01-01"),
+                "begin_mv": Decimal("100"),
+                "bod_cf": Decimal(0),
+                "daily_ror": Decimal(0),
+                "nip": 0,
+                "perf_reset": 0,
+            }
+        ]
+    )
+
+    result_df = _calculate_daily_instrument_contributions(
+        instruments_df, portfolio_df, WeightingScheme.BOD, Smoothing(method="NONE")
+    )
+
+    row = result_df.iloc[0]
+    assert row["daily_weight"] == Decimal(0)
+    assert row["raw_contribution"] == Decimal(0)
 
 
 def test_calculate_daily_contributions_uses_precomputed_capital_for_non_bod_weighting():

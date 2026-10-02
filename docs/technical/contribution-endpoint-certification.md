@@ -45,6 +45,9 @@ Validated option families:
 - `emit.include_other`;
 - `emit.include_unclassified`;
 - `smoothing.method="CARINO"` and `"NONE"`;
+- `precision_mode="FLOAT64"` and `"DECIMAL_STRICT"`; strict mode preserves Decimal arithmetic
+  through portfolio/position returns, weights, Carino smoothing, residual allocation, hierarchy,
+  and emitted daily and position series before response serialization;
 - `currency_mode="BASE_ONLY"`, `"LOCAL_ONLY"`, and `"BOTH"` where source fields and FX inputs are
   sufficient;
 - async `202 Accepted` result polling through `/performance/contribution/results/{calculation_id}`.

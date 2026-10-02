@@ -1,7 +1,7 @@
 # Lotus Performance Test Taxonomy Inventory
 
-Report date: 2026-10-02
-Branch: `fix/550-fee-valuation-basis`
+Report date: 2026-10-03
+Branch: `fix/586-decimal-strict-contribution`
 Mode: regression-blocking test taxonomy inventory; `make quality-test-taxonomy-gate` enforces
 minimum API/runtime and contract/governance breadth plus the current uncategorized-test ceiling.
 
@@ -23,8 +23,8 @@ python scripts/python_test_taxonomy_inventory.py --limit 30 --min-api-runtime-te
 | Metric | Value |
 | --- | ---: |
 | Test modules inventoried | 339 |
-| Test functions inventoried | 4120 |
-| Integration/API/runtime test functions | 838 |
+| Test functions inventoried | 4124 |
+| Integration/API/runtime test functions | 840 |
 | Contract/governance test functions | 201 |
 
 ## Test Functions By Suite
@@ -34,7 +34,7 @@ python scripts/python_test_taxonomy_inventory.py --limit 30 --min-api-runtime-te
 | benchmarks | 10 | 45 |
 | e2e | 1 | 21 |
 | integration | 30 | 426 |
-| unit | 298 | 3628 |
+| unit | 298 | 3632 |
 
 ## Test Functions By Family
 
@@ -44,8 +44,8 @@ above does sum to it, because a module belongs to exactly one suite.
 
 | Family | Test functions |
 | --- | ---: |
-| analytics_domain | 2061 |
-| api_or_runtime | 838 |
+| analytics_domain | 2065 |
+| api_or_runtime | 840 |
 | contract_or_governance | 201 |
 | observability_or_readiness | 683 |
 | quality_or_security | 269 |
@@ -296,8 +296,8 @@ API/runtime functions `833`, contract/governance functions `201`, analytics-doma
 `2,051`, observability/readiness functions `683`, and uncategorized functions fall to `565`.
 The blocking ceiling tightens to the measured `565`; no floor is reduced.
 
-The #550 contribution fee-basis correction adds one focused unit module plus registered HTTP,
-stateful-adapter, hierarchy, position-allocation, BOD/EOD cash-flow, entity-scoped override,
-outlier-scope and sample-identity, debit, refund, and fee-free proof. Current source test functions
-measure `4,120`, API/runtime functions `838`, analytics-domain functions `2,061`, and uncategorized
-functions remain `565`; no floor or ceiling changed.
+The current contribution suite covers fee basis, strict Decimal execution, registered HTTP,
+stateful adapters, hierarchy, allocation, cash flows, scoped overrides, sample identity, smoothing,
+and emitted series. Source test functions measure `4,124`, API/runtime functions `840`,
+analytics-domain functions `2,065`, and uncategorized functions remain `565`; no floor or ceiling
+changed.
