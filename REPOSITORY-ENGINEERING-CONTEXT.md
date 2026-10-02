@@ -685,6 +685,14 @@ Important validation expectations:
     beginning value, beginning/end-of-day flows, management fees, or ending value. Input order is
     not source revision authority. Preserve the direct engine's existing empty-frame compatibility
     and raw stateful source counts when identical observations collapse.
+37. Calculated benchmark base, local, and FX daily returns use one raw beginning-of-day exposure
+    basis: each daily value is the sum of the relevant component return multiplied by its beginning
+    weight. Do not renormalize partial, leveraged, zero, or offsetting signed weights to a
+    unit-weight portfolio; weight-sum diagnostics describe the exposure and do not change its
+    economics. Period and non-daily benchmark values geometrically link the daily series. This
+    shared engine behavior reaches the benchmark API directly and also feeds benchmark-aware TWR,
+    workspace-summary, returns-series, and stateful attribution paths, so changes require
+    cross-surface regression evidence rather than endpoint-only proof.
 
 ## Standards And RFCs That Govern This Repository
 
