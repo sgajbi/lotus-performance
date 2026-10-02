@@ -1,7 +1,9 @@
 from __future__ import annotations
 
+import logging
 from dataclasses import dataclass
 from datetime import date
+from decimal import Decimal
 from typing import Any
 
 import pandas as pd
@@ -89,6 +91,8 @@ from engine.contribution import (
 )
 from engine.diagnostics import EngineDiagnostics
 from engine.schema import PortfolioColumns
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass(frozen=True)
@@ -309,12 +313,17 @@ def _build_contribution_period_supportability(
     total_contribution = sum(
         position_contribution.total_contribution for position_contribution in position_contributions
     )
+    final_contribution_ratio = (
+        Decimal(str(total_contribution)) / Decimal(100)
+        if isinstance(total_portfolio_return, Decimal)
+        else total_contribution / 100
+    )
     smoothing_evidence = _build_contribution_smoothing_evidence(
         period_slice_df=period_slice_df,
         portfolio_period_slice_df=portfolio_period_slice_df,
         smoothing_method=smoothing_method,
         linked_return=total_portfolio_return,
-        final_contribution=total_contribution / 100,
+        final_contribution=final_contribution_ratio,
         residual_allocation_applied=residual_allocation_applied,
         residual_allocation_basis=residual_allocation_basis,
     )
@@ -1033,6 +1042,15 @@ def _run_contribution_calculation(
             )
             raise APIError(status_code=int(getattr(exc, "status_code")), detail=detail) from exc
         failure_detail = safe_unexpected_failure_message("Contribution calculation")
+        logger.exception(
+            "Contribution calculation failed unexpectedly.",
+            extra={
+                "extra_fields": {
+                    "calculation_id": str(request.calculation_id),
+                    "exception_type": type(exc).__qualname__,
+                }
+            },
+        )
         record_execution_failure(
             calculation_id=request.calculation_id,
             message=failure_detail,

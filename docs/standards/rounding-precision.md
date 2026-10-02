@@ -17,6 +17,9 @@ This repository adopts the platform-wide mandatory standard defined in `lotus-pl
 - Boundary validation: `precision_policy.py` (`normalize_input`) rejects malformed and over-scale inputs.
 - Output boundary quantization: `quantize_*` helpers apply final rounding for response shaping.
 - Intermediate precision preservation: domain logic keeps unquantized `Decimal` until output-edge serialization.
+- `DECIMAL_STRICT` contribution keeps weights, returns, Carino factors, residual allocation, and
+  emitted daily/position reconciliation in one Decimal domain. `FLOAT64` remains the compatibility
+  mode; strict requests are not silently downgraded.
 
 ## Monetary Float Guard
 

@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from datetime import date
+from decimal import Decimal
 from typing import Any
 
 import pandas as pd
@@ -189,7 +190,7 @@ def _period_engine_final_cum_ror(
     entity_id: str,
 ) -> Any:
     if not period_valuation_points:
-        return 0.0
+        return Decimal(0) if request.precision_mode == PrecisionMode.DECIMAL_STRICT else 0.0
 
     period_engine_config = EngineConfig(
         performance_start_date=max(period_valuation_points[0]["perf_date"], period_start_date),
@@ -216,9 +217,11 @@ def _period_engine_final_cum_ror(
         force_base_only=period_engine_config.currency_mode == "BOTH",
     )
     if period_results_df.empty:
-        return 0.0
+        return Decimal(0) if request.precision_mode == PrecisionMode.DECIMAL_STRICT else 0.0
 
-    return _as_numeric(period_results_df[PortfolioColumns.FINAL_CUM_ROR.value].iloc[-1] * result_scale)
+    final_cumulative_return = period_results_df[PortfolioColumns.FINAL_CUM_ROR.value].iloc[-1]
+    scale = Decimal(str(result_scale)) if isinstance(final_cumulative_return, Decimal) else result_scale
+    return final_cumulative_return * scale
 
 
 def build_residual_adjusted_position_totals(
@@ -253,13 +256,14 @@ def build_residual_adjusted_position_totals(
             position_totals["total_contribution"] - position_totals["local_contribution"]
         )
 
-    sum_of_contributions = _as_numeric(position_totals["total_contribution"].sum())
+    sum_of_contributions = _sum_preserving_numeric_domain(position_totals["total_contribution"])
     residual = total_portfolio_return - sum_of_contributions
-    total_average_weight = _as_numeric(position_totals[residual_allocation_weight_column].sum())
+    total_average_weight = _sum_preserving_numeric_domain(position_totals[residual_allocation_weight_column])
 
     residual_allocation_applied = False
     if total_average_weight > 0 and smoothing_method == "CARINO":
-        residual_allocation_applied = abs(residual) > 1e-12
+        tolerance = Decimal("1e-12") if isinstance(residual, Decimal) else 1e-12
+        residual_allocation_applied = abs(residual) > tolerance
         weight_proportion = position_totals[residual_allocation_weight_column] / total_average_weight
         if decompose_currency:
             currency_shares = position_totals.apply(_position_currency_residual_shares, axis=1)
@@ -274,6 +278,18 @@ def build_residual_adjusted_position_totals(
         totals_df=position_totals,
         residual_allocation_applied=residual_allocation_applied,
     )
+
+
+def _sum_preserving_numeric_domain(values: pd.Series) -> Any:
+    present_values = [value for value in values if pd.notna(value)]
+    if not present_values:
+        return 0.0
+    if any(isinstance(value, Decimal) for value in present_values):
+        return sum(
+            (value if isinstance(value, Decimal) else Decimal(str(value)) for value in present_values),
+            start=Decimal(0),
+        )
+    return sum(present_values)
 
 
 def _position_currency_residual_shares(row: pd.Series) -> tuple[float, float]:

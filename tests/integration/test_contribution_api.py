@@ -96,12 +96,14 @@ def test_contribution_endpoint_happy_path_and_envelope(client, happy_path_payloa
 @pytest.mark.parametrize("end_mv,expected_total", [(1100, 10.0), (900, -10.0), (1000, 0.0)])
 @pytest.mark.parametrize("currency_mode", [None, "BASE_ONLY", "LOCAL_ONLY", "BOTH"])
 @pytest.mark.parametrize("with_hierarchy", [False, True])
+@pytest.mark.parametrize("precision_mode", ["FLOAT64", "DECIMAL_STRICT"])
 def test_contribution_currency_explanation_requires_both_mode(
-    client, end_mv, expected_total, currency_mode, with_hierarchy
+    client, end_mv, expected_total, currency_mode, with_hierarchy, precision_mode
 ):
     payload = {
         "portfolio_id": "SYNTHETIC_CURRENCY_CONTRIBUTION",
         "currency": "USD",
+        "precision_mode": precision_mode,
         "report_ccy": "USD",
         "report_start_date": "2025-01-01",
         "report_end_date": "2025-01-01",
@@ -335,8 +337,12 @@ def identity_control_payload():
 
 
 @pytest.mark.parametrize("reverse", [False, True])
-def test_contribution_unique_position_grains_preserve_independent_economics(client, identity_control_payload, reverse):
+@pytest.mark.parametrize("precision_mode", ["FLOAT64", "DECIMAL_STRICT"])
+def test_contribution_unique_position_grains_preserve_independent_economics(
+    client, identity_control_payload, reverse, precision_mode
+):
     payload = deepcopy(identity_control_payload)
+    payload["precision_mode"] = precision_mode
     payload["hierarchy"] = ["sector"]
     if reverse:
         payload["positions_data"].reverse()
@@ -950,8 +956,10 @@ def test_contribution_endpoint_assigns_net_fee_drag_to_fee_bucket(client):
         ("GROSS", 1190, -10, 0, 100, 10.0),
     ],
 )
+@pytest.mark.parametrize("precision_mode", ["FLOAT64", "DECIMAL_STRICT"])
 def test_contribution_endpoint_uses_after_fee_ending_values(
     client,
+    precision_mode,
     metric_basis,
     end_mv,
     mgmt_fees,
@@ -969,6 +977,7 @@ def test_contribution_endpoint_uses_after_fee_ending_values(
     }
     payload = {
         "portfolio_id": f"CONTRIB_AFTER_FEE_{metric_basis}_{end_mv}_{bod_cf}_{eod_cf}",
+        "precision_mode": precision_mode,
         "report_start_date": "2025-01-01",
         "report_end_date": "2025-01-01",
         "analyses": [{"period": "SI", "frequencies": ["daily"]}],
@@ -996,11 +1005,13 @@ def test_contribution_endpoint_uses_after_fee_ending_values(
     ("metric_basis", "expected_portfolio_return", "expected_position_return"),
     [("NET", 8.0, 7.0), ("GROSS", 9.0, 8.0)],
 )
+@pytest.mark.parametrize("precision_mode", ["FLOAT64", "DECIMAL_STRICT"])
 def test_contribution_endpoint_applies_after_fee_market_value_overrides_by_entity(
     client,
     metric_basis,
     expected_portfolio_return,
     expected_position_return,
+    precision_mode,
 ):
     valuation_point = {
         "perf_date": "2025-01-01",
@@ -1010,6 +1021,7 @@ def test_contribution_endpoint_applies_after_fee_market_value_overrides_by_entit
     }
     payload = {
         "portfolio_id": f"CONTRIB_AFTER_FEE_OVERRIDE_{metric_basis}",
+        "precision_mode": precision_mode,
         "report_start_date": "2025-01-01",
         "report_end_date": "2025-01-01",
         "analyses": [{"period": "SI", "frequencies": ["daily"]}],
@@ -1963,11 +1975,13 @@ def test_contribution_supports_stateful_input_mode(client, monkeypatch):
 
 
 @pytest.mark.parametrize(("metric_basis", "expected_return"), [("NET", 9.0), ("GROSS", 10.0)])
+@pytest.mark.parametrize("precision_mode", ["FLOAT64", "DECIMAL_STRICT"])
 def test_stateful_contribution_normalizes_core_after_fee_ending_values(
     client,
     monkeypatch,
     metric_basis,
     expected_return,
+    precision_mode,
 ):
     async def _source(**kwargs):  # noqa: ARG001
         from types import SimpleNamespace
@@ -2009,6 +2023,7 @@ def test_stateful_contribution_normalizes_core_after_fee_ending_values(
         "/performance/contribution",
         json={
             "portfolio_id": f"CONTRIB_STATEFUL_AFTER_FEE_{metric_basis}",
+            "precision_mode": precision_mode,
             "report_start_date": "2025-01-01",
             "report_end_date": "2025-01-01",
             "analyses": [{"period": "SI", "frequencies": ["daily"]}],

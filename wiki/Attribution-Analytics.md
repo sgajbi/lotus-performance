@@ -42,9 +42,9 @@ reports allocation and portfolio-weighted combined selection; its separate `inte
 zero so active return is not counted twice. Linked and single-period results reconcile using these
 model-specific effects, and downstream consumers must preserve them as authored.
 
-The governed calculation identity is `lotus-performance-calculation-engine.v9`. Attribution's
-scale-aware linking safeguard was introduced in v7; the service-wide v9 identity also includes
-the contribution fee-basis correction and prevents
+The governed calculation identity is `lotus-performance-calculation-engine.v10`. Attribution's
+scale-aware linking safeguard was introduced in v7; the current service-wide identity also includes
+the contribution fee-basis and strict Decimal corrections and prevents
 pre-history-qualification TWR/workspace artifacts from replaying under the current contract.
 
 The current stateful public contract is intentionally fenced to:

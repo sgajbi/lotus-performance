@@ -1,3 +1,4 @@
+from decimal import Decimal
 from uuid import uuid4
 
 import pandas as pd
@@ -48,6 +49,9 @@ from app.services.contribution_methodology import (
     _is_average_weight_shadow_cutover_candidate,
     _normalize_reset_aware_average_weight_mode,
     _reset_aware_valid_portfolio_days,
+)
+from app.services.contribution_methodology import (
+    _as_numeric as _methodology_as_numeric,
 )
 from app.services.contribution_periods import (
     ContributionPeriodMethodologyContext,
@@ -980,6 +984,34 @@ def test_calculate_reset_aware_average_weight_shadow_matches_simple_mean_when_no
     assert shadow_df.loc[0, "reset_aware_average_weight_shadow"] == 0.5
 
 
+def test_calculate_reset_aware_average_weight_shadow_preserves_decimal_domain():
+    period_slice_df = pd.DataFrame(
+        {
+            "position_id": ["A", "A"],
+            "perf_date": [pd.Timestamp("2025-01-01").date(), pd.Timestamp("2025-01-02").date()],
+            "daily_weight": [Decimal("0.4"), Decimal("0.6")],
+        }
+    )
+    portfolio_period_slice_df = pd.DataFrame(
+        {
+            "perf_date": [pd.Timestamp("2025-01-01").date(), pd.Timestamp("2025-01-02").date()],
+            "perf_reset": [0, 0],
+            "nip": [0, 0],
+        }
+    )
+
+    shadow_df, delta_position_count, max_shadow_delta_bp, sum_shadow_delta_bp = (
+        _calculate_reset_aware_average_weight_shadow(period_slice_df, portfolio_period_slice_df)
+    )
+
+    assert shadow_df.loc[0, "average_weight"] == Decimal("0.5")
+    assert shadow_df.loc[0, "reset_aware_average_weight_shadow"] == Decimal("0.5")
+    assert (delta_position_count, max_shadow_delta_bp, sum_shadow_delta_bp) == (0, 0, 0)
+    value = Decimal("0.123456789012345678")
+    assert _methodology_as_numeric(value) is value
+    assert _methodology_as_numeric(Decimal("NaN"), default=7) == 7
+
+
 def test_calculate_reset_aware_average_weight_shadow_covers_empty_missing_column_and_zero_valid_day_paths():
     empty_shadow_df, delta_count, max_bp, sum_bp = _calculate_reset_aware_average_weight_shadow(
         pd.DataFrame(columns=["position_id", "daily_weight"]),
@@ -1292,6 +1324,26 @@ def test_contribution_series_helpers_build_and_reconcile_daily_outputs():
     assert [point.contribution for point in adjusted_position_series[0].series] == pytest.approx([1.2, 1.8])
     assert [point.contribution for point in adjusted_position_series[1].series] == pytest.approx([1.5, -0.5])
     assert [point.total_contribution for point in adjusted_daily] == pytest.approx([2.7, 1.3])
+
+
+def test_residual_adjusted_position_timeseries_accepts_decimal_engine_rows():
+    period_slice_df = pd.DataFrame(
+        {
+            "position_id": ["A", "A"],
+            "perf_date": [pd.Timestamp("2025-01-01").date(), pd.Timestamp("2025-01-02").date()],
+            "smoothed_contribution": [Decimal("0.01"), Decimal("0.02")],
+            "daily_weight": [Decimal("0.25"), Decimal("0.75")],
+        }
+    )
+    position_total = type(
+        "PositionContributionLike",
+        (),
+        {"position_id": "A", "total_contribution": 4.0},
+    )()
+
+    position_series = _build_residual_adjusted_position_timeseries(period_slice_df, [position_total])
+
+    assert [point.contribution for point in position_series[0].series] == pytest.approx([1.25, 2.75])
 
 
 def test_contribution_series_helpers_sort_and_handle_empty_shapes():

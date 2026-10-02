@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from decimal import Decimal
+from statistics import fmean
 from typing import Any
 
 import pandas as pd
@@ -12,6 +14,8 @@ from engine.schema import PortfolioColumns
 
 RESET_AWARE_AVERAGE_WEIGHT_MODE_OFF = "OFF"
 RESET_AWARE_AVERAGE_WEIGHT_MODE_CANDIDATE_PERIODS = "CANDIDATE_PERIODS"
+_AVERAGE_WEIGHT_DELTA_TOLERANCE = 1e-12
+_DECIMAL_AVERAGE_WEIGHT_DELTA_TOLERANCE = Decimal("1e-12")
 
 
 @dataclass(frozen=True)
@@ -33,6 +37,8 @@ def _to_percentage_point_basis_points(percentage_point_delta: Any) -> int:
 
 
 def _as_numeric(value: Any, default: Any = 0) -> Any:
+    if isinstance(value, Decimal):
+        return value if value.is_finite() else default
     return numeric_value(value, default=default)
 
 
@@ -55,7 +61,9 @@ def _calculate_reset_aware_average_weight_shadow(
     - treat missing position rows on valid days as zero weight rather than shrinking the denominator
     """
     current_average_weights = (
-        period_slice_df.groupby("position_id").agg(average_weight=("daily_weight", "mean")).reset_index()
+        period_slice_df.groupby("position_id")
+        .agg(average_weight=("daily_weight", _mean_preserving_numeric_domain))
+        .reset_index()
     )
     if current_average_weights.empty:
         current_average_weights["reset_aware_average_weight_shadow"] = pd.Series(index=current_average_weights.index)
@@ -116,12 +124,14 @@ def _apply_reset_aware_average_weight_shadow(
     valid_day_count = int(valid_portfolio_days.nunique())
 
     if valid_day_count == 0:
-        current_average_weights["reset_aware_average_weight_shadow"] = 0.0
+        zero = Decimal(0) if _series_uses_decimal(current_average_weights["average_weight"]) else 0.0
+        current_average_weights["reset_aware_average_weight_shadow"] = zero
         return current_average_weights
 
     shadow_totals = _reset_aware_position_weight_totals(period_slice_df, valid_portfolio_days=valid_portfolio_days)
     current_average_weights = current_average_weights.merge(shadow_totals, on="position_id", how="left")
-    current_average_weights["weight_sum"] = current_average_weights["weight_sum"].fillna(0.0)
+    zero = Decimal(0) if _series_uses_decimal(shadow_totals["weight_sum"]) else 0.0
+    current_average_weights["weight_sum"] = current_average_weights["weight_sum"].fillna(zero)
     current_average_weights["reset_aware_average_weight_shadow"] = (
         current_average_weights["weight_sum"] / valid_day_count
     )
@@ -141,6 +151,20 @@ def _reset_aware_position_weight_totals(
         .agg(weight_sum=("daily_weight", "sum"))
         .reset_index()
     )
+
+
+def _mean_preserving_numeric_domain(values: pd.Series) -> Any:
+    present_values = [value for value in values if pd.notna(value)]
+    if not present_values:
+        return 0.0
+    if any(isinstance(value, Decimal) for value in present_values):
+        decimal_values = [value if isinstance(value, Decimal) else Decimal(str(value)) for value in present_values]
+        return sum(decimal_values, start=Decimal(0)) / Decimal(len(decimal_values))
+    return fmean(present_values)
+
+
+def _series_uses_decimal(values: pd.Series) -> bool:
+    return any(isinstance(value, Decimal) for value in values if pd.notna(value))
 
 
 def _selected_average_weight_components(
@@ -174,10 +198,14 @@ def _selected_average_weight_components(
 
 
 def _average_weight_shadow_delta_metrics(current_average_weights: pd.DataFrame) -> tuple[int, int, int]:
+    decimal_mode = _series_uses_decimal(current_average_weights["average_weight"]) or _series_uses_decimal(
+        current_average_weights["reset_aware_average_weight_shadow"]
+    )
+    tolerance = _DECIMAL_AVERAGE_WEIGHT_DELTA_TOLERANCE if decimal_mode else _AVERAGE_WEIGHT_DELTA_TOLERANCE
     delta_position_count = int(
         (current_average_weights["average_weight"] - current_average_weights["reset_aware_average_weight_shadow"])
         .abs()
-        .gt(1e-12)
+        .gt(tolerance)
         .sum()
     )
     absolute_shadow_delta = (
