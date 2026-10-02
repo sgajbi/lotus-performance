@@ -85,6 +85,11 @@ Every certified contribution response must satisfy these invariants for each res
 - in `currency_mode="BOTH"`, local contribution plus FX contribution reconciles to total
   contribution after residual allocation, including zero-net and near-zero pre-allocation
   contribution cases.
+- omitted, `BASE_ONLY`, and `LOCAL_ONLY` modes expose null position local/FX fields rather than
+  converting an uncomputed local component into an FX explanation. A populated `BOTH` hierarchy
+  summary aggregates position components; dated hierarchy rows expose null local/FX fields until
+  row-level decomposition is implemented. Stateless HTTP gain/loss/flat and stateful same-currency
+  regressions cover these availability semantics.
 
 The hierarchy path now builds rows from the same residual-adjusted daily position series used for
 position output. This prevents hierarchy rows from drifting away from first-class position
@@ -205,9 +210,10 @@ reconciliation, data-quality, and lineage treatment.
 
 ## GitHub Issue Disposition
 
-Open issue search for contribution currently finds only broad stateful-sourcing issue `#83`. That
-issue remains open because it covers more than contribution endpoint certification. No direct open
-contribution-output defect was found during this pass.
+This certification predates later contribution issue discovery. Issue `#549` identified an
+unsupported non-`BOTH` FX explanation; its mode-specific HTTP regressions and implementation are
+the current evidence for the field-availability boundary. Issue `#83` remains broader than this
+endpoint certification.
 
 ## Test Pyramid Assessment
 

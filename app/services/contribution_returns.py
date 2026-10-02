@@ -139,15 +139,16 @@ def build_residual_adjusted_position_totals(
     smoothing_method: str,
     average_weight_columns: list[str],
     residual_allocation_weight_column: str,
+    decompose_currency: bool,
     selected_average_weight_source_column: str | None = None,
 ) -> PositionContributionTotals:
     """Builds residual-adjusted contribution totals before response DTO mapping."""
+    aggregation = {"total_contribution": ("smoothed_contribution", "sum")}
+    if decompose_currency:
+        aggregation["local_contribution"] = ("smoothed_local_contribution", "sum")
     position_totals = (
         period_slice_df.groupby("position_id")
-        .agg(
-            total_contribution=("smoothed_contribution", "sum"),
-            local_contribution=("smoothed_local_contribution", "sum"),
-        )
+        .agg(**aggregation)
         .reset_index()
         .merge(
             average_weight_df[["position_id", *average_weight_columns]],
@@ -169,7 +170,10 @@ def build_residual_adjusted_position_totals(
             position_totals[residual_allocation_weight_column] / total_average_weight
         )
 
-    position_totals["fx_contribution"] = position_totals["total_contribution"] - position_totals["local_contribution"]
+    if decompose_currency:
+        position_totals["fx_contribution"] = (
+            position_totals["total_contribution"] - position_totals["local_contribution"]
+        )
     return PositionContributionTotals(
         totals_df=position_totals,
         residual_allocation_applied=residual_allocation_applied,
@@ -197,8 +201,10 @@ def build_position_contributions(
                 period_start_date=period_start_date,
                 period_end_date=period_end_date,
             ),
-            local_contribution=_as_numeric(row.get("local_contribution", 0)) * 100,
-            fx_contribution=_as_numeric(row.get("fx_contribution", 0)) * 100,
+            local_contribution=(
+                _as_numeric(row["local_contribution"]) * 100 if request.currency_mode == "BOTH" else None
+            ),
+            fx_contribution=(_as_numeric(row["fx_contribution"]) * 100 if request.currency_mode == "BOTH" else None),
         )
         for _, row in totals_df.iterrows()
     ]

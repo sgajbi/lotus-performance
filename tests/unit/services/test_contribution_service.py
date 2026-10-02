@@ -818,6 +818,7 @@ def test_build_flat_period_contribution_result_preserves_average_weight_basis(mo
     request = SimpleNamespace(
         smoothing=SimpleNamespace(method="CARINO"),
         emit=SimpleNamespace(timeseries=False, by_position_timeseries=False),
+        currency_mode="BASE_ONLY",
     )
     audit_state = AverageWeightShadowAuditState()
     residual_calls: list[dict[str, object]] = []
@@ -935,6 +936,7 @@ def test_build_flat_contribution_position_assembly_preserves_reset_aware_weighti
     request = SimpleNamespace(
         smoothing=SimpleNamespace(method="CARINO"),
         emit=SimpleNamespace(timeseries=True, by_position_timeseries=True),
+        currency_mode="BASE_ONLY",
     )
     residual_calls: list[dict[str, object]] = []
     contribution_calls: list[dict[str, object]] = []
@@ -1027,6 +1029,7 @@ def test_build_hierarchy_contribution_position_assembly_preserves_hierarchy_proj
         smoothing=SimpleNamespace(method="CARINO"),
         emit=SimpleNamespace(timeseries=True, by_position_timeseries=True),
         hierarchy=["sector"],
+        currency_mode="BASE_ONLY",
     )
     residual_calls: list[dict[str, object]] = []
     contribution_calls: list[dict[str, object]] = []
@@ -1152,6 +1155,7 @@ def test_build_hierarchy_period_contribution_result_preserves_hierarchy_outputs(
         smoothing=SimpleNamespace(method="CARINO"),
         emit=SimpleNamespace(timeseries=True, by_position_timeseries=True),
         hierarchy=["sector"],
+        currency_mode="BASE_ONLY",
     )
     audit_state = AverageWeightShadowAuditState()
     residual_calls: list[dict[str, object]] = []

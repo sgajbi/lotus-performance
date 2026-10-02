@@ -619,6 +619,11 @@ Important validation expectations:
     hierarchy `levels[].rows[].weight_avg`, and `average_weight_methodology_status` together. If a
     period is blocked, keep the legacy denominator and expose blocker reason codes instead of
     silently mixing denominators across surfaces.
+    Currency explanation has a separate availability boundary: position local/FX contribution is
+    calculated and published only for `currency_mode=BOTH`. Other modes return null rather than
+    treating an uncomputed local component as FX. A populated `BOTH` hierarchy summary aggregates
+    those position components, while dated hierarchy rows currently publish only total contribution
+    and leave local/FX null.
 31. Brinson attribution decomposition is model-specific. Brinson-Fachler uses benchmark-weighted
     selection and a separate interaction effect. Brinson-Hood-Beebower uses portfolio-weighted
     combined selection and must emit zero separate interaction so active return is not double
