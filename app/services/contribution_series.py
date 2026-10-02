@@ -199,6 +199,7 @@ def _build_hierarchy_from_adjusted_position_series(
     source_position_history_df: pd.DataFrame | None = None,
     source_position_window_complete: bool | None = None,
     position_series: list[PositionContributionSeries],
+    position_contributions: list[PositionContribution] | None = None,
     position_average_weights: pd.DataFrame | None = None,
     position_weight_components: pd.DataFrame | None = None,
     proven_position_inception_dates: dict[str, date] | None = None,
@@ -251,6 +252,15 @@ def _build_hierarchy_from_adjusted_position_series(
     )
 
     summary["portfolio_contribution"] = _as_numeric(adjusted_df["adjusted_contribution"].sum()) * 100
+    if request.currency_mode == "BOTH" and position_contributions is not None and not adjusted_df.empty:
+        summary["local_contribution"] = sum(
+            position.local_contribution
+            for position in position_contributions
+            if position.local_contribution is not None
+        )
+        summary["fx_contribution"] = sum(
+            position.fx_contribution for position in position_contributions if position.fx_contribution is not None
+        )
     return {"summary": summary, "levels": response_levels}
 
 

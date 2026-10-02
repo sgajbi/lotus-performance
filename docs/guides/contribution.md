@@ -69,6 +69,8 @@ Inside the current contract:
   the two position components reconcile to the residual-adjusted total. A populated hierarchy
   summary aggregates those position components, but hierarchy row local/FX fields remain null:
   the dated hierarchy projection currently aggregates total contribution only.
+  If classification filtering excludes every position, the empty hierarchy summary keeps zero
+  total/local/FX; it does not import whole-portfolio components into an empty grouped view.
   Carino residual allocation uses the same local/FX component proportions as the contribution
   engine: a same-currency local residual stays local instead of becoming an FX effect.
 - `lookthrough` is accepted as a compatibility request block only; lotus-performance does not
