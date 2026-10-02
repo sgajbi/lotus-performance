@@ -1218,9 +1218,32 @@ def test_execution_api_tracks_async_workspace_summary_job_to_completion(client):
         assert result_body["results_by_period"]["YTD"]["portfolio_twr"]["net"]["summary"]["cumulative_return"][
             "base"
         ] == pytest.approx(3.02)
-        assert result_body["calculation_supportability"]["state"] == "ready"
-        assert result_body["calculation_supportability"]["freshness_bucket"] == "current"
-        assert result_body["calculation_supportability"]["input_row_count"] == 2
+        supportability = result_body["calculation_supportability"]
+        assert supportability["state"] == "degraded"
+        assert supportability["reason"] == "partial_history_coverage"
+        assert supportability["freshness_bucket"] == "current"
+        assert supportability["input_row_count"] == 2
+        assert supportability["history_coverage"] == {
+            "status": "partial",
+            "calculation_basis": "available_window",
+            "requested_start_date": "2025-01-01",
+            "requested_end_date": "2025-01-10",
+            "covered_start_date": "2025-01-01",
+            "covered_end_date": "2025-01-10",
+            "effective_start_date": "2025-01-01",
+            "effective_end_date": "2025-01-10",
+            "calendar_basis": "business_weekdays",
+            "missing_required_observation_count": 6,
+            "missing_required_observation_dates_sample": [
+                "2025-01-02",
+                "2025-01-03",
+                "2025-01-06",
+                "2025-01-07",
+                "2025-01-08",
+                "2025-01-09",
+            ],
+            "reason_codes": ["interior_history_missing"],
+        }
     finally:
         settings.WORKSPACE_SUMMARY_EXECUTOR_INPUT_COUNT = original_threshold
 

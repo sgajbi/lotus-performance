@@ -1,7 +1,7 @@
 # Lotus Performance Test Taxonomy Inventory
 
 Report date: 2026-10-02
-Branch: `fix/548-attribution-near-zero-linking`
+Branch: `fix/543-si-history-coverage`
 Mode: regression-blocking test taxonomy inventory; `make quality-test-taxonomy-gate` enforces
 minimum API/runtime and contract/governance breadth plus the current uncategorized-test ceiling.
 
@@ -22,9 +22,9 @@ python scripts/python_test_taxonomy_inventory.py --limit 30 --min-api-runtime-te
 
 | Metric | Value |
 | --- | ---: |
-| Test modules inventoried | 335 |
-| Test functions inventoried | 4055 |
-| Integration/API/runtime test functions | 823 |
+| Test modules inventoried | 336 |
+| Test functions inventoried | 4082 |
+| Integration/API/runtime test functions | 829 |
 | Contract/governance test functions | 197 |
 
 ## Test Functions By Suite
@@ -33,8 +33,8 @@ python scripts/python_test_taxonomy_inventory.py --limit 30 --min-api-runtime-te
 | --- | ---: | ---: |
 | benchmarks | 10 | 42 |
 | e2e | 1 | 21 |
-| integration | 29 | 411 |
-| unit | 295 | 3581 |
+| integration | 29 | 417 |
+| unit | 296 | 3602 |
 
 ## Test Functions By Family
 
@@ -44,8 +44,8 @@ above does sum to it, because a module belongs to exactly one suite.
 
 | Family | Test functions |
 | --- | ---: |
-| analytics_domain | 2027 |
-| api_or_runtime | 823 |
+| analytics_domain | 2048 |
+| api_or_runtime | 829 |
 | contract_or_governance | 197 |
 | observability_or_readiness | 568 |
 | quality_or_security | 269 |
@@ -60,19 +60,19 @@ above does sum to it, because a module belongs to exactly one suite.
 | 3 | `tests/unit/services/test_stateful_attribution_input_service.py` | unit | 71 | analytics_domain |
 | 4 | `tests/unit/docs/test_public_docs_contract.py` | unit | 68 | contract_or_governance |
 | 5 | `tests/unit/services/test_compute_job_store.py` | unit | 68 | observability_or_readiness |
-| 6 | `tests/unit/services/test_lineage_metadata_store.py` | unit | 62 | observability_or_readiness |
-| 7 | `tests/integration/test_contribution_api.py` | integration | 63 | analytics_domain, api_or_runtime |
-| 8 | `tests/unit/app/test_openapi_enrichment.py` | unit | 61 | api_or_runtime |
-| 9 | `tests/unit/engine/test_attribution.py` | unit | 61 | analytics_domain |
-| 10 | `tests/unit/services/test_twr_inspection_source_economics.py` | unit | 58 | analytics_domain |
-| 11 | `tests/integration/test_performance_api.py` | integration | 56 | api_or_runtime |
-| 12 | `tests/unit/services/test_workspace_summary_service.py` | unit | 56 | analytics_domain |
+| 6 | `tests/integration/test_contribution_api.py` | integration | 63 | analytics_domain, api_or_runtime |
+| 7 | `tests/integration/test_performance_api.py` | integration | 62 | api_or_runtime |
+| 8 | `tests/unit/services/test_lineage_metadata_store.py` | unit | 62 | observability_or_readiness |
+| 9 | `tests/unit/app/test_openapi_enrichment.py` | unit | 61 | api_or_runtime |
+| 10 | `tests/unit/engine/test_attribution.py` | unit | 61 | analytics_domain |
+| 11 | `tests/unit/services/test_workspace_summary_service.py` | unit | 61 | analytics_domain |
+| 12 | `tests/unit/services/test_twr_inspection_source_economics.py` | unit | 58 | analytics_domain |
 | 13 | `tests/unit/services/test_compute_executor_worker.py` | unit | 55 | observability_or_readiness |
 | 14 | `tests/unit/services/test_stateful_input_service.py` | unit | 55 | analytics_domain |
 | 15 | `tests/unit/app/test_contribution_endpoint_helpers.py` | unit | 53 | analytics_domain, api_or_runtime |
 | 16 | `tests/unit/services/test_twr_inspection_calculation_consistency.py` | unit | 53 | analytics_domain |
 | 17 | `tests/unit/engine/test_mwr.py` | unit | 51 | analytics_domain |
-| 18 | `tests/unit/services/test_twr_mode_service.py` | unit | 45 | analytics_domain |
+| 18 | `tests/unit/services/test_twr_mode_service.py` | unit | 49 | analytics_domain |
 | 19 | `tests/unit/services/test_stateful_benchmark_input_service.py` | unit | 44 | analytics_domain |
 | 20 | `tests/unit/services/test_benchmark_exposure_context_service.py` | unit | 41 | analytics_domain |
 | 21 | `tests/unit/services/test_composite_metadata_store.py` | unit | 40 | analytics_domain |
@@ -256,3 +256,34 @@ The #548 attribution-linking conditioning slice adds positive and negative near-
 well-conditioned small-return, and registered resampling regressions. Current source test functions
 measure `4,055`, API/runtime functions `823`, analytics-domain functions `2,027`, and uncategorized
 functions remain `626`. Existing floors and ceilings are unchanged.
+
+The #543 since-inception history-coverage slice adds direct calendar/baseline qualification,
+registered stateless and Core-sourced stateful API, workspace/benchmark-relative propagation,
+OpenAPI, documentation, and reproducibility-identity regressions. Current source test functions
+measure `4,065`, API/runtime functions `826`, analytics-domain functions `2,034`, and
+uncategorized functions remain `626`. The `performance_history` classifier token maps this focused
+financial-evidence suite to its actual analytics domain instead of spending uncategorized slack;
+the blocking floors and ceiling are unchanged.
+
+The final #543 review adds eight source functions and nine collected cases for repeated short-gap
+classification, truthful no-observation reasons, bounded extreme windows, maximum-date safety,
+pre-calculation HTTP refusal on both supported APIs, and untrimmed workspace covered bounds.
+Current source test functions measure `4,073`, API/runtime functions `828`, analytics-domain
+functions `2,040`, and uncategorized functions remain `626`; no floor or ceiling changed.
+
+The final resolved-window review fix adds one source function and two endpoint cases proving that
+raw inception does not enlarge a requested `1Y` master window. Current source test functions
+measure `4,074`, API/runtime functions `829`, analytics-domain functions `2,040`, and
+uncategorized functions remain `626`; no floor or ceiling changed.
+
+The source-derived-window review fix adds four service regressions proving both TWR and workspace
+refuse excessive SI before time-series retrieval and bound old-inception `1Y` retrieval to the
+resolved master window. Current source test functions measure `4,078`, API/runtime functions
+`829`, analytics-domain functions `2,044`, and uncategorized functions remain `626`; no floor or
+ceiling changed.
+
+The final authoritative-inception review fix adds four source-path regressions proving both TWR
+and workspace refuse an extreme Core inception after a caller supplied a recent start, while an
+older source inception remains valid for a bounded `1Y` horizon. Current source test functions
+measure `4,082`, API/runtime functions remain `829`, analytics-domain functions measure `2,048`,
+and uncategorized functions remain `626`; no floor or ceiling changed.

@@ -45,6 +45,10 @@ from app.services.execution_registry import execution_registry
 from app.services.execution_stage_names import EXECUTION_STAGE_EXECUTION
 from app.services.fail_fast_policy import enforce_core_analytics_fail_fast
 from app.services.performance_diagnostics_projection import build_performance_diagnostics, build_reset_events
+from app.services.performance_history_coverage_service import (
+    assess_performance_history_coverage,
+    portfolio_ignored_dates,
+)
 from common.enums import Frequency
 from core.envelope import Audit, Diagnostics, Meta
 from core.errors import APIBadRequestError
@@ -801,11 +805,24 @@ def _resolve_twr_supportability(
     results_by_period: dict[str, SinglePeriodPerformanceResult],
     daily_results_df: pd.DataFrame | None,
     benchmark_row_count: int,
+    requested_start_date: date | None = None,
+    requested_end_date: date | None = None,
 ) -> PerformanceCalculationSupportability:
     input_row_count = len(performance_request.valuation_points)
     latest_observation_date = None
     if daily_results_df is not None and not daily_results_df.empty:
         latest_observation_date = daily_results_df[PortfolioColumns.PERF_DATE.value].max()
+    history_coverage = assess_performance_history_coverage(
+        requested_start_date=requested_start_date or performance_request.performance_start_date,
+        requested_end_date=requested_end_date or performance_request.report_end_date,
+        observation_dates=[point.perf_date for point in performance_request.valuation_points],
+        calendar_type=performance_request.calendar.type,
+        trading_calendar=performance_request.calendar.trading_calendar,
+        explicitly_ignored_dates=portfolio_ignored_dates(
+            data_policy=performance_request.data_policy,
+            portfolio_id=performance_request.portfolio_id,
+        ),
+    )
     return build_calculation_supportability(
         input_row_count=input_row_count,
         resolved_period_count=len(results_by_period),
@@ -814,6 +831,7 @@ def _resolve_twr_supportability(
         benchmark_row_count=benchmark_row_count,
         minimum_input_row_count=2,
         source_quality_evidence=performance_request.source_quality_evidence,
+        history_coverage=history_coverage,
     )
 
 
@@ -1246,6 +1264,8 @@ def _build_twr_completed_response_projection(
         benchmark_row_count=(
             len(calculation.benchmark_artifacts.daily_returns_df) if calculation.benchmark_artifacts is not None else 0
         ),
+        requested_start_date=calculation.master_start_date,
+        requested_end_date=calculation.master_end_date,
     )
     record_supportability_metric(
         operation="twr",

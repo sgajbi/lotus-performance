@@ -24,7 +24,6 @@ TWR Base Return (`portfolio.summary.period_return.base`)
 - Optional calculation controls: `annualization`, `rounding_precision`, `data_policy`, `reset_policy.emit`, `output.include_cumulative`, `output.include_timeseries`
 
 ## Upstream Data Sources
-- No runtime cross-service dependency.
 - In stateless mode, all economic inputs are caller-supplied in `valuation_points[]`.
 - In stateful mode, the same economic inputs are sourced from lotus-core portfolio timeseries and normalized into `valuation_points[]` before engine execution.
 
@@ -69,7 +68,8 @@ TWR Base Return (`portfolio.summary.period_return.base`)
 ## Step-by-Step Computation
 1. Validate request (`analyses` non-empty, each `frequencies` non-empty; schema-level field typing).
 2. Resolve requested periods using `report_end_date` anchor and `performance_start_date`.
-3. Build engine DataFrame from `valuation_points[]` and deduplicate by `perf_date` (keep last).
+3. Admit identical same-date observations once and reject conflicting same-date economics, then
+   build the engine DataFrame from the canonical `valuation_points[]`.
 4. Prepare numeric/date columns, policies, effective-period start dates.
 5. Compute `daily_ror` (pp), sign, NIP, cumulative returns, and reset flags.
 6. Filter master results to each resolved period.
@@ -78,6 +78,9 @@ TWR Base Return (`portfolio.summary.period_return.base`)
 - Compute `portfolio.summary.period_return.base` using reset-aware or non-reset path.
 - If the slice contains any `perf_reset=1` row, rebase the slice return from cumulative return state; otherwise compound daily `daily_ror` directly.
 8. Return `results_by_period` plus diagnostics/meta/audit.
+9. Qualify the master requested window against the admitted observation dates. Publish complete,
+   partial, or unknown `calculation_supportability.history_coverage` without synthesizing a return
+   for any missing date.
 
 ## Validation and Failure Behavior
 - `analyses=[]` or any analysis with empty `frequencies[]`: request validation error.
@@ -87,6 +90,20 @@ TWR Base Return (`portfolio.summary.period_return.base`)
 - Zero daily denominator (`abs(begin_mv + bod_cf)=0`): daily return forced to `0` for that row.
 - Rows before `effective_period_start_date` are also forced to zero daily return by the engine.
 - Unexpected engine failures: HTTP 500.
+- Missing leading, interior, or trailing required dates do not become zero-return observations.
+  The useful result is returned as `available_window` with degraded partial/unknown supportability.
+- `BUSINESS` excludes weekends. One contiguous gap of at most two weekdays under a named but
+  unattested venue calendar is unknown; repeated short gaps and sustained gaps are partial.
+  No-observation windows do not emit a venue-calendar reason. `NATURAL` requires every date.
+- Portfolio-scoped `data_policy.ignore_days` is an explicit exclusion. One immediate inception
+  boundary may be supported by the first observation's beginning-market-value baseline.
+- Resolved requested master windows greater than 36,600 days fail with HTTP 422 and
+  `PERFORMANCE_HISTORY_COVERAGE_WINDOW_TOO_LARGE`; raw portfolio inception does not enlarge a
+  shorter requested horizon. The guard runs before durable submission when the request supplies
+  the needed bounds, or after source-derived inception resolution and before time-series retrieval
+  or date expansion. An authoritative Core inception returned with time-series data is revalidated
+  before normalization or calculation when the request supplied a start date. Stateful fixed
+  horizons retrieve only their resolved master window.
 
 ## Configuration Options
 - `metric_basis`:
@@ -107,6 +124,7 @@ Primary fields for this metric:
 - `results_by_period.<period>.portfolio.summary.cumulative_return.base`
 
 Related supporting fields from same computation path:
+- `calculation_supportability.history_coverage` with requested, covered, and effective windows
 - `results_by_period.<period>.portfolio.breakdowns.<frequency>[].period_return.base`
 - `results_by_period.<period>.portfolio.breakdowns.<frequency>[].cumulative_return.base` (optional)
 - `results_by_period.<period>.portfolio.breakdowns.<frequency>[].annualized_return.base` (optional)

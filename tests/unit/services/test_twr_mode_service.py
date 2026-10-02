@@ -762,6 +762,177 @@ async def test_resolve_twr_portfolio_source_input_reports_retrieval_details_from
 
 
 @pytest.mark.asyncio
+async def test_resolve_twr_portfolio_source_input_bounds_old_inception_to_requested_horizon():
+    class _StatefulPortfolioStub:
+        captured_start_date = None
+
+        async def get_portfolio_reference(self, **kwargs):  # noqa: ARG002
+            return 200, {"portfolio_open_date": "1900-01-01"}
+
+        async def get_portfolio_timeseries(self, **kwargs):
+            self.captured_start_date = kwargs["start_date"]
+            return (
+                200,
+                {
+                    "portfolio_open_date": "1900-01-01",
+                    "observations": [
+                        {
+                            "valuation_date": "2025-01-02",
+                            "beginning_market_value": "100",
+                            "ending_market_value": "101",
+                        },
+                        {
+                            "valuation_date": "2026-01-01",
+                            "beginning_market_value": "101",
+                            "ending_market_value": "102",
+                        },
+                    ],
+                    "retrieval_metadata": {"chunk_count": 1, "page_count": 1},
+                },
+            )
+
+    stateful_input_service = _StatefulPortfolioStub()
+    request = TWRAnalyticsRequest.model_validate(
+        {
+            "calculation_id": str(uuid4()),
+            "portfolio_id": "PORT_OLD_1Y",
+            "metric_basis": "NET",
+            "report_end_date": "2026-01-01",
+            "analyses": [{"period": "1Y", "frequencies": ["daily"]}],
+            "input_mode": "stateful",
+            "stateful_input": {},
+        }
+    )
+
+    await _resolve_twr_portfolio_source_input(
+        request=request,
+        settings=_settings(),
+        stateful_input_service=stateful_input_service,
+    )
+
+    assert stateful_input_service.captured_start_date == date(2025, 1, 2)
+
+
+@pytest.mark.asyncio
+async def test_resolve_twr_portfolio_source_input_rejects_derived_extreme_window_before_timeseries():
+    class _StatefulPortfolioStub:
+        timeseries_called = False
+
+        async def get_portfolio_reference(self, **kwargs):  # noqa: ARG002
+            return 200, {"portfolio_open_date": "1900-01-01"}
+
+        async def get_portfolio_timeseries(self, **kwargs):  # noqa: ARG002
+            self.timeseries_called = True
+            raise AssertionError("extreme window must be refused before time-series retrieval")
+
+    stateful_input_service = _StatefulPortfolioStub()
+    request = TWRAnalyticsRequest.model_validate(
+        {
+            "calculation_id": str(uuid4()),
+            "portfolio_id": "PORT_EXTREME_SI",
+            "metric_basis": "NET",
+            "report_end_date": "2026-01-01",
+            "analyses": [{"period": "SI", "frequencies": ["daily"]}],
+            "input_mode": "stateful",
+            "stateful_input": {},
+        }
+    )
+
+    with pytest.raises(APIError) as exc_info:
+        await _resolve_twr_portfolio_source_input(
+            request=request,
+            settings=_settings(),
+            stateful_input_service=stateful_input_service,
+        )
+
+    assert exc_info.value.error_code == "PERFORMANCE_HISTORY_COVERAGE_WINDOW_TOO_LARGE"
+    assert stateful_input_service.timeseries_called is False
+
+
+@pytest.mark.asyncio
+async def test_resolve_twr_portfolio_source_input_rejects_extreme_source_inception_after_explicit_start(monkeypatch):
+    async def _fetch(**kwargs):  # noqa: ARG001
+        return (
+            200,
+            {
+                "portfolio_open_date": "1900-01-01",
+                "observations": [
+                    {
+                        "valuation_date": "2026-01-01",
+                        "beginning_market_value": "100",
+                        "ending_market_value": "101",
+                    }
+                ],
+            },
+        )
+
+    monkeypatch.setattr("app.services.stateful_performance_input_service.fetch_stateful_portfolio_timeseries", _fetch)
+
+    request = TWRAnalyticsRequest.model_validate(
+        {
+            "calculation_id": str(uuid4()),
+            "portfolio_id": "PORT_EXPLICIT_EXTREME_SI",
+            "performance_start_date": "2025-01-01",
+            "metric_basis": "NET",
+            "report_end_date": "2026-01-01",
+            "analyses": [{"period": "SI", "frequencies": ["daily"]}],
+            "input_mode": "stateful",
+            "stateful_input": {},
+        }
+    )
+
+    with pytest.raises(APIError) as exc_info:
+        await _resolve_twr_portfolio_source_input(
+            request=request,
+            settings=_settings(),
+            stateful_input_service=object(),
+        )
+
+    assert exc_info.value.error_code == "PERFORMANCE_HISTORY_COVERAGE_WINDOW_TOO_LARGE"
+
+
+@pytest.mark.asyncio
+async def test_resolve_twr_portfolio_source_input_accepts_fixed_horizon_with_older_source_inception(monkeypatch):
+    async def _fetch(**kwargs):  # noqa: ARG001
+        return (
+            200,
+            {
+                "portfolio_open_date": "1900-01-01",
+                "observations": [
+                    {
+                        "valuation_date": "2026-01-01",
+                        "beginning_market_value": "100",
+                        "ending_market_value": "101",
+                    }
+                ],
+            },
+        )
+
+    monkeypatch.setattr("app.services.stateful_performance_input_service.fetch_stateful_portfolio_timeseries", _fetch)
+
+    request = TWRAnalyticsRequest.model_validate(
+        {
+            "calculation_id": str(uuid4()),
+            "portfolio_id": "PORT_EXPLICIT_OLD_1Y",
+            "performance_start_date": "2025-01-01",
+            "metric_basis": "NET",
+            "report_end_date": "2026-01-01",
+            "analyses": [{"period": "1Y", "frequencies": ["daily"]}],
+            "input_mode": "stateful",
+            "stateful_input": {},
+        }
+    )
+
+    resolved = await _resolve_twr_portfolio_source_input(
+        request=request,
+        settings=_settings(),
+        stateful_input_service=object(),
+    )
+
+    assert resolved.portfolio_input.performance_start_date == date(1900, 1, 1)
+
+
+@pytest.mark.asyncio
 async def test_resolve_twr_portfolio_start_date_prefers_explicit_request_date():
     request = TWRAnalyticsRequest.model_validate(
         {

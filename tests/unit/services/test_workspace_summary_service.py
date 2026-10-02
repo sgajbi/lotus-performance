@@ -35,6 +35,7 @@ from app.services.workspace_summary_service import (
     _build_mwr_cash_flows,
     _build_stateful_workspace_benchmark_input,
     _build_stateful_workspace_portfolio_input,
+    _build_stateful_workspace_portfolio_input_async,
     _build_stateless_workspace_benchmark_input,
     _build_stateless_workspace_portfolio_input,
     _build_workspace_active_block,
@@ -227,7 +228,10 @@ async def test_workspace_summary_async_stateful_retrieval_uses_longest_requested
 
     assert str(captured["start_date"]) == "2026-05-31"
     assert response.audit.counts["portfolio_chunk_count"] == 3
-    assert response.calculation_supportability.state == "ready"
+    assert response.calculation_supportability.state == "degraded"
+    assert response.calculation_supportability.reason == "partial_history_coverage"
+    assert response.calculation_supportability.history_coverage is not None
+    assert response.calculation_supportability.history_coverage.calculation_basis == "available_window"
     assert response.calculation_supportability.freshness_bucket == "current"
     assert response.calculation_supportability.input_row_count == 2
     supportability_metric.assert_called_once_with(
@@ -1110,6 +1114,162 @@ def test_build_stateful_workspace_portfolio_input_projects_retrieval_and_source_
     assert result.source_details == {"portfolio_chunk_count": 3, "portfolio_page_count": 7}
 
 
+@pytest.mark.asyncio
+async def test_build_stateful_workspace_portfolio_input_rejects_derived_extreme_window_before_retrieval(mocker):
+    request = WorkspaceSummaryRequest.model_validate(
+        {
+            "calculation_id": str(uuid4()),
+            "portfolio_id": "PORT-EXTREME-SI",
+            "report_end_date": "2026-01-01",
+            "input_mode": "stateful",
+            "stateful_input": {},
+            "periods": [{"period": "SI", "frequencies": ["daily"]}],
+        }
+    )
+    mocker.patch(
+        "app.services.workspace_summary_service._resolve_stateful_portfolio_start_date_async",
+        return_value=date(1900, 1, 1),
+    )
+    retrieve = mocker.patch("app.services.workspace_summary_service.retrieve_stateful_portfolio_input")
+
+    with pytest.raises(APIError) as exc_info:
+        await _build_stateful_workspace_portfolio_input_async(request=request, settings=SimpleNamespace())
+
+    assert exc_info.value.error_code == "PERFORMANCE_HISTORY_COVERAGE_WINDOW_TOO_LARGE"
+    retrieve.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+async def test_build_stateful_workspace_portfolio_input_bounds_old_inception_to_requested_horizon(mocker):
+    request = WorkspaceSummaryRequest.model_validate(
+        {
+            "calculation_id": str(uuid4()),
+            "portfolio_id": "PORT-OLD-1Y",
+            "report_end_date": "2026-01-01",
+            "input_mode": "stateful",
+            "stateful_input": {},
+            "periods": [{"period": "1Y", "frequencies": ["daily"]}],
+        }
+    )
+    mocker.patch(
+        "app.services.workspace_summary_service._resolve_stateful_portfolio_start_date_async",
+        return_value=date(1900, 1, 1),
+    )
+    source_input = SimpleNamespace(
+        retrieval_metadata=SimpleNamespace(chunk_count=1, page_count=1),
+        portfolio_currency="USD",
+    )
+    retrieve = mocker.patch(
+        "app.services.workspace_summary_service.retrieve_stateful_portfolio_input",
+        return_value=source_input,
+    )
+    mocker.patch(
+        "app.services.workspace_summary_service.build_stateful_portfolio_valuation_input",
+        return_value=SimpleNamespace(
+            performance_start_date=date(1900, 1, 1),
+            source_quality_evidence=None,
+            observations=[{"perf_date": "2025-01-02"}],
+            valuation_points=[
+                {
+                    "perf_date": "2025-01-02",
+                    "begin_mv": 100.0,
+                    "bod_cf": 0.0,
+                    "eod_cf": 0.0,
+                    "mgmt_fees": 0.0,
+                    "end_mv": 101.0,
+                }
+            ],
+        ),
+    )
+
+    await _build_stateful_workspace_portfolio_input_async(request=request, settings=SimpleNamespace())
+
+    assert retrieve.await_args.kwargs["start_date"] == date(2025, 1, 2)
+    assert retrieve.await_args.kwargs["end_date"] == date(2026, 1, 1)
+
+
+@pytest.mark.asyncio
+async def test_build_stateful_workspace_portfolio_input_rejects_extreme_source_inception_after_explicit_start(
+    mocker,
+):
+    request = WorkspaceSummaryRequest.model_validate(
+        {
+            "calculation_id": str(uuid4()),
+            "portfolio_id": "PORT-EXPLICIT-EXTREME-SI",
+            "performance_start_date": "2025-01-01",
+            "report_end_date": "2026-01-01",
+            "input_mode": "stateful",
+            "stateful_input": {},
+            "periods": [{"period": "SI", "frequencies": ["daily"]}],
+        }
+    )
+    source_input = SimpleNamespace(
+        performance_start_date=date(1900, 1, 1),
+        retrieval_metadata=SimpleNamespace(chunk_count=1, page_count=1),
+        portfolio_currency="USD",
+    )
+    mocker.patch(
+        "app.services.workspace_summary_service.retrieve_stateful_portfolio_input",
+        return_value=source_input,
+    )
+    normalize = mocker.patch(
+        "app.services.workspace_summary_service.build_stateful_portfolio_valuation_input",
+        return_value=SimpleNamespace(performance_start_date=date(1900, 1, 1)),
+    )
+
+    with pytest.raises(APIError) as exc_info:
+        await _build_stateful_workspace_portfolio_input_async(request=request, settings=SimpleNamespace())
+
+    assert exc_info.value.error_code == "PERFORMANCE_HISTORY_COVERAGE_WINDOW_TOO_LARGE"
+    normalize.assert_called_once_with(source_input=source_input, report_end_date=date(2026, 1, 1))
+
+
+@pytest.mark.asyncio
+async def test_build_stateful_workspace_portfolio_input_accepts_fixed_horizon_with_older_source_inception(mocker):
+    request = WorkspaceSummaryRequest.model_validate(
+        {
+            "calculation_id": str(uuid4()),
+            "portfolio_id": "PORT-EXPLICIT-OLD-1Y",
+            "performance_start_date": "2025-01-01",
+            "report_end_date": "2026-01-01",
+            "input_mode": "stateful",
+            "stateful_input": {},
+            "periods": [{"period": "1Y", "frequencies": ["daily"]}],
+        }
+    )
+    source_input = SimpleNamespace(
+        performance_start_date=date(1900, 1, 1),
+        retrieval_metadata=SimpleNamespace(chunk_count=1, page_count=1),
+        portfolio_currency="USD",
+    )
+    mocker.patch(
+        "app.services.workspace_summary_service.retrieve_stateful_portfolio_input",
+        return_value=source_input,
+    )
+    mocker.patch(
+        "app.services.workspace_summary_service.build_stateful_portfolio_valuation_input",
+        return_value=SimpleNamespace(
+            performance_start_date=date(1900, 1, 1),
+            source_quality_evidence=None,
+            observations=[{"perf_date": "2026-01-01"}],
+            valuation_points=[
+                {
+                    "perf_date": "2026-01-01",
+                    "begin_mv": 100.0,
+                    "bod_cf": 0.0,
+                    "eod_cf": 0.0,
+                    "mgmt_fees": 0.0,
+                    "end_mv": 101.0,
+                }
+            ],
+        ),
+    )
+
+    resolved = await _build_stateful_workspace_portfolio_input_async(request=request, settings=SimpleNamespace())
+
+    assert resolved.performance_start_date == date(1900, 1, 1)
+
+
 def test_workspace_observation_in_master_window_accepts_bounded_string_dates():
     assert _workspace_observation_in_master_window(
         {"perf_date": "2026-01-02"},
@@ -1155,6 +1315,30 @@ def test_trim_workspace_portfolio_input_preserves_sourced_currency():
     assert trimmed.portfolio_currency == "EUR"
     assert trimmed.valuation_points == portfolio_input.valuation_points
     assert trimmed.observations == portfolio_input.observations
+
+
+def test_trim_workspace_portfolio_input_preserves_admitted_coverage_dates():
+    admitted_dates = (date(2026, 1, 1), date(2026, 1, 2), date(2026, 1, 3))
+    portfolio_input = ResolvedWorkspacePortfolioInput(
+        input_mode="stateless",
+        performance_start_date=date(2026, 1, 1),
+        valuation_points=[
+            DailyInputData.model_validate({"perf_date": admitted_date, "begin_mv": 100.0, "end_mv": 101.0})
+            for admitted_date in admitted_dates
+        ],
+        observations=[{"perf_date": admitted_date.isoformat()} for admitted_date in admitted_dates],
+        source_details={},
+        coverage_observation_dates=admitted_dates,
+    )
+
+    trimmed = _trim_portfolio_input_to_master_window(
+        portfolio_input=portfolio_input,
+        master_start_date=date(2026, 1, 2),
+        report_end_date=date(2026, 1, 3),
+    )
+
+    assert [point.perf_date for point in trimmed.valuation_points] == [date(2026, 1, 2), date(2026, 1, 3)]
+    assert trimmed.coverage_observation_dates == admitted_dates
 
 
 def test_workspace_summary_audit_counts_projects_portfolio_counts_without_benchmark():

@@ -22,6 +22,7 @@ from app.services.execution_lifecycle_service import record_execution_cancellati
 from app.services.execution_registry import execution_registry
 from app.services.execution_stage_errors import safe_unexpected_failure_message
 from app.services.execution_stage_names import EXECUTION_STAGE_EXECUTION
+from app.services.performance_history_coverage_service import validate_performance_history_window
 from app.services.reproducibility_service import generate_request_fingerprint
 from app.services.submission_fencing_service import (
     register_async_submission_or_raise,
@@ -34,6 +35,7 @@ from app.services.workspace_summary_service import (
     workspace_longest_requested_window_days,
 )
 from core.errors import APIInternalServerError, APIUnprocessableEntityError
+from core.workspace_periods import resolve_workspace_periods
 
 logger = logging.getLogger(__name__)
 
@@ -255,6 +257,17 @@ def _prepare_workspace_summary_execution(
     str,
 ]:
     request = workflow_request(command, WorkspaceSummaryRequest)
+    if request.performance_start_date is not None:
+        requested_periods = resolve_workspace_periods(
+            [item.period for item in request.periods],
+            as_of=request.report_end_date,
+            performance_start_date=request.performance_start_date,
+            explicit_start_date=request.report_start_date,
+        )
+        validate_performance_history_window(
+            start=min(period.start_date for period in requested_periods),
+            end=max(period.end_date for period in requested_periods),
+        )
     require_reporting_currency_for_both(
         currency_mode=request.currency_mode,
         requested_report_ccy=request.report_ccy,

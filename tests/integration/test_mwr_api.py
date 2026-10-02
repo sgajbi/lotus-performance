@@ -65,6 +65,7 @@ def test_calculate_mwr_endpoint_xirr_happy_path(client):
         "resolved_period_count": 1,
         "benchmark_row_count": 0,
         "source_quality_evidence": None,
+        "history_coverage": None,
         "metric_labels": _EXPECTED_SUPPORTABILITY_METRIC_LABELS,
     }
 

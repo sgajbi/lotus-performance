@@ -110,7 +110,41 @@ supportability block is the source-owned front-office posture for the calculatio
   `stale_source_observations`, or `insufficient_valuation_points`
 - `freshness_bucket`: `current`, `same_day`, `stale`, or `unknown`
 - `input_row_count`, `resolved_period_count`, and `benchmark_row_count`
+- `history_coverage`, which publishes requested, supplied (`covered_*`), and in-window
+  (`effective_*`) dates plus `complete`, `partial`, or `unknown` qualification
 - `metric_labels`: the bounded Prometheus label keys emitted for supportability metrics
+
+`history_coverage.calculation_basis` is `requested_window` only when every required date is
+supported. A partial or unknown result uses `available_window`; the service still returns the
+useful linked return over supplied observations, but does not relabel it as fully qualified
+since-inception performance and never inserts zero returns for missing history. `BUSINESS`
+requires weekdays and excludes weekends. Because `trading_calendar` is metadata rather than a
+venue-holiday feed, one contiguous gap of at most two weekdays under a named calendar is `unknown`
+with `venue_calendar_not_attested`; repeated short gaps and sustained leading, interior, or
+trailing gaps are `partial`.
+`NATURAL` requires every calendar date. A portfolio-scoped `data_policy.ignore_days` date is an
+explicit exclusion. The single boundary date immediately before the first observed return may be
+satisfied by that observation's beginning-market-value baseline. These decisions are exposed as
+bounded reason codes.
+
+TWR and workspace-summary reject a resolved requested master window greater than 36,600 days with
+HTTP 422 and `PERFORMANCE_HISTORY_COVERAGE_WINDOW_TOO_LARGE`. Raw portfolio inception does not
+expand a requested `1Y` window. The guard runs before durable submission when request bounds are
+sufficient, or immediately after source-derived inception resolution and before time-series
+retrieval or date expansion.
+Source-derived stateful fixed horizons retrieve only the resolved master window; an excessive SI
+window is refused before time-series retrieval. When a caller supplies a start date, the
+authoritative inception returned with the Core time series is revalidated before normalization or
+calculation, so a mismatched extreme SI window cannot bypass the bound. This bounds upstream
+retrieval and synchronous expansion while retaining more than a century of supportable banking
+history. `covered_*` remains
+the full admitted observation range, including supplied observations outside a workspace's
+effective master window; `effective_*` remains restricted to that window.
+
+The coverage block is additive. TWR and workspace-summary populate it; other analytics families
+retain the shared supportability shape with `history_coverage=null`. Consumers that previously
+used `meta.periods.master_start` or `diagnostics.effective_period_start` as proof of source coverage
+must instead use `history_coverage.status`, `calculation_basis`, and `effective_*`.
 
 For stateful TWR, `calculation_supportability.source_quality_evidence` preserves the source
 quality view from `PortfolioTimeseriesInput` normalization. It identifies the source owner
@@ -181,6 +215,13 @@ examples that explain when resets should and should not happen.
 
 The API resolves each requested analysis in `analyses`, computes the master daily series once, then
 slices and aggregates results by period and requested frequencies.
+
+### 6. Historical-coverage qualification
+
+Coverage qualification is applied once to the master requested window and is preserved alongside
+portfolio, benchmark-relative, and workspace results. Benchmark availability does not upgrade a
+partial portfolio history window. Migration cutoffs therefore remain visible as leading gaps in
+both stateless and Core-sourced stateful calculations.
 
 ## Current response shape
 

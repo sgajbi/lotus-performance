@@ -394,12 +394,76 @@ PerformanceSupportabilityReason = Literal[
     "stale_source_observations",
     "benchmark_unavailable",
     "calculation_quality_issue",
+    "partial_history_coverage",
+    "unknown_history_coverage",
     "unsupported_input_mode",
 ]
 PerformanceFreshnessBucket = Literal["current", "same_day", "stale", "unknown"]
+PerformanceHistoryCoverageStatus = Literal["complete", "partial", "unknown"]
+PerformanceHistoryCalculationBasis = Literal["requested_window", "available_window"]
+PerformanceHistoryCoverageReason = Literal[
+    "covered_window_matches_requested_window",
+    "no_observations_in_requested_window",
+    "leading_history_missing",
+    "interior_history_missing",
+    "trailing_history_missing",
+    "venue_calendar_not_attested",
+    "explicit_ignored_dates_applied",
+    "beginning_market_value_baseline_applied",
+]
 
 from app.models.source_quality import PerformanceSourceQualityEvidence  # noqa: E402
 from app.observability_contracts import PERFORMANCE_CALCULATION_SUPPORTABILITY_METRIC_LABELS  # noqa: E402
+
+
+class PerformanceHistoryCoverage(BaseModel):
+    """Evidence that qualifies which part of a requested TWR window was actually observed."""
+
+    status: PerformanceHistoryCoverageStatus = Field(
+        description="Qualification of valuation-history coverage for the requested calculation window.",
+        examples=["complete"],
+    )
+    calculation_basis: PerformanceHistoryCalculationBasis = Field(
+        description=(
+            "Whether the result covers the requested window or only the available observation window. "
+            "available_window never implies zero return for absent dates."
+        ),
+        examples=["requested_window"],
+    )
+    requested_start_date: dt_date = Field(description="Start of the requested calculation window.")
+    requested_end_date: dt_date = Field(description="End of the requested calculation window.")
+    covered_start_date: dt_date | None = Field(
+        default=None,
+        description="Earliest supplied valuation observation, including observations outside the requested window.",
+    )
+    covered_end_date: dt_date | None = Field(
+        default=None,
+        description="Latest supplied valuation observation, including observations outside the requested window.",
+    )
+    effective_start_date: dt_date | None = Field(
+        default=None,
+        description="Earliest supplied valuation observation inside the requested window.",
+    )
+    effective_end_date: dt_date | None = Field(
+        default=None,
+        description="Latest supplied valuation observation inside the requested window.",
+    )
+    calendar_basis: Literal["natural_days", "business_weekdays"] = Field(
+        description="Date basis used to identify required observations; venue holidays are not inferred."
+    )
+    missing_required_observation_count: int = Field(
+        default=0,
+        ge=0,
+        description="Number of required dates without a supplied observation after explicit exclusions and baseline rules.",
+    )
+    missing_required_observation_dates_sample: list[dt_date] = Field(
+        default_factory=list,
+        description="Ordered sample of at most ten required dates without a supplied observation.",
+    )
+    reason_codes: list[PerformanceHistoryCoverageReason] = Field(
+        default_factory=list,
+        description="Bounded reasons for the coverage qualification and any explicit baseline or exclusion applied.",
+    )
 
 
 class PerformanceCalculationSupportability(BaseModel):
@@ -436,6 +500,29 @@ class PerformanceCalculationSupportability(BaseModel):
     source_quality_evidence: PerformanceSourceQualityEvidence | None = Field(
         default=None,
         description="Implementation-backed source-quality evidence preserved from stateful source normalization.",
+    )
+    history_coverage: PerformanceHistoryCoverage | None = Field(
+        default=None,
+        description=(
+            "Requested, covered, and effective valuation-history windows for TWR-compatible calculations. "
+            "Null only for analytics families that do not yet publish this evidence."
+        ),
+        json_schema_extra={
+            "example": {
+                "status": "complete",
+                "calculation_basis": "requested_window",
+                "requested_start_date": "2026-01-01",
+                "requested_end_date": "2026-01-02",
+                "covered_start_date": "2026-01-01",
+                "covered_end_date": "2026-01-02",
+                "effective_start_date": "2026-01-01",
+                "effective_end_date": "2026-01-02",
+                "calendar_basis": "business_weekdays",
+                "missing_required_observation_count": 0,
+                "missing_required_observation_dates_sample": [],
+                "reason_codes": ["covered_window_matches_requested_window"],
+            }
+        },
     )
     metric_labels: tuple[str, ...] = Field(
         default=PERFORMANCE_CALCULATION_SUPPORTABILITY_METRIC_LABELS,

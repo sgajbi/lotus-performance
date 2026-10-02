@@ -85,6 +85,20 @@ def test_twr_response_attributes_tie_to_deterministic_stateless_inputs(client):
         "resolved_period_count": 1,
         "benchmark_row_count": 0,
         "source_quality_evidence": None,
+        "history_coverage": {
+            "status": "complete",
+            "calculation_basis": "requested_window",
+            "requested_start_date": "2026-01-01",
+            "requested_end_date": "2026-01-03",
+            "covered_start_date": "2026-01-01",
+            "covered_end_date": "2026-01-03",
+            "effective_start_date": "2026-01-01",
+            "effective_end_date": "2026-01-03",
+            "calendar_basis": "business_weekdays",
+            "missing_required_observation_count": 0,
+            "missing_required_observation_dates_sample": [],
+            "reason_codes": ["covered_window_matches_requested_window"],
+        },
         "metric_labels": _EXPECTED_SUPPORTABILITY_METRIC_LABELS,
     }
     assert body["audit"]["residual_applied_bp"] == 0.0
@@ -218,6 +232,7 @@ def test_mwr_response_attributes_tie_to_deterministic_stateless_inputs(client):
         "resolved_period_count": 1,
         "benchmark_row_count": 0,
         "source_quality_evidence": None,
+        "history_coverage": None,
         "metric_labels": _EXPECTED_SUPPORTABILITY_METRIC_LABELS,
     }
     assert body["cashflows_used"] == [
