@@ -62,6 +62,13 @@ Inside the current contract:
   missing FX coverage is rejected with HTTP `422` before contribution calculation starts
 - cross-endpoint currency vocabulary is governed by the
   [RFC-020 multi-currency support matrix](../technical/rfc-020-multi-currency-support-matrix.md)
+- position `total_contribution` is available in every supported mode. Position `local_contribution`
+  and `fx_contribution` are numeric only for `currency_mode="BOTH"`; in omitted, `BASE_ONLY`, or
+  `LOCAL_ONLY` mode both fields are null because the local/FX decomposition was not computed.
+  A missing local component is never converted into a synthetic FX contribution. For `BOTH`,
+  the two position components reconcile to the residual-adjusted total. A populated hierarchy
+  summary aggregates those position components, but hierarchy row local/FX fields remain null:
+  the dated hierarchy projection currently aggregates total contribution only.
 - `lookthrough` is accepted as a compatibility request block only; lotus-performance does not
   decompose fund or structured-product holdings and expects lotus-core to provide already-visible
   position rows for the requested scope

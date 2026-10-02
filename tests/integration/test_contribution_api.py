@@ -92,6 +92,75 @@ def test_contribution_endpoint_happy_path_and_envelope(client, happy_path_payloa
     assert "ContributionRequest" in source_economics["source_contracts"]
 
 
+@pytest.mark.parametrize("end_mv,expected_total", [(1100, 10.0), (900, -10.0), (1000, 0.0)])
+@pytest.mark.parametrize("currency_mode", [None, "BASE_ONLY", "LOCAL_ONLY", "BOTH"])
+@pytest.mark.parametrize("with_hierarchy", [False, True])
+def test_contribution_currency_explanation_requires_both_mode(
+    client, end_mv, expected_total, currency_mode, with_hierarchy
+):
+    payload = {
+        "portfolio_id": "SYNTHETIC_CURRENCY_CONTRIBUTION",
+        "currency": "USD",
+        "report_ccy": "USD",
+        "report_start_date": "2025-01-01",
+        "report_end_date": "2025-01-01",
+        "analyses": [{"period": "SI", "frequencies": ["daily"]}],
+        "portfolio_data": {
+            "metric_basis": "NET",
+            "valuation_points": [{"perf_date": "2025-01-01", "begin_mv": 1000, "end_mv": end_mv}],
+        },
+        "positions_data": [
+            {
+                "position_id": "USD_STOCK",
+                "meta": {"currency": "USD", "position_currency": "USD", "sector": "ONE"},
+                "valuation_points": [{"perf_date": "2025-01-01", "begin_mv": 1000, "end_mv": end_mv}],
+            }
+        ],
+    }
+    if currency_mode is not None:
+        payload["currency_mode"] = currency_mode
+    if with_hierarchy:
+        payload["hierarchy"] = ["sector"]
+
+    response = client.post("/performance/contribution", json=payload)
+    assert response.status_code == 200, response.text
+    period = response.json()["results_by_period"]["SI"]
+    position = period["position_contributions"][0]
+    assert period["total_portfolio_return"] == pytest.approx(expected_total)
+    assert position["total_contribution"] == pytest.approx(expected_total)
+    if currency_mode == "BOTH":
+        assert position["local_contribution"] == pytest.approx(expected_total)
+        assert position["fx_contribution"] == pytest.approx(0.0, abs=1e-10)
+    else:
+        assert position["local_contribution"] is None
+        assert position["fx_contribution"] is None
+    if with_hierarchy:
+        summary = period["summary"]
+        row = period["levels"][0]["rows"][0]
+        assert summary["portfolio_contribution"] == pytest.approx(expected_total)
+        assert row["contribution"] == pytest.approx(expected_total)
+        if currency_mode == "BOTH":
+            assert summary["local_contribution"] == pytest.approx(expected_total)
+            assert summary["fx_contribution"] == pytest.approx(0.0, abs=1e-10)
+        else:
+            assert summary["local_contribution"] is None
+            assert summary["fx_contribution"] is None
+        # Hierarchy rows are grouped from adjusted total series, not a dated local/FX series.
+        assert row["local_contribution"] is None
+        assert row["fx_contribution"] is None
+
+
+def test_contribution_openapi_describes_nullable_currency_decomposition():
+    schemas = app.openapi()["components"]["schemas"]
+    for field_name in ("local_contribution", "fx_contribution"):
+        position_field = schemas["PositionContribution"]["properties"][field_name]
+        assert {variant["type"] for variant in position_field["anyOf"]} == {"number", "null"}
+        assert "currency_mode=BOTH" in position_field["description"]
+        assert "null" in position_field["description"]
+        hierarchy_field = schemas["ContributionRow"]["properties"][field_name]
+        assert "null" in hierarchy_field["description"]
+
+
 @pytest.fixture
 def identity_control_payload():
     return {
@@ -879,9 +948,8 @@ def test_contribution_endpoint_hierarchy_keeps_position_contribution_detail(clie
     ) == pytest.approx(result["total_contribution"])
     assert position_rows["Stock_A"]["average_weight"] == pytest.approx(60.0)
     assert position_rows["Stock_A"]["total_return"] == pytest.approx(2.0)
-    assert (
-        position_rows["Stock_A"]["local_contribution"] + position_rows["Stock_A"]["fx_contribution"]
-    ) == pytest.approx(position_rows["Stock_A"]["total_contribution"])
+    assert position_rows["Stock_A"]["local_contribution"] is None
+    assert position_rows["Stock_A"]["fx_contribution"] is None
     assert position_rows["Stock_B"]["average_weight"] == pytest.approx(40.0)
     assert position_rows["Stock_B"]["total_return"] == pytest.approx(2.0)
 
@@ -2956,7 +3024,8 @@ def test_contribution_stateful_hashes_follow_resolved_inputs(client, monkeypatch
     assert body["meta"]["calculation_hash"] == expected_calculation_hash
 
 
-def test_contribution_stateful_currency_mode_both_allows_same_currency_positions(client, monkeypatch):
+@pytest.mark.parametrize("currency_mode", ["BASE_ONLY", "BOTH"])
+def test_contribution_stateful_same_currency_decomposition_availability(client, monkeypatch, currency_mode):
     async def _mock_retrieve_stateful_contribution_source_input(**kwargs):  # noqa: ARG001
         from types import SimpleNamespace
 
@@ -2996,7 +3065,7 @@ def test_contribution_stateful_currency_mode_both_allows_same_currency_positions
         "report_start_date": "2025-01-01",
         "report_end_date": "2025-01-01",
         "analyses": [{"period": "SI", "frequencies": ["daily"]}],
-        "currency_mode": "BOTH",
+        "currency_mode": currency_mode,
         "report_ccy": "USD",
         "input_mode": "stateful",
         "stateful_input": {},
@@ -3008,8 +3077,14 @@ def test_contribution_stateful_currency_mode_both_allows_same_currency_positions
     body = response.json()
     result = body["results_by_period"]["SI"]
     assert body["input_mode"] == "stateful"
-    assert result["position_contributions"][0]["local_contribution"] == pytest.approx(1.0)
-    assert result["position_contributions"][0]["fx_contribution"] == pytest.approx(0.0)
+    position = result["position_contributions"][0]
+    assert position["total_contribution"] == pytest.approx(1.0)
+    if currency_mode == "BOTH":
+        assert position["local_contribution"] == pytest.approx(1.0)
+        assert position["fx_contribution"] == pytest.approx(0.0)
+    else:
+        assert position["local_contribution"] is None
+        assert position["fx_contribution"] is None
     assert body["currency_evidence"]["applied_report_ccy"] == "USD"
     assert body["currency_evidence"]["restated"] is False
     assert body["currency_evidence"]["fx_coverage"] == "none"

@@ -31,12 +31,12 @@ class PositionContribution(BaseModel):
     total_return: float = Field(description="Position return in percentage-point output units.", examples=[4.96])
     local_contribution: Optional[float] = Field(
         default=None,
-        description="Local-market contribution in percentage-point output units.",
+        description="Local-market contribution in percentage points when currency_mode=BOTH; null when decomposition was not computed.",
         examples=[1.1],
     )
     fx_contribution: Optional[float] = Field(
         default=None,
-        description="FX contribution in percentage-point output units.",
+        description="FX contribution in percentage points when currency_mode=BOTH; null when decomposition was not computed.",
         examples=[0.14],
     )
 
@@ -86,12 +86,12 @@ class ContributionSummary(BaseModel):
     )
     local_contribution: Optional[float] = Field(
         default=None,
-        description="Portfolio local contribution total in percentage-point output units.",
+        description="Portfolio local contribution in percentage points when currency_mode=BOTH; null otherwise.",
         examples=[3.1],
     )
     fx_contribution: Optional[float] = Field(
         default=None,
-        description="Portfolio FX contribution total in percentage-point output units.",
+        description="Portfolio FX contribution in percentage points when currency_mode=BOTH; null otherwise.",
         examples=[0.38],
     )
 
@@ -156,12 +156,12 @@ class ContributionRow(BaseModel):
     )
     local_contribution: Optional[float] = Field(
         default=None,
-        description="Local-market row contribution in percentage-point output units.",
+        description="Local-market row contribution in percentage points; null until dated hierarchy decomposition is supported.",
         examples=[1.21],
     )
     fx_contribution: Optional[float] = Field(
         default=None,
-        description="FX row contribution in percentage-point output units.",
+        description="FX row contribution in percentage points; null until dated hierarchy decomposition is supported.",
         examples=[0.21],
     )
 

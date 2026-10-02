@@ -356,6 +356,7 @@ def _build_flat_contribution_position_assembly(
         smoothing_method=request.smoothing.method,
         average_weight_columns=["average_weight", "reset_aware_average_weight_shadow"],
         residual_allocation_weight_column="selected_average_weight",
+        decompose_currency=request.currency_mode == "BOTH",
         selected_average_weight_source_column=selected_average_weight_column,
     )
     position_contributions = build_position_contributions(
@@ -405,6 +406,7 @@ def _build_hierarchy_contribution_position_assembly(
         smoothing_method=request.smoothing.method,
         average_weight_columns=["average_weight", "reset_aware_average_weight_shadow"],
         residual_allocation_weight_column="selected_average_weight",
+        decompose_currency=request.currency_mode == "BOTH",
         selected_average_weight_source_column=selected_average_weight_column,
     )
     position_contributions = build_position_contributions(
@@ -436,6 +438,15 @@ def _build_hierarchy_contribution_position_assembly(
         proven_position_inception_dates=proven_position_inception_dates,
         request=request,
     )
+    if request.currency_mode == "BOTH":
+        hierarchy_results["summary"]["local_contribution"] = sum(
+            position.local_contribution
+            for position in position_contributions
+            if position.local_contribution is not None
+        )
+        hierarchy_results["summary"]["fx_contribution"] = sum(
+            position.fx_contribution for position in position_contributions if position.fx_contribution is not None
+        )
     return _HierarchyContributionPositionAssembly(
         selected_average_weight_column=selected_average_weight_column,
         use_reset_aware_average_weight=use_reset_aware_average_weight,

@@ -1274,6 +1274,7 @@ def test_build_residual_adjusted_position_totals_allocates_carino_residual_by_se
         smoothing_method="CARINO",
         average_weight_columns=["average_weight", "reset_aware_average_weight_shadow"],
         residual_allocation_weight_column="selected_average_weight",
+        decompose_currency=True,
         selected_average_weight_source_column="reset_aware_average_weight_shadow",
     )
 
