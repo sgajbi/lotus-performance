@@ -80,7 +80,7 @@ The endpoint calls lotus-core query-control-plane analytics-input contracts thro
 stateful input service:
 
 - benchmark assignment when `benchmark_id` is omitted;
-- benchmark market series with `series_fields=["component_weight"]`;
+- benchmark market series with `series_fields=["component_weight", "benchmark_return"]`; Core's dated benchmark-return observations select the effective-dated component weights, while absent return observations remain absent rather than synthesized;
 - targeted index catalog lookup only when aggregate dimensions need classification labels.
 
 If only `POSITION` is requested, the endpoint does not fetch index catalog data. This keeps the

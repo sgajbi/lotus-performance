@@ -179,7 +179,7 @@ async def test_build_benchmark_exposure_context_groups_and_aligns_weights() -> N
     assert weights[("2026-01-02", "ISSUER", "ISSUER_ISSUER_TECH")] == Decimal("0.60")
     assert weights[("2026-01-02", "POSITION", "IDX_TECH_A")] == Decimal("0.35")
     assert service.assignment_calls[0]["portfolio_id"] == "PB_SG_GLOBAL_BAL_001"
-    assert service.market_series_calls[0]["series_fields"] == ["component_weight"]
+    assert service.market_series_calls[0]["series_fields"] == ["component_weight", "benchmark_return"]
     assert service.market_series_calls[0]["target_currency"] == "USD"
 
 
@@ -256,7 +256,7 @@ async def test_retrieve_benchmark_component_series_projects_market_series_reques
             "end_date": date(2026, 1, 3),
             "frequency": "daily",
             "target_currency": "CHF",
-            "series_fields": ["component_weight"],
+            "series_fields": ["component_weight", "benchmark_return"],
         }
     ]
 

@@ -68,6 +68,57 @@ class _MalformedRetrievalMetadataStatefulInputService(_RecordingStatefulInputSer
         return status_code, payload
 
 
+class _EffectiveDatedExposureStatefulInputService(_RecordingStatefulInputService):
+    async def get_benchmark_market_series(self, **kwargs):
+        self.market_series_calls.append(kwargs)
+        # Core's market-series source emits the effective segment date, plus
+        # benchmark-return observation dates only when that field is requested.
+        dates = ["2026-01-01"]
+        if "benchmark_return" in kwargs["series_fields"]:
+            dates.extend(["2026-01-02", "2026-01-05"])
+        return 200, {
+            "component_series": [
+                {
+                    "index_id": index_id,
+                    "points": [{"series_date": day, "component_weight": weight} for day in dates],
+                }
+                for index_id, weight in (("IDX_GLOBAL_EQUITY", "0.60"), ("IDX_GLOBAL_BONDS", "0.40"))
+            ],
+            "retrieval_metadata": {"chunk_count": 1, "page_count": 1},
+        }
+
+
+def test_benchmark_exposure_requests_source_return_calendar_for_effective_weights(monkeypatch):
+    stateful_service = _EffectiveDatedExposureStatefulInputService()
+    monkeypatch.setattr(
+        "app.services.benchmark_exposure_context_workflow_service.build_stateful_input_service",
+        lambda *, settings: stateful_service,
+    )
+    with TestClient(app) as client:
+        response = client.post(
+            "/integration/benchmarks/exposure-context",
+            json={
+                "portfolio_id": "PB_SG_GLOBAL_BAL_001",
+                "benchmark_id": "BMK_GLOBAL_60_40",
+                "as_of_date": "2026-01-05",
+                "window": {"start_date": "2026-01-01", "end_date": "2026-01-05"},
+                "frequency": "DAILY",
+                "reporting_currency": "USD",
+                "grouping_dimensions": ["POSITION"],
+                "page": {"page_size": 20, "page_token": None},
+            },
+        )
+    assert response.status_code == 200
+    assert stateful_service.market_series_calls[0]["series_fields"] == ["component_weight", "benchmark_return"]
+    body = response.json()
+    assert body["metadata"]["exposure_source_quality"]["status"] == "complete"
+    assert [(row["valuation_date"], row["component_id"], row["weight"]) for row in body["rows"]] == [
+        (day, index_id, weight)
+        for day in ("2026-01-01", "2026-01-02", "2026-01-05")
+        for index_id, weight in (("IDX_GLOBAL_BONDS", "0.40"), ("IDX_GLOBAL_EQUITY", "0.60"))
+    ]
+
+
 class _PartialExposureStatefulInputService(_RecordingStatefulInputService):
     async def get_benchmark_market_series(self, **kwargs):
         self.market_series_calls.append(kwargs)
@@ -202,7 +253,7 @@ def test_benchmark_exposure_context_api_returns_performance_aligned_view(monkeyp
         ("2026-01-02", "ISSUER"): 1.0,
     }
     assert stateful_service.assignment_calls[0]["portfolio_id"] == "PB_SG_GLOBAL_BAL_001"
-    assert stateful_service.market_series_calls[0]["series_fields"] == ["component_weight"]
+    assert stateful_service.market_series_calls[0]["series_fields"] == ["component_weight", "benchmark_return"]
     assert stateful_service.market_series_calls[0]["target_currency"] == "USD"
 
 

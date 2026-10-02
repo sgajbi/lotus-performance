@@ -1005,7 +1005,7 @@ Return semantics for the workspace surface are now explicit rather than inferred
   - `ISSUER`
 - contract notes:
   - if `benchmark_id` is omitted, lotus-performance resolves benchmark assignment through lotus-core
-  - benchmark market-series is requested with `series_fields=["component_weight"]`
+  - benchmark market-series is requested with `series_fields=["component_weight", "benchmark_return"]`; Core resolves effective-dated weights on actual benchmark-return observation dates, without manufacturing a daily calendar or carrying weights beyond their effective intervals
   - `frequency=DAILY` is the only supported v1 frequency; monthly or weekly benchmark exposure history is intentionally rejected rather than silently resampled
   - response rows use decimal weights, not percentages
   - row weights are returned as decimal fractions where `0.60` means a 60% benchmark exposure

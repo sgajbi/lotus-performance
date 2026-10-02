@@ -51,7 +51,9 @@ Governed base-URL examples:
 
 Benchmark exposure context is the performance-owned derived integration view for downstream risk
 attribution. It resolves benchmark assignment and component weights through `lotus-core`, then
-serves `POSITION`, `SECTOR`, `ASSET_CLASS`, and `ISSUER` rows at `frequency=DAILY`. Issuer rows use
+serves `POSITION`, `SECTOR`, `ASSET_CLASS`, and `ISSUER` rows at `frequency=DAILY`. Core benchmark-return
+observation dates select effective-dated weights; missing observations are not synthesized, and cash
+classification remains Core-owned. Issuer rows use
 lotus-core index-catalog `classification_labels.issuer_id` and `issuer_name`; `POSITION` is the only
 grouping that carries `component_id`. Consumers must read the request-wide
 `metadata.exposure_source_quality` on every page: `incomplete` preserves valid source rows and

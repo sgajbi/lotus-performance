@@ -181,7 +181,10 @@ async def _retrieve_benchmark_component_series(
         end_date=request.window.end_date,
         frequency=request.frequency.value.lower(),
         target_currency=request.reporting_currency,
-        series_fields=["component_weight"],
+        # Core resolves effective-dated composition on each requested benchmark
+        # return observation date. Without the return calendar, a weight-only
+        # read emits only composition-change dates and cannot align to Risk.
+        series_fields=["component_weight", "benchmark_return"],
     )
     component_series = _component_series_from_market_response(
         benchmark_id=benchmark_id,
