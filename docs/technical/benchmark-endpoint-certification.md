@@ -70,6 +70,9 @@ Every certified benchmark response must satisfy these invariants for each resolv
   `contribution = weight_bop * component_return` after percentage scaling;
 - each `component_contributions[]` local and FX contribution satisfies the same weight application
   when local/FX components are supplied;
+- daily base, local, and FX totals use the same raw beginning-of-day exposure basis, including
+  partial, leveraged, zero, and offsetting signed weights; weight-deviation diagnostics do not
+  authorize local/FX renormalization;
 - `audit.counts.component_observations`, `audit.counts.benchmark_return_points`, and
   `audit.counts.daily_returns` match the normalized calculation input and output;
 - `audit.residual_applied_bp` reports component-weight deviation in basis points;

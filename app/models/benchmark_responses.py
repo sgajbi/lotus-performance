@@ -24,12 +24,12 @@ class DailyBenchmarkReturn(BaseModel):
     )
     benchmark_return_local: float | None = Field(  # monetary-float-allow: percentage-point return, not money
         default=None,
-        description="Local-market component of the daily benchmark return in percentage points.",
+        description="Sum of beginning-of-day-weighted local component returns in percentage points; not normalized by total weight.",
         examples=[0.35],
     )
     benchmark_return_fx: float | None = Field(  # monetary-float-allow: percentage-point return, not money
         default=None,
-        description="FX component of the daily benchmark return in percentage points.",
+        description="Sum of beginning-of-day-weighted FX component returns in percentage points; not normalized by total weight.",
         examples=[0.07],
     )
 

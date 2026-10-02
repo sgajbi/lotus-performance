@@ -1,4 +1,5 @@
 from datetime import date
+from decimal import Decimal
 
 import pytest
 
@@ -77,6 +78,41 @@ def test_calculate_benchmark_returns_preserves_local_and_fx_components():
     assert contribution_row["component_currency"] == "EUR"
     assert float(contribution_row["local_contribution"]) == pytest.approx(0.02)
     assert float(contribution_row["fx_contribution"]) == pytest.approx(0.01)
+
+
+@pytest.mark.parametrize(
+    ("weights", "expected_daily", "expected_deviation"),
+    [
+        (("0.6", "0"), Decimal("0.012"), 0.4),
+        (("0.6", "0.4"), Decimal("0.016"), 0.0),
+        (("1.2", "0.8"), Decimal("0.032"), 1.0),
+        (("1", "-1"), Decimal("0.01"), 1.0),
+        (("0", "0"), Decimal("0"), 1.0),
+    ],
+)
+def test_local_and_base_use_same_raw_exposure_basis(weights, expected_daily, expected_deviation):
+    observations = [
+        BenchmarkComponentObservation(
+            component_id=component_id,
+            perf_date=date(2026, 1, 2),
+            weight_bop=weight,
+            component_return=component_return,
+            component_return_local=component_return,
+            component_return_fx=0,
+        )
+        for component_id, weight, component_return in zip(("IDX_A", "IDX_B"), weights, ("0.02", "0.01"), strict=True)
+    ]
+    result = calculate_benchmark_returns(observations)
+    row = result.daily_returns_df.iloc[0]
+
+    assert row["benchmark_return"] == expected_daily
+    assert row["benchmark_return_local"] == expected_daily
+    assert row["benchmark_return_fx"] == Decimal("0")
+    assert result.max_weight_sum_deviation == pytest.approx(expected_deviation)
+    assert [entry["local_contribution"] for entry in result.component_contributions_df.to_dict("records")] == [
+        Decimal(weight) * component_return
+        for weight, component_return in zip(weights, (Decimal("0.02"), Decimal("0.01")), strict=True)
+    ]
 
 
 def test_component_contributions_dataframe_preserves_decimal_values_and_sort_order():
@@ -295,7 +331,7 @@ def test_calculate_benchmark_returns_notes_weight_sum_deviation_and_zero_weight_
     daily_row = result.daily_returns_df.to_dict(orient="records")[0]
     assert float(daily_row["weight_sum"]) == pytest.approx(0.8)
     assert float(daily_row["benchmark_return"]) == pytest.approx(0.0128)
-    assert float(daily_row["benchmark_return_local"]) == pytest.approx(0.02)
+    assert float(daily_row["benchmark_return_local"]) == pytest.approx(0.016)
     assert float(daily_row["benchmark_return_fx"]) == pytest.approx(0.0)
     assert result.max_weight_sum_deviation == pytest.approx(0.2)
     assert result.notes == ["Benchmark component weights do not sum exactly to 1.0 on every date."]

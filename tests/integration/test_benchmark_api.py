@@ -6,7 +6,10 @@ import pytest
 from fastapi.testclient import TestClient
 
 from app.core.config import get_settings
-from app.models.benchmark_analytics_requests import BenchmarkAnalyticsRequest, BenchmarkInputMode
+from app.models.benchmark_analytics_requests import (
+    BenchmarkAnalyticsRequest,
+    BenchmarkInputMode,
+)
 from app.models.benchmark_requests import BenchmarkPerformanceRequest
 from app.services.async_result_store import async_result_store
 from app.services.benchmark_mode_service import ResolvedBenchmarkRequest
@@ -155,6 +158,65 @@ def test_calculate_benchmark_endpoint_supports_stateless_calculated_mode(client)
     assert body["audit"]["residual_applied_bp"] == pytest.approx(0.0)
 
 
+@pytest.mark.parametrize(
+    ("weights", "expected_daily", "expected_linked"),
+    [
+        ((0.6, 0.0), (1.2, 0.6), 1.8072),
+        ((0.6, 0.4), (1.6, 0.8), 2.4128),
+        ((1.2, 0.8), (3.2, 1.6), 4.8512),
+        ((1.0, -1.0), (1.0, 0.5), 1.505),
+        ((0.0, 0.0), (0.0, 0.0), 0.0),
+    ],
+)
+def test_benchmark_endpoint_preserves_exposure_basis_for_local_and_base(
+    client, weights, expected_daily, expected_linked
+):
+    observations = [
+        {
+            "component_id": component_id,
+            "perf_date": perf_date,
+            "weight_bop": weight,
+            "component_return": component_return,
+            "component_return_local": component_return,
+            "component_return_fx": 0,
+        }
+        for perf_date, returns in (
+            ("2026-01-02", (0.02, 0.01)),
+            ("2026-01-03", (0.01, 0.005)),
+        )
+        for component_id, weight, component_return in zip(("IDX_A", "IDX_B"), weights, returns, strict=True)
+    ]
+    payload = {
+        "calculation_id": str(uuid4()),
+        "benchmark_id": "BMK_EXPOSURE_BASIS",
+        "benchmark_start_date": "2026-01-02",
+        "report_end_date": "2026-01-03",
+        "analyses": [{"period": "SI", "frequencies": ["daily"]}],
+        "input_mode": "stateless",
+        "return_source": "calculated",
+        "output": {"include_timeseries": True},
+        "stateless_input": {
+            "benchmark_currency": "USD",
+            "component_observations": observations,
+        },
+    }
+
+    response = client.post("/performance/benchmark", json=payload)
+
+    assert response.status_code == 200, response.text
+    result = response.json()["results_by_period"]["SI"]
+    daily = result["daily_returns"]
+    assert [row["benchmark_return"] for row in daily] == pytest.approx(expected_daily)
+    assert [row["benchmark_return_local"] for row in daily] == pytest.approx(expected_daily)
+    assert [row["benchmark_return_fx"] for row in daily] == pytest.approx((0.0, 0.0))
+    summary = result["benchmark"]["summary"]["period_return"]
+    assert summary["base"] == pytest.approx(expected_linked)
+    assert summary["local"] == pytest.approx(expected_linked)
+    assert summary["fx"] == pytest.approx(0.0)
+    assert result["benchmark"]["breakdowns"]["daily"][-1]["cumulative_return"]["base"] == pytest.approx(expected_linked)
+    assert sum(row["contribution"] for row in result["component_contributions"][:2]) == pytest.approx(expected_daily[0])
+
+
 def test_calculate_benchmark_endpoint_supports_stateless_component_price_points(client):
     payload = {
         "calculation_id": str(uuid4()),
@@ -168,8 +230,18 @@ def test_calculate_benchmark_endpoint_supports_stateless_component_price_points(
         "stateless_input": {
             "benchmark_currency": "USD",
             "component_price_points": [
-                {"component_id": "IDX_A", "perf_date": "2026-01-01", "weight_bop": 0.6, "index_price": 100.0},
-                {"component_id": "IDX_A", "perf_date": "2026-01-02", "weight_bop": 0.6, "index_price": 102.0},
+                {
+                    "component_id": "IDX_A",
+                    "perf_date": "2026-01-01",
+                    "weight_bop": 0.6,
+                    "index_price": 100.0,
+                },
+                {
+                    "component_id": "IDX_A",
+                    "perf_date": "2026-01-02",
+                    "weight_bop": 0.6,
+                    "index_price": 102.0,
+                },
                 {
                     "component_id": "IDX_B",
                     "perf_date": "2026-01-01",
@@ -202,6 +274,78 @@ def test_calculate_benchmark_endpoint_supports_stateless_component_price_points(
     assert itd["daily_returns"][0]["benchmark_return_fx"] == pytest.approx(0.4)
     assert len(itd["component_contributions"]) == 2
     assert body["meta"]["input_fingerprint"] != raw_input_fingerprint
+
+
+def test_stateless_price_derived_endpoint_preserves_all_exposure_bases(client):
+    cases = (
+        ((0.6, 0.0), (1.2, 0.6), 1.8072),
+        ((0.6, 0.4), (1.6, 0.8), 2.4128),
+        ((1.2, 0.8), (3.2, 1.6), 4.8512),
+        ((1.0, -1.0), (1.0, 0.5), 1.505),
+        ((0.0, 0.0), (0.0, 0.0), 0.0),
+    )
+    for case_index, (weights, expected_daily, expected_linked) in enumerate(cases):
+        payload = {
+            "calculation_id": str(uuid4()),
+            "benchmark_id": f"BMK_STATELESS_PRICE_BASIS_{case_index}",
+            "benchmark_start_date": "2026-01-02",
+            "report_end_date": "2026-01-03",
+            "analyses": [{"period": "SI", "frequencies": ["daily"]}],
+            "input_mode": "stateless",
+            "return_source": "calculated",
+            "output": {"include_timeseries": True},
+            "stateless_input": {
+                "benchmark_currency": "USD",
+                "component_price_points": [
+                    {
+                        "component_id": "IDX_A",
+                        "perf_date": "2026-01-01",
+                        "weight_bop": weights[0],
+                        "index_price": 100.0,
+                    },
+                    {
+                        "component_id": "IDX_A",
+                        "perf_date": "2026-01-02",
+                        "weight_bop": weights[0],
+                        "index_price": 102.0,
+                    },
+                    {
+                        "component_id": "IDX_A",
+                        "perf_date": "2026-01-03",
+                        "weight_bop": weights[0],
+                        "index_price": 103.02,
+                    },
+                    {
+                        "component_id": "IDX_B",
+                        "perf_date": "2026-01-01",
+                        "weight_bop": weights[1],
+                        "index_price": 100.0,
+                    },
+                    {
+                        "component_id": "IDX_B",
+                        "perf_date": "2026-01-02",
+                        "weight_bop": weights[1],
+                        "index_price": 101.0,
+                    },
+                    {
+                        "component_id": "IDX_B",
+                        "perf_date": "2026-01-03",
+                        "weight_bop": weights[1],
+                        "index_price": 101.505,
+                    },
+                ],
+            },
+        }
+
+        response = client.post("/performance/benchmark", json=payload)
+
+        assert response.status_code == 200, response.text
+        result = response.json()["results_by_period"]["SI"]
+        assert [row["benchmark_return"] for row in result["daily_returns"]] == pytest.approx(expected_daily)
+        assert [row["benchmark_return_local"] for row in result["daily_returns"]] == pytest.approx(expected_daily)
+        assert [row["benchmark_return_fx"] for row in result["daily_returns"]] == pytest.approx((0.0, 0.0))
+        assert result["benchmark"]["summary"]["period_return"]["base"] == pytest.approx(expected_linked)
+        assert result["benchmark"]["summary"]["period_return"]["local"] == pytest.approx(expected_linked)
 
 
 def test_calculate_benchmark_endpoint_supports_explicit_stateless_window(client):
@@ -274,9 +418,21 @@ def test_calculate_benchmark_endpoint_supports_stateful_calculated_mode(client, 
                 200,
                 {
                     "points": [
-                        {"series_date": "2026-01-01", "index_price": "100", "series_currency": "USD"},
-                        {"series_date": "2026-01-02", "index_price": "102", "series_currency": "USD"},
-                        {"series_date": "2026-01-03", "index_price": "103.02", "series_currency": "USD"},
+                        {
+                            "series_date": "2026-01-01",
+                            "index_price": "100",
+                            "series_currency": "USD",
+                        },
+                        {
+                            "series_date": "2026-01-02",
+                            "index_price": "102",
+                            "series_currency": "USD",
+                        },
+                        {
+                            "series_date": "2026-01-03",
+                            "index_price": "103.02",
+                            "series_currency": "USD",
+                        },
                     ],
                     "retrieval_metadata": {"chunk_count": 1, "page_count": 1},
                 },
@@ -285,9 +441,21 @@ def test_calculate_benchmark_endpoint_supports_stateful_calculated_mode(client, 
             200,
             {
                 "points": [
-                    {"series_date": "2026-01-01", "index_price": "100", "series_currency": "EUR"},
-                    {"series_date": "2026-01-02", "index_price": "101", "series_currency": "EUR"},
-                    {"series_date": "2026-01-03", "index_price": "101.505", "series_currency": "EUR"},
+                    {
+                        "series_date": "2026-01-01",
+                        "index_price": "100",
+                        "series_currency": "EUR",
+                    },
+                    {
+                        "series_date": "2026-01-02",
+                        "index_price": "101",
+                        "series_currency": "EUR",
+                    },
+                    {
+                        "series_date": "2026-01-03",
+                        "index_price": "101.505",
+                        "series_currency": "EUR",
+                    },
                 ],
                 "retrieval_metadata": {"chunk_count": 1, "page_count": 1},
             },
@@ -345,7 +513,96 @@ def test_calculate_benchmark_endpoint_supports_stateful_calculated_mode(client, 
     assert body["audit"]["counts"]["component_observations"] == 4
 
 
-def test_calculate_benchmark_endpoint_rejects_stateless_price_points_with_misaligned_component_dates(client):
+def test_stateful_price_derived_endpoint_preserves_all_exposure_bases(client, monkeypatch):
+    current_weights = [0.6, 0.4]
+
+    async def _mock_get_benchmark_composition_window(self, **kwargs):  # noqa: ARG001
+        return (
+            200,
+            {
+                "benchmark_id": "BMK_STATEFUL_PRICE_BASIS",
+                "benchmark_currency": "USD",
+                "segments": [
+                    {
+                        "index_id": "IDX_A",
+                        "composition_weight": str(current_weights[0]),
+                        "composition_effective_from": "2026-01-01",
+                        "composition_effective_to": "2026-01-31",
+                    },
+                    {
+                        "index_id": "IDX_B",
+                        "composition_weight": str(current_weights[1]),
+                        "composition_effective_from": "2026-01-01",
+                        "composition_effective_to": "2026-01-31",
+                    },
+                ],
+            },
+        )
+
+    async def _mock_get_index_price_series(self, **kwargs):  # noqa: ARG001
+        if kwargs["index_id"] == "IDX_A":
+            prices = (100, 102, 103.02)
+        else:
+            prices = (100, 101, 101.505)
+        return (
+            200,
+            {
+                "points": [
+                    {
+                        "series_date": date,
+                        "index_price": str(price),
+                        "series_currency": "USD",
+                    }
+                    for date, price in zip(("2026-01-01", "2026-01-02", "2026-01-03"), prices, strict=True)
+                ],
+                "retrieval_metadata": {"chunk_count": 1, "page_count": 1},
+            },
+        )
+
+    monkeypatch.setattr(
+        "app.services.stateful_input_service.StatefulInputService.get_benchmark_composition_window",
+        _mock_get_benchmark_composition_window,
+    )
+    monkeypatch.setattr(
+        "app.services.stateful_input_service.StatefulInputService.get_index_price_series",
+        _mock_get_index_price_series,
+    )
+
+    cases = (
+        ((0.6, 0.0), (1.2, 0.6), 1.8072),
+        ((0.6, 0.4), (1.6, 0.8), 2.4128),
+        ((1.2, 0.8), (3.2, 1.6), 4.8512),
+        ((1.0, -1.0), (1.0, 0.5), 1.505),
+        ((0.0, 0.0), (0.0, 0.0), 0.0),
+    )
+    for weights, expected_daily, expected_linked in cases:
+        current_weights[:] = weights
+        payload = {
+            "calculation_id": str(uuid4()),
+            "benchmark_id": "BMK_STATEFUL_PRICE_BASIS",
+            "benchmark_start_date": "2026-01-02",
+            "report_end_date": "2026-01-03",
+            "analyses": [{"period": "SI", "frequencies": ["daily"]}],
+            "input_mode": "stateful",
+            "return_source": "calculated",
+            "output": {"include_timeseries": True},
+            "stateful_input": {},
+        }
+
+        response = client.post("/performance/benchmark", json=payload)
+
+        assert response.status_code == 200, response.text
+        result = response.json()["results_by_period"]["SI"]
+        assert [row["benchmark_return"] for row in result["daily_returns"]] == pytest.approx(expected_daily)
+        assert [row["benchmark_return_local"] for row in result["daily_returns"]] == pytest.approx(expected_daily)
+        assert [row["benchmark_return_fx"] for row in result["daily_returns"]] == pytest.approx((0.0, 0.0))
+        assert result["benchmark"]["summary"]["period_return"]["base"] == pytest.approx(expected_linked)
+        assert result["benchmark"]["summary"]["period_return"]["local"] == pytest.approx(expected_linked)
+
+
+def test_calculate_benchmark_endpoint_rejects_stateless_price_points_with_misaligned_component_dates(
+    client,
+):
     payload = {
         "calculation_id": str(uuid4()),
         "benchmark_id": "BMK_STATELESS_PRICE_BAD_DATES",
@@ -357,10 +614,30 @@ def test_calculate_benchmark_endpoint_rejects_stateless_price_points_with_misali
         "stateless_input": {
             "benchmark_currency": "USD",
             "component_price_points": [
-                {"component_id": "IDX_A", "perf_date": "2026-01-01", "weight_bop": 0.6, "index_price": 100.0},
-                {"component_id": "IDX_A", "perf_date": "2026-01-02", "weight_bop": 0.6, "index_price": 102.0},
-                {"component_id": "IDX_B", "perf_date": "2026-01-01", "weight_bop": 0.4, "index_price": 100.0},
-                {"component_id": "IDX_B", "perf_date": "2026-01-03", "weight_bop": 0.4, "index_price": 101.0},
+                {
+                    "component_id": "IDX_A",
+                    "perf_date": "2026-01-01",
+                    "weight_bop": 0.6,
+                    "index_price": 100.0,
+                },
+                {
+                    "component_id": "IDX_A",
+                    "perf_date": "2026-01-02",
+                    "weight_bop": 0.6,
+                    "index_price": 102.0,
+                },
+                {
+                    "component_id": "IDX_B",
+                    "perf_date": "2026-01-01",
+                    "weight_bop": 0.4,
+                    "index_price": 100.0,
+                },
+                {
+                    "component_id": "IDX_B",
+                    "perf_date": "2026-01-03",
+                    "weight_bop": 0.4,
+                    "index_price": 101.0,
+                },
             ],
         },
     }
@@ -371,7 +648,9 @@ def test_calculate_benchmark_endpoint_rejects_stateless_price_points_with_misali
     assert "same derived return-date set" in response.json()["detail"]
 
 
-def test_calculate_benchmark_endpoint_rejects_stateless_price_points_with_duplicate_component_dates(client):
+def test_calculate_benchmark_endpoint_rejects_stateless_price_points_with_duplicate_component_dates(
+    client,
+):
     payload = {
         "calculation_id": str(uuid4()),
         "benchmark_id": "BMK_STATELESS_PRICE_DUP_DATES",
@@ -383,10 +662,30 @@ def test_calculate_benchmark_endpoint_rejects_stateless_price_points_with_duplic
         "stateless_input": {
             "benchmark_currency": "USD",
             "component_price_points": [
-                {"component_id": "IDX_A", "perf_date": "2026-01-01", "weight_bop": 0.6, "index_price": 100.0},
-                {"component_id": "IDX_A", "perf_date": "2026-01-01", "weight_bop": 0.6, "index_price": 101.0},
-                {"component_id": "IDX_B", "perf_date": "2026-01-01", "weight_bop": 0.4, "index_price": 100.0},
-                {"component_id": "IDX_B", "perf_date": "2026-01-02", "weight_bop": 0.4, "index_price": 101.0},
+                {
+                    "component_id": "IDX_A",
+                    "perf_date": "2026-01-01",
+                    "weight_bop": 0.6,
+                    "index_price": 100.0,
+                },
+                {
+                    "component_id": "IDX_A",
+                    "perf_date": "2026-01-01",
+                    "weight_bop": 0.6,
+                    "index_price": 101.0,
+                },
+                {
+                    "component_id": "IDX_B",
+                    "perf_date": "2026-01-01",
+                    "weight_bop": 0.4,
+                    "index_price": 100.0,
+                },
+                {
+                    "component_id": "IDX_B",
+                    "perf_date": "2026-01-02",
+                    "weight_bop": 0.4,
+                    "index_price": 101.0,
+                },
             ],
         },
     }
@@ -443,7 +742,8 @@ def test_benchmark_results_endpoint_returns_async_stateful_result(client, monkey
         )
 
     monkeypatch.setattr(
-        "app.services.benchmark_calculation_workflow_service.resolve_benchmark_request", _mock_resolve_benchmark_request
+        "app.services.benchmark_calculation_workflow_service.resolve_benchmark_request",
+        _mock_resolve_benchmark_request,
     )
 
     payload = {
@@ -615,10 +915,30 @@ def test_calculate_benchmark_endpoint_promotes_stateful_benchmark_to_async_on_re
                 "return_source": "calculated",
                 "benchmark_currency": "USD",
                 "component_observations": [
-                    {"component_id": "IDX_A", "perf_date": "2026-01-02", "weight_bop": 0.6, "component_return": 0.01},
-                    {"component_id": "IDX_B", "perf_date": "2026-01-02", "weight_bop": 0.4, "component_return": 0.02},
-                    {"component_id": "IDX_A", "perf_date": "2026-01-03", "weight_bop": 0.6, "component_return": 0.01},
-                    {"component_id": "IDX_B", "perf_date": "2026-01-03", "weight_bop": 0.4, "component_return": 0.02},
+                    {
+                        "component_id": "IDX_A",
+                        "perf_date": "2026-01-02",
+                        "weight_bop": 0.6,
+                        "component_return": 0.01,
+                    },
+                    {
+                        "component_id": "IDX_B",
+                        "perf_date": "2026-01-02",
+                        "weight_bop": 0.4,
+                        "component_return": 0.02,
+                    },
+                    {
+                        "component_id": "IDX_A",
+                        "perf_date": "2026-01-03",
+                        "weight_bop": 0.6,
+                        "component_return": 0.01,
+                    },
+                    {
+                        "component_id": "IDX_B",
+                        "perf_date": "2026-01-03",
+                        "weight_bop": 0.4,
+                        "component_return": 0.02,
+                    },
                 ],
             }
         )
@@ -630,7 +950,8 @@ def test_calculate_benchmark_endpoint_promotes_stateful_benchmark_to_async_on_re
         )
 
     monkeypatch.setattr(
-        "app.services.benchmark_calculation_workflow_service.resolve_benchmark_request", _mock_resolve_benchmark_request
+        "app.services.benchmark_calculation_workflow_service.resolve_benchmark_request",
+        _mock_resolve_benchmark_request,
     )
 
     payload = {
@@ -675,10 +996,30 @@ def test_benchmark_endpoint_generates_calculation_id_for_async_stateful_request(
                 "return_source": "calculated",
                 "benchmark_currency": "USD",
                 "component_observations": [
-                    {"component_id": "IDX_A", "perf_date": "2026-01-02", "weight_bop": 0.6, "component_return": 0.01},
-                    {"component_id": "IDX_B", "perf_date": "2026-01-02", "weight_bop": 0.4, "component_return": 0.02},
-                    {"component_id": "IDX_A", "perf_date": "2026-01-03", "weight_bop": 0.6, "component_return": 0.01},
-                    {"component_id": "IDX_B", "perf_date": "2026-01-03", "weight_bop": 0.4, "component_return": 0.02},
+                    {
+                        "component_id": "IDX_A",
+                        "perf_date": "2026-01-02",
+                        "weight_bop": 0.6,
+                        "component_return": 0.01,
+                    },
+                    {
+                        "component_id": "IDX_B",
+                        "perf_date": "2026-01-02",
+                        "weight_bop": 0.4,
+                        "component_return": 0.02,
+                    },
+                    {
+                        "component_id": "IDX_A",
+                        "perf_date": "2026-01-03",
+                        "weight_bop": 0.6,
+                        "component_return": 0.01,
+                    },
+                    {
+                        "component_id": "IDX_B",
+                        "perf_date": "2026-01-03",
+                        "weight_bop": 0.4,
+                        "component_return": 0.02,
+                    },
                 ],
             }
         )
@@ -690,7 +1031,8 @@ def test_benchmark_endpoint_generates_calculation_id_for_async_stateful_request(
         )
 
     monkeypatch.setattr(
-        "app.services.benchmark_calculation_workflow_service.resolve_benchmark_request", _mock_resolve_benchmark_request
+        "app.services.benchmark_calculation_workflow_service.resolve_benchmark_request",
+        _mock_resolve_benchmark_request,
     )
 
     payload = {
@@ -733,10 +1075,30 @@ def test_benchmark_endpoint_offloads_large_stateless_benchmark_requests(client):
         "stateless_input": {
             "benchmark_currency": "USD",
             "component_observations": [
-                {"component_id": "IDX_A", "perf_date": "2026-01-02", "weight_bop": 0.6, "component_return": 0.02},
-                {"component_id": "IDX_B", "perf_date": "2026-01-02", "weight_bop": 0.4, "component_return": 0.01},
-                {"component_id": "IDX_A", "perf_date": "2026-01-03", "weight_bop": 0.6, "component_return": 0.01},
-                {"component_id": "IDX_B", "perf_date": "2026-01-03", "weight_bop": 0.4, "component_return": 0.005},
+                {
+                    "component_id": "IDX_A",
+                    "perf_date": "2026-01-02",
+                    "weight_bop": 0.6,
+                    "component_return": 0.02,
+                },
+                {
+                    "component_id": "IDX_B",
+                    "perf_date": "2026-01-02",
+                    "weight_bop": 0.4,
+                    "component_return": 0.01,
+                },
+                {
+                    "component_id": "IDX_A",
+                    "perf_date": "2026-01-03",
+                    "weight_bop": 0.6,
+                    "component_return": 0.01,
+                },
+                {
+                    "component_id": "IDX_B",
+                    "perf_date": "2026-01-03",
+                    "weight_bop": 0.4,
+                    "component_return": 0.005,
+                },
             ],
         },
     }
