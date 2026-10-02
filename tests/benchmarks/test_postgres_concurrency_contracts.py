@@ -24,10 +24,135 @@ from app.services.lineage_metadata_store import (
     LineagePayloadModel,
     LineageStatus,
 )
+from app.services.source_correction_store import (
+    SourceCorrectionRegistrationStatus,
+    SourceCorrectionStore,
+)
 from tests.benchmarks.postgres_runtime_helpers import get_postgres_database_url
 
 POSTGRES_CONCURRENCY_ROWS = 20
 POSTGRES_CONCURRENCY_CLAIM_LIMIT = 10
+
+
+def _source_correction_payload(*, correction_id: str, source_revision: str) -> dict[str, str | dict[str, str]]:
+    return {
+        "correction_id": correction_id,
+        "source_product": "portfolio_timeseries",
+        "source_revision": source_revision,
+        "supersedes_source_revision": "revision-1",
+        "target_type": "portfolio",
+        "target_id": f"PORT-{correction_id}",
+        "effective_start_date": "2026-01-01",
+        "effective_end_date": "2026-01-02",
+        "observed_at_utc": "2026-01-03T00:00:00+00:00",
+        "correction_reason": "PostgreSQL contention contract.",
+        "source_authorization": {"issuer": "lotus-core", "evidence_id": correction_id},
+    }
+
+
+def test_postgres_source_correction_registration_is_tenant_scoped_and_restart_durable():
+    database_url = get_postgres_database_url()
+    store = SourceCorrectionStore(database_url)
+    store.create_schema()
+    correction_id = f"pg-correction-{uuid4()}"
+    payload = _source_correction_payload(correction_id=correction_id, source_revision="revision-2")
+
+    def _register(tenant_id: str):
+        worker_store = SourceCorrectionStore(database_url)
+        return worker_store.register(
+            tenant_id=tenant_id,
+            correction_id=correction_id,
+            request_fingerprint="sha256:stable",
+            request_payload=payload,
+        )
+
+    with ThreadPoolExecutor(max_workers=8) as executor:
+        same_tenant = list(executor.map(lambda _: _register("bank-a"), range(8)))
+    assert [item.status for item in same_tenant].count(SourceCorrectionRegistrationStatus.CREATED) == 1
+    assert [item.status for item in same_tenant].count(SourceCorrectionRegistrationStatus.REPLAY) == 7
+
+    foreign = _register("bank-b")
+    assert foreign.status == SourceCorrectionRegistrationStatus.CREATED
+    store.update(
+        tenant_id="bank-a",
+        correction_id=correction_id,
+        state="complete",
+        impacts=[{"original_calculation_id": str(uuid4()), "corrected_calculation_id": str(uuid4())}],
+    )
+
+    restarted = SourceCorrectionStore(database_url)
+    bank_a = restarted.get(tenant_id="bank-a", correction_id=correction_id)
+    bank_b = restarted.get(tenant_id="bank-b", correction_id=correction_id)
+    assert bank_a is not None and bank_a.state == "complete" and len(bank_a.impacts) == 1
+    assert bank_b is not None and bank_b.state == "recalculation_pending" and bank_b.impacts == []
+
+
+def test_postgres_source_correction_conflicting_payload_loses_closed_under_contention():
+    database_url = get_postgres_database_url()
+    SourceCorrectionStore(database_url).create_schema()
+    correction_id = f"pg-conflict-{uuid4()}"
+    payload_a = _source_correction_payload(correction_id=correction_id, source_revision="revision-a")
+    payload_b = _source_correction_payload(correction_id=correction_id, source_revision="revision-b")
+
+    def _register(payload: dict[str, str | dict[str, str]], fingerprint: str):
+        return SourceCorrectionStore(database_url).register(
+            tenant_id="bank-contention",
+            correction_id=correction_id,
+            request_fingerprint=fingerprint,
+            request_payload=payload,
+        )
+
+    with ThreadPoolExecutor(max_workers=2) as executor:
+        futures = [
+            executor.submit(_register, payload_a, "sha256:a"),
+            executor.submit(_register, payload_b, "sha256:b"),
+        ]
+        results = [future.result(timeout=10) for future in futures]
+
+    assert {result.status for result in results} == {
+        SourceCorrectionRegistrationStatus.CREATED,
+        SourceCorrectionRegistrationStatus.CONFLICT,
+    }
+
+
+def test_postgres_source_correction_revision_chain_has_one_successor_under_contention():
+    database_url = get_postgres_database_url()
+    store = SourceCorrectionStore(database_url)
+    store.create_schema()
+    target_id = f"PORT-chain-{uuid4()}"
+    initial_id = f"pg-chain-initial-{uuid4()}"
+    initial = _source_correction_payload(correction_id=initial_id, source_revision="revision-2")
+    initial["target_id"] = target_id
+    assert (
+        store.register(
+            tenant_id="bank-chain",
+            correction_id=initial_id,
+            request_fingerprint="sha256:initial",
+            request_payload=initial,
+        ).status
+        == SourceCorrectionRegistrationStatus.CREATED
+    )
+
+    def _register_successor(label: str):
+        correction_id = f"pg-chain-{label}-{uuid4()}"
+        payload = _source_correction_payload(correction_id=correction_id, source_revision=f"revision-{label}")
+        payload["target_id"] = target_id
+        payload["observed_at_utc"] = "2026-01-04T00:00:00+00:00"
+        payload["supersedes_source_revision"] = "revision-2"
+        return SourceCorrectionStore(database_url).register(
+            tenant_id="bank-chain",
+            correction_id=correction_id,
+            request_fingerprint=f"sha256:{label}",
+            request_payload=payload,
+        )
+
+    with ThreadPoolExecutor(max_workers=2) as executor:
+        results = list(executor.map(_register_successor, ("a", "b")))
+
+    assert {result.status for result in results} == {
+        SourceCorrectionRegistrationStatus.CREATED,
+        SourceCorrectionRegistrationStatus.REVISION_CONFLICT,
+    }
 
 
 def test_postgres_schema_creator_waits_past_configured_lock_timeout():

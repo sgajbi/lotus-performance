@@ -11,6 +11,7 @@ REQUIRED_PHRASES = (
     "performance-lineage-worker",
     "analytics_execution",
     "analytics_compute_job",
+    "analytics_source_correction",
     "lineage_payloads",
     "scripts/durable_recovery_drill.py",
     "structured recovery evidence json",

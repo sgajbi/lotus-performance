@@ -49,6 +49,20 @@ Governed base-URL examples:
 - operator surfaces:
   execution polling, lineage, runtime status, work items, recoveries, drills, retention
 
+## Source-correction consumer flow
+
+`POST /performance/source-corrections` admits a tenant-scoped, versioned correction notice and
+identifies completed retained stateful calculations whose requested windows overlap it. Durable
+workers re-resolve current source data under new calculation identities; old results remain
+retrievable, and status publishes output-change evidence plus corrected-result references.
+
+Core owns correction-command admission and source mutation. Performance independently proves the
+consumer contract, PostgreSQL replay/conflict behavior, serialized single-successor revision
+admission, restart durability, and a 10%→8% TWR recalculation. Terminal no-effect decisions remain
+immutable on replay, and cancellation covers every correction sharing coalesced pending work. This
+is not evidence of a live Core producer or downstream Risk, Report, or composite acceptance. See the
+[source-correction contract](https://github.com/sgajbi/lotus-performance/blob/main/docs/guides/source-correction-recalculation.md).
+
 Benchmark exposure context is the performance-owned derived integration view for downstream risk
 attribution. It resolves benchmark assignment and component weights through `lotus-core`, then
 serves `POSITION`, `SECTOR`, `ASSET_CLASS`, and `ISSUER` rows at `frequency=DAILY`. Core benchmark-return

@@ -4,11 +4,13 @@ import pandas as pd
 from pydantic import BaseModel
 
 from app.services.async_result_store import AsyncResultStore
+from app.services.composite_metadata_store import CompositeMetadataStore
 from app.services.compute_job_store import ComputeJobStore
 from app.services.durable_metadata_bootstrap import bootstrap_durable_metadata_stores
 from app.services.execution_registry import ExecutionRegistry
 from app.services.lineage_metadata_store import LineageMetadataStore
 from app.services.lineage_service import LineageService
+from app.services.source_correction_store import SourceCorrectionStore
 from app.workers import lineage_worker
 
 
@@ -21,18 +23,24 @@ def test_bootstrap_durable_metadata_stores_calls_all_store_bootstraps(mocker):
     compute_store = mocker.Mock()
     async_result_store_ = mocker.Mock()
     lineage_store = mocker.Mock()
+    composite_store = mocker.Mock()
+    correction_store = mocker.Mock()
 
     bootstrap_durable_metadata_stores(
         execution_store=execution_store,
         compute_store=compute_store,
         async_result_store_=async_result_store_,
         lineage_store=lineage_store,
+        composite_store=composite_store,
+        correction_store=correction_store,
     )
 
     execution_store.create_schema.assert_called_once_with()
     compute_store.create_schema.assert_called_once_with()
     async_result_store_.create_schema.assert_called_once_with()
     lineage_store.create_schema.assert_called_once_with()
+    composite_store.create_schema.assert_called_once_with()
+    correction_store.create_schema.assert_called_once_with()
 
 
 def test_bootstrap_durable_metadata_stores_supports_recovery_drill_on_legacy_lineage_schema(monkeypatch, tmp_path):
@@ -41,6 +49,8 @@ def test_bootstrap_durable_metadata_stores_supports_recovery_drill_on_legacy_lin
     compute_store = ComputeJobStore(f"sqlite:///{database_path}")
     async_result_store_ = AsyncResultStore(f"sqlite:///{database_path}")
     lineage_store = LineageMetadataStore(f"sqlite:///{database_path}")
+    composite_store = CompositeMetadataStore(f"sqlite:///{database_path}")
+    correction_store = SourceCorrectionStore(f"sqlite:///{database_path}")
 
     with lineage_store._engine.begin() as connection:
         connection.exec_driver_sql(
@@ -74,6 +84,8 @@ def test_bootstrap_durable_metadata_stores_supports_recovery_drill_on_legacy_lin
         compute_store=compute_store,
         async_result_store_=async_result_store_,
         lineage_store=lineage_store,
+        composite_store=composite_store,
+        correction_store=correction_store,
     )
 
     service = LineageService(storage_path=str(tmp_path), metadata_store=lineage_store)

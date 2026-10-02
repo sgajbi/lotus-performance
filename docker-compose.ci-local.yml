@@ -18,8 +18,22 @@ services:
         read_only: true
     command: >
       bash -lc "
-      cp -a /source/. /workspace/ &&
-      rm -f /workspace/.git &&
+      set -o pipefail &&
+      tar -C /source
+      --exclude=.git
+      --exclude=.venv
+      --exclude=artifacts
+      --exclude=output
+      --exclude=lineage_data
+      --exclude='*.db'
+      --exclude='*.db-shm'
+      --exclude='*.db-wal'
+      --exclude='.coverage*'
+      --exclude=__pycache__
+      --exclude=.pytest_cache
+      --exclude=.mypy_cache
+      --exclude=.ruff_cache
+      -cf - . | tar -C /workspace -xf - &&
       mkdir /workspace/.git &&
       cp -a /git-worktree-source/. /workspace/.git/ &&
       printf '/git-common\n' > /workspace/.git/commondir &&

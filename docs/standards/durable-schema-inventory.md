@@ -1,8 +1,8 @@
 # Durable Schema Inventory
 
 - Service: `lotus-performance`
-- Scope: durable operational metadata owned by RFC-041 runtime components and composite persisted-fact metadata
-- Persistence class: control-plane metadata, async execution state, lineage metadata, composite persisted facts
+- Scope: durable operational metadata, correction impact state, and composite persisted-fact metadata
+- Persistence class: control-plane metadata, async execution state, retained results, correction state, lineage metadata, composite persisted facts
 - Change control: RFC/ADR required for schema ownership changes; see `docs/standards/migration-contract.md`
 
 ## Owned Tables
@@ -10,7 +10,7 @@
 ### `analytics_execution`
 
 - Owner: `app/services/execution_registry.py`
-- Purpose: canonical execution handle, analytics type, status, input fingerprint, calculation hash, and top-level failure state
+- Purpose: canonical execution handle, analytics type, status, retained request/response payloads, input fingerprint, calculation hash, and top-level failure state
 - Recovery role: source of truth for execution polling and lifecycle reconciliation
 
 ### `analytics_execution_stage`
@@ -41,6 +41,14 @@
 - Owner: `app/services/async_result_store.py`
 - Purpose: durable async success/failure payloads for result retrieval endpoints
 - Recovery role: poll/result APIs remain available across process restarts
+
+### `analytics_source_correction`
+
+- Owner: `app/services/source_correction_store.py`
+- Purpose: tenant-scoped correction identity, source version, authorization evidence, impact set,
+  and recalculation lifecycle state
+- Recovery role: idempotent admission, restart-safe status, immutable old/new result references,
+  and retention protection
 
 ### `lineage_records`
 

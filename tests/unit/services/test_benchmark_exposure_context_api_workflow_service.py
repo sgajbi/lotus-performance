@@ -68,6 +68,7 @@ async def test_benchmark_exposure_context_workflow_registers_and_completes_execu
         },
         input_fingerprint=None,
         calculation_hash=None,
+        request_payload=request.model_dump(mode="json"),
     )
     mark_running.assert_called_once_with(request.calculation_id)
     start_stage.assert_called_once_with(request.calculation_id, EXECUTION_STAGE_EXECUTION)

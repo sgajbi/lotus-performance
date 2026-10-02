@@ -14,6 +14,7 @@ from app.services.durable_store_time import format_timestamp
 from app.services.execution_registry import execution_registry
 from app.services.lineage_metadata_store import lineage_metadata_store
 from app.services.runtime_retention_legal_hold import load_runtime_retention_legal_hold_index
+from app.services.source_correction_store import source_correction_store
 
 logger = logging.getLogger(__name__)
 
@@ -205,6 +206,15 @@ def _collect_prunable_items(*, cutoff: datetime) -> RuntimeRetentionPrunableItem
     protected_lineage_ids = legal_hold_index.protected_ids_for(candidate_lineage_ids)
     protected_compute_job_ids = legal_hold_index.protected_ids_for(candidate_compute_job_ids)
     protected_async_result_ids = legal_hold_index.protected_ids_for(candidate_async_result_ids)
+    correction_ids = source_correction_store.referenced_calculation_ids()
+    protected_execution_ids = sorted(set(protected_execution_ids) | (set(candidate_execution_ids) & correction_ids))
+    protected_lineage_ids = sorted(set(protected_lineage_ids) | (set(candidate_lineage_ids) & correction_ids))
+    protected_compute_job_ids = sorted(
+        set(protected_compute_job_ids) | (set(candidate_compute_job_ids) & correction_ids)
+    )
+    protected_async_result_ids = sorted(
+        set(protected_async_result_ids) | (set(candidate_async_result_ids) & correction_ids)
+    )
     protected_ids = sorted(
         set(protected_execution_ids)
         | set(protected_lineage_ids)
@@ -224,8 +234,25 @@ def _collect_prunable_items(*, cutoff: datetime) -> RuntimeRetentionPrunableItem
         protected_async_result_ids=protected_async_result_ids,
         protected_lineage_ids=protected_lineage_ids,
         protected_lineage_artifact_count=_count_lineage_artifact_directories(protected_lineage_ids),
-        protected_reason_counts=legal_hold_index.reason_counts_for(protected_ids),
+        protected_reason_counts=_protected_reason_counts(
+            legal_hold_counts=legal_hold_index.reason_counts_for(protected_ids),
+            correction_ids=correction_ids,
+            protected_ids=protected_ids,
+        ),
     )
+
+
+def _protected_reason_counts(
+    *,
+    legal_hold_counts: dict[str, int],
+    correction_ids: set[str],
+    protected_ids: list[str],
+) -> dict[str, int]:
+    counts = dict(legal_hold_counts)
+    correction_count = len(correction_ids & set(protected_ids))
+    if correction_count:
+        counts["source_correction_reproducibility"] = correction_count
+    return counts
 
 
 def _delete_prunable_items(

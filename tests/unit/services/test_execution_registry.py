@@ -51,6 +51,29 @@ def test_execution_registry_records_lifecycle_and_stages(tmp_path):
     assert record.stages[1].details == {"artifact_names": ["a.json"]}
 
 
+def test_execution_registry_retains_original_request_and_response(tmp_path):
+    registry = ExecutionRegistry(f"sqlite:///{tmp_path / 'execution.db'}")
+    registry.create_schema()
+    calculation_id = uuid4()
+    request_payload = {"calculation_id": str(calculation_id), "input_mode": "stateful"}
+    response_payload = {"calculation_id": str(calculation_id), "period_return": 0.10}
+
+    registry.create_execution(
+        calculation_id=calculation_id,
+        tenant_id="bank-a",
+        analytics_type="TWR",
+        portfolio_id="PORT-RETAINED",
+        request_payload=request_payload,
+    )
+    registry.retain_response_payload(calculation_id, response_payload=response_payload)
+
+    record = registry.get_execution_for_tenant(calculation_id, tenant_id="bank-a")
+    assert record is not None
+    assert record.request_payload == request_payload
+    assert record.response_payload == response_payload
+    assert registry.get_execution_for_tenant(calculation_id, tenant_id="bank-b") is None
+
+
 def test_execution_registry_bounds_malformed_execution_json_fields(tmp_path, caplog):
     registry = ExecutionRegistry(f"sqlite:///{tmp_path / 'execution.db'}")
     registry.create_schema()

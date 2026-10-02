@@ -44,6 +44,8 @@ def complete_execution_with_lineage(
     execution_details: dict[str, Any] | None = None,
     calculation_details: dict[str, Any] | None = None,
 ) -> None:
+    response_payload = response_model.model_dump(mode="json")
+    execution_registry.retain_response_payload(calculation_id, response_payload=response_payload)
     execution_registry.mark_running(calculation_id)
     execution_registry.complete_stage(
         calculation_id,

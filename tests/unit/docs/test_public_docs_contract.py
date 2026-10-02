@@ -300,6 +300,21 @@ def test_cleanup_scope_is_documented_for_generated_runtime_artifacts():
     assert "source-truth preservation" in ci_quality_gates
 
 
+def test_source_correction_public_docs_preserve_ownership_and_reproducibility_boundaries():
+    guide = _read("docs/guides/source-correction-recalculation.md")
+    api_reference = _read("docs/guides/api_reference.md")
+    schema_inventory = _read("docs/standards/durable-schema-inventory.md")
+    retention_runbook = _read("docs/runbooks/runtime-retention-cleanup.md")
+    supported_features = _read("wiki/Supported-Features.md")
+
+    assert "Core source-correction producer acceptance remains owned by Core issue `#452`" in guide
+    assert "100 to 110 produces 10% TWR" in guide
+    assert "GET /performance/executions/{calculation_id}/retained-result" in api_reference
+    assert "analytics_source_correction" in schema_inventory
+    assert "source_correction_reproducibility" in retention_runbook
+    assert "Core producer and downstream-consumer acceptance remain separate" in supported_features
+
+
 def test_quality_reports_publish_current_test_taxonomy_counts():
     summary = summarize_test_taxonomy(collect_test_modules(("tests",)))
     uncategorized_tests = summary.family_counts["uncategorized"]

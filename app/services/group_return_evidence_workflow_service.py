@@ -121,6 +121,7 @@ def _register_group_return_evidence_execution(request: GroupReturnEvidenceReques
         },
         input_fingerprint=None,
         calculation_hash=None,
+        request_payload=request.model_dump(mode="json"),
     )
 
 

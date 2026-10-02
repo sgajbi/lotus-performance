@@ -80,6 +80,18 @@ remain in structured logs and durable evidence under the same correlation contex
 
 ## Performance APIs
 
+### Source-correction recalculation
+
+- `POST /performance/source-corrections` admits an authorized tenant-scoped correction and returns
+  impact plus recalculation state.
+- `GET /performance/source-corrections/{correction_id}` returns current impact, terminal state, and
+  corrected-result references.
+- `DELETE /performance/source-corrections/{correction_id}` cancels atomically only before worker
+  acquisition.
+- `GET /performance/executions/{calculation_id}/retained-result` returns the immutable retained
+  response for the admitted tenant.
+- contract and limitations: [`source-correction-recalculation.md`](source-correction-recalculation.md)
+
 ### `POST /performance/twr`
 
 - purpose: calculate time-weighted return

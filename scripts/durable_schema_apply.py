@@ -23,6 +23,7 @@ OWNED_DURABLE_TABLES = (
     "analytics_upstream_snapshot",
     "analytics_compute_job",
     "analytics_async_result",
+    "analytics_source_correction",
     "lineage_records",
     "lineage_payloads",
     "composite_definitions",
@@ -53,6 +54,7 @@ BOOTSTRAP_STORES = (
     "AsyncResultStore",
     "LineageMetadataStore",
     "CompositeMetadataStore",
+    "SourceCorrectionStore",
 )
 
 
@@ -87,6 +89,7 @@ def apply_durable_schema(*, database_url: str | None = None) -> DurableSchemaApp
     from app.services.durable_metadata_bootstrap import bootstrap_durable_metadata_stores
     from app.services.execution_registry import ExecutionRegistry
     from app.services.lineage_metadata_store import LineageMetadataStore
+    from app.services.source_correction_store import SourceCorrectionStore
 
     active_database_url = database_url or get_settings().LINEAGE_METADATA_DATABASE_URL
     execution_store = ExecutionRegistry(active_database_url)
@@ -94,7 +97,8 @@ def apply_durable_schema(*, database_url: str | None = None) -> DurableSchemaApp
     async_result_store = AsyncResultStore(active_database_url)
     lineage_store = LineageMetadataStore(active_database_url)
     composite_store = CompositeMetadataStore(active_database_url)
-    stores = (execution_store, compute_store, async_result_store, lineage_store, composite_store)
+    correction_store = SourceCorrectionStore(active_database_url)
+    stores = (execution_store, compute_store, async_result_store, lineage_store, composite_store, correction_store)
 
     try:
         try:
@@ -104,6 +108,7 @@ def apply_durable_schema(*, database_url: str | None = None) -> DurableSchemaApp
                 async_result_store_=async_result_store,
                 lineage_store=lineage_store,
                 composite_store=composite_store,
+                correction_store=correction_store,
             )
         except RuntimeError as exc:
             return _build_evidence(

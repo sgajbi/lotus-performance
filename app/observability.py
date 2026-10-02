@@ -16,6 +16,7 @@ from app.observability_contracts import (
     PERFORMANCE_ANALYTICS_FRESHNESS_METRIC_LABELS,
     PERFORMANCE_CALCULATION_SUPPORTABILITY_METRIC_LABELS,
     PERFORMANCE_MWR_SOLVER_OUTCOME_METRIC_LABELS,
+    PERFORMANCE_SOURCE_CORRECTION_METRIC_LABELS,
 )
 from app.services.core_tenant_authority import (
     MalformedTenantAuthorityError,
@@ -45,6 +46,11 @@ MWR_SOLVER_OUTCOME_TOTAL = Counter(
     "MWR solver outcomes by bounded input mode, method, status, reason code, and fallback flag.",
     PERFORMANCE_MWR_SOLVER_OUTCOME_METRIC_LABELS,
 )
+SOURCE_CORRECTION_TOTAL = Counter(
+    "lotus_performance_source_correction_total",
+    "Source-correction admissions and lifecycle outcomes using bounded product, target, and outcome labels.",
+    PERFORMANCE_SOURCE_CORRECTION_METRIC_LABELS,
+)
 
 _ORIGINAL_INSTRUMENTATOR_ROUTE_NAME_RESOLVER = instrumentator_routing.get_route_name
 
@@ -68,6 +74,11 @@ _MWR_ALLOWED_REASON_CODES = frozenset(
         "XIRR_UNIQUENESS_NOT_SUPPORTED",
         "ZERO_DENOMINATOR",
     }
+)
+_SOURCE_CORRECTION_PRODUCTS = frozenset({"portfolio_timeseries", "benchmark_returns", "fx_rates"})
+_SOURCE_CORRECTION_TARGETS = frozenset({"portfolio", "benchmark"})
+_SOURCE_CORRECTION_OUTCOMES = frozenset(
+    {"accepted", "replay", "conflict", "no_effect", "superseded", "complete", "partial_failure", "cancelled"}
 )
 
 
@@ -97,6 +108,18 @@ def _bounded_mwr_solver_outcome_labels(
         "reason_code": _bounded_metric_label(reason_code, allowed_values=_MWR_ALLOWED_REASON_CODES, fallback="OTHER"),
         "fallback_used": str(fallback_used).lower(),
     }
+
+
+def record_source_correction(*, source_product: str, target_type: str, outcome: str) -> None:
+    SOURCE_CORRECTION_TOTAL.labels(
+        source_product=_bounded_metric_label(
+            source_product,
+            allowed_values=_SOURCE_CORRECTION_PRODUCTS,
+            fallback="other",
+        ),
+        target_type=_bounded_metric_label(target_type, allowed_values=_SOURCE_CORRECTION_TARGETS, fallback="other"),
+        outcome=_bounded_metric_label(outcome, allowed_values=_SOURCE_CORRECTION_OUTCOMES, fallback="other"),
+    ).inc()
 
 
 def _nonblank_value(value: str | None) -> str | None:

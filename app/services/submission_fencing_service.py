@@ -36,6 +36,7 @@ def register_sync_execution_or_raise(
     requested_window: dict[str, Any],
     input_fingerprint: str | None,
     calculation_hash: str | None,
+    request_payload: dict[str, Any] | None = None,
 ) -> None:
     admitted_tenant_authority(tenant_id_var.get())
     registration = execution_registry.register_execution(
@@ -47,6 +48,7 @@ def register_sync_execution_or_raise(
         requested_window=requested_window,
         input_fingerprint=input_fingerprint,
         calculation_hash=calculation_hash,
+        request_payload=request_payload,
     )
     if registration.status != ExecutionRegistrationStatus.CREATED:
         raise APIConflictError(
@@ -77,6 +79,7 @@ def register_async_submission_or_raise(
         requested_window=requested_window,
         input_fingerprint=input_fingerprint,
         calculation_hash=calculation_hash,
+        request_payload=request_payload,
     )
     if registration.status == ExecutionRegistrationStatus.CONFLICT:
         raise APIConflictError(

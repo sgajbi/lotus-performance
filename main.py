@@ -25,6 +25,7 @@ from app.api.endpoints import (
     runtime_retention_history,
     runtime_status,
     runtime_work_items,
+    source_corrections,
 )
 from app.core.config import get_settings
 from app.core.exceptions import PerformanceCalculatorError
@@ -123,6 +124,7 @@ app.include_router(benchmark.router, prefix="/performance")
 app.include_router(composites.router, prefix="/performance")
 app.include_router(contribution.router, prefix="/performance")
 app.include_router(executions.router, prefix="/performance")
+app.include_router(source_corrections.router, prefix="/performance")
 app.include_router(inspections.router, prefix="/performance")
 app.include_router(lineage.router, prefix="/performance")
 app.include_router(mandate_health_context.router, prefix="/performance")

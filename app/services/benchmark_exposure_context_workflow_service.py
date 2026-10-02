@@ -66,6 +66,7 @@ def _register_benchmark_exposure_execution(request: BenchmarkExposureContextRequ
         requested_window=_benchmark_exposure_requested_window(request),
         input_fingerprint=None,
         calculation_hash=None,
+        request_payload=request.model_dump(mode="json"),
     )
 
 

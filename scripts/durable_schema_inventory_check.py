@@ -9,6 +9,7 @@ REQUIRED_PHRASES = (
     "analytics_upstream_snapshot",
     "analytics_compute_job",
     "analytics_async_result",
+    "analytics_source_correction",
     "lineage_records",
     "lineage_payloads",
     "additive upgrade",

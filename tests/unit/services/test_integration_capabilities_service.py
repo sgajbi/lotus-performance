@@ -16,7 +16,7 @@ def test_build_integration_capabilities_report_default():
 
     assert report.supported_input_modes == ["stateful", "stateless"]
     assert report.policy_version == "tenant-default-v1"
-    assert len(report.features) == 14
+    assert len(report.features) == 15
     assert len(report.workflows) == 8
 
     features = {item["key"]: item for item in report.features}
@@ -25,6 +25,7 @@ def test_build_integration_capabilities_report_default():
 
     assert features["performance.analytics.twr"]["enabled"] is True
     assert features["performance.analytics.composite_twr"]["enabled"] is True
+    assert features["performance.integration.source_correction_recalculation"]["enabled"] is True
     assert features["performance.observability.calculation_supportability"]["enabled"] is True
     assert surfaces["composite_twr"]["supported_input_modes"] == ["persisted_member_facts"]
     assert surfaces["composite_twr"]["supports_async"] is False
@@ -70,6 +71,7 @@ def test_build_integration_capabilities_report_blank_values_keep_defaults(monkey
         "performance.analytics.composite_twr",
         "performance.integration.benchmark_exposure_context",
         "performance.integration.group_return_evidence",
+        "performance.integration.source_correction_recalculation",
         "performance.analytics.workspace_summary",
         "performance.support.twr_inspection",
         "performance.observability.calculation_supportability",
@@ -125,6 +127,7 @@ def test_feature_capabilities_preserve_publication_order_and_flags():
         "performance.analytics.benchmark",
         "performance.integration.benchmark_exposure_context",
         "performance.integration.group_return_evidence",
+        "performance.integration.source_correction_recalculation",
         "performance.analytics.workspace_summary",
         "performance.analytics.composite_twr",
         "performance.support.twr_inspection",
@@ -137,6 +140,7 @@ def test_feature_capabilities_preserve_publication_order_and_flags():
     assert feature_flags["performance.analytics.attribution"] is False
     assert feature_flags["performance.integration.benchmark_exposure_context"] is False
     assert feature_flags["performance.integration.group_return_evidence"] is False
+    assert feature_flags["performance.integration.source_correction_recalculation"] is False
     assert feature_flags["performance.analytics.workspace_summary"] is False
     assert feature_flags["performance.observability.calculation_supportability"] is True
     assert feature_flags["performance.execution.stateful"] is False

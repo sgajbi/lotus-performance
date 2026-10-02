@@ -1,7 +1,7 @@
 # Lotus Performance Test Taxonomy Inventory
 
 Report date: 2026-10-02
-Branch: `fix/543-si-history-coverage`
+Branch: `fix/542-source-correction-recalculation`
 Mode: regression-blocking test taxonomy inventory; `make quality-test-taxonomy-gate` enforces
 minimum API/runtime and contract/governance breadth plus the current uncategorized-test ceiling.
 
@@ -15,26 +15,26 @@ and quality family without executing tests or requiring coverage data.
 
 ```powershell
 python scripts/python_test_taxonomy_inventory.py --limit 30
-python scripts/python_test_taxonomy_inventory.py --limit 30 --min-api-runtime-tests 656 --min-contract-governance-tests 136 --max-uncategorized-tests 626
+python scripts/python_test_taxonomy_inventory.py --limit 30 --min-api-runtime-tests 656 --min-contract-governance-tests 136 --max-uncategorized-tests 565
 ```
 
 ## Summary
 
 | Metric | Value |
 | --- | ---: |
-| Test modules inventoried | 336 |
-| Test functions inventoried | 4082 |
-| Integration/API/runtime test functions | 829 |
-| Contract/governance test functions | 197 |
+| Test modules inventoried | 338 |
+| Test functions inventoried | 4110 |
+| Integration/API/runtime test functions | 833 |
+| Contract/governance test functions | 201 |
 
 ## Test Functions By Suite
 
 | Suite | Modules | Test functions |
 | --- | ---: | ---: |
-| benchmarks | 10 | 42 |
+| benchmarks | 10 | 45 |
 | e2e | 1 | 21 |
-| integration | 29 | 417 |
-| unit | 296 | 3602 |
+| integration | 30 | 421 |
+| unit | 297 | 3623 |
 
 ## Test Functions By Family
 
@@ -44,12 +44,12 @@ above does sum to it, because a module belongs to exactly one suite.
 
 | Family | Test functions |
 | --- | ---: |
-| analytics_domain | 2048 |
-| api_or_runtime | 829 |
-| contract_or_governance | 197 |
-| observability_or_readiness | 568 |
+| analytics_domain | 2051 |
+| api_or_runtime | 833 |
+| contract_or_governance | 201 |
+| observability_or_readiness | 683 |
 | quality_or_security | 269 |
-| uncategorized | 626 |
+| uncategorized | 565 |
 
 ## Largest Test Modules
 
@@ -58,8 +58,8 @@ above does sum to it, because a module belongs to exactly one suite.
 | 1 | `tests/unit/services/test_returns_series_service.py` | unit | 96 | analytics_domain |
 | 2 | `tests/unit/app/test_enterprise_readiness_additional.py` | unit | 88 | observability_or_readiness |
 | 3 | `tests/unit/services/test_stateful_attribution_input_service.py` | unit | 71 | analytics_domain |
-| 4 | `tests/unit/docs/test_public_docs_contract.py` | unit | 68 | contract_or_governance |
-| 5 | `tests/unit/services/test_compute_job_store.py` | unit | 68 | observability_or_readiness |
+| 4 | `tests/unit/docs/test_public_docs_contract.py` | unit | 69 | contract_or_governance |
+| 5 | `tests/unit/services/test_compute_job_store.py` | unit | 69 | observability_or_readiness |
 | 6 | `tests/integration/test_contribution_api.py` | integration | 63 | analytics_domain, api_or_runtime |
 | 7 | `tests/integration/test_performance_api.py` | integration | 62 | api_or_runtime |
 | 8 | `tests/unit/services/test_lineage_metadata_store.py` | unit | 62 | observability_or_readiness |
@@ -287,3 +287,11 @@ and workspace refuse an extreme Core inception after a caller supplied a recent 
 older source inception remains valid for a bounded `1Y` horizon. Current source test functions
 measure `4,082`, API/runtime functions remain `829`, analytics-domain functions measure `2,048`,
 and uncategorized functions remain `626`; no floor or ceiling changed.
+
+The #542 source-correction slice adds durable tenant-scoped admission, replay/conflict, cancellation,
+retention, PostgreSQL contention/restart, HTTP, observability, and registered 10%→8% TWR proofs.
+The `source_correction` and previously omitted `runtime_retention` classifier tokens map those
+runtime-readiness suites to their actual family. Current source test functions measure `4,100`,
+API/runtime functions `833`, contract/governance functions `201`, analytics-domain functions
+`2,051`, observability/readiness functions `683`, and uncategorized functions fall to `565`.
+The blocking ceiling tightens to the measured `565`; no floor is reduced.

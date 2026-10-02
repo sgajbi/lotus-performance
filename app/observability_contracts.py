@@ -21,3 +21,9 @@ PERFORMANCE_MWR_SOLVER_OUTCOME_METRIC_LABELS: tuple[str, ...] = (
     "reason_code",
     "fallback_used",
 )
+
+PERFORMANCE_SOURCE_CORRECTION_METRIC_LABELS: tuple[str, ...] = (
+    "source_product",
+    "target_type",
+    "outcome",
+)

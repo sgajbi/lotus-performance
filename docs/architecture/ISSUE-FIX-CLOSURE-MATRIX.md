@@ -1,5 +1,11 @@
 # Issue Fix Closure Matrix
 
+## Current closure (2026-10-02)
+
+| Issue | Current implementation posture | Closure evidence required |
+| --- | --- | --- |
+| `#542` | Tenant-scoped versioned correction admission identifies overlapping retained stateful calculations, coalesces pending work, recalculates under new identities, preserves immutable original/corrected results, publishes status and output-change evidence, and protects referenced evidence from retention cleanup. Core remains correction-command owner. | Independent 10%→8% registered API/worker proof, tenant and PostgreSQL contention/restart tests, required PR/Main gates, exact-main validation, wiki publication, and issue evidence. |
+
 ## Cycle 6 closure (2026-10-01)
 
 | Issue | Current implementation posture | Closure evidence required |

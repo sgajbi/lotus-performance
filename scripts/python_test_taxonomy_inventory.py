@@ -135,6 +135,10 @@ def _families_for_path(path: str) -> tuple[str, ...]:
             "lineage_worker",
             "postgres_concurrency",
             "runtime_recovery",
+            "runtime_retention",
+            # Source-correction tests exercise durable admission, tenant-scoped replay,
+            # worker recalculation, restart behavior, and immutable-result custody.
+            "source_correction",
             # The durable recovery drill is executable restore/readiness evidence, not an
             # unclassified utility suite. Its schema and representative-read checks determine
             # whether a restored service can safely return to operation.

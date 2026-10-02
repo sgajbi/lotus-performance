@@ -300,6 +300,7 @@ def _prepare_workspace_summary_execution(
         requested_window=requested_window,
         input_fingerprint=input_fingerprint,
         calculation_hash=calculation_hash,
+        request_payload=request.model_dump(mode="json"),
     )
     execution_registry.mark_running(request.calculation_id)
     try:

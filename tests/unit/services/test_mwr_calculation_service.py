@@ -146,6 +146,7 @@ def test_register_mwr_execution_materializes_identity_and_marks_running(mocker):
         requested_window={"as_of": "2025-12-31", "start_date": "2025-01-01"},
         input_fingerprint="registered-fingerprint",
         calculation_hash="registered-hash",
+        request_payload=request.model_dump(mode="json"),
     )
     mark_running.assert_called_once_with(request.calculation_id)
 
@@ -626,6 +627,7 @@ async def test_calculate_mwr_response_executes_stateless_request_and_records_lin
         },
         input_fingerprint="fingerprint-raw",
         calculation_hash="hash-raw",
+        request_payload=request.model_dump(mode="json"),
     )
     mark_stage.assert_called_once_with(request.calculation_id, "execution")
     complete_lineage.assert_called_once()

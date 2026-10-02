@@ -345,6 +345,7 @@ def _register_mwr_execution(request: MoneyWeightedReturnAnalyticsRequest) -> _Re
         requested_window=_mwr_requested_window(request),
         input_fingerprint=input_fingerprint,
         calculation_hash=calculation_hash,
+        request_payload=request.model_dump(mode="json"),
     )
     execution_registry.mark_running(request.calculation_id)
     return _RegisteredMWRExecution(

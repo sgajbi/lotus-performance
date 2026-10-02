@@ -12,6 +12,22 @@ from app.services.lineage_metadata_store import LineageMetadataStore, LineageRec
 from app.services.runtime_retention_service import RuntimeRetentionCleanupFailed, run_runtime_retention_cleanup
 
 
+class _CorrectionReferenceStore:
+    def __init__(self, ids: set[str] | None = None):
+        self.ids = ids or set()
+
+    def referenced_calculation_ids(self) -> set[str]:
+        return set(self.ids)
+
+
+@pytest.fixture(autouse=True)
+def _isolate_correction_references(monkeypatch):
+    monkeypatch.setattr(
+        "app.services.runtime_retention_service.source_correction_store",
+        _CorrectionReferenceStore(),
+    )
+
+
 class _AggregatePruneStore:
     def __init__(self, count: int, *, ids: list[str] | None = None, fail_once: bool = False):
         self.ids = set(ids or [f"item-{index}" for index in range(count)])
@@ -339,6 +355,43 @@ def test_runtime_retention_cleanup_excludes_legal_hold_records_before_apply(tmp_
     assert async_store.ids == {"protected-id"}
     assert not (lineage_root / "delete-id").exists()
     assert (lineage_root / "protected-id").is_dir()
+
+
+def test_runtime_retention_cleanup_preserves_source_correction_reproducibility(tmp_path, mocker):
+    lineage_root = tmp_path / "lineage"
+    lineage_root.mkdir()
+    (lineage_root / "corrected-id").mkdir()
+    (lineage_root / "delete-id").mkdir()
+    execution_store = _ExecutionIdStore(["corrected-id", "delete-id"])
+    lineage_store = _LineageIdStore(["corrected-id", "delete-id"])
+    compute_store = _AggregatePruneStore(2, ids=["corrected-id", "delete-id"])
+    async_store = _AggregatePruneStore(2, ids=["corrected-id", "delete-id"])
+    mocker.patch("app.services.runtime_retention_service.execution_registry", execution_store)
+    mocker.patch("app.services.runtime_retention_service.compute_job_store", compute_store)
+    mocker.patch("app.services.runtime_retention_service.async_result_store", async_store)
+    mocker.patch("app.services.runtime_retention_service.lineage_metadata_store", lineage_store)
+    mocker.patch(
+        "app.services.runtime_retention_service.source_correction_store",
+        _CorrectionReferenceStore({"corrected-id"}),
+    )
+    mocker.patch(
+        "app.services.runtime_retention_service.load_runtime_retention_legal_hold_index",
+        return_value=runtime_retention_service.load_runtime_retention_legal_hold_index(Path(tmp_path / "missing.json")),
+    )
+    mocker.patch(
+        "app.services.runtime_retention_service.get_settings",
+        return_value=type("Settings", (), {"RUNTIME_RETENTION_DAYS": 30, "LINEAGE_STORAGE_PATH": lineage_root})(),
+    )
+
+    applied = run_runtime_retention_cleanup(now=datetime(2026, 3, 14, tzinfo=timezone.utc), dry_run=False)
+
+    assert applied.protected_reason_counts == {"source_correction_reproducibility": 1}
+    assert execution_store.ids == {"corrected-id"}
+    assert lineage_store.ids == {"corrected-id"}
+    assert compute_store.ids == {"corrected-id"}
+    assert async_store.ids == {"corrected-id"}
+    assert (lineage_root / "corrected-id").is_dir()
+    assert not (lineage_root / "delete-id").exists()
 
 
 def test_lineage_artifact_cleanup_rejects_paths_outside_storage_root(tmp_path, mocker):

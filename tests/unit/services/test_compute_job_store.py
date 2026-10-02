@@ -1984,3 +1984,32 @@ def test_get_compute_job_store_resolves_explicit_database_url(tmp_path):
 
     assert isinstance(store, ComputeJobStore)
     assert str(store._engine.url) == database_url
+
+
+def test_cancel_pending_jobs_is_atomic_and_tenant_scoped(tmp_path):
+    store = ComputeJobStore(f"sqlite:///{tmp_path / 'cancel-compute.db'}")
+    store.create_schema()
+    calculation_ids = [uuid4(), uuid4()]
+    for calculation_id in calculation_ids:
+        store.enqueue_job(
+            calculation_id=calculation_id,
+            analytics_type="TWR",
+            tenant_id="bank-a",
+            request_payload={"calculation_id": str(calculation_id)},
+        )
+    leased = store.lease_pending_jobs(worker_id="worker-a", limit=1, lease_seconds=30)
+    leased_id = leased[0].calculation_id
+    pending_id = next(value for value in calculation_ids if value != leased_id)
+
+    assert (
+        store.cancel_pending_jobs(
+            [pending_id, leased_id],
+            tenant_id="bank-a",
+            reason="cancel batch",
+        )
+        is False
+    )
+    assert store.get_job_for_tenant(pending_id, tenant_id="bank-a").job_status == ComputeJobStatus.PENDING
+    assert store.cancel_pending_job(pending_id, tenant_id="bank-b", reason="foreign") is False
+    assert store.cancel_pending_job(pending_id, tenant_id="bank-a", reason="cancelled") is True
+    assert store.get_job_for_tenant(pending_id, tenant_id="bank-a").error_type == "SourceCorrectionCancelled"
