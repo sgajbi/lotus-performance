@@ -128,6 +128,9 @@ consumers do not treat the value as an ordinary calculated zero return.
 If annualization is enabled, the Dietz-family result is annualized from the measured period length
 using the requested annualization basis. `annualization.periods_per_year` overrides the basis when
 supplied; otherwise `BUS/252` uses `252`, `ACT/365` uses `365`, and `ACT/ACT` uses `365.25`.
+`BUS/252` counts sessions in `(start_date, end_date]` using versioned `NYSE`/`XNYS` exchange data
+or fixed no-holiday `WEEKDAY`. Missing, natural, and unsupported calendars fail before registration.
+MWR and workspace responses publish the applied calendar version and interval in `meta.calendar_evidence`.
 
 ## Current response shape
 

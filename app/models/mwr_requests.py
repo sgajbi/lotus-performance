@@ -6,6 +6,7 @@ from uuid import UUID, uuid4
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
+from core.business_calendar import canonical_business_calendar_id
 from core.envelope import Annualization, Calendar, Flags, Output, Periods
 from engine.mwr_controls import (
     XIRR_MAX_ITERATIONS,
@@ -154,6 +155,8 @@ class MoneyWeightedReturnRequestBase(BaseModel):
 
     @model_validator(mode="after")
     def validate_fx_evidence_request_currency_tokens(self) -> "MoneyWeightedReturnRequestBase":
+        if self.annualization.basis == "BUS/252":
+            canonical_business_calendar_id(self.calendar)
         if self.source_preconverted_fx_evidence is None:
             return self
         for field_name, value in (("currency", self.currency), ("report_ccy", self.report_ccy)):

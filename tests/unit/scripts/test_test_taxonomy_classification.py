@@ -39,6 +39,7 @@ CLASSIFIED_SURFACES = (
     ("stateful_position_row", "analytics_domain"),
     ("valuation_points_service", "analytics_domain"),
     ("performance_history", "analytics_domain"),
+    ("business_calendar", "analytics_domain"),
     ("durable_schema_apply", "observability_or_readiness"),
     ("durable_schema_creation", "observability_or_readiness"),
     ("durable_recovery_drill", "observability_or_readiness"),

@@ -31,7 +31,8 @@ for that TWR lens.
   fail with `error_code="MWR_CASH_FLOW_OUT_OF_WINDOW"` before Modified Dietz weights or XIRR
   solver vectors are built.
 - Dietz-family annualization honors `annualization.periods_per_year` first, then `BUS/252`,
-  `ACT/365`, and `ACT/ACT`.
+  `ACT/365`, and `ACT/ACT`. BUS/252 uses the selected versioned calendar and `(start, end]`
+  sessions; XIRR uses the same elapsed measure and publishes applied calendar evidence.
 - `emit_cashflows_used=true` returns the exact signed cash-flow schedule used by the calculation.
 - `source_preconverted_fx_evidence` is optional for stateless requests whose inputs were converted
   upstream; when supplied, the endpoint validates complete per-input FX provenance and returns it

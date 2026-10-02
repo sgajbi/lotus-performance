@@ -293,6 +293,7 @@ def test_calculate_mwr_endpoint_honors_bus_252_dietz_annualization(client):
             "start_date": "2025-01-01",
             "cash_flows": [],
             "mwr_method": "DIETZ",
+            "calendar": {"type": "BUSINESS", "trading_calendar": "WEEKDAY"},
             "annualization": {"enabled": True, "basis": "BUS/252"},
         },
     )
@@ -301,7 +302,70 @@ def test_calculate_mwr_endpoint_honors_bus_252_dietz_annualization(client):
     body = response.json()
     assert body["method"] == "DIETZ"
     assert body["money_weighted_return"] == pytest.approx(2.0)
-    assert body["mwr_annualized"] == pytest.approx(((1.02) ** (252 / 181) - 1) * 100)
+    assert body["mwr_annualized"] == pytest.approx(((1.02) ** (252 / 129) - 1) * 100)
+    assert body["meta"]["calendar_evidence"] == {
+        "calendar_id": "WEEKDAY",
+        "calendar_version": "WEEKDAY:v1",
+        "session_interval": "(start_date, end_date]",
+        "business_day_count": 129,
+    }
+
+
+def test_calculate_mwr_endpoint_honors_bus_252_xirr_calendar_and_holding_period(client):
+    response = client.post(
+        "/performance/mwr",
+        json={
+            "calculation_id": str(uuid4()),
+            "portfolio_id": "MWR_BUS_252_XIRR",
+            "begin_mv": 1000.0,
+            "end_mv": 1020.0,
+            "as_of": "2025-07-01",
+            "start_date": "2025-01-01",
+            "cash_flows": [],
+            "mwr_method": "XIRR",
+            "calendar": {"type": "BUSINESS", "trading_calendar": "NYSE"},
+            "annualization": {"enabled": True, "basis": "BUS/252"},
+        },
+    )
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["money_weighted_return"] == pytest.approx(((1.02) ** (252 / 123) - 1) * 100, abs=5e-8)
+    assert body["holding_period_return"] == pytest.approx(2.0, abs=5e-8)
+    assert body["convergence"]["business_day_count"] == 123
+    assert body["convergence"]["calendar_version"] == "exchange_calendars:4.13.2/XNYS"
+    assert body["meta"]["calendar_evidence"]["business_day_count"] == 123
+
+
+@pytest.mark.parametrize(
+    "calendar",
+    [
+        {"type": "NATURAL", "trading_calendar": None},
+        {"type": "BUSINESS", "trading_calendar": None},
+        {"type": "BUSINESS", "trading_calendar": "UNKNOWN"},
+    ],
+)
+def test_calculate_mwr_endpoint_rejects_unusable_bus_252_calendar_before_registration(client, calendar):
+    calculation_id = str(uuid4())
+    response = client.post(
+        "/performance/mwr",
+        json={
+            "calculation_id": calculation_id,
+            "portfolio_id": "MWR_BUS_252_INVALID_CALENDAR",
+            "begin_mv": 1000.0,
+            "end_mv": 1020.0,
+            "as_of": "2025-07-01",
+            "start_date": "2025-01-01",
+            "cash_flows": [],
+            "mwr_method": "XIRR",
+            "calendar": calendar,
+            "annualization": {"enabled": True, "basis": "BUS/252"},
+        },
+    )
+
+    assert response.status_code == 422
+    assert response.json()["error_code"] == "VALIDATION_ERROR"
+    assert client.get(f"/performance/executions/{calculation_id}").status_code == 404
 
 
 def test_calculate_mwr_endpoint_supports_stateful_mode(client, monkeypatch):

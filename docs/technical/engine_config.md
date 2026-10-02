@@ -55,16 +55,16 @@ These parameters are part of the unified API envelope and influence engine behav
 -   **`type`**:
     -   `BUSINESS`: Calculation assumes business days (e.g., 252 days per year for annualization).
     -   `NATURAL`: Calculation assumes all calendar days.
--   **`trading_calendar`**: Optional exchange-calendar identifier preserved in the request,
-    diagnostics, and reproducibility metadata (e.g., `NYSE`). The current calculation engine uses
-    `type` and annualization settings for day-count behavior; venue-specific holiday calendars are
-    not applied unless a caller has provided an implementation-backed calendar integration.
+-   **`trading_calendar`**: Calendar identifier preserved in reproducibility metadata. For
+    `BUS/252`, `NYSE`/`XNYS` uses pinned `exchange_calendars` data and `WEEKDAY` uses the fixed
+    no-holiday `WEEKDAY:v1` policy. Sessions are counted in `(start_date, end_date]`; unsupported,
+    missing, or natural calendars fail before durable registration.
 
 ### Annualization
 
 -   **`enabled`**: A boolean flag to enable or disable the calculation of annualized returns.
 -   **`basis`**: The day-count convention to use for annualization.
-    -   `BUS/252`: Uses a 252-day year.
+    -   `BUS/252`: Uses selected business-calendar sessions over a 252-day year.
     -   `ACT/365`: Uses the actual number of days in the period over a fixed 365-day year.
     -   `ACT/ACT`: Uses the actual number of days in the period over the actual number of days in the year (e.g., 365.25 to account for leap years).
 -   **`periods_per_year`**: An optional override for the annualization factor (e.g., 252 or 365).

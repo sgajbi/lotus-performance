@@ -238,7 +238,7 @@ def test_reproducibility_docs_govern_calculation_engine_version_identity():
     for document in (reproducibility, service_reference, ci_quality_gates, wiki_validation):
         assert "CALCULATION_ENGINE_VERSION" in document
 
-    assert "lotus-performance-calculation-engine.v12" in reproducibility
+    assert "lotus-performance-calculation-engine.v13" in reproducibility
     assert "not the deployable build version" in reproducibility
     assert "make calculation-engine-version-gate" in reproducibility
     assert "APP_VERSION" in reproducibility
@@ -1397,8 +1397,9 @@ def test_engine_config_docs_describe_current_calendar_contract():
     engine_config_flat = " ".join(engine_config.split())
 
     assert "placeholder" not in engine_config.lower()
-    assert "Optional exchange-calendar identifier preserved in the request" in engine_config
-    assert "venue-specific holiday calendars are not applied" in engine_config_flat
+    assert "pinned `exchange_calendars` data" in engine_config
+    assert "Sessions are counted in `(start_date, end_date]`" in engine_config_flat
+    assert "fail before durable registration" in engine_config_flat
     assert not engine_config.rstrip().endswith("````")
 
 

@@ -21,6 +21,10 @@ class MWRConvergence:
     rate_lower_bound: Number | None = None
     rate_upper_bound: Number | None = None
     day_count_basis: str | None = None
+    trading_calendar: str | None = None
+    calendar_version: str | None = None
+    day_count_interval: str | None = None
+    business_day_count: int | None = None
     anchor_date: date | None = None
     normalized_flow_count: int | None = None
     gross_cash_flow_scale: float | None = None

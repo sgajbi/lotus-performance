@@ -28,6 +28,18 @@ class Convergence(BaseModel):
     rate_lower_bound: Optional[float] = Field(default=None, description="Lower searched annual rate bound.")
     rate_upper_bound: Optional[float] = Field(default=None, description="Upper searched annual rate bound.")
     day_count_basis: Optional[str] = Field(default=None, description="Day-count convention used for dated XIRR.")
+    trading_calendar: Optional[str] = Field(
+        default=None, description="Canonical business calendar used for BUS/252 dated fractions."
+    )
+    calendar_version: Optional[str] = Field(
+        default=None, description="Versioned provider and calendar identity used for BUS/252 dated fractions."
+    )
+    day_count_interval: Optional[str] = Field(
+        default=None, description="Endpoint-inclusion convention used for business-session counts."
+    )
+    business_day_count: Optional[int] = Field(
+        default=None, description="Business sessions in the full XIRR measurement window."
+    )
     anchor_date: Optional[Date] = Field(default=None, description="Anchor date used for year-fraction calculation.")
     normalized_flow_count: Optional[int] = Field(default=None, description="Number of normalized solver flows.")
     gross_cash_flow_scale: Optional[float] = Field(default=None, description="Gross absolute solver-flow scale.")

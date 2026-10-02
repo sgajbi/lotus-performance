@@ -8,7 +8,7 @@
       "openApiVersion": "3.1.0"
     }
   ],
-  "generatedAt": "2026-10-02T10:10:36.468553+00:00",
+  "generatedAt": "2026-10-02T20:49:57.389031+00:00",
   "attributeCatalog": [
     {
       "semanticId": "lotus.access_classification",
@@ -1000,6 +1000,25 @@
       ]
     },
     {
+      "semanticId": "lotus.calendar_evidence",
+      "canonicalTerm": "calendar_evidence",
+      "preferredName": "calendar_evidence",
+      "description": "meta field: calendar evidence.",
+      "example": {
+        "calendar_id": "CALENDAR_001",
+        "calendar_version": "example_calendar_version",
+        "session_interval": "example_session_interval",
+        "business_day_count": 1
+      },
+      "type": "object",
+      "locations": [
+        "body"
+      ],
+      "observedTypes": [
+        "object"
+      ]
+    },
+    {
       "semanticId": "lotus.calendar_policy",
       "canonicalTerm": "calendar_policy",
       "preferredName": "calendar_policy",
@@ -1495,6 +1514,10 @@
         "rate_lower_bound": 0.1234,
         "rate_upper_bound": 0.1234,
         "day_count_basis": "example_day_count_basis",
+        "trading_calendar": "example_trading_calendar",
+        "calendar_version": "example_calendar_version",
+        "day_count_interval": "example_day_count_interval",
+        "business_day_count": 1,
         "anchor_date": "2026-02-27",
         "normalized_flow_count": 1,
         "gross_cash_flow_scale": 0.1234,
@@ -8143,7 +8166,7 @@
       "semanticId": "lotus.type",
       "canonicalTerm": "type",
       "preferredName": "type",
-      "description": "calendar field: type.",
+      "description": "Calendar class. BUS/252 requires BUSINESS.",
       "example": "BUSINESS",
       "type": "string",
       "locations": [
@@ -10765,6 +10788,14 @@
             "type": "string",
             "semanticId": "lotus.trading_calendar",
             "attributeRef": "#/attributeCatalog/lotus.trading_calendar"
+          },
+          {
+            "name": "meta.calendar_evidence",
+            "location": "body",
+            "required": false,
+            "type": "object",
+            "semanticId": "lotus.calendar_evidence",
+            "attributeRef": "#/attributeCatalog/lotus.calendar_evidence"
           },
           {
             "name": "meta.periods",

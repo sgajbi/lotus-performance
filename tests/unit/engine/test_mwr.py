@@ -7,7 +7,7 @@ from pydantic import ValidationError
 
 import engine.mwr as mwr_module
 from app.models.mwr_requests import CashFlow, Solver
-from core.envelope import Annualization
+from core.envelope import Annualization, Calendar
 from engine.mwr import (
     _annualized_dietz_rate,
     _bisect_root,
@@ -723,6 +723,102 @@ def test_annualized_dietz_rate_uses_governed_day_count_basis():
     assert act_act_rate == pytest.approx(((1.01) ** (365.25 / 182) - 1) * 100)
     assert bus_252_rate == pytest.approx(((1.01) ** (252.0 / 126) - 1) * 100)
     assert explicit_periods_rate == pytest.approx(((1.01) ** 12 - 1) * 100)
+
+
+def test_bus_252_dietz_uses_fixed_weekday_calendar_and_explicit_period_override():
+    start_date = date(2025, 1, 1)
+    end_date = date(2025, 7, 1)
+    calendar = Calendar(type="BUSINESS", trading_calendar="WEEKDAY")
+
+    governed = _annualized_dietz_rate(
+        periodic_rate=0.02,
+        annualization=Annualization(enabled=True, basis="BUS/252"),
+        calendar=calendar,
+        start_date=start_date,
+        end_date=end_date,
+    )
+    explicit = _annualized_dietz_rate(
+        periodic_rate=0.02,
+        annualization=Annualization(enabled=True, basis="BUS/252", periods_per_year=360),
+        calendar=calendar,
+        start_date=start_date,
+        end_date=end_date,
+    )
+
+    assert governed == pytest.approx(((1.02) ** (252 / 129) - 1) * 100)
+    assert explicit == pytest.approx(((1.02) ** (360 / 129) - 1) * 100)
+
+
+def test_bus_252_preserves_non_business_flow_dates_in_xirr_and_weighted_dietz():
+    calendar = Calendar(type="BUSINESS", trading_calendar="WEEKDAY")
+    dates = np.array(
+        [
+            date(2025, 1, 3),
+            date(2025, 1, 4),
+            date(2025, 1, 5),
+            date(2025, 1, 6),
+        ]
+    )
+
+    time_diffs = _xirr_time_diffs(
+        dates=dates,
+        anchor_date=date(2025, 1, 3),
+        annualization=Annualization(enabled=False, basis="BUS/252"),
+        calendar=calendar,
+    )
+
+    assert time_diffs.tolist() == pytest.approx([0.0, 0.0, 0.0, 1 / 252])
+
+    weighted_dietz = calculate_money_weighted_return(
+        begin_mv=1000.0,
+        end_mv=1110.0,
+        cash_flows=[CashFlow(amount=100.0, date=date(2025, 1, 4))],
+        calculation_method="MODIFIED_DIETZ",
+        annualization=Annualization(enabled=True, basis="BUS/252"),
+        as_of=date(2025, 1, 6),
+        start_date=date(2025, 1, 3),
+        calendar=calendar,
+    )
+
+    # The Saturday flow retains its actual-day 2/3 Dietz weight. BUS/252 governs only
+    # annualization, with one session in (Friday, Monday].
+    assert weighted_dietz.mwr == pytest.approx(0.9375)
+    assert weighted_dietz.mwr_annualized == pytest.approx(((1.009375) ** 252 - 1) * 100)
+
+
+def test_bus_252_xirr_and_dietz_share_weekday_elapsed_measure():
+    calendar = Calendar(type="BUSINESS", trading_calendar="WEEKDAY")
+    annualization = Annualization(enabled=True, basis="BUS/252")
+    expected = ((1.02) ** (252 / 129) - 1) * 100
+
+    xirr = calculate_money_weighted_return(
+        begin_mv=1000.0,
+        end_mv=1020.0,
+        cash_flows=[],
+        calculation_method="XIRR",
+        annualization=annualization,
+        as_of=date(2025, 7, 1),
+        start_date=date(2025, 1, 1),
+        calendar=calendar,
+    )
+    dietz = calculate_money_weighted_return(
+        begin_mv=1000.0,
+        end_mv=1020.0,
+        cash_flows=[],
+        calculation_method="DIETZ",
+        annualization=annualization,
+        as_of=date(2025, 7, 1),
+        start_date=date(2025, 1, 1),
+        calendar=calendar,
+    )
+
+    assert xirr.mwr == pytest.approx(expected, abs=5e-8)
+    assert xirr.holding_period_return == pytest.approx(2.0, abs=5e-8)
+    assert xirr.convergence is not None
+    assert xirr.convergence.business_day_count == 129
+    assert xirr.convergence.calendar_version == "WEEKDAY:v1"
+    assert dietz.mwr == pytest.approx(2.0)
+    assert dietz.mwr_annualized == pytest.approx(expected)
 
 
 def test_calculate_mwr_rejects_cash_flows_outside_resolved_window_before_dietz_weights():

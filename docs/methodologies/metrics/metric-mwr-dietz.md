@@ -25,6 +25,7 @@ or `MODIFIED_DIETZ`)
 - `annualization.enabled`
 - `annualization.basis` (`BUS/252`, `ACT/365`, or `ACT/ACT`) and optional
   `annualization.periods_per_year`
+- `calendar.type` and `calendar.trading_calendar` for `BUS/252`
 
 ## Upstream Data Sources
 - Stateless mode has no runtime upstream dependency; all required values are supplied by the caller.
@@ -62,7 +63,8 @@ or `MODIFIED_DIETZ`)
 - `r_A`: annualized return (decimal)
 - `S`: resolved start date (`stateful_input.window_start_date`, explicit `start_date`, or the
   earliest cash-flow date when no start date is supplied)
-- `days`: `(as_of - start_date).days`
+- `elapsed`: business sessions in `(S, as_of]` for `BUS/252`; otherwise
+  `(as_of - start_date).days`
 - `ppy`: annualization factor (`annualization.periods_per_year`, else `252` for `BUS/252`,
   `365.25` for `ACT/ACT`, else `365.0`)
 - `SRC_i`: optional source-currency amount supplied in `source_preconverted_fx_evidence`
@@ -114,10 +116,13 @@ or `MODIFIED_DIETZ`)
   and note `Calculation resulted in a zero denominator.`
 
 4. Optional annualization:
-- If `annualization.enabled` and `days > 0`:
-- `scale = ppy / days`
+- If `annualization.enabled` and `elapsed > 0`:
+- `scale = ppy / elapsed`
 - `r_A = (1 + r_D)^scale - 1`
 - Else `mwr_annualized = null`
+- `BUS/252` accepts `NYSE`/`XNYS` through `exchange_calendars` 4.13.2 or fixed no-holiday
+  `WEEKDAY:v1`; session counting is `(start_date, end_date]`. Modified Dietz cash-flow weights
+  remain actual-day weights and do not silently move flows dated on weekends or holidays.
 
 5. Response mapping:
 - `money_weighted_return = 100 * r_D`
@@ -163,7 +168,9 @@ or `MODIFIED_DIETZ`)
   emit `method="MODIFIED_DIETZ"`.
 - Zero denominator is non-fatal but not reported as a normal zero return; it returns
   `status="NOT_CALCULABLE"` with `ZERO_DENOMINATOR`.
-- If `annualization.enabled=true` and `days<=0`, annualized output remains null.
+- `BUS/252` rejects `NATURAL`, missing, and unsupported calendar identifiers before durable
+  registration. No calendar is inferred.
+- If `annualization.enabled=true` and `elapsed<=0`, annualized output remains null.
 - Endpoint unexpected failures map to HTTP 500.
 
 ## Configuration Options
@@ -173,6 +180,8 @@ or `MODIFIED_DIETZ`)
   - `XIRR` can route to `MODIFIED_DIETZ` via labeled fallback.
 - `annualization.enabled`
 - `annualization.basis`
+- `calendar.type`, `calendar.trading_calendar`; `annualization.periods_per_year` overrides `ppy`
+  but not elapsed-session counting
 
 ## Outputs
 Primary fields:
@@ -195,29 +204,30 @@ Primary fields:
 
 ## Worked Example
 Inputs:
-- `begin_mv = 100`
-- `cash_flows = [{date: 2026-03-01, amount: 10}]`
-- `end_mv = 112`
-- `start_date = 2026-03-01`
-- `as_of = 2026-03-31`
-- `annualization.enabled = true`, `basis = ACT/ACT`
+- `begin_mv = 1000`
+- `cash_flows = []`
+- `end_mv = 1020`
+- `start_date = 2025-01-01`
+- `as_of = 2025-07-01`
+- `annualization.enabled = true`, `basis = BUS/252`
+- `calendar = {type: BUSINESS, trading_calendar: WEEKDAY}`
 
 Intermediate calculations:
 
 | Quantity | Formula | Value |
 |---|---|---:|
-| `CF_sum` | `10` | 10.0000 |
-| `Den` | `100 + 10/2` | 105.0000 |
-| `Num` | `112 - 100 - 10` | 2.0000 |
-| `r_D` | `Num / Den` | 0.0190476 |
-| `days` | `2026-03-31 - 2026-03-01` | 30 |
-| `ppy` | `ACT/ACT` | 365.25 |
-| `r_A` | `(1 + r_D)^(365.25/30) - 1` | 0.2582 |
+| `CF_sum` | no cash flows | 0.0000 |
+| `Den` | `1000 + 0/2` | 1000.0000 |
+| `Num` | `1020 - 1000 - 0` | 20.0000 |
+| `r_D` | `Num / Den` | 0.0200 |
+| `elapsed` | weekdays in `(2025-01-01, 2025-07-01]` | 129 |
+| `ppy` | `BUS/252` | 252 |
+| `r_A` | `(1.02)^(252/129) - 1` | 0.0394421782 |
 
 Output mapping:
-- `money_weighted_return = 1.90476`
-- `holding_period_return = 1.90476`
-- `mwr_annualized = 25.82`
+- `money_weighted_return = 2.0`
+- `holding_period_return = 2.0`
+- `mwr_annualized = 3.94421782`
 - `method = "DIETZ"`
 - `status = "CALCULATED"`
 - `is_annualized_primary = false`

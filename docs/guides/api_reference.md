@@ -236,6 +236,7 @@ remain in structured logs and durable evidence under the same correlation contex
   - stateful MWR includes explicit external source cash flows and cross-observation capital carry-forward adjustments in the MWR cash-flow schedule
   - operational fees remain performance drag; they are not treated as investor deposits or withdrawals
   - MWR cash-flow dates must fit the resolved measurement window; invalid schedules fail with `MWR_CASH_FLOW_OUT_OF_WINDOW`
+  - `BUS/252` counts `(start_date, end_date]` sessions with pinned `NYSE`/`XNYS` exchange data or fixed `WEEKDAY:v1`; unusable calendars fail before registration and `meta.calendar_evidence` records the applied policy
   - `emit_cashflows_used=true` returns the signed cash-flow schedule used by the calculation
   - stateless callers may supply complete `source_preconverted_fx_evidence`; lotus-performance validates it against the reporting-currency MWR inputs and emits `currency_evidence.currency_mode="SOURCE_PRECONVERTED_WITH_FX_EVIDENCE"`
   - responses expose `reporting_currency`; stateful responses expose `currency_evidence` with `market_values_used`, `cashflow_evidence`, `source_cashflow_quality`, and `currency_mode="SINGLE_REPORTING_CURRENCY"`
@@ -243,7 +244,7 @@ remain in structured logs and durable evidence under the same correlation contex
   - stateful single-currency MWR emits `currency_evidence.conversion_evidence_status="not_required_single_currency_inputs"` when source and reporting currencies match
   - stateful cross-currency MWR keeps `currency_evidence.conversion_evidence_status="upstream_preconverted_missing_per_input_fx_metadata"`, so consumers must not infer per-input FX rates, conversion policy, or conversion fingerprints when those fields are absent
   - XIRR responses expose `status`, `reason_codes`, `warnings`, `holding_period_return`, `is_annualized_primary`, `fallback_from`, `fallback_reason`, and `is_approximation`
-  - XIRR convergence diagnostics expose root count, residual NPV, termination reason, uniqueness support, configured controls, searched bounds, day-count basis, anchor date, normalized flow count, and gross solver-flow scale
+  - XIRR convergence diagnostics expose root count, residual NPV, termination reason, uniqueness support, configured controls, searched bounds, day-count basis, applied calendar/version/session count, anchor date, normalized flow count, and gross solver-flow scale
   - ambiguous or unqualified XIRR cases such as no root, multiple/close roots, a unique non-simple repeated/tangent root, iteration exhaustion, residual failure, excessive work controls, or unsupported uniqueness proof are labeled and fall back to Dietz; consumers should use `status`, `fallback_reason`, and `convergence` instead of inferring quality from `method` alone
   - lotus-performance stamps source consumer identity server-side for the stateful envelope
 

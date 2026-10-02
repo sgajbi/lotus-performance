@@ -20,6 +20,7 @@ Money-Weighted Return via XIRR (`money_weighted_return` when method resolves to 
 - `as_of` (terminal valuation date)
 - `mwr_method` (`XIRR`)
 - `annualization.basis` and optional `annualization.periods_per_year`
+- `calendar.type` and `calendar.trading_calendar` for `BUS/252`
 - `solver.rate_lower_bound`, `solver.rate_upper_bound`, `solver.root_scan_steps`, `solver.tolerance`, and `solver.max_iter`
 
 ## Upstream Data Sources
@@ -57,7 +58,9 @@ Money-Weighted Return via XIRR (`money_weighted_return` when method resolves to 
 - `r`: XIRR annualized decimal rate
 - `D`: day-count denominator (`annualization.periods_per_year`, else `252.0` for `BUS/252`,
   `365.25` for `ACT/ACT`, else `365.0`)
-- `tau_j`: year fraction from anchor date using `(date_j - anchor).days / D`
+- `E_j`: elapsed measure from the anchor to date `j`; business sessions in `(anchor, date_j]` for
+  `BUS/252`, otherwise elapsed calendar days
+- `tau_j`: year fraction `E_j / D`
 - `V_j`: signed value at position `j` in the solver vector after same-day netting
 - `NPV(r)`: discounted cash-flow sum used for root solving
 - `SRC_j`: optional source-currency amount supplied in `source_preconverted_fx_evidence`
@@ -120,10 +123,18 @@ Money-Weighted Return via XIRR (`money_weighted_return` when method resolves to 
   interval tolerance is not convergence.
 - XIRR is returned only when exactly one converged candidate exists and uniqueness is supportable.
 
-4. Response mapping on convergence:
+4. BUS/252 calendar policy:
+- `calendar.type` must be `BUSINESS` and `trading_calendar` must resolve to `NYSE`/`XNYS` or
+  `WEEKDAY`. `NYSE` is canonicalized to `XNYS` and uses `exchange_calendars` 4.13.2; `WEEKDAY:v1`
+  is a fixed Monday-Friday calendar with no holidays.
+- Every dated fraction counts sessions in `(anchor, date]`. Weekend and holiday cash-flow dates are
+  retained as submitted and do not advance elapsed time.
+- `annualization.periods_per_year` overrides `D`; it does not replace the selected session calendar.
+
+5. Response mapping on convergence:
 - `money_weighted_return = 100 * r`
 - `mwr_annualized = 100 * r`
-- `holding_period_return = 100 * ((1 + r)^(period_days / D) - 1)`
+- `holding_period_return = 100 * ((1 + r)^(E_T / D) - 1)`
 - `method = "XIRR"`
 - `status = "CALCULATED"`
 - `is_annualized_primary = true`
@@ -143,6 +154,8 @@ Money-Weighted Return via XIRR (`money_weighted_return` when method resolves to 
 
 ## Validation and Failure Behavior
 - Request schema enforces required fields and types.
+- `BUS/252` rejects `NATURAL`, missing, and unsupported calendar identifiers before durable
+  registration. No weekday or exchange calendar is inferred from an unusable request.
 - Stateful mode rejects missing `stateful_input`, rejects stateless payloads in stateful mode, and
   fails through the retrieval or normalization stage when lotus-core source data cannot produce a
   valid resolved MWR input.
@@ -168,7 +181,8 @@ Money-Weighted Return via XIRR (`money_weighted_return` when method resolves to 
 - Labeled fallback responses set `status="FALLBACK_USED"`, include `DIETZ_FALLBACK_USED` in
   `reason_codes`, set `fallback_from="XIRR"`, set `fallback_reason`, and set
   `is_approximation=true`.
-- `convergence` includes algorithm, searched bounds, day-count basis, anchor date, normalized flow
+- `convergence` includes algorithm, searched bounds, day-count basis, canonical trading calendar,
+  provider version, `(start_date, end_date]` convention, full-window business-day count, anchor date, normalized flow
   count, gross cash-flow scale, configured scan/tolerance/iteration controls and work units, unique
   root count, non-simple-root state, residual NPV, termination reason, uniqueness support, and converged state when applicable. XIRR fallback
   retains these diagnostics.
@@ -176,7 +190,8 @@ Money-Weighted Return via XIRR (`money_weighted_return` when method resolves to 
 
 ## Configuration Options
 - `mwr_method`: must be `XIRR` to attempt this path.
-- `annualization.basis`: controls dated year fractions (`BUS/252` uses `252.0`, `ACT/365` uses
+- `annualization.basis`: controls dated year fractions (`BUS/252` counts selected calendar sessions
+  and uses `252.0`, `ACT/365` uses
   `365.0`, and `ACT/ACT` uses `365.25` unless `annualization.periods_per_year` is supplied).
 - `annualization.periods_per_year`: overrides day-count denominator when supplied.
 - `solver.rate_lower_bound` and `solver.rate_upper_bound`: searched annual-rate bounds.
@@ -208,6 +223,9 @@ Primary fields for this metric when XIRR succeeds:
 - `convergence.non_simple_root_detected`
 - `convergence.solver_work_units`
 - `convergence.day_count_basis`
+- `convergence.trading_calendar`, `convergence.calendar_version`,
+  `convergence.day_count_interval`, and `convergence.business_day_count` for `BUS/252`
+- `meta.calendar_evidence` for `BUS/252`
 - `cashflows_used` when `emit_cashflows_used=true`
 - `reporting_currency`
 - `currency_evidence` when stateful source context or stateless source-preconverted FX evidence is
@@ -217,30 +235,32 @@ Primary fields for this metric when XIRR succeeds:
 
 ## Worked Example
 Inputs:
-- `begin_mv = 100000`
-- `cash_flows = [{date: 2026-07-01, amount: 100000}]`
-- `end_mv = 230000`
-- `start_date = 2026-01-01`
-- `as_of = 2027-01-01`
-- `annualization.basis = ACT/365`
+- `begin_mv = 1000`
+- `cash_flows = []`
+- `end_mv = 1020`
+- `start_date = 2025-01-01`
+- `as_of = 2025-07-01`
+- `annualization.basis = BUS/252`
+- `calendar = {type: BUSINESS, trading_calendar: WEEKDAY}`
 
 Constructed schedule for solver:
 
-| j | date | `V_j` | `tau_j` (years from 2026-01-01) |
-|---|---|---:|---:|
-| 0 | 2026-01-01 | -100000 | 0.0000 |
-| 1 | 2026-07-01 | -100000 | 0.4959 |
-| 2 | 2027-01-01 | +230000 | 1.0000 |
+| j | date | `V_j` | business sessions `E_j` | `tau_j = E_j / 252` |
+|---|---|---:|---:|---:|
+| 0 | 2025-01-01 | -1000 | 0 | 0.000000 |
+| 1 | 2025-07-01 | +1020 | 129 | 0.511905 |
 
 Equation:
-- `-100000 - 100000 / (1+r)^0.4959 + 230000 / (1+r)^1.0000 = 0`
-- `r = 0.2025568893`
+- `-1000 + 1020 / (1+r)^(129/252) = 0`
+- `r = 1.02^(252/129) - 1 = 0.0394421782`
 
 Output mapping:
-- `money_weighted_return = 20.25568893`
-- `mwr_annualized = 20.25568893`
-- `holding_period_return = 20.25568893`
+- `money_weighted_return = 3.94421782`
+- `mwr_annualized = 3.94421782`
+- `holding_period_return = 2.0`
 - `method = "XIRR"`
 - `status = "CALCULATED"`
 - `convergence.root_count_detected = 1`
+- `convergence.business_day_count = 129`
+- `convergence.calendar_version = "WEEKDAY:v1"`
 - `convergence.residual_npv` is approximately `0.0`
