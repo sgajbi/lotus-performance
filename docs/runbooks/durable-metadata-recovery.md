@@ -21,6 +21,7 @@ Use this runbook when any of the following occurs:
 Recovery must include:
 
 - `analytics_execution`
+- `analytics_source_correction`
 - `analytics_execution_stage`
 - `analytics_upstream_snapshot`
 - `analytics_compute_job`

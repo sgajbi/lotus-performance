@@ -24,6 +24,7 @@ It owns:
 - canonical returns-series integration (`POST /integration/returns/series`)
 - benchmark exposure context (`POST /integration/benchmarks/exposure-context`)
 - tenant-scoped group-return evidence (`POST /integration/attribution/group-return-evidence/v1`)
+- tenant-scoped source-correction impact and recalculation (`POST /performance/source-corrections`)
 - execution polling, runtime control-plane, and lineage retrieval surfaces
 
 It does not own source-of-record portfolio, benchmark, index, FX, or reference datasets, and it
@@ -49,6 +50,8 @@ does not delegate performance conclusions to `lotus-core`.
    exact prior/current EOD fixings; requested reporting currency alone is never conversion proof.
 9. Group contribution analytics publish genuine source group-return observations with their dates,
    currencies, and weights instead of reconstructing returns from contribution divided by weight.
+10. Versioned source corrections schedule new stateful calculations while preserving tenant-scoped
+    original and corrected results; Core remains the correction-command and source-data owner.
 
 ## Enterprise Readiness Evidence
 
@@ -116,12 +119,13 @@ Source-of-truth runtime docs:
 - [docs/technical/runtime_topology.md](docs/technical/runtime_topology.md)
 - [docs/runbooks/lineage-volume-recovery.md](docs/runbooks/lineage-volume-recovery.md)
 - [docs/technical/RFC-0082-upstream-contract-family-map.md](docs/technical/RFC-0082-upstream-contract-family-map.md)
+- [docs/guides/source-correction-recalculation.md](docs/guides/source-correction-recalculation.md)
 
 Grouped public surfaces are derived from the router layout in [main.py](main.py):
 
 - `/performance`
   TWR, benchmark, contribution, attribution, composite performance, executions, inspections, and
-  lineage
+  lineage, including source-correction impact and retained-result retrieval
 - `/integration`
   capabilities, returns-series, benchmark exposure context, runtime status, runtime work items,
   runtime recoveries, recovery drill history, and runtime retention history

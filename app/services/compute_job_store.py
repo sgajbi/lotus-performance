@@ -9,7 +9,7 @@ from enum import StrEnum
 from typing import Any, Iterable, Iterator, cast
 from uuid import UUID
 
-from sqlalchemy import DateTime, Index, Integer, String, Text, case, delete, func, inspect, select, text
+from sqlalchemy import DateTime, Index, Integer, String, Text, case, delete, func, inspect, select, text, update
 from sqlalchemy.engine import Connection
 from sqlalchemy.exc import IntegrityError, OperationalError, ProgrammingError
 from sqlalchemy.orm import DeclarativeBase, Mapped, Session, mapped_column, sessionmaker
@@ -916,6 +916,42 @@ class ComputeJobStore:
             row.lease_owner_id = None
             row.leased_at_utc = None
             row.lease_expires_at_utc = None
+
+    def cancel_pending_job(self, calculation_id: UUID, *, tenant_id: str, reason: str) -> bool:
+        """Cancel only work that no worker has leased; running ownership is never stolen."""
+
+        return self.cancel_pending_jobs([calculation_id], tenant_id=tenant_id, reason=reason)
+
+    def cancel_pending_jobs(self, calculation_ids: list[UUID], *, tenant_id: str, reason: str) -> bool:
+        """Atomically cancel a correction batch only while every job remains pending."""
+
+        if not calculation_ids:
+            return True
+        calculation_id_values = [str(value) for value in calculation_ids]
+
+        with self._session() as session:
+            now = datetime.now(timezone.utc)
+            result = session.execute(
+                update(ComputeJobModel)
+                .where(
+                    ComputeJobModel.calculation_id.in_(calculation_id_values),
+                    ComputeJobModel.tenant_id == tenant_id,
+                    ComputeJobModel.job_status == ComputeJobStatus.PENDING.value,
+                )
+                .values(
+                    job_status=ComputeJobStatus.FAILED.value,
+                    error_message=reason,
+                    error_type="SourceCorrectionCancelled",
+                    completed_at_utc=now,
+                    lease_owner_id=None,
+                    leased_at_utc=None,
+                    lease_expires_at_utc=None,
+                )
+            )
+            if result.rowcount != len(calculation_id_values):
+                session.rollback()
+                return False
+            return True
 
     def mark_retryable_failure(
         self,

@@ -15,6 +15,10 @@ recent async result retrieval, or near-term lineage inspection.
 The cleanup script only targets terminal state older than the retention cutoff. It does **not**
 prune pending, leased, running, or otherwise active work.
 
+Calculations referenced by `analytics_source_correction` are also protected, with reason
+`source_correction_reproducibility`, so original and corrected evidence is not deleted while the
+correction record remains governed truth.
+
 ## Controlled Scope
 
 The cleanup covers records older than the selected retention cutoff in:

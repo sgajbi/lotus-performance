@@ -104,7 +104,10 @@ def test_ci_local_compose_lifecycle_uses_one_checkout_specific_project() -> None
         "source: ${CI_LOCAL_GIT_WORKTREE_DIR:?CI_LOCAL_GIT_WORKTREE_DIR must name the active Git directory}" in compose
     )
     assert "target: /git-worktree-source" in compose
-    assert "cp -a /source/. /workspace/" in compose
+    assert "tar -C /source" in compose
+    for excluded_path in (".git", ".venv", "artifacts", "output", "lineage_data", "*.db", ".coverage*"):
+        assert f"--exclude={excluded_path}" in compose or f"--exclude='{excluded_path}'" in compose
+    assert "cp -a /source/. /workspace/" not in compose
     assert "cp -a /git-worktree-source/. /workspace/.git/" in compose
     assert "printf '/git-common\\n' > /workspace/.git/commondir" in compose
     assert "    environment:" not in compose

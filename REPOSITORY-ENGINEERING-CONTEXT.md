@@ -307,6 +307,12 @@ suites exercise the checkout-local SQLite execution store, so concurrent process
 delete each other's execution rows and produce false missing-stage or stale-row failures. CI jobs
 are isolated checkouts; local parallel execution requires explicitly isolated database paths.
 
+Source-correction recalculation is a Performance consumer workflow. Core owns correction-command
+admission and source mutation. Performance retains request/response custody on completed executions,
+scopes correction identity and reads by admitted tenant, schedules only overlapping retained
+stateful calculations, and protects referenced old/new calculation evidence from runtime retention.
+Do not describe the consumer contract as live Core producer acceptance.
+
 ## Validation And CI Expectations
 
 `lotus-performance` uses explicit CI lanes:
@@ -354,8 +360,9 @@ Important validation expectations:
     `make quality-baseline-check` is the non-mutating freshness assertion in the required PR gate.
     It must fail when generated report inputs change without regeneration and pass after the
     reviewed refresh. The CI-local Docker lifecycle derives a stable checkout-specific Compose
-    project and uses it symmetrically for up and down. It copies the source into an ephemeral
-    container workspace and reconstructs the active Git worktree with a container-local
+    project and uses it symmetrically for up and down. It stages the checkout into an ephemeral
+    container workspace while excluding ignored runtime/generated state, then reconstructs the
+    active Git worktree with a container-local
     `commondir`, so Windows worktree `.git` pointers never leak host paths or globally override
     temporary Git repositories created by tests. Do not remove that project scoping or portable
     Git boundary: product-runtime and parallel-worktree containers, networks, volumes, and

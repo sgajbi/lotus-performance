@@ -173,6 +173,11 @@ def _integration_feature_capabilities(flags: IntegrationCapabilityFlags) -> list
             enabled=_group_return_evidence_enabled(flags),
             description="Tenant-scoped, reconciled portfolio and benchmark group-return evidence for empirical active-risk consumers.",
         ),
+        _feature_capability(
+            key="performance.integration.source_correction_recalculation",
+            enabled=flags.stateful_mode_enabled,
+            description="Tenant-scoped source-correction impact, recalculation status, and immutable retained-result APIs.",
+        ),
     ]
 
 

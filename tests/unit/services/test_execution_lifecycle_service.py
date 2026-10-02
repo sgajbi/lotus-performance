@@ -44,6 +44,7 @@ def test_complete_execution_with_lineage_keeps_execution_running_until_lineage_m
     assert record is not None
     assert record.status == ExecutionStatus.RUNNING
     assert record.completed_at_utc is None
+    assert record.response_payload == {"key": "response"}
     stages = {stage.stage_name: stage for stage in record.stages}
     assert stages["execution"].status == ExecutionStageStatus.COMPLETE
     assert stages["execution"].details == {"rows": 2}

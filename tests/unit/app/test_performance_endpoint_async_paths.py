@@ -1277,6 +1277,7 @@ def test_register_attribution_sync_execution_projects_fencing_payload(mocker):
         "requested_window": {"input_count": 1},
         "input_fingerprint": "input-fingerprint",
         "calculation_hash": "calculation-hash",
+        "request_payload": request.model_dump(mode="json"),
     }
 
 

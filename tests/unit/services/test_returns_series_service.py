@@ -1188,7 +1188,7 @@ async def test_calculate_returns_series_uses_raw_source_dates_for_weekly_freshne
             },
         }
     )
-    _seed_execution(monkeypatch, tmp_path, request)
+    execution_store = _seed_execution(monkeypatch, tmp_path, request)
 
     result = await returns_series_service._calculate_returns_series(  # noqa: SLF001
         request,
@@ -1199,6 +1199,9 @@ async def test_calculate_returns_series_uses_raw_source_dates_for_weekly_freshne
 
     assert [point.date for point in result.series.portfolio_returns] == [date(2026, 4, 10)]
     assert result.diagnostics.freshness == "stale"
+    retained = execution_store.get_execution(request.calculation_id)
+    assert retained is not None
+    assert retained.response_payload == result.model_dump(mode="json")
 
 
 @pytest.mark.asyncio

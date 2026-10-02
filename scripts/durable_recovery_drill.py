@@ -45,6 +45,7 @@ REQUIRED_TABLES = (
     "lineage_payloads",
 )
 RESTORE_VALIDATION_REQUIRED_TABLES = REQUIRED_TABLES + (
+    "analytics_source_correction",
     "composite_definitions",
     "composite_memberships",
     "composite_member_return_facts",
@@ -162,11 +163,13 @@ def run_recovery_drill(
 
     from app.models.returns_series import ReturnsSeriesRequest
     from app.services.async_result_store import AsyncResultStore
+    from app.services.composite_metadata_store import CompositeMetadataStore
     from app.services.compute_job_store import ComputeJobStore
     from app.services.durable_metadata_bootstrap import bootstrap_durable_metadata_stores
     from app.services.execution_registry import ExecutionRegistry
     from app.services.lineage_metadata_store import LineageMetadataStore
     from app.services.lineage_service import LineageService
+    from app.services.source_correction_store import SourceCorrectionStore
     from app.workers.compute_executor_worker import _process_pending_jobs as process_pending_compute_jobs
     from app.workers.lineage_worker import process_pending_jobs
 
@@ -177,6 +180,8 @@ def run_recovery_drill(
         compute_store = ComputeJobStore(f"sqlite:///{database_path}")
         async_result_store = AsyncResultStore(f"sqlite:///{database_path}")
         lineage_store = LineageMetadataStore(f"sqlite:///{database_path}")
+        composite_store = CompositeMetadataStore(f"sqlite:///{database_path}")
+        correction_store = SourceCorrectionStore(f"sqlite:///{database_path}")
 
         try:
             _create_legacy_lineage_schema(lineage_store)
@@ -185,6 +190,8 @@ def run_recovery_drill(
                 compute_store=compute_store,
                 async_result_store_=async_result_store,
                 lineage_store=lineage_store,
+                composite_store=composite_store,
+                correction_store=correction_store,
             )
 
             _create_lineage_execution_stage(execution_store, calculation_id := uuid4())
@@ -310,6 +317,8 @@ def run_recovery_drill(
             compute_store._engine.dispose()
             async_result_store._engine.dispose()
             lineage_store._engine.dispose()
+            composite_store._engine.dispose()
+            correction_store._engine.dispose()
 
 
 def run_restore_validation_drill(

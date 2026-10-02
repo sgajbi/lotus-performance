@@ -31,6 +31,7 @@ from app.observability import (
     record_analytics_freshness_bucket,
     record_calculation_supportability,
     record_mwr_solver_outcome,
+    record_source_correction,
     request_id_var,
     resolve_correlation_id,
     resolve_request_id,
@@ -629,4 +630,28 @@ def test_record_mwr_solver_outcome_uses_bounded_support_safe_labels():
     assert (
         'lotus_performance_mwr_solver_outcome_total{fallback_used="false",input_mode="other",'
         'method="OTHER",reason_code="OTHER",status="OTHER"}' in metrics_text
+    )
+
+
+def test_record_source_correction_uses_bounded_labels():
+    record_source_correction(
+        source_product="portfolio_timeseries",
+        target_type="portfolio",
+        outcome="accepted",
+    )
+    record_source_correction(
+        source_product="portfolio-123",
+        target_type="account-456",
+        outcome="unexpected",
+    )
+
+    metrics_text = generate_latest(REGISTRY).decode("utf-8")
+
+    assert (
+        'lotus_performance_source_correction_total{outcome="accepted",source_product="portfolio_timeseries",'
+        'target_type="portfolio"}' in metrics_text
+    )
+    assert (
+        'lotus_performance_source_correction_total{outcome="other",source_product="other",target_type="other"}'
+        in metrics_text
     )

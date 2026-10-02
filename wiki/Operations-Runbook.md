@@ -41,6 +41,7 @@ Primary runtime surfaces:
 | Readiness is false | `GET /health/ready`, `GET /integration/runtime-status`, database reachability | readiness payload, runtime-status snapshot, metadata database state |
 | Async calculation is slow or stuck | `GET /performance/executions/{calculation_id}`, `GET /integration/runtime-work-items` | calculation id, execution state, work-item age, queue metrics |
 | Completed calculation lacks expected evidence | `GET /performance/lineage/{calculation_id}`, endpoint result route, inspection route where applicable | request fingerprint, response supportability block, lineage metadata, artifact names |
+| Source correction is pending or failed | correction status, execution paths in `impacts`, compute work items, `lotus_performance_source_correction_total` | tenant-safe correction id, source revision, impacted calculation ids, failure code, worker state |
 | API or workers fail readiness with lineage storage unreadable | `docker compose ps -a`, initializer exit status, `/app/lineage_data` owner/mode | deployment revision, volume identity, initializer logs, exact owner/mode, affected service health |
 | Recovery or retention looks degraded | runtime recoveries, recovery drills, retention cleanup history | recovery id or cleanup id, trigger source, terminal status, error summary, retention target manifest and phase results |
 
@@ -333,6 +334,11 @@ The `monitoring/` artifacts are the deployable adoption source. The Markdown ale
 explain the expressions and support response, and `make quality-observability-readiness-gate`
 validates artifact syntax, metric names, labels, links, alert-backed product supportability
 dashboard coverage, and sensitive-label safety.
+
+For Docker-parity validation, `make ci-local-docker` stages source in an isolated container
+workspace and excludes ignored runtime/generated state. Always pair it with
+`make ci-local-docker-down`; cleanup is scoped to the checkout-specific Compose project and must
+not remove product-runtime or parallel-worktree resources.
 
 ## Runtime thresholds and overlays
 

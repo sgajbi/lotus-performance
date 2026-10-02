@@ -2181,6 +2181,10 @@ async def _calculate_returns_series(
             EXECUTION_STAGE_EXECUTION,
             details=result.stage_details,
         )
+        execution_registry.retain_response_payload(
+            request.calculation_id,
+            response_payload=result.response.model_dump(mode="json"),
+        )
         execution_registry.mark_complete(request.calculation_id)
         return result.response
     except APIError as exc:

@@ -17,11 +17,11 @@ snapshots are written under ignored `output/quality-baseline/`; curated source r
 
 | Area | Current value | Evidence |
 | --- | ---: | --- |
-| Python files | 700 | `rg --files -g '*.py'` equivalent excluding local caches |
+| Python files | 706 | `rg --files -g '*.py'` equivalent excluding local caches |
 | Python package markers | 22 | recursive `__init__.py` count |
-| Python LOC | 231,144 | recursive `.py` line count |
-| Test modules | 336 | `tests/**/test_*.py` |
-| Collected tests | 4661 tests | `python -m pytest --collect-only -q` |
+| Python LOC | 233,765 | recursive `.py` line count |
+| Test modules | 338 | `tests/**/test_*.py` |
+| Collected tests | 4694 tests | `python -m pytest --collect-only -q` |
 | Configured CI workflows | 8 | `.github/workflows/*.yml` |
 | Repo-native baseline command | 1 | `make quality-baseline` |
 
@@ -30,7 +30,7 @@ snapshots are written under ignored `output/quality-baseline/`; curated source r
 | Rank | File | Lines |
 | ---: | --- | ---: |
 | 1 | `tests/integration/test_contribution_api.py` | 3539 |
-| 2 | `tests/unit/services/test_returns_series_service.py` | 3074 |
+| 2 | `tests/unit/services/test_returns_series_service.py` | 3077 |
 | 3 | `app/services/composite_metadata_store.py` | 2993 |
 | 4 | `tests/integration/test_performance_api.py` | 2935 |
 | 5 | `tests/unit/services/test_compute_executor_worker.py` | 2876 |
@@ -38,9 +38,9 @@ snapshots are written under ignored `output/quality-baseline/`; curated source r
 | 7 | `tests/benchmarks/test_postgres_composite_fact_versions.py` | 2743 |
 | 8 | `tests/unit/services/test_runtime_status_service.py` | 2637 |
 | 9 | `app/services/stateful_input_service.py` | 2606 |
-| 10 | `tests/unit/docs/test_public_docs_contract.py` | 2555 |
+| 10 | `tests/unit/docs/test_public_docs_contract.py` | 2570 |
 | 11 | `tests/unit/services/test_composite_metadata_store.py` | 2409 |
-| 12 | `app/services/returns_series_service.py` | 2337 |
+| 12 | `app/services/returns_series_service.py` | 2341 |
 | 13 | `tests/unit/app/test_request_path_runtime_settings.py` | 2276 |
 | 14 | `tests/unit/services/test_workspace_summary_service.py` | 2266 |
 | 15 | `tests/unit/services/test_stateful_attribution_input_service.py` | 2176 |

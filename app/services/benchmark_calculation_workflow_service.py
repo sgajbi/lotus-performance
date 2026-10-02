@@ -179,6 +179,7 @@ async def _calculate_promoted_stateful_benchmark_workflow(
         ),
         input_fingerprint=input_fingerprint,
         calculation_hash=calculation_hash,
+        request_payload=request.model_dump(mode="json"),
     )
     try:
         resolved_context = await _resolve_benchmark_execution_context(
@@ -274,6 +275,7 @@ async def _calculate_initial_sync_benchmark_workflow(
         requested_window=build_benchmark_execution_window(request),
         input_fingerprint=source_request_fingerprint,
         calculation_hash=source_request_hash,
+        request_payload=request.model_dump(mode="json"),
     )
     try:
         resolved_context = await _resolve_benchmark_execution_context(

@@ -61,6 +61,9 @@ class AnalyticsExecutionModel(Base):
     execution_mode: Mapped[str] = mapped_column(String(32), nullable=False)
     status: Mapped[str] = mapped_column(String(32), nullable=False)
     requested_window_json: Mapped[str] = mapped_column(Text, nullable=False, default="{}")
+    # Nullable only for executions admitted before retained payload custody existed.
+    request_json: Mapped[str | None] = mapped_column(Text, nullable=True)
+    response_json: Mapped[str | None] = mapped_column(Text, nullable=True)
     input_fingerprint: Mapped[str | None] = mapped_column(Text, nullable=True)
     calculation_hash: Mapped[str | None] = mapped_column(Text, nullable=True)
     error_message: Mapped[str | None] = mapped_column(Text, nullable=True)
@@ -156,6 +159,8 @@ class ExecutionRecord:
     stages: list[ExecutionStageRecord]
     upstream_snapshots: list[UpstreamSnapshotRecord]
     tenant_id: str | None = None
+    request_payload: dict[str, Any] | None = None
+    response_payload: dict[str, Any] | None = None
 
 
 @dataclass(frozen=True)
@@ -176,6 +181,7 @@ def _execution_model_for_registration(
     input_fingerprint: str | None,
     calculation_hash: str | None,
     created_at: datetime,
+    request_json: str | None = None,
 ) -> AnalyticsExecutionModel:
     return AnalyticsExecutionModel(
         calculation_id=str(calculation_id),
@@ -185,6 +191,8 @@ def _execution_model_for_registration(
         execution_mode=execution_mode,
         status=ExecutionStatus.PENDING.value,
         requested_window_json=requested_window_json,
+        request_json=request_json,
+        response_json=None,
         input_fingerprint=input_fingerprint,
         calculation_hash=calculation_hash,
         error_message=None,
@@ -341,6 +349,16 @@ def _execution_record_from_model(
             payload_name="requested window",
         )
         or {},
+        request_payload=_load_json_object(
+            execution.request_json,
+            calculation_id=execution.calculation_id,
+            payload_name="retained request",
+        ),
+        response_payload=_load_json_object(
+            execution.response_json,
+            calculation_id=execution.calculation_id,
+            payload_name="retained response",
+        ),
         input_fingerprint=execution.input_fingerprint,
         calculation_hash=execution.calculation_hash,
         error_message=execution.error_message,
@@ -361,7 +379,11 @@ class ExecutionRegistry:
         create_durable_schema(
             self._engine,
             Base.metadata,
-            schema_upgrades=(self._ensure_tenant_id_column, self._ensure_runtime_indexes),
+            schema_upgrades=(
+                self._ensure_tenant_id_column,
+                self._ensure_retained_payload_columns,
+                self._ensure_runtime_indexes,
+            ),
         )
 
     def ping(self) -> None:
@@ -442,6 +464,7 @@ class ExecutionRegistry:
         requested_window: dict[str, Any] | None = None,
         input_fingerprint: str | None = None,
         calculation_hash: str | None = None,
+        request_payload: dict[str, Any] | None = None,
     ) -> None:
         now = datetime.now(timezone.utc)
         with self._session() as session:
@@ -453,6 +476,8 @@ class ExecutionRegistry:
                 execution_mode=execution_mode,
                 status=ExecutionStatus.PENDING.value,
                 requested_window_json=json.dumps(requested_window or {}, sort_keys=True),
+                request_json=json.dumps(request_payload, sort_keys=True) if request_payload is not None else None,
+                response_json=None,
                 input_fingerprint=input_fingerprint,
                 calculation_hash=calculation_hash,
                 error_message=None,
@@ -473,10 +498,12 @@ class ExecutionRegistry:
         requested_window: dict[str, Any] | None = None,
         input_fingerprint: str | None = None,
         calculation_hash: str | None = None,
+        request_payload: dict[str, Any] | None = None,
     ) -> ExecutionRegistrationResult:
         canonical_tenant_id = tenant_id.strip()
         now = datetime.now(timezone.utc)
         requested_window_json = json.dumps(requested_window or {}, sort_keys=True)
+        request_json = json.dumps(request_payload, sort_keys=True) if request_payload is not None else None
         execution = _execution_model_for_registration(
             calculation_id=calculation_id,
             tenant_id=canonical_tenant_id,
@@ -484,6 +511,7 @@ class ExecutionRegistry:
             portfolio_id=portfolio_id,
             execution_mode=execution_mode,
             requested_window_json=requested_window_json,
+            request_json=request_json,
             input_fingerprint=input_fingerprint,
             calculation_hash=calculation_hash,
             created_at=now,
@@ -548,6 +576,11 @@ class ExecutionRegistry:
             execution = self._get_execution_model(session, calculation_id)
             execution.input_fingerprint = input_fingerprint
             execution.calculation_hash = calculation_hash
+
+    def retain_response_payload(self, calculation_id: UUID, *, response_payload: dict[str, Any]) -> None:
+        with self._session() as session:
+            execution = self._get_execution_model(session, calculation_id)
+            execution.response_json = json.dumps(response_payload, sort_keys=True)
 
     def update_execution_contract(
         self,
@@ -705,6 +738,29 @@ class ExecutionRegistry:
                 execution=execution,
                 upstream_snapshots=self.list_upstream_snapshots(calculation_id),
             )
+
+    def list_completed_executions_for_tenant_target(
+        self,
+        *,
+        tenant_id: str,
+        target_id: str | None,
+    ) -> list[ExecutionRecord]:
+        """Return retained completed calculations that can be assessed for correction impact."""
+
+        with self._session() as session:
+            statement = select(AnalyticsExecutionModel).where(
+                AnalyticsExecutionModel.tenant_id == tenant_id,
+                AnalyticsExecutionModel.status == ExecutionStatus.COMPLETE.value,
+                AnalyticsExecutionModel.request_json.is_not(None),
+                AnalyticsExecutionModel.response_json.is_not(None),
+            )
+            if target_id is not None:
+                statement = statement.where(AnalyticsExecutionModel.portfolio_id == target_id)
+            statement = statement.order_by(AnalyticsExecutionModel.created_at_utc.asc())
+            executions = session.execute(statement).scalars().all()
+            return [
+                _execution_record_from_model(execution=execution, upstream_snapshots=[]) for execution in executions
+            ]
 
     def record_upstream_snapshot(
         self,
@@ -897,6 +953,16 @@ class ExecutionRegistry:
         if "tenant_id" in {column["name"] for column in inspector.get_columns("analytics_execution")}:
             return
         connection.execute(text("ALTER TABLE analytics_execution ADD COLUMN tenant_id VARCHAR(128)"))
+
+    def _ensure_retained_payload_columns(self, connection: Connection) -> None:
+        inspector = inspect(connection)
+        if "analytics_execution" not in inspector.get_table_names():
+            return
+        columns = {column["name"] for column in inspector.get_columns("analytics_execution")}
+        if "request_json" not in columns:
+            connection.execute(text("ALTER TABLE analytics_execution ADD COLUMN request_json TEXT"))
+        if "response_json" not in columns:
+            connection.execute(text("ALTER TABLE analytics_execution ADD COLUMN response_json TEXT"))
 
 
 _store_cache: dict[str, ExecutionRegistry] = {}

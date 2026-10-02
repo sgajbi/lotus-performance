@@ -407,6 +407,7 @@ def _register_twr_sync_submission(
         requested_window=sync_start.requested_window,
         input_fingerprint=submission_context.input_fingerprint,
         calculation_hash=submission_context.calculation_hash,
+        request_payload=request.model_dump(mode="json"),
     )
     return None
 

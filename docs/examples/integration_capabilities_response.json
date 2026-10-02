@@ -302,6 +302,12 @@
       "owner_service": "lotus-performance"
     },
     {
+      "description": "Tenant-scoped source-correction impact, recalculation status, and immutable retained-result APIs.",
+      "enabled": true,
+      "key": "performance.integration.source_correction_recalculation",
+      "owner_service": "lotus-performance"
+    },
+    {
       "description": "Interaction-efficient workspace summary analytics API.",
       "enabled": true,
       "key": "performance.analytics.workspace_summary",

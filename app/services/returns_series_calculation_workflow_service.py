@@ -227,6 +227,7 @@ async def _calculate_promoted_stateful_returns_series(
         ),
         input_fingerprint=input_fingerprint,
         calculation_hash=calculation_hash,
+        request_payload=request.model_dump(mode="json"),
     )
     try:
         resolved = await resolve_stateful_returns_series_request(request)
@@ -302,6 +303,7 @@ async def calculate_returns_series_workflow(
         requested_window=build_returns_series_execution_window(request, input_count=stateless_input_count),
         input_fingerprint=input_fingerprint,
         calculation_hash=calculation_hash,
+        request_payload=request.model_dump(mode="json"),
     )
 
     return await calculate_returns_series(request)

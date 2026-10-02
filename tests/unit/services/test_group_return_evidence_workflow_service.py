@@ -118,6 +118,7 @@ async def test_group_return_evidence_workflow_registers_tenant_bound_execution_a
         },
         input_fingerprint=None,
         calculation_hash=None,
+        request_payload=request.model_dump(mode="json"),
     )
     retrieval.assert_awaited_once_with(
         settings=mocker.ANY,

@@ -307,6 +307,7 @@ def _register_attribution_sync_execution(
         requested_window=requested_window,
         input_fingerprint=input_fingerprint,
         calculation_hash=calculation_hash,
+        request_payload=request.model_dump(mode="json"),
     )
 
 

@@ -67,8 +67,10 @@ environment override remains available for automation. Cleanup therefore owns on
 CI-local containers, networks, and volumes; it must not remove the product runtime started from
 `docker-compose.yml` or a parallel worktree's CI-local project.
 
-The Docker lane copies the checkout into an ephemeral in-container workspace, then reconstructs
-the active worktree Git directory with a container-local `commondir` that points to the mounted
+The Docker lane stages tracked and uncommitted source into an ephemeral in-container workspace,
+excluding ignored runtime/generated state such as local databases, virtual environments, coverage,
+and output artifacts. It then reconstructs the active worktree Git directory with a container-local
+`commondir` that points to the mounted
 Git common directory. This is required for a Windows worktree: its `.git` file can contain an
 absolute host path that is not meaningful inside a Linux container. It avoids global `GIT_DIR`
 settings, so Git repositories created by the test suite remain independent. The source checkout

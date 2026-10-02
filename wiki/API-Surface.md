@@ -85,6 +85,10 @@ component before a return is published. In `return_source="vendor_series"` mode,
 Async and supportability routes:
 
 - `GET /performance/executions/{calculation_id}`
+- `GET /performance/executions/{calculation_id}/retained-result`
+- `POST /performance/source-corrections`
+- `GET /performance/source-corrections/{correction_id}`
+- `DELETE /performance/source-corrections/{correction_id}`
 - `GET /performance/twr/results/{calculation_id}`
 - `GET /performance/benchmark/results/{calculation_id}`
 - `GET /performance/workspace-summary/results/{calculation_id}`
@@ -94,6 +98,12 @@ Async and supportability routes:
 - `GET /performance/inspections/{inspection_id}/artifacts/{artifact_name}`
 - `GET /performance/lineage/{calculation_id}`
 - `GET /performance/lineage/{calculation_id}/artifacts/{artifact_name}`
+
+Source-correction routes require tenant authority. They preserve the original retained result,
+schedule overlapping stateful calculations under new identities, and expose corrected paths only
+after completion. Core owns correction-command admission; the Performance contract is a consumer
+workflow, not live Core producer acceptance. See the
+[source-correction guide](https://github.com/sgajbi/lotus-performance/blob/main/docs/guides/source-correction-recalculation.md).
 
 The two `…/artifacts/{artifact_name}` routes are how an artifact is actually retrieved: call the
 listing route first, then request one of the artifact links it returns. Both refuse an artifact

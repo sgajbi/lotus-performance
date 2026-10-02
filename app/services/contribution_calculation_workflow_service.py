@@ -140,6 +140,7 @@ def _prepare_promoted_stateful_contribution_sync_execution(
         ),
         input_fingerprint=input_fingerprint,
         calculation_hash=calculation_hash,
+        request_payload=request.model_dump(mode="json"),
     )
     return None
 
@@ -280,6 +281,7 @@ async def _calculate_initial_sync_contribution(
         requested_window=build_contribution_execution_window(request),
         input_fingerprint=input_fingerprint,
         calculation_hash=calculation_hash,
+        request_payload=request.model_dump(mode="json"),
     )
     try:
         resolved = await resolve_contribution_request(request, settings=active_settings)

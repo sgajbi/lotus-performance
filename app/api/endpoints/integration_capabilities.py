@@ -295,6 +295,12 @@ INTEGRATION_CAPABILITIES_RESPONSE_EXAMPLES = [
                 "description": "Tenant-scoped, reconciled portfolio and benchmark group-return evidence for empirical active-risk consumers.",
             },
             {
+                "key": "performance.integration.source_correction_recalculation",
+                "enabled": True,
+                "owner_service": "lotus-performance",
+                "description": "Tenant-scoped source-correction impact, recalculation status, and immutable retained-result APIs.",
+            },
+            {
                 "key": "performance.analytics.workspace_summary",
                 "enabled": True,
                 "owner_service": "lotus-performance",

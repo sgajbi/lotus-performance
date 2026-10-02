@@ -61,6 +61,7 @@ def test_integration_capabilities_response_schema_includes_certified_surface_exa
     assert "performance.analytics.workspace_summary" in features
     assert "performance.integration.mandate_performance_health_context" in features
     assert "performance.integration.group_return_evidence" in features
+    assert "performance.integration.source_correction_recalculation" in features
     assert "performance_workspace" in workflows
     assert "composite_performance_publication" in workflows
     assert "mandate_performance_health_context" in workflows
