@@ -161,6 +161,45 @@ def test_contribution_openapi_describes_nullable_currency_decomposition():
         assert "null" in hierarchy_field["description"]
 
 
+@pytest.mark.parametrize("with_hierarchy", [False, True])
+def test_contribution_same_currency_carino_residual_does_not_become_fx(client, with_hierarchy):
+    payload = {
+        "portfolio_id": "SYNTHETIC_LOCAL_RESIDUAL",
+        "currency": "USD",
+        "report_ccy": "USD",
+        "currency_mode": "BOTH",
+        "report_start_date": "2025-01-01",
+        "report_end_date": "2025-01-01",
+        "analyses": [{"period": "SI", "frequencies": ["daily"]}],
+        "portfolio_data": {
+            "metric_basis": "NET",
+            "valuation_points": [{"perf_date": "2025-01-01", "begin_mv": 1000, "end_mv": 1100}],
+        },
+        "positions_data": [
+            {
+                "position_id": "USD_STOCK",
+                "meta": {"currency": "USD", "sector": "ONE"},
+                "valuation_points": [{"perf_date": "2025-01-01", "begin_mv": 1000, "end_mv": 1090}],
+            }
+        ],
+    }
+    if with_hierarchy:
+        payload["hierarchy"] = ["sector"]
+
+    response = client.post("/performance/contribution", json=payload)
+    assert response.status_code == 200, response.text
+    period = response.json()["results_by_period"]["SI"]
+    position = period["position_contributions"][0]
+    assert position["total_return"] == pytest.approx(9.0)
+    assert period["total_portfolio_return"] == pytest.approx(10.0)
+    assert position["total_contribution"] == pytest.approx(10.0)
+    assert position["local_contribution"] == pytest.approx(10.0)
+    assert position["fx_contribution"] == pytest.approx(0.0, abs=1e-10)
+    if with_hierarchy:
+        assert period["summary"]["local_contribution"] == pytest.approx(10.0)
+        assert period["summary"]["fx_contribution"] == pytest.approx(0.0, abs=1e-10)
+
+
 @pytest.fixture
 def identity_control_payload():
     return {
