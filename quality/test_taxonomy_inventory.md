@@ -1,7 +1,7 @@
 # Lotus Performance Test Taxonomy Inventory
 
-Report date: 2026-10-01
-Branch: `fix/559-exposure-continuation`
+Report date: 2026-10-02
+Branch: `fix/573-contribution-position-admission`
 Mode: regression-blocking test taxonomy inventory; `make quality-test-taxonomy-gate` enforces
 minimum API/runtime and contract/governance breadth plus the current uncategorized-test ceiling.
 
@@ -23,8 +23,8 @@ python scripts/python_test_taxonomy_inventory.py --limit 30 --min-api-runtime-te
 | Metric | Value |
 | --- | ---: |
 | Test modules inventoried | 335 |
-| Test functions inventoried | 4034 |
-| Integration/API/runtime test functions | 807 |
+| Test functions inventoried | 4040 |
+| Integration/API/runtime test functions | 811 |
 | Contract/governance test functions | 197 |
 
 ## Test Functions By Suite
@@ -33,8 +33,8 @@ python scripts/python_test_taxonomy_inventory.py --limit 30 --min-api-runtime-te
 | --- | ---: | ---: |
 | benchmarks | 10 | 42 |
 | e2e | 1 | 21 |
-| integration | 29 | 397 |
-| unit | 295 | 3574 |
+| integration | 29 | 400 |
+| unit | 295 | 3577 |
 
 ## Test Functions By Family
 
@@ -44,8 +44,8 @@ above does sum to it, because a module belongs to exactly one suite.
 
 | Family | Test functions |
 | --- | ---: |
-| analytics_domain | 2007 |
-| api_or_runtime | 807 |
+| analytics_domain | 2012 |
+| api_or_runtime | 811 |
 | contract_or_governance | 197 |
 | observability_or_readiness | 568 |
 | quality_or_security | 269 |
@@ -236,3 +236,8 @@ The #559 continuation follow-up adds two registered API regressions and one qual
 failure regression. Current source test functions measure `4,034`, API/runtime functions `807`,
 analytics-domain functions `2,007`, quality/security functions `269`, and uncategorized functions
 remain `626`. The blocking floors and ceiling are unchanged.
+
+The #573 position-identity admission slice adds direct-model, registered-API and safe-error
+envelope and bounded 4xx-metric regressions. Current measured source functions are `4,040`,
+API/runtime functions `811`, analytics-domain functions `2,012`; the enforced uncategorized ceiling
+stays `626`.

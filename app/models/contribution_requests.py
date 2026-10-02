@@ -1,9 +1,9 @@
 # app/models/contribution_requests.py
 from datetime import date
-from typing import Any, Dict, List, Literal, Optional
+from typing import Annotated, Any, Dict, List, Literal, Optional
 from uuid import UUID, uuid4
 
-from pydantic import BaseModel, ConfigDict, Field, field_validator
+from pydantic import AfterValidator, BaseModel, ConfigDict, Field, field_validator
 
 from app.models.requests import Analysis  # Import the new shared model
 from common.enums import WeightingScheme
@@ -36,12 +36,32 @@ class PositionDailyData(BaseModel):
 class PositionData(BaseModel):
     """Contains the full time series and metadata for a single position."""
 
-    position_id: str = Field(..., description="Position identifier.")
+    position_id: str = Field(
+        ...,
+        description=(
+            "Canonical position-grain identifier for this stateless request. Each positions_data entry must "
+            "have a distinct position_id; repeated identifiers are rejected, even when valuations match. "
+            "Different lots or accounts of one security require distinct grain identifiers."
+        ),
+    )
     meta: Dict[str, Any] = Field(default_factory=dict, description="Position metadata used for grouping and labels.")
     valuation_points: List[PositionDailyData] = Field(
         ...,
         description="Canonical position valuation observations ordered by perf_date. Sequence is derived server-side.",
     )
+
+
+def _unique_position_identities(positions: list[PositionData]) -> list[PositionData]:
+    """A stateless row is a complete canonical grain, never an additive fragment."""
+    seen: set[str] = set()
+    for position in positions:
+        if position.position_id in seen:
+            raise ValueError("duplicate position_id in positions_data")
+        seen.add(position.position_id)
+    return positions
+
+
+UniquePositionData = Annotated[list[PositionData], AfterValidator(_unique_position_identities)]
 
 
 class PortfolioData(BaseModel):
@@ -238,7 +258,7 @@ class ContributionRequest(ContributionRequestBase):
     """Stateless request model consumed by the contribution engine."""
 
     portfolio_data: PortfolioData
-    positions_data: List[PositionData]
+    positions_data: UniquePositionData
 
 
 class ResolvedContributionExecutionRequest(BaseModel):

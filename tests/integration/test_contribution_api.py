@@ -1,5 +1,6 @@
 import os
 import shutil
+from copy import deepcopy
 from decimal import Decimal
 from uuid import UUID, uuid4
 
@@ -89,6 +90,126 @@ def test_contribution_endpoint_happy_path_and_envelope(client, happy_path_payloa
     assert source_economics["status"] == "CALLER_SUPPLIED"
     assert source_economics["source_owner"] == "caller"
     assert "ContributionRequest" in source_economics["source_contracts"]
+
+
+@pytest.fixture
+def identity_control_payload():
+    return {
+        "portfolio_id": "POSITION_IDENTITY_CONTROL",
+        "report_start_date": "2025-01-01",
+        "report_end_date": "2025-01-01",
+        "analyses": [{"period": "SI", "frequencies": ["daily"]}],
+        "currency": "USD",
+        "report_ccy": "USD",
+        "currency_mode": "BOTH",
+        "emit": {"timeseries": True, "by_position_timeseries": True},
+        "portfolio_data": {
+            "metric_basis": "NET",
+            "valuation_points": [{"perf_date": "2025-01-01", "begin_mv": 1000, "end_mv": 1060}],
+        },
+        "positions_data": [
+            {
+                "position_id": "A",
+                "meta": {"sector": "GAIN", "security_id": "SHARED_SECURITY"},
+                "valuation_points": [{"perf_date": "2025-01-01", "begin_mv": 600, "end_mv": 660}],
+            },
+            {
+                "position_id": "B",
+                "meta": {"sector": "FLAT", "security_id": "SHARED_SECURITY"},
+                "valuation_points": [{"perf_date": "2025-01-01", "begin_mv": 400, "end_mv": 400}],
+            },
+        ],
+    }
+
+
+@pytest.mark.parametrize("reverse", [False, True])
+def test_contribution_unique_position_grains_preserve_independent_economics(client, identity_control_payload, reverse):
+    payload = deepcopy(identity_control_payload)
+    payload["hierarchy"] = ["sector"]
+    if reverse:
+        payload["positions_data"].reverse()
+
+    response = client.post("/performance/contribution", json=payload)
+
+    assert response.status_code == 200
+    period = response.json()["results_by_period"]["SI"]
+    rows = {row["position_id"]: row for row in period["position_contributions"]}
+    assert period["total_portfolio_return"] == pytest.approx(6.0)
+    assert period["total_contribution"] == pytest.approx(6.0)
+    assert rows["A"]["total_contribution"] == pytest.approx(6.0)
+    assert rows["B"]["total_contribution"] == pytest.approx(0.0)
+    assert rows["A"]["total_return"] == pytest.approx(10.0)
+    assert rows["B"]["total_return"] == pytest.approx(0.0)
+    assert rows["A"]["average_weight"] == pytest.approx(60.0)
+    assert rows["B"]["average_weight"] == pytest.approx(40.0)
+    assert len(period["timeseries"]) == 1
+    assert len(period["by_position_timeseries"]) == 2
+
+
+@pytest.mark.parametrize("nested", [False, True])
+@pytest.mark.parametrize("conflicting", [False, True])
+@pytest.mark.parametrize("reverse", [False, True])
+@pytest.mark.parametrize("hierarchy", [False, True])
+def test_contribution_rejects_duplicate_identity_before_sync_or_async_registration(
+    client, identity_control_payload, nested, conflicting, reverse, hierarchy
+):
+    payload = deepcopy(identity_control_payload)
+    duplicate = deepcopy(payload["positions_data"][0])
+    if conflicting:
+        duplicate["valuation_points"][0]["end_mv"] = 600
+    payload["positions_data"].append(duplicate)
+    if reverse:
+        payload["positions_data"].reverse()
+    if hierarchy:
+        payload["hierarchy"] = ["sector"]
+    if nested:
+        payload["stateless_input"] = {
+            "portfolio_data": payload.pop("portfolio_data"),
+            "positions_data": payload.pop("positions_data"),
+        }
+
+    original_threshold = settings.CONTRIBUTION_EXECUTOR_POSITION_COUNT
+    try:
+        for threshold in (10_000, 0):
+            settings.CONTRIBUTION_EXECUTOR_POSITION_COUNT = threshold
+            payload["calculation_id"] = str(uuid4())
+            response = client.post(
+                "/performance/contribution", json=payload, headers={"X-Correlation-Id": "position-identity-probe"}
+            )
+            assert response.status_code == 422
+            body = response.json()
+            assert body["error_code"] == "VALIDATION_ERROR"
+            assert body["message"] == "Request validation failed."
+            assert any("duplicate position_id" in error["msg"] for error in body["validation_errors"])
+            assert body["correlation_id"] == "position-identity-probe"
+            assert all("input" not in error for error in body["validation_errors"])
+            assert response.headers["X-Correlation-Id"] == "position-identity-probe"
+            assert response.headers["X-Request-Id"]
+            assert response.headers["X-Trace-Id"]
+            assert client.get(f"/performance/executions/{payload['calculation_id']}").status_code == 404
+            assert client.get(f"/performance/contribution/results/{payload['calculation_id']}").status_code == 404
+    finally:
+        settings.CONTRIBUTION_EXECUTOR_POSITION_COUNT = original_threshold
+
+
+def test_duplicate_position_refusal_counts_as_bounded_client_error(client, identity_control_payload):
+    def contribution_client_errors() -> float:
+        metrics = client.get("/metrics").text
+        matching = [
+            line
+            for line in metrics.splitlines()
+            if line.startswith('http_requests_total{handler="/performance/contribution",method="POST",status="4xx"}')
+        ]
+        return float(matching[0].rsplit(" ", 1)[-1]) if matching else 0.0
+
+    payload = deepcopy(identity_control_payload)
+    payload["positions_data"].append(deepcopy(payload["positions_data"][0]))
+    before = contribution_client_errors()
+
+    response = client.post("/performance/contribution", json=payload)
+
+    assert response.status_code == 422
+    assert contribution_client_errors() == before + 1.0
 
 
 def test_contribution_endpoint_reports_zero_grouped_return_alignment_drift_for_simple_aligned_case(client):

@@ -10,6 +10,7 @@ from app.models.contribution_requests import (
     ContributionRequestBase,
     PortfolioData,
     PositionData,
+    UniquePositionData,
 )
 from app.models.stateful_position_inputs import StatefulDimensionName, StatefulPositionFilters
 
@@ -21,7 +22,7 @@ class ContributionInputMode(str, Enum):
 
 class ContributionStatelessInput(BaseModel):
     portfolio_data: PortfolioData
-    positions_data: list[PositionData]
+    positions_data: UniquePositionData
 
 
 class ContributionStatefulInput(BaseModel):
@@ -156,7 +157,7 @@ class ContributionAnalyticsRequest(ContributionRequestBase):
         default=None,
         description="Legacy stateless portfolio contribution payload. Prefer stateless_input for new integrations.",
     )
-    positions_data: list[PositionData] | None = Field(
+    positions_data: UniquePositionData | None = Field(
         default=None,
         description="Legacy stateless positions contribution payload. Prefer stateless_input for new integrations.",
     )

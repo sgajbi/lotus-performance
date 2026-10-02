@@ -40,6 +40,11 @@ Inside the current contract:
 
 - stateless `portfolio_data` contains `metric_basis` and `valuation_points`
 - each stateless entry in `positions_data` contains `position_id`, optional `meta`, and `valuation_points`
+- `position_id` identifies one canonical position grain within a stateless request. Both legacy
+  top-level and nested `stateless_input` shapes reject repeated identifiers, even for identical
+  rows, with HTTP `422` before calculation or async registration. Give separate lots/accounts
+  distinct grain identifiers; sharing a `security_id` in metadata is valid. The response carries
+  `VALIDATION_ERROR` and bounded field diagnostics, not the rejected valuation body.
 - stateful mode sources canonical portfolio and position timeseries from lotus-core and normalizes them into the same stateless engine inputs used by direct requests
 - stateful position rows preserve the source position grain through `source_position_key`; when
   lotus-core supplies account, custody, book, sleeve, strategy, mandate, or tax-lot discriminators,

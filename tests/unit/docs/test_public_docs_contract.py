@@ -1414,6 +1414,10 @@ def test_contribution_guide_uses_current_request_shape():
     assert "selected active or promoted denominator" in certification
     assert "same selected denominator drives residual allocation" in certification
     assert "source_position_key" in certification
+    assert "identical and conflicting" in certification
+    assert "Different position grains may share one `security_id`" in certification_flat
+    assert "legacy top-level and nested `stateless_input` shapes reject repeated identifiers" in guide_flat
+    assert "Stateless identity admission" in wiki
     assert "business_position_id" in guide
     assert (
         'mixed-currency stateful contribution in `currency_mode="BOTH"` fails closed with HTTP `422`' in certification

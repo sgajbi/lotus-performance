@@ -51,7 +51,8 @@ errors from these stable fields:
 - `source`: envelope author, currently `lotus-performance`
 - `retryable` and optional `retry_after_seconds`: retry and fallback guidance
 - `remediation_hint`: optional operator-facing resolution guidance
-- `validation_errors`: structured FastAPI validation details for malformed requests
+- `validation_errors`: bounded field location, type, and message for malformed requests;
+  rejected `input` and validator context are never echoed
 
 Unexpected `5xx` responses do not expose raw exception text in the public envelope. Internal details
 remain in structured logs and durable evidence under the same correlation context.
@@ -469,6 +470,8 @@ Return semantics for the workspace surface are now explicit rather than inferred
   - `stateful`
   - existing stateless callers can continue sending top-level `portfolio_data` and `positions_data`
   - new callers should prefer the Lotus-style envelope with `input_mode`, `stateless_input`, and `stateful_input`
+  - both stateless shapes require a unique canonical `position_id` per position grain; repeated
+    identifiers return `422 VALIDATION_ERROR` before sync calculation or async registration
   - stateful mode sources portfolio and position timeseries from lotus-core query-control-plane via `CORE_CONTROL_PLANE_BASE_URL` and normalizes them into canonical contribution inputs before engine execution
   - stateful position rows preserve source grain through `source_position_key`; when that source
     grain is more specific than `position_id`, the original business position remains available as

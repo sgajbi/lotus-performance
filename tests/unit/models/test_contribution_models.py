@@ -101,6 +101,29 @@ def test_contribution_request_with_analyses_passes(minimal_contribution_request_
         pytest.fail(f"Validation failed unexpectedly with 'analyses': {e}")
 
 
+@pytest.mark.parametrize("nested", [False, True])
+@pytest.mark.parametrize("conflicting", [False, True])
+def test_stateless_contribution_rejects_duplicate_position_identity(
+    minimal_contribution_request_payload, nested, conflicting
+):
+    payload = minimal_contribution_request_payload.copy()
+    duplicate = {**payload["positions_data"][0]}
+    if conflicting:
+        duplicate["valuation_points"] = [{"perf_date": "2025-01-01", "begin_mv": 600, "end_mv": 660}]
+    payload["positions_data"] = [*payload["positions_data"], duplicate]
+    if nested:
+        payload["stateless_input"] = {
+            "portfolio_data": payload.pop("portfolio_data"),
+            "positions_data": payload.pop("positions_data"),
+        }
+        model = ContributionAnalyticsRequest
+    else:
+        model = ContributionRequest
+
+    with pytest.raises(ValidationError, match="duplicate position_id in positions_data"):
+        model.model_validate(payload)
+
+
 def test_contribution_request_multi_level_happy_path(minimal_contribution_request_payload):
     """
     Tests that a multi-level contribution request with a hierarchy
@@ -128,6 +151,11 @@ def test_contribution_lookthrough_schema_states_current_boundary():
         "does not decompose fund or structured-product holdings"
         in lookthrough_schema["properties"]["fallback_policy"]["description"]
     )
+
+
+def test_contribution_position_schema_states_unique_canonical_grain():
+    position_schema = ContributionRequest.model_json_schema()["$defs"]["PositionData"]
+    assert "distinct position_id" in position_schema["properties"]["position_id"]["description"]
 
 
 def test_contribution_request_invalid_weighting_scheme(minimal_contribution_request_payload):

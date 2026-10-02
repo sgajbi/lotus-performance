@@ -53,6 +53,12 @@ Compatibility note: `hierarchy` implies level output for existing clients. `emit
 documents the caller intent but is not required to receive hierarchy rows when hierarchy dimensions
 are supplied.
 
+Stateless identity admission applies before synchronous calculation and `202` offload. A canonical
+`position_id` may occur only once in either stateless request shape: identical and conflicting
+repetitions return `422 VALIDATION_ERROR`, without creating an execution or result. Different
+position grains may share one `security_id`, and short positions remain supported. Validation
+diagnostics omit rejected input values and contexts while retaining correlation and field location.
+
 ## Required Figure Tie-Outs
 
 Every certified contribution response must satisfy these invariants for each resolved period:

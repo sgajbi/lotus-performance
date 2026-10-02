@@ -38,7 +38,10 @@ def _as_numeric(value: object, default=0):
         "periods. Stateless requests provide valuation points directly. Stateful requests source "
         "canonical portfolio and position analytics inputs from lotus-core query-control-plane, then "
         "normalize them into the same calculation engine. Large requests may return 202 with poll and "
-        "result paths; retrieve the completed result from `/performance/contribution/results/{calculation_id}`."
+        "result paths; retrieve the completed result from `/performance/contribution/results/{calculation_id}`. "
+        "Each stateless `positions_data` entry must have a unique canonical `position_id`, including "
+        "when multiple lots share one security. Identical or conflicting duplicate identifiers return "
+        "HTTP 422 before calculation or async registration."
     ),
     responses=async_submission_responses(
         accepted_model=ContributionAcceptedResponse,

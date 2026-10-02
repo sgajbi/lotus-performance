@@ -17,6 +17,9 @@ Position Total Contribution (`position_contributions[].total_contribution`)
 ## Inputs
 - `portfolio_data.valuation_points[]`
 - `positions_data[].valuation_points[]`
+- each `positions_data[].position_id` is unique for its canonical position grain within the
+  request; identical and conflicting repeated identifiers are both rejected before aggregation,
+  rather than summed or resolved by list order
 - `stateful_input.metric_basis` (`NET` or `GROSS`) when source-resolved
 - `stateful_input.dimensions[]`, `stateful_input.include_cash_flows`, and `stateful_input.filters`
   when source-resolved
