@@ -29,6 +29,7 @@ from app.services.stateful_execution_policy_service import (
     finalize_resolved_stateful_execution,
     replay_promoted_stateful_async_execution,
 )
+from app.services.stateful_position_currency_support import validate_stateless_contribution_both_currency_support
 from app.services.submission_fencing_service import (
     register_async_submission_or_raise,
     register_sync_execution_or_raise,
@@ -315,6 +316,8 @@ async def calculate_contribution_workflow(
     """Resolve, fence, execute, and map errors for one contribution analytics request."""
     request = workflow_request(command, ContributionAnalyticsRequest)
     require_reporting_currency_for_both(currency_mode=request.currency_mode, requested_report_ccy=request.report_ccy)
+    if request.input_mode == ContributionInputMode.STATELESS:
+        validate_stateless_contribution_both_currency_support(request=request.to_stateless_contribution_request())
     active_settings = get_settings()
     input_fingerprint, calculation_hash = generate_request_fingerprint(
         request,

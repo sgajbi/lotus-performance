@@ -238,7 +238,7 @@ def test_reproducibility_docs_govern_calculation_engine_version_identity():
     for document in (reproducibility, service_reference, ci_quality_gates, wiki_validation):
         assert "CALCULATION_ENGINE_VERSION" in document
 
-    assert "lotus-performance-calculation-engine.v10" in reproducibility
+    assert "lotus-performance-calculation-engine.v11" in reproducibility
     assert "not the deployable build version" in reproducibility
     assert "make calculation-engine-version-gate" in reproducibility
     assert "APP_VERSION" in reproducibility
@@ -1434,7 +1434,7 @@ def test_contribution_guide_uses_current_request_shape():
         "position-level `average_weight` and grouped `weight_avg` are both emitted in percentage units" in api_reference
     )
     assert "share the same active or reset-aware promoted denominator" in api_reference
-    assert "`currency_mode=BOTH` requires `fx.rates`" in api_reference
+    assert "stateless `currency_mode=BOTH` requires complete positive finite exact prior/current-date" in api_reference
     assert "selected active or promoted denominator" in certification
     assert "same selected denominator drives residual allocation" in certification
     assert "source_position_key" in certification
@@ -1444,14 +1444,15 @@ def test_contribution_guide_uses_current_request_shape():
     assert "Stateless identity admission" in wiki
     assert "business_position_id" in guide
     assert (
-        'mixed-currency stateful contribution in `currency_mode="BOTH"` fails closed with HTTP `422`' in certification
+        'mixed-currency stateless or stateful contribution in `currency_mode="BOTH"` fails closed with HTTP `422`'
+        in certification
     )
     assert "zero-net and near-zero pre-allocation contribution cases" in certification_flat
     assert "Every successful page must include the requested portfolio" in certification
     assert "safe HTTP `502` source-contract" in guide
     assert "rejected component rows never become usable source economics" in guide_flat
     assert "Hierarchy `weight_avg` uses the same active or reset-aware promoted denominator" in wiki
-    assert "mixed-currency stateful contribution fails closed with HTTP `422`" in wiki
+    assert "mixed-currency stateless or stateful contribution fails closed with HTTP `422`" in wiki
     assert "source_position_key" in wiki
     assert "zero-net and near-zero pre-allocation contribution cases" in wiki
     assert "Missing or contradictory scope is rejected with bounded diagnostics" in wiki

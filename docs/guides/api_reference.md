@@ -484,6 +484,10 @@ Return semantics for the workspace surface are now explicit rather than inferred
   - new callers should prefer the Lotus-style envelope with `input_mode`, `stateless_input`, and `stateful_input`
   - both stateless shapes require a unique canonical `position_id` per position grain; repeated
     identifiers return `422 VALIDATION_ERROR` before sync calculation or async registration
+  - stateless `currency_mode=BOTH` requires complete positive finite exact prior/current-date EOD
+    `fx.rates` for each known position currency that differs from `report_ccy`; omitted, empty, or
+    partial evidence returns `422 FX_RATES_REQUIRED` before calculation or async registration,
+    while same-currency requests may omit FX or supply an empty FX block
   - stateful mode sources portfolio and position timeseries from lotus-core query-control-plane via `CORE_CONTROL_PLANE_BASE_URL` and normalizes them into canonical contribution inputs before engine execution
   - stateful position rows preserve source grain through `source_position_key`; when that source
     grain is more specific than `position_id`, the original business position remains available as

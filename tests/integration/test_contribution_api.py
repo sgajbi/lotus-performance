@@ -219,6 +219,185 @@ def test_contribution_both_without_position_currency_does_not_fabricate_fx(clien
         assert period["summary"]["fx_contribution"] is None
 
 
+def _stateless_fx_contribution_payload(*, position_currency: str, precision_mode: str = "FLOAT64") -> dict:
+    position_end_mv = 1020 if position_currency == "EUR" else 1100
+    portfolio_end_mv = 1122 if position_currency == "EUR" else 1100
+    return {
+        "portfolio_id": f"STATELESS_FX_{position_currency}_{precision_mode}",
+        "currency": "USD",
+        "report_ccy": "USD",
+        "currency_mode": "BOTH",
+        "precision_mode": precision_mode,
+        "report_start_date": "2025-01-01",
+        "report_end_date": "2025-01-01",
+        "analyses": [{"period": "SI", "frequencies": ["daily"]}],
+        "portfolio_data": {
+            "metric_basis": "NET",
+            "valuation_points": [{"perf_date": "2025-01-01", "begin_mv": 1000, "end_mv": portfolio_end_mv}],
+        },
+        "positions_data": [
+            {
+                "position_id": f"{position_currency}_ASSET",
+                "meta": {"currency": position_currency, "sector": "ONE"},
+                "valuation_points": [{"perf_date": "2025-01-01", "begin_mv": 1000, "end_mv": position_end_mv}],
+            }
+        ],
+    }
+
+
+def _use_nested_stateless_shape(payload: dict) -> None:
+    payload["stateless_input"] = {
+        "portfolio_data": payload.pop("portfolio_data"),
+        "positions_data": payload.pop("positions_data"),
+    }
+
+
+@pytest.mark.parametrize(
+    ("fx_case", "fx_payload", "missing_evidence"),
+    [
+        ("omitted", None, "EUR/USD dates 2024-12-31, 2025-01-01"),
+        ("empty_object", {}, "EUR/USD dates 2024-12-31, 2025-01-01"),
+        ("empty_rates", {"rates": []}, "EUR/USD dates 2024-12-31, 2025-01-01"),
+        (
+            "partial",
+            {"rates": [{"date": "2024-12-31", "ccy": "EUR", "rate": 1.0}]},
+            "EUR/USD dates 2025-01-01",
+        ),
+    ],
+)
+@pytest.mark.parametrize("nested", [False, True])
+@pytest.mark.parametrize("with_hierarchy", [False, True])
+def test_stateless_contribution_refuses_incomplete_required_fx_before_sync_or_async_registration(
+    client,
+    fx_case,
+    fx_payload,
+    missing_evidence,
+    nested,
+    with_hierarchy,
+):
+    payload = _stateless_fx_contribution_payload(position_currency="EUR")
+    if fx_case != "omitted":
+        payload["fx"] = fx_payload
+    if nested:
+        _use_nested_stateless_shape(payload)
+    if with_hierarchy:
+        payload["hierarchy"] = ["sector"]
+
+    original_threshold = settings.CONTRIBUTION_EXECUTOR_POSITION_COUNT
+    try:
+        for threshold in (10_000, 0):
+            settings.CONTRIBUTION_EXECUTOR_POSITION_COUNT = threshold
+            payload["calculation_id"] = str(uuid4())
+            response = client.post(
+                "/performance/contribution",
+                json=payload,
+                headers={"X-Tenant-Id": "tenant-a", "X-Correlation-Id": "stateless-fx-refusal"},
+            )
+
+            assert response.status_code == 422, response.text
+            assert response.json()["error_code"] == "FX_RATES_REQUIRED"
+            assert missing_evidence in response.json()["detail"]
+            assert response.json()["retryable"] is False
+            assert client.get(f"/performance/executions/{payload['calculation_id']}").status_code == 404
+            assert client.get(f"/performance/contribution/results/{payload['calculation_id']}").status_code == 404
+    finally:
+        settings.CONTRIBUTION_EXECUTOR_POSITION_COUNT = original_threshold
+
+
+@pytest.mark.parametrize("precision_mode", ["FLOAT64", "DECIMAL_STRICT"])
+@pytest.mark.parametrize("nested", [False, True])
+@pytest.mark.parametrize("with_hierarchy", [False, True])
+def test_stateless_contribution_applies_complete_foreign_fx_with_independent_expected_returns(
+    client,
+    precision_mode,
+    nested,
+    with_hierarchy,
+):
+    payload = _stateless_fx_contribution_payload(position_currency="EUR", precision_mode=precision_mode)
+    payload["fx"] = {
+        "rates": [
+            {"date": "2024-12-31", "ccy": "EUR", "rate": 1.0},
+            {"date": "2025-01-01", "ccy": "EUR", "rate": 1.1},
+        ]
+    }
+    if nested:
+        _use_nested_stateless_shape(payload)
+    if with_hierarchy:
+        payload["hierarchy"] = ["sector"]
+
+    response = client.post("/performance/contribution", json=payload, headers={"X-Tenant-Id": "tenant-a"})
+
+    assert response.status_code == 200, response.text
+    period = response.json()["results_by_period"]["SI"]
+    position = period["position_contributions"][0]
+    assert period["total_portfolio_return"] == pytest.approx(12.2)
+    assert position["total_contribution"] == pytest.approx(12.2)
+    assert position["local_contribution"] == pytest.approx(2.0)
+    assert position["fx_contribution"] == pytest.approx(10.2)
+
+
+@pytest.mark.parametrize("precision_mode", ["FLOAT64", "DECIMAL_STRICT"])
+def test_stateless_contribution_selects_each_currency_series_on_shared_dates(client, precision_mode):
+    payload = _stateless_fx_contribution_payload(position_currency="EUR", precision_mode=precision_mode)
+    payload["portfolio_id"] = f"STATELESS_SHARED_FX_DATES_{precision_mode}"
+    payload["portfolio_data"]["valuation_points"][0]["begin_mv"] = 2000
+    payload["portfolio_data"]["valuation_points"][0]["end_mv"] = 2131.8
+    payload["positions_data"].append(
+        {
+            "position_id": "JPY_ASSET",
+            "meta": {"currency": "JPY", "sector": "TWO"},
+            "valuation_points": [{"perf_date": "2025-01-01", "begin_mv": 1000, "end_mv": 990}],
+        }
+    )
+    payload["fx"] = {
+        "rates": [
+            {"date": "2024-12-31", "ccy": "EUR", "rate": 1.0},
+            {"date": "2025-01-01", "ccy": "EUR", "rate": 1.1},
+            {"date": "2024-12-31", "ccy": "JPY", "rate": 1.0},
+            {"date": "2025-01-01", "ccy": "JPY", "rate": 1.02},
+        ]
+    }
+
+    response = client.post("/performance/contribution", json=payload, headers={"X-Tenant-Id": "tenant-a"})
+
+    assert response.status_code == 200, response.text
+    period = response.json()["results_by_period"]["SI"]
+    by_position = {row["position_id"]: row for row in period["position_contributions"]}
+    assert period["total_portfolio_return"] == pytest.approx(6.59)
+    assert by_position["EUR_ASSET"]["total_contribution"] == pytest.approx(6.1)
+    assert by_position["EUR_ASSET"]["local_contribution"] == pytest.approx(1.0)
+    assert by_position["EUR_ASSET"]["fx_contribution"] == pytest.approx(5.1)
+    assert by_position["JPY_ASSET"]["total_contribution"] == pytest.approx(0.49)
+    assert by_position["JPY_ASSET"]["local_contribution"] == pytest.approx(-0.5)
+    assert by_position["JPY_ASSET"]["fx_contribution"] == pytest.approx(0.99)
+
+
+@pytest.mark.parametrize("fx_payload", [{}, {"rates": []}])
+@pytest.mark.parametrize("nested", [False, True])
+@pytest.mark.parametrize("with_hierarchy", [False, True])
+def test_stateless_contribution_accepts_empty_optional_fx_for_same_currency(
+    client,
+    fx_payload,
+    nested,
+    with_hierarchy,
+):
+    payload = _stateless_fx_contribution_payload(position_currency="USD")
+    payload["fx"] = fx_payload
+    if nested:
+        _use_nested_stateless_shape(payload)
+    if with_hierarchy:
+        payload["hierarchy"] = ["sector"]
+
+    response = client.post("/performance/contribution", json=payload, headers={"X-Tenant-Id": "tenant-a"})
+
+    assert response.status_code == 200, response.text
+    period = response.json()["results_by_period"]["SI"]
+    position = period["position_contributions"][0]
+    assert period["total_portfolio_return"] == pytest.approx(10.0)
+    assert position["local_contribution"] == pytest.approx(10.0)
+    assert position["fx_contribution"] == pytest.approx(0.0)
+
+
 @pytest.mark.parametrize("with_hierarchy", [False, True])
 def test_contribution_both_ignores_unpriced_position_for_currency_evidence(client, with_hierarchy):
     payload = {

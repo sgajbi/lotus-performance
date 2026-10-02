@@ -59,6 +59,12 @@ Inside the current contract:
 - stateful mode consumes `lotus-core:PerformanceComponentEconomics:v1` when available to enrich
   source-economics evidence for source-authored cashflow, fee, income, tax, realized P&L, and
   FX-context component families without moving contribution methodology out of `lotus-performance`
+- stateless `currency_mode="BOTH"` requires `report_ccy` and, when a known position currency differs
+  from it, complete positive finite exact prior/current-date EOD `fx.rates` for every source/report
+  pair. Omitted, empty, or partial evidence returns `422 FX_RATES_REQUIRED` before synchronous
+  calculation or async registration. Same-currency requests may omit FX or supply an empty FX block;
+  an unpriced position or one without authoritative currency retains the documented unavailable
+  decomposition rather than fabricating a rate.
 - stateful `currency_mode="BOTH"` requires `report_ccy`, source position currencies, and complete
   positive finite exact prior/current-date EOD `fx.rates` for every source/report pair when any
   sourced position currency differs from `report_ccy`; every consumed dated position row must

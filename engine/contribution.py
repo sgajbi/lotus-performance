@@ -8,7 +8,7 @@ import numpy as np
 import pandas as pd
 
 from common.enums import WeightingScheme
-from engine.config import EndingValueBasis, EngineConfig
+from engine.config import EndingValueBasis, EngineConfig, PrecisionMode
 from engine.contribution_fee_basis import contribution_data_policy_for_entity
 from engine.contribution_smoothing import (
     ContributionSmoothingLike,
@@ -317,11 +317,13 @@ def _build_contribution_twr_config(request: ContributionRequestLike) -> EngineCo
 
 
 def _build_contribution_fx_rates_frame(request: ContributionRequestLike) -> pd.DataFrame:
-    if request.currency_mode != "BOTH" or not request.fx:
+    if request.currency_mode != "BOTH" or not request.fx or not request.fx.rates:
         return pd.DataFrame()
     fx_rates_df = pd.DataFrame([rate.model_dump() for rate in request.fx.rates])
     fx_rates_df["date"] = pd.to_datetime(fx_rates_df["date"])
     fx_rates_df.drop_duplicates(subset=["date", "ccy"], keep="last", inplace=True)
+    if request.precision_mode == PrecisionMode.DECIMAL_STRICT:
+        fx_rates_df["rate"] = fx_rates_df["rate"].map(lambda value: Decimal(str(value)))
     return fx_rates_df
 
 

@@ -656,7 +656,10 @@ Important validation expectations:
     slice, so an unpriced request entry cannot suppress valid decomposition. Do not fall back to
     portfolio currency for this evidence. Stateful `BOTH` must reject a consumed dated row missing
     `position_currency` or conflicting dated currencies for one engine position before per-position
-    metadata could overwrite that evidence with the last row's value.
+    metadata could overwrite that evidence with the last row's value. Stateless `BOTH` validates
+    complete positive finite exact prior/current-date EOD rates for known foreign currencies before
+    sync execution or async registration. Same-currency input may omit FX or carry an empty optional
+    block; unknown currency keeps decomposition unavailable rather than inventing conversion evidence.
 31. Brinson attribution decomposition is model-specific. Brinson-Fachler uses benchmark-weighted
     selection and a separate interaction effect. Brinson-Hood-Beebower uses portfolio-weighted
     combined selection and must emit zero separate interaction so active return is not double
