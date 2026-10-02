@@ -1,7 +1,7 @@
 # Lotus Performance Test Taxonomy Inventory
 
 Report date: 2026-10-02
-Branch: `fix/573-contribution-position-admission`
+Branch: `fix/559-benchmark-exposure-return-calendar`
 Mode: regression-blocking test taxonomy inventory; `make quality-test-taxonomy-gate` enforces
 minimum API/runtime and contract/governance breadth plus the current uncategorized-test ceiling.
 
@@ -23,8 +23,8 @@ python scripts/python_test_taxonomy_inventory.py --limit 30 --min-api-runtime-te
 | Metric | Value |
 | --- | ---: |
 | Test modules inventoried | 335 |
-| Test functions inventoried | 4040 |
-| Integration/API/runtime test functions | 811 |
+| Test functions inventoried | 4041 |
+| Integration/API/runtime test functions | 812 |
 | Contract/governance test functions | 197 |
 
 ## Test Functions By Suite
@@ -33,7 +33,7 @@ python scripts/python_test_taxonomy_inventory.py --limit 30 --min-api-runtime-te
 | --- | ---: | ---: |
 | benchmarks | 10 | 42 |
 | e2e | 1 | 21 |
-| integration | 29 | 400 |
+| integration | 29 | 401 |
 | unit | 295 | 3577 |
 
 ## Test Functions By Family
@@ -44,8 +44,8 @@ above does sum to it, because a module belongs to exactly one suite.
 
 | Family | Test functions |
 | --- | ---: |
-| analytics_domain | 2012 |
-| api_or_runtime | 811 |
+| analytics_domain | 2013 |
+| api_or_runtime | 812 |
 | contract_or_governance | 197 |
 | observability_or_readiness | 568 |
 | quality_or_security | 269 |
@@ -238,6 +238,6 @@ analytics-domain functions `2,007`, quality/security functions `269`, and uncate
 remain `626`. The blocking floors and ceiling are unchanged.
 
 The #573 position-identity admission slice adds direct-model, registered-API and safe-error
-envelope and bounded 4xx-metric regressions. Current measured source functions are `4,040`,
-API/runtime functions `811`, analytics-domain functions `2,012`; the enforced uncategorized ceiling
+envelope and bounded 4xx-metric regressions. Current measured source functions are `4,041`,
+API/runtime functions `812`, analytics-domain functions `2,013`; the enforced uncategorized ceiling
 stays `626`.

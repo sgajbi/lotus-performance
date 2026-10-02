@@ -28,6 +28,9 @@ derived view over lotus-core index-catalog `classification_labels.issuer_id` and
 source labels. It emits request-wide `metadata.exposure_source_quality` on every page: a complete
 declaration proves no source component or point was omitted, while an incomplete declaration keeps
 valid rows but requires consumers to refuse partial economic evidence rather than renormalizing it.
+The Core market-series read requests component weights and benchmark returns together, so Core
+selects effective-dated weights at actual benchmark-return observation dates; it does not create
+missing return observations, classify cash, or guarantee a retained Core snapshot.
 Generated exposure continuations bind admitted tenant, request scope, resolved benchmark, normalized
 rows, and omission quality; a changed read refuses later pages with a bounded conflict. Legacy
 numeric offsets remain accepted but explicitly unbound. This does not retain a historical Core
