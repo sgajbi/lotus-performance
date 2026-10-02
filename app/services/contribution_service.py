@@ -429,6 +429,7 @@ def _build_hierarchy_contribution_position_assembly(
         source_position_history_df=source_position_history_df,
         source_position_window_complete=source_position_window_complete,
         position_series=position_series,
+        position_contributions=position_contributions,
         position_average_weights=position_totals_result.totals_df[["position_id", "selected_average_weight"]],
         position_weight_components=_selected_average_weight_components(
             period_slice_df,
@@ -438,15 +439,6 @@ def _build_hierarchy_contribution_position_assembly(
         proven_position_inception_dates=proven_position_inception_dates,
         request=request,
     )
-    if request.currency_mode == "BOTH":
-        hierarchy_results["summary"]["local_contribution"] = sum(
-            position.local_contribution
-            for position in position_contributions
-            if position.local_contribution is not None
-        )
-        hierarchy_results["summary"]["fx_contribution"] = sum(
-            position.fx_contribution for position in position_contributions if position.fx_contribution is not None
-        )
     return _HierarchyContributionPositionAssembly(
         selected_average_weight_column=selected_average_weight_column,
         use_reset_aware_average_weight=use_reset_aware_average_weight,

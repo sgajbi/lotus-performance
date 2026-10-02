@@ -161,8 +161,8 @@ def test_contribution_openapi_describes_nullable_currency_decomposition():
         assert "null" in hierarchy_field["description"]
 
 
-@pytest.mark.parametrize("with_hierarchy", [False, True])
-def test_contribution_same_currency_carino_residual_does_not_become_fx(client, with_hierarchy):
+@pytest.mark.parametrize("hierarchy_mode", ["flat", "classified", "excluded"])
+def test_contribution_same_currency_carino_residual_does_not_become_fx(client, hierarchy_mode):
     payload = {
         "portfolio_id": "SYNTHETIC_LOCAL_RESIDUAL",
         "currency": "USD",
@@ -178,13 +178,15 @@ def test_contribution_same_currency_carino_residual_does_not_become_fx(client, w
         "positions_data": [
             {
                 "position_id": "USD_STOCK",
-                "meta": {"currency": "USD", "sector": "ONE"},
+                "meta": {"currency": "USD", **({"sector": "ONE"} if hierarchy_mode != "excluded" else {})},
                 "valuation_points": [{"perf_date": "2025-01-01", "begin_mv": 1000, "end_mv": 1090}],
             }
         ],
     }
-    if with_hierarchy:
+    if hierarchy_mode != "flat":
         payload["hierarchy"] = ["sector"]
+    if hierarchy_mode == "excluded":
+        payload["emit"] = {"include_unclassified": False}
 
     response = client.post("/performance/contribution", json=payload)
     assert response.status_code == 200, response.text
@@ -195,9 +197,14 @@ def test_contribution_same_currency_carino_residual_does_not_become_fx(client, w
     assert position["total_contribution"] == pytest.approx(10.0)
     assert position["local_contribution"] == pytest.approx(10.0)
     assert position["fx_contribution"] == pytest.approx(0.0, abs=1e-10)
-    if with_hierarchy:
+    if hierarchy_mode == "classified":
         assert period["summary"]["local_contribution"] == pytest.approx(10.0)
         assert period["summary"]["fx_contribution"] == pytest.approx(0.0, abs=1e-10)
+    if hierarchy_mode == "excluded":
+        assert period["summary"]["portfolio_contribution"] == pytest.approx(0.0)
+        assert period["summary"]["local_contribution"] == pytest.approx(0.0)
+        assert period["summary"]["fx_contribution"] == pytest.approx(0.0)
+        assert period["levels"] == []
 
 
 @pytest.fixture
