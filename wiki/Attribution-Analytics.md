@@ -42,6 +42,10 @@ reports allocation and portfolio-weighted combined selection; its separate `inte
 zero so active return is not counted twice. Linked and single-period results reconcile using these
 model-specific effects, and downstream consumers must preserve them as authored.
 
+The governed calculation identity is `lotus-performance-calculation-engine.v7`. It supersedes v6
+for scale-aware attribution linking: identical source inputs must not replay a v6 result as though
+it used the ill-conditioned-denominator safeguard.
+
 The current stateful public contract is intentionally fenced to:
 
 1. `mode="by_instrument"`;
@@ -176,6 +180,7 @@ Common current reasons:
 | `unclassified_segment` | One or more rows mapped to the governed unknown/unclassified bucket. | Review source classification completeness. |
 | `missing_benchmark_return` | Benchmark exposure exists without benchmark return evidence. | Review benchmark source coverage. |
 | `currency_attribution_unavailable` | Currency attribution was requested without required currency grouping or local/FX evidence. | Review `currency_mode`, `group_by`, `report_ccy`, and FX inputs. |
+| `linking_scaling_skipped` | Arithmetic active return was zero or ill-conditioned relative to daily active-return activity, so top-down scaling was unsafe. | Use the preserved arithmetic effects and investigate the explicit residual; do not present the period as clean linked attribution. |
 | `linking_invalid_return_chain` | Linked attribution was requested but a period return is `<= -100%`. | Treat linked attribution as partial and inspect reset/source events. |
 | `material_residual` | Residual exceeds the governed materiality threshold. | Investigate input alignment, linking, and source-data gaps. |
 
@@ -187,7 +192,8 @@ RFC 048 added deterministic regression coverage for:
    positive, negative, zero, and linked-period interaction controls;
 2. portfolio-only and benchmark-only segment union with source-order independence;
 3. missing classification, negative weights, benchmark-return gaps, and residual materiality;
-4. invalid multi-period linked return chains;
+4. zero, near-zero, ill-conditioned, and ordinary multi-period linking denominators, plus invalid
+   linked return chains;
 5. endpoint, OpenAPI, vocabulary, data-product, and downstream Gateway/Workbench propagation.
 
 Current local proof commands:

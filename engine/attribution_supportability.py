@@ -322,7 +322,10 @@ def _append_status_based_supportability_reasons(
         actual_status=linking_status,
         expected_status="scaling_skipped",
         code="linking_scaling_skipped",
-        message="Multi-period effect linking could not scale effects because arithmetic active return was zero.",
+        message=(
+            "Multi-period effect linking preserved arithmetic effects because the arithmetic active-return "
+            "denominator was zero or numerically ill-conditioned."
+        ),
     )
     _append_status_reason(
         reasons,

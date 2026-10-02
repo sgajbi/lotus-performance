@@ -638,6 +638,11 @@ Important validation expectations:
     combined selection and must emit zero separate interaction so active return is not double
     counted. Preserve the common response shape and source-owned reconciliation across stateless,
     stateful, single-period, and linked results; consumers must not refold these effects.
+    Multi-period top-down linking must also refuse numerically ill-conditioned arithmetic active-
+    return denominators. Compare the denominator with `sqrt(float64 epsilon)` times summed
+    absolute daily active returns. Preserve arithmetic effects,
+    expose `linking_scaling_skipped`, and retain the residual rather than applying a catastrophic
+    multiplier. Genuinely small but well-conditioned active returns remain linkable.
 32. Runtime operator and status surfaces should degrade per source or component, not per endpoint.
     Work-item and recovery reads for compute and lineage queues must keep the healthy queue usable
     when the other queue fails. Runtime status must mark only the failed component unavailable when

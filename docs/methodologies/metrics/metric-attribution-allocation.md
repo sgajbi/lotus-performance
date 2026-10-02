@@ -84,7 +84,9 @@ selection is portfolio-weighted.
 - Invalid model/mode paths return HTTP 400.
 - Stateful source resolution fails closed when lotus-core portfolio, position, benchmark, or
   source-currency inputs cannot produce usable attribution panel rows.
-- If arithmetic active return is zero in linking path, scaling is skipped (effects unchanged).
+- If arithmetic active return is zero or ill-conditioned relative to summed absolute daily active
+  returns, scaling is skipped (effects unchanged) with `linking_scaling_skipped`. The threshold is
+  `sqrt(float64 epsilon) * sum_t abs(AR_t)`.
 - If a linked period contains `R_p,t <= -1` or `R_b,t <= -1`, the period emits
   `linking_invalid_return_chain` and `supportability_evidence.linking_status="invalid_return_chain"`.
 

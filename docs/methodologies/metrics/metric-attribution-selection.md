@@ -73,7 +73,9 @@ Attribution Selection Effect (`levels[].groups[].selection`)
 - Invalid request mode/model handled as HTTP 400.
 - Stateful source resolution fails closed when lotus-core portfolio, position, benchmark, or
   source-currency inputs cannot produce usable attribution panel rows.
-- If arithmetic active return is zero, linking scaler is not applied.
+- If arithmetic active return is zero or ill-conditioned relative to summed absolute daily active
+  returns, the linking scaler is not applied and `linking_scaling_skipped` is emitted. The threshold
+  is `sqrt(float64 epsilon) * sum_t abs(AR_t)`.
 - If a linked period contains a portfolio or benchmark return less than or equal to `-100%`, the
   period emits `linking_invalid_return_chain` and
   `supportability_evidence.linking_status="invalid_return_chain"`.

@@ -261,7 +261,11 @@ class AttributionSupportabilityEvidence(BaseModel):
         description="Currency attribution evidence status for the period.", examples=["not_requested"]
     )
     linking_status: AttributionLinkingEvidenceStatus = Field(
-        description="Linking evidence status for the period.", examples=["linked"]
+        description=(
+            "Linking evidence status for the period. scaling_skipped preserves arithmetic effects when the "
+            "active-return denominator is zero or numerically ill-conditioned."
+        ),
+        examples=["linked"],
     )
 
 

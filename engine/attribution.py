@@ -26,6 +26,8 @@ from engine.dataframe import create_engine_dataframe_from_valuation_points
 from engine.runtime import run_engine_for_valuation_points
 from engine.schema import PortfolioColumns
 
+_LINKING_DENOMINATOR_RELATIVE_TOLERANCE = float(np.sqrt(np.finfo(float).eps))
+
 
 class ModelDumpLike(Protocol):
     def model_dump(self) -> dict[str, Any]: ...
@@ -690,10 +692,21 @@ def _currency_attribution_status(effects_df: pd.DataFrame, request: AttributionR
 
 
 def _link_effects_top_down(
-    effects_df: pd.DataFrame, geometric_total_ar: float, arithmetic_total_ar: float
+    effects_df: pd.DataFrame,
+    geometric_total_ar: float,
+    arithmetic_total_ar: float,
+    *,
+    active_return_scale: float | None = None,  # monetary-float-allow: dimensionless active-return scale
 ) -> pd.DataFrame:
     """Links multi-period effects by scaling the arithmetic sum to match the geometric total."""
-    if arithmetic_total_ar == 0:
+    if _linking_denominator_is_ill_conditioned(
+        arithmetic_total_ar,
+        active_return_scale=(
+            active_return_scale
+            if active_return_scale is not None
+            else max(abs(arithmetic_total_ar), abs(geometric_total_ar))
+        ),
+    ):
         return effects_df
 
     scaling_factor = geometric_total_ar / arithmetic_total_ar
@@ -704,6 +717,18 @@ def _link_effects_top_down(
             linked_effects[col] *= scaling_factor
 
     return linked_effects
+
+
+def _linking_denominator_is_ill_conditioned(
+    arithmetic_total_ar: float,
+    *,
+    active_return_scale: float,  # monetary-float-allow: dimensionless active-return scale
+) -> bool:
+    """Rejects a divisor whose cancellation error would make top-down scaling unstable."""
+    if arithmetic_total_ar == 0:
+        return True
+    threshold = _LINKING_DENOMINATOR_RELATIVE_TOLERANCE * abs(active_return_scale)
+    return abs(arithmetic_total_ar) <= threshold
 
 
 def _build_attribution_levels(
@@ -859,6 +884,9 @@ def _build_attribution_aggregation_base(
         )
 
     arithmetic_active_return = per_period_active_return.sum()
+    active_return_scale = float(  # monetary-float-allow: dimensionless active-return scale
+        per_period_active_return.abs().sum()
+    )
     invalid_return_chain = bool(((per_period_p_return <= -1) | (per_period_b_return <= -1)).any())
     if invalid_return_chain:
         linking_status = "invalid_return_chain"
@@ -866,9 +894,19 @@ def _build_attribution_aggregation_base(
         scaled_effects = effects_df.reset_index()
     else:
         geometric_active_return = (1 + per_period_p_return).prod() - 1 - ((1 + per_period_b_return).prod() - 1)
-        linking_status = "scaling_skipped" if arithmetic_active_return == 0 else "linked"
+        linking_status = (
+            "scaling_skipped"
+            if _linking_denominator_is_ill_conditioned(
+                arithmetic_active_return,
+                active_return_scale=active_return_scale,
+            )
+            else "linked"
+        )
         scaled_effects = _link_effects_top_down(
-            effects_df.reset_index(), geometric_active_return, arithmetic_active_return
+            effects_df.reset_index(),
+            geometric_active_return,
+            arithmetic_active_return,
+            active_return_scale=active_return_scale,
         )
     return _AttributionAggregationBase(
         active_return=geometric_active_return,

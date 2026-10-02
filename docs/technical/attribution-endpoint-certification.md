@@ -54,6 +54,9 @@ Certification must validate more than headline active return. For every tested p
   `total_effect_pct` match the nested `totals` block
 - reconciliation `sum_of_effects` equals the top-level attribution level total effect
 - reconciliation residual is explained by linking, rounding, or source-data gaps
+- a zero or ill-conditioned arithmetic active-return denominator never produces an unbounded
+  top-down multiplier: arithmetic effects remain bounded, the period emits
+  `linking_scaling_skipped`, and the geometric residual remains explicit
 - linked attribution does not report a clean linked state when a portfolio or benchmark period
   return is less than or equal to `-100%`; the period must emit `linking_invalid_return_chain`
   and `supportability_evidence.linking_status="invalid_return_chain"`
