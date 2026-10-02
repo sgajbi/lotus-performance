@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-from numbers import Real
 from typing import Any
 
 from app.observability import correlation_id_var, request_id_var
@@ -145,29 +144,16 @@ def validation_error_envelope(errors: list[dict[str, Any]]) -> dict[str, Any]:
 
 
 def _json_safe_validation_errors(errors: list[dict[str, Any]]) -> list[dict[str, Any]]:
-    return [{str(key): _json_safe_validation_value(value) for key, value in error.items()} for error in errors]
-
-
-def _json_safe_validation_value(value: Any) -> Any:
-    if _is_json_validation_scalar(value):
-        return value
-    if isinstance(value, dict):
-        return _json_safe_validation_dict(value)
-    if isinstance(value, list | tuple):
-        return _json_safe_validation_list(value)
-    return str(value)
-
-
-def _is_json_validation_scalar(value: Any) -> bool:
-    return value is None or isinstance(value, str | bool | Real)
-
-
-def _json_safe_validation_dict(value: dict[Any, Any]) -> dict[str, Any]:
-    return {str(key): _json_safe_validation_value(item) for key, item in value.items()}
-
-
-def _json_safe_validation_list(value: list[Any] | tuple[Any, ...]) -> list[Any]:
-    return [_json_safe_validation_value(item) for item in value]
+    # Pydantic's `input` and `ctx` may contain complete financial request bodies.
+    # Keep only bounded diagnostics needed to locate a bad field.
+    return [
+        {
+            "type": str(error.get("type", "value_error"))[:64],
+            "loc": [str(part)[:128] if isinstance(part, str) else part for part in error.get("loc", ())[:8]],
+            "msg": str(error.get("msg", "Request validation failed."))[:256],
+        }
+        for error in errors[:32]
+    ]
 
 
 def _safe_public_message(*, detail: Any, status_code: int, message: str | None) -> str:

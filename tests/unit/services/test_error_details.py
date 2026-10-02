@@ -111,7 +111,5 @@ def test_validation_error_envelope_sanitizes_non_json_safe_context_values():
             "type": "value_error",
             "loc": ["body", "analyses"],
             "msg": "Value error, analyses list cannot be empty",
-            "input": [],
-            "ctx": {"error": "analyses list cannot be empty"},
         }
     ]
