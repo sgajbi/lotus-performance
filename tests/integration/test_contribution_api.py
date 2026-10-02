@@ -161,6 +161,57 @@ def test_contribution_openapi_describes_nullable_currency_decomposition():
         assert "null" in hierarchy_field["description"]
 
 
+@pytest.mark.parametrize("with_hierarchy", [False, True])
+@pytest.mark.parametrize("with_known_peer", [False, True])
+def test_contribution_both_without_position_currency_does_not_fabricate_fx(client, with_hierarchy, with_known_peer):
+    position_begin_mv = 500 if with_known_peer else 1000
+    position_end_mv = 550 if with_known_peer else 1100
+    payload = {
+        "portfolio_id": "SYNTHETIC_UNKNOWN_POSITION_CURRENCY",
+        "currency": "USD",
+        "report_ccy": "USD",
+        "currency_mode": "BOTH",
+        "report_start_date": "2025-01-01",
+        "report_end_date": "2025-01-01",
+        "analyses": [{"period": "SI", "frequencies": ["daily"]}],
+        "portfolio_data": {
+            "metric_basis": "NET",
+            "valuation_points": [{"perf_date": "2025-01-01", "begin_mv": 1000, "end_mv": 1100}],
+        },
+        "positions_data": [
+            {
+                "position_id": "UNKNOWN_CCY_STOCK",
+                "meta": {"sector": "ONE"},
+                "valuation_points": [
+                    {"perf_date": "2025-01-01", "begin_mv": position_begin_mv, "end_mv": position_end_mv}
+                ],
+            }
+        ],
+    }
+    if with_known_peer:
+        payload["positions_data"].append(
+            {
+                "position_id": "KNOWN_USD_STOCK",
+                "meta": {"currency": "USD", "sector": "ONE"},
+                "valuation_points": [{"perf_date": "2025-01-01", "begin_mv": 500, "end_mv": 550}],
+            }
+        )
+    if with_hierarchy:
+        payload["hierarchy"] = ["sector"]
+
+    response = client.post("/performance/contribution", json=payload)
+    assert response.status_code == 200, response.text
+    period = response.json()["results_by_period"]["SI"]
+    assert period["total_portfolio_return"] == pytest.approx(10.0)
+    assert sum(position["total_contribution"] for position in period["position_contributions"]) == pytest.approx(10.0)
+    for position in period["position_contributions"]:
+        assert position["local_contribution"] is None
+        assert position["fx_contribution"] is None
+    if with_hierarchy:
+        assert period["summary"]["local_contribution"] is None
+        assert period["summary"]["fx_contribution"] is None
+
+
 @pytest.mark.parametrize("hierarchy_mode", ["flat", "classified", "excluded"])
 def test_contribution_same_currency_carino_residual_does_not_become_fx(client, hierarchy_mode):
     payload = {

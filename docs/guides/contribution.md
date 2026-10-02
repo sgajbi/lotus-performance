@@ -65,6 +65,9 @@ Inside the current contract:
 - position `total_contribution` is available in every supported mode. Position `local_contribution`
   and `fx_contribution` are numeric only for `currency_mode="BOTH"`; in omitted, `BASE_ONLY`, or
   `LOCAL_ONLY` mode both fields are null because the local/FX decomposition was not computed.
+  `BOTH` also returns null components when any consumed position lacks `meta.currency`; this
+  accepted stateless input still receives a total contribution, but the engine has no authoritative
+  position currency from which to establish local/FX return. No portfolio-currency default is used.
   A missing local component is never converted into a synthetic FX contribution. For `BOTH`,
   the two position components reconcile to the residual-adjusted total. A populated hierarchy
   summary aggregates those position components, but hierarchy row local/FX fields remain null:
