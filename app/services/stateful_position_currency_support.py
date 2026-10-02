@@ -8,6 +8,46 @@ from app.services.currency_code_normalization import normalized_currency_code
 from core.errors import APIUnprocessableEntityError
 
 
+def validate_stateless_contribution_both_currency_support(*, request: Any) -> None:
+    if getattr(request, "currency_mode", None) != "BOTH":
+        return
+    reporting_currency = getattr(request, "report_ccy", None)
+    if not reporting_currency:
+        raise APIUnprocessableEntityError(
+            detail="Stateless contribution input requires report_ccy when currency_mode=BOTH.",
+        )
+
+    rows = [
+        {
+            "position_currency": position.meta.get("currency"),
+            "valuation_date": valuation_point.perf_date,
+        }
+        for position in request.positions_data
+        for valuation_point in position.valuation_points
+    ]
+    required_currencies = _required_fx_currencies(
+        position_currencies=stateful_position_currencies(rows),
+        reporting_currency=reporting_currency,
+    )
+    if not required_currencies:
+        return
+
+    missing_coverage = _missing_fx_coverage(
+        rows=rows,
+        required_currencies=required_currencies,
+        reporting_currency=reporting_currency,
+        fx=getattr(request, "fx", None),
+    )
+    if missing_coverage:
+        raise APIUnprocessableEntityError(
+            detail=(
+                "Stateless contribution input requires fx.rates with complete positive finite EOD "
+                "prior/current coverage when currency_mode=BOTH; missing " + "; ".join(missing_coverage) + "."
+            ),
+            error_code="FX_RATES_REQUIRED",
+        )
+
+
 def validate_stateful_both_currency_support(
     *,
     rows: list[dict[str, object]],

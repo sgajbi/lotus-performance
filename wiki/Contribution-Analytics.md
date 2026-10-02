@@ -19,6 +19,7 @@ contribution totals, source-economics quality, or Carino smoothing state.
 | Stateful source input | `input_mode="stateful"` sources portfolio and position analytics inputs from `lotus-core` and normalizes them into the same calculation contract used by stateless requests. |
 | Carino smoothing | Default `CARINO` smoothing uses `F_t = k_t / K` and emits period-level `smoothing_evidence` with raw, smoothed, final, linked-return, residual, factor, status, and reason-code fields. |
 | Precision modes | `FLOAT64` and `DECIMAL_STRICT` are supported across flat and hierarchy results, `CARINO` and `NONE`, same-currency modes, stateful inputs, overrides, and emitted daily/position series. Strict mode preserves Decimal arithmetic until response serialization and is never downgraded. |
+| Applied FX admission | Stateless and stateful `currency_mode="BOTH"` require complete positive finite exact prior/current-date EOD rates for each known source/report pair. Stateless absent, empty, or partial foreign-currency evidence returns `422 FX_RATES_REQUIRED` before calculation or async registration. Same-currency stateless requests may omit FX or supply an empty optional block. |
 | Source economics evidence | Top-level `source_economics_evidence.status` classifies the evidence consumed by contribution, while `component_detail_status` separately distinguishes complete from limited optional P&L decomposition. Unsupported optional buckets remain explicit and do not alone invalidate a supported calculation. Stateful contribution includes `PerformanceComponentEconomics:v1`, preserves row-level and per-page verdict evidence, accepts authoritative `READY/NO_ACTIVITY` as valid empty input, and refuses `UNAVAILABLE/PAGE_EVIDENCE_CHANGED` even after a populated partial page. |
 | Async and lineage | Contribution can return `202 Accepted`, exposes execution status, supports result polling, and emits lineage artifacts for reproducibility and support. |
 | Downstream realization | Gateway preserves source-owned contribution return, smoothing evidence, and source-economics evidence. Workbench renders exact source-economics and smoothing statuses in Performance Drivers. |
@@ -136,8 +137,9 @@ The RFC-047 QA pack proves these contribution semantics:
   remains an internal flow. Portfolio TWR and inspection exclude income from external BOD/EOD
   totals while market-value return retains it. Dated sector group returns must reconcile to the portfolio return;
   unclassified raw income-like labels are not silently promoted;
-- calculation engine identity `lotus-performance-calculation-engine.v10` adds end-to-end strict
-  Decimal contribution execution while retaining after-fee ending-value normalization, revised income treatment, corrected BHB
+- calculation engine identity `lotus-performance-calculation-engine.v11` adds stateless FX
+  pre-admission and strict applied-rate arithmetic while retaining end-to-end strict Decimal
+  contribution execution, after-fee ending-value normalization, revised income treatment, corrected BHB
   decomposition, and scale-aware attribution linking policy: the
   same canonical input fingerprint has a different calculation hash from prior methodology
   identities, so historical results must not be replayed as if they used the current calculations;
@@ -146,8 +148,8 @@ The RFC-047 QA pack proves these contribution semantics:
   positive refund remains in NET and is removed from GROSS;
 - missing classification is emitted as `Unclassified`;
 - short positions preserve signed average weight and inverse contribution sign behavior;
-- mixed-currency stateful contribution fails closed with HTTP `422` when required FX rates are not
-  supplied;
+- mixed-currency stateless or stateful contribution fails closed with HTTP `422` when required FX
+  rates are absent, empty, partial, non-positive, or non-finite;
 - source position grain is preserved through `source_position_key`, while the original business
   `position_id` remains available as metadata when source grain is more specific;
 - local plus FX contribution reconciles to total contribution after residual allocation, including

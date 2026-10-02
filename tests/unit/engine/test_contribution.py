@@ -105,6 +105,34 @@ def test_build_contribution_fx_rates_frame_normalizes_dates_and_keeps_latest_dup
     assert fx_rates_df["rate"].tolist() == [1.2, 1.3]
 
 
+@pytest.mark.parametrize("fx_payload", [{}, {"rates": []}])
+def test_build_contribution_fx_rates_frame_accepts_empty_optional_block(happy_path_payload, fx_payload):
+    payload = happy_path_payload.copy()
+    payload["currency_mode"] = "BOTH"
+    payload["report_ccy"] = "USD"
+    payload["fx"] = fx_payload
+    request = ContributionRequest.model_validate(payload)
+
+    assert _build_contribution_fx_rates_frame(request).empty
+
+
+def test_build_contribution_fx_rates_frame_preserves_strict_decimal_rate_domain(happy_path_payload):
+    payload = happy_path_payload.copy()
+    payload.update(
+        {
+            "currency_mode": "BOTH",
+            "report_ccy": "USD",
+            "precision_mode": "DECIMAL_STRICT",
+            "fx": {"rates": [{"date": "2025-01-01", "ccy": "EUR", "rate": 1.1}]},
+        }
+    )
+    request = ContributionRequest.model_validate(payload)
+
+    fx_rates_df = _build_contribution_fx_rates_frame(request)
+
+    assert fx_rates_df["rate"].tolist() == [Decimal("1.1")]
+
+
 def test_ensure_same_currency_local_fx_columns_fills_base_only_position_results(hierarchical_request_fixture):
     request = hierarchical_request_fixture.model_copy(update={"currency_mode": "BOTH", "report_ccy": "USD"})
     position_results_df = pd.DataFrame({"daily_ror": [1.25]})
