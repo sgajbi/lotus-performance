@@ -112,6 +112,12 @@ Weight application is beginning-of-day effective.
 ### 3. Daily benchmark return
 
 Daily benchmark return is the sum of all daily component contributions.
+When local and FX components are supplied, their daily benchmark values use the same raw
+beginning-of-day weights: `sum(weight_bop * component_return_local)` and
+`sum(weight_bop * component_return_fx)`. A partial, leveraged, or signed exposure is not
+renormalized to a unit-weight portfolio. Weight-sum deviation remains visible in diagnostics;
+it does not silently change any return basis. Zero net weight can still have nonzero signed
+contributions.
 
 ### 4. Period benchmark return
 

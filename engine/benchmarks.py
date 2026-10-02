@@ -83,16 +83,10 @@ def _aggregate_benchmark_returns(
     grouped = grouped.reset_index()
 
     if has_any_local:
-        grouped["benchmark_return_local"] = grouped.apply(
-            lambda row: (
-                Decimal("0") if row["weight_sum"] == 0 else row["weighted_local_return_sum"] / row["weight_sum"]
-            ),
-            axis=1,
-        )
-        grouped["benchmark_return_fx"] = grouped.apply(
-            lambda row: Decimal("0") if row["weight_sum"] == 0 else row["weighted_fx_return_sum"] / row["weight_sum"],
-            axis=1,
-        )
+        # Base, local, and FX are contributions on the same beginning-of-day
+        # exposure basis. A zero net weight can still have signed effects.
+        grouped["benchmark_return_local"] = grouped["weighted_local_return_sum"]
+        grouped["benchmark_return_fx"] = grouped["weighted_fx_return_sum"]
     return grouped
 
 

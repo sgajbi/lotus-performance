@@ -1,7 +1,7 @@
 # Lotus Performance Test Taxonomy Inventory
 
 Report date: 2026-10-02
-Branch: `fix/549-contribution-mode-truth`
+Branch: `fix/551-benchmark-weight-basis`
 Mode: regression-blocking test taxonomy inventory; `make quality-test-taxonomy-gate` enforces
 minimum API/runtime and contract/governance breadth plus the current uncategorized-test ceiling.
 
@@ -23,8 +23,8 @@ python scripts/python_test_taxonomy_inventory.py --limit 30 --min-api-runtime-te
 | Metric | Value |
 | --- | ---: |
 | Test modules inventoried | 335 |
-| Test functions inventoried | 4048 |
-| Integration/API/runtime test functions | 819 |
+| Test functions inventoried | 4052 |
+| Integration/API/runtime test functions | 822 |
 | Contract/governance test functions | 197 |
 
 ## Test Functions By Suite
@@ -33,8 +33,8 @@ python scripts/python_test_taxonomy_inventory.py --limit 30 --min-api-runtime-te
 | --- | ---: | ---: |
 | benchmarks | 10 | 42 |
 | e2e | 1 | 21 |
-| integration | 29 | 407 |
-| unit | 295 | 3578 |
+| integration | 29 | 410 |
+| unit | 295 | 3579 |
 
 ## Test Functions By Family
 
@@ -44,8 +44,8 @@ above does sum to it, because a module belongs to exactly one suite.
 
 | Family | Test functions |
 | --- | ---: |
-| analytics_domain | 2020 |
-| api_or_runtime | 819 |
+| analytics_domain | 2024 |
+| api_or_runtime | 822 |
 | contract_or_governance | 197 |
 | observability_or_readiness | 568 |
 | quality_or_security | 269 |
@@ -246,3 +246,8 @@ The #549 contribution availability slice adds five parameterized registered-HTTP
 one OpenAPI contract test, and one residual-allocation service regression. Current source test
 functions measure `4,048`, API/runtime functions `819`, analytics-domain functions `2,020`, and
 uncategorized functions remain `626`. Existing floors and ceilings are unchanged.
+
+The #551 benchmark weight-basis slice adds independent registered price-derived and stateful
+five-shape exposure proofs. Current source test functions measure `4,052`, API/runtime functions
+`822`, analytics-domain functions `2,024`, and uncategorized functions remain `626`. Existing
+floors and ceilings are unchanged.
