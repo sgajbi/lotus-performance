@@ -42,7 +42,15 @@ def test_build_performance_diagnostics_maps_engine_payload():
             outliers=OutlierDiagnostics(flagged_rows=5),
         ),
         samples=EngineDiagnosticSamples(
-            outliers=[OutlierSample(date="2025-01-10", raw_return=12.5, threshold=3.0)],
+            outliers=[
+                OutlierSample(
+                    date="2025-01-10",
+                    raw_return=12.5,
+                    threshold=3.0,
+                    entity_type="POSITION",
+                    entity_id="SECURITY-1",
+                )
+            ],
             methodology_shadows=[
                 MethodologyShadowSample(
                     date="2025-01-02",
@@ -83,6 +91,8 @@ def test_build_performance_diagnostics_maps_engine_payload():
     assert response_diagnostics.policy.overrides["applied_mv_count"] == 2
     assert response_diagnostics.policy.outliers["flagged_rows"] == 5
     assert response_diagnostics.samples["outliers"][0]["date"] == "2025-01-10"
+    assert response_diagnostics.samples["outliers"][0]["entity_type"] == "POSITION"
+    assert response_diagnostics.samples["outliers"][0]["entity_id"] == "SECURITY-1"
     assert response_diagnostics.samples["methodology_shadows"][0]["sod_reset_shadow"] == 1
     assert response_diagnostics.samples["methodology_shadows"][0]["active_perf_reset"] == 1
     assert response_diagnostics.samples["methodology_shadows"][0]["candidate_canonical_perf_reset"] == 1

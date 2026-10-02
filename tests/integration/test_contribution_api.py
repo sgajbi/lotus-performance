@@ -153,6 +153,10 @@ def test_contribution_currency_explanation_requires_both_mode(
 
 def test_contribution_openapi_describes_nullable_currency_decomposition():
     schemas = app.openapi()["components"]["schemas"]
+    valuation_properties = schemas["PositionDailyData"]["properties"]
+    assert "after market movement and booked management fees" in valuation_properties["end_mv"]["description"]
+    assert "Negative values are fee debits" in valuation_properties["mgmt_fees"]["description"]
+    assert "after-fee ending values" in schemas["PortfolioData"]["properties"]["metric_basis"]["description"]
     for field_name in ("local_contribution", "fx_contribution"):
         position_field = schemas["PositionContribution"]["properties"][field_name]
         assert {variant["type"] for variant in position_field["anyOf"]} == {"number", "null"}
@@ -904,7 +908,7 @@ def test_contribution_endpoint_assigns_net_fee_drag_to_fee_bucket(client):
         "portfolio_data": {
             "metric_basis": "NET",
             "valuation_points": [
-                {"perf_date": "2025-01-01", "begin_mv": 1000, "end_mv": 1000, "mgmt_fees": -10},
+                {"perf_date": "2025-01-01", "begin_mv": 1000, "end_mv": 990, "mgmt_fees": -10},
             ],
         },
         "positions_data": [
@@ -912,7 +916,7 @@ def test_contribution_endpoint_assigns_net_fee_drag_to_fee_bucket(client):
                 "position_id": "ADVISORY_FEE_BUCKET",
                 "meta": {"asset_class": "Fees", "fee_pnl": -10},
                 "valuation_points": [
-                    {"perf_date": "2025-01-01", "begin_mv": 1000, "end_mv": 1000, "mgmt_fees": -10},
+                    {"perf_date": "2025-01-01", "begin_mv": 1000, "end_mv": 990, "mgmt_fees": -10},
                 ],
             }
         ],
@@ -929,6 +933,194 @@ def test_contribution_endpoint_assigns_net_fee_drag_to_fee_bucket(client):
     assert row["contribution"] == pytest.approx(-1.0)
     assert period["total_contribution"] == pytest.approx(-1.0)
     assert "fee_pnl" not in body["source_economics_evidence"]["unsupported_economics"]
+
+
+@pytest.mark.parametrize(
+    ("metric_basis", "end_mv", "mgmt_fees", "bod_cf", "eod_cf", "expected_return"),
+    [
+        ("NET", 1090, -10, 0, 0, 9.0),
+        ("GROSS", 1090, -10, 0, 0, 10.0),
+        ("NET", 1110, 10, 0, 0, 11.0),
+        ("GROSS", 1110, 10, 0, 0, 10.0),
+        ("NET", 1100, 0, 0, 0, 10.0),
+        ("GROSS", 1100, 0, 0, 0, 10.0),
+        ("NET", 1200, -10, 100, 0, 100 / 11),
+        ("GROSS", 1200, -10, 100, 0, 10.0),
+        ("NET", 1190, -10, 0, 100, 9.0),
+        ("GROSS", 1190, -10, 0, 100, 10.0),
+    ],
+)
+def test_contribution_endpoint_uses_after_fee_ending_values(
+    client,
+    metric_basis,
+    end_mv,
+    mgmt_fees,
+    bod_cf,
+    eod_cf,
+    expected_return,
+):
+    valuation_point = {
+        "perf_date": "2025-01-01",
+        "begin_mv": 1000,
+        "end_mv": end_mv,
+        "mgmt_fees": mgmt_fees,
+        "bod_cf": bod_cf,
+        "eod_cf": eod_cf,
+    }
+    payload = {
+        "portfolio_id": f"CONTRIB_AFTER_FEE_{metric_basis}_{end_mv}_{bod_cf}_{eod_cf}",
+        "report_start_date": "2025-01-01",
+        "report_end_date": "2025-01-01",
+        "analyses": [{"period": "SI", "frequencies": ["daily"]}],
+        "portfolio_data": {"metric_basis": metric_basis, "valuation_points": [valuation_point]},
+        "positions_data": [
+            {
+                "position_id": "USD_ASSET",
+                "meta": {"currency": "USD"},
+                "valuation_points": [valuation_point],
+            }
+        ],
+        "hierarchy": ["position_id"],
+        "smoothing": {"method": "NONE"},
+    }
+
+    response = client.post("/performance/contribution", json=payload)
+
+    assert response.status_code == 200
+    period = response.json()["results_by_period"]["SI"]
+    assert period["total_portfolio_return"] == pytest.approx(expected_return)
+    assert period["total_contribution"] == pytest.approx(expected_return)
+
+
+@pytest.mark.parametrize(
+    ("metric_basis", "expected_portfolio_return", "expected_position_return"),
+    [("NET", 8.0, 7.0), ("GROSS", 9.0, 8.0)],
+)
+def test_contribution_endpoint_applies_after_fee_market_value_overrides_by_entity(
+    client,
+    metric_basis,
+    expected_portfolio_return,
+    expected_position_return,
+):
+    valuation_point = {
+        "perf_date": "2025-01-01",
+        "begin_mv": 1000,
+        "end_mv": 1090,
+        "mgmt_fees": -10,
+    }
+    payload = {
+        "portfolio_id": f"CONTRIB_AFTER_FEE_OVERRIDE_{metric_basis}",
+        "report_start_date": "2025-01-01",
+        "report_end_date": "2025-01-01",
+        "analyses": [{"period": "SI", "frequencies": ["daily"]}],
+        "portfolio_data": {"metric_basis": metric_basis, "valuation_points": [valuation_point]},
+        "positions_data": [
+            {
+                "position_id": "USD_ASSET",
+                "meta": {"currency": "USD"},
+                "valuation_points": [valuation_point],
+            }
+        ],
+        "data_policy": {
+            "overrides": {
+                "market_values": [
+                    {
+                        "perf_date": "2025-01-01",
+                        "portfolio_id": f"CONTRIB_AFTER_FEE_OVERRIDE_{metric_basis}",
+                        "end_mv": 1080,
+                    },
+                    {"perf_date": "2025-01-01", "position_id": "USD_ASSET", "end_mv": 1070},
+                ]
+            }
+        },
+        "hierarchy": ["position_id"],
+        "smoothing": {"method": "NONE"},
+    }
+
+    response = client.post("/performance/contribution", json=payload)
+
+    assert response.status_code == 200
+    body = response.json()
+    period = body["results_by_period"]["SI"]
+    assert period["total_portfolio_return"] == pytest.approx(expected_portfolio_return)
+    assert period["position_contributions"][0]["total_return"] == pytest.approx(expected_position_return)
+    assert body["diagnostics"]["policy"]["overrides"]["applied_mv_count"] == 2
+    assert body["diagnostics"]["notes"] == ["Applied overrides from the data_policy request."]
+
+
+def test_contribution_endpoint_honors_outlier_scope_and_identifies_each_position(client):
+    daily_returns = [1.0, 1.1, 0.9, 1.2, 0.8, 99.0, 1.0, 1.1, 0.9, 1.0]
+    valuation_points = [
+        {
+            "perf_date": str(perf_date.date()),
+            "begin_mv": 1000,
+            "end_mv": 1000 * (1 + daily_return / 100),
+        }
+        for perf_date, daily_return in zip(pd.date_range("2025-01-01", periods=10), daily_returns, strict=True)
+    ]
+    payload = {
+        "portfolio_id": "CONTRIB_OUTLIER_SCOPE",
+        "report_start_date": "2025-01-01",
+        "report_end_date": "2025-01-10",
+        "analyses": [{"period": "SI", "frequencies": ["daily"]}],
+        "portfolio_data": {"metric_basis": "NET", "valuation_points": valuation_points},
+        "positions_data": [
+            {"position_id": "OUTLIER_POSITION_1", "valuation_points": valuation_points},
+            {"position_id": "OUTLIER_POSITION_2", "valuation_points": valuation_points},
+        ],
+        "data_policy": {"outliers": {"enabled": True, "action": "FLAG", "params": {"window": 5, "mad_k": 3.0}}},
+        "smoothing": {"method": "NONE"},
+    }
+
+    response = client.post("/performance/contribution", json=payload)
+
+    assert response.status_code == 200, response.text
+    diagnostics = response.json()["diagnostics"]
+    assert diagnostics["policy"]["outliers"]["flagged_rows"] == 2
+    assert [(sample["entity_type"], sample["entity_id"]) for sample in diagnostics["samples"]["outliers"]] == [
+        ("POSITION", "OUTLIER_POSITION_1"),
+        ("POSITION", "OUTLIER_POSITION_2"),
+    ]
+
+
+def test_contribution_endpoint_allocates_after_fee_position_economics(client):
+    payload = {
+        "portfolio_id": "CONTRIB_AFTER_FEE_ALLOCATION",
+        "report_start_date": "2025-01-01",
+        "report_end_date": "2025-01-01",
+        "analyses": [{"period": "SI", "frequencies": ["daily"]}],
+        "portfolio_data": {
+            "metric_basis": "NET",
+            "valuation_points": [{"perf_date": "2025-01-01", "begin_mv": 1000, "end_mv": 1095, "mgmt_fees": -5}],
+        },
+        "positions_data": [
+            {
+                "position_id": "FEE_BEARING",
+                "valuation_points": [{"perf_date": "2025-01-01", "begin_mv": 500, "end_mv": 545, "mgmt_fees": -5}],
+            },
+            {
+                "position_id": "FEE_FREE",
+                "valuation_points": [{"perf_date": "2025-01-01", "begin_mv": 500, "end_mv": 550}],
+            },
+        ],
+        "hierarchy": ["position_id"],
+        "smoothing": {"method": "NONE"},
+    }
+
+    response = client.post("/performance/contribution", json=payload)
+
+    assert response.status_code == 200
+    period = response.json()["results_by_period"]["SI"]
+    contributions = {row["position_id"]: row for row in period["position_contributions"]}
+    assert period["total_portfolio_return"] == pytest.approx(9.5)
+    assert period["total_contribution"] == pytest.approx(9.5)
+    assert contributions["FEE_BEARING"]["total_return"] == pytest.approx(9.0)
+    assert contributions["FEE_BEARING"]["total_contribution"] == pytest.approx(4.5)
+    assert contributions["FEE_FREE"]["total_return"] == pytest.approx(10.0)
+    assert contributions["FEE_FREE"]["total_contribution"] == pytest.approx(5.0)
+    hierarchy_rows = {row["key"]["position_id"]: row for row in period["levels"][0]["rows"]}
+    assert hierarchy_rows["FEE_BEARING"]["contribution"] == pytest.approx(4.5)
+    assert hierarchy_rows["FEE_FREE"]["contribution"] == pytest.approx(5.0)
 
 
 def test_contribution_endpoint_preserves_missing_classification_as_unclassified(client):
@@ -1768,6 +1960,68 @@ def test_contribution_supports_stateful_input_mode(client, monkeypatch):
     partial = client.post("/performance/contribution", json=payload, headers={"X-Tenant-Id": "tenant-a"})
     assert partial.status_code == 422
     assert "USD/EUR dates 2025-01-01, 2025-01-02" in partial.json()["detail"]
+
+
+@pytest.mark.parametrize(("metric_basis", "expected_return"), [("NET", 9.0), ("GROSS", 10.0)])
+def test_stateful_contribution_normalizes_core_after_fee_ending_values(
+    client,
+    monkeypatch,
+    metric_basis,
+    expected_return,
+):
+    async def _source(**kwargs):  # noqa: ARG001
+        from types import SimpleNamespace
+
+        fee = {"amount": "-10", "timing": "eod", "cash_flow_type": "fee"}
+        return SimpleNamespace(
+            portfolio_input=SimpleNamespace(
+                observations=[
+                    {
+                        "valuation_date": "2025-01-01",
+                        "beginning_market_value": "1000",
+                        "ending_market_value": "1090",
+                        "cash_flows": [fee],
+                    }
+                ],
+                portfolio_currency="USD",
+                reporting_currency="USD",
+            ),
+            position_rows=[
+                {
+                    "position_id": "USD_ASSET",
+                    "security_id": "USD_ASSET",
+                    "position_currency": "USD",
+                    "valuation_date": "2025-01-01",
+                    "beginning_market_value_portfolio_currency": "1000",
+                    "ending_market_value_portfolio_currency": "1090",
+                    "cash_flows": [fee],
+                    "dimensions": {"sector": "Equity"},
+                }
+            ],
+            position_source_rows_complete=True,
+        )
+
+    monkeypatch.setattr(
+        "app.services.contribution_mode_service.retrieve_stateful_contribution_source_input",
+        _source,
+    )
+    response = client.post(
+        "/performance/contribution",
+        json={
+            "portfolio_id": f"CONTRIB_STATEFUL_AFTER_FEE_{metric_basis}",
+            "report_start_date": "2025-01-01",
+            "report_end_date": "2025-01-01",
+            "analyses": [{"period": "SI", "frequencies": ["daily"]}],
+            "input_mode": "stateful",
+            "stateful_input": {"metric_basis": metric_basis},
+            "smoothing": {"method": "NONE"},
+        },
+    )
+
+    assert response.status_code == 200
+    period = response.json()["results_by_period"]["SI"]
+    assert period["total_portfolio_return"] == pytest.approx(expected_return)
+    assert period["total_contribution"] == pytest.approx(expected_return)
 
 
 def test_contribution_registered_api_degrades_rejected_component_scope_without_using_rows(

@@ -722,6 +722,12 @@ Important validation expectations:
     shared engine behavior reaches the benchmark API directly and also feeds benchmark-aware TWR,
     workspace-summary, returns-series, and stateful attribution paths, so changes require
     cross-surface regression evidence rather than endpoint-only proof.
+38. Contribution portfolio and position `end_mv` values are after booked management fees in both
+    stateless and stateful contracts. Normalize them once at the contribution-to-engine boundary by
+    subtracting the signed `mgmt_fees` amount from `end_mv`: the shared engine then retains the fee
+    once for NET and removes it once for GROSS. Apply the same translation after entity-scoped
+    `data_policy` overrides and across master-window and period recomputation paths; do not change
+    direct TWR input semantics or normalize only one output shape.
 
 ## Standards And RFCs That Govern This Repository
 

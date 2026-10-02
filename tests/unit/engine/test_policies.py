@@ -101,15 +101,30 @@ def test_apply_robustness_policies_records_no_notes_when_policy_matches_nothing(
 
 
 def test_apply_ignore_days(sample_policy_df):
-    """Tests that an ignored day carries forward the previous day's state."""
+    """Ignored days carry forward state chronologically, independent of request order."""
     policy = DataPolicy.model_validate(
-        {"ignore_days": [{"entity_type": "POSITION", "entity_id": "P1", "dates": ["2025-03-15"]}]}
+        {
+            "ignore_days": [
+                {
+                    "entity_type": "POSITION",
+                    "entity_id": "P1",
+                    "dates": ["2025-03-16"],
+                },
+                {
+                    "entity_type": "POSITION",
+                    "entity_id": "P1",
+                    "dates": ["2025-03-15"],
+                },
+            ]
+        }
     )
     result_df, diags = apply_robustness_policies(sample_policy_df, policy)
     assert result_df.loc[1, PortfolioColumns.BEGIN_MV.value] == 110.0
     assert result_df.loc[1, PortfolioColumns.END_MV.value] == 110.0
     assert result_df.loc[1, PortfolioColumns.BOD_CF.value] == 0.0
-    assert diags.policy.ignored_days_count == 1
+    assert result_df.loc[2, PortfolioColumns.BEGIN_MV.value] == 110.0
+    assert result_df.loc[2, PortfolioColumns.END_MV.value] == 110.0
+    assert diags.policy.ignored_days_count == 2
 
 
 def test_apply_ignored_day_carries_forward_previous_day_state(sample_policy_df):

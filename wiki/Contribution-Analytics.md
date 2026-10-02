@@ -13,6 +13,7 @@ contribution totals, source-economics quality, or Carino smoothing state.
 | Capability | Implementation-backed behavior |
 | --- | --- |
 | Position contribution | `POST /performance/contribution` returns position-level contribution, average weight, local contribution, FX contribution, and position return where supported. |
+| Fee basis | Portfolio and position ending values, including market-value overrides, are after booked fees. Performance scopes overrides to their named entity, retains each signed fee once for NET, and removes it once for GROSS before flat, hierarchy, and period aggregation; fee-free and external-flow treatment is unchanged. |
 | Stateless identity admission | Every supplied position has a unique canonical `position_id`; repeated identifiers return bounded HTTP `422` before calculation or async registration. Separate lots/accounts of one security use distinct grain IDs. See the [contribution guide](https://github.com/sgajbi/lotus-performance/blob/main/docs/guides/contribution.md). |
 | Hierarchy contribution | Optional `hierarchy` groups position contribution by dimensions such as `asset_class`, `sector`, `country`, `currency`, and `position_id`. Missing classification is emitted as `Unclassified`; top-N bucketing can emit `Other`. Hierarchy `weight_avg` uses the same active or reset-aware promoted denominator as position `average_weight`; when a position changes group, each group's weight sums its dated position weights on that same denominator, so changing exposure is allocated by economic magnitude instead of date count and groups reconcile without duplication. The selected denominator remains authoritative when `include_unclassified=false`, preventing hidden unclassified observations from inflating a classified group. Every explicit row also carries `group_return` with aligned source-valuation return, date, applied currency, and beginning-capital weight semantics; it is never inferred from contribution divided by weight. Explicit zero-return/zero-weight points for leading dates require an exhaustively retrieved stateful Core position window plus zero opening value and a beginning-of-day funding flow at entry; caller-supplied or otherwise unproven windows fail closed while complete stateless calendars remain calculable. A missing valuation at or after position entry, or a source group wholly absent from a subperiod, is explicitly `UNAVAILABLE`, as are mixed-local-currency, invalid-date, non-finite-economics, incomplete-source, and aggregated `Other` cases. Stateful source membership is retained independently of valuation normalization, so a valid position identity and hierarchy classification remain visible as `UNAVAILABLE` even when that row's valuation pair cannot be calculated; this evidence never creates return or contribution economics. Supplied nested cash-flow rows and the FX factors consumed for their selected value basis must all normalize without loss before source completeness is granted. Effective-dated hierarchy membership distinguishes genuine group entry and exit from a missing position valuation and replaces latest-metadata projection before contribution, weight, and group-return aggregation, while the global position calendar remains mandatory. When every known source group is absent, the portfolio observation calendar retains the period and exposes every group as `UNAVAILABLE` rather than silently dropping the period. `UNAVAILABLE` source groups bypass top-N and weight-threshold presentation filters so incomplete economics cannot disappear from the response. |
 | Stateful source input | `input_mode="stateful"` sources portfolio and position analytics inputs from `lotus-core` and normalizes them into the same calculation contract used by stateless requests. |
@@ -86,6 +87,7 @@ sequenceDiagram
 | Logs | Structured access logs carry correlation, request, and trace identifiers across Gateway, performance, and upstream source calls. |
 | Lineage | Contribution executions expose retrieval, normalization, execution, and lineage materialization stages plus artifacts such as request, response, daily contribution, and portfolio TWR files. |
 | Error handling | Invalid request shapes and unsupported stateful currency combinations return bounded validation errors. Mixed-currency stateful contribution in `currency_mode="BOTH"` requires complete positive finite exact prior/current-date EOD `fx.rates` for every source/report pair; empty or partial coverage returns `FX_RATES_REQUIRED`. Successful responses publish `currency_evidence`; unsupported source economics are not treated as fatal when contribution can still be safely calculated. |
+| Robustness policy | Outlier scope is explicit: `SECURITY_RETURNS` evaluates positions and `PORTFOLIO_RETURNS` evaluates the portfolio. Flagged contribution samples retain `entity_type` and `entity_id`. |
 | Security posture | Downstream calls require governed caller context at Gateway; contribution evidence avoids exposing restricted customer data in public documentation. |
 
 ## Demo and Sales Narrative
@@ -133,11 +135,14 @@ The RFC-047 QA pack proves these contribution semantics:
   remains an internal flow. Portfolio TWR and inspection exclude income from external BOD/EOD
   totals while market-value return retains it. Dated sector group returns must reconcile to the portfolio return;
   unclassified raw income-like labels are not silently promoted;
-- calculation engine identity `lotus-performance-calculation-engine.v8` retains the revised
-  income treatment, corrected BHB decomposition, and scale-aware attribution linking policy: the
+- calculation engine identity `lotus-performance-calculation-engine.v9` adds contribution
+  after-fee ending-value normalization while retaining revised income treatment, corrected BHB
+  decomposition, and scale-aware attribution linking policy: the
   same canonical input fingerprint has a different calculation hash from prior methodology
   identities, so historical results must not be replayed as if they used the current calculations;
 - net fee drag can be carried by an explicit fee bucket when source metadata supplies `fee_pnl`;
+- a `1000 -> 1090` after-fee valuation with a `-10` fee returns `9%` NET and `10%` GROSS; a
+  positive refund remains in NET and is removed from GROSS;
 - missing classification is emitted as `Unclassified`;
 - short positions preserve signed average weight and inverse contribution sign behavior;
 - mixed-currency stateful contribution fails closed with HTTP `422` when required FX rates are not

@@ -8,6 +8,7 @@ import pandas as pd
 from engine.compute import run_calculations
 from engine.config import EngineConfig
 from engine.dataframe import create_engine_dataframe_from_valuation_points
+from engine.diagnostics import EngineDiagnostics
 from engine.schema import PortfolioColumns
 
 
@@ -23,9 +24,24 @@ def run_engine_for_valuation_points(
     force_base_only: bool = False,
 ) -> pd.DataFrame:
     """Run the engine over valuation points and normalize perf_date to pandas timestamps."""
+    results_df, _ = run_engine_for_valuation_points_with_diagnostics(
+        valuation_points,
+        config,
+        force_base_only=force_base_only,
+    )
+    return results_df
+
+
+def run_engine_for_valuation_points_with_diagnostics(
+    valuation_points: list[dict[str, Any]],
+    config: EngineConfig,
+    *,
+    force_base_only: bool = False,
+) -> tuple[pd.DataFrame, EngineDiagnostics]:
+    """Run valuation points while retaining the engine's typed diagnostics."""
     engine_df = create_engine_dataframe_from_valuation_points(valuation_points)
     effective_config = base_only_engine_config(config) if force_base_only else config
-    results_df, _ = run_calculations(engine_df, effective_config)
+    results_df, diagnostics = run_calculations(engine_df, effective_config)
     if PortfolioColumns.PERF_DATE.value in results_df.columns:
         results_df[PortfolioColumns.PERF_DATE.value] = pd.to_datetime(results_df[PortfolioColumns.PERF_DATE.value])
-    return results_df
+    return results_df, diagnostics

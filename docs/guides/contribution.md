@@ -40,6 +40,9 @@ Inside the current contract:
 
 - stateless `portfolio_data` contains `metric_basis` and `valuation_points`
 - each stateless entry in `positions_data` contains `position_id`, optional `meta`, and `valuation_points`
+- contribution `end_mv` is the ending market value after booked `mgmt_fees`. NET retains that fee
+  effect once; GROSS removes it once. Negative `mgmt_fees` are fee debits and positive values are
+  refunds. Portfolio and position rows use the same convention in stateless and stateful modes.
 - `position_id` identifies one canonical position grain within a stateless request. Both legacy
   top-level and nested `stateless_input` shapes reject repeated identifiers, even for identical
   rows, with HTTP `422` before calculation or async registration. Give separate lots/accounts
@@ -427,6 +430,13 @@ front-office and audit confusion:
   canonical Core classification;
 - net fee drag can be represented through an explicit fee bucket when source metadata supplies
   `fee_pnl`;
+- after-fee ending values are normalized once at the contribution-to-engine boundary, so a
+  `1000 -> 1090` valuation with a `-10` fee returns `9%` NET and `10%` GROSS; the shared TWR
+  engine's direct input convention is unchanged. `data_policy.overrides.market_values[].end_mv`
+  uses the same after-fee basis and is applied only to its named portfolio or position;
+- `data_policy.outliers.scope` is honored per engine run: `SECURITY_RETURNS` evaluates positions,
+  while `PORTFOLIO_RETURNS` evaluates the portfolio. Contribution outlier samples include
+  `entity_type` and `entity_id` so each flagged observation remains attributable;
 - missing hierarchy classification is emitted as `Unclassified` rather than dropped or guessed;
 - short positions preserve signed average weight and inverse contribution sign behavior;
 - hierarchy rows, position rows, daily totals, and by-position series reconcile to the

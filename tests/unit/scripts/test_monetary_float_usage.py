@@ -58,6 +58,10 @@ def test_every_allowlisted_finding_is_still_produced_by_the_scan():
         "Allowlist entries no longer matched by the scan. Remove them: an approval that "
         f"describes nothing is not coverage. {orphaned}"
     )
+    assert any(
+        finding.startswith("app/models/contribution_requests.py:") and "end_mv: float" in finding
+        for finding in finding_keys
+    ), "Contribution end_mv must remain inventoried until issue #530 converts the monetary boundary to Decimal."
 
 
 def test_dispositioned_entries_name_their_specific_finding_and_migration():

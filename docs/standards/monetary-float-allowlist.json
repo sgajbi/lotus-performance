@@ -130,7 +130,7 @@
       "review_by": "2026-10-08"
     },
     {
-      "finding": "app/models/contribution_requests.py:28:end_mv: float = Field(..., description=\"Ending market value after market movement and fees.\")",
+      "finding": "app/models/contribution_requests.py:28:end_mv: float = Field(  # monetary value; Decimal migration tracked by issue #530",
       "justification": "Deferred position market-value request boundary; Decimal/API compatibility and golden vectors tracked in https://github.com/sgajbi/lotus-performance/issues/530.",
       "owner": "lotus-performance",
       "review_by": "2026-10-08"

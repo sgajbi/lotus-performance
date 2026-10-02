@@ -64,6 +64,10 @@ diagnostics omit rejected input values and contexts while retaining correlation 
 Every certified contribution response must satisfy these invariants for each resolved period:
 
 - `total_portfolio_return` is the portfolio TWR for the period in percentage-point units;
+- portfolio and position `end_mv` values are after booked fees. A `1000 -> 1090` ending value with
+  `mgmt_fees=-10` yields `9%` NET and `10%` GROSS; a positive fee refund is retained in NET and
+  removed from GROSS. Market-value overrides use the same basis and remain scoped to the named
+  portfolio or position. Fee-free rows and BOD/EOD external-flow neutrality remain unchanged;
 - `total_contribution` reconciles to `total_portfolio_return` after residual allocation;
 - summed `position_contributions[].total_contribution` reconciles to `total_contribution`;
 - summed `position_contributions[].average_weight` reconciles to 100%, allowing only tiny rounding
@@ -129,7 +133,8 @@ Stateful normalization maps lotus-core position rows into canonical contribution
   business `position_id` from overwriting each other;
 - canonical `cash_flow_type="external_flow"` and `cash_flow_type="internal_trade_flow"` rows
   become position cash-flow adjustments;
-- operational `cash_flow_type="fee"` rows remain fee drag;
+- operational `cash_flow_type="fee"` rows remain fee drag already reflected in source ending
+  values; Performance reconstructs the fee-exclusive engine value once before applying NET/GROSS;
 - position dimensions become grouping metadata;
 - source cash-flow type counts, selected FX metadata, and selected classification dimensions are
   preserved into `source_economics_evidence`;

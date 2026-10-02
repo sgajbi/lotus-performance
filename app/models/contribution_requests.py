@@ -27,10 +27,21 @@ class PositionDailyData(BaseModel):
 
     perf_date: date = Field(..., description="Observation date for the valuation point.")
     begin_mv: float = Field(..., description="Beginning market value before any cash flows.")
-    end_mv: float = Field(..., description="Ending market value after market movement and fees.")
+    end_mv: float = Field(  # monetary value; Decimal migration tracked by issue #530
+        ...,
+        description=(
+            "Ending market value after market movement and booked management fees. Contribution "
+            "normalizes this after-fee value at the shared return-engine boundary."
+        ),
+    )
     bod_cf: float = Field(0.0, description="Beginning-of-day cash flow applied before performance.")
     eod_cf: float = Field(0.0, description="End-of-day cash flow applied after performance.")
-    mgmt_fees: float = Field(0.0, description="Management fees booked for the day.")
+    mgmt_fees: float = Field(
+        0.0,
+        description=(
+            "Management fees already reflected in end_mv. Negative values are fee debits; positive values are refunds."
+        ),
+    )
 
 
 class PositionData(BaseModel):
@@ -67,7 +78,12 @@ UniquePositionData = Annotated[list[PositionData], AfterValidator(_unique_positi
 class PortfolioData(BaseModel):
     """Contains the full time series and config for the total portfolio."""
 
-    metric_basis: Literal["NET", "GROSS"] = Field(..., description="Whether portfolio inputs are net or gross of fees.")
+    metric_basis: Literal["NET", "GROSS"] = Field(
+        ...,
+        description=(
+            "Return basis to calculate from after-fee ending values: NET retains booked fees and GROSS removes them."
+        ),
+    )
     valuation_points: List[PositionDailyData] = Field(
         ...,
         description="Canonical portfolio valuation observations ordered by perf_date. Sequence is derived server-side.",

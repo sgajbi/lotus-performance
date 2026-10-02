@@ -6,7 +6,8 @@ from typing import Tuple
 import numpy as np
 import pandas as pd
 
-from engine.config import EngineConfig, PrecisionMode
+from engine.config import EndingValueBasis, EngineConfig, PrecisionMode
+from engine.contribution_fee_basis import normalize_after_fee_ending_values
 from engine.diagnostics import EngineDiagnostics, EngineResetEvent, MethodologyShadowSample
 from engine.exceptions import EngineCalculationError, InvalidEngineInputError
 from engine.periods import get_effective_period_start_dates
@@ -40,6 +41,9 @@ def run_calculations(df: pd.DataFrame, config: EngineConfig) -> Tuple[pd.DataFra
         _prepare_dataframe(working_df, config)
 
         working_df, policy_diagnostics = apply_robustness_policies(working_df, config.data_policy)
+        _coerce_engine_numeric_columns(working_df, config)
+        if config.ending_value_basis == EndingValueBasis.AFTER_FEES:
+            normalize_after_fee_ending_values(working_df, config.precision_mode)
         _attach_effective_period_and_daily_returns(working_df, config)
         _apply_data_policy_outlier_flags(working_df, config, policy_diagnostics)
 

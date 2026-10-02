@@ -19,6 +19,13 @@ class PrecisionMode(str, Enum):
     DECIMAL_STRICT = "DECIMAL_STRICT"
 
 
+class EndingValueBasis(str, Enum):
+    """Declares whether ending values already exclude separately booked fees."""
+
+    FEE_EXCLUSIVE = "FEE_EXCLUSIVE"
+    AFTER_FEES = "AFTER_FEES"
+
+
 @dataclass(frozen=True)
 class FeatureFlags:
     """
@@ -44,6 +51,7 @@ class EngineConfig:
     precision_mode: PrecisionMode = PrecisionMode.FLOAT64
     feature_flags: FeatureFlags = field(default_factory=FeatureFlags)
     data_policy: Optional[DataPolicy] = None
+    ending_value_basis: EndingValueBasis = EndingValueBasis.FEE_EXCLUSIVE
 
     currency_mode: Optional[Literal["BASE_ONLY", "LOCAL_ONLY", "BOTH"]] = "BASE_ONLY"
     report_ccy: Optional[str] = "USD"

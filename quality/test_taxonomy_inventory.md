@@ -1,7 +1,7 @@
 # Lotus Performance Test Taxonomy Inventory
 
 Report date: 2026-10-02
-Branch: `fix/542-source-correction-recalculation`
+Branch: `fix/550-fee-valuation-basis`
 Mode: regression-blocking test taxonomy inventory; `make quality-test-taxonomy-gate` enforces
 minimum API/runtime and contract/governance breadth plus the current uncategorized-test ceiling.
 
@@ -22,9 +22,9 @@ python scripts/python_test_taxonomy_inventory.py --limit 30 --min-api-runtime-te
 
 | Metric | Value |
 | --- | ---: |
-| Test modules inventoried | 338 |
-| Test functions inventoried | 4110 |
-| Integration/API/runtime test functions | 833 |
+| Test modules inventoried | 339 |
+| Test functions inventoried | 4120 |
+| Integration/API/runtime test functions | 838 |
 | Contract/governance test functions | 201 |
 
 ## Test Functions By Suite
@@ -33,8 +33,8 @@ python scripts/python_test_taxonomy_inventory.py --limit 30 --min-api-runtime-te
 | --- | ---: | ---: |
 | benchmarks | 10 | 45 |
 | e2e | 1 | 21 |
-| integration | 30 | 421 |
-| unit | 297 | 3623 |
+| integration | 30 | 426 |
+| unit | 298 | 3628 |
 
 ## Test Functions By Family
 
@@ -44,8 +44,8 @@ above does sum to it, because a module belongs to exactly one suite.
 
 | Family | Test functions |
 | --- | ---: |
-| analytics_domain | 2051 |
-| api_or_runtime | 833 |
+| analytics_domain | 2061 |
+| api_or_runtime | 838 |
 | contract_or_governance | 201 |
 | observability_or_readiness | 683 |
 | quality_or_security | 269 |
@@ -60,7 +60,7 @@ above does sum to it, because a module belongs to exactly one suite.
 | 3 | `tests/unit/services/test_stateful_attribution_input_service.py` | unit | 71 | analytics_domain |
 | 4 | `tests/unit/docs/test_public_docs_contract.py` | unit | 69 | contract_or_governance |
 | 5 | `tests/unit/services/test_compute_job_store.py` | unit | 69 | observability_or_readiness |
-| 6 | `tests/integration/test_contribution_api.py` | integration | 63 | analytics_domain, api_or_runtime |
+| 6 | `tests/integration/test_contribution_api.py` | integration | 68 | analytics_domain, api_or_runtime |
 | 7 | `tests/integration/test_performance_api.py` | integration | 62 | api_or_runtime |
 | 8 | `tests/unit/services/test_lineage_metadata_store.py` | unit | 62 | observability_or_readiness |
 | 9 | `tests/unit/app/test_openapi_enrichment.py` | unit | 61 | api_or_runtime |
@@ -295,3 +295,9 @@ runtime-readiness suites to their actual family. Current source test functions m
 API/runtime functions `833`, contract/governance functions `201`, analytics-domain functions
 `2,051`, observability/readiness functions `683`, and uncategorized functions fall to `565`.
 The blocking ceiling tightens to the measured `565`; no floor is reduced.
+
+The #550 contribution fee-basis correction adds one focused unit module plus registered HTTP,
+stateful-adapter, hierarchy, position-allocation, BOD/EOD cash-flow, entity-scoped override,
+outlier-scope and sample-identity, debit, refund, and fee-free proof. Current source test functions
+measure `4,120`, API/runtime functions `838`, analytics-domain functions `2,061`, and uncategorized
+functions remain `565`; no floor or ceiling changed.
