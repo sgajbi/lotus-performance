@@ -23,8 +23,8 @@ python scripts/python_test_taxonomy_inventory.py --limit 30 --min-api-runtime-te
 | Metric | Value |
 | --- | ---: |
 | Test modules inventoried | 335 |
-| Test functions inventoried | 4043 |
-| Integration/API/runtime test functions | 814 |
+| Test functions inventoried | 4045 |
+| Integration/API/runtime test functions | 816 |
 | Contract/governance test functions | 197 |
 
 ## Test Functions By Suite
@@ -33,8 +33,8 @@ python scripts/python_test_taxonomy_inventory.py --limit 30 --min-api-runtime-te
 | --- | ---: | ---: |
 | benchmarks | 10 | 42 |
 | e2e | 1 | 21 |
-| integration | 29 | 403 |
-| unit | 295 | 3577 |
+| integration | 29 | 404 |
+| unit | 295 | 3578 |
 
 ## Test Functions By Family
 
@@ -44,8 +44,8 @@ above does sum to it, because a module belongs to exactly one suite.
 
 | Family | Test functions |
 | --- | ---: |
-| analytics_domain | 2015 |
-| api_or_runtime | 814 |
+| analytics_domain | 2017 |
+| api_or_runtime | 816 |
 | contract_or_governance | 197 |
 | observability_or_readiness | 568 |
 | quality_or_security | 269 |
@@ -62,15 +62,15 @@ above does sum to it, because a module belongs to exactly one suite.
 | 5 | `tests/unit/services/test_compute_job_store.py` | unit | 68 | observability_or_readiness |
 | 6 | `tests/unit/services/test_lineage_metadata_store.py` | unit | 62 | observability_or_readiness |
 | 7 | `tests/unit/app/test_openapi_enrichment.py` | unit | 61 | api_or_runtime |
-| 8 | `tests/integration/test_contribution_api.py` | integration | 59 | analytics_domain, api_or_runtime |
+| 8 | `tests/integration/test_contribution_api.py` | integration | 60 | analytics_domain, api_or_runtime |
 | 9 | `tests/unit/engine/test_attribution.py` | unit | 59 | analytics_domain |
 | 10 | `tests/unit/services/test_twr_inspection_source_economics.py` | unit | 58 | analytics_domain |
 | 11 | `tests/integration/test_performance_api.py` | integration | 56 | api_or_runtime |
 | 12 | `tests/unit/services/test_workspace_summary_service.py` | unit | 56 | analytics_domain |
 | 13 | `tests/unit/services/test_compute_executor_worker.py` | unit | 55 | observability_or_readiness |
 | 14 | `tests/unit/services/test_stateful_input_service.py` | unit | 55 | analytics_domain |
-| 15 | `tests/unit/services/test_twr_inspection_calculation_consistency.py` | unit | 53 | analytics_domain |
-| 16 | `tests/unit/app/test_contribution_endpoint_helpers.py` | unit | 52 | analytics_domain, api_or_runtime |
+| 15 | `tests/unit/app/test_contribution_endpoint_helpers.py` | unit | 53 | analytics_domain, api_or_runtime |
+| 16 | `tests/unit/services/test_twr_inspection_calculation_consistency.py` | unit | 53 | analytics_domain |
 | 17 | `tests/unit/engine/test_mwr.py` | unit | 51 | analytics_domain |
 | 18 | `tests/unit/services/test_twr_mode_service.py` | unit | 45 | analytics_domain |
 | 19 | `tests/unit/services/test_stateful_benchmark_input_service.py` | unit | 44 | analytics_domain |
@@ -242,7 +242,7 @@ envelope and bounded 4xx-metric regressions. Current measured source functions a
 API/runtime functions `812`, analytics-domain functions `2,013`; the enforced uncategorized ceiling
 stays `626`.
 
-The #549 contribution availability slice adds one parameterized registered-HTTP economics test and
-one OpenAPI contract test. Current source test functions measure `4,043`, API/runtime functions
-`814`, analytics-domain functions `2,015`, and uncategorized functions remain `626`. Existing
-floors and ceilings are unchanged.
+The #549 contribution availability slice adds two parameterized registered-HTTP economics tests,
+one OpenAPI contract test, and one residual-allocation service regression. Current source test
+functions measure `4,045`, API/runtime functions `816`, analytics-domain functions `2,017`, and
+uncategorized functions remain `626`. Existing floors and ceilings are unchanged.

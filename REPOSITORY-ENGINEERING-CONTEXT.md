@@ -623,7 +623,9 @@ Important validation expectations:
     calculated and published only for `currency_mode=BOTH`. Other modes return null rather than
     treating an uncomputed local component as FX. A populated `BOTH` hierarchy summary aggregates
     those position components, while dated hierarchy rows currently publish only total contribution
-    and leave local/FX null.
+    and leave local/FX null. For `BOTH`, use the engine's local/FX residual proportions when Carino
+    allocation changes position totals; assigning the entire residual to FX is economically false
+    for same-currency positions.
 31. Brinson attribution decomposition is model-specific. Brinson-Fachler uses benchmark-weighted
     selection and a separate interaction effect. Brinson-Hood-Beebower uses portfolio-weighted
     combined selection and must emit zero separate interaction so active return is not double

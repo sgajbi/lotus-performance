@@ -9,6 +9,7 @@ from app.models.contribution_requests import ContributionRequest, PositionData
 from app.models.contribution_responses import PositionContribution
 from app.services.contribution_methodology import _as_numeric
 from engine.config import EngineConfig, PrecisionMode
+from engine.contribution import _local_fx_residual_proportions
 from engine.runtime import run_engine_for_valuation_points
 from engine.schema import PortfolioColumns
 
@@ -158,6 +159,10 @@ def build_residual_adjusted_position_totals(
     )
     if selected_average_weight_source_column is not None:
         position_totals[residual_allocation_weight_column] = position_totals[selected_average_weight_source_column]
+    if decompose_currency:
+        position_totals["fx_contribution"] = (
+            position_totals["total_contribution"] - position_totals["local_contribution"]
+        )
 
     sum_of_contributions = _as_numeric(position_totals["total_contribution"].sum())
     residual = total_portfolio_return - sum_of_contributions
@@ -166,14 +171,16 @@ def build_residual_adjusted_position_totals(
     residual_allocation_applied = False
     if total_average_weight > 0 and smoothing_method == "CARINO":
         residual_allocation_applied = abs(residual) > 1e-12
-        position_totals["total_contribution"] += residual * (
-            position_totals[residual_allocation_weight_column] / total_average_weight
-        )
-
-    if decompose_currency:
-        position_totals["fx_contribution"] = (
-            position_totals["total_contribution"] - position_totals["local_contribution"]
-        )
+        weight_proportion = position_totals[residual_allocation_weight_column] / total_average_weight
+        if decompose_currency:
+            local_proportion, fx_proportion = _local_fx_residual_proportions(
+                local_contribution_sum=_as_numeric(position_totals["local_contribution"].sum()),
+                fx_contribution_sum=_as_numeric(position_totals["fx_contribution"].sum()),
+                total_contribution_sum=sum_of_contributions,
+            )
+            position_totals["local_contribution"] += residual * local_proportion * weight_proportion
+            position_totals["fx_contribution"] += residual * fx_proportion * weight_proportion
+        position_totals["total_contribution"] += residual * weight_proportion
     return PositionContributionTotals(
         totals_df=position_totals,
         residual_allocation_applied=residual_allocation_applied,

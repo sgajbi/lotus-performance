@@ -89,7 +89,9 @@ Every certified contribution response must satisfy these invariants for each res
   converting an uncomputed local component into an FX explanation. A populated `BOTH` hierarchy
   summary aggregates position components; dated hierarchy rows expose null local/FX fields until
   row-level decomposition is implemented. Stateless HTTP gain/loss/flat and stateful same-currency
-  regressions cover these availability semantics.
+  regressions cover these availability semantics. In `BOTH`, Carino residual allocation follows
+  pre-allocation local/FX proportions; same-currency HTTP controls prove a residual remains local,
+  while mixed-component and zero-net engine controls preserve reconciliation.
 
 The hierarchy path now builds rows from the same residual-adjusted daily position series used for
 position output. This prevents hierarchy rows from drifting away from first-class position

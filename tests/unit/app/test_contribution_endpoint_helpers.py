@@ -1281,7 +1281,37 @@ def test_build_residual_adjusted_position_totals_allocates_carino_residual_by_se
     assert totals_result.residual_allocation_applied
     assert totals_result.totals_df["selected_average_weight"].tolist() == [0.50, 0.50]
     assert totals_result.totals_df["total_contribution"].tolist() == pytest.approx([0.015, 0.025])
-    assert totals_result.totals_df["fx_contribution"].tolist() == pytest.approx([0.007, 0.007])
+    # Pre-allocation local=0.026 and FX=0.004; the 0.01 residual follows that
+    # 13:2 component split rather than being labelled entirely as FX.
+    assert totals_result.totals_df["local_contribution"].tolist() == pytest.approx(
+        [0.008 + 0.005 * 13 / 15, 0.018 + 0.005 * 13 / 15]
+    )
+    assert totals_result.totals_df["fx_contribution"].tolist() == pytest.approx(
+        [0.002 + 0.005 * 2 / 15, 0.002 + 0.005 * 2 / 15]
+    )
+
+
+def test_same_currency_residual_remains_local_not_fx():
+    period_slice_df = pd.DataFrame(
+        {"position_id": ["USD_STOCK"], "smoothed_contribution": [0.09], "smoothed_local_contribution": [0.09]}
+    )
+    average_weight_df = pd.DataFrame({"position_id": ["USD_STOCK"], "average_weight": [1.0]})
+
+    totals_result = build_residual_adjusted_position_totals(
+        period_slice_df=period_slice_df,
+        average_weight_df=average_weight_df,
+        total_portfolio_return=0.1,
+        smoothing_method="CARINO",
+        average_weight_columns=["average_weight"],
+        residual_allocation_weight_column="average_weight",
+        decompose_currency=True,
+    )
+
+    row = totals_result.totals_df.iloc[0]
+    assert totals_result.residual_allocation_applied
+    assert row["total_contribution"] == pytest.approx(0.1)
+    assert row["local_contribution"] == pytest.approx(0.1)
+    assert row["fx_contribution"] == pytest.approx(0.0)
 
 
 def test_residual_adjusted_position_timeseries_handles_missing_targets_and_missing_weight_signal():

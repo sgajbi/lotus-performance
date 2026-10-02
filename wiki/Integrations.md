@@ -151,6 +151,8 @@ Position local/FX fields are numeric only for `currency_mode=BOTH`; omitted, `BA
 `LOCAL_ONLY` requests return null for both. A populated `BOTH` hierarchy summary aggregates the
 position components, but dated hierarchy rows currently expose only total contribution and leave
 local/FX null. Consumers must not turn those null fields into zero or infer FX as total minus zero.
+Carino residual allocation follows measured local/FX proportions, so a same-currency residual is
+not relabelled as a currency effect.
 The [contribution guide](https://github.com/sgajbi/lotus-performance/blob/main/docs/guides/contribution.md)
 defines this response boundary.
 
