@@ -1009,6 +1009,25 @@ def _validate_stateful_both_currency_support(
         fx=fx,
         workflow_name="contribution",
     )
+    missing_currency_rows = [
+        _stateful_position_row_identity(row, index=index)
+        for index, row in enumerate(rows)
+        if _valid_source_position_identity(row) is not None
+        and _position_row_to_daily_point(
+            row=row,
+            currency_mode="BOTH",
+            reporting_currency=reporting_currency,
+        )
+        is not None
+        and normalized_currency_code(row.get("position_currency")) is None
+    ]
+    if missing_currency_rows:
+        raise APIUnprocessableEntityError(
+            detail="Stateful contribution BOTH requires position_currency on every consumed dated row: "
+            + ", ".join(missing_currency_rows)
+            + ".",
+            error_code="POSITION_CURRENCY_INCOMPLETE",
+        )
 
 
 def _stateful_both_currency_requires_fx(

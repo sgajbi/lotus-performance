@@ -173,17 +173,26 @@ def build_residual_adjusted_position_totals(
         residual_allocation_applied = abs(residual) > 1e-12
         weight_proportion = position_totals[residual_allocation_weight_column] / total_average_weight
         if decompose_currency:
-            local_proportion, fx_proportion = _local_fx_residual_proportions(
-                local_contribution_sum=_as_numeric(position_totals["local_contribution"].sum()),
-                fx_contribution_sum=_as_numeric(position_totals["fx_contribution"].sum()),
-                total_contribution_sum=sum_of_contributions,
+            currency_shares = position_totals.apply(_position_currency_residual_shares, axis=1)
+            position_totals["local_contribution"] += (
+                residual * weight_proportion * currency_shares.map(lambda shares: shares[0])
             )
-            position_totals["local_contribution"] += residual * local_proportion * weight_proportion
-            position_totals["fx_contribution"] += residual * fx_proportion * weight_proportion
+            position_totals["fx_contribution"] += (
+                residual * weight_proportion * currency_shares.map(lambda shares: shares[1])
+            )
         position_totals["total_contribution"] += residual * weight_proportion
     return PositionContributionTotals(
         totals_df=position_totals,
         residual_allocation_applied=residual_allocation_applied,
+    )
+
+
+def _position_currency_residual_shares(row: pd.Series) -> tuple[float, float]:
+    """Do not allocate a peer's FX economics to this position's residual."""
+    return _local_fx_residual_proportions(
+        local_contribution_sum=_as_numeric(row["local_contribution"]),
+        fx_contribution_sum=_as_numeric(row["fx_contribution"]),
+        total_contribution_sum=_as_numeric(row["total_contribution"]),
     )
 
 

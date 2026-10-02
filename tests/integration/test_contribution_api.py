@@ -3228,6 +3228,56 @@ def test_contribution_stateful_same_currency_decomposition_availability(client, 
     assert body["currency_evidence"]["fx_coverage"] == "none"
 
 
+def test_contribution_stateful_both_rejects_dated_position_currency_gap(client, monkeypatch):
+    from types import SimpleNamespace
+
+    async def _source(**kwargs):  # noqa: ARG001
+        return SimpleNamespace(
+            portfolio_input=SimpleNamespace(
+                portfolio_currency="USD",
+                observations=[
+                    {"valuation_date": "2025-01-01", "beginning_market_value": "1000", "ending_market_value": "1010"},
+                    {"valuation_date": "2025-01-02", "beginning_market_value": "1010", "ending_market_value": "1020"},
+                ],
+            ),
+            position_rows=[
+                {
+                    "position_id": "SEC_1",
+                    "valuation_date": "2025-01-01",
+                    "beginning_market_value_portfolio_currency": "1000",
+                    "ending_market_value_portfolio_currency": "1010",
+                    "cash_flows": [],
+                },
+                {
+                    "position_id": "SEC_1",
+                    "valuation_date": "2025-01-02",
+                    "position_currency": "USD",
+                    "beginning_market_value_portfolio_currency": "1010",
+                    "ending_market_value_portfolio_currency": "1020",
+                    "cash_flows": [],
+                },
+            ],
+        )
+
+    monkeypatch.setattr("app.services.contribution_mode_service.retrieve_stateful_contribution_source_input", _source)
+    response = client.post(
+        "/performance/contribution",
+        json={
+            "portfolio_id": "CONTRIB_DATED_CURRENCY_GAP",
+            "report_start_date": "2025-01-01",
+            "report_end_date": "2025-01-02",
+            "analyses": [{"period": "SI", "frequencies": ["daily"]}],
+            "currency_mode": "BOTH",
+            "report_ccy": "USD",
+            "input_mode": "stateful",
+            "stateful_input": {},
+        },
+    )
+
+    assert response.status_code == 422, response.text
+    assert response.json()["error_code"] == "POSITION_CURRENCY_INCOMPLETE"
+
+
 def test_contribution_stateful_currency_mode_both_requires_fx_for_mixed_currency_positions(client, monkeypatch):
     async def _mock_retrieve_stateful_contribution_source_input(**kwargs):  # noqa: ARG001
         from types import SimpleNamespace
