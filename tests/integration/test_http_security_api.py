@@ -45,6 +45,7 @@ def test_cors_preflight_allows_enterprise_browser_flow_headers(client):
     requested_headers = [
         "Authorization",
         "Content-Type",
+        "Idempotency-Key",
         "X-Actor-Id",
         "X-Tenant-Id",
         "X-Role",
@@ -57,10 +58,10 @@ def test_cors_preflight_allows_enterprise_browser_flow_headers(client):
     ]
 
     response = client.options(
-        "/performance/executions/00000000-0000-0000-0000-000000000000",
+        "/performance/attribution",
         headers={
             "Origin": "http://localhost:3000",
-            "Access-Control-Request-Method": "GET",
+            "Access-Control-Request-Method": "POST",
             "Access-Control-Request-Headers": ", ".join(requested_headers),
         },
     )

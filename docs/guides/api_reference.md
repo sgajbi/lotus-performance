@@ -549,6 +549,22 @@ Return semantics for the workspace surface are now explicit rather than inferred
 - execution mode:
   - synchronous for smaller stateless sets and smaller stateful windows
   - `202 Accepted` when offloaded to the compute executor
+  - an optional `Idempotency-Key` forces durable asynchronous acceptance and requires
+    `X-Tenant-Id`; the accepted body includes `state="accepted"`
+- retry contract:
+  - the key is scoped by admitted tenant and attribution workflow; Lotus stores only its hash
+  - an exact material-request retry returns the original `calculation_id`, `poll_path`, and
+    `result_path`, including after process restart, completion, or calculation-engine upgrade
+  - the retained execution response remains the authorized result fallback when shorter-lived
+    async-result and compute-job rows have already been removed
+  - changing the material request under the same key returns non-retryable `409`
+    `ATTRIBUTION_IDEMPOTENCY_CONFLICT`
+  - omitting the key preserves existing synchronous and threshold-based asynchronous behavior;
+    tenantless stateless requests remain supported only in that unkeyed mode
+  - the binding expires with the governed durable execution-retention lifecycle
+- observability:
+  - `lotus_performance_idempotent_submission_total{analytics_type,outcome}` records bounded
+    `accepted`, `replay`, and `conflict` outcomes without key, tenant, portfolio, or calculation labels
 
 ### `GET /performance/attribution/results/{calculation_id}`
 

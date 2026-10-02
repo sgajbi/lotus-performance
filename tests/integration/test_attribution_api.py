@@ -1,11 +1,12 @@
 import asyncio
 import os
 import shutil
-from datetime import date
+from datetime import date, datetime, timedelta, timezone
 from uuid import UUID, uuid4
 
 import pytest
 from fastapi.testclient import TestClient
+from sqlalchemy import text
 
 from app.core.config import get_settings
 from app.models.attribution_analytics_requests import AttributionAnalyticsRequest
@@ -15,7 +16,8 @@ from app.services.async_result_store import async_result_store
 from app.services.attribution_mode_service import resolve_attribution_request
 from app.services.calculation_engine_version import calculation_engine_version
 from app.services.compute_job_store import compute_job_store
-from app.services.execution_registry import execution_registry
+from app.services.execution_registry import ExecutionStageStatus, ExecutionStatus, execution_registry
+from app.services.execution_stage_names import EXECUTION_STAGE_SUBMISSION
 from app.services.lineage_metadata_store import lineage_metadata_store
 from app.services.stateful_benchmark_input_service import StatefulBenchmarkNormalizedInput
 from core.periods import ResolvedPeriod
@@ -2114,3 +2116,323 @@ def test_attribution_async_duplicate_submission_conflicts_on_payload_drift(clien
         assert second.status_code == 409
     finally:
         settings.ATTRIBUTION_EXECUTOR_INPUT_COUNT = original_threshold
+
+
+def _idempotent_attribution_payload(*, calculation_id: str, portfolio_id: str) -> dict:
+    return {
+        "calculation_id": calculation_id,
+        "portfolio_id": portfolio_id,
+        "mode": "by_group",
+        "group_by": ["sector"],
+        "linking": "none",
+        "frequency": "daily",
+        "report_start_date": "2025-01-01",
+        "report_end_date": "2025-01-01",
+        "analyses": [{"period": "SI", "frequencies": ["daily"]}],
+        "portfolio_groups_data": [
+            {
+                "key": {"sector": "Tech"},
+                "observations": [{"date": "2025-01-01", "return_base": 0.015, "weight_bop": 1.0}],
+            }
+        ],
+        "benchmark_groups_data": [
+            {
+                "key": {"sector": "Tech"},
+                "observations": [{"date": "2025-01-01", "return_base": 0.01, "weight_bop": 1.0}],
+            }
+        ],
+    }
+
+
+def test_attribution_idempotency_key_replays_original_handle_across_client_restart(client):
+    original_threshold = settings.ATTRIBUTION_EXECUTOR_INPUT_COUNT
+    settings.ATTRIBUTION_EXECUTOR_INPUT_COUNT = 100_000
+    first_calculation_id = str(uuid4())
+    retry_calculation_id = str(uuid4())
+    payload = _idempotent_attribution_payload(
+        calculation_id=first_calculation_id,
+        portfolio_id="ATTRIB_IDEMPOTENT_REPLAY_01",
+    )
+    headers = {"X-Tenant-Id": "tenant-a", "Idempotency-Key": "gateway-attribution-window-001"}
+
+    try:
+        first = client.post("/performance/attribution", json=payload, headers=headers)
+        # A fresh HTTP client models the caller losing the accepted response context after
+        # cancellation or timeout. Durable identity, rather than client-local state, resumes it.
+        with TestClient(app) as restarted_client:
+            retry = restarted_client.post(
+                "/performance/attribution",
+                json={**payload, "calculation_id": retry_calculation_id},
+                headers=headers,
+            )
+
+        assert first.status_code == 202
+        assert retry.status_code == 202
+        assert first.json()["state"] == "accepted"
+        assert retry.json()["state"] == "accepted"
+        assert first.json()["calculation_id"] == first_calculation_id
+        assert retry.json()["calculation_id"] == first_calculation_id
+        assert compute_job_store.get_job(UUID(retry_calculation_id)) is None
+        with execution_registry._engine.connect() as connection:
+            retained = (
+                connection.execute(
+                    text(
+                        "SELECT submission_idempotency_key_hash, submission_identity_fingerprint, "
+                        "submission_contract_version, request_json FROM analytics_execution "
+                        "WHERE calculation_id = :calculation_id"
+                    ),
+                    {"calculation_id": first_calculation_id},
+                )
+                .mappings()
+                .one()
+            )
+        assert retained["submission_idempotency_key_hash"] != headers["Idempotency-Key"]
+        assert len(retained["submission_idempotency_key_hash"]) == 64
+        assert retained["submission_identity_fingerprint"].startswith("sha256:")
+        assert retained["submission_contract_version"] == "attribution-submission-v1"
+        assert headers["Idempotency-Key"] not in retained["request_json"]
+    finally:
+        settings.ATTRIBUTION_EXECUTOR_INPUT_COUNT = original_threshold
+
+
+def test_attribution_idempotency_key_replays_across_engine_version_upgrade(client):
+    original_engine_version = settings.CALCULATION_ENGINE_VERSION
+    first_calculation_id = str(uuid4())
+    retry_calculation_id = str(uuid4())
+    payload = _idempotent_attribution_payload(
+        calculation_id=first_calculation_id,
+        portfolio_id="ATTRIB_IDEMPOTENT_ENGINE_UPGRADE_01",
+    )
+    headers = {"X-Tenant-Id": "tenant-a", "Idempotency-Key": "gateway-attribution-engine-upgrade-001"}
+
+    try:
+        first = client.post("/performance/attribution", json=payload, headers=headers)
+        settings.CALCULATION_ENGINE_VERSION = f"{original_engine_version}-successor"
+        retry = client.post(
+            "/performance/attribution",
+            json={**payload, "calculation_id": retry_calculation_id},
+            headers=headers,
+        )
+
+        assert first.status_code == 202
+        assert retry.status_code == 202
+        assert retry.json()["calculation_id"] == first_calculation_id
+        assert compute_job_store.get_job(UUID(retry_calculation_id)) is None
+    finally:
+        settings.CALCULATION_ENGINE_VERSION = original_engine_version
+
+
+def test_attribution_idempotency_replay_repairs_crash_interrupted_submission_stage(client):
+    first_calculation_id = str(uuid4())
+    retry_calculation_id = str(uuid4())
+    payload = _idempotent_attribution_payload(
+        calculation_id=first_calculation_id,
+        portfolio_id="ATTRIB_IDEMPOTENT_STAGE_REPAIR_01",
+    )
+    headers = {"X-Tenant-Id": "tenant-a", "Idempotency-Key": "gateway-attribution-stage-repair-001"}
+
+    first = client.post("/performance/attribution", json=payload, headers=headers)
+    assert first.status_code == 202
+    execution_registry.start_stage(UUID(first_calculation_id), EXECUTION_STAGE_SUBMISSION)
+
+    retry = client.post(
+        "/performance/attribution",
+        json={**payload, "calculation_id": retry_calculation_id},
+        headers=headers,
+    )
+    retained = execution_registry.get_execution(UUID(first_calculation_id))
+
+    assert retry.status_code == 202
+    assert retry.json()["calculation_id"] == first_calculation_id
+    assert retained is not None
+    submission_stage = next(stage for stage in retained.stages if stage.stage_name == EXECUTION_STAGE_SUBMISSION)
+    assert submission_stage.status == ExecutionStageStatus.COMPLETE
+    assert submission_stage.details == {"offload_reason": "caller_idempotency_key"}
+    assert compute_job_store.get_job(UUID(retry_calculation_id)) is None
+
+
+def test_attribution_idempotency_key_rejects_changed_material_payload(client):
+    original_threshold = settings.ATTRIBUTION_EXECUTOR_INPUT_COUNT
+    settings.ATTRIBUTION_EXECUTOR_INPUT_COUNT = 0
+    payload = _idempotent_attribution_payload(
+        calculation_id=str(uuid4()),
+        portfolio_id="ATTRIB_IDEMPOTENT_CONFLICT_01",
+    )
+    headers = {"X-Tenant-Id": "tenant-a", "Idempotency-Key": "gateway-attribution-window-002"}
+
+    try:
+        first = client.post("/performance/attribution", json=payload, headers=headers)
+        conflict = client.post(
+            "/performance/attribution",
+            json={**payload, "calculation_id": str(uuid4()), "group_by": ["currency"]},
+            headers=headers,
+        )
+
+        assert first.status_code == 202
+        assert conflict.status_code == 409
+        assert conflict.json()["error_code"] == "ATTRIBUTION_IDEMPOTENCY_CONFLICT"
+        assert conflict.json()["retryable"] is False
+    finally:
+        settings.ATTRIBUTION_EXECUTOR_INPUT_COUNT = original_threshold
+
+
+def test_attribution_new_idempotency_key_cannot_alias_an_existing_calculation_id(client):
+    calculation_id = str(uuid4())
+    payload = _idempotent_attribution_payload(
+        calculation_id=calculation_id,
+        portfolio_id="ATTRIB_IDEMPOTENT_IDENTITY_ALIAS_01",
+    )
+    first = client.post(
+        "/performance/attribution",
+        json=payload,
+        headers={"X-Tenant-Id": "tenant-a", "Idempotency-Key": "gateway-attribution-original-key"},
+    )
+    alias = client.post(
+        "/performance/attribution",
+        json=payload,
+        headers={"X-Tenant-Id": "tenant-a", "Idempotency-Key": "gateway-attribution-alias-key"},
+    )
+
+    assert first.status_code == 202
+    assert alias.status_code == 409
+    assert alias.json()["error_code"] == "ATTRIBUTION_IDEMPOTENCY_CONFLICT"
+    assert alias.json()["retryable"] is False
+    assert compute_job_store.get_job(UUID(calculation_id)) is not None
+    with execution_registry._engine.connect() as connection:
+        execution_count = connection.execute(text("SELECT COUNT(*) FROM analytics_execution")).scalar_one()
+    assert execution_count == 1
+
+
+def test_attribution_idempotency_key_requires_tenant_authority_before_acceptance(client):
+    calculation_id = str(uuid4())
+    payload = _idempotent_attribution_payload(
+        calculation_id=calculation_id,
+        portfolio_id="ATTRIB_IDEMPOTENT_AUTHORITY_01",
+    )
+
+    with TestClient(app) as tenantless_client:
+        response = tenantless_client.post(
+            "/performance/attribution",
+            json=payload,
+            headers={"Idempotency-Key": "gateway-attribution-authority-001"},
+        )
+
+    assert response.status_code == 401
+    assert response.json()["error_code"] == "TENANT_AUTHORITY_REQUIRED"
+    assert execution_registry.get_execution(UUID(calculation_id)) is None
+    assert compute_job_store.get_job(UUID(calculation_id)) is None
+
+
+def test_attribution_idempotency_key_rejects_whitespace_before_acceptance(client):
+    calculation_id = str(uuid4())
+    response = client.post(
+        "/performance/attribution",
+        json=_idempotent_attribution_payload(
+            calculation_id=calculation_id,
+            portfolio_id="ATTRIB_IDEMPOTENT_KEY_INVALID",
+        ),
+        headers={"X-Tenant-Id": "tenant-a", "Idempotency-Key": "   "},
+    )
+
+    assert response.status_code == 400
+    assert response.json()["error_code"] == "ATTRIBUTION_IDEMPOTENCY_KEY_INVALID"
+    assert execution_registry.get_execution(UUID(calculation_id)) is None
+    assert compute_job_store.get_job(UUID(calculation_id)) is None
+
+
+def test_attribution_idempotency_key_namespace_is_tenant_scoped(client):
+    first_calculation_id = str(uuid4())
+    second_calculation_id = str(uuid4())
+    key = "gateway-attribution-tenant-scope-001"
+    first = client.post(
+        "/performance/attribution",
+        json=_idempotent_attribution_payload(
+            calculation_id=first_calculation_id,
+            portfolio_id="ATTRIB_IDEMPOTENT_TENANT_A",
+        ),
+        headers={"X-Tenant-Id": "tenant-a", "Idempotency-Key": key},
+    )
+    second = client.post(
+        "/performance/attribution",
+        json=_idempotent_attribution_payload(
+            calculation_id=second_calculation_id,
+            portfolio_id="ATTRIB_IDEMPOTENT_TENANT_A",
+        ),
+        headers={"X-Tenant-Id": "tenant-b", "Idempotency-Key": key},
+    )
+
+    assert first.status_code == 202
+    assert second.status_code == 202
+    assert first.json()["calculation_id"] == first_calculation_id
+    assert second.json()["calculation_id"] == second_calculation_id
+    assert execution_registry.get_execution(UUID(first_calculation_id)).tenant_id == "tenant-a"
+    assert execution_registry.get_execution(UUID(second_calculation_id)).tenant_id == "tenant-b"
+
+
+def test_attribution_completed_idempotent_replay_returns_original_result_without_reexecution(client):
+    first_calculation_id = str(uuid4())
+    retry_calculation_id = str(uuid4())
+    payload = _idempotent_attribution_payload(
+        calculation_id=first_calculation_id,
+        portfolio_id="ATTRIB_IDEMPOTENT_COMPLETE_01",
+    )
+    headers = {"X-Tenant-Id": "tenant-a", "Idempotency-Key": "gateway-attribution-complete-001"}
+
+    first = client.post("/performance/attribution", json=payload, headers=headers)
+    assert first.status_code == 202
+    assert drain_compute_queue() == 1
+    assert drain_lineage_queue() >= 1
+    assert compute_job_store.prune_terminal_jobs_older_than(datetime.now(timezone.utc) + timedelta(seconds=1)) == 1
+    assert async_result_store.prune_results_older_than(datetime.now(timezone.utc) + timedelta(seconds=1)) == 1
+    assert compute_job_store.get_job(UUID(first_calculation_id)) is None
+    assert async_result_store.get_result(UUID(first_calculation_id)) is None
+
+    replay = client.post(
+        "/performance/attribution",
+        json={**payload, "calculation_id": retry_calculation_id},
+        headers=headers,
+    )
+    result = client.get(first.json()["result_path"], headers={"X-Tenant-Id": "tenant-a"})
+    foreign_status = client.get(first.json()["poll_path"], headers={"X-Tenant-Id": "tenant-b"})
+    foreign_result = client.get(first.json()["result_path"], headers={"X-Tenant-Id": "tenant-b"})
+
+    assert replay.status_code == 202
+    assert replay.json()["calculation_id"] == first_calculation_id
+    assert drain_compute_queue() == 0
+    assert result.status_code == 200
+    assert result.json()["calculation_id"] == first_calculation_id
+    assert foreign_status.status_code == 403
+    assert foreign_result.status_code == 403
+    assert foreign_status.json()["reason"] == "result_tenant_authority_mismatch"
+    assert foreign_result.json()["reason"] == "result_tenant_authority_mismatch"
+    assert compute_job_store.get_job(UUID(retry_calculation_id)) is None
+
+
+def test_attribution_compute_complete_idempotent_replay_does_not_requeue_while_lineage_is_pending(client):
+    first_calculation_id = str(uuid4())
+    retry_calculation_id = str(uuid4())
+    payload = _idempotent_attribution_payload(
+        calculation_id=first_calculation_id,
+        portfolio_id="ATTRIB_IDEMPOTENT_LINEAGE_PENDING_01",
+    )
+    headers = {"X-Tenant-Id": "tenant-a", "Idempotency-Key": "gateway-attribution-lineage-pending-001"}
+
+    first = client.post("/performance/attribution", json=payload, headers=headers)
+    assert first.status_code == 202
+    assert drain_compute_queue() == 1
+    retained_execution = execution_registry.get_execution(UUID(first_calculation_id))
+    assert retained_execution is not None
+    assert retained_execution.status == ExecutionStatus.RUNNING
+    assert retained_execution.response_payload is not None
+    assert compute_job_store.prune_terminal_jobs_older_than(datetime.now(timezone.utc) + timedelta(seconds=1)) == 1
+
+    replay = client.post(
+        "/performance/attribution",
+        json={**payload, "calculation_id": retry_calculation_id},
+        headers=headers,
+    )
+
+    assert replay.status_code == 202
+    assert replay.json()["calculation_id"] == first_calculation_id
+    assert drain_compute_queue() == 0
+    assert compute_job_store.get_job(UUID(retry_calculation_id)) is None

@@ -20,7 +20,7 @@ regression gates after the inventory reached zero findings and the scanner gaine
 | `ROUTER_DIRECT_BOUNDARY_IMPORT` | API routers should route through app services/use cases instead of direct domain, engine, or infrastructure imports. | Enforced by `make quality-architecture-gate` with `--max-findings 0`. |
 | `DOMAIN_INFRA_OR_FRAMEWORK_IMPORT` | Engine/core modules should stay independent from application DTOs, adapters, and web framework imports. | Enforced by `make quality-architecture-gate` with `--max-findings 0`. |
 | `ROUTE_WORKFLOW_DTO_DIRECT_CALL` | API routes should map validated request DTOs into application workflow commands before calling TWR, workspace-summary, contribution, benchmark, or returns-series workflows. | Enforced by `make quality-architecture-gate` with `--max-findings 0`; current findings `0`. |
-| `APPLICATION_SERVICE_CONCRETE_STORE_IMPORT` | Application services should depend on ports/interfaces instead of concrete durable store modules. | Report-only. Current baseline is `63` findings after the execution-polling pilot seam moved behind `ExecutionPollingStore`. |
+| `APPLICATION_SERVICE_CONCRETE_STORE_IMPORT` | Application services should depend on ports/interfaces instead of concrete durable store modules. | Report-only. Current baseline is `66` findings; #563 makes attribution submission fencing depend on existing durable registries while preserving the execution-polling pilot seam behind `ExecutionPollingStore`. |
 
 ## Developer Command
 

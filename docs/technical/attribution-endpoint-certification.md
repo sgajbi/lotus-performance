@@ -25,6 +25,7 @@ The endpoint supports:
 - stateful position and benchmark sourcing through lotus-core analytics-input contracts
 - synchronous responses for smaller requests
 - asynchronous execution with `202 Accepted`, `poll_path`, and `result_path` for heavier requests
+- optional tenant-scoped `Idempotency-Key` submission with durable original-handle replay
 
 Stateful attribution is currently fenced to:
 
@@ -136,6 +137,9 @@ Downstream certification status:
   concern instead of an unresolved attribution endpoint defect.
 - `lotus-gateway#105` is closed. Gateway no longer depends on UI-side attribution total
   reconstruction for the authoritative totals emitted by `lotus-performance`.
+- `lotus-gateway#812` may forward the versioned caller key only after this Performance contract is
+  merged. Its acceptance must prove real-service retry resumes the same handle without a second
+  source calculation; producer CI alone is not consumer acceptance.
 
 ## Supportability and Observability
 
@@ -149,6 +153,31 @@ material residual posture without parsing every row.
 The service also increments:
 
 `lotus_performance_calculation_supportability_total{operation="attribution",supportability_state,reason,freshness_bucket}`
+
+Caller-keyed submissions increment
+`lotus_performance_idempotent_submission_total{analytics_type="Attribution",outcome}`. Outcomes are
+bounded to `accepted`, `replay`, and `conflict`; identifiers and raw keys are never labels.
+
+## Idempotent Submission Certification
+
+`Idempotency-Key` requires `X-Tenant-Id` and always returns durable `202` acceptance with
+`state="accepted"`. The identity excludes caller-generated `calculation_id`, includes the complete
+submitted request, source-resolution policy, and contract version, and is scoped by tenant plus
+analytics type. It is independent of calculation-engine version so a methodology deployment does
+not invalidate an otherwise identical retry. Exact retries use the retained original request and
+handle; changed material payloads return non-retryable `409`
+`ATTRIBUTION_IDEMPOTENCY_CONFLICT`. Replaying an execution with a retained response never recreates
+a compute job while lineage is pending or after that job has aged out. Authorized result reads fall
+back to that retained response when result and compute-job retention have already removed their
+rows. A replayed durable job also completes a submission stage interrupted after job registration.
+Concurrent first delivery must serialize stage creation and retain one completed submission stage.
+If job registration may have committed before transport failure, the durable key binding remains so
+retry can reconcile the original job instead of admitting duplicate work.
+
+Certification must cover concurrent duplicate delivery, retry from a new client/store instance,
+completed replay, one compute execution, cross-tenant namespace isolation, foreign-tenant status
+and result refusal, browser CORS preflight, additive OpenAPI compatibility, and PostgreSQL restart
+durability. The binding is deleted with its execution under the governed runtime-retention policy.
 
 Use this block as the source-owned freshness and degraded-state signal for front-office attribution
 panels. The response publishes `calculation_supportability.metric_labels` with the same bounded

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import hashlib
 import logging
 from typing import Protocol, cast
 
@@ -21,7 +22,7 @@ from app.services.execution_stage_errors import (
     is_mappable_application_error,
     safe_unexpected_failure_message,
 )
-from app.services.reproducibility_service import generate_request_fingerprint
+from app.services.reproducibility_service import generate_request_fingerprint, generate_value_fingerprint
 from app.services.stateful_execution_policy_service import (
     finalize_resolved_stateful_execution,
     replay_promoted_stateful_async_execution,
@@ -30,9 +31,13 @@ from app.services.submission_fencing_service import (
     register_async_submission_or_raise,
     register_sync_execution_or_raise,
 )
-from core.errors import APIInternalServerError
+from core.errors import APIBadRequestError, APIInternalServerError
 
 logger = logging.getLogger(__name__)
+
+ATTRIBUTION_IDEMPOTENCY_CONTRACT_VERSION = "attribution-submission-v1"
+ATTRIBUTION_IDEMPOTENCY_CONFLICT = "ATTRIBUTION_IDEMPOTENCY_CONFLICT"
+ATTRIBUTION_IDEMPOTENCY_KEY_INVALID = "ATTRIBUTION_IDEMPOTENCY_KEY_INVALID"
 
 
 class _AttributionWorkflowSettings(Protocol):
@@ -170,13 +175,24 @@ def _initial_attribution_async_submission(
     requested_window: dict[str, object],
     input_fingerprint: str,
     calculation_hash: str,
+    idempotency_key: str | None = None,
+    active_settings: _AttributionWorkflowSettings | None = None,
 ) -> ApplicationHttpResponse | None:
-    if not should_offload_attribution(request):
+    if idempotency_key is None and not should_offload_attribution(request):
         return None
     offload_reason = (
-        "long_window_stateful_attribution"
-        if request.input_mode == AttributionInputMode.STATEFUL
-        else "large_attribution_input_set"
+        "caller_idempotency_key"
+        if idempotency_key is not None
+        else (
+            "long_window_stateful_attribution"
+            if request.input_mode == AttributionInputMode.STATEFUL
+            else "large_attribution_input_set"
+        )
+    )
+    idempotency_key_hash, submission_identity_fingerprint = _attribution_idempotency_identity(
+        request,
+        idempotency_key=idempotency_key,
+        active_settings=active_settings or get_settings(),
     )
     return register_async_submission_or_raise(
         calculation_id=request.calculation_id,
@@ -189,7 +205,43 @@ def _initial_attribution_async_submission(
         offload_reason=offload_reason,
         accepted_response_factory=accepted_attribution_response,
         requires_tenant_authority=request.input_mode == AttributionInputMode.STATEFUL,
+        submission_idempotency_key_hash=idempotency_key_hash,
+        submission_identity_fingerprint=submission_identity_fingerprint,
+        submission_contract_version=(
+            ATTRIBUTION_IDEMPOTENCY_CONTRACT_VERSION if idempotency_key_hash is not None else None
+        ),
+        idempotency_conflict_error_code=(
+            ATTRIBUTION_IDEMPOTENCY_CONFLICT if idempotency_key_hash is not None else None
+        ),
     )
+
+
+def _attribution_idempotency_identity(
+    request: AttributionAnalyticsRequest,
+    *,
+    idempotency_key: str | None,
+    active_settings: _AttributionWorkflowSettings,
+) -> tuple[str | None, str | None]:
+    if idempotency_key is None:
+        return None, None
+    canonical_key = idempotency_key.strip()
+    if not canonical_key:
+        raise APIBadRequestError(
+            "Idempotency-Key must contain a non-whitespace value.",
+            error_code=ATTRIBUTION_IDEMPOTENCY_KEY_INVALID,
+        )
+    key_hash = hashlib.sha256(canonical_key.encode("utf-8")).hexdigest()
+    identity_payload = {
+        "contract_version": ATTRIBUTION_IDEMPOTENCY_CONTRACT_VERSION,
+        "analytics_type": ANALYTICS_WORKFLOW_ATTRIBUTION,
+        "source_resolution_policy": "resolve-once-from-retained-request",
+        "request": request.model_dump(mode="json", exclude={"calculation_id"}),
+    }
+    identity_fingerprint, _ = generate_value_fingerprint(
+        identity_payload,
+        calculation_engine_version(active_settings),
+    )
+    return key_hash, identity_fingerprint
 
 
 def _stateful_attribution_replay_or_sync_window(
@@ -247,6 +299,8 @@ def _calculate_resolved_attribution_response(
 
 async def calculate_attribution_workflow(
     request: AttributionAnalyticsRequest,
+    *,
+    idempotency_key: str | None = None,
 ) -> AttributionResponse | ApplicationHttpResponse:
     """Resolve, fence, execute, and map errors for one attribution analytics request."""
     require_reporting_currency_for_both(currency_mode=request.currency_mode, requested_report_ccy=request.report_ccy)
@@ -265,6 +319,8 @@ async def calculate_attribution_workflow(
         requested_window=requested_window,
         input_fingerprint=input_fingerprint,
         calculation_hash=calculation_hash,
+        idempotency_key=idempotency_key,
+        active_settings=active_settings,
     )
     if accepted_response is not None:
         return accepted_response

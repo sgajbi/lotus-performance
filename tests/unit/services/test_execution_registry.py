@@ -2,7 +2,7 @@ from datetime import datetime, timezone
 from uuid import uuid4
 
 import pytest
-from sqlalchemy import event, inspect
+from sqlalchemy import create_engine, event, inspect, text
 
 from app.services.execution_registry import (
     AnalyticsExecutionModel,
@@ -167,6 +167,38 @@ def test_execution_registry_raises_for_missing_stage(tmp_path):
 
     with pytest.raises(KeyError):
         registry.complete_stage(calculation_id, "execution")
+
+
+def test_execution_registry_completes_only_an_in_progress_stage(tmp_path):
+    registry = ExecutionRegistry(f"sqlite:///{tmp_path / 'execution.db'}")
+    registry.create_schema()
+    calculation_id = uuid4()
+    registry.create_execution(
+        calculation_id=calculation_id,
+        analytics_type="Attribution",
+        portfolio_id="PORT-STAGE-REPAIR",
+    )
+    registry.start_stage(calculation_id, "submission")
+
+    assert registry.complete_stage_if_in_progress(
+        calculation_id,
+        "submission",
+        details={"offload_reason": "caller_idempotency_key"},
+    )
+    completed = registry.get_execution(calculation_id)
+    assert completed is not None
+    completed_stage = completed.stages[0]
+    assert completed_stage.status == ExecutionStageStatus.COMPLETE
+    assert completed_stage.details == {"offload_reason": "caller_idempotency_key"}
+
+    assert not registry.complete_stage_if_in_progress(
+        calculation_id,
+        "submission",
+        details={"offload_reason": "replayed_again"},
+    )
+    replayed = registry.get_execution(calculation_id)
+    assert replayed is not None
+    assert replayed.stages[0] == completed_stage
 
 
 def test_execution_registry_records_upstream_snapshots(tmp_path):
@@ -500,6 +532,57 @@ def test_execution_registry_does_not_replay_another_tenants_identifier(tmp_path)
     assert registry.get_execution(calculation_id).tenant_id == "tenant-a"
 
 
+def test_execution_registry_idempotency_mapping_survives_restart_and_is_tenant_scoped(tmp_path):
+    database_url = f"sqlite:///{tmp_path / 'execution.db'}"
+    registry = ExecutionRegistry(database_url)
+    registry.create_schema()
+    original_calculation_id = uuid4()
+    original_payload = {"calculation_id": str(original_calculation_id), "portfolio_id": "PORT-IDEMPOTENT"}
+    common = {
+        "analytics_type": "Attribution",
+        "portfolio_id": "PORT-IDEMPOTENT",
+        "execution_mode": "async",
+        "submission_idempotency_key_hash": "a" * 64,
+        "submission_identity_fingerprint": "sha256:identity-a",
+        "submission_contract_version": "attribution-submission-v1",
+    }
+
+    created = registry.register_execution(
+        calculation_id=original_calculation_id,
+        tenant_id="tenant-a",
+        request_payload=original_payload,
+        **common,
+    )
+    restarted_registry = ExecutionRegistry(database_url)
+    restarted_registry.create_schema()
+    replay = restarted_registry.register_execution(
+        calculation_id=uuid4(),
+        tenant_id="tenant-a",
+        request_payload={"calculation_id": str(uuid4()), "portfolio_id": "PORT-IDEMPOTENT"},
+        **common,
+    )
+    conflict = restarted_registry.register_execution(
+        calculation_id=uuid4(),
+        tenant_id="tenant-a",
+        request_payload={"portfolio_id": "PORT-CHANGED"},
+        **{**common, "submission_identity_fingerprint": "sha256:identity-b"},
+    )
+    other_tenant = restarted_registry.register_execution(
+        calculation_id=uuid4(),
+        tenant_id="tenant-b",
+        request_payload={"portfolio_id": "PORT-IDEMPOTENT"},
+        **common,
+    )
+
+    assert created.status == ExecutionRegistrationStatus.CREATED
+    assert replay.status == ExecutionRegistrationStatus.REPLAY
+    assert replay.calculation_id == original_calculation_id
+    assert replay.request_payload == original_payload
+    assert conflict.status == ExecutionRegistrationStatus.CONFLICT
+    assert conflict.calculation_id == original_calculation_id
+    assert other_tenant.status == ExecutionRegistrationStatus.CREATED
+
+
 def test_execution_registration_model_factory_projects_pending_execution_contract():
     calculation_id = uuid4()
     created_at = datetime(2026, 6, 19, 8, 30, tzinfo=timezone.utc)
@@ -607,6 +690,39 @@ def test_execution_registry_declares_retention_index(tmp_path):
     }
 
     assert indexes["ix_execution_terminal_retention"] == ("status", "completed_at_utc", "created_at_utc")
+    assert indexes["ux_execution_submission_idempotency"] == (
+        "tenant_id",
+        "analytics_type",
+        "submission_idempotency_key_hash",
+    )
+
+
+def test_execution_registry_upgrades_existing_schema_for_idempotent_submission(tmp_path):
+    database_url = f"sqlite:///{tmp_path / 'legacy-execution.db'}"
+    engine = create_engine(database_url)
+    with engine.begin() as connection:
+        connection.execute(
+            text(
+                "CREATE TABLE analytics_execution ("
+                "calculation_id VARCHAR(36) PRIMARY KEY, tenant_id VARCHAR(128), analytics_type VARCHAR(64) NOT NULL, "
+                "portfolio_id VARCHAR(255), execution_mode VARCHAR(32) NOT NULL, status VARCHAR(32) NOT NULL, "
+                "requested_window_json TEXT NOT NULL, request_json TEXT, response_json TEXT, input_fingerprint TEXT, "
+                "calculation_hash TEXT, error_message TEXT, created_at_utc DATETIME NOT NULL, started_at_utc DATETIME, "
+                "completed_at_utc DATETIME)"
+            )
+        )
+
+    registry = ExecutionRegistry(database_url)
+    registry.create_schema()
+
+    columns = {column["name"] for column in inspect(registry._engine).get_columns("analytics_execution")}
+    indexes = {index["name"]: index for index in inspect(registry._engine).get_indexes("analytics_execution")}
+    assert {
+        "submission_idempotency_key_hash",
+        "submission_identity_fingerprint",
+        "submission_contract_version",
+    } <= columns
+    assert indexes["ux_execution_submission_idempotency"]["unique"] == 1
 
 
 def test_execution_registry_formats_sqlite_timestamps_as_utc(tmp_path):

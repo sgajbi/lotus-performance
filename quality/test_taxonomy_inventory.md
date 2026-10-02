@@ -1,7 +1,7 @@
 # Lotus Performance Test Taxonomy Inventory
 
 Report date: 2026-10-03
-Branch: `fix/541-bus-252-calendar-semantics`
+Branch: `feat/563-attribution-idempotent-replay`
 Mode: regression-blocking test taxonomy inventory; `make quality-test-taxonomy-gate` enforces
 minimum API/runtime and contract/governance breadth plus the current uncategorized-test ceiling.
 
@@ -23,18 +23,18 @@ python scripts/python_test_taxonomy_inventory.py --limit 30 --min-api-runtime-te
 | Metric | Value |
 | --- | ---: |
 | Test modules inventoried | 340 |
-| Test functions inventoried | 4150 |
-| Integration/API/runtime test functions | 851 |
-| Contract/governance test functions | 201 |
+| Test functions inventoried | 4171 |
+| Integration/API/runtime test functions | 866 |
+| Contract/governance test functions | 203 |
 
 ## Test Functions By Suite
 
 | Suite | Modules | Test functions |
 | --- | ---: | ---: |
-| benchmarks | 10 | 45 |
+| benchmarks | 10 | 47 |
 | e2e | 1 | 21 |
-| integration | 30 | 436 |
-| unit | 299 | 3648 |
+| integration | 30 | 446 |
+| unit | 299 | 3657 |
 
 ## Test Functions By Family
 
@@ -44,10 +44,10 @@ above does sum to it, because a module belongs to exactly one suite.
 
 | Family | Test functions |
 | --- | ---: |
-| analytics_domain | 2088 |
-| api_or_runtime | 851 |
-| contract_or_governance | 201 |
-| observability_or_readiness | 683 |
+| analytics_domain | 2100 |
+| api_or_runtime | 866 |
+| contract_or_governance | 203 |
+| observability_or_readiness | 689 |
 | quality_or_security | 270 |
 | uncategorized | 565 |
 
@@ -81,10 +81,10 @@ above does sum to it, because a module belongs to exactly one suite.
 | 24 | `tests/unit/services/test_stateful_contribution_input_service.py` | unit | 39 | analytics_domain |
 | 25 | `tests/unit/models/test_twr_requests.py` | unit | 38 | analytics_domain |
 | 26 | `tests/unit/engine/test_ror.py` | unit | 37 | analytics_domain |
-| 27 | `tests/unit/models/test_workspace_summary_models.py` | unit | 36 | analytics_domain |
-| 28 | `tests/unit/test_observability.py` | unit | 36 | observability_or_readiness |
-| 29 | `tests/unit/services/test_twr_inspection_reconciliation.py` | unit | 32 | analytics_domain |
-| 30 | `tests/integration/test_returns_series_api.py` | integration | 31 | analytics_domain, api_or_runtime |
+| 27 | `tests/unit/test_observability.py` | unit | 37 | observability_or_readiness |
+| 28 | `tests/unit/models/test_workspace_summary_models.py` | unit | 36 | analytics_domain |
+| 29 | `tests/integration/test_attribution_api.py` | integration | 35 | analytics_domain, api_or_runtime |
+| 30 | `tests/unit/services/test_twr_inspection_reconciliation.py` | unit | 32 | analytics_domain |
 
 The #502 request-path proof added a module driving the real application over HTTP for tenant admission - admitted, absent, blank and concurrent two-tenant requests, each asserting the outbound Core call - raising inventoried modules to `317`, source test functions to `3634`, and API/runtime tests to `699`. Later review fixes in the same PR added the padded-tenant refusals and the returns-series authority regression, which are counted in those figures. Uncategorized tests are unchanged at `876`: every added module classifies as api_or_runtime, so the ceiling this gate governs was neither approached nor raised.
 

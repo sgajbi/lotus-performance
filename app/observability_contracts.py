@@ -27,3 +27,8 @@ PERFORMANCE_SOURCE_CORRECTION_METRIC_LABELS: tuple[str, ...] = (
     "target_type",
     "outcome",
 )
+
+PERFORMANCE_IDEMPOTENT_SUBMISSION_METRIC_LABELS: tuple[str, ...] = (
+    "analytics_type",
+    "outcome",
+)

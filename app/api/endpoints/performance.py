@@ -1,7 +1,7 @@
 # app/api/endpoints/performance.py
 from uuid import UUID
 
-from fastapi import APIRouter, Request
+from fastapi import APIRouter, Header, Request
 from fastapi.responses import JSONResponse
 
 from app.api.async_openapi import (
@@ -232,7 +232,8 @@ async def calculate_mwr_endpoint(request: MoneyWeightedReturnAnalyticsRequest):
         "inputs. Stateful callers source portfolio positions and benchmark components through "
         "lotus-core analytics-input contracts. Each level returns authoritative total fields "
         "for UI footers and summary-only views; downstream systems should not infer totals by "
-        "summing only visible rows."
+        "summing only visible rows. Callers that need retry-safe durable acceptance may send "
+        "Idempotency-Key with X-Tenant-Id; exact retries return the original handle."
     ),
     responses={
         202: {
@@ -258,6 +259,7 @@ async def calculate_mwr_endpoint(request: MoneyWeightedReturnAnalyticsRequest):
             "content": {
                 "application/json": {
                     "example": {
+                        "state": "accepted",
                         "calculation_id": "209da27d-f3f4-4e64-97c5-a2eb1d4fe4f3",
                         "poll_path": "/performance/executions/209da27d-f3f4-4e64-97c5-a2eb1d4fe4f3",
                         "result_path": "/performance/attribution/results/209da27d-f3f4-4e64-97c5-a2eb1d4fe4f3",
@@ -287,8 +289,19 @@ async def calculate_mwr_endpoint(request: MoneyWeightedReturnAnalyticsRequest):
         401: stateful_tenant_authority_responses()[401],
         409: {
             "model": ErrorDetailResponse,
-            "description": "Duplicate attribution submission conflict or failed async execution state.",
-            "content": {"application/json": {"example": {"detail": "Duplicate submission payload does not match."}}},
+            "description": (
+                "Duplicate attribution submission conflict, Idempotency-Key reuse for a different material "
+                "request in the same tenant, or failed async execution state."
+            ),
+            "content": {
+                "application/json": {
+                    "example": {
+                        "detail": "Idempotency-Key conflicts with an existing attribution submission identity for this tenant.",
+                        "error_code": "ATTRIBUTION_IDEMPOTENCY_CONFLICT",
+                        "retryable": False,
+                    }
+                }
+            },
         },
         422: {
             "description": (
@@ -329,12 +342,23 @@ async def calculate_mwr_endpoint(request: MoneyWeightedReturnAnalyticsRequest):
     },
     openapi_extra=STATEFUL_TENANT_OPENAPI_EXTRA,
 )
-async def calculate_attribution_endpoint(request: AttributionAnalyticsRequest) -> AttributionResponse | JSONResponse:
+async def calculate_attribution_endpoint(
+    request: AttributionAnalyticsRequest,
+    idempotency_key: str | None = Header(
+        default=None,
+        min_length=1,
+        max_length=255,
+        description=(
+            "Optional tenant-scoped durable submission key. Exact retries return the original accepted handle; "
+            "reusing the key for a different material request returns 409. Requires X-Tenant-Id."
+        ),
+    ),
+) -> AttributionResponse | JSONResponse:
     """
     Calculates multi-level, Brinson-style performance attribution, decomposing
     active return into allocation, selection, and interaction effects.
     """
-    return to_fastapi_response(await calculate_attribution_workflow(request))
+    return to_fastapi_response(await calculate_attribution_workflow(request, idempotency_key=idempotency_key))
 
 
 @router.get(

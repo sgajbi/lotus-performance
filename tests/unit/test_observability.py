@@ -30,6 +30,7 @@ from app.observability import (
     propagation_headers,
     record_analytics_freshness_bucket,
     record_calculation_supportability,
+    record_idempotent_submission,
     record_mwr_solver_outcome,
     record_source_correction,
     request_id_var,
@@ -655,3 +656,15 @@ def test_record_source_correction_uses_bounded_labels():
         'lotus_performance_source_correction_total{outcome="other",source_product="other",target_type="other"}'
         in metrics_text
     )
+
+
+def test_record_idempotent_submission_uses_bounded_labels():
+    record_idempotent_submission(analytics_type="Attribution", outcome="replay")
+    record_idempotent_submission(analytics_type="portfolio-123", outcome="unexpected")
+
+    metrics_text = generate_latest(REGISTRY).decode("utf-8")
+
+    assert (
+        'lotus_performance_idempotent_submission_total{analytics_type="Attribution",outcome="replay"}' in metrics_text
+    )
+    assert 'lotus_performance_idempotent_submission_total{analytics_type="other",outcome="other"}' in metrics_text

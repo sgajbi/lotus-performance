@@ -15,6 +15,7 @@ from starlette.routing import Match
 from app.observability_contracts import (
     PERFORMANCE_ANALYTICS_FRESHNESS_METRIC_LABELS,
     PERFORMANCE_CALCULATION_SUPPORTABILITY_METRIC_LABELS,
+    PERFORMANCE_IDEMPOTENT_SUBMISSION_METRIC_LABELS,
     PERFORMANCE_MWR_SOLVER_OUTCOME_METRIC_LABELS,
     PERFORMANCE_SOURCE_CORRECTION_METRIC_LABELS,
 )
@@ -51,6 +52,11 @@ SOURCE_CORRECTION_TOTAL = Counter(
     "Source-correction admissions and lifecycle outcomes using bounded product, target, and outcome labels.",
     PERFORMANCE_SOURCE_CORRECTION_METRIC_LABELS,
 )
+IDEMPOTENT_SUBMISSION_TOTAL = Counter(
+    "lotus_performance_idempotent_submission_total",
+    "Durable caller-keyed submission outcomes using bounded analytics and outcome labels.",
+    PERFORMANCE_IDEMPOTENT_SUBMISSION_METRIC_LABELS,
+)
 
 _ORIGINAL_INSTRUMENTATOR_ROUTE_NAME_RESOLVER = instrumentator_routing.get_route_name
 
@@ -80,6 +86,8 @@ _SOURCE_CORRECTION_TARGETS = frozenset({"portfolio", "benchmark"})
 _SOURCE_CORRECTION_OUTCOMES = frozenset(
     {"accepted", "replay", "conflict", "no_effect", "superseded", "complete", "partial_failure", "cancelled"}
 )
+_IDEMPOTENT_SUBMISSION_ANALYTICS_TYPES = frozenset({"Attribution"})
+_IDEMPOTENT_SUBMISSION_OUTCOMES = frozenset({"accepted", "replay", "conflict"})
 
 
 def _bounded_mwr_solver_reason_codes(reason_codes: list[str] | tuple[str, ...]) -> tuple[str, ...]:
@@ -119,6 +127,21 @@ def record_source_correction(*, source_product: str, target_type: str, outcome: 
         ),
         target_type=_bounded_metric_label(target_type, allowed_values=_SOURCE_CORRECTION_TARGETS, fallback="other"),
         outcome=_bounded_metric_label(outcome, allowed_values=_SOURCE_CORRECTION_OUTCOMES, fallback="other"),
+    ).inc()
+
+
+def record_idempotent_submission(*, analytics_type: str, outcome: str) -> None:
+    IDEMPOTENT_SUBMISSION_TOTAL.labels(
+        analytics_type=_bounded_metric_label(
+            analytics_type,
+            allowed_values=_IDEMPOTENT_SUBMISSION_ANALYTICS_TYPES,
+            fallback="other",
+        ),
+        outcome=_bounded_metric_label(
+            outcome,
+            allowed_values=_IDEMPOTENT_SUBMISSION_OUTCOMES,
+            fallback="other",
+        ),
     ).inc()
 
 

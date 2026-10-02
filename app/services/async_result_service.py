@@ -12,7 +12,7 @@ from app.observability import tenant_id_var
 from app.services.async_result_store import AsyncResultRecord, AsyncResultStatus, async_result_store
 from app.services.calculation_result_access import authorize_calculation_result_access
 from app.services.compute_job_store import ComputeJobRecord, ComputeJobStatus, compute_job_store
-from app.services.execution_registry import execution_registry
+from app.services.execution_registry import ExecutionRecord, ExecutionStatus, execution_registry
 from core.errors import APIConflictError, APINotFoundError
 
 ResponseModelT = TypeVar("ResponseModelT", bound=BaseModel)
@@ -166,7 +166,7 @@ def resolve_async_result(
     request_headers: Mapping[str, Any] | None = None,
     response_payload_upgrader: ResponsePayloadUpgrader | None = None,
 ) -> ResponseModelT | ApplicationHttpResponse:
-    access_denial, persisted_tenant_id = _authorize_async_result_access(
+    access_denial, authorized_execution = _authorize_async_result_access(
         calculation_id=calculation_id,
         request_headers=request_headers,
         not_found_detail=not_found_detail,
@@ -174,6 +174,7 @@ def resolve_async_result(
     if access_denial is not None:
         return access_denial
 
+    persisted_tenant_id = None if authorized_execution is None else authorized_execution.tenant_id
     admitted_tenant_id = tenant_id_var.get() if persisted_tenant_id is None else persisted_tenant_id
     async_result = async_result_store.get_result_for_tenant(calculation_id, tenant_id=admitted_tenant_id)
     if async_result is not None:
@@ -186,14 +187,62 @@ def resolve_async_result(
             response_payload_upgrader=response_payload_upgrader,
         )
 
-    return _resolve_compute_job_result(
+    job = compute_job_store.get_job_for_tenant(calculation_id, tenant_id=admitted_tenant_id)
+    if job is not None:
+        return _resolve_compute_job_result(
+            calculation_id=calculation_id,
+            job=job,
+            expected_analytics_type=expected_analytics_type,
+            response_model=response_model,
+            accepted_response_factory=accepted_response_factory,
+            not_found_detail=not_found_detail,
+            failed_detail=failed_detail,
+            response_payload_upgrader=response_payload_upgrader,
+        )
+
+    retained_execution = authorized_execution or execution_registry.get_execution_for_tenant(
+        calculation_id,
+        tenant_id=admitted_tenant_id,
+    )
+    return _resolve_retained_execution_result(
         calculation_id=calculation_id,
-        job=compute_job_store.get_job_for_tenant(calculation_id, tenant_id=admitted_tenant_id),
+        execution=retained_execution,
         expected_analytics_type=expected_analytics_type,
         response_model=response_model,
-        accepted_response_factory=accepted_response_factory,
         not_found_detail=not_found_detail,
         failed_detail=failed_detail,
+        response_payload_upgrader=response_payload_upgrader,
+    )
+
+
+def _resolve_retained_execution_result(
+    *,
+    calculation_id: UUID,
+    execution: ExecutionRecord | None,
+    expected_analytics_type: str,
+    response_model: type[ResponseModelT],
+    not_found_detail: str,
+    failed_detail: str,
+    response_payload_upgrader: ResponsePayloadUpgrader | None = None,
+) -> ResponseModelT:
+    if execution is None:
+        raise APINotFoundError(not_found_detail)
+    _ensure_expected_analytics_type(
+        calculation_id=calculation_id,
+        actual_analytics_type=execution.analytics_type,
+        expected_analytics_type=expected_analytics_type,
+        not_found_detail=not_found_detail,
+        source="execution_registry",
+    )
+    if execution.status == ExecutionStatus.FAILED:
+        raise APIConflictError(execution.error_message or failed_detail)
+    if execution.response_payload is None:
+        raise APINotFoundError(not_found_detail)
+    return _validate_response_payload(
+        calculation_id=calculation_id,
+        response_model=response_model,
+        response_payload=execution.response_payload,
+        source="execution_registry",
         response_payload_upgrader=response_payload_upgrader,
     )
 
@@ -203,10 +252,10 @@ def _authorize_async_result_access(
     calculation_id: UUID,
     request_headers: Mapping[str, Any] | None,
     not_found_detail: str,
-) -> tuple[ApplicationHttpResponse | None, str | None]:
+) -> tuple[ApplicationHttpResponse | None, ExecutionRecord | None]:
     if request_headers is None:
         return None, None
     execution = execution_registry.get_execution(calculation_id)
     if execution is None:
         raise APINotFoundError(not_found_detail)
-    return authorize_calculation_result_access(execution=execution, headers=request_headers), execution.tenant_id
+    return authorize_calculation_result_access(execution=execution, headers=request_headers), execution
