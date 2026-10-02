@@ -1,4 +1,5 @@
 # tests/unit/models/test_contribution_models.py
+from decimal import Decimal
 from types import SimpleNamespace
 from uuid import uuid4
 
@@ -14,7 +15,7 @@ from app.models.contribution_analytics_requests import (
     _stateless_contribution_envelope_issue,
     _validate_stateless_contribution_payloads,
 )
-from app.models.contribution_requests import ContributionRequest, PortfolioData, PositionData
+from app.models.contribution_requests import ContributionRequest, PortfolioData, PositionDailyData, PositionData
 from app.models.contribution_responses import ContributionResponse
 
 
@@ -99,6 +100,19 @@ def test_contribution_request_with_analyses_passes(minimal_contribution_request_
         assert len(req.analyses) == 1
     except ValidationError as e:
         pytest.fail(f"Validation failed unexpectedly with 'analyses': {e}")
+
+
+def test_position_daily_data_preserves_exact_market_value_text():
+    point = PositionDailyData.model_validate(
+        {
+            "perf_date": "2026-01-02",
+            "begin_mv": "10000000000000000.01",
+            "end_mv": "10000000000000000.02",
+        }
+    )
+
+    assert point.begin_mv == Decimal("10000000000000000.01")
+    assert point.end_mv == Decimal("10000000000000000.02")
 
 
 @pytest.mark.parametrize("nested", [False, True])

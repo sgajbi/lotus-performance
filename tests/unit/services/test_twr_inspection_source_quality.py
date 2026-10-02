@@ -1,4 +1,6 @@
+import json
 from datetime import date, timedelta
+from decimal import Decimal
 
 import pytest
 
@@ -92,6 +94,23 @@ def test_assess_source_quality_evidence_context_projects_source_signals():
     assert [move.perf_date for move in context.mandate_outliers] == ["2026-04-06"]
 
 
+def test_daily_move_assessment_preserves_sub_float_market_value_change():
+    assessment = source_quality._assess_daily_move_inputs(
+        [
+            DailyInputData.model_validate(
+                {
+                    "perf_date": "2026-04-06",
+                    "begin_mv": 10_000_000_000_000_000,
+                    "end_mv": "10000000000000001",
+                }
+            )
+        ]
+    )
+
+    assert assessment.invalid_capital_bases == []
+    assert Decimal(str(assessment.daily_moves[0].return_pct)) == Decimal("1E-14")
+
+
 def test_is_unobserved_business_date_detects_missing_weekday_only():
     observed_dates = {"2026-04-03"}
 
@@ -135,6 +154,7 @@ def test_run_source_quality_checks_flags_stale_valuation_series():
     assert result.artifact_payload["stale_series_run_count"] == 1
     assert result.artifact_payload["stale_series_observation_count"] == 3
     assert result.artifact_payload["stale_series_runs"] == stale_finding.evidence["stale_series_runs"]
+    json.dumps(result.artifact_payload)
 
 
 def test_run_source_quality_checks_does_not_flag_stale_series_when_cash_or_fees_change():
@@ -233,6 +253,7 @@ def test_run_source_quality_checks_flags_nonpositive_daily_capital_base():
             "effective_capital_base": 0.0,
         }
     ]
+    json.dumps(result.artifact_payload)
 
 
 def test_run_source_quality_checks_flags_canonical_balanced_mandate_move_outlier():

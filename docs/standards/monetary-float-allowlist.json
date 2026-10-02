@@ -100,18 +100,6 @@
       "review_by": "2026-10-12"
     },
     {
-      "finding": "app/models/benchmark_analytics_requests.py:74:index_price: float = Field(",
-      "justification": "Temporary approved monetary floating-point usage; convert to Decimal.",
-      "owner": "platform-governance",
-      "review_by": "2026-10-12"
-    },
-    {
-      "finding": "app/models/benchmark_analytics_requests.py:84:fx_rate_to_benchmark: float | None = Field(",
-      "justification": "Temporary approved monetary floating-point usage; convert to Decimal.",
-      "owner": "platform-governance",
-      "review_by": "2026-10-12"
-    },
-    {
       "finding": "app/models/benchmark_analytics_requests.py:99:benchmark_return: float = Field(",
       "justification": "Temporary approved monetary floating-point usage; convert to Decimal.",
       "owner": "platform-governance",
@@ -122,18 +110,6 @@
       "justification": "Temporary approved monetary floating-point usage; convert to Decimal.",
       "owner": "platform-governance",
       "review_by": "2026-10-12"
-    },
-    {
-      "finding": "app/models/contribution_requests.py:27:begin_mv: float = Field(..., description=\"Beginning market value before any cash flows.\")",
-      "justification": "Deferred position market-value request boundary; Decimal/API compatibility and golden vectors tracked in https://github.com/sgajbi/lotus-performance/issues/530.",
-      "owner": "lotus-performance",
-      "review_by": "2026-10-08"
-    },
-    {
-      "finding": "app/models/contribution_requests.py:28:end_mv: float = Field(  # monetary value; Decimal migration tracked by issue #530",
-      "justification": "Deferred position market-value request boundary; Decimal/API compatibility and golden vectors tracked in https://github.com/sgajbi/lotus-performance/issues/530.",
-      "owner": "lotus-performance",
-      "review_by": "2026-10-08"
     },
     {
       "finding": "app/models/contribution_responses.py:101:weight_avg: Optional[float] = Field(",
@@ -206,18 +182,6 @@
       "justification": "Temporary approved monetary floating-point usage; convert to Decimal.",
       "owner": "platform-governance",
       "review_by": "2026-11-06"
-    },
-    {
-      "finding": "app/models/requests.py:39:end_mv: float = Field(..., description=\"The market value of the portfolio at the end of the day.\")",
-      "justification": "Deferred portfolio market-value request boundary; Decimal/API compatibility and golden vectors tracked in https://github.com/sgajbi/lotus-performance/issues/530.",
-      "owner": "lotus-performance",
-      "review_by": "2026-10-08"
-    },
-    {
-      "finding": "app/models/responses.py:19:end_mv: float = Field(description=\"Ending market value for the bucket in reporting currency.\", examples=[1012500.0])",
-      "justification": "Deferred market-value response boundary; Decimal/JSON compatibility and golden vectors tracked in https://github.com/sgajbi/lotus-performance/issues/530.",
-      "owner": "lotus-performance",
-      "review_by": "2026-10-08"
     },
     {
       "finding": "app/models/workspace_summary_responses.py:188:begin_market_value: float = Field(",
@@ -308,30 +272,6 @@
       "justification": "Temporary approved monetary floating-point usage; convert to Decimal.",
       "owner": "platform-governance",
       "review_by": "2026-10-12"
-    },
-    {
-      "finding": "app/services/stateless_benchmark_input_service.py:66:previous_price = float(previous_point.index_price)",
-      "justification": "Deferred benchmark index-price conversion before return calculation; Decimal precision migration tracked in https://github.com/sgajbi/lotus-performance/issues/530.",
-      "owner": "lotus-performance",
-      "review_by": "2026-10-08"
-    },
-    {
-      "finding": "app/services/stateless_benchmark_input_service.py:67:current_price = float(current_point.index_price)",
-      "justification": "Deferred benchmark index-price conversion before return calculation; Decimal precision migration tracked in https://github.com/sgajbi/lotus-performance/issues/530.",
-      "owner": "lotus-performance",
-      "review_by": "2026-10-08"
-    },
-    {
-      "finding": "app/services/stateless_benchmark_input_service.py:95:previous_fx_value = float(previous_fx)",
-      "justification": "Deferred benchmark FX-rate conversion before price normalization; Decimal precision migration tracked in https://github.com/sgajbi/lotus-performance/issues/530.",
-      "owner": "lotus-performance",
-      "review_by": "2026-10-08"
-    },
-    {
-      "finding": "app/services/stateless_benchmark_input_service.py:96:current_fx_value = float(current_fx)",
-      "justification": "Deferred benchmark FX-rate conversion before price normalization; Decimal precision migration tracked in https://github.com/sgajbi/lotus-performance/issues/530.",
-      "owner": "lotus-performance",
-      "review_by": "2026-10-08"
     },
     {
       "finding": "app/services/twr_service.py:150:def _link_return_series(series: pd.Series) -> float:",

@@ -5,6 +5,7 @@ from uuid import UUID, uuid4
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
+from app.models.numeric_types import ExactDecimalInput
 from common.enums import Frequency, PeriodType, canonical_performance_period_code
 from core.envelope import (
     Annualization,
@@ -37,7 +38,11 @@ class DailyInputData(BaseModel):
         0.0,
         description="Management or other fees charged for the day. Should be a negative value to reduce performance.",
     )
-    end_mv: float = Field(..., description="The market value of the portfolio at the end of the day.")
+    end_mv: ExactDecimalInput = Field(
+        ...,
+        allow_inf_nan=False,
+        description="The market value of the portfolio at the end of the day.",
+    )
 
 
 def admit_daily_input_data(value: List[DailyInputData]) -> List[DailyInputData]:

@@ -93,6 +93,34 @@ def test_contribution_endpoint_happy_path_and_envelope(client, happy_path_payloa
     assert "ContributionRequest" in source_economics["source_contracts"]
 
 
+def test_contribution_endpoint_accepts_exact_decimal_market_value_text(client):
+    response = client.post(
+        "/performance/contribution",
+        json={
+            "portfolio_id": "CONTRIB_EXACT_DECIMAL_MV",
+            "report_start_date": "2026-01-02",
+            "report_end_date": "2026-01-02",
+            "analyses": [{"period": "SI", "frequencies": ["daily"]}],
+            "portfolio_data": {
+                "metric_basis": "NET",
+                "valuation_points": [{"perf_date": "2026-01-02", "begin_mv": "100.00", "end_mv": "101.01"}],
+            },
+            "positions_data": [
+                {
+                    "position_id": "POSITION_1",
+                    "meta": {"currency": "USD"},
+                    "valuation_points": [{"perf_date": "2026-01-02", "begin_mv": "100.00", "end_mv": "101.01"}],
+                }
+            ],
+        },
+    )
+
+    assert response.status_code == 200, response.text
+    period = response.json()["results_by_period"]["SI"]
+    assert period["total_portfolio_return"] == pytest.approx(1.01)
+    assert period["total_contribution"] == pytest.approx(1.01)
+
+
 @pytest.mark.parametrize("end_mv,expected_total", [(1100, 10.0), (900, -10.0), (1000, 0.0)])
 @pytest.mark.parametrize("currency_mode", [None, "BASE_ONLY", "LOCAL_ONLY", "BOTH"])
 @pytest.mark.parametrize("with_hierarchy", [False, True])

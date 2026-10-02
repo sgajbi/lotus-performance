@@ -37,7 +37,7 @@ key and prove that the calculation output and evidence contract remain unchanged
 Calculation hashes use the governed calculation engine version token, not the deployable build
 version. In other words, the calculation engine version is not the deployable build version. The
 current source is `Settings.CALCULATION_ENGINE_VERSION`, which defaults to
-`lotus-performance-calculation-engine.v11` and is exposed through the same helper for TWR, MWR,
+`lotus-performance-calculation-engine.v12` and is exposed through the same helper for TWR, MWR,
 contribution, attribution, benchmark, workspace-summary, TWR inspection, and returns-series hash
 paths. The token is intentionally separate from `APP_VERSION`, Git SHA, OCI image labels, image
 digest, CI run id, and `/version` build metadata.
@@ -47,7 +47,9 @@ compatibility semantics, or governed reproducibility behavior changes in a way t
 new calculation identity for the same economic input. Do not change it merely because the service is
 rebuilt, retagged, promoted across environments, or receives a non-methodology runtime patch.
 
-Version `v11` supersedes `v10` for stateless contribution's pre-admission FX coverage validation,
+Version `v12` supersedes `v11` for exact Decimal admission of governed market values and stateless
+benchmark price/FX inputs, plus Decimal price normalization before dimensionless return projection.
+Version `v11` superseded `v10` for stateless contribution's pre-admission FX coverage validation,
 safe optional empty FX blocks, and strict-decimal FX-rate arithmetic. Version `v10` superseded
 `v9` for end-to-end strict-decimal contribution arithmetic. Version `v9` supersedes `v8` for contribution's after-fee ending-value normalization: NET retains
 booked fee debits or refunds once, while GROSS removes them once before contribution and return

@@ -7,6 +7,7 @@ from pydantic import BaseModel, ConfigDict, Field
 
 from app.core.async_polling import DEFAULT_RECOMMENDED_POLL_AFTER_SECONDS
 from app.models.currency_evidence import AppliedCurrencyEvidence
+from app.models.numeric_types import MonetaryJSONNumber
 from app.models.twr_requests import TWRInputMode
 from common.enums import Frequency
 from core.envelope import Audit, Diagnostics, Meta
@@ -18,7 +19,11 @@ class PerformanceSummary(BaseModel):
     begin_mv: float = Field(
         description="Beginning market value for the bucket in reporting currency.", examples=[1000000.0]
     )
-    end_mv: float = Field(description="Ending market value for the bucket in reporting currency.", examples=[1012500.0])
+    end_mv: MonetaryJSONNumber = Field(
+        allow_inf_nan=False,
+        description="Ending market value for the bucket in reporting currency.",
+        examples=[1012500.0],
+    )
     net_cash_flow: float = Field(
         description="Net external cash flow for the bucket in reporting currency.",
         examples=[25000.0],

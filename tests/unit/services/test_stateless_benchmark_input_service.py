@@ -1,4 +1,5 @@
 from datetime import date
+from decimal import Decimal
 
 import pytest
 
@@ -120,6 +121,36 @@ def test_build_price_point_observation_projects_cross_currency_returns():
     assert observation.component_return_local == pytest.approx(0.01)
     assert observation.component_return_fx == pytest.approx(0.01)
     assert observation.component_return == pytest.approx(0.0201)
+
+
+def test_build_price_point_observation_preserves_sub_float_price_and_fx_moves():
+    observation = _build_price_point_observation(
+        component_id="IDX_EUR",
+        benchmark_currency="USD",
+        previous_point=BenchmarkComponentPricePointInput(
+            component_id="IDX_EUR",
+            perf_date=date(2026, 1, 1),
+            weight_bop=1,
+            index_price="10000000000000000",
+            component_currency="EUR",
+            fx_rate_to_benchmark="1",
+        ),
+        current_point=BenchmarkComponentPricePointInput(
+            component_id="IDX_EUR",
+            perf_date=date(2026, 1, 2),
+            weight_bop=1,
+            index_price="10000000000000001",
+            component_currency="EUR",
+            fx_rate_to_benchmark="1.0000000000000001",
+        ),
+    )
+
+    local = Decimal("0.0000000000000001")
+    fx = Decimal("0.0000000000000001")
+    total = (Decimal("1") + local) * (Decimal("1") + fx) - Decimal("1")
+    assert Decimal(str(observation.component_return_local)) == local
+    assert Decimal(str(observation.component_return_fx)) == fx
+    assert Decimal(str(observation.component_return)) == Decimal(str(float(total)))
 
 
 def test_component_observations_from_price_points_sorts_and_tracks_return_dates():

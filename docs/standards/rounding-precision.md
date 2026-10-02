@@ -61,13 +61,13 @@ An allowlist entry the scan no longer produces must be **removed**, not carried.
 computes findings-minus-allowlist, so a resolved finding keeps its approval unless somebody takes
 it away; `tests/unit/scripts/test_monetary_float_usage.py` fails when an orphaned entry appears.
 
-The 2026-09-22 review of expired cohort #472 retired 35 dimensionless-ratio or docstring
-matches at their source sites. Eight actual market-value, benchmark-price, and FX-conversion
-boundaries retain finding-specific dated allowances through 2026-10-08 under #530 after the
-2026-10-01 re-review confirmed that the compatibility migration remains open. That short
-allowance is not evidence of Decimal migration or production precision certification; #530 owns
-the compatibility and golden-vector work. The guard still blocks stale and newly introduced
-unapproved monetary floats.
+The 2026-09-22 review of expired cohort #472 retired 35 dimensionless-ratio or docstring matches.
+#530 then migrated its reviewed market-value, benchmark-price, and FX-conversion boundaries to
+Decimal and removed their dated allowances. Compatibility serializers may emit JSON numbers only
+at the response edge; benchmark returns remain dimensionless float outputs. The guard still blocks
+stale and newly introduced unapproved monetary floats. Workspace MWR continues to convert its
+admitted Decimal market values at the existing float solver boundary; issue #473 owns that broader
+cash-flow and solver migration.
 
 ## Deviation and Change Control
 

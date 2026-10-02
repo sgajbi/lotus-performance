@@ -3,6 +3,7 @@ from __future__ import annotations
 from collections import defaultdict
 from dataclasses import dataclass
 from datetime import date
+from decimal import Decimal
 
 from app.models.benchmark_analytics_requests import (
     BenchmarkComponentPricePointInput,
@@ -11,7 +12,7 @@ from app.models.benchmark_analytics_requests import (
 from app.models.benchmark_requests import BenchmarkComponentObservation
 from core.errors import APIUnprocessableEntityError
 
-_RatioNumber = float
+_RatioNumber = Decimal
 
 
 @dataclass(frozen=True)
@@ -132,8 +133,8 @@ def _build_price_point_observation(
                 f"date {current_date}."
             ),
         )
-    previous_price = float(previous_point.index_price)
-    current_price = float(current_point.index_price)
+    previous_price = previous_point.index_price
+    current_price = current_point.index_price
     if previous_price == 0:
         raise APIUnprocessableEntityError(
             (
@@ -164,18 +165,20 @@ def _price_point_return_components(
     *,
     component_id: str,
     benchmark_currency: str,
-    previous_level: float,
-    current_level: float,
+    previous_level: Decimal | float,
+    current_level: Decimal | float,
     previous_point: BenchmarkComponentPricePointInput,
     current_point: BenchmarkComponentPricePointInput,
 ) -> _PricePointReturnComponents:
+    previous_level_decimal = Decimal(str(previous_level))
+    current_level_decimal = Decimal(str(current_level))
     component_currency = current_point.component_currency or previous_point.component_currency
-    component_return_local = (current_level / previous_level) - 1.0
+    component_return_local = (current_level_decimal / previous_level_decimal) - Decimal("1")
     if component_currency is None or component_currency == benchmark_currency:
         return _PricePointReturnComponents(
             currency=benchmark_currency if component_currency is None else component_currency,
-            total=component_return_local,
-            local=component_return_local,
+            total=float(component_return_local),  # monetary-float-allow: dimensionless return output
+            local=float(component_return_local),  # monetary-float-allow: dimensionless return output
             fx=0.0,
         )
 
@@ -183,8 +186,8 @@ def _price_point_return_components(
         component_id=component_id,
         component_currency=str(component_currency),
         local_return=component_return_local,
-        previous_level=previous_level,
-        current_level=current_level,
+        previous_level=previous_level_decimal,
+        current_level=current_level_decimal,
         previous_point=previous_point,
         current_point=current_point,
     )
@@ -194,9 +197,9 @@ def _cross_currency_price_point_return_components(
     *,
     component_id: str,
     component_currency: str,
-    local_return: _RatioNumber,
-    previous_level: float,
-    current_level: float,
+    local_return: _RatioNumber | float,  # monetary-float-allow: dimensionless return input
+    previous_level: Decimal | float,
+    current_level: Decimal | float,
     previous_point: BenchmarkComponentPricePointInput,
     current_point: BenchmarkComponentPricePointInput,
 ) -> _PricePointReturnComponents:
@@ -209,13 +212,20 @@ def _cross_currency_price_point_return_components(
                 f"for cross-currency component_id={component_id} on {current_point.perf_date}."
             ),
         )
-    previous_fx_value = float(previous_fx)
-    current_fx_value = float(current_fx)
-    normalized_previous_price = previous_level * previous_fx_value
-    normalized_current_price = current_level * current_fx_value
+    previous_fx_value = Decimal(str(previous_fx))
+    current_fx_value = Decimal(str(current_fx))
+    previous_level_decimal = Decimal(str(previous_level))
+    current_level_decimal = Decimal(str(current_level))
+    local_return_decimal = Decimal(str(local_return))
+    normalized_previous_price = previous_level_decimal * previous_fx_value
+    normalized_current_price = current_level_decimal * current_fx_value
     return _PricePointReturnComponents(
         currency=component_currency,
-        total=(normalized_current_price / normalized_previous_price) - 1.0,
-        local=local_return,
-        fx=(current_fx_value / previous_fx_value) - 1.0,
+        total=float(  # monetary-float-allow: dimensionless return output
+            (normalized_current_price / normalized_previous_price) - Decimal("1")
+        ),
+        local=float(local_return_decimal),  # monetary-float-allow: dimensionless return output
+        fx=float(  # monetary-float-allow: dimensionless return output
+            (current_fx_value / previous_fx_value) - Decimal("1")
+        ),
     )

@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from datetime import date, timedelta
+from decimal import Decimal
 
 from app.models.inspection_requests import TWRInspectionProfile
 from app.models.inspection_responses import TWRInspectionFinding
@@ -324,7 +325,7 @@ def _build_business_gap_findings(missing_business_dates: list[str]) -> list[TWRI
 def _find_stale_series_runs(valuation_points: list[DailyInputData]) -> list[StaleSeriesRun]:
     stale_runs: list[StaleSeriesRun] = []
     current_run: list[DailyInputData] = []
-    current_signature: tuple[float, float, float, float, float] | None = None
+    current_signature: tuple[float | Decimal, float | Decimal, float, float, float] | None = None
 
     for point in valuation_points:
         signature = _stale_signature(point)
@@ -339,7 +340,7 @@ def _find_stale_series_runs(valuation_points: list[DailyInputData]) -> list[Stal
     return stale_runs
 
 
-def _stale_signature(point: DailyInputData) -> tuple[float, float, float, float, float]:
+def _stale_signature(point: DailyInputData) -> tuple[float | Decimal, float | Decimal, float, float, float]:
     return (point.begin_mv, point.end_mv, point.bod_cf, point.eod_cf, point.mgmt_fees)
 
 
@@ -358,8 +359,8 @@ def _append_stale_run_if_needed(
             start_date=first.perf_date.isoformat(),
             end_date=run_points[-1].perf_date.isoformat(),
             observation_count=len(run_points),
-            begin_mv=first.begin_mv,
-            end_mv=first.end_mv,
+            begin_mv=float(first.begin_mv),  # monetary-float-allow: JSON evidence compatibility
+            end_mv=float(first.end_mv),  # monetary-float-allow: JSON evidence compatibility
         )
     )
 
@@ -710,19 +711,27 @@ def _assess_daily_move_inputs(valuation_points: list[DailyInputData]) -> DailyMo
     moves: list[DailyMove] = []
     invalid_capital_bases: list[dict[str, float | str]] = []
     for point in valuation_points:
-        denominator = point.begin_mv + point.bod_cf
+        begin_mv = Decimal(str(point.begin_mv))
+        bod_cf = Decimal(str(point.bod_cf))
+        eod_cf = Decimal(str(point.eod_cf))
+        mgmt_fees = Decimal(str(point.mgmt_fees))
+        denominator = begin_mv + bod_cf
         if denominator <= 0:
             invalid_capital_bases.append(
                 {
                     "perf_date": point.perf_date.isoformat(),
-                    "begin_mv": point.begin_mv,
-                    "bod_cf": point.bod_cf,
-                    "effective_capital_base": denominator,
+                    "begin_mv": float(begin_mv),  # monetary-float-allow: JSON evidence compatibility
+                    "bod_cf": float(bod_cf),  # monetary-float-allow: JSON evidence compatibility
+                    "effective_capital_base": float(  # monetary-float-allow: JSON evidence compatibility
+                        denominator
+                    ),
                 }
             )
             continue
-        numerator = point.end_mv - point.eod_cf - point.mgmt_fees
-        return_pct = ((numerator / denominator) - 1.0) * 100.0
+        numerator = point.end_mv - eod_cf - mgmt_fees
+        return_pct = float(  # monetary-float-allow: dimensionless percentage compatibility output
+            ((numerator / denominator) - Decimal(1)) * Decimal(100)
+        )
         moves.append(DailyMove(perf_date=point.perf_date.isoformat(), return_pct=return_pct))
     return DailyMoveInputsAssessment(daily_moves=moves, invalid_capital_bases=invalid_capital_bases)
 
