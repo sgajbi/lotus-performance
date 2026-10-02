@@ -1096,6 +1096,33 @@ def test_link_effects_top_down_noop_when_arithmetic_total_zero():
     pd.testing.assert_frame_equal(result, effects_df)
 
 
+@pytest.mark.parametrize("arithmetic_total", [1.1102230246251565e-16, -1.1102230246251565e-16])
+def test_link_effects_top_down_skips_ill_conditioned_near_zero_denominator(arithmetic_total):
+    effects_df = pd.DataFrame({"allocation": [0.1], "selection": [-0.1], "interaction": [0.0]})
+
+    result = _link_effects_top_down(
+        effects_df,
+        geometric_total_ar=-0.01,
+        arithmetic_total_ar=arithmetic_total,
+        active_return_scale=0.2,
+    )
+
+    pd.testing.assert_frame_equal(result, effects_df)
+
+
+def test_link_effects_top_down_retains_well_conditioned_small_active_return():
+    effects_df = pd.DataFrame({"allocation": [5e-13], "selection": [0.0], "interaction": [0.0]})
+
+    result = _link_effects_top_down(
+        effects_df,
+        geometric_total_ar=1e-12,
+        arithmetic_total_ar=5e-13,
+        active_return_scale=5e-13,
+    )
+
+    assert result["allocation"].tolist() == pytest.approx([1e-12])
+
+
 def test_link_effects_top_down_scales_only_effect_columns():
     effects_df = pd.DataFrame(
         {

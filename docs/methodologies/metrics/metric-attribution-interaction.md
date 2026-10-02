@@ -71,7 +71,9 @@ Attribution Interaction Effect (`levels[].groups[].interaction`)
 - Invalid mode/model paths return HTTP 400.
 - Stateful source resolution fails closed when lotus-core portfolio, position, benchmark, or
   source-currency inputs cannot produce usable attribution panel rows.
-- If arithmetic active return is zero, no top-down scaling is applied.
+- If arithmetic active return is zero or ill-conditioned relative to summed absolute daily active
+  returns, no top-down scaling is applied and `linking_scaling_skipped` is emitted. The threshold is
+  `sqrt(float64 epsilon) * sum_t abs(AR_t)`.
 - If a linked period contains a portfolio or benchmark return less than or equal to `-100%`, the
   period emits `linking_invalid_return_chain` and
   `supportability_evidence.linking_status="invalid_return_chain"`.

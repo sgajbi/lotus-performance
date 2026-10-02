@@ -227,6 +227,50 @@ def test_attribution_endpoint_by_instrument_happy_path(client):
     )
 
 
+def test_attribution_endpoint_qualifies_near_zero_linking_denominator(client):
+    payload = {
+        "portfolio_id": "ATTRIB_NEAR_ZERO_LINKING",
+        "mode": "by_group",
+        "group_by": ["sector"],
+        "model": "BF",
+        "linking": "carino",
+        "frequency": "daily",
+        "report_start_date": "2025-01-01",
+        "report_end_date": "2025-01-02",
+        "analyses": [{"period": "SI", "frequencies": ["daily"]}],
+        "portfolio_groups_data": [
+            {
+                "key": {"sector": "One"},
+                "observations": [
+                    {"date": "2025-01-01", "return_base": 0.1, "weight_bop": 1.0},
+                    {"date": "2025-01-02", "return_base": -0.1, "weight_bop": 1.0},
+                ],
+            }
+        ],
+        "benchmark_groups_data": [
+            {
+                "key": {"sector": "One"},
+                "observations": [
+                    {"date": "2025-01-01", "return_base": 0.0, "weight_bop": 1.0},
+                    {"date": "2025-01-02", "return_base": 0.0, "weight_bop": 1.0},
+                ],
+            }
+        ],
+    }
+
+    response = client.post("/performance/attribution", json=payload)
+
+    assert response.status_code == 200
+    period = response.json()["results_by_period"]["SI"]
+    assert period["status"] == "warning"
+    assert "linking_scaling_skipped" in period["reason_codes"]
+    assert "material_residual" in period["reason_codes"]
+    assert period["supportability_evidence"]["linking_status"] == "scaling_skipped"
+    assert period["reconciliation"]["total_active_return"] == pytest.approx(-1.0, abs=1e-12)
+    assert abs(period["reconciliation"]["sum_of_effects"]) < 1e-10
+    assert period["reconciliation"]["residual"] == pytest.approx(-1.0, abs=1e-10)
+
+
 @pytest.mark.parametrize(
     (
         "model",

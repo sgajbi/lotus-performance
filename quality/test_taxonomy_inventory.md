@@ -1,7 +1,7 @@
 # Lotus Performance Test Taxonomy Inventory
 
 Report date: 2026-10-02
-Branch: `fix/551-benchmark-weight-basis`
+Branch: `fix/548-attribution-near-zero-linking`
 Mode: regression-blocking test taxonomy inventory; `make quality-test-taxonomy-gate` enforces
 minimum API/runtime and contract/governance breadth plus the current uncategorized-test ceiling.
 
@@ -23,8 +23,8 @@ python scripts/python_test_taxonomy_inventory.py --limit 30 --min-api-runtime-te
 | Metric | Value |
 | --- | ---: |
 | Test modules inventoried | 335 |
-| Test functions inventoried | 4052 |
-| Integration/API/runtime test functions | 822 |
+| Test functions inventoried | 4055 |
+| Integration/API/runtime test functions | 823 |
 | Contract/governance test functions | 197 |
 
 ## Test Functions By Suite
@@ -33,8 +33,8 @@ python scripts/python_test_taxonomy_inventory.py --limit 30 --min-api-runtime-te
 | --- | ---: | ---: |
 | benchmarks | 10 | 42 |
 | e2e | 1 | 21 |
-| integration | 29 | 410 |
-| unit | 295 | 3579 |
+| integration | 29 | 411 |
+| unit | 295 | 3581 |
 
 ## Test Functions By Family
 
@@ -44,8 +44,8 @@ above does sum to it, because a module belongs to exactly one suite.
 
 | Family | Test functions |
 | --- | ---: |
-| analytics_domain | 2024 |
-| api_or_runtime | 822 |
+| analytics_domain | 2027 |
+| api_or_runtime | 823 |
 | contract_or_governance | 197 |
 | observability_or_readiness | 568 |
 | quality_or_security | 269 |
@@ -63,7 +63,7 @@ above does sum to it, because a module belongs to exactly one suite.
 | 6 | `tests/unit/services/test_lineage_metadata_store.py` | unit | 62 | observability_or_readiness |
 | 7 | `tests/integration/test_contribution_api.py` | integration | 63 | analytics_domain, api_or_runtime |
 | 8 | `tests/unit/app/test_openapi_enrichment.py` | unit | 61 | api_or_runtime |
-| 9 | `tests/unit/engine/test_attribution.py` | unit | 59 | analytics_domain |
+| 9 | `tests/unit/engine/test_attribution.py` | unit | 61 | analytics_domain |
 | 10 | `tests/unit/services/test_twr_inspection_source_economics.py` | unit | 58 | analytics_domain |
 | 11 | `tests/integration/test_performance_api.py` | integration | 56 | api_or_runtime |
 | 12 | `tests/unit/services/test_workspace_summary_service.py` | unit | 56 | analytics_domain |
@@ -251,3 +251,8 @@ The #551 benchmark weight-basis slice adds independent registered price-derived 
 five-shape exposure proofs. Current source test functions measure `4,052`, API/runtime functions
 `822`, analytics-domain functions `2,024`, and uncategorized functions remain `626`. Existing
 floors and ceilings are unchanged.
+
+The #548 attribution-linking conditioning slice adds positive and negative near-zero denominator,
+well-conditioned small-return, and registered resampling regressions. Current source test functions
+measure `4,055`, API/runtime functions `823`, analytics-domain functions `2,027`, and uncategorized
+functions remain `626`. Existing floors and ceilings are unchanged.

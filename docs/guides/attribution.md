@@ -114,7 +114,13 @@ source-owned active-return reconciliation; consumers must not reconstruct or ref
 ### 2. Multi-period linking
 
 The engine links single-period effects over the requested analysis horizon using the selected
-linking method so that aggregated effects reconcile against active return over time.
+linking method so that aggregated effects reconcile against active return over time. Before
+dividing geometric active return by arithmetic active return, it checks the denominator against a
+scale-aware `sqrt(float64 epsilon)` share of summed absolute daily active returns. A denominator
+inside that bound is ill-conditioned: arithmetic effects are
+left unscaled, `linking_status="scaling_skipped"` and `linking_scaling_skipped` disclose the
+fallback, and the resulting residual remains visible for review. A genuinely small but
+well-conditioned active return is still linked.
 
 ### 3. Grouping modes
 
@@ -195,7 +201,9 @@ segments, missing benchmark evidence, skipped linking, an invalid multi-period r
 currency-attribution gaps, including absent currency grouping or missing local/FX evidence, or a
 material residual. `reconciliation.residual_materiality` classifies
 the active-return residual against the governed warning and material thresholds. When linked
-attribution is requested and any portfolio or benchmark period return is less than or equal to
+attribution is requested and the arithmetic active-return denominator is zero or ill-conditioned,
+the period is a warning with `linking_scaling_skipped`; it must not be presented as clean linked
+attribution. When any portfolio or benchmark period return is less than or equal to
 `-100%`, `supportability_evidence.linking_status` is `invalid_return_chain` and
 `reason_codes` includes `linking_invalid_return_chain`; single-period evidence remains available,
 but the linked period should not be used as a clean smoothed attribution view.

@@ -61,6 +61,9 @@ Attribution Total Active Return (`reconciliation.total_active_return`)
 - `linking!=NONE`: `AR = (prod_t(1+R_p,t)-1) - (prod_t(1+R_b,t)-1)`
   - if any `R_p,t <= -1` or `R_b,t <= -1`, linked attribution is supportability-invalid and the
     response preserves arithmetic evidence with `linking_invalid_return_chain`.
+  - top-down effect scaling uses `AR / sum_t AR_t` only when the arithmetic denominator exceeds
+    `sqrt(float64 epsilon) * sum_t abs(AR_t)`. Otherwise arithmetic effects are
+    preserved with `linking_scaling_skipped`, and reconciliation exposes the geometric residual.
 
 3. Reconciliation block:
 - `total_active_return = 100 * AR`
@@ -91,6 +94,9 @@ Attribution Total Active Return (`reconciliation.total_active_return`)
 - If linked attribution is requested and any portfolio or benchmark period return is less than or
   equal to `-100%`, period `reason_codes` includes `linking_invalid_return_chain` and
   `supportability_evidence.linking_status` is `invalid_return_chain`.
+- A zero or ill-conditioned arithmetic active-return denominator emits
+  `linking_scaling_skipped`; no unstable scaling multiplier is applied. Small denominators that
+  are well-conditioned relative to daily active-return activity remain eligible for linking.
 
 ## Configuration Options
 - `linking` (`NONE` vs non-`NONE` geometric active return path)
