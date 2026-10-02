@@ -59,8 +59,9 @@ Inside the current contract:
 - stateful `currency_mode="BOTH"` requires `report_ccy`, source position currencies, and complete
   positive finite exact prior/current-date EOD `fx.rates` for every source/report pair when any
   sourced position currency differs from `report_ccy`; every consumed dated position row must
-  carry `position_currency`, so a later row cannot lend authority to an earlier gap. Missing
-  source currency is rejected, and
+  carry `position_currency`, so a later row cannot lend authority to an earlier gap. Conflicting
+  currencies across consumed dates of one engine position are also rejected before metadata is
+  collapsed. Missing or conflicting source currency is rejected, and
   missing FX coverage is rejected with HTTP `422` before contribution calculation starts
 - cross-endpoint currency vocabulary is governed by the
   [RFC-020 multi-currency support matrix](../technical/rfc-020-multi-currency-support-matrix.md)

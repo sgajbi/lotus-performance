@@ -102,7 +102,8 @@ Every certified contribution response must satisfy these invariants for each res
   position's 10pp local / 0pp FX explanation; flat and hierarchy HTTP controls prove this.
 - Stateful `BOTH` rejects a consumed dated row without `position_currency` with HTTP `422`, even
   if a later row for the same position supplies it. A later per-position metadata value is not
-  earlier-date currency evidence.
+  earlier-date currency evidence. It also rejects differing non-null currencies across consumed
+  dates of one engine position, independent of source row order; no last-row-wins interpretation.
 
 The hierarchy path now builds rows from the same residual-adjusted daily position series used for
 position output. This prevents hierarchy rows from drifting away from first-class position

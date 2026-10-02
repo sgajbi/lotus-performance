@@ -1009,18 +1009,10 @@ def _validate_stateful_both_currency_support(
         fx=fx,
         workflow_name="contribution",
     )
-    missing_currency_rows = [
-        _stateful_position_row_identity(row, index=index)
-        for index, row in enumerate(rows)
-        if _valid_source_position_identity(row) is not None
-        and _position_row_to_daily_point(
-            row=row,
-            currency_mode="BOTH",
-            reporting_currency=reporting_currency,
-        )
-        is not None
-        and normalized_currency_code(row.get("position_currency")) is None
-    ]
+    missing_currency_rows, conflicting_position_ids = _stateful_both_currency_row_gaps(
+        rows=rows,
+        reporting_currency=reporting_currency,
+    )
     if missing_currency_rows:
         raise APIUnprocessableEntityError(
             detail="Stateful contribution BOTH requires position_currency on every consumed dated row: "
@@ -1028,6 +1020,38 @@ def _validate_stateful_both_currency_support(
             + ".",
             error_code="POSITION_CURRENCY_INCOMPLETE",
         )
+    if conflicting_position_ids:
+        raise APIUnprocessableEntityError(
+            detail="Stateful contribution BOTH cannot collapse conflicting dated position_currency values for: "
+            + ", ".join(conflicting_position_ids)
+            + ".",
+            error_code="POSITION_CURRENCY_CONFLICT",
+        )
+
+
+def _stateful_both_currency_row_gaps(
+    *, rows: list[dict[str, object]], reporting_currency: str | None
+) -> tuple[list[str], list[str]]:
+    missing_rows: list[str] = []
+    currencies_by_position_id: dict[str, set[str]] = {}
+    for index, row in enumerate(rows):
+        source_identity = _valid_source_position_identity(row)
+        if (
+            source_identity is None
+            or _position_row_to_daily_point(row=row, currency_mode="BOTH", reporting_currency=reporting_currency)
+            is None
+        ):
+            continue
+        currency = normalized_currency_code(row.get("position_currency"))
+        if currency is None:
+            missing_rows.append(_stateful_position_row_identity(row, index=index))
+            continue
+        position_id = _source_position_key_or_position_id(row, source_identity[0])
+        currencies_by_position_id.setdefault(position_id, set()).add(currency)
+    conflicting_ids = sorted(
+        position_id for position_id, currencies in currencies_by_position_id.items() if len(currencies) > 1
+    )
+    return missing_rows, conflicting_ids
 
 
 def _stateful_both_currency_requires_fx(
