@@ -1257,7 +1257,7 @@ def test_build_residual_adjusted_position_totals_allocates_carino_residual_by_se
         {
             "position_id": ["A", "B"],
             "smoothed_contribution": [0.01, 0.02],
-            "smoothed_local_contribution": [0.008, 0.018],
+            "smoothed_local_contribution": [0.01, 0.018],
         }
     )
     average_weight_df = pd.DataFrame(
@@ -1282,14 +1282,10 @@ def test_build_residual_adjusted_position_totals_allocates_carino_residual_by_se
     assert totals_result.residual_allocation_applied
     assert totals_result.totals_df["selected_average_weight"].tolist() == [0.50, 0.50]
     assert totals_result.totals_df["total_contribution"].tolist() == pytest.approx([0.015, 0.025])
-    # Pre-allocation local=0.026 and FX=0.004; the 0.01 residual follows that
-    # 13:2 component split rather than being labelled entirely as FX.
-    assert totals_result.totals_df["local_contribution"].tolist() == pytest.approx(
-        [0.008 + 0.005 * 13 / 15, 0.018 + 0.005 * 13 / 15]
-    )
-    assert totals_result.totals_df["fx_contribution"].tolist() == pytest.approx(
-        [0.002 + 0.005 * 2 / 15, 0.002 + 0.005 * 2 / 15]
-    )
+    # A is same-currency, so its 0.005 residual is entirely local even though
+    # B has FX. B's 0.005 residual follows its own 9:1 local/FX contribution.
+    assert totals_result.totals_df["local_contribution"].tolist() == pytest.approx([0.015, 0.0225])
+    assert totals_result.totals_df["fx_contribution"].tolist() == pytest.approx([0.0, 0.0025])
 
 
 def test_same_currency_residual_remains_local_not_fx():

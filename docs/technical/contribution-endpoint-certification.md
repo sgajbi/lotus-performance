@@ -90,8 +90,9 @@ Every certified contribution response must satisfy these invariants for each res
   summary aggregates position components; dated hierarchy rows expose null local/FX fields until
   row-level decomposition is implemented. Stateless HTTP gain/loss/flat and stateful same-currency
   regressions cover these availability semantics. In `BOTH`, Carino residual allocation follows
-  pre-allocation local/FX proportions; same-currency HTTP controls prove a residual remains local,
-  while mixed-component and zero-net engine controls preserve reconciliation.
+  each position's pre-allocation local/FX proportions; same-currency HTTP controls and a mixed-peer
+  unit control prove a local residual remains local even when another position has FX. Zero-net
+  engine controls preserve reconciliation.
 - A stateless `BOTH` request without consumed position `meta.currency` still computes total
   contribution but publishes null local/FX position and hierarchy-summary fields. Mixed known and
   unknown positions make the whole decomposition unavailable; the engine must not default an
@@ -99,6 +100,9 @@ Every certified contribution response must satisfy these invariants for each res
 - Currency availability is evaluated against positions actually calculated in each period, not
   every request entry. A position with no valuation points does not suppress a priced same-currency
   position's 10pp local / 0pp FX explanation; flat and hierarchy HTTP controls prove this.
+- Stateful `BOTH` rejects a consumed dated row without `position_currency` with HTTP `422`, even
+  if a later row for the same position supplies it. A later per-position metadata value is not
+  earlier-date currency evidence.
 
 The hierarchy path now builds rows from the same residual-adjusted daily position series used for
 position output. This prevents hierarchy rows from drifting away from first-class position

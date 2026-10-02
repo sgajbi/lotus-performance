@@ -484,6 +484,8 @@ Return semantics for the workspace surface are now explicit rather than inferred
     consumed `meta.currency` on every position calculated in that period; otherwise both are null. A populated decomposable
     hierarchy summary aggregates the position components,
     while hierarchy row local/FX fields remain null because dated row decomposition is unavailable
+  - stateful `BOTH` rejects a consumed dated position row without source `position_currency`;
+    currency from a later row cannot establish earlier-date local/FX authority
   - optional `hierarchy` rows reconcile to the same residual-adjusted `total_contribution` as the position rows
   - `emit.timeseries` and `emit.by_position_timeseries` return daily ladders that reconcile to `total_contribution`
   - `emit.top_n_per_level`, `emit.threshold_weight`, `emit.include_other`, and `emit.include_unclassified` control hierarchy row shaping

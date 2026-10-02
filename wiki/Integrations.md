@@ -155,8 +155,10 @@ position components, but dated hierarchy rows currently expose only total contri
 local/FX null. Consumers must not turn those null fields into zero or infer FX as total minus zero.
 An empty classification-filtered hierarchy keeps a zero summary rather than importing whole-portfolio
 components.
-Carino residual allocation follows measured local/FX proportions, so a same-currency residual is
-not relabelled as a currency effect.
+Carino residual allocation follows each position's measured local/FX proportions, so a
+same-currency residual is not relabelled as a currency effect when another position has FX.
+Stateful `BOTH` rejects a consumed dated position row without source currency; a later row's
+currency never supplies earlier-date authority.
 The [contribution guide](https://github.com/sgajbi/lotus-performance/blob/main/docs/guides/contribution.md)
 defines this response boundary.
 

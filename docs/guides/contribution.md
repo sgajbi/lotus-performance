@@ -58,7 +58,9 @@ Inside the current contract:
   FX-context component families without moving contribution methodology out of `lotus-performance`
 - stateful `currency_mode="BOTH"` requires `report_ccy`, source position currencies, and complete
   positive finite exact prior/current-date EOD `fx.rates` for every source/report pair when any
-  sourced position currency differs from `report_ccy`; missing source currency is rejected, and
+  sourced position currency differs from `report_ccy`; every consumed dated position row must
+  carry `position_currency`, so a later row cannot lend authority to an earlier gap. Missing
+  source currency is rejected, and
   missing FX coverage is rejected with HTTP `422` before contribution calculation starts
 - cross-endpoint currency vocabulary is governed by the
   [RFC-020 multi-currency support matrix](../technical/rfc-020-multi-currency-support-matrix.md)
@@ -75,8 +77,8 @@ Inside the current contract:
   the dated hierarchy projection currently aggregates total contribution only.
   If classification filtering excludes every position, the empty hierarchy summary keeps zero
   total/local/FX; it does not import whole-portfolio components into an empty grouped view.
-  Carino residual allocation uses the same local/FX component proportions as the contribution
-  engine: a same-currency local residual stays local instead of becoming an FX effect.
+  Carino residual allocation uses each position's own local/FX component proportions; a
+  same-currency local residual stays local even when a peer position has an FX component.
 - `lookthrough` is accepted as a compatibility request block only; lotus-performance does not
   decompose fund or structured-product holdings and expects lotus-core to provide already-visible
   position rows for the requested scope

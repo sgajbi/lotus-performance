@@ -623,14 +623,15 @@ Important validation expectations:
     calculated and published only for `currency_mode=BOTH`. Other modes return null rather than
     treating an uncomputed local component as FX. A populated `BOTH` hierarchy summary aggregates
     those position components, while dated hierarchy rows currently publish only total contribution
-    and leave local/FX null. For `BOTH`, use the engine's local/FX residual proportions when Carino
-    allocation changes position totals; assigning the entire residual to FX is economically false
-    for same-currency positions.
+    and leave local/FX null. For `BOTH`, apply the engine's local/FX residual proportion rule to
+    each position's own components when Carino allocation changes position totals; a peer's FX
+    cannot turn a same-currency position's residual into FX.
     `BOTH` alone is insufficient authority: if any consumed position lacks engine-used
     `meta.currency`, keep total contribution but leave all position and hierarchy-summary local/FX
     fields unavailable for that period. Determine consumed positions from the calculated period
     slice, so an unpriced request entry cannot suppress valid decomposition. Do not fall back to
-    portfolio currency for this evidence.
+    portfolio currency for this evidence. Stateful `BOTH` must reject a consumed dated row missing
+    `position_currency` before per-position metadata could overwrite that gap with a later value.
 31. Brinson attribution decomposition is model-specific. Brinson-Fachler uses benchmark-weighted
     selection and a separate interaction effect. Brinson-Hood-Beebower uses portfolio-weighted
     combined selection and must emit zero separate interaction so active return is not double
