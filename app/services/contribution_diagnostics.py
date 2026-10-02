@@ -6,6 +6,7 @@ import pandas as pd
 
 from app.services.analytics_observation_dates import observation_date_series, observation_date_set
 from app.services.contribution_methodology import _numeric_series_or_default, _to_basis_points
+from app.services.performance_diagnostics_projection import build_performance_diagnostics
 from core.envelope import Diagnostics
 from engine.diagnostics import EngineDiagnostics
 from engine.schema import PortfolioColumns
@@ -116,36 +117,38 @@ def _build_portfolio_engine_diagnostic_state(
 
 
 def _portfolio_engine_diagnostics_envelope(diagnostics: EngineDiagnostics) -> Diagnostics:
-    return Diagnostics.model_validate(
-        {
-            "nip_days": diagnostics.nip_days,
-            "nip_rule_delta_days": diagnostics.nip_rule_delta_days,
-            "reset_days": diagnostics.reset_days,
-            "nctrl4_reset_days": diagnostics.nctrl4_reset_days,
-            "nctrl4_exclusive_reset_days": diagnostics.nctrl4_exclusive_reset_days,
-            "account_reset_shadow_days": diagnostics.account_reset_shadow_days,
-            "sod_reset_shadow_days": diagnostics.sod_reset_shadow_days,
-            "shadow_reset_overlap_days": diagnostics.shadow_reset_overlap_days,
-            "shadow_only_candidate_reset_days": diagnostics.shadow_only_candidate_reset_days,
-            "active_reset_with_shadow_days": diagnostics.active_reset_with_shadow_days,
-            "candidate_canonical_reset_days": diagnostics.candidate_canonical_reset_days,
-            "reset_delta_days": diagnostics.reset_delta_days,
-            "nip_days_since_last_reset": diagnostics.nip_days_since_last_reset,
-            "valid_days_since_last_reset": diagnostics.valid_days_since_last_reset,
-            "effective_period_start": diagnostics.effective_period_start,
-            "notes": [],
-        }
-    )
+    return build_performance_diagnostics(diagnostics)
 
 
-def _build_portfolio_engine_diagnostics(portfolio_results_df: pd.DataFrame, effective_period_start) -> Diagnostics:
+def _build_portfolio_engine_diagnostics(
+    portfolio_results_df: pd.DataFrame,
+    effective_period_start,
+    engine_diagnostics: tuple[EngineDiagnostics, ...] = (),
+) -> Diagnostics:
     """Maps portfolio-engine state already present in contribution inputs into shared diagnostics."""
-    if portfolio_results_df.empty:
-        return Diagnostics(nip_days=0, reset_days=0, effective_period_start=effective_period_start, notes=[])
-
-    return _portfolio_engine_diagnostics_envelope(
-        _build_portfolio_engine_diagnostic_state(portfolio_results_df, effective_period_start)
+    diagnostics = (
+        EngineDiagnostics(effective_period_start=effective_period_start)
+        if portfolio_results_df.empty
+        else _build_portfolio_engine_diagnostic_state(portfolio_results_df, effective_period_start)
     )
+    _merge_contribution_policy_diagnostics(diagnostics, engine_diagnostics)
+    return _portfolio_engine_diagnostics_envelope(diagnostics)
+
+
+def _merge_contribution_policy_diagnostics(
+    target: EngineDiagnostics,
+    engine_diagnostics: tuple[EngineDiagnostics, ...],
+) -> None:
+    """Aggregate policy evidence from the portfolio and every position engine run."""
+    for source in engine_diagnostics:
+        target.policy.overrides.applied_mv_count += source.policy.overrides.applied_mv_count
+        target.policy.overrides.applied_cf_count += source.policy.overrides.applied_cf_count
+        target.policy.ignored_days_count += source.policy.ignored_days_count
+        target.policy.outliers.flagged_rows += source.policy.outliers.flagged_rows
+        target.samples.outliers.extend(source.samples.outliers)
+        for note in source.notes:
+            if note not in target.notes:
+                target.notes.append(note)
 
 
 def _calculate_grouped_return_reset_alignment_counts(

@@ -1,13 +1,14 @@
 # engine/contribution.py
-from dataclasses import replace
+from dataclasses import dataclass, replace
 from datetime import date as dt_date
-from typing import Any, Dict, Mapping, Protocol, Sequence, Tuple
+from typing import Any, Dict, Iterator, Mapping, Protocol, Sequence, Tuple
 
 import numpy as np
 import pandas as pd
 
 from common.enums import WeightingScheme
-from engine.config import EngineConfig
+from engine.config import EndingValueBasis, EngineConfig
+from engine.contribution_fee_basis import contribution_data_policy_for_entity
 from engine.contribution_smoothing import (
     ContributionSmoothingLike,
     _calculate_carino_factor_for_return,
@@ -15,7 +16,8 @@ from engine.contribution_smoothing import (
     _carino_smoothing_domain_is_valid,
     apply_contribution_smoothing,
 )
-from engine.runtime import run_engine_for_valuation_points
+from engine.diagnostics import EngineDiagnostics
+from engine.runtime import run_engine_for_valuation_points_with_diagnostics
 from engine.schema import PortfolioColumns
 
 __all__ = [
@@ -37,6 +39,20 @@ _DAILY_CONTRIBUTION_REQUIRED_COLUMNS = (
     "smoothed_local_contribution",
     "smoothed_fx_contribution",
 )
+
+
+@dataclass(frozen=True)
+class ContributionPreparedData:
+    """Prepared contribution frames plus diagnostics from every engine run."""
+
+    instruments_df: pd.DataFrame
+    portfolio_results_df: pd.DataFrame
+    engine_diagnostics: tuple[EngineDiagnostics, ...]
+
+    def __iter__(self) -> Iterator[pd.DataFrame]:
+        """Preserve the established two-frame unpacking contract."""
+        yield self.instruments_df
+        yield self.portfolio_results_df
 
 
 class ModelDumpLike(Protocol):
@@ -74,6 +90,9 @@ class ContributionAnalysisLike(Protocol):
 
 class ContributionRequestLike(Protocol):
     @property
+    def portfolio_id(self) -> str: ...
+
+    @property
     def portfolio_data(self) -> ContributionPortfolioDataLike: ...
 
     @property
@@ -108,6 +127,9 @@ class ContributionRequestLike(Protocol):
 
     @property
     def hedging(self) -> Any: ...
+
+    @property
+    def data_policy(self) -> Any: ...
 
     @property
     def weighting_scheme(self) -> WeightingScheme: ...
@@ -167,37 +189,62 @@ def _calculate_daily_instrument_contributions(
     return df
 
 
-def _prepare_hierarchical_data(request: ContributionRequestLike) -> Tuple[pd.DataFrame, pd.DataFrame]:
+def _prepare_hierarchical_data(request: ContributionRequestLike) -> ContributionPreparedData:
     """
     Runs TWR calculations and combines all position data and metadata into a single DataFrame.
     """
     twr_config = _build_contribution_twr_config(request)
-    portfolio_results_df = run_engine_for_valuation_points(
+    portfolio_results_df, portfolio_diagnostics = run_engine_for_valuation_points_with_diagnostics(
         [item.model_dump() for item in request.portfolio_data.valuation_points],
-        twr_config,
+        replace(
+            twr_config,
+            data_policy=contribution_data_policy_for_entity(
+                request.data_policy,
+                entity_type="PORTFOLIO",
+                entity_id=request.portfolio_id,
+            ),
+        ),
         force_base_only=twr_config.currency_mode == "BOTH",
     )
+    _identify_outlier_samples(portfolio_diagnostics, entity_type="PORTFOLIO", entity_id=request.portfolio_id)
 
     fx_rates_df = _build_contribution_fx_rates_frame(request)
     all_positions_data = []
+    engine_diagnostics = [portfolio_diagnostics]
     for position in request.positions_data:
         if not position.valuation_points:
             continue
 
-        all_positions_data.append(
-            _build_position_contribution_results_frame(
-                position=position,
-                request=request,
-                twr_config=twr_config,
-                fx_rates_df=fx_rates_df,
-            )
+        position_results_df, position_diagnostics = _build_position_contribution_results_frame(
+            position=position,
+            request=request,
+            twr_config=twr_config,
+            fx_rates_df=fx_rates_df,
         )
+        all_positions_data.append(position_results_df)
+        _identify_outlier_samples(
+            position_diagnostics,
+            entity_type="POSITION",
+            entity_id=position.position_id,
+        )
+        engine_diagnostics.append(position_diagnostics)
 
     if not all_positions_data:
-        return pd.DataFrame(), portfolio_results_df
+        return ContributionPreparedData(pd.DataFrame(), portfolio_results_df, tuple(engine_diagnostics))
 
     instruments_df = pd.concat(all_positions_data, ignore_index=True)
-    return instruments_df, portfolio_results_df
+    return ContributionPreparedData(instruments_df, portfolio_results_df, tuple(engine_diagnostics))
+
+
+def _identify_outlier_samples(
+    diagnostics: EngineDiagnostics,
+    *,
+    entity_type: str,
+    entity_id: str,
+) -> None:
+    for sample in diagnostics.samples.outliers:
+        sample.entity_type = entity_type
+        sample.entity_id = entity_id
 
 
 def _build_contribution_twr_config(request: ContributionRequestLike) -> EngineConfig:
@@ -215,6 +262,7 @@ def _build_contribution_twr_config(request: ContributionRequestLike) -> EngineCo
         source_currency=request.currency,
         fx=request.fx,
         hedging=request.hedging,
+        ending_value_basis=EndingValueBasis.AFTER_FEES,
     )
 
 
@@ -233,11 +281,19 @@ def _build_position_contribution_results_frame(
     request: ContributionRequestLike,
     twr_config: EngineConfig,
     fx_rates_df: pd.DataFrame,
-) -> pd.DataFrame:
+) -> tuple[pd.DataFrame, EngineDiagnostics]:
     position_ccy = position.meta.get("currency")
-    position_results_df = run_engine_for_valuation_points(
+    position_results_df, diagnostics = run_engine_for_valuation_points_with_diagnostics(
         [item.model_dump() for item in position.valuation_points],
-        replace(twr_config, source_currency=str(position_ccy) if position_ccy is not None else None),
+        replace(
+            twr_config,
+            source_currency=str(position_ccy) if position_ccy is not None else None,
+            data_policy=contribution_data_policy_for_entity(
+                request.data_policy,
+                entity_type="POSITION",
+                entity_id=position.position_id,
+            ),
+        ),
         force_base_only=not (
             request.currency_mode == "BOTH" and not _currency_values_match(position_ccy, request.report_ccy)
         ),
@@ -252,11 +308,14 @@ def _build_position_contribution_results_frame(
         if key.startswith("_"):
             continue
         position_results_df[key] = value
-    return _apply_position_fx_capital_conversion(
-        position_results_df=position_results_df,
-        request=request,
-        position_ccy=position_ccy,
-        fx_rates_df=fx_rates_df,
+    return (
+        _apply_position_fx_capital_conversion(
+            position_results_df=position_results_df,
+            request=request,
+            position_ccy=position_ccy,
+            fx_rates_df=fx_rates_df,
+        ),
+        diagnostics,
     )
 
 

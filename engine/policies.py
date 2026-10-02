@@ -110,10 +110,9 @@ def _apply_ignore_days(df: pd.DataFrame, ignore_days: list, diagnostics: EngineD
     df.sort_values(by=PortfolioColumns.PERF_DATE.value, inplace=True)
     df.set_index(PortfolioColumns.PERF_DATE.value, inplace=True)
 
-    for item in ignore_days:
-        dates_to_ignore = pd.to_datetime(item["dates"])
-        for ignored_timestamp in dates_to_ignore:
-            diagnostics.policy.ignored_days_count += _apply_ignored_day(df, ignored_timestamp)
+    dates_to_ignore = sorted({pd.Timestamp(ignored_date) for item in ignore_days for ignored_date in item["dates"]})
+    for ignored_timestamp in dates_to_ignore:
+        diagnostics.policy.ignored_days_count += _apply_ignored_day(df, ignored_timestamp)
 
     if diagnostics.policy.ignored_days_count > 0:
         diagnostics.notes.append(f"Ignored {diagnostics.policy.ignored_days_count} day(s) as specified in data_policy.")

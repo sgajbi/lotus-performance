@@ -64,14 +64,19 @@ def _build_diagnostic_samples(diagnostics: EngineDiagnostics) -> dict[str, list[
 
 
 def _build_outlier_samples(diagnostics: EngineDiagnostics) -> list[dict[str, Any]]:
-    return [
-        {
+    samples: list[dict[str, Any]] = []
+    for sample in diagnostics.samples.outliers:
+        payload = {
             "date": sample.date,
             "raw_return": sample.raw_return,
             "threshold": sample.threshold,
         }
-        for sample in diagnostics.samples.outliers
-    ]
+        if sample.entity_type is not None:
+            payload["entity_type"] = sample.entity_type
+        if sample.entity_id is not None:
+            payload["entity_id"] = sample.entity_id
+        samples.append(payload)
+    return samples
 
 
 def _build_methodology_shadow_samples(diagnostics: EngineDiagnostics) -> list[dict[str, Any]]:

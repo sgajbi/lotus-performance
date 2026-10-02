@@ -90,6 +90,7 @@ from app.services.contribution_smoothing import (
 )
 from common.enums import PeriodType
 from core.envelope import Diagnostics
+from engine.config import EndingValueBasis
 from engine.schema import PortfolioColumns
 
 
@@ -742,25 +743,62 @@ def test_contribution_reset_helpers_cover_empty_and_zero_paths(mocker):
     )
 
 
-def test_position_period_valuation_points_filters_inclusive_window() -> None:
+def test_position_period_valuation_points_preserves_policy_context_at_window_start() -> None:
     position_data = PositionData.model_validate(
         {
             "position_id": "A",
             "valuation_points": [
-                {"perf_date": "2025-01-01", "begin_mv": 100, "end_mv": 101},
-                {"perf_date": "2025-01-02", "begin_mv": 101, "end_mv": 102},
-                {"perf_date": "2025-01-03", "begin_mv": 102, "end_mv": 103},
+                {"perf_date": "2025-02-02", "begin_mv": 102, "end_mv": 103},
+                {"perf_date": "2025-02-01", "begin_mv": 101, "end_mv": 102},
+                {"perf_date": "2025-01-30", "begin_mv": 99, "end_mv": 100},
+                {"perf_date": "2025-01-31", "begin_mv": 100, "end_mv": 101},
             ],
+        }
+    )
+    request = ContributionRequest.model_validate(
+        {
+            "portfolio_id": "P1",
+            "report_start_date": "2025-02-01",
+            "report_end_date": "2025-02-02",
+            "analyses": [{"period": "MTD", "frequencies": ["daily"]}],
+            "portfolio_data": {
+                "metric_basis": "NET",
+                "valuation_points": [{"perf_date": "2025-02-01", "begin_mv": 100, "end_mv": 101}],
+            },
+            "positions_data": [],
+            "data_policy": {
+                "ignore_days": [
+                    {
+                        "entity_type": "POSITION",
+                        "entity_id": "A",
+                        "dates": ["2025-01-31", "2025-02-01"],
+                    }
+                ]
+            },
         }
     )
 
     period_points = _position_period_valuation_points(
         position_data=position_data,
-        period_start_date=pd.Timestamp("2025-01-02").date(),
-        period_end_date=pd.Timestamp("2025-01-02").date(),
+        data_policy=request.data_policy,
+        period_start_date=pd.Timestamp("2025-02-01").date(),
+        period_end_date=pd.Timestamp("2025-02-01").date(),
     )
 
-    assert [point["perf_date"] for point in period_points] == [pd.Timestamp("2025-01-02").date()]
+    assert [point["perf_date"] for point in period_points] == [
+        pd.Timestamp("2025-01-30").date(),
+        pd.Timestamp("2025-01-31").date(),
+        pd.Timestamp("2025-02-01").date(),
+    ]
+    assert [
+        point["perf_date"]
+        for point in _position_period_valuation_points(
+            position_data=position_data,
+            data_policy=None,
+            period_start_date=pd.Timestamp("2025-02-01").date(),
+            period_end_date=pd.Timestamp("2025-02-01").date(),
+        )
+    ] == [pd.Timestamp("2025-02-01").date()]
 
 
 def test_period_engine_final_cum_ror_applies_scale_and_preserves_period_config(mocker):
@@ -778,6 +816,63 @@ def test_period_engine_final_cum_ror_applies_scale_and_preserves_period_config(m
             "positions_data": [],
         }
     )
+    ignored_period_request = ContributionRequest.model_validate(
+        {
+            "portfolio_id": "P1",
+            "report_start_date": "2025-01-31",
+            "report_end_date": "2025-02-02",
+            "analyses": [{"period": "MTD", "frequencies": ["daily"]}],
+            "portfolio_data": {
+                "metric_basis": "NET",
+                "valuation_points": [
+                    {"perf_date": "2025-01-30", "begin_mv": 1000, "end_mv": 1000},
+                    {"perf_date": "2025-02-02", "begin_mv": 1000, "end_mv": 1050},
+                    {"perf_date": "2025-01-31", "begin_mv": 1000, "end_mv": 1000},
+                    {"perf_date": "2025-02-01", "begin_mv": 1000, "end_mv": 1100},
+                ],
+            },
+            "positions_data": [
+                {
+                    "position_id": "A",
+                    "valuation_points": [
+                        {"perf_date": "2025-01-30", "begin_mv": 1000, "end_mv": 1000},
+                        {"perf_date": "2025-02-02", "begin_mv": 1000, "end_mv": 1050},
+                        {"perf_date": "2025-01-31", "begin_mv": 1000, "end_mv": 1000},
+                        {"perf_date": "2025-02-01", "begin_mv": 1000, "end_mv": 1100},
+                    ],
+                }
+            ],
+            "data_policy": {
+                "ignore_days": [
+                    {
+                        "entity_type": "PORTFOLIO",
+                        "entity_id": "P1",
+                        "dates": ["2025-01-31", "2025-02-01"],
+                    },
+                    {
+                        "entity_type": "POSITION",
+                        "entity_id": "A",
+                        "dates": ["2025-01-31", "2025-02-01"],
+                    },
+                ]
+            },
+        }
+    )
+    february_start = pd.Timestamp("2025-02-01").date()
+    february_end = pd.Timestamp("2025-02-02").date()
+    assert _calculate_reset_aware_period_portfolio_return(
+        ignored_period_request,
+        february_start,
+        february_end,
+        "MTD",
+    ) == pytest.approx(0.05)
+    assert _calculate_position_total_return_pct(
+        request=ignored_period_request,
+        position_data=ignored_period_request.positions_data[0],
+        period_start_date=february_start,
+        period_end_date=february_end,
+    ) == pytest.approx(5.0)
+
     run_engine = mocker.patch(
         "app.services.contribution_returns.run_engine_for_valuation_points",
         return_value=pd.DataFrame({PortfolioColumns.FINAL_CUM_ROR.value: [2.5]}),
@@ -785,17 +880,28 @@ def test_period_engine_final_cum_ror_applies_scale_and_preserves_period_config(m
 
     result = _period_engine_final_cum_ror(
         request=request,
-        period_valuation_points=[{"perf_date": pd.Timestamp("2025-01-01").date()}],
+        period_valuation_points=[
+            {
+                "perf_date": pd.Timestamp("2025-01-01").date(),
+                "begin_mv": 1000.0,
+                "end_mv": 990.0,
+                "mgmt_fees": -10.0,
+            }
+        ],
         period_start_date=pd.Timestamp("2025-01-01").date(),
         period_end_date=pd.Timestamp("2025-01-02").date(),
         period_type="SI",
         result_scale=0.01,
+        entity_type="PORTFOLIO",
+        entity_id="P1",
     )
 
     assert result == pytest.approx(0.025)
     period_engine_config = run_engine.call_args.args[1]
     assert period_engine_config.period_type == "SI"
+    assert period_engine_config.ending_value_basis == EndingValueBasis.AFTER_FEES
     assert run_engine.call_args.kwargs["force_base_only"] is True
+    assert run_engine.call_args.args[0][0]["end_mv"] == 990.0
 
 
 def test_calculate_reset_aware_average_weight_shadow_ignores_pre_reset_history_and_nip_days():
@@ -1007,7 +1113,7 @@ def test_portfolio_engine_diagnostic_state_preserves_reset_and_nip_counts():
     assert state.valid_days_since_last_reset == 1
 
 
-def test_portfolio_engine_diagnostics_envelope_projects_public_fields_without_extra_payloads():
+def test_portfolio_engine_diagnostics_envelope_projects_public_fields_with_empty_policy_evidence():
     state = _build_portfolio_engine_diagnostic_state(
         pd.DataFrame(
             {
@@ -1033,8 +1139,9 @@ def test_portfolio_engine_diagnostics_envelope_projects_public_fields_without_ex
     assert envelope.sod_reset_shadow_days == 1
     assert envelope.effective_period_start == pd.Timestamp("2025-01-01").date()
     assert envelope.notes == []
-    assert envelope.policy is None
-    assert envelope.samples is None
+    assert envelope.policy.overrides == {"applied_mv_count": 0, "applied_cf_count": 0}
+    assert envelope.policy.ignored_days_count == 0
+    assert envelope.samples == {"outliers": [], "methodology_shadows": []}
 
 
 def test_calculate_candidate_reset_counts_compares_active_and_shadow_reset_days():

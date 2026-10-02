@@ -87,6 +87,7 @@ from engine.contribution import (
     _calculate_daily_instrument_contributions,
     _prepare_hierarchical_data,
 )
+from engine.diagnostics import EngineDiagnostics
 from engine.schema import PortfolioColumns
 
 
@@ -99,6 +100,7 @@ class _ContributionEngineInputs:
     instruments_df: Any
     portfolio_results_df: Any
     daily_contributions_df: Any
+    engine_diagnostics: tuple[EngineDiagnostics, ...] = ()
 
 
 @dataclass(frozen=True)
@@ -673,7 +675,8 @@ def _build_contribution_period_result(
 
 def _prepare_contribution_engine_inputs(request: ContributionRequest) -> _ContributionEngineInputs:
     period_resolution = _resolve_contribution_periods(request)
-    instruments_df, portfolio_results_df = _prepare_hierarchical_data(request)
+    prepared_data = _prepare_hierarchical_data(request)
+    instruments_df, portfolio_results_df = prepared_data
     daily_contributions_df = _calculate_daily_instrument_contributions(
         instruments_df, portfolio_results_df, request.weighting_scheme, request.smoothing
     )
@@ -690,6 +693,7 @@ def _prepare_contribution_engine_inputs(request: ContributionRequest) -> _Contri
         instruments_df=instruments_df,
         portfolio_results_df=portfolio_results_df,
         daily_contributions_df=daily_contributions_df,
+        engine_diagnostics=getattr(prepared_data, "engine_diagnostics", ()),
     )
 
 
@@ -793,6 +797,7 @@ def _build_contribution_response(
     average_weight_sum_residual_bp: int,
     portfolio_base_currency: str | None = None,
     source_preconverted_reporting_currency: str | None = None,
+    engine_diagnostics: tuple[EngineDiagnostics, ...] = (),
 ) -> ContributionResponse:
     meta = Meta(
         calculation_id=request.calculation_id,
@@ -818,6 +823,7 @@ def _build_contribution_response(
         resolved_period_count=len(results_by_period),
         average_weight_audit_state=average_weight_audit_state,
         average_weight_sum_residual_bp=average_weight_sum_residual_bp,
+        engine_diagnostics=engine_diagnostics,
     )
 
     return ContributionResponse(
@@ -911,8 +917,13 @@ def _build_contribution_response_evidence(
     resolved_period_count: int,
     average_weight_audit_state: AverageWeightShadowAuditState,
     average_weight_sum_residual_bp: int,
+    engine_diagnostics: tuple[EngineDiagnostics, ...] = (),
 ) -> _ContributionResponseEvidence:
-    diagnostics = _build_portfolio_engine_diagnostics(portfolio_results_df, master_start_date)
+    diagnostics = _build_portfolio_engine_diagnostics(
+        portfolio_results_df,
+        master_start_date,
+        engine_diagnostics,
+    )
     carino_invalid_domain_days = (
         _count_carino_invalid_domain_days(portfolio_results_df) if request.smoothing.method == "CARINO" else 0
     )
@@ -1097,6 +1108,7 @@ def calculate_contribution(
         average_weight_sum_residual_bp=calculation_run.average_weight_sum_residual_bp,
         portfolio_base_currency=portfolio_base_currency,
         source_preconverted_reporting_currency=source_preconverted_reporting_currency,
+        engine_diagnostics=engine_inputs.engine_diagnostics,
     )
     enforce_core_analytics_fail_fast(operation="contribution", request=request, response=response_model)
     _complete_contribution_execution(

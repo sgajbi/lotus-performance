@@ -21,6 +21,8 @@ class OutlierSample:
     date: str
     raw_return: Any
     threshold: Any
+    entity_type: str | None = None
+    entity_id: str | None = None
 
 
 @dataclass
