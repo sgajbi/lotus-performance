@@ -126,8 +126,8 @@ def _resolved_stateful_mwr_request(
     normalized_input: StatefulMWRInput,
 ) -> ResolvedMWRRequest:
     mwr_request = request.to_stateless_mwr_request(
-        begin_mv=float(normalized_input.begin_mv),
-        end_mv=float(normalized_input.end_mv),
+        begin_mv=normalized_input.begin_mv,
+        end_mv=normalized_input.end_mv,
         cash_flows=normalized_input.cash_flows,
         start_date=normalized_input.start_date,
     )

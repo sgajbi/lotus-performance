@@ -1,11 +1,13 @@
 # engine/mwr.py
 from dataclasses import dataclass
 from datetime import date
+from decimal import Decimal
 from math import exp, isfinite, log
 from typing import Callable, Literal, Sequence
 
 import numpy as np
 
+from common.precision_policy import to_decimal
 from core.annualize import periods_per_year_for_basis
 from core.business_calendar import BusinessDayEvidence, business_day_counts, business_day_evidence
 from core.envelope import Annualization, Calendar
@@ -15,7 +17,8 @@ from engine.mwr_controls import (
     xirr_solver_work_is_admitted,
     xirr_solver_work_units,
 )
-from engine.mwr_types import CashFlowLike, MWRConvergence, MWRResult, Number
+from engine.mwr_types import CashFlowLike, MonetaryValue, MWRConvergence, MWRResult, Number
+from engine.numerical_boundary import NumericalDomainError, finite_float64_projection, monetary_arithmetic_context
 
 _XIRR_DISTINCT_ROOT_TOLERANCE = 1e-8
 _XIRR_MAX_UNIQUENESS_TERMS = 64
@@ -49,19 +52,21 @@ def _day_count_denominator(annualization: Annualization) -> float:
     )
 
 
-def _net_same_day_flows(values: list[float], dates: list[date]) -> tuple[np.ndarray, np.ndarray]:
+def _net_same_day_flows(values: list[MonetaryValue], dates: list[date]) -> tuple[np.ndarray, np.ndarray]:
     by_date = _net_cash_flow_amounts_by_date(values, dates)
     sorted_items = [(flow_date, amount) for flow_date, amount in sorted(by_date.items()) if amount != 0.0]
     return (
-        np.array([amount for _, amount in sorted_items], dtype=float),
+        np.array([finite_float64_projection(amount) for _, amount in sorted_items]),
         np.array([flow_date for flow_date, _ in sorted_items]),
     )
 
 
 def _net_cash_flow_amounts_by_date(values, dates):
+    amounts = [to_decimal(value) for value in values]
     by_date = {}
-    for value, flow_date in zip(values, dates):
-        by_date[flow_date] = by_date.get(flow_date, 0) + value
+    with monetary_arithmetic_context(amounts):
+        for amount, flow_date in zip(amounts, dates):
+            by_date[flow_date] = by_date.get(flow_date, Decimal("0")) + amount
     return by_date
 
 
@@ -739,12 +744,14 @@ def _dietz_denominator(*, begin_mv, cash_flows, start_date, end_date, method):
     if period_days <= 0:
         return _simple_dietz_denominator(begin_mv=begin_mv, cash_flows=cash_flows)
 
-    weighted_cash_flows = sum(cf.amount * ((end_date - cf.date).days / period_days) for cf in cash_flows)
-    return begin_mv + weighted_cash_flows
+    weighted_cash_flows = sum(
+        to_decimal(cf.amount) * Decimal((end_date - cf.date).days) / Decimal(period_days) for cf in cash_flows
+    )
+    return to_decimal(begin_mv) + weighted_cash_flows
 
 
 def _simple_dietz_denominator(*, begin_mv, cash_flows):
-    return begin_mv + (sum(cf.amount for cf in cash_flows) / 2)
+    return to_decimal(begin_mv) + (sum(to_decimal(cf.amount) for cf in cash_flows) / Decimal("2"))
 
 
 @dataclass(frozen=True)
@@ -767,8 +774,8 @@ class _DietzFallbackMetadata:
 @dataclass(frozen=True)
 class _DietzReturnComponents:
     method: Literal["MODIFIED_DIETZ", "DIETZ"]
-    denominator: Number
-    numerator: Number
+    denominator: Decimal
+    numerator: Decimal
     periodic_rate: Number | None
 
 
@@ -841,8 +848,8 @@ def _fallback_xirr_mwr_attempt(*, reason_code: str, notes: list[str], convergenc
 
 def _calculate_xirr_mwr_attempt(
     *,
-    begin_mv: float,
-    end_mv: float,
+    begin_mv: MonetaryValue,
+    end_mv: MonetaryValue,
     cash_flows: Sequence[CashFlowLike],
     annualization: Annualization,
     start_date: date,
@@ -895,8 +902,8 @@ def _calculate_xirr_mwr_attempt(
 
 def _calculate_xirr_solver_result(
     *,
-    begin_mv: Number,
-    end_mv: Number,
+    begin_mv: MonetaryValue,
+    end_mv: MonetaryValue,
     cash_flows: Sequence[CashFlowLike],
     annualization: Annualization,
     start_date: date,
@@ -905,7 +912,12 @@ def _calculate_xirr_solver_result(
     calendar: Calendar | None = None,
 ):
     dates = [start_date] + [cf.date for cf in cash_flows] + [end_date]
-    values = [-begin_mv] + [-cf.amount for cf in cash_flows] + [end_mv]
+    # Decimal unary minus applies the ambient context; copy_negate preserves source digits.
+    values = (
+        [to_decimal(begin_mv).copy_negate()]
+        + [to_decimal(cf.amount).copy_negate() for cf in cash_flows]
+        + [to_decimal(end_mv)]
+    )
 
     return _xirr(
         np.array(values),
@@ -940,10 +952,10 @@ def _successful_xirr_mwr_result(
             annualization=annualization,
             calendar=calendar or Calendar(),
         )
-        holding_period_return = (((1 + rate) ** (elapsed_measure / day_count)) - 1) * 100
+        holding_period_return = _compounded_percentage_return(rate, elapsed_measure / day_count)
     return MWRResult(
-        mwr=rate * 100,
-        mwr_annualized=rate * 100,
+        mwr=_percentage_return(rate),
+        mwr_annualized=_percentage_return(rate),
         method="XIRR",
         start_date=start_date,
         end_date=end_date,
@@ -957,8 +969,8 @@ def _successful_xirr_mwr_result(
 
 def _calculate_dietz_mwr_result(
     *,
-    begin_mv: float,
-    end_mv: float,
+    begin_mv: MonetaryValue,
+    end_mv: MonetaryValue,
     cash_flows: Sequence[CashFlowLike],
     calculation_method: Literal["XIRR", "MODIFIED_DIETZ", "DIETZ"],
     annualization: Annualization,
@@ -1040,7 +1052,7 @@ def _calculated_dietz_mwr_result(
     if components.periodic_rate is None:
         raise ValueError("Dietz periodic rate is required for calculated MWR result.")
     return MWRResult(
-        mwr=components.periodic_rate * 100,
+        mwr=_percentage_return(components.periodic_rate),
         mwr_annualized=_annualized_dietz_rate(
             periodic_rate=components.periodic_rate,
             annualization=annualization,
@@ -1055,7 +1067,7 @@ def _calculated_dietz_mwr_result(
         status=fallback_metadata.status,
         reason_codes=fallback_metadata.reason_codes,
         warnings=fallback_metadata.warnings,
-        holding_period_return=components.periodic_rate * 100,
+        holding_period_return=_percentage_return(components.periodic_rate),
         is_annualized_primary=False,
         fallback_from=fallback_metadata.fallback_from,
         fallback_reason=fallback_metadata.fallback_reason,
@@ -1066,24 +1078,26 @@ def _calculated_dietz_mwr_result(
 
 def _dietz_return_components(
     *,
-    begin_mv: float,
-    end_mv: float,
+    begin_mv: MonetaryValue,
+    end_mv: MonetaryValue,
     cash_flows: Sequence[CashFlowLike],
     calculation_method: Literal["XIRR", "MODIFIED_DIETZ", "DIETZ"],
     start_date: date,
     end_date: date,
 ) -> _DietzReturnComponents:
-    net_cash_flow = sum(cf.amount for cf in cash_flows)
     method = _dietz_method_for_calculation(calculation_method)
-    denominator = _dietz_denominator(
-        begin_mv=begin_mv,
-        cash_flows=cash_flows,
-        start_date=start_date,
-        end_date=end_date,
-        method=method,
-    )
-    numerator = end_mv - begin_mv - net_cash_flow
-    periodic_rate = None if denominator == 0 else numerator / denominator
+    amounts = [to_decimal(begin_mv), to_decimal(end_mv), *(to_decimal(cf.amount) for cf in cash_flows)]
+    with monetary_arithmetic_context(amounts):
+        net_cash_flow = sum(amounts[2:])
+        denominator = _dietz_denominator(
+            begin_mv=amounts[0],
+            cash_flows=cash_flows,
+            start_date=start_date,
+            end_date=end_date,
+            method=method,
+        )
+        numerator = amounts[1] - amounts[0] - net_cash_flow
+        periodic_rate = None if denominator == 0 else finite_float64_projection(numerator / denominator)
     return _DietzReturnComponents(
         method=method,
         denominator=denominator,
@@ -1120,7 +1134,21 @@ def _annualized_dietz_rate(
         return None
     ppy = _day_count_denominator(annualization)
     scale = ppy / elapsed_measure
-    return ((1 + periodic_rate) ** scale - 1) * 100
+    return _compounded_percentage_return(periodic_rate, scale)
+
+
+def _percentage_return(ratio) -> Number:
+    return finite_float64_projection(to_decimal(ratio) * Decimal(100))
+
+
+def _compounded_percentage_return(ratio, scale) -> Number:
+    try:
+        compounded = (1 + ratio) ** scale - 1
+    except OverflowError as exc:
+        raise NumericalDomainError("Compounded return exceeds the finite float64 numerical domain.") from exc
+    if isinstance(compounded, complex):
+        raise NumericalDomainError("Compounded return is outside the real numerical domain.")
+    return _percentage_return(compounded)
 
 
 def _dietz_elapsed_measure(
@@ -1220,8 +1248,8 @@ def _mwr_no_economic_content_result(
 
 
 def calculate_money_weighted_return(
-    begin_mv: float,
-    end_mv: float,
+    begin_mv: MonetaryValue,
+    end_mv: MonetaryValue,
     cash_flows: Sequence[CashFlowLike],
     calculation_method: Literal["XIRR", "MODIFIED_DIETZ", "DIETZ"],
     annualization: Annualization,

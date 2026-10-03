@@ -9,6 +9,7 @@ import pandas as pd
 
 from engine.config import EngineConfig, PrecisionMode
 from engine.exceptions import InvalidEngineInputError
+from engine.numerical_boundary import finite_float64_projection, monetary_arithmetic_context
 from engine.rules import (
     calculate_account_reset_reason,
     calculate_initial_resets,
@@ -40,10 +41,20 @@ def calculate_daily_ror(df: pd.DataFrame, metric_basis: str, config: EngineConfi
         result_df[PortfolioColumns.DAILY_ROR.value] = (
             (1 + local_return.local_ror) * (1 + fx_ror) - 1
         ) * local_return.hundred
+        _validate_currency_return_domain(result_df)
     else:
         result_df[PortfolioColumns.DAILY_ROR.value] = local_return.local_ror * local_return.hundred
 
     return result_df
+
+
+def _validate_currency_return_domain(result_df: pd.DataFrame) -> None:
+    """Check percentage/base growth overflow without projecting retained Decimal results."""
+    for column in result_df.columns:
+        for value in result_df[column]:
+            # Existing missing-economics handling owns NaN; never reinterpret it as zero.
+            if not pd.isna(value):
+                finite_float64_projection(Decimal(str(value)))
 
 
 def _calculate_local_daily_return(df: pd.DataFrame, metric_basis: str) -> _LocalDailyReturn:
@@ -144,7 +155,12 @@ def _calculate_fx_daily_return(df: pd.DataFrame, config: EngineConfig) -> pd.Ser
     df["start_rate"] = df[PortfolioColumns.PERF_DATE.value].apply(lambda x: all_rates.get(x - pd.Timedelta(days=1)))
     df["end_rate"] = df[PortfolioColumns.PERF_DATE.value].map(all_rates)
 
-    fx_ror = (df["end_rate"] / df["start_rate"]) - 1
+    with monetary_arithmetic_context([*df["start_rate"], *df["end_rate"]]):
+        fx_ror = (df["end_rate"] / df["start_rate"]) - 1
+    if config.precision_mode != PrecisionMode.DECIMAL_STRICT:
+        # FX economics are formed from admitted Decimal rates; only the resulting
+        # dimensionless return enters the FLOAT64 hedging/return engine.
+        fx_ror = fx_ror.map(lambda value: finite_float64_projection(Decimal(str(value))))
     return _apply_hedging_to_fx_return(df, config, fx_ror)
 
 
@@ -164,8 +180,7 @@ def _fx_rate_series(config: EngineConfig) -> pd.Series:
     duplicate_key = ["date", "ccy"] if "ccy" in fx_rates_df.columns else ["date"]
     fx_rates_df.drop_duplicates(subset=duplicate_key, keep="last", inplace=True)
     fx_rates_df["date"] = pd.to_datetime(fx_rates_df["date"])
-    if config.precision_mode == PrecisionMode.DECIMAL_STRICT:
-        fx_rates_df["rate"] = fx_rates_df["rate"].map(lambda value: Decimal(str(value)))
+    fx_rates_df["rate"] = fx_rates_df["rate"].map(lambda value: Decimal(str(value)))
     return fx_rates_df.set_index("date")["rate"].sort_index()
 
 

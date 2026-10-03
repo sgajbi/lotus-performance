@@ -17,11 +17,11 @@ snapshots are written under ignored `output/quality-baseline/`; curated source r
 
 | Area | Current value | Evidence |
 | --- | ---: | --- |
-| Python files | 739 | `rg --files -g '*.py'` equivalent excluding local caches |
+| Python files | 742 | `rg --files -g '*.py'` equivalent excluding local caches |
 | Python package markers | 23 | recursive `__init__.py` count |
-| Python LOC | 244,886 | recursive `.py` line count |
-| Test modules | 348 | `tests/**/test_*.py` |
-| Collected tests | 5717 tests | `python -m pytest --collect-only -q` |
+| Python LOC | 245,393 | recursive `.py` line count |
+| Test modules | 349 | `tests/**/test_*.py` |
+| Collected tests | 5780 tests | `python -m pytest --collect-only -q` |
 | Configured CI workflows | 8 | `.github/workflows/*.yml` |
 | Repo-native baseline command | 1 | `make quality-baseline` |
 
@@ -29,18 +29,18 @@ snapshots are written under ignored `output/quality-baseline/`; curated source r
 
 | Rank | File | Lines |
 | ---: | --- | ---: |
-| 1 | `tests/integration/test_contribution_api.py` | 4381 |
+| 1 | `tests/integration/test_contribution_api.py` | 4404 |
 | 2 | `tests/unit/services/test_returns_series_service.py` | 3077 |
-| 3 | `tests/integration/test_performance_api.py` | 3006 |
+| 3 | `tests/integration/test_performance_api.py` | 3050 |
 | 4 | `app/services/composite_metadata_store.py` | 2983 |
 | 5 | `tests/unit/services/test_compute_executor_worker.py` | 2884 |
 | 6 | `tests/unit/services/test_stateful_input_service.py` | 2808 |
 | 7 | `tests/benchmarks/test_postgres_composite_fact_versions.py` | 2743 |
 | 8 | `tests/unit/services/test_runtime_status_service.py` | 2637 |
-| 9 | `app/services/stateful_input_service.py` | 2606 |
-| 10 | `tests/unit/docs/test_public_docs_contract.py` | 2605 |
+| 9 | `tests/unit/docs/test_public_docs_contract.py` | 2607 |
+| 10 | `app/services/stateful_input_service.py` | 2606 |
 | 11 | `tests/unit/services/test_composite_metadata_store.py` | 2468 |
-| 12 | `tests/integration/test_attribution_api.py` | 2438 |
+| 12 | `tests/integration/test_attribution_api.py` | 2442 |
 | 13 | `app/services/returns_series_service.py` | 2341 |
 | 14 | `tests/unit/services/test_workspace_summary_service.py` | 2279 |
 | 15 | `tests/unit/app/test_request_path_runtime_settings.py` | 2276 |

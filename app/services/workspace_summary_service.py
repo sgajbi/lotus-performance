@@ -1579,9 +1579,8 @@ def _build_workspace_mwr_summary(
     request: WorkspaceSummaryRequest,
 ) -> WorkspaceMoneyWeightedReturnSummary:
     mwr_result = calculate_money_weighted_return(
-        # The MWR solver retains its legacy numeric contract until issue #473 migrates it.
-        begin_mv=float(period_slice.iloc[0]["begin_mv"]),
-        end_mv=float(period_slice.iloc[-1]["end_mv"]),
+        begin_mv=_decimal_or_zero(period_slice.iloc[0]["begin_mv"]),
+        end_mv=_decimal_or_zero(period_slice.iloc[-1]["end_mv"]),
         cash_flows=_build_mwr_cash_flows(period_slice),
         calculation_method=request.mwr_method,
         annualization=request.annualization,

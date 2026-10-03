@@ -690,7 +690,11 @@ def test_parse_decimal_handles_none_and_invalid_values():
 
 
 @pytest.mark.asyncio
-async def test_resolve_mwr_request_uses_stateful_portfolio_window(monkeypatch):
+@pytest.mark.parametrize(
+    ("begin_mv", "end_mv", "cash_flow"),
+    [("1000", "1125", "100"), ("9007199254740993.01", "9007199254741093.02", "100.01")],
+)
+async def test_resolve_mwr_request_uses_stateful_portfolio_window(monkeypatch, begin_mv, end_mv, cash_flow):
     async def _mock_retrieve_stateful_portfolio_input(**kwargs):
         assert kwargs["start_date"] == date(2025, 1, 1)
         assert kwargs["end_date"] == date(2025, 1, 3)
@@ -701,15 +705,15 @@ async def test_resolve_mwr_request_uses_stateful_portfolio_window(monkeypatch):
             observations=[
                 {
                     "valuation_date": "2025-01-01",
-                    "beginning_market_value": "1000",
+                    "beginning_market_value": begin_mv,
                     "ending_market_value": "1110",
                     "cash_flow_currency": "USD",
-                    "cash_flows": [{"amount": "100", "timing": "bod"}],
+                    "cash_flows": [{"amount": cash_flow, "timing": "bod"}],
                 },
                 {
                     "valuation_date": "2025-01-03",
                     "beginning_market_value": "1110",
-                    "ending_market_value": "1125",
+                    "ending_market_value": end_mv,
                     "cash_flow_currency": "USD",
                     "cash_flows": [],
                 },
@@ -746,9 +750,10 @@ async def test_resolve_mwr_request_uses_stateful_portfolio_window(monkeypatch):
 
     assert resolved.input_mode == MWRInputMode.STATEFUL
     assert resolved.mwr_request.start_date == date(2025, 1, 1)
-    assert resolved.mwr_request.begin_mv == 1000
-    assert resolved.mwr_request.end_mv == 1125
+    assert resolved.mwr_request.begin_mv == Decimal(begin_mv)
+    assert resolved.mwr_request.end_mv == Decimal(end_mv)
     assert len(resolved.mwr_request.cash_flows) == 1
+    assert resolved.mwr_request.cash_flows[0].amount == Decimal(cash_flow)
     assert resolved.currency_evidence is not None
     assert resolved.currency_evidence.reporting_currency == "USD"
     assert completed[0][0][1] == "retrieval"

@@ -8,7 +8,7 @@
       "openApiVersion": "3.1.0"
     }
   ],
-  "generatedAt": "2026-10-03T14:28:04.548269+00:00",
+  "generatedAt": "2026-10-03T17:59:58.435106+00:00",
   "attributeCatalog": [
     {
       "semanticId": "lotus.access_classification",
@@ -577,7 +577,8 @@
         "body"
       ],
       "observedTypes": [
-        "number"
+        "number",
+        "object"
       ]
     },
     {
@@ -1103,7 +1104,7 @@
       "description": "Legacy stateless cash flow schedule. Prefer stateless_input for new integrations.",
       "example": [
         {
-          "amount": 0.1234,
+          "amount": "123.45",
           "date": "2026-02-27"
         }
       ],
@@ -1122,7 +1123,7 @@
       "description": "Cash flows used by the MWR calculation in reporting currency units.",
       "example": [
         {
-          "amount": 0.1234,
+          "amount": "123.45",
           "date": "2026-02-27"
         }
       ],
@@ -2407,7 +2408,8 @@
         "body"
       ],
       "observedTypes": [
-        "number"
+        "number",
+        "object"
       ]
     },
     {
@@ -2995,7 +2997,7 @@
           {
             "date": "2026-02-27",
             "ccy": "example_ccy",
-            "rate": 0.1234
+            "rate": "1.123456789012"
           }
         ]
       },
@@ -4463,7 +4465,7 @@
                     {
                       "date": "2026-02-27",
                       "ccy": "example_ccy",
-                      "rate": 0.1234
+                      "rate": "1.123456789012"
                     }
                   ]
                 },
@@ -6716,7 +6718,7 @@
             {
               "date": "2026-02-27",
               "ccy": "example_ccy",
-              "rate": 0.1234
+              "rate": "1.123456789012"
             }
           ]
         },
@@ -7908,7 +7910,7 @@
                 {
                   "date": "2026-02-27",
                   "ccy": "example_ccy",
-                  "rate": 0.1234
+                  "rate": "1.123456789012"
                 }
               ]
             },
@@ -11384,7 +11386,7 @@
             "name": "begin_mv",
             "location": "body",
             "required": false,
-            "type": "number",
+            "type": "object",
             "semanticId": "lotus.begin_mv",
             "attributeRef": "#/attributeCatalog/lotus.begin_mv"
           },
@@ -11392,7 +11394,7 @@
             "name": "end_mv",
             "location": "body",
             "required": false,
-            "type": "number",
+            "type": "object",
             "semanticId": "lotus.end_mv",
             "attributeRef": "#/attributeCatalog/lotus.end_mv"
           },

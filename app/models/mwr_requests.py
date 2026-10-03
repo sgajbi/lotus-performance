@@ -8,6 +8,7 @@ from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 from core.business_calendar import canonical_business_calendar_id
 from core.envelope import Annualization, Calendar, Flags, Output, Periods
+from core.monetary_input import MoneyInput
 from engine.mwr_controls import (
     XIRR_MAX_ITERATIONS,
     XIRR_MAX_SCAN_STEPS,
@@ -23,7 +24,9 @@ FX_PAIR_PATTERN = r"^[A-Z]{3}/[A-Z]{3}$"
 class CashFlow(BaseModel):
     """Represents a single cash flow with its date and amount."""
 
-    amount: float
+    amount: MoneyInput = Field(
+        description="Finite signed cash-flow amount; use a decimal string for exact input.", examples=["123.45"]
+    )
     date: date
 
 
@@ -175,6 +178,6 @@ def _is_canonical_currency_code(value: str) -> bool:
 class MoneyWeightedReturnRequest(MoneyWeightedReturnRequestBase):
     """Request model for calculating Money-Weighted Return."""
 
-    begin_mv: float
-    end_mv: float
+    begin_mv: MoneyInput
+    end_mv: MoneyInput
     cash_flows: List[CashFlow]

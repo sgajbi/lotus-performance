@@ -3,11 +3,16 @@
 Report date: 2026-07-10
 Branch: `feat/performance-architecture-boundary-refactor`
 Baseline source: `quality/baseline_report.md`
-Testing inventory refresh: 2026-10-03, governed composite materialization candidate.
+Testing inventory refresh: 2026-10-04, monetary request-boundary candidate.
 Other phase-zero measurements, including coverage percentages, remain historical.
-The locked pre-currency-fix tree passed the unchanged configured 99% coverage gate at zero-decimal
-precision (raw 98.50677843997643%, 30,538 statements/456 missing). Earlier failures are retained;
-the Debian currency fix requires fresh exact-head CI. Release and live-source acceptance remain pending.
+Historical #540 exact main `39aec74c` passed all ten jobs in run `37136810103`; its candidate
+coverage was raw 98.5068273355382% (30,539 statements/456 missing), passing the unchanged configured
+99% gate at zero-decimal precision. Earlier failures remain historical. #473's locked source
+passed 4,457 unit tests with three governed skips, 1,229 integration and 21 E2E tests; coverage
+30,640 statements/456 missing (raw98.51174934725849%) passed the unchanged gate, followed by mypy333.
+Required local PostgreSQL proof passed54 contracts/3targets/no skips. Native characterization
+passed12 tests;58 PostgreSQL-dependent skips are not database proof. Signed-source runtime,
+independent QA, PR and exact-main delivery remain pending; collection is not execution evidence.
 Report mode: phase-zero scorecard; complexity, architecture, duplicate-code, repository hygiene,
 router-thinness, observability-readiness, domain-product validation, deterministic API evaluation,
 test taxonomy breadth, Python security posture, license compliance, and container supply-chain
@@ -80,11 +85,11 @@ link the commit, command, or CI artifact that proves the change.
 
 | Metric | Baseline | Current | Status | Evidence |
 | --- | ---: | ---: | --- | --- |
-| Test modules | 228 | 348 | measured | `rg --files tests -g 'test_*.py'` |
-| Collected tests | 2,035 | 5,717 | measured | `python -m pytest --collect-only -q` |
+| Test modules | 228 | 349 | measured | `rg --files tests -g 'test_*.py'` |
+| Collected tests | 2,035 | 5,780 | measured | `python -m pytest --collect-only -q` |
 | Line coverage | unknown | 99.58% | measured | `quality/coverage_inventory.md` via `make branch-coverage-baseline` (`3,013` unit, `308` integration, and `21` e2e tests under branch coverage; `21,154` covered lines of `21,244` statements) |
 | Branch coverage | unknown | 98.00% | measured | `quality/coverage_inventory.md` via `make branch-coverage-baseline` (`3,013` unit, `308` integration, and `21` e2e tests under branch coverage; `4,318` covered branches of `4,406`, `88` missing branches, `88` partial branches) |
-| Integration/API/runtime test functions | unknown | 901 | enforced | `quality/test_taxonomy_inventory.md`; `make quality-test-taxonomy-gate` |
+| Integration/API/runtime test functions | unknown | 905 | enforced | `quality/test_taxonomy_inventory.md`; `make quality-test-taxonomy-gate` |
 | Contract/governance test functions | unknown | 206 | enforced | `quality/test_taxonomy_inventory.md`; `make quality-test-taxonomy-gate` |
 | Uncategorized test functions | unknown | 565 | enforced ceiling | `quality/test_taxonomy_inventory.md`; `make quality-test-taxonomy-gate`; #542 classified source-correction and runtime-retention evidence, then tightened the ceiling to the measured tree. |
 

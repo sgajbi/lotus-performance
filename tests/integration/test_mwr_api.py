@@ -23,6 +23,60 @@ def client():
         yield c
 
 
+@pytest.mark.parametrize("nested", [False, True])
+def test_mwr_http_retains_exact_cashflow_and_small_profit(client, nested):
+    monetary_input = {
+        "begin_mv": "100.00",
+        "end_mv": "9007199254741093.02",
+        "cash_flows": [{"amount": "9007199254740993.01", "date": "2025-01-01"}],
+    }
+    payload = {
+        "calculation_id": str(uuid4()),
+        "portfolio_id": "EXACT_MWR_HTTP_CONTROL",
+        "start_date": "2024-01-01",
+        "as_of": "2025-01-01",
+        "mwr_method": "MODIFIED_DIETZ",
+    }
+    payload.update({"input_mode": "stateless", "stateless_input": monetary_input} if nested else monetary_input)
+    response = client.post("/performance/mwr", json=payload)
+    assert response.status_code == 200, response.text
+    body = response.json()
+    # End-date investment has zero Dietz weight; 0.01 profit / 100 capital = 0.01%.
+    assert body["money_weighted_return"] == pytest.approx(0.01, abs=1e-14)
+    assert body["cashflows_used"] == [{"amount": "9007199254740993.01", "date": "2025-01-01"}]
+    duplicate = client.post("/performance/mwr", json=payload)
+    # Synchronous commands retain their existing duplicate-ID refusal contract.
+    assert duplicate.status_code == 409, duplicate.text
+    assert drain_lineage_queue() >= 1
+    retained = client.get(f"/performance/lineage/{payload['calculation_id']}/artifacts/response.json")
+    assert retained.status_code == 200, retained.text
+    assert retained.json() == body
+
+
+@pytest.mark.parametrize("method", ["XIRR", "MODIFIED_DIETZ"])
+@pytest.mark.parametrize("end_mv", ["1e1000", "1e309"])
+def test_mwr_http_refuses_unrepresentable_numerical_domain(client, method, end_mv):
+    calculation_id = str(uuid4())
+    payload = {
+        "calculation_id": calculation_id,
+        "portfolio_id": "MWR_NUMERICAL_DOMAIN_CONTROL",
+        "start_date": "2025-01-01",
+        "as_of": "2026-01-01",
+        "begin_mv": "100",
+        "end_mv": end_mv,
+        "cash_flows": [],
+        "mwr_method": method,
+    }
+    response = client.post("/performance/mwr", json=payload)
+    assert response.status_code == 400, response.text
+    assert response.json()["retryable"] is False
+    assert "finite float64 numerical domain" in response.json()["detail"]
+    execution = client.get(f"/performance/executions/{calculation_id}")
+    assert execution.status_code == 200
+    assert execution.json()["status"] == "failed"
+    assert client.get(f"/performance/lineage/{calculation_id}/artifacts/response.json").status_code == 404
+
+
 def test_calculate_mwr_endpoint_xirr_happy_path(client):
     """Tests the /performance/mwr endpoint with the XIRR method."""
     payload = {
@@ -437,7 +491,7 @@ def test_calculate_mwr_endpoint_supports_stateful_mode(client, monkeypatch):
     assert body["audit"]["counts"]["source_cashflow_rows_included"] == 1
     assert body["audit"]["counts"]["source_cashflow_rows_excluded"] == 2
     assert body["calculation_supportability"]["input_row_count"] == 5
-    assert body["cashflows_used"] == [{"amount": 10000.0, "date": "2025-01-01"}]
+    assert body["cashflows_used"] == [{"amount": "10000", "date": "2025-01-01"}]
     assert body["reporting_currency"] == "USD"
     assert body["currency_evidence"]["portfolio_currency"] == "EUR"
     assert body["currency_evidence"]["currency_mode"] == "SINGLE_REPORTING_CURRENCY"

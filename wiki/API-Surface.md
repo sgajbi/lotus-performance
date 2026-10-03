@@ -42,6 +42,18 @@ calculation after independent acceptance.
 
 ## Analytics surfaces
 
+### Financial Input Representation
+
+Use decimal strings for exact MWR market values, cash-flow amounts and supplied FX rates.
+Ordinary numeric requests remain compatible within admitted limits; they cannot recover digits
+already lost by a client or JSON numeric projection. MWR emitted cash-flow amounts serialize as
+strings; numerical return fields remain numbers. Dietz preserves Decimal capital arithmetic;
+XIRR retains a finite float64 root-solver boundary. Neither this contract nor `FLOAT64` establishes
+an arbitrary-precision solver claim. See the [rounding and admission standard](https://github.com/sgajbi/lotus-performance/blob/main/docs/standards/rounding-precision.md)
+for scales, refusals and replay implications.
+
+### Supported Routes
+
 Authoritative analytics routes:
 
 - `POST /performance/twr`

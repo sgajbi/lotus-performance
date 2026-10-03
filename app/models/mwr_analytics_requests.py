@@ -2,11 +2,13 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from datetime import date
+from decimal import Decimal
 from enum import Enum
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 from app.models.mwr_requests import CashFlow, MoneyWeightedReturnRequest, MoneyWeightedReturnRequestBase
+from core.monetary_input import MoneyInput
 
 MWR_STATELESS_SOURCE_FX_REQUEST_EXAMPLE = {
     "calculation_id": "2f4f3e0e-6e0e-4e0e-8e0e-2f4f3e0e6e0e",
@@ -108,8 +110,8 @@ class MWRInputMode(str, Enum):
 
 
 class MWRStatelessInput(BaseModel):
-    begin_mv: float
-    end_mv: float
+    begin_mv: MoneyInput
+    end_mv: MoneyInput
     cash_flows: list[CashFlow]
 
 
@@ -123,8 +125,8 @@ class MWRStatefulInput(BaseModel):
 
 @dataclass(frozen=True)
 class _ResolvedMWRStatelessInput:
-    begin_mv: float
-    end_mv: float
+    begin_mv: Decimal
+    end_mv: Decimal
     cash_flows: list[CashFlow]
 
 
@@ -224,11 +226,11 @@ class MoneyWeightedReturnAnalyticsRequest(MoneyWeightedReturnRequestBase):
         default=None,
         description="Stateful MWR input payload resolved through lotus-core integrations.",
     )
-    begin_mv: float | None = Field(
+    begin_mv: MoneyInput | None = Field(
         default=None,
         description="Legacy stateless beginning market value. Prefer stateless_input for new integrations.",
     )
-    end_mv: float | None = Field(
+    end_mv: MoneyInput | None = Field(
         default=None,
         description="Legacy stateless ending market value. Prefer stateless_input for new integrations.",
     )
@@ -251,8 +253,8 @@ class MoneyWeightedReturnAnalyticsRequest(MoneyWeightedReturnRequestBase):
     def to_stateless_mwr_request(
         self,
         *,
-        begin_mv: float | None = None,
-        end_mv: float | None = None,
+        begin_mv: Decimal | None = None,
+        end_mv: Decimal | None = None,
         cash_flows: list[CashFlow] | None = None,
         start_date: date | None = None,
     ) -> MoneyWeightedReturnRequest:
@@ -283,8 +285,8 @@ class MoneyWeightedReturnAnalyticsRequest(MoneyWeightedReturnRequestBase):
 def _resolve_mwr_stateless_input(
     *,
     request: MoneyWeightedReturnAnalyticsRequest,
-    begin_mv: float | None = None,
-    end_mv: float | None = None,
+    begin_mv: Decimal | None = None,
+    end_mv: Decimal | None = None,
     cash_flows: list[CashFlow] | None = None,
 ) -> _ResolvedMWRStatelessInput:
     explicit_input = _resolved_mwr_explicit_input(begin_mv=begin_mv, end_mv=end_mv, cash_flows=cash_flows)
@@ -304,8 +306,8 @@ def _resolve_mwr_stateless_input(
 
 def _resolved_mwr_explicit_input(
     *,
-    begin_mv: float | None,
-    end_mv: float | None,
+    begin_mv: Decimal | None,
+    end_mv: Decimal | None,
     cash_flows: list[CashFlow] | None,
 ) -> _ResolvedMWRStatelessInput | None:
     if begin_mv is None or end_mv is None or cash_flows is None:

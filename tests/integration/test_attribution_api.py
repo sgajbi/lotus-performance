@@ -632,7 +632,8 @@ def test_attribution_endpoint_supports_explicit_period_windows(client):
     assert set(response.json()["results_by_period"]) == {"EXPLICIT"}
 
 
-def test_attribution_endpoint_currency_attribution(client):
+@pytest.mark.parametrize("decimal_strings", [False, True])
+def test_attribution_endpoint_currency_attribution(client, decimal_strings):
     """Tests the Karnosky-Singer currency attribution model end-to-end."""
     payload = {
         "portfolio_id": "FX_ATTRIB_01",
@@ -679,6 +680,9 @@ def test_attribution_endpoint_currency_attribution(client):
             ]
         },
     }
+    if decimal_strings:
+        for rate in payload["fx"]["rates"]:
+            rate["rate"] = str(rate["rate"])
     response = client.post("/performance/attribution", json=payload)
     assert response.status_code == 200
     data = response.json()["results_by_period"]["SI"]

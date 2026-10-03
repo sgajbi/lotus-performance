@@ -365,7 +365,8 @@ def test_stateless_contribution_applies_complete_foreign_fx_with_independent_exp
 
 
 @pytest.mark.parametrize("precision_mode", ["FLOAT64", "DECIMAL_STRICT"])
-def test_stateless_contribution_selects_each_currency_series_on_shared_dates(client, precision_mode):
+@pytest.mark.parametrize("decimal_strings", [False, True])
+def test_stateless_contribution_selects_each_currency_series_on_shared_dates(client, precision_mode, decimal_strings):
     payload = _stateless_fx_contribution_payload(position_currency="EUR", precision_mode=precision_mode)
     payload["portfolio_id"] = f"STATELESS_SHARED_FX_DATES_{precision_mode}"
     payload["portfolio_data"]["valuation_points"][0]["begin_mv"] = 2000
@@ -385,6 +386,9 @@ def test_stateless_contribution_selects_each_currency_series_on_shared_dates(cli
             {"date": "2025-01-01", "ccy": "JPY", "rate": 1.02},
         ]
     }
+    if decimal_strings:
+        for rate in payload["fx"]["rates"]:
+            rate["rate"] = str(rate["rate"])
 
     response = client.post("/performance/contribution", json=payload, headers={"X-Tenant-Id": "tenant-a"})
 
@@ -398,6 +402,25 @@ def test_stateless_contribution_selects_each_currency_series_on_shared_dates(cli
     assert by_position["JPY_ASSET"]["total_contribution"] == pytest.approx(0.49)
     assert by_position["JPY_ASSET"]["local_contribution"] == pytest.approx(-0.5)
     assert by_position["JPY_ASSET"]["fx_contribution"] == pytest.approx(0.99)
+
+
+@pytest.mark.parametrize("precision_mode", ["FLOAT64", "DECIMAL_STRICT"])
+def test_contribution_refuses_unbounded_decimal_fx_domain(client, precision_mode):
+    payload = _stateless_fx_contribution_payload(position_currency="EUR", precision_mode=precision_mode)
+    payload["calculation_id"] = str(uuid4())
+    payload["fx"] = {
+        "rates": [
+            {"date": "2024-12-31", "ccy": "EUR", "rate": "1"},
+            {"date": "2025-01-01", "ccy": "EUR", "rate": "1e5000"},
+        ]
+    }
+    response = client.post("/performance/contribution", json=payload, headers={"X-Tenant-Id": "tenant-a"})
+    assert response.status_code == 400, response.text
+    assert response.json()["retryable"] is False
+    assert "bounded Decimal arithmetic domain" in response.json()["detail"]
+    execution = client.get(f"/performance/executions/{payload['calculation_id']}", headers={"X-Tenant-Id": "tenant-a"})
+    assert execution.status_code == 200
+    assert execution.json()["status"] == "failed"
 
 
 @pytest.mark.parametrize("fx_payload", [{}, {"rates": []}])

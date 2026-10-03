@@ -139,7 +139,7 @@ The RFC-047 QA pack proves these contribution semantics:
   remains an internal flow. Portfolio TWR and inspection exclude income from external BOD/EOD
   totals while market-value return retains it. Dated sector group returns must reconcile to the portfolio return;
   unclassified raw income-like labels are not silently promoted;
-- calculation engine identity `lotus-performance-calculation-engine.v13` includes exact Decimal
+- calculation engine identity `lotus-performance-calculation-engine.v14` includes exact Decimal
   market-value and benchmark price/FX admission while retaining stateless FX pre-admission and strict applied-rate arithmetic plus end-to-end strict Decimal
   contribution execution, after-fee ending-value normalization, revised income treatment, corrected BHB
   decomposition, and scale-aware attribution linking policy: the

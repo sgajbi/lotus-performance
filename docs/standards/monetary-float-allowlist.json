@@ -142,12 +142,6 @@
       "review_by": "2026-11-06"
     },
     {
-      "finding": "app/models/mwr_requests.py:14:amount: float",
-      "justification": "CashFlow.amount is a monetary amount on the MWR request contract, declared float while MWRSourcePreconvertedFXComponent.source_amount and .reporting_amount in the same file are Decimal. Genuine deferred debt; migration sized in https://github.com/sgajbi/lotus-performance/issues/473.",
-      "owner": "platform-governance",
-      "review_by": "2026-11-24"
-    },
-    {
       "finding": "app/models/mwr_responses.py:27:rate_lower_bound: Optional[float] = Field(default=None, description=\"Lower searched annual rate bound.\")",
       "justification": "Temporary approved monetary floating-point usage; convert to Decimal.",
       "owner": "platform-governance",
@@ -286,12 +280,6 @@
       "review_by": "2026-10-27"
     },
     {
-      "finding": "core/envelope.py:15:rate: float = Field(..., gt=0, allow_inf_nan=False)",
-      "justification": "FXRate.rate multiplies monetary amounts, so representation error propagates into converted money. Declared float while fx_rates are dict[date, Decimal] in stateful_benchmark_input_service.py:665. Genuine deferred debt; migration sized in https://github.com/sgajbi/lotus-performance/issues/473.",
-      "owner": "platform-governance",
-      "review_by": "2026-11-24"
-    },
-    {
       "finding": "engine/attribution.py:108:portfolio_weight_avg=float(row[\"portfolio_weight_avg\"]) * 100,",
       "justification": "Temporary approved monetary floating-point usage; convert to Decimal.",
       "owner": "platform-governance",
@@ -382,15 +370,15 @@
       "review_by": "2026-11-06"
     },
     {
-      "finding": "engine/mwr.py:21:def _net_same_day_flows(values: list[float], dates: list[date]) -> tuple[np.ndarray, np.ndarray]:",
-      "justification": "Temporary approved monetary floating-point usage; convert to Decimal.",
-      "owner": "platform-governance",
+      "finding": "engine/numerical_boundary.py:13:def finite_float64_projection(value: Decimal) -> float:",
+      "justification": "Relocates the existing MWR numerical interoperability allowance reviewed by https://github.com/sgajbi/lotus-performance/issues/473. Admitted and same-date-netted money stays Decimal until this finite float64 solver boundary; FLOAT64 FX products use the same checked legacy numerical boundary. This is not exact-money solver acceptance; the original review deadline is retained.",
+      "owner": "lotus-performance",
       "review_by": "2026-11-06"
     },
     {
-      "finding": "engine/mwr.py:27:np.array([amount for _, amount in sorted_items], dtype=float),",
-      "justification": "Temporary approved monetary floating-point usage; convert to Decimal.",
-      "owner": "platform-governance",
+      "finding": "engine/numerical_boundary.py:15:projected = float(value)",
+      "justification": "Relocates the existing NumPy monetary projection allowance to the explicit finite boundary governed by https://github.com/sgajbi/lotus-performance/issues/473. Overflow and nonzero underflow refuse; original Decimal request/lineage evidence is retained. The original review deadline is retained, not renewed.",
+      "owner": "lotus-performance",
       "review_by": "2026-11-06"
     },
     {
