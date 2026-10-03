@@ -33,6 +33,7 @@ REPO_ROOT = Path(__file__).resolve().parents[1]
 DEFAULT_TARGETS = (
     "tests/benchmarks/test_postgres_concurrency_contracts.py",
     "tests/benchmarks/test_postgres_composite_fact_versions.py",
+    "tests/benchmarks/test_postgres_composite_materialization.py",
 )
 
 

@@ -63,6 +63,12 @@ The persisted fact model also enables:
 
 ## API: Calculate Composite TWR
 
+For source-backed fact creation, use the separate
+[governed composite materialization workflow](composite_materialization.md). It pins Manage
+authority and retained stateful TWR evidence before publication. This command supports only
+`GROSS` and `NET_ACTUAL`; the persisted-fact calculation endpoint's existing `NET_MODEL_FEE`
+view does not establish a model-fee producer.
+
 Route:
 
 `POST /performance/composites/twr`

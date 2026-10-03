@@ -2534,6 +2534,27 @@ def test_explicit_window_admission_is_documented() -> None:
         assert "Equal" in document
 
 
+def test_materialization_docs_preserve_financial_and_source_acceptance_boundaries() -> None:
+    guide = (REPO_ROOT / "docs/guides/composite_materialization.md").read_text(encoding="utf-8")
+    for required in (
+        "atomic durable admission",
+        "NET_MODEL_FEE",
+        "exact source",
+        "request as-of dates",
+        "COMPOSITE_MATERIALIZATION_PAGE_EVIDENCE_CHANGED",
+        "COMPOSITE_MATERIALIZATION_RETAINED_EVIDENCE_REFUSED",
+        "incomplete higher generation",
+        "Coordinated materialization/queue retention",
+        "not live Manage/Core",
+        "reviewed migration",
+    ):
+        assert required in guide
+    readme = (REPO_ROOT / "README.md").read_text(encoding="utf-8")
+    wiki = (REPO_ROOT / "wiki/Composite-Performance.md").read_text(encoding="utf-8")
+    assert "docs/guides/composite_materialization.md" in readme
+    assert "docs/guides/composite_materialization.md" in wiki
+
+
 def test_every_documented_make_target_exists() -> None:
     """A command a reader is told to run must be a command that runs.
 

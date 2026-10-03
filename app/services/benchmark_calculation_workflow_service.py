@@ -230,6 +230,7 @@ def _finalize_promoted_stateful_benchmark_execution(
             }
         ),
         should_offload=should_offload_resolved_benchmark(resolved_context.resolved_request.input_count),
+        source_request_payload=request.model_dump(mode="json"),
         offload_reason="large_resolved_stateful_benchmark",
         accepted_response_factory=accepted_benchmark_response,
     )

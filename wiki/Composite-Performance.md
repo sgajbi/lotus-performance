@@ -37,11 +37,34 @@ Supported after RFC-049 implementation proof:
 
 ## What The Composite API Does
 
+### Governed Fact Creation
+
+`POST /performance/composites/materializations` pins Manage definition, membership and complete
+universe authority plus retained stateful TWR calculations. The existing worker creates exact-money,
+source-attributable facts without request-time fan-out. Admission is atomic with the execution and
+queue; missing evidence cannot release a survivor-only composite. Supported producer views are
+`GROSS` and `NET_ACTUAL`, not `NET_MODEL_FEE` or inferred foreign-currency asset conversion.
+
+Inspect `GET /performance/composites/materializations/{materialization_id}` for every expected
+member's WAITING, READY, EXCLUDED or BLOCKED outcome. Later pages require the first page's
+`expected_revision`; changed evidence returns a conflict. Calculate only after COMPLETE.
+Bounded retries prioritize the least-inspected waiting members. Durable inspection counts prevent
+an unavailable early member from starving later members after restart or replacement jobs.
+Receipts separate Core valuation lineage from Manage membership and survive member-execution expiry.
+Retained reads validate command, member and release evidence; incompatible restored ledger schemas
+require reviewed migration. PostgreSQL currency guards use ASCII codepoints rather than
+collation-dependent text ranges. Legacy fact-only cleanup refuses materialized scopes.
+See the [materialization guide](https://github.com/sgajbi/lotus-performance/blob/main/docs/guides/composite_materialization.md)
+for source pinning, bounded retry recovery and independent test evidence. Live source qualification,
+disaster recovery and horizontal capacity are separate acceptance obligations.
+
+### Published Fact Calculation
+
 The calculation endpoint is:
 
 `POST /performance/composites/twr`
 
-Both composite endpoints require admitted `X-Tenant-Id` transport authority. Tenant scope is not a
+All composite endpoints require admitted `X-Tenant-Id` transport authority. Tenant scope is not a
 body claim or a default: missing/blank authority is refused before durable access, and identical
 external composite ids remain independent across tenants. Inspection lineage and support briefs
 carry the admitted tenant so evidence cannot be detached from its ownership context. Definition

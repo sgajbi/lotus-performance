@@ -780,6 +780,28 @@ Important validation expectations:
     admission rule for `EXPLICIT` periods: `report_start_date` must not be later than
     `report_end_date`. Reject a reversed window before execution registration with non-retryable
     validation evidence. Preserve same-day windows and non-`EXPLICIT` date-resolution behavior.
+43. Composite materialization is an existing-worker capability, not a new scheduler or synchronous
+    member fan-out. Its reservation, execution and queue use one outer database transaction with
+    savepoint-bound borrowed adapters. SQLite must begin its writer transaction before savepoints;
+    PostgreSQL composite advisory locks remain held until outer commit. Borrowers must not dispose
+    shared engines. Pin Manage definition/membership/universe authority and exact retained Core
+    monetary evidence; never use requested currency or membership hashes as valuation evidence.
+    Persist resolved stateful inputs atomically with their hashes for synchronous and promoted async
+    executions, while retaining original public source requests separately for corrections to re-fetch
+    upstream data. The separate composite receipt retains inputs, exact assets and verified return
+    beyond ordinary execution TTL. Revalidate retained scope/release evidence on read; shared bootstrap
+    must refuse incompatible restored materialization schemas before adjacent DDL. Legacy fact-only
+    cleanup must not orphan retained materializations. Bounded retries select waiting members by
+    durable inspection count, then portfolio identity; never restart each budget at the first
+    unavailable member. Persist count advancement with fenced member progress, not job-local state.
+    PostgreSQL materialization currency guards use ASCII codepoints: collation-dependent text
+    ranges can admit accented lookalikes on Debian even when Alpine refuses them.
+    See [the workflow guide](docs/guides/composite_materialization.md) for chronology and recovery.
+44. Native test packs must not overlap when they share mutable lineage artifact paths. Use a fresh
+    `LINEAGE_METADATA_DATABASE_URL` and `LINEAGE_STORAGE_PATH` for independent proof runs; do not
+    migrate or remove a developer's legacy database to make tests pass. Repository fixture cleanup
+    can otherwise race collection on the same lineage directory. Locked Docker snapshots remain
+    the required delivery environment, not a claim of isolated native artifacts.
 
 ## Standards And RFCs That Govern This Repository
 

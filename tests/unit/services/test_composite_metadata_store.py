@@ -862,6 +862,65 @@ def _complete_publication(
     )
 
 
+@pytest.mark.parametrize(
+    "changes",
+    [
+        {"restatement_sequence": 0},
+        {"source_fingerprint": " "},
+        {"reporting_currency": "usd"},
+        {"reporting_currency": "UŚD"},
+        {"reporting_currency": "US"},
+        {"period_start": date(2026, 2, 1)},
+        {"expected_families": {("P1", date(2026, 1, 31), date(2026, 1, 1))}},
+        {"expected_families": {("P1", date(2025, 12, 31), date(2026, 1, 31))}},
+        {"expected_families": {("P1", date(2026, 1, 1), date(2026, 2, 1))}},
+    ],
+)
+def test_publication_command_refuses_invalid_scope_without_changing_durable_records(tmp_path, changes):
+    store = _store(tmp_path)
+    request = {
+        "composite_id": "PB_GLOBAL_BALANCED_USD",
+        "return_view": CompositeReturnView.NET_ACTUAL,
+        "reporting_currency": "USD",
+        "restatement_sequence": 1,
+        "period_start": date(2026, 1, 1),
+        "period_end": date(2026, 1, 31),
+        "expected_families": set(),
+        "source_fingerprint": "sha256:publication-control",
+    }
+    try:
+        before = store.count_records()
+        with pytest.raises(ValueError):
+            store.complete_member_return_fact_publication(**(request | changes))
+        assert store.count_records() == before
+    finally:
+        store.close()
+
+
+@pytest.mark.parametrize(
+    "payload",
+    [
+        None,
+        "{}",
+        "not JSON",
+        "[null]",
+        '[{"portfolio_id":"P1"}]',
+        '[{"portfolio_id":" ","period_start":"2026-01-01","period_end":"2026-01-31"}]',
+        '[{"portfolio_id":"P1","period_start":20260101,"period_end":"2026-01-31"}]',
+        '[{"portfolio_id":"P1","period_start":"20260101","period_end":"2026-01-31"}]',
+        '[{"portfolio_id":"P1","period_start":"2026-01-31","period_end":"2026-01-01"}]',
+        '[{"portfolio_id":"P1","period_start":"2026-01-01","period_end":"2026-01-31"},'
+        '{"portfolio_id":"P1","period_start":"2026-01-01","period_end":"2026-01-31"}]',
+    ],
+)
+def test_restored_publication_family_manifest_refuses_ambiguous_or_malformed_evidence(payload):
+    with pytest.raises(CompositeMemberReturnFactSelectionError):
+        composite_metadata_store_module._deserialize_fact_families(payload)
+    assert composite_metadata_store_module._deserialize_fact_families(
+        '[{"portfolio_id":"P1","period_start":"2026-01-01","period_end":"2026-01-31"}]'
+    ) == {("P1", date(2026, 1, 1), date(2026, 1, 31))}
+
+
 def _definition(composite_id: str = "PB_GLOBAL_BALANCED_USD") -> CompositeDefinition:
     return CompositeDefinition.model_validate(
         {

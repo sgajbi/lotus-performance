@@ -8,6 +8,10 @@ Endpoints:
 - `POST /performance/composites/twr`
 - `POST /performance/composites/inspect`
 
+The separate [materialization workflow](../guides/composite_materialization.md) has its own command,
+source and recovery acceptance. The historical certification above does not certify live Manage/Core
+materialization, model-fee production, disaster recovery or horizontal capacity.
+
 Methodology:
 
 - `persisted_member_return_asset_weighted_twr_v1`

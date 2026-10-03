@@ -27,7 +27,12 @@ def finalize_resolved_stateful_execution(
     offload_reason: str,
     accepted_response_factory: Callable[[UUID], BaseModel],
     requires_tenant_authority: bool = True,
+    source_request_payload: dict[str, Any] | None = None,
 ) -> ApplicationHttpResponse | None:
+    if source_request_payload is not None:
+        # Reproduction uses resolved engine inputs; a source correction must
+        # instead re-resolve the original admitted public request.
+        resolved_request_payload = {**resolved_request_payload, "source_request": source_request_payload}
     if should_offload:
         return promote_existing_execution_to_async_submission_or_raise(
             calculation_id=calculation_id,
@@ -48,6 +53,7 @@ def finalize_resolved_stateful_execution(
         calculation_id,
         input_fingerprint=input_fingerprint,
         calculation_hash=calculation_hash,
+        request_payload=resolved_request_payload,
     )
     return None
 

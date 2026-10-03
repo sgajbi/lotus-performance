@@ -30,6 +30,17 @@ from sqlalchemy.engine import Connection
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import DeclarativeBase, Mapped, Session, mapped_column, sessionmaker
 
+from app.adapters.composite_materialization_records import CompositeMaterializationModel, create_materialization_schema
+from app.adapters.composite_materialization_schema import require_materialization_schema
+from app.adapters.composite_schema_policy import (
+    CANONICAL_REPORTING_CURRENCY_CHECK_SQL,
+    POSTGRES_STRIP_CHARACTERS_SQL,
+    POSTGRES_TENANT_ID_CHECK_SQL,
+    SQLITE_POSITIVE_INTEGER_SEQUENCE_CHECK_SQL,
+    SQLITE_PUBLICATION_DATE_CHECK_SQL,
+    SQLITE_STRIP_CHARACTERS_SQL,
+    SQLITE_TENANT_ID_CHECK_SQL,
+)
 from app.models.composites import (
     CompositeDefinition,
     CompositeMemberReturnFact,
@@ -54,55 +65,14 @@ MEMBER_RETURN_FACT_VERSION_CHECK = "ck_composite_member_return_facts_restatement
 MEMBER_RETURN_FACT_IMMUTABLE_UPDATE_TRIGGER = "trg_composite_member_return_facts_immutable_update"
 MEMBER_RETURN_FACT_COMPLETED_INSERT_TRIGGER = "trg_composite_member_return_facts_completed_insert"
 MEMBER_RETURN_FACT_COMPLETED_DELETE_TRIGGER = "trg_composite_member_return_facts_completed_delete"
-PYTHON_STRIP_WHITESPACE_CODEPOINTS = (
-    9,
-    10,
-    11,
-    12,
-    13,
-    28,
-    29,
-    30,
-    31,
-    32,
-    133,
-    160,
-    5760,
-    8192,
-    8193,
-    8194,
-    8195,
-    8196,
-    8197,
-    8198,
-    8199,
-    8200,
-    8201,
-    8202,
-    8232,
-    8233,
-    8239,
-    8287,
-    12288,
-)
-POSTGRES_STRIP_CHARACTERS_SQL = " || ".join(f"chr({codepoint})" for codepoint in PYTHON_STRIP_WHITESPACE_CODEPOINTS)
 POSTGRES_MEMBER_RETURN_FACT_VERSION_CHECK_SQL = (
     "length(btrim(restatement_version, " + POSTGRES_STRIP_CHARACTERS_SQL + ")) > 0"
 )
 POSTGRES_MEMBER_RETURN_FACT_VERSION_CHECK_MARKER = "chr(12288)"
-SQLITE_STRIP_CHARACTERS_SQL = " || ".join(f"char({codepoint})" for codepoint in PYTHON_STRIP_WHITESPACE_CODEPOINTS)
 SQLITE_MEMBER_RETURN_FACT_VERSION_CHECK_SQL = (
     "length(restatement_version) BETWEEN 1 AND 64 AND length(trim(restatement_version, "
     + SQLITE_STRIP_CHARACTERS_SQL
     + ")) > 0"
-)
-POSTGRES_TENANT_ID_CHECK_SQL = (
-    "length(tenant_id) >= 1 AND length(tenant_id) <= 128 AND tenant_id = btrim(tenant_id, "
-    + POSTGRES_STRIP_CHARACTERS_SQL
-    + ")"
-)
-SQLITE_TENANT_ID_CHECK_SQL = (
-    "length(tenant_id) BETWEEN 1 AND 128 AND tenant_id = trim(tenant_id, " + SQLITE_STRIP_CHARACTERS_SQL + ")"
 )
 PUBLICATION_CURRENCY_CHECK = "ck_composite_fact_publications_reporting_currency_canonical"
 PUBLICATION_SEQUENCE_CHECK = "ck_composite_fact_publications_restatement_sequence_positive"
@@ -114,28 +84,6 @@ PUBLICATION_PERIOD_CHECK_SQL = (
 PUBLICATION_SQLITE_DATE_CHECK = "ck_composite_fact_publications_period_sqlite_dates"
 PUBLICATION_IMMUTABLE_UPDATE_TRIGGER = "trg_composite_fact_publications_immutable_update"
 PUBLICATION_IMMUTABLE_DELETE_TRIGGER = "trg_composite_fact_publications_immutable_delete"
-SQLITE_POSITIVE_INTEGER_SEQUENCE_CHECK_SQL = "typeof(restatement_sequence) = 'integer' AND restatement_sequence >= 1"
-SQLITE_PUBLICATION_DATE_CHECK_SQL = (
-    "typeof(period_start) = 'text' "
-    "AND length(period_start) = 10 "
-    "AND period_start GLOB '[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]' "
-    "AND substr(period_start, 1, 4) BETWEEN '0001' AND '9999' "
-    "AND julianday(period_start) IS NOT NULL "
-    "AND date(julianday(period_start)) = period_start "
-    "AND typeof(period_end) = 'text' "
-    "AND length(period_end) = 10 "
-    "AND period_end GLOB '[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]' "
-    "AND substr(period_end, 1, 4) BETWEEN '0001' AND '9999' "
-    "AND julianday(period_end) IS NOT NULL "
-    "AND date(julianday(period_end)) = period_end"
-)
-CANONICAL_REPORTING_CURRENCY_CHECK_SQL = (
-    "length(reporting_currency) = 3 "
-    "AND reporting_currency = upper(reporting_currency) "
-    "AND substr(reporting_currency, 1, 1) BETWEEN 'A' AND 'Z' "
-    "AND substr(reporting_currency, 2, 1) BETWEEN 'A' AND 'Z' "
-    "AND substr(reporting_currency, 3, 1) BETWEEN 'A' AND 'Z'"
-)
 POSTGRES_CANONICAL_REPORTING_CURRENCY_CHECK_SQL = (
     "length(reporting_currency) = 3 "
     "AND reporting_currency = upper(reporting_currency) "
@@ -451,6 +399,25 @@ class CompositeMemberReturnFactSelectionError(ValueError):
 
 class CompositeTenantMigrationRequiredError(RuntimeError):
     """Legacy ownerless composite rows require an explicit, reviewed tenant mapping."""
+
+
+class CompositeMaterializationMaintenanceRequiredError(ValueError):
+    """Fact-only maintenance cannot remove a governed materialization's evidence."""
+
+
+def _require_materialization_safe_maintenance(
+    connection: Connection, *, tenant_id: str, composite_ids: set[str] | None
+) -> None:
+    statement = select(CompositeMaterializationModel.materialization_id).where(
+        CompositeMaterializationModel.tenant_id == tenant_id
+    )
+    if composite_ids is not None:
+        statement = statement.where(CompositeMaterializationModel.composite_id.in_(composite_ids))
+    if connection.execute(statement.limit(1)).first() is not None:
+        raise CompositeMaterializationMaintenanceRequiredError(
+            "Governed materialization evidence requires coordinated retention maintenance; "
+            "fact-only cleanup is refused without removing records."
+        )
 
 
 @dataclass(frozen=True)
@@ -2465,6 +2432,7 @@ class CompositeMetadataStore:
             self._engine,
             Base.metadata,
             schema_preflights=(
+                require_materialization_schema,
                 _upgrade_empty_legacy_composite_schema_for_tenant_scope,
                 _require_current_composite_tenant_schema,
             ),
@@ -2478,6 +2446,7 @@ class CompositeMetadataStore:
                 _require_current_composite_tenant_schema_after_upgrades,
                 _upgrade_postgres_tenant_constraints,
                 _create_composite_fact_database_guards,
+                create_materialization_schema,
             ),
         )
 
@@ -2520,6 +2489,7 @@ class CompositeMetadataStore:
                 tenant_id=tenant_id,
                 composite_ids=composite_ids,
             )
+            _require_materialization_safe_maintenance(connection, tenant_id=tenant_id, composite_ids=composite_ids)
             if connection.dialect.name == "postgresql":
                 # Match publication completion's fact-before-publication lock
                 # order so maintenance cannot form a cross-table deadlock.
@@ -2902,6 +2872,26 @@ class CompositeMetadataStore:
             )
             if selected_sequence is None:
                 return []
+            unreleased = session.execute(
+                select(CompositeMaterializationModel.materialization_id)
+                .where(
+                    CompositeMaterializationModel.tenant_id == tenant_id,
+                    CompositeMaterializationModel.composite_id == composite_id,
+                    CompositeMaterializationModel.return_view == return_view.value,
+                    CompositeMaterializationModel.reporting_currency == reporting_currency,
+                    (
+                        CompositeMaterializationModel.restatement_sequence >= selected_sequence
+                        if selecting_latest
+                        else CompositeMaterializationModel.restatement_sequence == selected_sequence
+                    ),
+                    CompositeMaterializationModel.period_start <= period_end,
+                    CompositeMaterializationModel.period_end >= period_start,
+                    CompositeMaterializationModel.state != "COMPLETE",
+                )
+                .limit(1)
+            ).first()
+            if unreleased is not None:
+                raise CompositeMemberReturnFactSelectionError("Composite materialization is not completely published.")
             statement = select(CompositeMemberReturnFactModel).where(
                 *filters,
                 CompositeMemberReturnFactModel.restatement_sequence == selected_sequence,

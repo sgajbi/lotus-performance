@@ -26,8 +26,8 @@ def build_stateful_input_service(*, settings: Settings) -> StatefulInputService:
     # The tenant admitted for this request, or None. None is not a failure here:
     # it becomes a refusal at the Core boundary, which is where the operation being
     # refused can be named. Nothing is defaulted.
-    # Absent, padded and exact are three different outcomes; see
-    # admitted_tenant_authority. Nothing is defaulted and nothing is normalized.
+    # Admission trims surrounding whitespace under Core's canonical contract.
+    # Legitimate stateless absence is not defaulted into tenant authority.
     admitted_authority = admitted_tenant_authority(tenant_id_var.get())
     core_service = CoreIntegrationService(
         base_url=settings.resolved_core_control_plane_base_url,

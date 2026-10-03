@@ -162,6 +162,7 @@ def _finalize_resolved_stateful_attribution_execution(
             }
         ),
         should_offload=should_offload_resolved_attribution(resolved.input_count),
+        source_request_payload=request.model_dump(mode="json"),
         offload_reason="large_resolved_stateful_attribution",
         accepted_response_factory=accepted_attribution_response,
         requires_tenant_authority=request.input_mode == AttributionInputMode.STATEFUL,

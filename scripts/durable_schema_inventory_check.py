@@ -10,6 +10,7 @@ REQUIRED_PHRASES = (
     "analytics_compute_job",
     "analytics_async_result",
     "analytics_source_correction",
+    "composite_materializations",
     "lineage_records",
     "lineage_payloads",
     "additive upgrade",

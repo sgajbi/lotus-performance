@@ -16,6 +16,7 @@ from app.models.attribution_analytics_requests import AttributionAnalyticsReques
 from app.models.attribution_requests import AttributionRequest
 from app.models.benchmark_analytics_requests import BenchmarkAnalyticsRequest, BenchmarkInputMode
 from app.models.benchmark_requests import BenchmarkPerformanceRequest
+from app.models.composite_materialization import CompositeMaterializationCommand
 from app.models.contribution_analytics_requests import ContributionAnalyticsRequest, ContributionInputMode
 from app.models.contribution_requests import ContributionRequest
 from app.models.inspection_requests import TWRInspectionRequest
@@ -33,6 +34,7 @@ from app.observability import (
 from app.services.analytics_workflow_types import (
     ANALYTICS_WORKFLOW_ATTRIBUTION,
     ANALYTICS_WORKFLOW_BENCHMARK,
+    ANALYTICS_WORKFLOW_COMPOSITE_MATERIALIZATION,
     ANALYTICS_WORKFLOW_CONTRIBUTION,
     ANALYTICS_WORKFLOW_RETURNS_SERIES,
     ANALYTICS_WORKFLOW_TWR,
@@ -46,6 +48,7 @@ from app.services.attribution_service import calculate_attribution
 from app.services.benchmark_mode_service import resolve_benchmark_request
 from app.services.benchmark_service import calculate_benchmark_response
 from app.services.calculation_engine_version import calculation_engine_version
+from app.services.composite_materialization.application import run_materialization_attempt
 from app.services.compute_job_store import (
     ComputeJobLeaseOwnershipError,
     ComputeJobRecord,
@@ -62,7 +65,9 @@ from app.services.durable_failure_classification import (
 )
 from app.services.durable_metadata_bootstrap import bootstrap_durable_metadata_stores
 from app.services.durable_store_runtime import RuntimeStoreProxy
+from app.services.execution_lifecycle_service import complete_execution_with_lineage
 from app.services.execution_registry import ExecutionRegistry, execution_registry
+from app.services.execution_stage_names import EXECUTION_STAGE_EXECUTION
 from app.services.inspection import run_twr_inspection
 from app.services.returns_series_service import calculate_returns_series, to_dataframe
 from app.services.twr_mode_service import resolve_twr_request
@@ -95,6 +100,7 @@ class _ComputeJobExecutionContext:
     workspace_summary_calculator: Callable[..., Any]
     workspace_summary_lineage_materializer: Callable[..., bool]
     inspection_calculator: Callable[[TWRInspectionRequest], Any]
+    job_store: ComputeJobStore | RuntimeStoreProxy[ComputeJobStore] = compute_job_store
 
 
 _ComputeJobExecutor = Callable[[ComputeJobRecord, _ComputeJobExecutionContext], Any]
@@ -344,6 +350,7 @@ def _build_compute_job_runtime(
         batch_size=runtime_options.batch_size,
         execution_context=_build_compute_job_execution_context(
             settings=runtime_options.settings,
+            job_store=runtime_options.job_store,
             execution_store=runtime_options.execution_store,
             returns_series_calculator=returns_series_calculator,
             contribution_calculator=contribution_calculator,
@@ -387,6 +394,7 @@ def _build_compute_job_execution_context(
     *,
     settings,
     execution_store: ExecutionRegistry | RuntimeStoreProxy[ExecutionRegistry],
+    job_store: ComputeJobStore | RuntimeStoreProxy[ComputeJobStore] = compute_job_store,
     returns_series_calculator: Callable[..., Coroutine[Any, Any, Any]] | None,
     contribution_calculator: Callable[..., Any] | None,
     attribution_calculator: Callable[..., Any] | None,
@@ -408,6 +416,7 @@ def _build_compute_job_execution_context(
     )
     return _ComputeJobExecutionContext(
         settings=settings,
+        job_store=job_store,
         execution_store=execution_store,
         returns_series_calculator=calculators.returns_series_calculator,
         contribution_calculator=calculators.contribution_calculator,
@@ -743,7 +752,34 @@ def _execute_twr_inspection_job(job: ComputeJobRecord, context: _ComputeJobExecu
     return context.inspection_calculator(inspection_request)
 
 
+def _execute_composite_materialization_job(job: ComputeJobRecord, context: _ComputeJobExecutionContext) -> Any:
+    # Acquisition updates a separate lease owner and increments the attempt counter.
+    # Preserve that acquired owner while refreshing the pre-running job record.
+    if job.worker_id is None:
+        raise ComputeJobLeaseOwnershipError("Composite materialization has no acquired lease owner.")
+    context.job_store.ensure_active_lease_owner(job.calculation_id, worker_id=job.worker_id)
+    active = context.job_store.get_job_for_tenant(job.calculation_id, tenant_id=job.tenant_id or "")
+    if active is None:
+        raise ComputeJobLeaseOwnershipError("Composite materialization acquisition is no longer owned.")
+    context.execution_store.mark_running(job.calculation_id)
+    context.execution_store.start_stage(job.calculation_id, EXECUTION_STAGE_EXECUTION)
+    response = run_materialization_attempt(replace(active, worker_id=job.worker_id), job_store=context.job_store)
+    complete_execution_with_lineage(
+        calculation_id=job.calculation_id,
+        calculation_type=ANALYTICS_WORKFLOW_COMPOSITE_MATERIALIZATION,
+        request_model=CompositeMaterializationCommand.model_validate(job.request_payload["command"]),
+        response_model=response,
+        execution_details={
+            "materialization_state": response.state.value,
+            "expected_members": response.expected_count,
+            "ready_members": response.ready_count,
+        },
+    )
+    return response
+
+
 _COMPUTE_JOB_EXECUTORS: dict[str, _ComputeJobExecutor] = {
+    ANALYTICS_WORKFLOW_COMPOSITE_MATERIALIZATION: _execute_composite_materialization_job,
     ANALYTICS_WORKFLOW_RETURNS_SERIES: _execute_returns_series_job,
     ANALYTICS_WORKFLOW_ATTRIBUTION: _execute_attribution_job,
     ANALYTICS_WORKFLOW_CONTRIBUTION: _execute_contribution_job,

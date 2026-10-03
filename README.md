@@ -21,6 +21,8 @@ It owns:
 - attribution (`POST /performance/attribution`)
 - composite performance (`POST /performance/composites/twr`,
   `POST /performance/composites/inspect`)
+- governed composite materialization (`POST /performance/composites/materializations`), with
+  [pinned source authority and resumable member evidence](docs/guides/composite_materialization.md)
 - canonical returns-series integration (`POST /integration/returns/series`)
 - benchmark exposure context (`POST /integration/benchmarks/exposure-context`)
 - tenant-scoped group-return evidence (`POST /integration/attribution/group-return-evidence/v1`)

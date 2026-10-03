@@ -173,6 +173,23 @@
   replace equivalent named triggers after retained rows pass validation; lexical ordering alone is not
   accepted as calendar validity.
 
+### `composite_materializations`
+
+- Owner: `app/adapters/composite_materialization_repository.py` and its mapped records module.
+- Purpose: immutable tenant-scoped command/source authority, resumable full-universe outcomes,
+  exact member asset and methodology receipts, publication state and optimistic revision.
+- Identity: `(tenant_id, materialization_id)`; one reserved composite/view/currency/sequence scope.
+- Admission: reservation, execution and queue commit in one transaction. Same-tenant composite
+  locks serialize chronology; compare-and-set progress and acquired compute leases fence retries.
+- Evidence: contains financial inputs, portfolio identifiers and admitted actor identity; never
+  bearer tokens. Core retrieval hashes and exact dated money are distinct from Manage membership.
+- Retention: durable composite business evidence, not ordinary execution/result TTL. No automatic
+  purge or invented jurisdiction policy; approved composite lifecycle controls remain required.
+  Legacy fact-only cleanup refuses scopes with materializations before mutation; it cannot orphan
+  receipts or allow a worker to reconstruct deliberately deleted business evidence.
+- Recovery: backup/restore includes command, source, outcomes, state and revision alongside the
+  corresponding immutable fact/publication generation. An incomplete generation is not release evidence.
+
 ## Upgrade Rules
 
 - Upgrades must be **additive upgrade** changes by default.

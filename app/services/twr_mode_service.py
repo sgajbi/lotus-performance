@@ -11,6 +11,7 @@ from app.models.benchmark_analytics_requests import (
     BenchmarkStatelessInput,
 )
 from app.models.benchmark_requests import BenchmarkPerformanceRequest
+from app.models.portfolio_asset_evidence import PortfolioSourceAssetEvidence
 from app.models.requests import PerformanceRequest
 from app.models.twr_requests import TWRAnalyticsRequest, TWRBenchmarkRequest, TWRInputMode
 from app.services.benchmark_assignment_service import resolve_benchmark_identity
@@ -28,6 +29,7 @@ from app.services.stateful_input_service import StatefulInputService
 from app.services.stateful_performance_input_service import (
     StatefulPortfolioInput,
     StatefulPortfolioValuationInput,
+    build_stateful_portfolio_asset_evidence,
     build_stateful_portfolio_valuation_input,
     retrieve_stateful_portfolio_input,
 )
@@ -44,6 +46,7 @@ class ResolvedTWRRequest:
     benchmark_request: BenchmarkPerformanceRequest | None = None
     benchmark_input_mode: BenchmarkInputMode | None = None
     resolved_benchmark_id: str | None = None
+    source_asset_evidence: PortfolioSourceAssetEvidence | None = None
 
 
 def _benchmark_requested(request: TWRAnalyticsRequest) -> bool:
@@ -204,6 +207,7 @@ def _build_resolved_twr_request(
             request=request,
             benchmark_resolution=retrieval_resolution.benchmark_resolution,
         ),
+        source_asset_evidence=build_stateful_portfolio_asset_evidence(normalization_resolution.resolved_input),
     )
 
 

@@ -198,6 +198,7 @@ def _finalize_resolved_returns_series_execution(
         calculation_hash=calculation_hash,
         resolved_request_payload=_resolved_returns_series_async_request_payload(resolved),
         should_offload=should_offload_resolved_returns_series(resolved.input_count),
+        source_request_payload=request.model_dump(mode="json"),
         offload_reason="large_resolved_stateful_returns_series",
         accepted_response_factory=accepted_returns_series_response,
     )
