@@ -5,8 +5,9 @@ from datetime import date as Date
 from typing import Any, Dict, List, Literal, Optional
 from uuid import UUID, uuid4
 
-from pydantic import BaseModel, ConfigDict, Field, field_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
+from app.models.request_window_validation import validate_ordered_explicit_window
 from app.models.requests import Analysis, DailyInputData  # Import the shared Analysis model
 from common.enums import (
     AttributionMode,
@@ -117,7 +118,9 @@ class AttributionRequest(BaseModel):
     portfolio_id: str = Field(
         description="Portfolio identifier for lineage and downstream correlation.", examples=["PORT_001"]
     )
-    report_start_date: Date = Field(description="Inclusive report window start date.")
+    report_start_date: Date = Field(
+        description="Inclusive report window start date; for EXPLICIT analyses it must be on or before report_end_date."
+    )
     report_end_date: Date = Field(description="Inclusive report window end date.")
     analyses: List[Analysis] = Field(description="Analysis periods to calculate over the requested report window.")
 
@@ -202,3 +205,12 @@ class AttributionRequest(BaseModel):
         if not v:
             raise ValueError("analyses list cannot be empty")
         return v
+
+    @model_validator(mode="after")
+    def validate_explicit_window_order(self) -> "AttributionRequest":
+        validate_ordered_explicit_window(
+            requested_periods=(analysis.period for analysis in self.analyses),
+            report_start_date=self.report_start_date,
+            report_end_date=self.report_end_date,
+        )
+        return self

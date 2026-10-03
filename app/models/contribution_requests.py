@@ -3,9 +3,10 @@ from datetime import date
 from typing import Annotated, Any, Dict, List, Literal, Optional
 from uuid import UUID, uuid4
 
-from pydantic import AfterValidator, BaseModel, ConfigDict, Field, field_validator
+from pydantic import AfterValidator, BaseModel, ConfigDict, Field, field_validator, model_validator
 
 from app.models.numeric_types import ExactDecimalInput
+from app.models.request_window_validation import validate_ordered_explicit_window
 from app.models.requests import Analysis  # Import the new shared model
 from common.enums import WeightingScheme
 from core.envelope import (
@@ -200,7 +201,9 @@ class ContributionRequestBase(BaseModel):
         description="Client-supplied or server-generated stable calculation identifier.",
     )
     portfolio_id: str = Field(description="Portfolio identifier for the contribution calculation.")
-    report_start_date: date = Field(description="Inclusive report start date.")
+    report_start_date: date = Field(
+        description="Inclusive report start date; for EXPLICIT analyses it must be on or before report_end_date."
+    )
     report_end_date: date = Field(description="Inclusive report end date.")
     analyses: List[Analysis] = Field(description="Resolved contribution periods and requested frequencies.")
 
@@ -272,6 +275,15 @@ class ContributionRequestBase(BaseModel):
         if not v:
             raise ValueError("analyses list cannot be empty")
         return v
+
+    @model_validator(mode="after")
+    def validate_explicit_window_order(self) -> "ContributionRequestBase":
+        validate_ordered_explicit_window(
+            requested_periods=(analysis.period for analysis in self.analyses),
+            report_start_date=self.report_start_date,
+            report_end_date=self.report_end_date,
+        )
+        return self
 
 
 class ContributionRequest(ContributionRequestBase):

@@ -2522,6 +2522,16 @@ def test_current_inventory_prose_carries_no_stale_totals():
         ), f"Inventory suite table is stale for {suite}: measured {modules} modules, {count} test functions"
 
 
+def test_explicit_window_admission_is_documented() -> None:
+    api_reference = _read("docs/guides/api_reference.md")
+    wiki_api_surface = _read("wiki/API-Surface.md")
+
+    for document in (api_reference, wiki_api_surface):
+        assert "reversed `EXPLICIT`" in document or "`report_start_date` is after `report_end_date`" in document
+        assert "non-retryable" in document
+        assert "Equal" in document
+
+
 def test_every_documented_make_target_exists() -> None:
     """A command a reader is told to run must be a command that runs.
 

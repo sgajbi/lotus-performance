@@ -13,6 +13,7 @@ from app.models.benchmark_analytics_requests import (
     BenchmarkStatelessInput,
 )
 from app.models.mwr_requests import Solver
+from app.models.request_window_validation import validate_ordered_explicit_window
 from app.models.requests import DailyInputData, admit_daily_input_data
 from app.models.twr_requests import TWRInputMode, TWRStatefulInput, TWRStatelessInput
 from common.enums import Frequency
@@ -166,7 +167,10 @@ class WorkspaceSummaryRequest(BaseModel):
     )
     report_start_date: date | None = Field(
         default=None,
-        description="Explicit start date used only when requested periods include EXPLICIT.",
+        description=(
+            "Explicit start date used only when requested periods include EXPLICIT; it must be on or before "
+            "report_end_date."
+        ),
         examples=["2026-01-01"],
     )
     performance_start_date: date | None = Field(
@@ -298,6 +302,11 @@ def _requested_workspace_periods(request: WorkspaceSummaryRequest) -> set[Worksp
 def _validate_workspace_summary_explicit_window(request: WorkspaceSummaryRequest) -> None:
     if WorkspacePeriodType.EXPLICIT in _requested_workspace_periods(request) and request.report_start_date is None:
         raise ValueError("report_start_date is required when periods include EXPLICIT")
+    validate_ordered_explicit_window(
+        requested_periods=(item.period for item in request.periods),
+        report_start_date=request.report_start_date,
+        report_end_date=request.report_end_date,
+    )
 
 
 def _has_nested_workspace_summary_stateless_input(request: WorkspaceSummaryRequest) -> bool:

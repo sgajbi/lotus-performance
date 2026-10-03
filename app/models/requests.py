@@ -3,9 +3,10 @@ from datetime import date
 from typing import List, Literal, Optional
 from uuid import UUID, uuid4
 
-from pydantic import BaseModel, ConfigDict, Field, field_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 from app.models.numeric_types import ExactDecimalInput
+from app.models.request_window_validation import validate_ordered_explicit_window
 from common.enums import Frequency, PeriodType, canonical_performance_period_code
 from core.envelope import (
     Annualization,
@@ -115,7 +116,10 @@ class PerformanceRequestBase(BaseModel):
     )
     report_start_date: Optional[date] = Field(
         None,
-        description="The explicit start date for an 'EXPLICIT' period calculation. Ignored for other period types.",
+        description=(
+            "The start date for an 'EXPLICIT' period calculation; it must be on or before report_end_date. "
+            "Ignored for other period types."
+        ),
     )
     report_end_date: date = Field(
         ...,
@@ -166,6 +170,15 @@ class PerformanceRequestBase(BaseModel):
         value: List[DailyInputData],
     ) -> List[DailyInputData]:
         return admit_daily_input_data(value)
+
+    @model_validator(mode="after")
+    def validate_explicit_window_order(self) -> "PerformanceRequestBase":
+        validate_ordered_explicit_window(
+            requested_periods=(analysis.period for analysis in self.analyses),
+            report_start_date=self.report_start_date,
+            report_end_date=self.report_end_date,
+        )
+        return self
 
 
 class PerformanceRequest(PerformanceRequestBase):

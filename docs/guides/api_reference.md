@@ -80,6 +80,10 @@ remain in structured logs and durable evidence under the same correlation contex
 
 ## Performance APIs
 
+TWR, workspace-summary, benchmark, contribution, and attribution reject an `EXPLICIT` period whose
+`report_start_date` is after `report_end_date` with non-retryable HTTP `422` validation evidence.
+Equal dates are valid. Other period types retain their existing date-resolution semantics.
+
 ### Source-correction recalculation
 
 - `POST /performance/source-corrections` admits an authorized tenant-scoped correction and returns

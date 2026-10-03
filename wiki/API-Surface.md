@@ -55,6 +55,10 @@ Authoritative analytics routes:
 - `POST /performance/inspections/twr`
 - `POST /performance/mandate-health-context`
 
+TWR, workspace-summary, benchmark, contribution, and attribution reject a reversed `EXPLICIT`
+window with non-retryable HTTP `422` validation evidence before execution registration. Equal start
+and end dates remain valid; other period types keep their existing resolution semantics.
+
 `POST /performance/mandate-health-context` evaluates a bounded mandate performance health context
 from source-owned active-return interpretation. It preserves threshold posture and methodology
 ownership; it does not grant mandate authority. lotus-gateway composes it with Lotus Manage mandate

@@ -6,6 +6,7 @@ from uuid import UUID, uuid4
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
+from app.models.request_window_validation import validate_ordered_explicit_window
 from app.models.requests import Analysis
 from core.envelope import Annualization, Calendar, Output
 from core.periods import PeriodType
@@ -109,7 +110,10 @@ class BenchmarkPerformanceRequest(BaseModel):
     )
     report_start_date: dt_date | None = Field(
         default=None,
-        description="Explicit start date used only when analyses include the EXPLICIT period.",
+        description=(
+            "Explicit start date used only when analyses include the EXPLICIT period; it must be on or before "
+            "report_end_date."
+        ),
     )
     report_end_date: dt_date = Field(
         ...,
@@ -137,6 +141,11 @@ class BenchmarkPerformanceRequest(BaseModel):
         _validate_benchmark_analysis_window(
             analyses=self.analyses,
             report_start_date=self.report_start_date,
+        )
+        validate_ordered_explicit_window(
+            requested_periods=(analysis.period for analysis in self.analyses),
+            report_start_date=self.report_start_date,
+            report_end_date=self.report_end_date,
         )
         _validate_benchmark_source_payloads(
             return_source=self.return_source,

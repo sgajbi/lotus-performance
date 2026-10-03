@@ -755,6 +755,10 @@ Important validation expectations:
     complete an interrupted submission stage without rewriting an already terminal stage. Serialize
     concurrent stage creation on the durable parent execution. Preserve keyed execution bindings
     across ambiguous job-registration outcomes. Do not store or log raw keys.
+42. Public TWR, workspace-summary, benchmark, contribution, and attribution requests share one
+    admission rule for `EXPLICIT` periods: `report_start_date` must not be later than
+    `report_end_date`. Reject a reversed window before execution registration with non-retryable
+    validation evidence. Preserve same-day windows and non-`EXPLICIT` date-resolution behavior.
 
 ## Standards And RFCs That Govern This Repository
 

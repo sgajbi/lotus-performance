@@ -9,6 +9,7 @@ from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 from app.models.benchmark_requests import BenchmarkPerformanceRequest
 from app.models.numeric_types import ExactDecimalInput
+from app.models.request_window_validation import validate_ordered_explicit_window
 from app.models.requests import Analysis
 from core.envelope import Annualization, Calendar, Output
 from core.periods import PeriodType
@@ -275,7 +276,10 @@ class BenchmarkAnalyticsRequest(BaseModel):
     )
     report_start_date: dt_date | None = Field(
         default=None,
-        description="Explicit start date used only when analyses include the EXPLICIT period.",
+        description=(
+            "Explicit start date used only when analyses include the EXPLICIT period; it must be on or before "
+            "report_end_date."
+        ),
         examples=["2026-03-01"],
     )
     report_end_date: dt_date = Field(
@@ -322,6 +326,11 @@ class BenchmarkAnalyticsRequest(BaseModel):
     @model_validator(mode="after")
     def validate_mode_payloads(self) -> "BenchmarkAnalyticsRequest":
         _validate_benchmark_analysis_selection(self.analyses, self.report_start_date)
+        validate_ordered_explicit_window(
+            requested_periods=(analysis.period for analysis in self.analyses),
+            report_start_date=self.report_start_date,
+            report_end_date=self.report_end_date,
+        )
         if self.input_mode == BenchmarkInputMode.STATELESS:
             _validate_stateless_benchmark_payloads(
                 stateless_input=self.stateless_input,
