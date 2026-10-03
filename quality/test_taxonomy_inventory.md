@@ -1,7 +1,7 @@
 # Lotus Performance Test Taxonomy Inventory
 
 Report date: 2026-10-03
-Branch: `fix/336-async-error-classification`
+Branch: `fix/550-zero-capital-fee-contribution`
 Mode: regression-blocking test taxonomy inventory; `make quality-test-taxonomy-gate` enforces
 minimum API/runtime and contract/governance breadth plus the current uncategorized-test ceiling.
 
@@ -23,8 +23,8 @@ python scripts/python_test_taxonomy_inventory.py --limit 30 --min-api-runtime-te
 | Metric | Value |
 | --- | ---: |
 | Test modules inventoried | 343 |
-| Test functions inventoried | 4198 |
-| Integration/API/runtime test functions | 887 |
+| Test functions inventoried | 4207 |
+| Integration/API/runtime test functions | 890 |
 | Contract/governance test functions | 205 |
 
 ## Test Functions By Suite
@@ -33,8 +33,8 @@ python scripts/python_test_taxonomy_inventory.py --limit 30 --min-api-runtime-te
 | --- | ---: | ---: |
 | benchmarks | 10 | 47 |
 | e2e | 1 | 21 |
-| integration | 31 | 452 |
-| unit | 301 | 3678 |
+| integration | 31 | 455 |
+| unit | 301 | 3684 |
 
 ## Test Functions By Family
 
@@ -44,8 +44,8 @@ above does sum to it, because a module belongs to exactly one suite.
 
 | Family | Test functions |
 | --- | ---: |
-| analytics_domain | 2105 |
-| api_or_runtime | 887 |
+| analytics_domain | 2114 |
+| api_or_runtime | 890 |
 | contract_or_governance | 205 |
 | observability_or_readiness | 690 |
 | quality_or_security | 270 |
@@ -57,10 +57,10 @@ above does sum to it, because a module belongs to exactly one suite.
 | ---: | --- | --- | ---: | --- |
 | 1 | `tests/unit/services/test_returns_series_service.py` | unit | 96 | analytics_domain |
 | 2 | `tests/unit/app/test_enterprise_readiness_additional.py` | unit | 88 | observability_or_readiness |
-| 3 | `tests/integration/test_contribution_api.py` | integration | 73 | analytics_domain, api_or_runtime |
+| 3 | `tests/integration/test_contribution_api.py` | integration | 76 | analytics_domain, api_or_runtime |
 | 4 | `tests/unit/services/test_stateful_attribution_input_service.py` | unit | 71 | analytics_domain |
 | 5 | `tests/unit/docs/test_public_docs_contract.py` | unit | 70 | contract_or_governance |
-| 6 | `tests/unit/services/test_compute_job_store.py` | unit | 69 | observability_or_readiness |
+| 6 | `tests/unit/services/test_compute_job_store.py` | unit | 70 | observability_or_readiness |
 | 7 | `tests/integration/test_performance_api.py` | integration | 64 | api_or_runtime |
 | 8 | `tests/unit/services/test_lineage_metadata_store.py` | unit | 62 | observability_or_readiness |
 | 9 | `tests/unit/services/test_workspace_summary_service.py` | unit | 62 | analytics_domain |
@@ -76,9 +76,9 @@ above does sum to it, because a module belongs to exactly one suite.
 | 19 | `tests/unit/services/test_stateful_benchmark_input_service.py` | unit | 44 | analytics_domain |
 | 20 | `tests/unit/engine/test_contribution.py` | unit | 43 | analytics_domain |
 | 21 | `tests/unit/services/test_benchmark_exposure_context_service.py` | unit | 41 | analytics_domain |
-| 22 | `tests/unit/services/test_composite_metadata_store.py` | unit | 40 | analytics_domain |
-| 23 | `tests/unit/services/test_operator_action_lease_service.py` | unit | 40 | uncategorized |
-| 24 | `tests/unit/services/test_stateful_contribution_input_service.py` | unit | 39 | analytics_domain |
+| 22 | `tests/unit/services/test_stateful_contribution_input_service.py` | unit | 41 | analytics_domain |
+| 23 | `tests/unit/services/test_composite_metadata_store.py` | unit | 40 | analytics_domain |
+| 24 | `tests/unit/services/test_operator_action_lease_service.py` | unit | 40 | uncategorized |
 | 25 | `tests/unit/models/test_twr_requests.py` | unit | 38 | analytics_domain |
 | 26 | `tests/unit/engine/test_ror.py` | unit | 37 | analytics_domain |
 | 27 | `tests/unit/test_observability.py` | unit | 37 | observability_or_readiness |

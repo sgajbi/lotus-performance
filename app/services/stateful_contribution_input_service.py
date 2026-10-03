@@ -40,6 +40,7 @@ from app.services.stateful_retrieval_metadata import parse_retrieval_metadata
 from app.services.stateful_upstream_errors import raise_for_stateful_control_plane_unavailable
 from app.services.valuation_points_service import portfolio_timeseries_to_valuation_points
 from core.errors import APIUnprocessableEntityError
+from engine.schema import is_reserved_contribution_dimension
 
 
 @dataclass(frozen=True)
@@ -720,10 +721,21 @@ def _position_value_inputs(
     currency_mode: str,
     reporting_currency: str | None,
 ) -> _PositionValueInputs | None:
-    if currency_mode == "LOCAL_ONLY":
+    if _requires_native_position_valuations(row, currency_mode=currency_mode, reporting_currency=reporting_currency):
         begin_value = row.get("beginning_market_value_position_currency")
         end_value = row.get("ending_market_value_position_currency")
         value_basis: PositionValueBasis = "position"
+        if currency_mode == "BOTH" and (
+            _finite_decimal_or_none(begin_value) is None or _finite_decimal_or_none(end_value) is None
+        ):
+            raise APIUnprocessableEntityError(
+                detail="Stateful contribution BOTH requires a finite position-currency valuation pair for "
+                + str(row.get("position_id"))
+                + " on "
+                + str(row.get("valuation_date"))
+                + ".",
+                error_code="POSITION_LOCAL_VALUATION_INCOMPLETE",
+            )
     elif reporting_currency is not None:
         begin_value, end_value = _reporting_position_value_pair(row)
         value_basis = "reporting"
@@ -738,6 +750,19 @@ def _position_value_inputs(
         begin_value=begin_value,
         end_value=end_value,
         value_basis=value_basis,
+    )
+
+
+def _requires_native_position_valuations(
+    row: dict[str, object], *, currency_mode: str, reporting_currency: str | None
+) -> bool:
+    if currency_mode == "LOCAL_ONLY":
+        return True
+    position_currency = normalized_currency_code(row.get("position_currency"))
+    return (
+        currency_mode == "BOTH"
+        and position_currency is not None
+        and position_currency != normalized_currency_code(reporting_currency)
     )
 
 
@@ -812,7 +837,24 @@ def _is_distinct_business_position_id(
 def _normalized_position_dimensions(dimensions_raw: object) -> dict[str, object]:
     if not isinstance(dimensions_raw, dict):
         return {}
-    return {key: value for key, value in dimensions_raw.items() if isinstance(key, str) and value is not None}
+    return {
+        key: value
+        for key, value in dimensions_raw.items()
+        if isinstance(key, str)
+        and value is not None
+        and not is_reserved_contribution_dimension(key)
+        and key
+        not in {
+            "position_id",
+            "security_id",
+            "currency",
+            "cash_flow_currency",
+            "source_position_key",
+            "business_position_id",
+            "position_to_portfolio_fx_rate",
+            "portfolio_to_reporting_fx_rate",
+        }
+    }
 
 
 def _position_contract_meta_from_row(row: dict[str, object]) -> dict[str, object]:
@@ -1036,11 +1078,7 @@ def _stateful_both_currency_row_gaps(
     currencies_by_position_id: dict[str, set[str]] = {}
     for index, row in enumerate(rows):
         source_identity = _valid_source_position_identity(row)
-        if (
-            source_identity is None
-            or _position_row_to_daily_point(row=row, currency_mode="BOTH", reporting_currency=reporting_currency)
-            is None
-        ):
+        if source_identity is None or not _stateful_both_row_has_valuation(row, reporting_currency=reporting_currency):
             continue
         currency = normalized_currency_code(row.get("position_currency"))
         if currency is None:
@@ -1052,6 +1090,14 @@ def _stateful_both_currency_row_gaps(
         position_id for position_id, currencies in currencies_by_position_id.items() if len(currencies) > 1
     )
     return missing_rows, conflicting_ids
+
+
+def _stateful_both_row_has_valuation(row: dict[str, object], *, reporting_currency: str | None) -> bool:
+    """Admit dated currency authority before selecting native or preconverted money."""
+    return any(
+        _position_row_to_daily_point(row=row, currency_mode=mode, reporting_currency=reporting_currency) is not None
+        for mode in ("BASE_ONLY", "LOCAL_ONLY")
+    )
 
 
 def _stateful_both_currency_requires_fx(

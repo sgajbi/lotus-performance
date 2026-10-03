@@ -734,6 +734,27 @@ Important validation expectations:
     once for NET and removes it once for GROSS. Apply the same translation after entity-scoped
     `data_policy` overrides and across master-window and period recomputation paths; do not change
     direct TWR input semantics or normalize only one output shape.
+    A zero-opening position can still carry observed fee economics: allocate its monetary P&L
+    over portfolio beginning capital before smoothing, rather than allowing zero weight to erase
+    it or residual allocation to transfer it to a funded security. Preserve the position-return
+    zero-capital convention, portfolio NIP/reset masks, and exact prior/current FX evidence.
+    Reuse the shared engine's post-hedge FX factor for total monetary contribution; a full hedge
+    leaves zero FX contribution. Reserve internal monetary columns under the `_` metadata boundary
+    and prevent position metadata from replacing any existing engine column, including identity,
+    valuation, cash-flow and return fields. Non-conflicting grouping dimensions remain supported.
+    Use the shared reserved-dimension policy at request admission, engine metadata attachment
+    and dated source membership normalization. Reject calculation/internal hierarchy names before
+    source retrieval or queued acceptance; preserve source-owned date, identity and currency.
+    Deduplicate hierarchy/currency join columns so legitimate currency grouping remains valid.
+    Reserve Carino `k_t`, `K_total`, `R_port_t` and `carino_factor` before metadata attachment.
+    Validate cash-flow/position currency consistency in the shared conversion helper before its
+    native-basis identity factor; preserve canonical normalization and legacy absence behavior.
+    Stateful `BOTH` foreign positions use source position-currency valuations and cash flows,
+    not already converted reporting/portfolio amounts. Require a finite native valuation pair;
+    missing native money returns `422 POSITION_LOCAL_VALUATION_INCOMPLETE`, including before
+    queued acceptance. `BASE_ONLY` and same-currency source selection remain unchanged.
+    Dated currency admission examines native and preconverted valuation evidence before value
+    selection, so native-only rows cannot evade missing/conflicting-currency refusal.
 39. Contribution `DECIMAL_STRICT` execution must preserve one Decimal numeric domain from engine
     returns through average-weight shadows, Carino factors, residual allocation, hierarchy, and
     daily/position series reconciliation. Compatibility DTO serialization may emit JSON numbers,

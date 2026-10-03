@@ -16,6 +16,7 @@ from app.services.contribution_source_economics import build_contribution_source
 from app.services.execution_registry import UpstreamSnapshotRecord
 from app.services.stateful_contribution_input_service import (
     StatefulContributionSourceInput,
+    _normalized_position_dimensions,
     _position_contract_fx_rate_meta,
     _position_contract_meta_from_row,
     _position_meta_from_row,
@@ -36,6 +37,43 @@ from app.services.stateful_contribution_input_service import (
 from app.services.stateful_input_service import RetrievalMetadata, StatefulInputService
 from app.services.stateful_performance_input_service import StatefulPortfolioInput
 from core.errors import APIError
+from engine.schema import CONTRIBUTION_CALCULATION_COLUMNS
+
+
+def test_source_dimensions_cannot_replace_calculation_or_identity_authority():
+    dimensions = {
+        **dict.fromkeys(CONTRIBUTION_CALCULATION_COLUMNS, "999"),
+        "_source_hierarchy_memberships": "999",
+        "position_id": "NOT_POSITION",
+        "security_id": "NOT_SECURITY",
+        "currency": "EUR",
+        "cash_flow_currency": "EUR",
+        "source_position_key": "NOT_SOURCE_GRAIN",
+        "business_position_id": "NOT_BUSINESS_POSITION",
+        "position_to_portfolio_fx_rate": "999",
+        "portfolio_to_reporting_fx_rate": "999",
+        "sector": "Technology",
+    }
+    assert _normalized_position_dimensions(dimensions) == {"sector": "Technology"}
+
+
+@pytest.mark.parametrize("invalid_value", [None, "", "NaN", "Infinity", "-Infinity"])
+@pytest.mark.parametrize("field", ["beginning_market_value_position_currency", "ending_market_value_position_currency"])
+def test_stateful_both_refuses_unusable_native_monetary_pair(field, invalid_value):
+    row = {
+        "position_id": "EUR_CASH",
+        "valuation_date": "2025-01-01",
+        "position_currency": "EUR",
+        "beginning_market_value_position_currency": "0",
+        "ending_market_value_position_currency": "-25",
+        "beginning_market_value_portfolio_currency": "0",
+        "ending_market_value_portfolio_currency": "-32.50",
+        field: invalid_value,
+    }
+    with pytest.raises(APIError) as refusal:
+        _position_value_inputs(row=row, currency_mode="BOTH", reporting_currency="USD")
+    assert refusal.value.error_code == "POSITION_LOCAL_VALUATION_INCOMPLETE"
+    assert refusal.value.status_code == 422
 
 
 class _ContributionInputServiceStub:

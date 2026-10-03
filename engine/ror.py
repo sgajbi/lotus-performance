@@ -340,8 +340,8 @@ def _zero_component_cumulative_returns(
     *,
     reset_mask: pd.Series,
 ) -> None:
-    zero_value = 0.0
     for component_name in component_names:
+        zero_value = Decimal(0) if df[component_name].dtype == "object" else 0.0
         prefix = _component_prefix(component_name, temp=False)
         df.loc[reset_mask, [f"{prefix}long_cum_ror", f"{prefix}short_cum_ror"]] = zero_value
 
@@ -351,8 +351,10 @@ def _apply_nip_to_component_cumulative_returns(df: pd.DataFrame, component_names
     for component_name in component_names:
         prefix = _component_prefix(component_name, temp=False)
         columns = [f"{prefix}long_cum_ror", f"{prefix}short_cum_ror"]
+        zero = Decimal(0) if df[component_name].dtype == "object" else 0.0
         df.loc[is_nip, columns] = np.nan
-        df[columns] = df[columns].ffill().fillna(0.0)
+        with pd.option_context("future.no_silent_downcasting", True):
+            df[columns] = df[columns].ffill().fillna(zero)
 
 
 def _compound_ror(df: pd.DataFrame, daily_ror: pd.Series, leg: str, use_resets=False) -> pd.Series:

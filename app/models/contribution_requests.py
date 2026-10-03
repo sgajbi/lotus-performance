@@ -18,6 +18,7 @@ from core.envelope import (
     HedgingRequestBlock,
     Output,
 )
+from engine.schema import is_reserved_contribution_dimension
 
 SOURCE_HIERARCHY_MEMBERSHIPS_META_KEY = "_source_hierarchy_memberships"
 
@@ -211,7 +212,8 @@ class ContributionRequestBase(BaseModel):
         default=None,
         description=(
             "Optional hierarchy dimensions such as asset_class, sector, country, currency, or position_id. "
-            "When supplied, the response includes summary and level rows that reconcile to period contribution."
+            "When supplied, the response includes summary and level rows that reconcile to period contribution. "
+            "Calculation-column names and underscore-prefixed internal names are reserved and rejected."
         ),
         examples=[["asset_class"]],
     )
@@ -268,6 +270,13 @@ class ContributionRequestBase(BaseModel):
         default=None,
         description="Optional hedging request block for FX-aware contribution extensions.",
     )
+
+    @field_validator("hierarchy")
+    @classmethod
+    def hierarchy_dimensions_must_not_shadow_calculations(cls, value: Optional[List[str]]) -> Optional[List[str]]:
+        if value and any(is_reserved_contribution_dimension(name) for name in value):
+            raise ValueError("hierarchy contains a reserved calculation dimension")
+        return value
 
     @field_validator("analyses")
     @classmethod

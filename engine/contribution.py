@@ -18,8 +18,9 @@ from engine.contribution_smoothing import (
     apply_contribution_smoothing,
 )
 from engine.diagnostics import EngineDiagnostics
+from engine.ror import _local_daily_return_numerator
 from engine.runtime import run_engine_for_valuation_points_with_diagnostics
-from engine.schema import PortfolioColumns
+from engine.schema import PortfolioColumns, is_reserved_contribution_dimension
 
 __all__ = [
     "_calculate_carino_factor_for_return",
@@ -186,6 +187,7 @@ def _calculate_daily_instrument_contributions(
     df["raw_local_contribution"] = df["daily_weight"] * (local_ror / hundred)
     df["raw_fx_contribution"] = df["daily_weight"] * (fx_ror / hundred)
     df["raw_contribution"] = df["daily_weight"] * (df[PortfolioColumns.DAILY_ROR.value] / hundred)
+    _retain_zero_capital_contribution(df, decimal_mode=decimal_mode)
     df = apply_contribution_smoothing(df, portfolio_df, smoothing)
 
     nip_reset_dates = portfolio_df[
@@ -196,6 +198,22 @@ def _calculate_daily_instrument_contributions(
     df.loc[df[PortfolioColumns.PERF_DATE.value].isin(nip_reset_dates), contrib_cols] = zero
 
     return df
+
+
+def _retain_zero_capital_contribution(df: pd.DataFrame, *, decimal_mode: bool) -> None:
+    """Allocate observed monetary economics without dividing by zero position capital."""
+    if "_contribution_local_pnl" not in df.columns:
+        return
+    zero_capital = df["capital_inst"] == 0
+    for contribution_column, pnl_column in (
+        ("raw_local_contribution", "_contribution_local_pnl"),
+        ("raw_contribution", "_contribution_base_pnl"),
+    ):
+        monetary_contribution = _safe_daily_weight(df[pnl_column], df["capital_port"], decimal_mode=decimal_mode)
+        df.loc[zero_capital, contribution_column] = monetary_contribution.loc[zero_capital]
+    df.loc[zero_capital, "raw_fx_contribution"] = (
+        df.loc[zero_capital, "raw_contribution"] - df.loc[zero_capital, "raw_local_contribution"]
+    )
 
 
 def _series_uses_decimal(series: pd.Series) -> bool:
@@ -355,9 +373,21 @@ def _build_position_contribution_results_frame(
         request=request,
         position_ccy=position_ccy,
     )
+    position_results_df["_contribution_local_pnl"] = _local_daily_return_numerator(
+        position_results_df,
+        request.portfolio_data.metric_basis,
+        is_decimal_mode=request.precision_mode == PrecisionMode.DECIMAL_STRICT,
+    )
+    before_effective_start = (
+        position_results_df[PortfolioColumns.PERF_DATE.value]
+        < position_results_df[PortfolioColumns.EFFECTIVE_PERIOD_START_DATE.value]
+    )
+    zero = Decimal(0) if request.precision_mode == PrecisionMode.DECIMAL_STRICT else 0.0
+    position_results_df.loc[before_effective_start, "_contribution_local_pnl"] = zero
+    position_results_df["_contribution_base_pnl"] = position_results_df["_contribution_local_pnl"]
     position_results_df["position_id"] = position.position_id
     for key, value in position.meta.items():
-        if key.startswith("_"):
+        if is_reserved_contribution_dimension(key) or key in position_results_df.columns:
             continue
         position_results_df[key] = value
     return (
@@ -414,6 +444,12 @@ def _apply_position_fx_capital_conversion(
     conversion_rates = converted_df["prior_date"].map(pos_fx_lookup)
     for col in [PortfolioColumns.BEGIN_MV.value, PortfolioColumns.BOD_CF.value]:
         converted_df[col] *= conversion_rates
+    if "_contribution_local_pnl" in converted_df.columns:
+        converted_df["_contribution_local_pnl"] *= conversion_rates
+        hundred = Decimal(100) if request.precision_mode == PrecisionMode.DECIMAL_STRICT else 100.0
+        converted_df["_contribution_base_pnl"] = converted_df["_contribution_local_pnl"] * (
+            1 + converted_df["fx_ror"] / hundred
+        )
     return converted_df
 
 

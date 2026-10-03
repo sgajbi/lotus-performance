@@ -68,6 +68,9 @@ Position Total Contribution (`position_contributions[].total_contribution`)
 - `E_after_i,t`: position ending market value after booked fees
 - `F_i,t`: signed booked management fee (`< 0` debit, `> 0` refund)
 - `E_engine_i,t = E_after_i,t - F_i,t`: fee-exclusive ending value passed to the shared return engine
+- In stateful `BOTH`, foreign position valuations and fees are source-native money before this
+  normalization. Source reporting/portfolio pairs do not substitute for missing native values;
+  otherwise the shared FX conversion would restate already converted money a second time.
 - `M_i`: source metadata attached to position `i`, including dimensions and selected currency
   evidence where available
 
@@ -85,6 +88,18 @@ Position Total Contribution (`position_contributions[].total_contribution`)
 
 3. Raw daily contribution:
 - `c_raw_i,t = w_i,t * r_i,t`
+- When `capital_i,t = 0`, preserve observed monetary economics instead of multiplying a
+  zero weight by the position's zero-capital return convention. Let
+  `P_i,t = E_engine_i,t - B_i,t - CFB_i,t - CFE_i,t + F_i,t` for NET; omit `F_i,t`
+  for GROSS, where `CFE_i,t` is the position EOD cash flow. Then
+  `c_raw_i,t = P_i,t / capital_P,t`. A zero portfolio denominator produces zero contribution;
+  pre-effective-start observations and portfolio NIP/reset dates remain excluded.
+- For cross-currency zero-capital positions, local contribution uses `P_i,t` converted at the
+  required prior-date fixing. Total contribution multiplies that local monetary value by
+  `1 + (FX_current / FX_prior - 1) * (1 - hedge_ratio)`, using the shared engine's applied
+  post-hedge FX factor; FX contribution is the difference. With no hedge this equals current-date
+  conversion; a full hedge produces a zero FX leg. This allocation does not invent a standalone position
+  return or use residual allocation to assign a cash fee to another security.
 
 4. Carino smoothing branch (`smoothing.method=CARINO`):
 - `k_t = log1p(R_P,t) / R_P,t` (if `R_P,t` is near zero, use `1`)
@@ -202,6 +217,15 @@ Hierarchical path fields:
 - `results_by_period.<period>.summary.local_contribution` and `fx_contribution` when `currency_mode=BOTH`
 
 ## Worked Example
+Zero-opening cash fee (`NONE` or one-day `CARINO`, amounts in USD): a security moves from
+`6240` to `6600`; cash moves from `0` to `-25` with a booked fee of `-25`. Portfolio ending
+value is `6575`. NET security contribution is `360 / 6240 * 100 = 5.769230769` pp; cash
+contribution is `-25 / 6240 * 100 = -0.400641026` pp, summing to `5.368589744` pp. GROSS
+cash contribution is zero and the portfolio return is `5.769230769`%. The cash position
+retains zero opening weight; its fee is not reassigned to the security. The registered API
+regression covers debits, refunds, no fee, both precision and smoothing modes, prior/current
+FX fixings, hierarchy allocation, and a subsequent neutral cash-clearing date.
+
 Two-day single-position example (`smoothing=NONE`):
 
 | day | `w_i,t` | `r_i,t` | `c_raw_i,t` |
