@@ -6,6 +6,7 @@ from typing import Literal
 from app.services.currency_code_normalization import normalized_currency_code
 from app.services.source_cashflow_taxonomy import CashflowTypeClassification, classify_cashflow_type
 from core.errors import APIUnprocessableEntityError
+from engine.numerical_boundary import monetary_arithmetic_context
 
 PositionValueBasis = Literal["position", "portfolio", "reporting"]
 
@@ -155,13 +156,14 @@ def _accumulate_position_cash_flow_projection(
     projected_flow: tuple[Literal["bod", "eod"], Decimal, CashflowTypeClassification],
 ) -> tuple[Decimal, Decimal, Decimal]:
     timing, decimal_amount, cashflow_type = projected_flow
-    if cashflow_type.economics_role == "fee":
-        return bod_cf, eod_cf, mgmt_fees + decimal_amount
-    if cashflow_type.economics_role == "unsupported":
-        return bod_cf, eod_cf, mgmt_fees
-    if timing == "bod":
-        return bod_cf + decimal_amount, eod_cf, mgmt_fees
-    return bod_cf, eod_cf + decimal_amount, mgmt_fees
+    with monetary_arithmetic_context([bod_cf, eod_cf, mgmt_fees, decimal_amount]):
+        if cashflow_type.economics_role == "fee":
+            return bod_cf, eod_cf, mgmt_fees + decimal_amount
+        if cashflow_type.economics_role == "unsupported":
+            return bod_cf, eod_cf, mgmt_fees
+        if timing == "bod":
+            return bod_cf + decimal_amount, eod_cf, mgmt_fees
+        return bod_cf, eod_cf + decimal_amount, mgmt_fees
 
 
 def _position_cash_flow_projection(
@@ -176,9 +178,10 @@ def _position_cash_flow_projection(
     if amount is None or timing not in {"bod", "eod"}:
         return None
     decimal_amount = _finite_decimal_or_none(amount)
-    if decimal_amount is None:
+    if decimal_amount is None or not conversion_factor.is_finite():
         return None
-    decimal_amount *= conversion_factor
+    with monetary_arithmetic_context([decimal_amount, conversion_factor], products=True):
+        decimal_amount *= conversion_factor
     if not decimal_amount.is_finite():
         return None
     return timing, decimal_amount, classify_cashflow_type(flow.get("cash_flow_type"))
@@ -213,7 +216,8 @@ def _cash_flow_conversion_factor(
         return position_to_portfolio_rate
 
     portfolio_to_reporting_rate = _decimal_or_one(row.get("portfolio_to_reporting_fx_rate"))
-    return position_to_portfolio_rate * portfolio_to_reporting_rate
+    with monetary_arithmetic_context([position_to_portfolio_rate, portfolio_to_reporting_rate], products=True):
+        return position_to_portfolio_rate * portfolio_to_reporting_rate
 
 
 def _has_cash_flow_position_currency_mismatch(row: dict[str, object]) -> bool:

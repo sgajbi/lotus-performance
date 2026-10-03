@@ -371,7 +371,7 @@ def test_workspace_summary_request_rejects_non_finite_nested_economics(field_nam
     point = payload["stateless_input"]["valuation_points"][0]
     point[field_name] = "NaN"
 
-    with pytest.raises(ValueError, match="finite number"):
+    with pytest.raises(ValueError, match="Financial inputs must be finite"):
         WorkspaceSummaryRequest.model_validate(payload)
 
 

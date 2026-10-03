@@ -9,7 +9,7 @@ import pandas as pd
 
 from engine.config import EngineConfig, PrecisionMode
 from engine.exceptions import InvalidEngineInputError
-from engine.numerical_boundary import finite_float64_projection, monetary_arithmetic_context
+from engine.numerical_boundary import NumericalDomainError, finite_float64_projection, monetary_arithmetic_context
 from engine.rules import (
     calculate_account_reset_reason,
     calculate_initial_resets,
@@ -31,6 +31,13 @@ def calculate_daily_ror(df: pd.DataFrame, metric_basis: str, config: EngineConfi
     If FX config is provided, it returns a DataFrame with local, fx, and base returns.
     """
     local_return = _calculate_local_daily_return(df, metric_basis)
+    if config is not None and config.precision_mode != PrecisionMode.DECIMAL_STRICT:
+        local_return = _LocalDailyReturn(
+            local_ror=local_return.local_ror.map(finite_float64_projection)
+            if local_return.local_ror.dtype == "object"
+            else local_return.local_ror,
+            hundred=100.0,
+        )
     result_df = pd.DataFrame(index=df.index)
     if _should_decompose_currency(config):
         if config is None:
@@ -41,16 +48,20 @@ def calculate_daily_ror(df: pd.DataFrame, metric_basis: str, config: EngineConfi
         result_df[PortfolioColumns.DAILY_ROR.value] = (
             (1 + local_return.local_ror) * (1 + fx_ror) - 1
         ) * local_return.hundred
-        _validate_currency_return_domain(result_df)
     else:
         result_df[PortfolioColumns.DAILY_ROR.value] = local_return.local_ror * local_return.hundred
-
+    _validate_currency_return_domain(result_df)
     return result_df
 
 
 def _validate_currency_return_domain(result_df: pd.DataFrame) -> None:
     """Check percentage/base growth overflow without projecting retained Decimal results."""
     for column in result_df.columns:
+        if result_df[column].dtype != "object":
+            present = result_df[column].dropna().to_numpy()
+            if not np.isfinite(present).all():
+                raise NumericalDomainError("Financial input is outside the finite float64 numerical domain.")
+            continue
         for value in result_df[column]:
             # Existing missing-economics handling owns NaN; never reinterpret it as zero.
             if not pd.isna(value):
@@ -81,14 +92,22 @@ def _calculate_local_daily_return(df: pd.DataFrame, metric_basis: str) -> _Local
 
 def _local_daily_return_numerator(df: pd.DataFrame, metric_basis: str, *, is_decimal_mode: bool):
     if is_decimal_mode:
-        numerator = (
-            df[PortfolioColumns.END_MV.value]
-            - df[PortfolioColumns.BOD_CF.value]
-            - df[PortfolioColumns.BEGIN_MV.value]
-            - df[PortfolioColumns.EOD_CF.value]
+        columns = (
+            PortfolioColumns.END_MV,
+            PortfolioColumns.BOD_CF,
+            PortfolioColumns.BEGIN_MV,
+            PortfolioColumns.EOD_CF,
+            PortfolioColumns.MGMT_FEES,
         )
-        if metric_basis == "NET":
-            numerator += df[PortfolioColumns.MGMT_FEES.value]
+        with monetary_arithmetic_context([value for col in columns for value in df[col.value]]):
+            numerator = (
+                df[PortfolioColumns.END_MV.value]
+                - df[PortfolioColumns.BOD_CF.value]
+                - df[PortfolioColumns.BEGIN_MV.value]
+                - df[PortfolioColumns.EOD_CF.value]
+            )
+            if metric_basis == "NET":
+                numerator += df[PortfolioColumns.MGMT_FEES.value]
         return numerator
 
     numerator = (

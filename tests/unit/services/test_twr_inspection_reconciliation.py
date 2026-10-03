@@ -339,8 +339,8 @@ def test_analyze_portfolio_position_reconciliation_flags_mixed_epochs_and_gap():
         report_end_date=date(2026, 3, 26),
         analyses=[Analysis(period="YTD", frequencies=["daily"])],
         valuation_points=[
-            DailyInputData(perf_date=date(2026, 2, 28), begin_mv=1200.0, end_mv=1301.904397290752),
-            DailyInputData(perf_date=date(2026, 3, 26), begin_mv=1280.0, end_mv=1323.10366113306),
+            DailyInputData(perf_date=date(2026, 2, 28), begin_mv="1200", end_mv="1301.90439729"),
+            DailyInputData(perf_date=date(2026, 3, 26), begin_mv="1280", end_mv="1323.10366113"),
         ],
     )
 

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from datetime import date as dt_date
+from decimal import Decimal
 from typing import Any, Dict
 from uuid import UUID
 
@@ -26,13 +27,13 @@ WORKSPACE_SUMMARY_RESPONSE_EXAMPLES = [
                     "net": {
                         "summary": {
                             "economics": {
-                                "begin_market_value": 1000000.0,
-                                "end_market_value": 1054100.0,
-                                "beginning_cash_flow": 25000.0,
-                                "ending_cash_flow": -5000.0,
-                                "fees": -350.0,
-                                "net_cash_flow": 20000.0,
-                                "flow_adjusted_end_market_value": 1034100.0,
+                                "begin_market_value": "1000000.0",
+                                "end_market_value": "1054100.0",
+                                "beginning_cash_flow": "25000.0",
+                                "ending_cash_flow": "-5000.0",
+                                "fees": "-350.0",
+                                "net_cash_flow": "20000.0",
+                                "flow_adjusted_end_market_value": "1034100.0",
                             },
                             "period_return": {"base": 3.41, "local": 3.18, "fx": 0.23},
                             "cumulative_return": {"base": 3.41, "local": 3.18, "fx": 0.23},
@@ -45,13 +46,13 @@ WORKSPACE_SUMMARY_RESPONSE_EXAMPLES = [
                                     "period_start": "2026-03-01",
                                     "period_end": "2026-03-31",
                                     "economics": {
-                                        "begin_market_value": 1039500.0,
-                                        "end_market_value": 1054100.0,
-                                        "beginning_cash_flow": 0.0,
-                                        "ending_cash_flow": -5000.0,
-                                        "fees": -350.0,
-                                        "net_cash_flow": -5000.0,
-                                        "flow_adjusted_end_market_value": 1059100.0,
+                                        "begin_market_value": "1039500.0",
+                                        "end_market_value": "1054100.0",
+                                        "beginning_cash_flow": "0.0",
+                                        "ending_cash_flow": "-5000.0",
+                                        "fees": "-350.0",
+                                        "net_cash_flow": "-5000.0",
+                                        "flow_adjusted_end_market_value": "1059100.0",
                                     },
                                     "period_return": {"base": 1.4, "local": 1.25, "fx": 0.15},
                                     "cumulative_return": {"base": 1.4, "local": 1.25, "fx": 0.15},
@@ -63,13 +64,13 @@ WORKSPACE_SUMMARY_RESPONSE_EXAMPLES = [
                     "gross": {
                         "summary": {
                             "economics": {
-                                "begin_market_value": 1000000.0,
-                                "end_market_value": 1054100.0,
-                                "beginning_cash_flow": 25000.0,
-                                "ending_cash_flow": -5000.0,
-                                "fees": -350.0,
-                                "net_cash_flow": 20000.0,
-                                "flow_adjusted_end_market_value": 1034100.0,
+                                "begin_market_value": "1000000.0",
+                                "end_market_value": "1054100.0",
+                                "beginning_cash_flow": "25000.0",
+                                "ending_cash_flow": "-5000.0",
+                                "fees": "-350.0",
+                                "net_cash_flow": "20000.0",
+                                "flow_adjusted_end_market_value": "1034100.0",
                             },
                             "period_return": {"base": 3.44, "local": 3.21, "fx": 0.23},
                             "cumulative_return": {"base": 3.44, "local": 3.21, "fx": 0.23},
@@ -82,13 +83,13 @@ WORKSPACE_SUMMARY_RESPONSE_EXAMPLES = [
                                     "period_start": "2026-03-01",
                                     "period_end": "2026-03-31",
                                     "economics": {
-                                        "begin_market_value": 1039500.0,
-                                        "end_market_value": 1054100.0,
-                                        "beginning_cash_flow": 0.0,
-                                        "ending_cash_flow": -5000.0,
-                                        "fees": -350.0,
-                                        "net_cash_flow": -5000.0,
-                                        "flow_adjusted_end_market_value": 1059100.0,
+                                        "begin_market_value": "1039500.0",
+                                        "end_market_value": "1054100.0",
+                                        "beginning_cash_flow": "0.0",
+                                        "ending_cash_flow": "-5000.0",
+                                        "fees": "-350.0",
+                                        "net_cash_flow": "-5000.0",
+                                        "flow_adjusted_end_market_value": "1059100.0",
                                     },
                                     "period_return": {"base": 1.43, "local": 1.28, "fx": 0.15},
                                     "cumulative_return": {"base": 1.43, "local": 1.28, "fx": 0.15},
@@ -140,13 +141,13 @@ WORKSPACE_SUMMARY_RESPONSE_EXAMPLES = [
                     "cumulative_return": 3.27,
                     "annualized_return": 3.27,
                     "economics": {
-                        "begin_market_value": 1000000.0,
-                        "end_market_value": 1054100.0,
-                        "beginning_cash_flow": 25000.0,
-                        "ending_cash_flow": -5000.0,
-                        "fees": -350.0,
-                        "net_cash_flow": 20000.0,
-                        "flow_adjusted_end_market_value": 1034100.0,
+                        "begin_market_value": "1000000.0",
+                        "end_market_value": "1054100.0",
+                        "beginning_cash_flow": "25000.0",
+                        "ending_cash_flow": "-5000.0",
+                        "fees": "-350.0",
+                        "net_cash_flow": "20000.0",
+                        "flow_adjusted_end_market_value": "1034100.0",
                     },
                     "start_date": "2026-01-02",
                     "end_date": "2026-03-31",
@@ -210,33 +211,35 @@ WORKSPACE_SUMMARY_ACCEPTED_RESPONSE_EXAMPLES = [
 
 
 class WorkspaceEconomicContext(BaseModel):
-    begin_market_value: float = Field(
+    model_config = ConfigDict(allow_inf_nan=False)
+
+    begin_market_value: Decimal = Field(
         description="Beginning market value for the resolved window in reporting currency units.",
-        examples=[1000000.0],
+        examples=["1000000.0"],
     )
-    end_market_value: float = Field(
+    end_market_value: Decimal = Field(
         description="Ending market value for the resolved window in reporting currency units.",
-        examples=[1015000.0],
+        examples=["1015000.0"],
     )
-    beginning_cash_flow: float = Field(
+    beginning_cash_flow: Decimal = Field(
         description="Sum of beginning-of-day external cash flows for the resolved window in reporting currency units.",
-        examples=[25000.0],
+        examples=["25000.0"],
     )
-    ending_cash_flow: float = Field(
+    ending_cash_flow: Decimal = Field(
         description="Sum of end-of-day external cash flows for the resolved window in reporting currency units.",
-        examples=[-5000.0],
+        examples=["-5000.0"],
     )
-    fees: float = Field(
+    fees: Decimal = Field(
         description="Sum of fees observed in the resolved window in reporting currency units.",
-        examples=[-350.0],
+        examples=["-350.0"],
     )
-    net_cash_flow: float = Field(
+    net_cash_flow: Decimal = Field(
         description="Total external cash flow for the resolved window in reporting currency units.",
-        examples=[20000.0],
+        examples=["20000.0"],
     )
-    flow_adjusted_end_market_value: float = Field(
+    flow_adjusted_end_market_value: Decimal = Field(
         description="Ending market value after subtracting the resolved window net cash flow.",
-        examples=[995000.0],
+        examples=["995000.0"],
     )
 
 

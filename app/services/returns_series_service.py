@@ -79,6 +79,7 @@ from core.errors import (
     HTTP_503_SERVICE_UNAVAILABLE,
     APIError,
 )
+from core.monetary_input import validate_calculated_money_model
 from core.repro import generate_canonical_hash
 from engine.benchmarks import benchmark_return_points_to_dataframe, calculate_benchmark_returns
 from engine.compute import run_calculations
@@ -616,7 +617,8 @@ def daily_ror_from_portfolio_timeseries(
     metric_basis: str,
 ) -> pd.DataFrame:
     valuation_points = portfolio_timeseries_to_valuation_points(observations=observations)
-    request_model = PerformanceRequest.model_validate(
+    request_model = validate_calculated_money_model(
+        PerformanceRequest,
         {
             "portfolio_id": "INTEGRATION_SERIES",
             "performance_start_date": performance_start_date,
@@ -625,7 +627,7 @@ def daily_ror_from_portfolio_timeseries(
             "report_end_date": resolved_window.end_date,
             "analyses": [{"period": PeriodType.EXPLICIT, "frequencies": [Frequency.DAILY]}],
             "valuation_points": valuation_points,
-        }
+        },
     )
     config = create_engine_config(request_model, resolved_window.start_date, resolved_window.end_date)
     engine_df = create_engine_dataframe([point for point in valuation_points])

@@ -1136,8 +1136,8 @@ def test_twr_inspection_flags_extreme_daily_move_for_request_subject(client):
             "start_date": "2026-01-02",
             "end_date": "2026-01-04",
             "observation_count": 3,
-            "begin_mv": 1000.0,
-            "end_mv": 1000.0,
+            "begin_mv": "1000.0",
+            "end_mv": "1000.0",
         }
     ]
     assert source_quality_body["extreme_daily_move_threshold_pct"] == 10.0
@@ -1190,9 +1190,9 @@ def test_twr_inspection_flags_nonpositive_daily_capital_base_for_request_subject
     assert source_quality_body["nonpositive_capital_base_samples"] == [
         {
             "perf_date": "2026-01-09",
-            "begin_mv": 100.0,
-            "bod_cf": -100.0,
-            "effective_capital_base": 0.0,
+            "begin_mv": "100.0",
+            "bod_cf": "-100.0",
+            "effective_capital_base": "0.0",
         }
     ]
 

@@ -9,6 +9,8 @@ from typing import Literal
 from app.models.mwr_requests import CashFlow
 from app.services.source_cashflow_taxonomy import classify_cashflow_type
 from app.services.stateful_performance_input_service import StatefulPortfolioInput
+from core.monetary_input import validate_calculated_money_model
+from engine.numerical_boundary import monetary_arithmetic_context
 
 
 @dataclass(frozen=True)
@@ -231,7 +233,10 @@ def _stateful_mwr_cash_flow_projection(
         if amount != 0
     ]
     return _StatefulMWRCashFlowProjection(
-        cash_flows=[CashFlow(amount=amount, date=cash_flow_date) for cash_flow_date, amount in non_zero_cash_flows],
+        cash_flows=[
+            validate_calculated_money_model(CashFlow, {"amount": amount, "date": cash_flow_date})
+            for cash_flow_date, amount in non_zero_cash_flows
+        ],
         cashflow_evidence=[
             MWRCashFlowEvidence(
                 date=cash_flow_date,
@@ -303,7 +308,8 @@ def _carry_forward_mwr_cash_flow_component(
 ) -> MWRCashFlowEvidenceComponent | None:
     if beginning_market_value is None or previous_ending_market_value is None:
         return None
-    carry_forward_adjustment = beginning_market_value - previous_ending_market_value
+    with monetary_arithmetic_context([beginning_market_value, previous_ending_market_value]):
+        carry_forward_adjustment = beginning_market_value - previous_ending_market_value
     if carry_forward_adjustment == 0:
         return None
     return MWRCashFlowEvidenceComponent(
@@ -346,7 +352,8 @@ def _add_stateful_mwr_cash_flow_component(
     component: MWRCashFlowEvidenceComponent,
 ) -> None:
     cash_flows_by_date.setdefault(valuation_date, Decimal("0"))
-    cash_flows_by_date[valuation_date] += component.amount
+    with monetary_arithmetic_context([cash_flows_by_date[valuation_date], component.amount]):
+        cash_flows_by_date[valuation_date] += component.amount
     cash_flow_components_by_date.setdefault(valuation_date, []).append(component)
 
 

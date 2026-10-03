@@ -10,6 +10,7 @@ from core.valuation_observation_admission import (
     admit_valuation_observations,
     finite_decimal_value,
 )
+from engine.numerical_boundary import monetary_arithmetic_context
 
 
 def portfolio_timeseries_to_valuation_points(*, observations: list[dict[str, object]]) -> list[dict[str, object]]:
@@ -56,11 +57,12 @@ def _valuation_cashflow_totals(cash_flows: object) -> tuple[Decimal, Decimal, De
     mgmt_fees = Decimal("0")
     if not isinstance(cash_flows, list):
         return bod_cf, eod_cf, mgmt_fees
-    for flow in cash_flows:
-        bod_delta, eod_delta, fee_delta = _valuation_cashflow_total_component(flow)
-        bod_cf += bod_delta
-        eod_cf += eod_delta
-        mgmt_fees += fee_delta
+    components = [_valuation_cashflow_total_component(flow) for flow in cash_flows]
+    with monetary_arithmetic_context([value for component in components for value in component]):
+        for bod_delta, eod_delta, fee_delta in components:
+            bod_cf += bod_delta
+            eod_cf += eod_delta
+            mgmt_fees += fee_delta
     return bod_cf, eod_cf, mgmt_fees
 
 

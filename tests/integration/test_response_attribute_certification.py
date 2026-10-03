@@ -1,4 +1,5 @@
 import math
+from decimal import Decimal
 
 import pytest
 from fastapi.testclient import TestClient
@@ -150,7 +151,8 @@ def test_twr_response_attributes_tie_to_deterministic_stateless_inputs(client):
         assert item["cumulative_return"]["local"] == pytest.approx(cumulative_return)
         assert item["cumulative_return"]["fx"] == 0.0
         assert item["calculation_evidence"]["calculation_method"] == "flow_neutralized_daily_twr"
-        assert item["calculation_evidence"]["adjusted_capital"] > 0
+        assert isinstance(item["calculation_evidence"]["adjusted_capital"], str)
+        assert Decimal(item["calculation_evidence"]["adjusted_capital"]) > 0
         assert item["calculation_evidence"]["status"] == "calculated"
         assert item["annualized_return"] is None
         assert item["daily_data"] is None
@@ -386,10 +388,10 @@ def test_workspace_summary_does_not_drift_from_direct_twr_and_mwr_endpoints(clie
     assert workspace_mwr["end_date"] == direct_mwr["end_date"]
 
     economics = workspace_mwr["economics"]
-    assert economics["begin_market_value"] == 1000.0
-    assert economics["end_market_value"] == 1071.0
-    assert economics["beginning_cash_flow"] == 100.0
-    assert economics["ending_cash_flow"] == -50.0
-    assert economics["fees"] == -10.0
-    assert economics["net_cash_flow"] == 50.0
-    assert economics["flow_adjusted_end_market_value"] == 1021.0
+    assert economics["begin_market_value"] == "1000.0"
+    assert economics["end_market_value"] == "1071.0"
+    assert economics["beginning_cash_flow"] == "100.0"
+    assert economics["ending_cash_flow"] == "-50.0"
+    assert economics["fees"] == "-10.0"
+    assert economics["net_cash_flow"] == "50.0"
+    assert economics["flow_adjusted_end_market_value"] == "1021.0"

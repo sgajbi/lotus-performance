@@ -100,7 +100,7 @@ def test_daily_return_percentage_to_ratio_uses_shared_numeric_fallback():
 def test_daily_ror_from_portfolio_timeseries_rejects_empty_engine_results(monkeypatch):
     class _FakePerformanceRequest:
         @staticmethod
-        def model_validate(payload):
+        def model_validate(payload, *, context):
             return payload
 
     monkeypatch.setattr(returns_series_service, "PerformanceRequest", _FakePerformanceRequest)
@@ -131,7 +131,7 @@ def test_daily_ror_from_portfolio_timeseries_rejects_empty_engine_results(monkey
 def test_daily_ror_from_portfolio_timeseries_rejects_invalid_engine_returns(monkeypatch):
     class _FakePerformanceRequest:
         @staticmethod
-        def model_validate(payload):
+        def model_validate(payload, *, context):
             return payload
 
     daily_results_df = pd.DataFrame(

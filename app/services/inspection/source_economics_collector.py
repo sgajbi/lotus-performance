@@ -172,13 +172,13 @@ class _SourceEconomicsSampleCollector:
             self.fee_normalization_samples.append(
                 {
                     "valuation_date": source_point.valuation_date,
-                    "raw_fee_bod": float(source_point.detailed_fee_bod),
-                    "raw_fee_eod": float(source_point.detailed_fee_eod),
+                    "raw_fee_bod": _decimal_to_artifact(source_point.detailed_fee_bod),
+                    "raw_fee_eod": _decimal_to_artifact(source_point.detailed_fee_eod),
                     "expected_fee_amount": _decimal_to_artifact(expected_fee_total),
                     "fee_source_kind": fee_source_kind,
-                    "normalized_bod_cf": float(source_point.normalized_bod_cf),
-                    "normalized_eod_cf": float(source_point.normalized_eod_cf),
-                    "normalized_mgmt_fees": float(source_point.normalized_mgmt_fees),
+                    "normalized_bod_cf": _decimal_to_artifact(source_point.normalized_bod_cf),
+                    "normalized_eod_cf": _decimal_to_artifact(source_point.normalized_eod_cf),
+                    "normalized_mgmt_fees": _decimal_to_artifact(source_point.normalized_mgmt_fees),
                 }
             )
 
@@ -228,8 +228,8 @@ class _SourceEconomicsSampleCollector:
             self.fee_mixed_timing_samples.append(
                 {
                     "valuation_date": source_point.valuation_date,
-                    "detailed_fee_bod": float(source_point.detailed_fee_bod),
-                    "detailed_fee_eod": float(source_point.detailed_fee_eod),
+                    "detailed_fee_bod": _decimal_to_artifact(source_point.detailed_fee_bod),
+                    "detailed_fee_eod": _decimal_to_artifact(source_point.detailed_fee_eod),
                 }
             )
 
@@ -251,18 +251,18 @@ class _SourceEconomicsSampleCollector:
             self.external_normalization_samples.append(
                 {
                     "valuation_date": source_point.valuation_date,
-                    "raw_external_bod": float(source_point.detailed_external_bod),
-                    "raw_external_eod": float(source_point.detailed_external_eod),
+                    "raw_external_bod": _decimal_to_artifact(source_point.detailed_external_bod),
+                    "raw_external_eod": _decimal_to_artifact(source_point.detailed_external_eod),
                     "expected_external_bod": (
-                        float(expected_external_bod) if expected_external_bod is not None else None
+                        _decimal_to_artifact(expected_external_bod) if expected_external_bod is not None else None
                     ),
                     "expected_external_eod": (
-                        float(expected_external_eod) if expected_external_eod is not None else None
+                        _decimal_to_artifact(expected_external_eod) if expected_external_eod is not None else None
                     ),
                     "bod_source_kind": bod_source_kind,
                     "eod_source_kind": eod_source_kind,
-                    "normalized_bod_cf": float(source_point.normalized_bod_cf),
-                    "normalized_eod_cf": float(source_point.normalized_eod_cf),
+                    "normalized_bod_cf": _decimal_to_artifact(source_point.normalized_bod_cf),
+                    "normalized_eod_cf": _decimal_to_artifact(source_point.normalized_eod_cf),
                 }
             )
 
@@ -342,8 +342,8 @@ def _external_mixed_timing_sample(source_point: ObservationSourceEconomics) -> d
         return None
     return {
         "valuation_date": source_point.valuation_date,
-        "detailed_external_bod": float(source_point.detailed_external_bod),
-        "detailed_external_eod": float(source_point.detailed_external_eod),
+        "detailed_external_bod": _decimal_to_artifact(source_point.detailed_external_bod),
+        "detailed_external_eod": _decimal_to_artifact(source_point.detailed_external_eod),
     }
 
 
@@ -354,8 +354,8 @@ def _external_explicit_mixed_timing_sample(source_point: ObservationSourceEconom
         return None
     return {
         "valuation_date": source_point.valuation_date,
-        "explicit_external_bod": float(source_point.explicit_bod_total),
-        "explicit_external_eod": float(source_point.explicit_eod_total),
+        "explicit_external_bod": _decimal_to_artifact(source_point.explicit_bod_total),
+        "explicit_external_eod": _decimal_to_artifact(source_point.explicit_eod_total),
     }
 
 

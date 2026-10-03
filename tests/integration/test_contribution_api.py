@@ -27,6 +27,40 @@ from main import app
 from tests.conftest import drain_compute_queue, drain_lineage_queue
 
 settings = get_settings()
+
+
+@pytest.mark.parametrize("precision", ["DECIMAL_STRICT", "FLOAT64"])
+@pytest.mark.parametrize(("basis", "expected"), [("NET", 0.01), ("GROSS", 0.02)])
+def test_contribution_retains_cent_profit_and_after_fee_basis_beside_large_deposit(client, precision, basis, expected):
+    # After-fee closing value minus deposit/opening capital =0.01. Removing the
+    # independently booked0.01 fee makes GROSS profit0.02 on capital100.
+    points = [
+        {
+            "perf_date": "2025-01-01",
+            "begin_mv": "100",
+            "end_mv": "9007199254741093.02",
+            "eod_cf": "9007199254740993.01",
+            "mgmt_fees": "-0.01",
+        }
+    ]
+    payload = {
+        "portfolio_id": "EXACT_CONTRIBUTION_DEPOSIT",
+        "report_start_date": "2025-01-01",
+        "report_end_date": "2025-01-01",
+        "precision_mode": precision,
+        "analyses": [{"period": "SI", "frequencies": ["daily"]}],
+        "portfolio_data": {"metric_basis": basis, "valuation_points": points},
+        "positions_data": [{"position_id": "FUNDED_ASSET", "meta": {"currency": "USD"}, "valuation_points": points}],
+        "smoothing": {"method": "NONE"},
+    }
+    response = client.post("/performance/contribution", json=payload)
+    assert response.status_code == 200, response.text
+    period = response.json()["results_by_period"]["SI"]
+    assert period["total_portfolio_return"] == pytest.approx(expected, abs=1e-12)
+    assert period["total_contribution"] == pytest.approx(expected, abs=1e-12)
+    assert period["position_contributions"][0]["total_contribution"] == pytest.approx(expected, abs=1e-12)
+
+
 _EXPECTED_SUPPORTABILITY_METRIC_LABELS = list(PERFORMANCE_CALCULATION_SUPPORTABILITY_METRIC_LABELS)
 
 
@@ -969,14 +1003,17 @@ def test_contribution_endpoint_hierarchy_publishes_contrasting_group_return_seri
 
 
 @pytest.mark.parametrize(
-    ("observation_date", "opening_portfolio_mv", "income"),
+    ("observation_date", "opening_portfolio_mv", "income", "raw_import_valid"),
     [
-        ("2026-03-03", "1301897.108535348", "850"),
-        ("2026-03-11", "1344103.059275136", "1187"),
+        ("2026-03-03", "1301897.108535348", "850", False),
+        ("2026-03-11", "1344103.059275136", "1187", False),
+        # Independent raw-import controls, not rounded versions of Core evidence.
+        ("2026-03-03", "1000000.125", "850", True),
+        ("2026-03-11", "2000000.0625", "1187", True),
     ],
 )
 def test_contribution_endpoint_reconciles_core_income_source_rows_to_portfolio_return(
-    client, observation_date: str, opening_portfolio_mv: str, income: str
+    client, observation_date: str, opening_portfolio_mv: str, income: str, raw_import_valid: bool
 ):
     opening_mv = Decimal(opening_portfolio_mv)
     income_amount = Decimal(income)
@@ -1031,6 +1068,7 @@ def test_contribution_endpoint_reconciles_core_income_source_rows_to_portfolio_r
         ),
     ]
     payload = {
+        "calculation_id": str(uuid4()),
         "portfolio_id": "CONTRIB_CORE_INCOME_RECONCILIATION",
         "report_start_date": observation_date,
         "report_end_date": observation_date,
@@ -1054,6 +1092,11 @@ def test_contribution_endpoint_reconciles_core_income_source_rows_to_portfolio_r
 
     response = client.post("/performance/contribution", json=payload)
 
+    if not raw_import_valid:
+        assert response.status_code == 422, response.text
+        assert response.json()["error_code"] == "VALIDATION_ERROR"
+        assert execution_registry.get_execution(UUID(payload["calculation_id"])) is None
+        return
     assert response.status_code == 200
     period = response.json()["results_by_period"]["SI"]
     expected_pp = float(income_amount / opening_mv * 100)
@@ -1296,7 +1339,7 @@ def test_contribution_endpoint_honors_outlier_scope_and_identifies_each_position
         {
             "perf_date": str(perf_date.date()),
             "begin_mv": 1000,
-            "end_mv": 1000 * (1 + daily_return / 100),
+            "end_mv": str(Decimal("1000") * (1 + Decimal(str(daily_return)) / 100)),
         }
         for perf_date, daily_return in zip(pd.date_range("2025-01-01", periods=10), daily_returns, strict=True)
     ]

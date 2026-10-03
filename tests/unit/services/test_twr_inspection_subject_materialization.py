@@ -337,7 +337,7 @@ def test_extract_performance_request_rejects_non_stateless_and_invalid_payloads(
 
 
 def test_extract_performance_request_propagates_unexpected_resolved_parser_errors(monkeypatch):
-    def _raise_runtime_error(_payload):
+    def _raise_runtime_error(_payload, *, context):
         raise RuntimeError("parser dependency failed")
 
     monkeypatch.setattr(materialization.TWRResolvedExecutionRequest, "model_validate", _raise_runtime_error)
@@ -347,7 +347,7 @@ def test_extract_performance_request_propagates_unexpected_resolved_parser_error
 
 
 def test_extract_resolved_execution_request_propagates_unexpected_parser_errors(monkeypatch):
-    def _raise_runtime_error(_payload):
+    def _raise_runtime_error(_payload, *, context):
         raise RuntimeError("parser dependency failed")
 
     monkeypatch.setattr(materialization.TWRResolvedExecutionRequest, "model_validate", _raise_runtime_error)
@@ -359,8 +359,8 @@ def test_extract_resolved_execution_request_propagates_unexpected_parser_errors(
 def test_extract_performance_request_propagates_unexpected_analytics_parser_errors(monkeypatch):
     original_resolved_model_validate = materialization.TWRResolvedExecutionRequest.model_validate
 
-    def _raise_validation_error(_payload):
-        return original_resolved_model_validate({"portfolio": {"portfolio_id": object()}})
+    def _raise_validation_error(_payload, *, context):
+        return original_resolved_model_validate({"portfolio": {"portfolio_id": object()}}, context=context)
 
     def _raise_runtime_error(_payload):
         raise RuntimeError("analytics parser dependency failed")

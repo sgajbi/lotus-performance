@@ -1,11 +1,11 @@
 # app/models/contribution_requests.py
 from datetime import date
+from decimal import Decimal
 from typing import Annotated, Any, Dict, List, Literal, Optional
 from uuid import UUID, uuid4
 
 from pydantic import AfterValidator, BaseModel, ConfigDict, Field, field_validator, model_validator
 
-from app.models.numeric_types import ExactDecimalInput
 from app.models.request_window_validation import validate_ordered_explicit_window
 from app.models.requests import Analysis  # Import the new shared model
 from common.enums import WeightingScheme
@@ -18,6 +18,7 @@ from core.envelope import (
     HedgingRequestBlock,
     Output,
 )
+from core.monetary_input import MoneyInput
 from engine.schema import is_reserved_contribution_dimension
 
 SOURCE_HIERARCHY_MEMBERSHIPS_META_KEY = "_source_hierarchy_memberships"
@@ -29,10 +30,8 @@ class PositionDailyData(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     perf_date: date = Field(..., description="Observation date for the valuation point.")
-    begin_mv: ExactDecimalInput = Field(
-        ..., allow_inf_nan=False, description="Beginning market value before any cash flows."
-    )
-    end_mv: ExactDecimalInput = Field(
+    begin_mv: MoneyInput = Field(..., allow_inf_nan=False, description="Beginning market value before any cash flows.")
+    end_mv: MoneyInput = Field(
         ...,
         allow_inf_nan=False,
         description=(
@@ -40,10 +39,10 @@ class PositionDailyData(BaseModel):
             "normalizes this after-fee value at the shared return-engine boundary."
         ),
     )
-    bod_cf: float = Field(0.0, description="Beginning-of-day cash flow applied before performance.")
-    eod_cf: float = Field(0.0, description="End-of-day cash flow applied after performance.")
-    mgmt_fees: float = Field(
-        0.0,
+    bod_cf: MoneyInput = Field(Decimal(0), description="Beginning-of-day cash flow applied before performance.")
+    eod_cf: MoneyInput = Field(Decimal(0), description="End-of-day cash flow applied after performance.")
+    mgmt_fees: MoneyInput = Field(
+        Decimal(0),
         description=(
             "Management fees already reflected in end_mv. Negative values are fee debits; positive values are refunds."
         ),

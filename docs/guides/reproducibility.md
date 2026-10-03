@@ -37,7 +37,7 @@ key and prove that the calculation output and evidence contract remain unchanged
 Calculation hashes use the governed calculation engine version token, not the deployable build
 version. In other words, the calculation engine version is not the deployable build version. The
 current source is `Settings.CALCULATION_ENGINE_VERSION`, which defaults to
-`lotus-performance-calculation-engine.v14` and is exposed through the same helper for TWR, MWR,
+`lotus-performance-calculation-engine.v15` and is exposed through the same helper for TWR, MWR,
 contribution, attribution, benchmark, workspace-summary, TWR inspection, and returns-series hash
 paths. The token is intentionally separate from `APP_VERSION`, Git SHA, OCI image labels, image
 digest, CI run id, and `/version` build metadata.
@@ -47,7 +47,12 @@ compatibility semantics, or governed reproducibility behavior changes in a way t
 new calculation identity for the same economic input. Do not change it merely because the service is
 rebuilt, retagged, promoted across environments, or receives a non-methodology runtime patch.
 
-Version `v14` supersedes `v13` for Decimal cash-flow/FX request admission, exact same-date monetary
+Version `v15` supersedes `v14` for exact portfolio/position valuation-money admission, monetary
+cancellation before numerical return projection, and decimal-string TWR/Workspace/inspection
+evidence. `FLOAT64` remains a derived-return mode; it does not project source money. Consumers must
+qualify the changed monetary schema before rollout. Stored old responses remain unchanged.
+
+Version `v14` superseded `v13` for Decimal cash-flow/FX request admission, exact same-date monetary
 netting, Dietz capital arithmetic and bounded numerical-domain refusals. MWR cash-flow response
 amounts now serialize as decimal strings; returns remain numbers. Retained prior responses are not
 rewritten. See [monetary admission and migration](../standards/rounding-precision.md#monetary-request-admission).

@@ -17,6 +17,24 @@ from app.services.valuation_points_service import (
 from core.errors import APIError
 
 
+@pytest.mark.parametrize(
+    "timing,flow_type,index", [("bod", "external_flow", 0), ("eod", "external_flow", 1), ("eod", "fee", 2)]
+)
+@pytest.mark.parametrize(
+    "amounts",
+    [
+        ["100000000000000000000000000000000", "0.01", "-100000000000000000000000000000000"],
+        ["-100000000000000000000000000000000", "0.01", "100000000000000000000000000000000"],
+        ["100000000000000000000000000000000", "-100000000000000000000000000000000", "0.01"],
+    ],
+)
+def test_valuation_cashflow_totals_preserve_cents_independent_of_source_order(timing, flow_type, index, amounts):
+    flows = [{"amount": amount, "timing": timing, "cash_flow_type": flow_type} for amount in amounts]
+    expected = [Decimal("0"), Decimal("0"), Decimal("0")]
+    expected[index] = Decimal("0.01")
+    assert _valuation_cashflow_totals(flows) == tuple(expected)
+
+
 def test_portfolio_timeseries_to_valuation_points_preserves_fee_cashflows_as_mgmt_fees():
     points = portfolio_timeseries_to_valuation_points(
         observations=[

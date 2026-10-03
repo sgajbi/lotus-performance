@@ -51,7 +51,7 @@ def test_daily_input_data_rejects_non_finite_economic_values(field_name, non_fin
     }
     payload[field_name] = non_finite_value
 
-    with pytest.raises(ValidationError, match="finite number"):
+    with pytest.raises(ValidationError, match="Financial inputs must be finite"):
         DailyInputData.model_validate(payload)
 
 

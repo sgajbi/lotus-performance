@@ -75,6 +75,7 @@ from app.services.twr_service import calculate_twr_response
 from app.services.workspace_summary_service import calculate_workspace_summary
 from app.workers.lineage_worker import process_pending_calculation as process_pending_lineage_calculation
 from core.errors import APIError
+from core.monetary_input import validate_calculated_money_model
 from core.repro import generate_canonical_hash, generate_canonical_hash_from_value
 from engine.exceptions import EngineCalculationError, InvalidEngineInputError
 
@@ -717,7 +718,7 @@ def _execute_twr_job(job: ComputeJobRecord, context: _ComputeJobExecutionContext
         )
     else:
         input_fingerprint, calculation_hash = generate_canonical_hash(
-            TWRAnalyticsRequest.model_validate(job.request_payload),
+            request_artifact_model,
             calculation_engine_version(context.settings),
         )
     return context.twr_calculator(
@@ -1090,7 +1091,7 @@ def _resolved_async_contribution_job_request_from_payload(
     if not isinstance(resolved_request_payload, dict) or not isinstance(source_input_mode, str):
         return None
     return (
-        ContributionRequest.model_validate(resolved_request_payload),
+        validate_calculated_money_model(ContributionRequest, resolved_request_payload),
         ContributionInputMode(source_input_mode),
         payload.get("portfolio_base_currency") if isinstance(payload.get("portfolio_base_currency"), str) else None,
         (
@@ -1245,7 +1246,7 @@ def _resolve_persisted_twr_job_request(
     str,
     bool,
 ]:
-    resolved_request = TWRResolvedExecutionRequest.model_validate(resolved_request_payload)
+    resolved_request = validate_calculated_money_model(TWRResolvedExecutionRequest, resolved_request_payload)
     benchmark_input_mode = payload.get("benchmark_input_mode")
     resolved_benchmark_id = payload.get("resolved_benchmark_id")
     return (

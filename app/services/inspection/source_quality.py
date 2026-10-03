@@ -39,8 +39,8 @@ class StaleSeriesRun:
     start_date: str
     end_date: str
     observation_count: int
-    begin_mv: float
-    end_mv: float
+    begin_mv: Decimal
+    end_mv: Decimal
 
 
 @dataclass(frozen=True)
@@ -253,8 +253,8 @@ def _build_source_quality_artifact_payload(context: _SourceQualityEvidenceContex
                 "start_date": run.start_date,
                 "end_date": run.end_date,
                 "observation_count": run.observation_count,
-                "begin_mv": run.begin_mv,
-                "end_mv": run.end_mv,
+                "begin_mv": str(run.begin_mv),
+                "end_mv": str(run.end_mv),
             }
             for run in context.stale_runs[:_STALE_SAMPLE_LIMIT]
         ],
@@ -325,7 +325,7 @@ def _build_business_gap_findings(missing_business_dates: list[str]) -> list[TWRI
 def _find_stale_series_runs(valuation_points: list[DailyInputData]) -> list[StaleSeriesRun]:
     stale_runs: list[StaleSeriesRun] = []
     current_run: list[DailyInputData] = []
-    current_signature: tuple[float | Decimal, float | Decimal, float, float, float] | None = None
+    current_signature: tuple[Decimal, Decimal, Decimal, Decimal, Decimal] | None = None
 
     for point in valuation_points:
         signature = _stale_signature(point)
@@ -340,7 +340,7 @@ def _find_stale_series_runs(valuation_points: list[DailyInputData]) -> list[Stal
     return stale_runs
 
 
-def _stale_signature(point: DailyInputData) -> tuple[float | Decimal, float | Decimal, float, float, float]:
+def _stale_signature(point: DailyInputData) -> tuple[Decimal, Decimal, Decimal, Decimal, Decimal]:
     return (point.begin_mv, point.end_mv, point.bod_cf, point.eod_cf, point.mgmt_fees)
 
 
@@ -359,8 +359,8 @@ def _append_stale_run_if_needed(
             start_date=first.perf_date.isoformat(),
             end_date=run_points[-1].perf_date.isoformat(),
             observation_count=len(run_points),
-            begin_mv=float(first.begin_mv),  # monetary-float-allow: JSON evidence compatibility
-            end_mv=float(first.end_mv),  # monetary-float-allow: JSON evidence compatibility
+            begin_mv=first.begin_mv,
+            end_mv=first.end_mv,
         )
     )
 
@@ -387,8 +387,8 @@ def _build_stale_series_findings(stale_runs: list[StaleSeriesRun]) -> list[TWRIn
                         "start_date": run.start_date,
                         "end_date": run.end_date,
                         "observation_count": run.observation_count,
-                        "begin_mv": run.begin_mv,
-                        "end_mv": run.end_mv,
+                        "begin_mv": str(run.begin_mv),
+                        "end_mv": str(run.end_mv),
                     }
                     for run in stale_runs[:_STALE_SAMPLE_LIMIT]
                 ],
@@ -720,11 +720,9 @@ def _assess_daily_move_inputs(valuation_points: list[DailyInputData]) -> DailyMo
             invalid_capital_bases.append(
                 {
                     "perf_date": point.perf_date.isoformat(),
-                    "begin_mv": float(begin_mv),  # monetary-float-allow: JSON evidence compatibility
-                    "bod_cf": float(bod_cf),  # monetary-float-allow: JSON evidence compatibility
-                    "effective_capital_base": float(  # monetary-float-allow: JSON evidence compatibility
-                        denominator
-                    ),
+                    "begin_mv": str(begin_mv),
+                    "bod_cf": str(bod_cf),
+                    "effective_capital_base": str(denominator),
                 }
             )
             continue

@@ -135,7 +135,7 @@ def test_format_breakdowns_for_response_daily(sample_engine_outputs):
     assert PortfolioColumns.BEGIN_MV.value in nested_daily
 
 
-def test_performance_summary_retains_decimal_end_value_with_numeric_json_compatibility():
+def test_performance_summary_serializes_exact_money_and_numeric_returns():
     summary = PerformanceSummary.model_validate(
         {
             "begin_mv": 100,
@@ -146,7 +146,12 @@ def test_performance_summary_retains_decimal_end_value_with_numeric_json_compati
     )
 
     assert summary.end_mv == Decimal("10000000000000000.01")
-    assert isinstance(summary.model_dump(mode="json")["end_mv"], float)
+    serialized = summary.model_dump(mode="json")
+    assert serialized["end_mv"] == "10000000000000000.01"
+    assert serialized["begin_mv"] == "100"
+    assert serialized["net_cash_flow"] == "0"
+    assert serialized["period_return_pct"] == 1
+    assert isinstance(serialized["period_return_pct"], (int, float))
 
 
 def test_format_breakdowns_for_response_monthly(sample_engine_outputs):

@@ -8,7 +8,7 @@
       "openApiVersion": "3.1.0"
     }
   ],
-  "generatedAt": "2026-10-03T17:59:58.435106+00:00",
+  "generatedAt": "2026-10-03T20:36:48.727770+00:00",
   "attributeCatalog": [
     {
       "semanticId": "lotus.access_classification",
@@ -572,12 +572,11 @@
       "preferredName": "begin_mv",
       "description": "The market value of the portfolio at the beginning of the day, before any cash flows.",
       "example": 0.1234,
-      "type": "number",
+      "type": "object",
       "locations": [
         "body"
       ],
       "observedTypes": [
-        "number",
         "object"
       ]
     },
@@ -866,12 +865,12 @@
       "preferredName": "bod_cf",
       "description": "Cash flow occurring at the beginning of the day (before trading). Positive for inflows, negative for outflows.",
       "example": 0.1234,
-      "type": "number",
+      "type": "object",
       "locations": [
         "body"
       ],
       "observedTypes": [
-        "number"
+        "object"
       ]
     },
     {
@@ -2403,12 +2402,11 @@
       "preferredName": "end_mv",
       "description": "The market value of the portfolio at the end of the day.",
       "example": 0.1234,
-      "type": "number",
+      "type": "object",
       "locations": [
         "body"
       ],
       "observedTypes": [
-        "number",
         "object"
       ]
     },
@@ -2470,12 +2468,12 @@
       "preferredName": "eod_cf",
       "description": "Cash flow occurring at the end of the day (after trading). Positive for inflows, negative for outflows.",
       "example": 0.1234,
-      "type": "number",
+      "type": "object",
       "locations": [
         "body"
       ],
       "observedTypes": [
-        "number"
+        "object"
       ]
     },
     {
@@ -4368,11 +4366,11 @@
                 "valuation_points": [
                   {
                     "perf_date": "2026-02-27",
-                    "begin_mv": 0.1234,
-                    "bod_cf": 0.1234,
-                    "eod_cf": 0.1234,
-                    "mgmt_fees": 0.1234,
-                    "end_mv": 0.1234
+                    "begin_mv": "example_begin_mv",
+                    "bod_cf": "example_bod_cf",
+                    "eod_cf": "example_eod_cf",
+                    "mgmt_fees": "example_mgmt_fees",
+                    "end_mv": "example_end_mv"
                   }
                 ],
                 "currency": "USD",
@@ -4754,12 +4752,12 @@
       "preferredName": "mgmt_fees",
       "description": "Management or other fees charged for the day. Should be a negative value to reduce performance.",
       "example": 0.1234,
-      "type": "number",
+      "type": "object",
       "locations": [
         "body"
       ],
       "observedTypes": [
-        "number"
+        "object"
       ]
     },
     {
@@ -7813,11 +7811,11 @@
             "valuation_points": [
               {
                 "perf_date": "2026-02-27",
-                "begin_mv": 0.1234,
-                "bod_cf": 0.1234,
-                "eod_cf": 0.1234,
-                "mgmt_fees": 0.1234,
-                "end_mv": 0.1234
+                "begin_mv": "example_begin_mv",
+                "bod_cf": "example_bod_cf",
+                "eod_cf": "example_eod_cf",
+                "mgmt_fees": "example_mgmt_fees",
+                "end_mv": "example_end_mv"
               }
             ],
             "currency": "USD",
@@ -10386,7 +10384,7 @@
             "name": "valuation_points[].begin_mv",
             "location": "body",
             "required": true,
-            "type": "number",
+            "type": "object",
             "semanticId": "lotus.begin_mv",
             "attributeRef": "#/attributeCatalog/lotus.begin_mv"
           },
@@ -10394,7 +10392,7 @@
             "name": "valuation_points[].bod_cf",
             "location": "body",
             "required": false,
-            "type": "number",
+            "type": "object",
             "semanticId": "lotus.bod_cf",
             "attributeRef": "#/attributeCatalog/lotus.bod_cf"
           },
@@ -10402,7 +10400,7 @@
             "name": "valuation_points[].eod_cf",
             "location": "body",
             "required": false,
-            "type": "number",
+            "type": "object",
             "semanticId": "lotus.eod_cf",
             "attributeRef": "#/attributeCatalog/lotus.eod_cf"
           },
@@ -10410,7 +10408,7 @@
             "name": "valuation_points[].mgmt_fees",
             "location": "body",
             "required": false,
-            "type": "number",
+            "type": "object",
             "semanticId": "lotus.mgmt_fees",
             "attributeRef": "#/attributeCatalog/lotus.mgmt_fees"
           },
@@ -10418,7 +10416,7 @@
             "name": "valuation_points[].end_mv",
             "location": "body",
             "required": true,
-            "type": "number",
+            "type": "object",
             "semanticId": "lotus.end_mv",
             "attributeRef": "#/attributeCatalog/lotus.end_mv"
           },
@@ -10774,7 +10772,7 @@
             "name": "valuation_points[].begin_mv",
             "location": "body",
             "required": true,
-            "type": "number",
+            "type": "object",
             "semanticId": "lotus.begin_mv",
             "attributeRef": "#/attributeCatalog/lotus.begin_mv"
           },
@@ -10782,7 +10780,7 @@
             "name": "valuation_points[].bod_cf",
             "location": "body",
             "required": false,
-            "type": "number",
+            "type": "object",
             "semanticId": "lotus.bod_cf",
             "attributeRef": "#/attributeCatalog/lotus.bod_cf"
           },
@@ -10790,7 +10788,7 @@
             "name": "valuation_points[].eod_cf",
             "location": "body",
             "required": false,
-            "type": "number",
+            "type": "object",
             "semanticId": "lotus.eod_cf",
             "attributeRef": "#/attributeCatalog/lotus.eod_cf"
           },
@@ -10798,7 +10796,7 @@
             "name": "valuation_points[].mgmt_fees",
             "location": "body",
             "required": false,
-            "type": "number",
+            "type": "object",
             "semanticId": "lotus.mgmt_fees",
             "attributeRef": "#/attributeCatalog/lotus.mgmt_fees"
           },
@@ -10806,7 +10804,7 @@
             "name": "valuation_points[].end_mv",
             "location": "body",
             "required": true,
-            "type": "number",
+            "type": "object",
             "semanticId": "lotus.end_mv",
             "attributeRef": "#/attributeCatalog/lotus.end_mv"
           },

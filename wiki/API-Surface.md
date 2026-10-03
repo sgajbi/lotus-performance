@@ -44,13 +44,20 @@ calculation after independent acceptance.
 
 ### Financial Input Representation
 
-Use decimal strings for exact MWR market values, cash-flow amounts and supplied FX rates.
+Use decimal strings for exact portfolio/position valuations, cash-flow amounts, fees and supplied FX rates.
 Ordinary numeric requests remain compatible within admitted limits; they cannot recover digits
-already lost by a client or JSON numeric projection. MWR emitted cash-flow amounts serialize as
-strings; numerical return fields remain numbers. Dietz preserves Decimal capital arithmetic;
+already lost by a client or JSON numeric projection. MWR cash-flow amounts, TWR monetary evidence,
+Workspace economics and inspection money serialize as strings; numerical returns remain numbers.
+Raw money requests retain the eight-fractional-digit limit. Core-calculated money preserves its
+finite source precision through internal admission and restoration; callers cannot enable that
+policy. Malformed calculated model evidence returns typed 422, not an unhandled server error.
+Both return modes retain monetary cancellation before ratio projection. Dietz preserves Decimal capital arithmetic;
 XIRR retains a finite float64 root-solver boundary. Neither this contract nor `FLOAT64` establishes
 an arbitrary-precision solver claim. See the [rounding and admission standard](https://github.com/sgajbi/lotus-performance/blob/main/docs/standards/rounding-precision.md)
 for scales, refusals and replay implications.
+
+Identity v15 changes the served monetary schema. Qualify consumer string handling before rollout;
+retained prior results keep their original representation. Producer CI is not consumer acceptance.
 
 ### Supported Routes
 

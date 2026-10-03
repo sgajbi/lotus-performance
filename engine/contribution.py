@@ -4,11 +4,10 @@ from datetime import date as dt_date
 from decimal import Decimal
 from typing import Any, Dict, Iterator, Mapping, Protocol, Sequence, Tuple
 
-import numpy as np
 import pandas as pd
 
 from common.enums import WeightingScheme
-from engine.config import EndingValueBasis, EngineConfig, PrecisionMode
+from engine.config import EndingValueBasis, EngineConfig
 from engine.contribution_fee_basis import contribution_data_policy_for_entity
 from engine.contribution_smoothing import (
     ContributionSmoothingLike,
@@ -18,7 +17,8 @@ from engine.contribution_smoothing import (
     apply_contribution_smoothing,
 )
 from engine.diagnostics import EngineDiagnostics
-from engine.numerical_boundary import finite_float64_projection, monetary_arithmetic_context
+from engine.monetary_weights import add_monetary_series, calculate_monetary_weights
+from engine.numerical_boundary import monetary_arithmetic_context
 from engine.ror import _local_daily_return_numerator
 from engine.runtime import run_engine_for_valuation_points_with_diagnostics
 from engine.schema import PortfolioColumns, is_reserved_contribution_dimension
@@ -171,13 +171,15 @@ def _calculate_daily_instrument_contributions(
     )
 
     if weighting_scheme == WeightingScheme.BOD:
-        df["capital_inst"] = df[PortfolioColumns.BEGIN_MV.value] + df[PortfolioColumns.BOD_CF.value]
-        df["capital_port"] = df[f"{PortfolioColumns.BEGIN_MV.value}_port"] + df[f"{PortfolioColumns.BOD_CF.value}_port"]
+        df["capital_inst"] = add_monetary_series(df[PortfolioColumns.BEGIN_MV.value], df[PortfolioColumns.BOD_CF.value])
+        df["capital_port"] = add_monetary_series(
+            df[f"{PortfolioColumns.BEGIN_MV.value}_port"], df[f"{PortfolioColumns.BOD_CF.value}_port"]
+        )
 
-    decimal_mode = _series_uses_decimal(df["capital_inst"]) or _series_uses_decimal(df["capital_port"])
+    decimal_mode = _series_uses_decimal(df[PortfolioColumns.DAILY_ROR.value])
     zero = Decimal(0) if decimal_mode else 0.0
     hundred = Decimal(100) if decimal_mode else 100.0
-    df["daily_weight"] = _safe_daily_weight(
+    df["daily_weight"] = calculate_monetary_weights(
         df["capital_inst"],
         df["capital_port"],
         decimal_mode=decimal_mode,
@@ -210,7 +212,9 @@ def _retain_zero_capital_contribution(df: pd.DataFrame, *, decimal_mode: bool) -
         ("raw_local_contribution", "_contribution_local_pnl"),
         ("raw_contribution", "_contribution_base_pnl"),
     ):
-        monetary_contribution = _safe_daily_weight(df[pnl_column], df["capital_port"], decimal_mode=decimal_mode)
+        monetary_contribution = calculate_monetary_weights(
+            df[pnl_column], df["capital_port"], decimal_mode=decimal_mode
+        )
         df.loc[zero_capital, contribution_column] = monetary_contribution.loc[zero_capital]
     df.loc[zero_capital, "raw_fx_contribution"] = (
         df.loc[zero_capital, "raw_contribution"] - df.loc[zero_capital, "raw_local_contribution"]
@@ -219,27 +223,6 @@ def _retain_zero_capital_contribution(df: pd.DataFrame, *, decimal_mode: bool) -
 
 def _series_uses_decimal(series: pd.Series) -> bool:
     return any(isinstance(value, Decimal) for value in series if pd.notna(value))
-
-
-def _safe_daily_weight(
-    numerator: pd.Series,
-    denominator: pd.Series,
-    *,
-    decimal_mode: bool,
-) -> pd.Series:
-    zero = Decimal(0) if decimal_mode else 0.0
-    if decimal_mode:
-        return pd.Series(
-            [
-                zero if pd.isna(amount) or pd.isna(value) or value == zero else amount / value
-                for amount, value in zip(numerator, denominator, strict=True)
-            ],
-            index=numerator.index,
-            dtype=object,
-        )
-    with np.errstate(divide="ignore", invalid="ignore"):
-        daily_weight = numerator / denominator
-    return daily_weight.replace([np.inf, -np.inf], np.nan).fillna(zero)
 
 
 def _numeric_column_or_zero(
@@ -376,14 +359,13 @@ def _build_position_contribution_results_frame(
     position_results_df["_contribution_local_pnl"] = _local_daily_return_numerator(
         position_results_df,
         request.portfolio_data.metric_basis,
-        is_decimal_mode=request.precision_mode == PrecisionMode.DECIMAL_STRICT,
+        is_decimal_mode=position_results_df[PortfolioColumns.BEGIN_MV.value].dtype == "object",
     )
     before_effective_start = (
         position_results_df[PortfolioColumns.PERF_DATE.value]
         < position_results_df[PortfolioColumns.EFFECTIVE_PERIOD_START_DATE.value]
     )
-    zero = Decimal(0) if request.precision_mode == PrecisionMode.DECIMAL_STRICT else 0.0
-    position_results_df.loc[before_effective_start, "_contribution_local_pnl"] = zero
+    position_results_df.loc[before_effective_start, "_contribution_local_pnl"] = Decimal(0)
     position_results_df["_contribution_base_pnl"] = position_results_df["_contribution_local_pnl"]
     position_results_df["position_id"] = position.position_id
     for key, value in position.meta.items():
@@ -449,13 +431,10 @@ def _apply_position_fx_capital_conversion(
         amounts = converted_df[col].map(lambda value: Decimal(str(value)))
         with monetary_arithmetic_context([*amounts, *conversion_rates], products=True):
             converted_df[col] = amounts * conversion_rates
-        if request.precision_mode != PrecisionMode.DECIMAL_STRICT:
-            converted_df[col] = converted_df[col].map(finite_float64_projection)
     if "_contribution_local_pnl" in converted_df.columns:
-        hundred = Decimal(100) if request.precision_mode == PrecisionMode.DECIMAL_STRICT else 100.0
-        converted_df["_contribution_base_pnl"] = converted_df["_contribution_local_pnl"] * (
-            1 + converted_df["fx_ror"] / hundred
-        )
+        fx_ratios = converted_df["fx_ror"].map(lambda value: Decimal(str(value))) / Decimal(100)
+        with monetary_arithmetic_context([*converted_df["_contribution_local_pnl"], *fx_ratios], products=True):
+            converted_df["_contribution_base_pnl"] = converted_df["_contribution_local_pnl"] * (1 + fx_ratios)
     return converted_df
 
 

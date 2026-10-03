@@ -28,6 +28,7 @@ from app.services.core_tenant_authority import admitted_tenant_authority, requir
 from app.services.execution_registry import ExecutionRecord, ExecutionStatus, execution_registry
 from app.services.reproducibility_service import generate_value_fingerprint
 from common.enums import Frequency
+from core.monetary_input import validate_calculated_money_model
 
 
 def member_outcome(portfolio_id: str, *, code: str, retryable: bool = False) -> CompositeMemberMaterializationOutcome:
@@ -159,7 +160,7 @@ def _retained_source_evidence(
     assets = PortfolioSourceAssetEvidence.model_validate(payload.get("source_asset_evidence"))
     retained_assets = _source_asset_window(command, assets)
     asset_fingerprint, _ = generate_value_fingerprint(retained_assets, "portfolio-source-assets.v1")
-    retained_request = TWRResolvedExecutionRequest.model_validate(payload.get("resolved_request"))
+    retained_request = validate_calculated_money_model(TWRResolvedExecutionRequest, payload.get("resolved_request"))
     if generate_value_fingerprint(retained_request, response.meta.engine_version) != (
         response.meta.input_fingerprint,
         response.meta.calculation_hash,

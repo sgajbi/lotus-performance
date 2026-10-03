@@ -8,7 +8,7 @@ from pydantic import ValidationError
 
 from app.models.mwr_requests import CashFlow, MoneyWeightedReturnRequest
 from core.envelope import Annualization, FXRate
-from engine.mwr import _compounded_percentage_return, calculate_money_weighted_return
+from engine.mwr import _compounded_percentage_return, _xirr, calculate_money_weighted_return
 from engine.numerical_boundary import finite_float64_projection, monetary_arithmetic_context
 
 
@@ -28,6 +28,13 @@ def test_mwr_schedule_retains_exact_decimal_money():
     assert isinstance(request.cash_flows[0].amount, Decimal)
     assert request.end_mv - request.begin_mv - request.cash_flows[0].amount == Decimal("0.01")
     assert request.model_dump(mode="json")["cash_flows"][0]["amount"] == "9007199254740993.01"
+
+
+def test_xirr_refuses_overflowing_gross_solver_scale_from_finite_coefficients():
+    import numpy as np
+
+    with pytest.raises(ValueError, match="finite float64 numerical domain"):
+        _xirr(np.array([-1e308, 1e308]), np.array([date(2025, 1, 1), date(2026, 1, 1)]))
 
 
 def test_fx_request_preserves_exact_admitted_rate():
