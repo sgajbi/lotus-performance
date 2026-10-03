@@ -15,22 +15,35 @@ class NumericalDomainError(InvalidEngineInputError, ValueError):
 @contextmanager
 def monetary_arithmetic_context(values: Sequence[Decimal], *, products: bool = False) -> Iterator[Context]:
     """Retain sums or pairwise products without unbounded exponent allocation."""
+    precision = _required_monetary_precision(values, products=products)
+    with localcontext() as context:
+        context.prec = max(context.prec, precision)
+        yield context
+
+
+def _required_monetary_precision(values: Sequence[Decimal], *, products: bool) -> int:
+    """Validate representation bounds separately from the arithmetic context lifetime."""
     if any(not value.is_finite() for value in values):
         raise NumericalDomainError("Monetary arithmetic requires finite inputs.")
-    integer_digits = max((max(1, value.adjusted() + 1) for value in values), default=1)
-    fractional_digits = max((max(0, -int(value.as_tuple().exponent)) for value in values), default=0)
+    # Decimal equality drops trailing-zero/exponent distinctions, including an
+    # otherwise refused extreme-exponent zero. Deduplicate exact representations,
+    # not equivalent amounts; count every observation for carry space.
+    distinct_values = [Decimal(text) for text in set(map(str, values))]
+    integer_digits = max((max(1, value.adjusted() + 1) for value in distinct_values), default=1)
+    fractional_digits = max((max(0, -int(value.as_tuple().exponent)) for value in distinct_values), default=0)
     precision = integer_digits + fractional_digits
     if products:
         # A pairwise product can require both full coefficients, not just the
         # larger input's span. Reserve this before any Decimal multiplication.
-        coefficient_digits = max((len(value.as_tuple().digits) for value in values), default=1)
-        precision = max(precision, 2 * coefficient_digits)
+        precision = max(precision, _product_coefficient_precision(distinct_values))
     precision += len(str(len(values))) + 16
     if precision > 4096:
         raise NumericalDomainError("Financial inputs exceed the bounded Decimal arithmetic domain.")
-    with localcontext() as context:
-        context.prec = max(context.prec, precision)
-        yield context
+    return precision
+
+
+def _product_coefficient_precision(values: Sequence[Decimal]) -> int:
+    return 2 * max((len(value.as_tuple().digits) for value in values), default=1)
 
 
 def finite_float64_projection(value: Decimal) -> float:

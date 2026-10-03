@@ -646,7 +646,9 @@ def _xirr(
     annualization = annualization or Annualization(enabled=False, basis="ACT/365")
     calendar = calendar or Calendar()
     values, dates = _net_same_day_flows(list(values), list(dates))
-    gross_cash_flow_scale = float(np.sum(np.abs(values)))
+    with np.errstate(over="ignore"):
+        gross_cash_flow_scale = float(np.sum(np.abs(values)))
+    finite_float64_projection(Decimal(str(gross_cash_flow_scale)))
     anchor_date = dates.min() if len(dates) else None
     base_convergence = _build_xirr_base_convergence(
         annualization=annualization,

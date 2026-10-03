@@ -53,8 +53,8 @@ def test_source_quality_evidence_builders_project_summary_and_artifacts():
             "start_date": "2026-04-01",
             "end_date": "2026-04-03",
             "observation_count": 3,
-            "begin_mv": 1000.0,
-            "end_mv": 1000.0,
+            "begin_mv": "1000.0",
+            "end_mv": "1000.0",
         }
     ]
     assert artifact["mandate_daily_move_profile"] == "canonical_balanced_private_banking"
@@ -147,8 +147,8 @@ def test_run_source_quality_checks_flags_stale_valuation_series():
             "start_date": "2026-04-01",
             "end_date": "2026-04-03",
             "observation_count": 3,
-            "begin_mv": 1000.0,
-            "end_mv": 1000.0,
+            "begin_mv": "1000.0",
+            "end_mv": "1000.0",
         }
     ]
     assert result.artifact_payload["stale_series_run_count"] == 1
@@ -248,9 +248,9 @@ def test_run_source_quality_checks_flags_nonpositive_daily_capital_base():
     assert result.artifact_payload["nonpositive_capital_base_samples"] == [
         {
             "perf_date": "2026-04-10",
-            "begin_mv": 100.0,
-            "bod_cf": -100.0,
-            "effective_capital_base": 0.0,
+            "begin_mv": "100.0",
+            "bod_cf": "-100.0",
+            "effective_capital_base": "0.0",
         }
     ]
     json.dumps(result.artifact_payload)

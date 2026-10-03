@@ -1,11 +1,11 @@
 # app/models/requests.py
 from datetime import date
+from decimal import Decimal
 from typing import List, Literal, Optional
 from uuid import UUID, uuid4
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
-from app.models.numeric_types import ExactDecimalInput
 from app.models.request_window_validation import validate_ordered_explicit_window
 from common.enums import Frequency, PeriodType, canonical_performance_period_code
 from core.envelope import (
@@ -17,6 +17,7 @@ from core.envelope import (
     HedgingRequestBlock,
     Output,
 )
+from core.monetary_input import MoneyInput
 from core.valuation_observation_admission import admit_valuation_observations
 
 
@@ -24,22 +25,22 @@ class DailyInputData(BaseModel):
     model_config = ConfigDict(extra="forbid", allow_inf_nan=False)
 
     perf_date: date = Field(..., description="The specific date of the observation in YYYY-MM-DD format.")
-    begin_mv: float = Field(
+    begin_mv: MoneyInput = Field(
         ..., description="The market value of the portfolio at the beginning of the day, before any cash flows."
     )
-    bod_cf: float = Field(
-        0.0,
+    bod_cf: MoneyInput = Field(
+        Decimal(0),
         description="Cash flow occurring at the beginning of the day (before trading). Positive for inflows, negative for outflows.",
     )
-    eod_cf: float = Field(
-        0.0,
+    eod_cf: MoneyInput = Field(
+        Decimal(0),
         description="Cash flow occurring at the end of the day (after trading). Positive for inflows, negative for outflows.",
     )
-    mgmt_fees: float = Field(
-        0.0,
+    mgmt_fees: MoneyInput = Field(
+        Decimal(0),
         description="Management or other fees charged for the day. Should be a negative value to reduce performance.",
     )
-    end_mv: ExactDecimalInput = Field(
+    end_mv: MoneyInput = Field(
         ...,
         allow_inf_nan=False,
         description="The market value of the portfolio at the end of the day.",

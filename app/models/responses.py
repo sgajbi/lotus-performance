@@ -1,5 +1,6 @@
 # app/models/responses.py
 from datetime import date as dt_date
+from decimal import Decimal
 from typing import Dict, List, Literal, Optional
 from uuid import UUID
 
@@ -7,7 +8,6 @@ from pydantic import BaseModel, ConfigDict, Field
 
 from app.core.async_polling import DEFAULT_RECOMMENDED_POLL_AFTER_SECONDS
 from app.models.currency_evidence import AppliedCurrencyEvidence
-from app.models.numeric_types import MonetaryJSONNumber
 from app.models.twr_requests import TWRInputMode
 from common.enums import Frequency
 from core.envelope import Audit, Diagnostics, Meta
@@ -16,17 +16,17 @@ from core.envelope import Audit, Diagnostics, Meta
 class PerformanceSummary(BaseModel):
     """A summary of performance for a given period (day, month, etc.)."""
 
-    begin_mv: float = Field(
-        description="Beginning market value for the bucket in reporting currency.", examples=[1000000.0]
+    begin_mv: Decimal = Field(
+        description="Beginning market value for the bucket in reporting currency.", examples=["1000000.0"]
     )
-    end_mv: MonetaryJSONNumber = Field(
+    end_mv: Decimal = Field(
         allow_inf_nan=False,
         description="Ending market value for the bucket in reporting currency.",
-        examples=[1012500.0],
+        examples=["1012500.0"],
     )
-    net_cash_flow: float = Field(
+    net_cash_flow: Decimal = Field(
         description="Net external cash flow for the bucket in reporting currency.",
-        examples=[25000.0],
+        examples=["25000.0"],
     )
     period_return_pct: float = Field(  # monetary-float-allow: percentage-point return, not money
         description="Bucket return in percentage-point output units. Example: 1.25 means 1.25%, not 125%.",
@@ -138,40 +138,40 @@ class TWRDailyCalculationEvidence(BaseModel):
         ),
         examples=["bod_flows_in_denominator_eod_flows_excluded_from_denominator"],
     )
-    begin_mv: NumericOutput = Field(
+    begin_mv: Decimal = Field(
         description="Beginning market value used for the daily return calculation.",
-        examples=[1000000.0],
+        examples=["1000000.0"],
     )
-    end_mv: NumericOutput = Field(
-        description="Ending market value used for the daily return calculation.", examples=[1012500.0]
+    end_mv: Decimal = Field(
+        description="Ending market value used for the daily return calculation.", examples=["1012500.0"]
     )
-    bod_cf: NumericOutput = Field(description="Beginning-of-day external cash flow.", examples=[25000.0])
-    eod_cf: NumericOutput = Field(description="End-of-day external cash flow.", examples=[-10000.0])
-    external_inflows: NumericOutput = Field(
+    bod_cf: Decimal = Field(description="Beginning-of-day external cash flow.", examples=["25000.0"])
+    eod_cf: Decimal = Field(description="End-of-day external cash flow.", examples=["-10000.0"])
+    external_inflows: Decimal = Field(
         description="Positive external cash flows for the day across beginning-of-day and end-of-day flows.",
-        examples=[25000.0],
+        examples=["25000.0"],
     )
-    external_outflows: NumericOutput = Field(
+    external_outflows: Decimal = Field(
         description="Absolute value of negative external cash flows for the day across beginning-of-day and end-of-day flows.",
-        examples=[10000.0],
+        examples=["10000.0"],
     )
-    management_fees: NumericOutput = Field(
+    management_fees: Decimal = Field(
         description="Management fees included in performance P&L for NET calculations.",
-        examples=[125.0],
+        examples=["125.0"],
     )
-    signed_adjusted_capital: NumericOutput = Field(
+    signed_adjusted_capital: Decimal = Field(
         description="Beginning market value plus beginning-of-day flow before applying the absolute denominator policy.",
-        examples=[1025000.0],
+        examples=["1025000.0"],
     )
-    adjusted_capital: NumericOutput = Field(
+    adjusted_capital: Decimal = Field(
         description="Absolute beginning market value plus beginning-of-day flow denominator used for the daily return.",
-        examples=[1025000.0],
+        examples=["1025000.0"],
     )
-    performance_pnl: NumericOutput = Field(
+    performance_pnl: Decimal = Field(
         description=(
             "Flow-neutralized performance P&L numerator in portfolio currency used to derive local_daily_return."
         ),
-        examples=[12500.0],
+        examples=["12500.0"],
     )
     portfolio_currency: str | None = Field(
         default=None,

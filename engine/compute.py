@@ -6,14 +6,16 @@ from typing import Tuple
 import numpy as np
 import pandas as pd
 
+from core.valuation_observation_admission import ValuationObservationAdmissionError, finite_decimal_value
 from engine.config import EndingValueBasis, EngineConfig, PrecisionMode
 from engine.contribution_fee_basis import normalize_after_fee_ending_values
 from engine.diagnostics import EngineDiagnostics, EngineResetEvent, MethodologyShadowSample
 from engine.exceptions import EngineCalculationError, InvalidEngineInputError
+from engine.numerical_boundary import monetary_arithmetic_context
 from engine.periods import get_effective_period_start_dates
 from engine.policies import _flag_outliers, apply_robustness_policies
 from engine.ror import calculate_cumulative_ror, calculate_daily_ror
-from engine.rules import calculate_initial_sign, calculate_nip, calculate_nip_variants, calculate_sign
+from engine.rules import calculate_initial_sign, calculate_nip_variants, calculate_sign
 from engine.schema import PortfolioColumns
 
 logger = logging.getLogger(__name__)
@@ -41,37 +43,9 @@ def run_calculations(df: pd.DataFrame, config: EngineConfig) -> Tuple[pd.DataFra
         _prepare_dataframe(working_df, config)
 
         working_df, policy_diagnostics = apply_robustness_policies(working_df, config.data_policy)
-        _coerce_engine_numeric_columns(working_df, config)
-        if config.ending_value_basis == EndingValueBasis.AFTER_FEES:
-            normalize_after_fee_ending_values(working_df, config.precision_mode)
-        _attach_effective_period_and_daily_returns(working_df, config)
-        _apply_data_policy_outlier_flags(working_df, config, policy_diagnostics)
-
-        working_df[PortfolioColumns.SIGN.value] = calculate_sign(working_df)
-        nip_v1, nip_v2 = calculate_nip_variants(working_df)
-        working_df["nip_rule_v1_shadow"] = nip_v1
-        working_df["nip_rule_v2_shadow"] = nip_v2
-        working_df["initial_sign_shadow"] = calculate_initial_sign(working_df)
-        working_df[PortfolioColumns.NIP.value] = calculate_nip(working_df, config)
-
-        calculate_cumulative_ror(working_df, config)
-
-        working_df[PortfolioColumns.LONG_SHORT.value] = np.select(
-            [working_df[PortfolioColumns.SIGN.value] == -1, working_df[PortfolioColumns.SIGN.value] == 1],
-            ["S", "L"],
-            default="N",
-        )
-
-        reset_events = _build_reset_events(working_df)
-
-        final_df = _build_reporting_results(working_df, config)
-
-        diagnostics = _build_engine_diagnostics(
-            working_df=working_df,
-            final_df=final_df,
-            policy_diagnostics=policy_diagnostics,
-            reset_events=reset_events,
-        )
+        if config.data_policy:
+            _coerce_engine_numeric_columns(working_df, config)
+        final_df, diagnostics = _calculate_monetary_frame(working_df, config, policy_diagnostics)
 
     except InvalidEngineInputError:
         raise
@@ -81,6 +55,45 @@ def run_calculations(df: pd.DataFrame, config: EngineConfig) -> Tuple[pd.DataFra
 
     logger.info("Performance engine calculation complete.")
     return final_df, diagnostics
+
+
+def _calculate_monetary_frame(
+    working_df: pd.DataFrame, config: EngineConfig, policy_diagnostics: EngineDiagnostics
+) -> Tuple[pd.DataFrame, EngineDiagnostics]:
+    monetary_values = [value for col in _engine_numeric_column_names()[1:6] for value in working_df[col]]
+    with monetary_arithmetic_context(monetary_values, products=True):
+        if config.ending_value_basis == EndingValueBasis.AFTER_FEES:
+            normalize_after_fee_ending_values(working_df, config.precision_mode)
+        retained_money = _use_exact_integer_monetary_workspace(working_df, config)
+        final_df, diagnostics = _calculate_prepared_valuation_frame(working_df, config, policy_diagnostics)
+        for column, values in retained_money.items():
+            final_df[column] = values.reindex(final_df.index)
+    return final_df, diagnostics
+
+
+def _calculate_prepared_valuation_frame(
+    working_df: pd.DataFrame, config: EngineConfig, policy_diagnostics: EngineDiagnostics
+) -> Tuple[pd.DataFrame, EngineDiagnostics]:
+    _attach_effective_period_and_daily_returns(working_df, config)
+    _apply_data_policy_outlier_flags(working_df, config, policy_diagnostics)
+
+    working_df[PortfolioColumns.SIGN.value] = calculate_sign(working_df)
+    nip_v1, nip_v2 = calculate_nip_variants(working_df)
+    working_df["nip_rule_v1_shadow"] = nip_v1
+    working_df["nip_rule_v2_shadow"] = nip_v2
+    working_df["initial_sign_shadow"] = calculate_initial_sign(working_df)
+    working_df[PortfolioColumns.NIP.value] = nip_v2 if config.feature_flags.use_nip_v2_rule else nip_v1
+    calculate_cumulative_ror(working_df, config)
+    working_df[PortfolioColumns.LONG_SHORT.value] = np.select(
+        [working_df[PortfolioColumns.SIGN.value] == -1, working_df[PortfolioColumns.SIGN.value] == 1],
+        ["S", "L"],
+        default="N",
+    )
+    reset_events = _build_reset_events(working_df)
+    final_df = _build_reporting_results(working_df, config)
+    return final_df, _build_engine_diagnostics(
+        working_df=working_df, final_df=final_df, policy_diagnostics=policy_diagnostics, reset_events=reset_events
+    )
 
 
 def _attach_effective_period_and_daily_returns(working_df: pd.DataFrame, config: EngineConfig) -> None:
@@ -190,19 +203,22 @@ def _ensure_engine_schema_columns(df: pd.DataFrame, config: EngineConfig) -> Non
     for col in PortfolioColumns:
         if col.value in df.columns or col.value in _ENGINE_GENERATED_COLUMNS:
             continue
-        df[col.value] = default_value
+        df[col.value] = Decimal(0) if col.value in _engine_numeric_column_names()[1:6] else default_value
     df[PortfolioColumns.PERF_RESET.value] = 0
     df[PortfolioColumns.LONG_SHORT.value] = ""
 
 
 def _coerce_engine_numeric_columns(df: pd.DataFrame, config: EngineConfig) -> None:
     numeric_cols = _engine_numeric_column_names()
-
+    # Monetary observations are evidence, not numerical return coefficients.
+    # FLOAT64 governs derived ratios/compounding, never cash-flow cancellation.
+    monetary_cols = numeric_cols[1:6]
+    _coerce_decimal_strict_numeric_columns(df, monetary_cols)
+    control_cols = (numeric_cols[0], numeric_cols[-1])
     if config.precision_mode == PrecisionMode.DECIMAL_STRICT:
-        _coerce_decimal_strict_numeric_columns(df, numeric_cols)
-        return
-
-    _coerce_standard_numeric_columns(df, numeric_cols)
+        _coerce_decimal_strict_numeric_columns(df, control_cols)
+    else:
+        _coerce_standard_numeric_columns(df, control_cols)
 
 
 def _engine_numeric_column_names() -> tuple[str, ...]:
@@ -220,13 +236,54 @@ def _engine_numeric_column_names() -> tuple[str, ...]:
 def _coerce_decimal_strict_numeric_columns(df: pd.DataFrame, numeric_cols: tuple[str, ...]) -> None:
     for col in numeric_cols:
         if col in df.columns:
-            df[col] = df[col].apply(lambda x: Decimal(str(x)) if pd.notna(x) else Decimal(0))
+            try:
+                df[col] = _finite_decimal_series(df[col], col)
+            except ValuationObservationAdmissionError as exc:
+                raise InvalidEngineInputError(str(exc)) from exc
+
+
+def _finite_decimal_series(series: pd.Series, field_name: str) -> pd.Series:
+    values = series.to_numpy(copy=False)
+    if all(isinstance(value, Decimal) for value in values):
+        if any(not value.is_finite() for value in values):
+            raise ValuationObservationAdmissionError(f"{field_name} must be a finite number")
+        return series
+    return series.apply(
+        lambda value: finite_decimal_value(value, field_name=field_name)
+        if isinstance(value, Decimal) or pd.notna(value)
+        else Decimal(0)
+    )
 
 
 def _coerce_standard_numeric_columns(df: pd.DataFrame, numeric_cols: tuple[str, ...]) -> None:
     for col in numeric_cols:
         if col in df.columns:
             df[col] = pd.to_numeric(df[col], errors="coerce").fillna(0.0)
+
+
+def _use_exact_integer_monetary_workspace(df: pd.DataFrame, config: EngineConfig) -> dict[str, pd.Series]:
+    """Use bounded integer arithmetic for whole amounts; retain original Decimal evidence.
+
+    Eightfold headroom covers every monetary sum/difference in the shared rules.
+    Fractional, large and strict-mode inputs stay on the Decimal path. No scaling
+    is used: the legacy NIP rule includes a unit-valued comparison.
+    """
+    if config.precision_mode == PrecisionMode.DECIMAL_STRICT:
+        return {}
+    columns = _engine_numeric_column_names()[1:6]
+    distinct = {value for column in columns for value in df[column]}
+    if not _fits_exact_integer_workspace(distinct):
+        return {}
+    retained = {column: df[column].copy() for column in columns}
+    integer_values = {value: int(value) for value in distinct}
+    for column in columns:
+        df[column] = df[column].map(integer_values).astype(np.int64)
+    return retained
+
+
+def _fits_exact_integer_workspace(values: set[Decimal]) -> bool:
+    limit = np.iinfo(np.int64).max // 8
+    return all(value == value.to_integral_value() and abs(value) <= limit for value in values)
 
 
 def _reset_reason_codes(row: pd.Series) -> list[str]:

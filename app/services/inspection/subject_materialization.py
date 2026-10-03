@@ -17,6 +17,7 @@ from app.services.async_result_store import async_result_store
 from app.services.compute_job_store import compute_job_store
 from app.services.durable_store_json import load_json_object_or_none, read_json_file
 from app.services.lineage_metadata_store import lineage_metadata_store
+from core.monetary_input import validate_calculated_money_model
 
 logger = logging.getLogger(__name__)
 
@@ -100,9 +101,9 @@ def extract_performance_request_from_payload(request_payload: dict | None) -> Pe
         return None
     resolved_payload = _resolved_request_payload_from_lineage_payload(request_payload)
     try:
-        resolved_request = TWRResolvedExecutionRequest.model_validate(resolved_payload)
+        resolved_request = validate_calculated_money_model(TWRResolvedExecutionRequest, resolved_payload)
         return resolved_request.portfolio
-    except ValidationError:
+    except (ValidationError, ValueError):
         pass
     try:
         analytics_request = TWRAnalyticsRequest.model_validate(request_payload)
@@ -120,8 +121,8 @@ def extract_resolved_execution_request_from_payload(
         return None
     resolved_payload = _resolved_request_payload_from_lineage_payload(request_payload)
     try:
-        return TWRResolvedExecutionRequest.model_validate(resolved_payload)
-    except ValidationError:
+        return validate_calculated_money_model(TWRResolvedExecutionRequest, resolved_payload)
+    except (ValidationError, ValueError):
         return None
 
 

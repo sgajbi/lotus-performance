@@ -1,12 +1,14 @@
 # engine/attribution.py
 from dataclasses import dataclass, replace
 from datetime import date as dt_date
+from decimal import Decimal
 from typing import Any, Dict, Mapping, Protocol, Sequence, Tuple, TypedDict
 
 import numpy as np
 import pandas as pd
 
 from common.enums import AttributionMode, AttributionModel, LinkingMethod
+from core.valuation_observation_admission import finite_decimal_value
 from engine.attribution_supportability import (
     build_attribution_supportability_evidence,
     classify_attribution_residual,
@@ -21,8 +23,10 @@ from engine.attribution_types import (
     Reconciliation,
     SinglePeriodAttributionResult,
 )
-from engine.config import EngineConfig
+from engine.config import EngineConfig, PrecisionMode
 from engine.dataframe import create_engine_dataframe_from_valuation_points
+from engine.monetary_weights import add_monetary_series, calculate_monetary_weights
+from engine.numerical_boundary import monetary_arithmetic_context
 from engine.runtime import run_engine_for_valuation_points
 from engine.schema import PortfolioColumns
 
@@ -139,7 +143,7 @@ class _CurrencyAttributionProjection:
 
 class _BaseWeightRecord(TypedDict):
     date: pd.Timestamp
-    capital: float
+    capital: Decimal
 
 
 def _calculate_linked_return(return_series: pd.Series) -> float:
@@ -264,7 +268,9 @@ def _prepare_data_from_instruments(request: AttributionRequestLike) -> list[Attr
     )
     portfolio_df[PortfolioColumns.PERF_DATE.value] = pd.to_datetime(portfolio_df[PortfolioColumns.PERF_DATE.value])
     portfolio_df = portfolio_df.set_index(PortfolioColumns.PERF_DATE.value)
-    portfolio_bop_mv = portfolio_df[PortfolioColumns.BEGIN_MV.value] + portfolio_df[PortfolioColumns.BOD_CF.value]
+    portfolio_bop_mv = add_monetary_series(
+        portfolio_df[PortfolioColumns.BEGIN_MV.value], portfolio_df[PortfolioColumns.BOD_CF.value]
+    )
 
     all_instruments = _instrument_attribution_panels(
         request=request,
@@ -326,9 +332,11 @@ def _build_instrument_attribution_panel(
     inst_results = inst_results.set_index(PortfolioColumns.PERF_DATE.value)
 
     inst_bop_mv = _instrument_bop_mv_series(inst_results, inst.meta)
-    with np.errstate(divide="ignore", invalid="ignore"):
-        weight_bop = inst_bop_mv / portfolio_bop_mv
-    inst_results["weight_bop"] = weight_bop.replace([np.inf, -np.inf], np.nan).fillna(0.0)
+    inst_results["weight_bop"] = calculate_monetary_weights(
+        inst_bop_mv,
+        portfolio_bop_mv,
+        decimal_mode=twr_config.precision_mode == PrecisionMode.DECIMAL_STRICT,
+    )
 
     _normalize_instrument_return_columns(
         inst_results,
@@ -346,7 +354,9 @@ def _instrument_bop_mv_series(inst_results: pd.DataFrame, meta: Mapping[str, Any
     base_weight_series = _build_base_weight_series(meta)
     if base_weight_series is not None:
         return base_weight_series.reindex(inst_results.index).fillna(0.0)
-    return inst_results[PortfolioColumns.BEGIN_MV.value] + inst_results[PortfolioColumns.BOD_CF.value]
+    return add_monetary_series(
+        inst_results[PortfolioColumns.BEGIN_MV.value], inst_results[PortfolioColumns.BOD_CF.value]
+    )
 
 
 def _normalize_instrument_return_columns(
@@ -464,10 +474,11 @@ def _base_weight_record_from_point(item: object) -> _BaseWeightRecord | None:
     bod_cf = item.get("bod_cf", 0.0)
     if perf_date is None or begin_mv is None:
         return None
-    return {
-        "date": pd.to_datetime(perf_date),
-        "capital": float(begin_mv) + float(bod_cf),
-    }
+    beginning_value = finite_decimal_value(begin_mv, field_name="begin_mv")
+    beginning_flow = finite_decimal_value(bod_cf, field_name="bod_cf")
+    with monetary_arithmetic_context([beginning_value, beginning_flow]):
+        capital = beginning_value + beginning_flow
+    return {"date": pd.to_datetime(perf_date), "capital": capital}
 
 
 def _attribution_group_observation_record(

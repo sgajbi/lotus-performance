@@ -1,4 +1,5 @@
 from datetime import datetime, timedelta, timezone
+from decimal import Decimal
 from threading import Event
 from types import SimpleNamespace
 from uuid import uuid4
@@ -11,7 +12,7 @@ from app.models.contribution_analytics_requests import ContributionAnalyticsRequ
 from app.models.contribution_requests import ContributionRequest
 from app.models.requests import PerformanceRequest
 from app.models.returns_series import ReturnsSeriesRequest
-from app.models.twr_requests import TWRInputMode, TWRResolvedExecutionRequest
+from app.models.twr_requests import TWRAnalyticsRequest, TWRInputMode, TWRResolvedExecutionRequest
 from app.observability import correlation_id_var, request_id_var, trace_id_var
 from app.services import (
     attribution_service,
@@ -44,6 +45,7 @@ from app.services.lineage_metadata_store import LineageMetadataStore
 from app.services.lineage_service import LineageService
 from app.workers import compute_executor_worker
 from core.errors import APIError, APIServiceUnavailableError
+from core.repro import generate_canonical_hash
 
 
 def _worker_settings(**overrides):
@@ -61,6 +63,54 @@ def _worker_settings(**overrides):
             **overrides,
         },
     )()
+
+
+@pytest.mark.parametrize("precision", ["FLOAT64", "DECIMAL_STRICT"])
+def test_raw_twr_worker_hash_excludes_envelope_but_preserves_exact_money(precision):
+    request = TWRAnalyticsRequest.model_validate(
+        {
+            "portfolio_id": "VALUATION_WORKER_CONTROL",
+            "performance_start_date": "2025-01-01",
+            "report_end_date": "2025-01-01",
+            "precision_mode": precision,
+            "metric_basis": "GROSS",
+            "valuation_points": [
+                {
+                    "perf_date": "2025-01-01",
+                    "begin_mv": "100",
+                    "end_mv": "9007199254741093.02",
+                    "eod_cf": "9007199254740993.01",
+                }
+            ],
+            "analyses": [{"period": "SI", "frequencies": ["daily"]}],
+        }
+    )
+    expected_identity = generate_canonical_hash(request, "calculation-test-version")
+    observed = []
+
+    def capture(portfolio_request, **kwargs):
+        observed.append((portfolio_request, kwargs, correlation_id_var.get()))
+        return "captured"
+
+    for correlation in ("first-envelope", "recreated-envelope"):
+        job = _compute_job_record(
+            calculation_id=request.calculation_id,
+            analytics_type=ANALYTICS_WORKFLOW_TWR,
+            request_payload={
+                **request.model_dump(mode="json"),
+                "observability_context": {"correlation_id": correlation},
+            },
+        )
+        context = SimpleNamespace(settings=_worker_settings(), twr_calculator=capture)
+        assert compute_executor_worker._execute_compute_job(job, context) == "captured"
+    for (portfolio, metadata, correlation), expected_correlation in zip(
+        observed, ("first-envelope", "recreated-envelope"), strict=True
+    ):
+        assert correlation == expected_correlation
+        assert portfolio.precision_mode == precision
+        assert portfolio.valuation_points[0].end_mv == Decimal("9007199254741093.02")
+        assert portfolio.valuation_points[0].eod_cf == Decimal("9007199254740993.01")
+        assert (metadata["input_fingerprint"], metadata["calculation_hash"]) == expected_identity
 
 
 def _running_compute_job(

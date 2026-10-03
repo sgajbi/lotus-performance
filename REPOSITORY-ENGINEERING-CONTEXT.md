@@ -344,6 +344,9 @@ Important validation expectations:
    findings by file path and source expression, not line number alone. When refactoring existing
    reviewed monetary-float conversions, preserve the reviewed expression or remediate the float use
    rather than refreshing `docs/standards/monetary-float-allowlist.json` as incidental churn.
+   Valuation fields, cash flows and fees are monetary scan targets; an empty source inventory
+   fails. Numerical exceptions need an owner, issue and retirement date, not a dimensionless label
+   for money. Preserve existing deadlines when refactoring an accepted solver diagnostic.
 8. `make lint` includes `make repository-hygiene-gate`, which blocks tracked local byproducts such
    as Python caches, virtual environments, local coverage files, build outputs, logs, and local
    database files. `make clean` delegates to `scripts/clean_generated_artifacts.py` and removes
@@ -763,7 +766,9 @@ Important validation expectations:
     through local and cross-currency price normalization. Convert only the derived dimensionless
     component returns to compatibility floats. Position beginning/ending values and portfolio
     ending values covered by the public request contract also retain exact decimal text at admission;
-    compatibility response models may serialize Decimal monetary values as JSON numbers.
+    TWR daily calculation evidence, PerformanceSummary and WorkspaceEconomicContext serialize
+    money as decimal strings. Derived returns remain numeric; other compatibility DTOs retain
+    their documented output shape. Qualify consumers before rolling out this cohort.
 41. Attribution callers may request durable retry-safe acceptance with `Idempotency-Key`. The
     mapping is persisted on the execution row as a hash, scoped by admitted tenant and analytics
     type, and bound to a versioned material-request fingerprint that excludes `calculation_id`.
@@ -805,13 +810,31 @@ Important validation expectations:
 
 ## Standards And RFCs That Govern This Repository
 
-Monetary request admission is owned by `core/monetary_input.py`. MWR values and cash-flow amounts
-and shared FX rates retain Decimal inputs; exact JSON transport uses decimal strings. Ordinary
+Monetary request admission is owned by `core/monetary_input.py`. Daily and position valuation
+values, cash flows, fees, MWR amounts and shared FX rates retain Decimal inputs; exact JSON
+transport uses decimal strings. Ordinary
 numeric inputs are compatibility projections, not recoverable original decimal tokens. Preserve
-eight-digit money and twelve-digit FX input scales, refuse booleans/non-finite/unsafe large float
+eight-digit raw money and twelve-digit FX input scales, refuse booleans/non-finite/unsafe large float
 inputs, and keep Decimal serialized request evidence distinct from numerical return outputs.
+Core-calculated money may carry greater fractional precision. Use the internal
+`validate_calculated_money_model` path for calculated or restored admitted evidence, never raw
+request admission. Invalid calculated model evidence returns typed 422; bodies cannot select this
+policy. Source cash-flow sums, carry-forward differences and position FX products require the
+shared bounded monetary context before aggregation or cancellation.
 MWR Dietz retains Decimal capital arithmetic; XIRR nets same-date economics before explicit finite
 float64 coefficient projection. Stateful and workspace MWR must not project market values earlier.
+Both TWR modes retain money through bounded capital/P&L arithmetic before dimensionless return
+projection. Shared monetary weights preserve date alignment and signed capital. Calculation
+identity v15 distinguishes the valuation correction and exact monetary evidence from prior results;
+previously retained artifacts are not rewritten.
+Whole FLOAT64 monetary amounts may use an exact, unscaled int64 workspace with eightfold
+overflow headroom. Restore the retained Decimal series before reporting. Fractional, oversized
+and strict-mode observations stay Decimal; never project money to float to meet a timing budget.
+Precision-bound scans may deduplicate exact representations, but carry space counts all observations;
+Decimal equality alone must not hide trailing-zero or extreme-exponent domain refusals.
+Worker fingerprints use the validated calculation request, not the durable envelope containing
+observability context. Restore correlation separately; transport metadata must not enter DTO
+admission or financial identity.
 See `docs/standards/rounding-precision.md`; this does not change runtime topology or claim a new
 arbitrary-precision root solver.
 

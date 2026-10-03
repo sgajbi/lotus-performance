@@ -8,7 +8,7 @@ from enum import Enum
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 from app.models.mwr_requests import CashFlow, MoneyWeightedReturnRequest, MoneyWeightedReturnRequestBase
-from core.monetary_input import MoneyInput
+from core.monetary_input import MoneyInput, validate_calculated_money_model
 
 MWR_STATELESS_SOURCE_FX_REQUEST_EXAMPLE = {
     "calculation_id": "2f4f3e0e-6e0e-4e0e-8e0e-2f4f3e0e6e0e",
@@ -279,6 +279,8 @@ class MoneyWeightedReturnAnalyticsRequest(MoneyWeightedReturnRequestBase):
         payload["end_mv"] = resolved_input.end_mv
         payload["cash_flows"] = [cash_flow.model_dump(mode="python") for cash_flow in resolved_input.cash_flows]
         payload["start_date"] = start_date if start_date is not None else self.start_date
+        if self.input_mode == MWRInputMode.STATEFUL:
+            return validate_calculated_money_model(MoneyWeightedReturnRequest, payload)
         return MoneyWeightedReturnRequest.model_validate(payload)
 
 

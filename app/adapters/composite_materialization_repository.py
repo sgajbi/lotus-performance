@@ -35,6 +35,7 @@ from app.services.durable_database_engine import create_durable_database_engine
 from app.services.durable_schema_creation import create_durable_schema
 from app.services.durable_store_runtime import RuntimeStoreProxy, resolve_runtime_store
 from core.errors import APIConflictError, APIError, APINotFoundError
+from core.monetary_input import validate_calculated_money_model
 
 
 def _tenant(tenant_id: str) -> str:
@@ -229,7 +230,10 @@ def _materialization_record(row: CompositeMaterializationModel) -> Materializati
         ),
         actor_id=row.actor_id,
         source=PinnedCompositeSource.model_validate_json(row.source_json) if row.source_json else None,
-        outcomes=[CompositeMemberMaterializationOutcome.model_validate(item) for item in json.loads(row.outcomes_json)],
+        outcomes=[
+            validate_calculated_money_model(CompositeMemberMaterializationOutcome, item)
+            for item in json.loads(row.outcomes_json)
+        ],
         state=CompositeMaterializationState(row.state),
         reason_code=row.reason_code,
         revision=row.revision,

@@ -73,10 +73,12 @@ from common.enums import Frequency
 from core.business_calendar import business_day_evidence
 from core.envelope import Audit, Calendar, CalendarEvidence, Diagnostics, Meta
 from core.errors import APIBadRequestError, APIUnprocessableEntityError
+from core.monetary_input import validate_calculated_money_model
 from core.repro import generate_canonical_hash
 from core.workspace_periods import ResolvedWorkspacePeriod, resolve_workspace_periods
 from engine.compute import run_calculations
 from engine.mwr import calculate_money_weighted_return
+from engine.numerical_boundary import monetary_arithmetic_context
 from engine.schema import PortfolioColumns
 
 _T = TypeVar("_T")
@@ -455,7 +457,7 @@ async def _build_stateful_workspace_portfolio_input_async(
         request=request,
         source_performance_start_date=normalized.performance_start_date,
     )
-    valuation_points = [DailyInputData.model_validate(point) for point in normalized.valuation_points]
+    valuation_points = [validate_calculated_money_model(DailyInputData, point) for point in normalized.valuation_points]
     return ResolvedWorkspacePortfolioInput(
         input_mode=MWRInputMode.STATEFUL,
         performance_start_date=normalized.performance_start_date,
@@ -688,7 +690,7 @@ async def _build_stateful_workspace_benchmark_input_async(
             ],
             "analyses": [{"period": "EXPLICIT", "frequencies": ["daily"]}],
             "report_start_date": master_start_date,
-        }
+        },
     )
     return ResolvedWorkspaceBenchmarkInput(
         benchmark_request=resolved_request,
@@ -727,7 +729,7 @@ def _build_stateless_workspace_benchmark_input(
             ],
             "analyses": [{"period": "EXPLICIT", "frequencies": ["daily"]}],
             "report_start_date": master_start_date,
-        }
+        },
     )
     return ResolvedWorkspaceBenchmarkInput(
         benchmark_request=resolved_request,
@@ -769,7 +771,8 @@ def _calculate_workspace_twr_artifacts(
     portfolio_base_currency: str,
     metric_basis: str,
 ) -> WorkspaceTWRArtifacts:
-    performance_request = PerformanceRequest.model_validate(
+    performance_request = validate_calculated_money_model(
+        PerformanceRequest,
         {
             "calculation_id": request.calculation_id,
             "portfolio_id": request.portfolio_id,
@@ -788,7 +791,7 @@ def _calculate_workspace_twr_artifacts(
             "report_ccy": request.report_ccy,
             "currency_mode": request.currency_mode,
             "fx": request.fx.model_dump(mode="python") if request.fx is not None else None,
-        }
+        },
     )
     master_start_date = min(point.perf_date for point in valuation_points)
     engine_config = create_engine_config(performance_request, master_start_date, request.report_end_date)
@@ -1613,9 +1616,9 @@ def _build_mwr_cash_flows(period_slice: pd.DataFrame) -> list[CashFlow]:
         if carry_forward_adjustment != Decimal("0"):
             bod_cf += carry_forward_adjustment
         if bod_cf != Decimal("0"):
-            cash_flows.append(CashFlow(amount=bod_cf, date=perf_date))
+            cash_flows.append(validate_calculated_money_model(CashFlow, {"amount": bod_cf, "date": perf_date}))
         if eod_cf != Decimal("0"):
-            cash_flows.append(CashFlow(amount=eod_cf, date=perf_date))
+            cash_flows.append(validate_calculated_money_model(CashFlow, {"amount": eod_cf, "date": perf_date}))
     return cash_flows
 
 
@@ -1625,8 +1628,10 @@ def _build_economic_context(period_slice: pd.DataFrame) -> WorkspaceEconomicCont
     beginning_cash_flow = _sum_decimal_column(period_slice, "bod_cf")
     ending_cash_flow = _sum_decimal_column(period_slice, "eod_cf")
     fees = _sum_decimal_column(period_slice, "mgmt_fees")
-    net_cash_flow = beginning_cash_flow + ending_cash_flow
     end_market_value = _decimal_or_zero(last_row["end_mv"])
+    with monetary_arithmetic_context([beginning_cash_flow, ending_cash_flow, end_market_value]):
+        net_cash_flow = beginning_cash_flow + ending_cash_flow
+        flow_adjusted_end_market_value = end_market_value - net_cash_flow
     return WorkspaceEconomicContext(
         begin_market_value=_decimal_or_zero(first_row["begin_mv"]),
         end_market_value=end_market_value,
@@ -1634,7 +1639,7 @@ def _build_economic_context(period_slice: pd.DataFrame) -> WorkspaceEconomicCont
         ending_cash_flow=ending_cash_flow,
         fees=fees,
         net_cash_flow=net_cash_flow,
-        flow_adjusted_end_market_value=end_market_value - net_cash_flow,
+        flow_adjusted_end_market_value=flow_adjusted_end_market_value,
     )
 
 
@@ -1645,7 +1650,8 @@ def _iter_carry_forward_adjustments(period_slice: pd.DataFrame) -> list[tuple[da
         perf_date = row[PortfolioColumns.PERF_DATE.value]
         begin_mv = _decimal_or_zero(row.get("begin_mv"))
         if previous_ending_market_value is not None:
-            adjustment = begin_mv - previous_ending_market_value
+            with monetary_arithmetic_context([begin_mv, previous_ending_market_value]):
+                adjustment = begin_mv - previous_ending_market_value
             if adjustment != Decimal("0"):
                 adjustments.append((perf_date, adjustment))
         previous_ending_market_value = _decimal_or_zero(row.get("end_mv"))
@@ -1854,7 +1860,6 @@ def _is_missing_decimal_value(value: object) -> bool:
 def _sum_decimal_column(frame: pd.DataFrame, column_name: str) -> Decimal:
     if column_name not in frame:
         return Decimal("0")
-    total = Decimal("0")
-    for value in frame[column_name]:
-        total += _decimal_or_zero(value)
-    return total
+    values = [_decimal_or_zero(value) for value in frame[column_name]]
+    with monetary_arithmetic_context(values):
+        return sum(values, Decimal("0"))

@@ -27,6 +27,40 @@ from main import app
 from tests.conftest import drain_compute_queue, drain_lineage_queue
 
 settings = get_settings()
+
+
+def test_instrument_attribution_preserves_independent_cent_profit_beside_large_deposit(client):
+    points = [
+        {"perf_date": "2025-01-01", "begin_mv": "100", "end_mv": "9007199254741093.02", "eod_cf": "9007199254740993.01"}
+    ]
+    payload = {
+        "portfolio_id": "EXACT_ATTRIBUTION_DEPOSIT",
+        "mode": "by_instrument",
+        "group_by": ["sector"],
+        "model": "BF",
+        "linking": "none",
+        "frequency": "daily",
+        "report_start_date": "2025-01-01",
+        "report_end_date": "2025-01-01",
+        "analyses": [{"period": "SI", "frequencies": ["daily"]}],
+        "portfolio_data": {"metric_basis": "GROSS", "valuation_points": points},
+        "instruments_data": [
+            {"instrument_id": "FUNDED_ASSET", "meta": {"sector": "Control"}, "valuation_points": points}
+        ],
+        "benchmark_groups_data": [
+            {"key": {"sector": "Control"}, "observations": [{"date": "2025-01-01", "return_base": 0, "weight_bop": 1}]}
+        ],
+    }
+    response = client.post("/performance/attribution", json=payload)
+    assert response.status_code == 200, response.text
+    period = response.json()["results_by_period"]["SI"]
+    assert period["reconciliation"]["total_active_return"] == pytest.approx(0.01, abs=1e-12)
+    assert period["reconciliation"]["sum_of_effects"] == pytest.approx(0.01, abs=1e-12)
+    group = period["levels"][0]["groups"][0]
+    assert group["portfolio_return"] == pytest.approx(0.01, abs=1e-12)
+    assert group["selection"] == pytest.approx(0.01, abs=1e-12)
+
+
 _EXPECTED_SUPPORTABILITY_METRIC_LABELS = list(PERFORMANCE_CALCULATION_SUPPORTABILITY_METRIC_LABELS)
 
 

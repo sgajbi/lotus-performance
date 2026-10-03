@@ -36,6 +36,7 @@ from app.services.stateful_performance_input_service import (
 from app.services.stateful_upstream_errors import raise_for_stateful_control_plane_unavailable
 from app.services.stateless_benchmark_input_service import normalize_stateless_component_observations
 from core.errors import APIBadRequestError, APIUnprocessableEntityError
+from core.monetary_input import validate_calculated_money_model
 from core.periods import resolve_periods
 
 
@@ -235,7 +236,8 @@ def _build_resolved_twr_performance_input(
         )
 
     return _ResolvedTWRPerformanceInput(
-        performance_request=PerformanceRequest.model_validate(
+        performance_request=validate_calculated_money_model(
+            PerformanceRequest,
             {
                 **request.model_dump(
                     exclude={
@@ -252,7 +254,7 @@ def _build_resolved_twr_performance_input(
                 "valuation_points": resolved_input.valuation_points,
                 "source_quality_evidence": resolved_input.source_quality_evidence,
                 "currency": resolved_input.portfolio_currency or request.currency,
-            }
+            },
         ),
         input_mode=TWRInputMode.STATEFUL,
     )
@@ -463,7 +465,7 @@ def _resolve_stateless_twr_benchmark_request(
             request=request,
             benchmark_input=benchmark_input,
             benchmark_start_date=benchmark_start_date,
-        )
+        ),
     )
 
 
@@ -634,7 +636,7 @@ def _build_stateful_twr_benchmark_request(
             "calendar": request.calendar.model_dump(mode="python"),
             "annualization": request.annualization.model_dump(mode="python"),
             "output": request.output.model_dump(mode="python"),
-        }
+        },
     )
 
 

@@ -56,6 +56,7 @@ from core.periods import ResolvedPeriod, resolve_periods
 from engine.breakdown import generate_performance_breakdowns
 from engine.compute import run_calculations
 from engine.diagnostics import EngineDiagnostics
+from engine.numerical_boundary import monetary_arithmetic_context
 from engine.schema import PortfolioColumns
 
 _PercentageNumber = float
@@ -188,14 +189,14 @@ from app.services.twr_benchmark_supportability import build_twr_benchmark_suppor
 
 @dataclass(frozen=True)
 class _DailyCalculationEvidenceInputs:
-    begin_mv: float
-    end_mv: float
-    bod_cf: float
-    eod_cf: float
-    management_fees: float
-    signed_adjusted_capital: float
-    adjusted_capital: float
-    performance_pnl: float  # monetary-float-allow
+    begin_mv: Decimal
+    end_mv: Decimal
+    bod_cf: Decimal
+    eod_cf: Decimal
+    management_fees: Decimal
+    signed_adjusted_capital: Decimal
+    adjusted_capital: Decimal
+    performance_pnl: Decimal
     local_daily_return: float  # monetary-float-allow
     fx_daily_return: float  # monetary-float-allow
     daily_return: float  # monetary-float-allow
@@ -250,16 +251,17 @@ def _daily_calculation_evidence_inputs(
     *,
     metric_basis: str,
 ) -> _DailyCalculationEvidenceInputs:
-    begin_mv = _as_numeric(row.get(PortfolioColumns.BEGIN_MV.value, 0))
-    bod_cf = _as_numeric(row.get(PortfolioColumns.BOD_CF.value, 0))
-    eod_cf = _as_numeric(row.get(PortfolioColumns.EOD_CF.value, 0))
-    management_fees = _as_numeric(row.get(PortfolioColumns.MGMT_FEES.value, 0))
-    end_mv = _as_numeric(row.get(PortfolioColumns.END_MV.value, 0))
-    signed_adjusted_capital = begin_mv + bod_cf
-    adjusted_capital = abs(signed_adjusted_capital)
-    performance_pnl = end_mv - bod_cf - begin_mv - eod_cf
-    if metric_basis == "NET":
-        performance_pnl += management_fees
+    begin_mv = Decimal(str(row.get(PortfolioColumns.BEGIN_MV.value, 0)))
+    bod_cf = Decimal(str(row.get(PortfolioColumns.BOD_CF.value, 0)))
+    eod_cf = Decimal(str(row.get(PortfolioColumns.EOD_CF.value, 0)))
+    management_fees = Decimal(str(row.get(PortfolioColumns.MGMT_FEES.value, 0)))
+    end_mv = Decimal(str(row.get(PortfolioColumns.END_MV.value, 0)))
+    with monetary_arithmetic_context([begin_mv, bod_cf, eod_cf, management_fees, end_mv]):
+        signed_adjusted_capital = begin_mv + bod_cf
+        adjusted_capital = abs(signed_adjusted_capital)
+        performance_pnl = end_mv - bod_cf - begin_mv - eod_cf
+        if metric_basis == "NET":
+            performance_pnl += management_fees
     daily_return = _as_numeric(row.get(PortfolioColumns.DAILY_ROR.value, 0))
     return _DailyCalculationEvidenceInputs(
         begin_mv=begin_mv,

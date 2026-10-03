@@ -1,6 +1,9 @@
+from decimal import Decimal
+
 import pandas as pd
 import pytest
 
+from app.services.inspection.calculation_consistency import _record_numeric_mismatch
 from app.services.twr_service import (
     _benchmark_cumulative_returns_by_date,
     _build_benchmark_breakdowns,
@@ -18,6 +21,35 @@ from app.services.twr_service import (
 )
 from common.enums import Frequency
 from engine.schema import PortfolioColumns
+
+
+def test_daily_evidence_retains_cent_profit_beside_large_deposit():
+    evidence = _build_daily_calculation_evidence(
+        _row(
+            begin_mv=Decimal("100"),
+            end_mv=Decimal("9007199254741093.02"),
+            eod_cf=Decimal("9007199254740993.01"),
+            mgmt_fees=Decimal(0),
+            daily_ror=0.01,
+        ),
+        metric_basis="NET",
+    )
+    assert evidence.performance_pnl == Decimal("0.01")
+    assert evidence.eod_cf == Decimal("9007199254740993.01")
+    assert evidence.model_dump(mode="json")["performance_pnl"] == "0.01"
+
+
+def test_monetary_inspection_does_not_hide_missing_cents_behind_relative_float_tolerance():
+    mismatches = {}
+    _record_numeric_mismatch(
+        mismatches=mismatches,
+        field="adjusted_capital",
+        expected=Decimal("9007199254740993.01"),
+        actual=Decimal("9007199254740994.00"),
+    )
+    assert mismatches == {
+        "adjusted_capital": {"expected": Decimal("9007199254740993.01"), "actual": Decimal("9007199254740994.00")}
+    }
 
 
 def _row(**overrides):

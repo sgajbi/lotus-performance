@@ -7,6 +7,16 @@ TWR.
 
 ## Implemented Capability
 
+Daily valuation amounts retain Decimal before cash-flow/fee cancellation in both return modes.
+`FLOAT64` applies to derived numerical returns, not admitted money. Monetary bucket and daily
+calculation evidence emit decimal strings; returns remain numbers. Qualify consumer schema handling
+before identity-v15 rollout and retain prior responses unchanged. See the
+[monetary admission standard](https://github.com/sgajbi/lotus-performance/blob/main/docs/standards/rounding-precision.md).
+
+Whole amounts in the shared `FLOAT64` engine can use a bounded, exact integer workspace.
+Fractional, oversized and strict-mode inputs remain Decimal. Reported monetary evidence retains
+the admitted Decimal representation; the optimization does not change financial or rounding rules.
+
 Current `lotus-performance` TWR supports:
 
 - stateless caller-owned valuation input through `POST /performance/twr`

@@ -111,7 +111,7 @@ def test_coerce_engine_numeric_columns_uses_decimal_strict_zero_for_missing_valu
     assert df[PortfolioColumns.END_MV.value].tolist() == [Decimal("101.50"), Decimal("0")]
 
 
-def test_coerce_engine_numeric_columns_uses_standard_zero_for_invalid_values():
+def test_coerce_engine_numeric_columns_refuses_invalid_monetary_values():
     config = EngineConfig(
         performance_start_date=date(2025, 1, 1),
         report_end_date=date(2025, 1, 1),
@@ -125,10 +125,8 @@ def test_coerce_engine_numeric_columns_uses_standard_zero_for_invalid_values():
         }
     )
 
-    _coerce_engine_numeric_columns(df, config)
-
-    assert df[PortfolioColumns.BEGIN_MV.value].tolist() == [100.25, 0.0]
-    assert df[PortfolioColumns.END_MV.value].tolist() == [101.50, 0.0]
+    with pytest.raises(InvalidEngineInputError, match="begin_mv must be a valid finite number"):
+        _coerce_engine_numeric_columns(df, config)
 
 
 def test_ensure_engine_schema_columns_uses_standard_defaults_and_generated_columns():
@@ -263,7 +261,7 @@ def test_run_calculations_emits_all_reset_reason_codes(mocker):
         "engine.compute.calculate_daily_ror", return_value=pd.DataFrame({PortfolioColumns.DAILY_ROR.value: [0.0]})
     )
     mocker.patch("engine.compute.calculate_sign", return_value=pd.Series([1]))
-    mocker.patch("engine.compute.calculate_nip", return_value=pd.Series([0]))
+    mocker.patch("engine.compute.calculate_nip_variants", return_value=(pd.Series([0]), pd.Series([0])))
 
     def _mock_cumulative(df_input, _config):  # noqa: ARG001
         df_input[PortfolioColumns.PERF_RESET.value] = 1

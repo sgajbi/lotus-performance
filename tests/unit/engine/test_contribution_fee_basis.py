@@ -256,7 +256,7 @@ def test_contribution_outlier_scope_and_samples_retain_entity_identity():
         {
             "perf_date": str(perf_date.date()),
             "begin_mv": 1000,
-            "end_mv": 1000 * (1 + daily_return / 100),
+            "end_mv": Decimal(1000) * (Decimal(1) + Decimal(str(daily_return)) / Decimal(100)),
         }
         for perf_date, daily_return in zip(pd.date_range("2025-01-01", periods=10), outlier_returns, strict=True)
     ]

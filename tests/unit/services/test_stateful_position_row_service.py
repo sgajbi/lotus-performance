@@ -15,6 +15,20 @@ from app.services.stateful_position_row_service import (
 from core.errors import APIError
 
 
+@pytest.mark.parametrize("reverse", [False, True])
+def test_position_cashflow_conversion_and_cancellation_retain_source_cents(reverse):
+    amounts = ["100000000000000000000000000000000.01", "-100000000000000000000000000000000"]
+    if reverse:
+        amounts.reverse()
+    result = split_position_cash_flows_in_value_basis(
+        cash_flows_raw=[{"amount": amount, "timing": "eod"} for amount in amounts],
+        row={"position_to_portfolio_fx_rate": "1.25", "portfolio_to_reporting_fx_rate": "1.2"},
+        value_basis="reporting",
+    )
+    # Two independently specified fixings give 1.5; a one-cent net flow becomes 0.015.
+    assert result == (Decimal("0"), Decimal("0.015"), Decimal("0"))
+
+
 def test_split_position_cash_flows_in_value_basis_converts_to_portfolio_and_reporting():
     row = {
         "position_currency": "EUR",

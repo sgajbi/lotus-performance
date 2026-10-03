@@ -48,8 +48,8 @@ def test_external_mixed_timing_sample_requires_detailed_bod_and_eod_flows():
         _source_economics_point(detailed_external_bod=Decimal("100"), detailed_external_eod=Decimal("-25"))
     ) == {
         "valuation_date": "2026-03-12",
-        "detailed_external_bod": 100.0,
-        "detailed_external_eod": -25.0,
+        "detailed_external_bod": "100",
+        "detailed_external_eod": "-25",
     }
     assert (
         source_economics_collector._external_mixed_timing_sample(
@@ -64,8 +64,8 @@ def test_external_explicit_mixed_timing_sample_requires_explicit_bod_and_eod_flo
         _source_economics_point(explicit_bod_total=Decimal("100"), explicit_eod_total=Decimal("-25"))
     ) == {
         "valuation_date": "2026-03-12",
-        "explicit_external_bod": 100.0,
-        "explicit_external_eod": -25.0,
+        "explicit_external_bod": "100",
+        "explicit_external_eod": "-25",
     }
     assert (
         source_economics_collector._external_explicit_mixed_timing_sample(
@@ -351,13 +351,13 @@ def test_collect_source_economics_samples_routes_fee_samples():
 
     assert samples.fee_normalization_samples[0] == {
         "valuation_date": "2026-03-12",
-        "raw_fee_bod": -5.0,
-        "raw_fee_eod": -10.0,
+        "raw_fee_bod": "-5",
+        "raw_fee_eod": "-10",
         "expected_fee_amount": "-15",
         "fee_source_kind": "detailed_fee_cash_flows",
-        "normalized_bod_cf": 0.0,
-        "normalized_eod_cf": 0.0,
-        "normalized_mgmt_fees": 0.0,
+        "normalized_bod_cf": "0",
+        "normalized_eod_cf": "0",
+        "normalized_mgmt_fees": "0",
     }
     assert samples.duplicate_fee_signal_samples == [
         {"valuation_date": "2026-03-12", "explicit_fee_amount": "-15", "fee_cashflow_amount": "-15"}
@@ -375,7 +375,7 @@ def test_collect_source_economics_samples_routes_fee_samples():
         }
     ]
     assert samples.fee_mixed_timing_samples == [
-        {"valuation_date": "2026-03-12", "detailed_fee_bod": -5.0, "detailed_fee_eod": -10.0}
+        {"valuation_date": "2026-03-12", "detailed_fee_bod": "-5", "detailed_fee_eod": "-10"}
     ]
 
 
@@ -766,8 +766,8 @@ def test_analyze_source_economics_flags_mixed_fee_timing_buckets():
     assert result.artifact_payload["fee_cashflow_mixed_timing_samples"] == [
         {
             "valuation_date": "2026-03-16",
-            "detailed_fee_bod": -10.0,
-            "detailed_fee_eod": -20.0,
+            "detailed_fee_bod": "-10.0",
+            "detailed_fee_eod": "-20.0",
         }
     ]
 
@@ -930,8 +930,8 @@ def test_analyze_source_economics_flags_mixed_external_timing_buckets():
     assert result.artifact_payload["external_cashflow_mixed_timing_samples"] == [
         {
             "valuation_date": "2026-03-24",
-            "detailed_external_bod": 1000.0,
-            "detailed_external_eod": -500.0,
+            "detailed_external_bod": "1000.0",
+            "detailed_external_eod": "-500.0",
         }
     ]
 
@@ -976,8 +976,8 @@ def test_analyze_source_economics_flags_explicit_mixed_external_timing_buckets()
     assert result.artifact_payload["external_cashflow_explicit_mixed_timing_samples"] == [
         {
             "valuation_date": "2026-03-25",
-            "explicit_external_bod": 1000.0,
-            "explicit_external_eod": -500.0,
+            "explicit_external_bod": "1000.0",
+            "explicit_external_eod": "-500.0",
         }
     ]
 

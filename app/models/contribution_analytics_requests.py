@@ -13,6 +13,7 @@ from app.models.contribution_requests import (
     UniquePositionData,
 )
 from app.models.stateful_position_inputs import StatefulDimensionName, StatefulPositionFilters
+from core.monetary_input import validate_calculated_money_model
 
 
 class ContributionInputMode(str, Enum):
@@ -196,4 +197,6 @@ class ContributionAnalyticsRequest(ContributionRequestBase):
         )
         payload["portfolio_data"] = resolved_portfolio_data.model_dump(mode="python")
         payload["positions_data"] = [position.model_dump(mode="python") for position in resolved_positions_data]
+        if self.input_mode == ContributionInputMode.STATEFUL:
+            return validate_calculated_money_model(ContributionRequest, payload)
         return ContributionRequest.model_validate(payload)

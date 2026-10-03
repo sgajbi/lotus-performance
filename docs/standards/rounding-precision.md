@@ -19,7 +19,12 @@ This repository adopts the platform-wide mandatory standard defined in `lotus-pl
 - Intermediate precision preservation: domain logic keeps unquantized `Decimal` until output-edge serialization.
 - `DECIMAL_STRICT` contribution keeps weights, returns, Carino factors, residual allocation, and
   emitted daily/position reconciliation in one Decimal domain. `FLOAT64` remains the compatibility
-  mode; strict requests are not silently downgraded.
+  return mode; strict requests are not silently downgraded. Both modes retain Decimal valuation
+  money, cash-flow cancellation and fees before derived dimensionless return/weight projection.
+- The shared TWR hot path may use exact `int64` arithmetic for whole monetary amounts in
+  `FLOAT64`, with eightfold overflow headroom and no scaling. Original Decimal evidence is
+  restored before reporting. Fractional, oversized and strict-mode amounts remain Decimal;
+  this optimization changes neither financial rules nor rounding policy.
 
 ## Monetary Float Guard
 
@@ -72,18 +77,25 @@ money engine.
 
 ## Monetary Request Admission
 
-MWR market values and cash-flow amounts, and shared `FXRate.rate`, use Decimal admission.
+Daily portfolio and position `begin_mv`, `end_mv`, `bod_cf`, `eod_cf` and `mgmt_fees`, MWR market
+values and cash-flow amounts, and shared `FXRate.rate`, use Decimal admission.
 Use JSON decimal strings for exact transport, for example `"123.45"` or `"1.123456789012"`.
 Ordinary JSON numbers remain compatibility inputs: their parsed numeric value is converted via
 its decimal text, not reconstructed from unavailable original digits. Float inputs with absolute
 value at least `2^53` are refused; send a decimal string instead. JSON integers remain exact.
 
-Boolean, absent required, non-finite and over-scale inputs refuse validation. Existing maximum
-input scales remain eight fractional digits for money and twelve for FX rates. FX rates must be
-positive. This changes representation, not rounding-policy version or output scales.
+Raw request admission refuses boolean, absent required, non-finite and over-scale inputs. Maximum
+raw input scales remain eight fractional digits for money and twelve for positive FX rates.
+Core-calculated valuations and converted cash flows are calculated evidence, not raw imports:
+internal validation preserves their finite Decimal precision without rounding to eight digits.
+Only the internal calculated-evidence path enables this policy; request bodies cannot enable it.
+Malformed calculated model evidence refuses with `CALCULATED_FINANCIAL_INPUT_INVALID` (422).
+Retained admitted requests use the same internal validation when restored. This does not change
+the rounding-policy version or output scales.
 
-Decimal request serialization and emitted MWR `cashflows_used.amount` use JSON strings. Numerical
-return outputs remain numbers. Request fingerprints bind the admitted serialized representation;
+Decimal request serialization, MWR `cashflows_used.amount`, TWR bucket/daily monetary evidence,
+Workspace economics and inspection monetary artifacts use JSON strings. Numerical returns and
+weights remain numbers. Request fingerprints bind the admitted serialized representation;
 do not reuse a calculation identifier across changed payloads. Retained previous results are not
 rewritten to adopt a new request representation.
 
@@ -92,7 +104,27 @@ XIRR first nets same-date economics in Decimal, then explicitly projects finite 
 overflow or nonzero underflow refuses rather than fabricating zeros. Arithmetic uses a local context
 that preserves admitted significands, with a 4096-digit computation-span limit to refuse unbounded
 exponent allocation. Decimal sign reversal uses `copy_negate`, not ambient-context unary negation.
+Source cash-flow totals, carry-forward adjustments and position FX products use bounded contexts
+before aggregation; large offsetting flows must preserve small residuals independently of order.
 Unsupported engine domains return a non-retryable typed input refusal, not HTTP 500 or a zero result.
+
+### Valuation Modes and Consumer Migration
+
+`FLOAT64` projects derived return and weight ratios, not source valuation amounts. `DECIMAL_STRICT`
+retains Decimal return arithmetic as well. Both use bounded monetary contexts before cancellation;
+neither may invent a zero profit after projecting large opposing cash flows. For opening capital100,
+closing value9007199254741093.02 and end-day deposit9007199254740993.01, profit is0.01 and daily
+TWR is0.01%. Contribution after-fee closing values retain the existing NET/GROSS fee policy.
+
+Consumers must accept monetary decimal strings before deploying calculation identity v15. Validate
+the served schema and financial fixtures; producer CI alone is not consumer acceptance. Keep exact
+text through monetary evidence processing and use deliberate presentation rounding at display edges.
+Retained old responses keep their original schema and identity; corrections create new calculations.
+
+XIRR `gross_cash_flow_scale` remains an approximate numeric diagnostic of projected solver
+coefficients, not an original cash-flow total. Its newly visible annotation allowances share the
+existing 2026-11-06 numerical-boundary deadline; #472 owns wider exception review. The scanner now
+detects short valuation names, cash-flow and fee fields, and refuses an empty source inventory.
 Finite ratios must also remain representable after percentage scaling and compounding. Overflow or
 non-real compounded MWR refuses explicitly; currency return validation preserves missing-economics
 handling rather than replacing missing returns with zero.

@@ -178,24 +178,6 @@
       "review_by": "2026-11-06"
     },
     {
-      "finding": "app/models/workspace_summary_responses.py:188:begin_market_value: float = Field(",
-      "justification": "Temporary approved monetary floating-point usage; convert to Decimal.",
-      "owner": "platform-governance",
-      "review_by": "2026-10-11"
-    },
-    {
-      "finding": "app/models/workspace_summary_responses.py:192:end_market_value: float = Field(",
-      "justification": "Temporary approved monetary floating-point usage; convert to Decimal.",
-      "owner": "platform-governance",
-      "review_by": "2026-10-11"
-    },
-    {
-      "finding": "app/models/workspace_summary_responses.py:212:flow_adjusted_end_market_value: float = Field(",
-      "justification": "Temporary approved monetary floating-point usage; convert to Decimal.",
-      "owner": "platform-governance",
-      "review_by": "2026-10-11"
-    },
-    {
       "finding": "app/models/workspace_summary_responses.py:219:base: float = Field(description=\"Return in percentage-point output units.\", examples=[1.25])",
       "justification": "Temporary approved monetary floating-point usage; convert to Decimal.",
       "owner": "platform-governance",
@@ -413,8 +395,26 @@
     },
     {
       "finding": "engine/mwr.py:67:gross_cash_flow_scale = float(np.sum(np.abs(values)))",
-      "justification": "Temporary approved monetary floating-point usage; convert to Decimal.",
-      "owner": "platform-governance",
+      "justification": "Magnitude of the already projected XIRR float64 solver coefficients, not the original monetary schedule. This existing numerical-boundary exception is governed by https://github.com/sgajbi/lotus-performance/issues/473; https://github.com/sgajbi/lotus-performance/issues/600 exposes its diagnostic DTO annotations. Wider exception review remains https://github.com/sgajbi/lotus-performance/issues/472.",
+      "owner": "lotus-performance",
+      "review_by": "2026-11-06"
+    },
+    {
+      "finding": "engine/mwr.py:119:gross_cash_flow_scale: float,",
+      "justification": "Carries the existing projected XIRR coefficient magnitude into numerical convergence diagnostics, not source-money evidence. Same exception and unchanged deadline as the producing expression: https://github.com/sgajbi/lotus-performance/issues/473; scanner reconciliation https://github.com/sgajbi/lotus-performance/issues/600 and ongoing review https://github.com/sgajbi/lotus-performance/issues/472.",
+      "owner": "lotus-performance",
+      "review_by": "2026-11-06"
+    },
+    {
+      "finding": "engine/mwr_types.py:34:gross_cash_flow_scale: float | None = None",
+      "justification": "Internal convergence DTO for the existing finite projected XIRR coefficient magnitude. It is a solver-scale diagnostic, not an exact monetary total. Preserve the numerical-boundary deadline from https://github.com/sgajbi/lotus-performance/issues/473; reconciliation https://github.com/sgajbi/lotus-performance/issues/600 and review https://github.com/sgajbi/lotus-performance/issues/472.",
+      "owner": "lotus-performance",
+      "review_by": "2026-11-06"
+    },
+    {
+      "finding": "app/models/mwr_responses.py:45:gross_cash_flow_scale: Optional[float] = Field(default=None, description=\"Gross absolute solver-flow scale.\")",
+      "justification": "Public numeric convergence diagnostic of the existing projected XIRR coefficient magnitude; callers must not use it as exact source cash-flow evidence. No new monetary input projection. Unchanged numerical-boundary deadline from https://github.com/sgajbi/lotus-performance/issues/473; reconciliation https://github.com/sgajbi/lotus-performance/issues/600 and review https://github.com/sgajbi/lotus-performance/issues/472.",
+      "owner": "lotus-performance",
       "review_by": "2026-11-06"
     },
     {

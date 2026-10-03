@@ -1,5 +1,9 @@
 import json
+import subprocess
+import sys
 from pathlib import Path
+
+import pytest
 
 from scripts.check_monetary_float_usage import _finding_key, load_allowlist, scan_repo
 
@@ -27,6 +31,65 @@ def test_source_exemption_does_not_hide_unmarked_monetary_float(tmp_path: Path):
     )
 
     assert scan_repo(tmp_path) == ["app/example.py:2:end_market_value: float = 100.1"]
+
+
+@pytest.mark.parametrize("field", ["begin_mv", "end_mv", "bod_cf", "eod_cf", "mgmt_fees", "ending_cash_flow", "fees"])
+def test_scan_detects_short_valuation_names_and_cash_flow_evidence(tmp_path, field):
+    source = tmp_path / "valuation.py"
+    source.write_text(f"{field}: float = 100.1\n", encoding="utf-8")
+    assert scan_repo(tmp_path) == [f"valuation.py:1:{field}: float = 100.1"]
+
+
+def test_cli_refuses_unapproved_short_valuation_monetary_field(tmp_path):
+    (tmp_path / "valuation.py").write_text("eod_cf: float = 0.0\n", encoding="utf-8")
+    result = subprocess.run(
+        [
+            sys.executable,
+            str(REPO_ROOT / "scripts/check_monetary_float_usage.py"),
+            "--repo-root",
+            str(tmp_path),
+            "--allowlist",
+            str(tmp_path / "allowlist.json"),
+        ],
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    assert result.returncode == 1
+    assert "Unauthorized monetary float usage" in result.stdout
+    assert "eod_cf: float" in result.stdout
+
+
+@pytest.mark.parametrize(("source", "exit_code"), [(None, 1), ("observation_count: int = 0\n", 0)])
+def test_cli_distinguishes_empty_source_inventory_from_clean_source(tmp_path, source, exit_code):
+    if source is not None:
+        (tmp_path / "clean.py").write_text(source, encoding="utf-8")
+    result = subprocess.run(
+        [
+            sys.executable,
+            str(REPO_ROOT / "scripts/check_monetary_float_usage.py"),
+            "--repo-root",
+            str(tmp_path),
+            "--allowlist",
+            str(tmp_path / "allowlist.json"),
+        ],
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    assert result.returncode == exit_code
+    assert ("requires at least one" if source is None else "guard passed") in result.stdout
+
+
+def test_xirr_scale_annotations_share_existing_numerical_boundary_deadline():
+    payload = json.loads(ALLOWLIST_PATH.read_text(encoding="utf-8"))
+    scale_entries = [entry for entry in payload["allowlist"] if "gross_cash_flow_scale" in entry["finding"]]
+    assert len(scale_entries) == 4
+    assert {entry["review_by"] for entry in scale_entries} == {"2026-11-06"}
+    assert {entry["owner"] for entry in scale_entries} == {"lotus-performance"}
+    assert all(
+        "issues/473" in entry["justification"] and "issues/472" in entry["justification"] for entry in scale_entries
+    )
 
 
 REPO_ROOT = Path(__file__).resolve().parents[3]

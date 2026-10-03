@@ -410,13 +410,13 @@ def _certify_workspace_summary(client: TestClient) -> CertificationCheck:
     active = period["active"]
     mwr = period["money_weighted_return"]
     expected_economics = {
-        "begin_market_value": 1000.0,
-        "end_market_value": 1071.0,
-        "beginning_cash_flow": 100.0,
-        "ending_cash_flow": -50.0,
-        "fees": -10.0,
-        "net_cash_flow": 50.0,
-        "flow_adjusted_end_market_value": 1021.0,
+        "begin_market_value": "1000.0",
+        "end_market_value": "1071.0",
+        "beginning_cash_flow": "100.0",
+        "ending_cash_flow": "-50.0",
+        "fees": "-10.0",
+        "net_cash_flow": "50.0",
+        "flow_adjusted_end_market_value": "1021.0",
     }
     if net["summary"]["economics"] != expected_economics:
         raise AssertionError(f"Workspace economics drifted: {net['summary']['economics']}")

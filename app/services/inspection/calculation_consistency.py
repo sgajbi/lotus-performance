@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from decimal import Decimal
 from math import isclose
 from typing import Iterable, cast
 
@@ -13,6 +14,7 @@ from app.models.responses import (
     TWRDailyCalculationEvidence,
 )
 from common.enums import Frequency
+from engine.numerical_boundary import finite_float64_projection, monetary_arithmetic_context
 
 _ABS_TOLERANCE = 1e-6
 
@@ -62,18 +64,18 @@ class DailyEvidenceExpectedSemantics:
 
 @dataclass(frozen=True)
 class DailyEvidenceExpectedValues:
-    signed_adjusted_capital: float
-    adjusted_capital: float
-    external_inflows: float
-    external_outflows: float
+    signed_adjusted_capital: Decimal
+    adjusted_capital: Decimal
+    external_inflows: Decimal
+    external_outflows: Decimal
     local_daily_return: float | None  # monetary-float-allow
     daily_return: float | None  # monetary-float-allow
 
 
 @dataclass(frozen=True)
 class DailyEvidenceExpectedFlows:
-    external_inflows: float
-    external_outflows: float
+    external_inflows: Decimal
+    external_outflows: Decimal
 
 
 _RELATIVE_PAIRING_FINDING_CONTRACTS: dict[tuple[bool, bool], RelativePairingFindingContract] = {
@@ -602,27 +604,27 @@ def _expected_daily_calculation_values(evidence: TWRDailyCalculationEvidence) ->
 def _expected_daily_external_flows(evidence: TWRDailyCalculationEvidence) -> DailyEvidenceExpectedFlows:
     flows = _daily_external_flow_values(evidence)
     return DailyEvidenceExpectedFlows(
-        external_inflows=sum(_external_inflow_value(value) for value in flows),
-        external_outflows=sum(_external_outflow_value(value) for value in flows),
+        external_inflows=sum((_external_inflow_value(value) for value in flows), Decimal(0)),
+        external_outflows=sum((_external_outflow_value(value) for value in flows), Decimal(0)),
     )
 
 
-def _daily_external_flow_values(evidence: TWRDailyCalculationEvidence) -> tuple[float, float]:  # monetary-float-allow
+def _daily_external_flow_values(evidence: TWRDailyCalculationEvidence) -> tuple[Decimal, Decimal]:
     return (evidence.bod_cf, evidence.eod_cf)
 
 
-def _external_inflow_value(value: float) -> float:  # monetary-float-allow
-    return max(value, 0.0)
+def _external_inflow_value(value: Decimal) -> Decimal:
+    return max(value, Decimal(0))
 
 
-def _external_outflow_value(value: float) -> float:  # monetary-float-allow
-    return abs(min(value, 0.0))
+def _external_outflow_value(value: Decimal) -> Decimal:
+    return abs(min(value, Decimal(0)))
 
 
 def _expected_daily_return(evidence: TWRDailyCalculationEvidence) -> float | None:  # monetary-float-allow
     if evidence.status != "calculated" or evidence.adjusted_capital == 0:
         return None
-    return evidence.performance_pnl / evidence.adjusted_capital * 100
+    return finite_float64_projection(evidence.performance_pnl / evidence.adjusted_capital * 100)
 
 
 def _expected_reporting_daily_return(
@@ -980,9 +982,15 @@ def _record_numeric_mismatch(
     *,
     mismatches: dict[str, dict[str, object]],
     field: str,
-    expected: float,
-    actual: float,
+    expected: Decimal | float,
+    actual: Decimal | float,
 ) -> None:
+    if isinstance(expected, Decimal) and isinstance(actual, Decimal):
+        with monetary_arithmetic_context([expected, actual]):
+            matches = abs(expected - actual) <= Decimal(str(_ABS_TOLERANCE))
+        if not matches:
+            mismatches[field] = {"expected": expected, "actual": actual}
+        return
     if isclose(expected, actual, abs_tol=_ABS_TOLERANCE):
         return
     mismatches[field] = {"expected": expected, "actual": actual}

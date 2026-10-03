@@ -27,6 +27,41 @@ from app.services.stateful_mwr_input_service import (
 from app.services.stateful_performance_input_service import StatefulPortfolioInput
 
 
+def test_stateful_mwr_carry_forward_preserves_cent_above_decimal_default_precision():
+    component = _carry_forward_mwr_cash_flow_component(
+        beginning_market_value=Decimal("100000000000000000000000000000000.01"),
+        previous_ending_market_value=Decimal("100000000000000000000000000000000"),
+        reporting_currency="USD",
+    )
+    assert component is not None
+    assert component.amount == Decimal("0.01")
+
+
+@pytest.mark.parametrize(
+    "amounts",
+    [
+        ["100000000000000000000000000000000", "0.01", "-100000000000000000000000000000000"],
+        ["-100000000000000000000000000000000", "0.01", "100000000000000000000000000000000"],
+        ["100000000000000000000000000000000", "-100000000000000000000000000000000", "0.01"],
+    ],
+)
+def test_stateful_mwr_same_date_cashflows_preserve_cents_and_components(amounts):
+    totals = {}
+    components = {}
+    flow_date = date(2026, 1, 1)
+    for amount in amounts:
+        _add_stateful_mwr_cash_flow_component(
+            cash_flows_by_date=totals,
+            cash_flow_components_by_date=components,
+            valuation_date=flow_date,
+            component=MWRCashFlowEvidenceComponent(
+                component_type="source_cash_flow", amount=Decimal(amount), currency="USD"
+            ),
+        )
+    assert totals == {flow_date: Decimal("0.01")}
+    assert [component.amount for component in components[flow_date]] == [Decimal(amount) for amount in amounts]
+
+
 def test_build_stateful_mwr_input_aggregates_cash_flows():
     source_input = StatefulPortfolioInput(
         performance_start_date=date(2025, 1, 1),

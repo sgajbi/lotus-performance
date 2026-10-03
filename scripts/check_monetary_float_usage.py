@@ -16,6 +16,14 @@ KEYWORDS = (
     "risk",
     "notional",
     "weight",
+    "begin_mv",
+    "end_mv",
+    "bod_cf",
+    "eod_cf",
+    "mgmt_fees",
+    "cash_flow",
+    "cashflow",
+    "fees",
 )
 IGNORE_DIRS = {"tests", ".venv", "venv", "docs", "rfcs", "output", "build", "dist", "__pycache__"}
 
@@ -148,6 +156,9 @@ def main() -> int:
 
     repo_root = Path(args.repo_root).resolve()
     allowlist_path = (repo_root / args.allowlist).resolve()
+    if not any(is_candidate(path.relative_to(repo_root)) for path in repo_root.rglob("*.py")):
+        print("Monetary float guard requires at least one first-party Python source file.")
+        return 1
     findings = scan_repo(repo_root)
     allowlist_entries, allowlist_errors, stale_entries = load_allowlist(allowlist_path)
 

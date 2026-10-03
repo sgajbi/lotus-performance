@@ -1,5 +1,6 @@
 # tests/integration/test_performance_api.py
 from datetime import date
+from decimal import Decimal
 from uuid import UUID, uuid4
 
 import pytest
@@ -30,6 +31,142 @@ from engine.exceptions import EngineCalculationError, InvalidEngineInputError
 from main import app
 
 _EXPECTED_SUPPORTABILITY_METRIC_LABELS = list(PERFORMANCE_CALCULATION_SUPPORTABILITY_METRIC_LABELS)
+
+
+def _exact_money(value: object) -> Decimal:
+    assert isinstance(value, str), "Monetary evidence must serialize as an exact decimal string."
+    return Decimal(value)
+
+
+@pytest.mark.parametrize("endpoint", ["/performance/twr", "/performance/workspace-summary", "/performance/mwr"])
+def test_stateful_apis_preserve_calculated_source_scale_and_end_day_flow(client, monkeypatch, endpoint):
+    async def source_timeseries(**kwargs):  # noqa: ARG001
+        return 200, {
+            "portfolio_open_date": "2024-12-31",
+            "portfolio_currency": "USD",
+            "reporting_currency": "USD",
+            "observations": [
+                {
+                    "valuation_date": "2024-12-31",
+                    "beginning_market_value": "100.0000000000",
+                    "ending_market_value": "100.0000000000",
+                },
+                {
+                    "valuation_date": "2025-01-01",
+                    "beginning_market_value": "100.0000000000",
+                    "ending_market_value": "110.0000000001",
+                    "cash_flow_currency": "USD",
+                    "cash_flows": [{"amount": "0.0000000001", "timing": "eod", "cash_flow_type": "external_flow"}],
+                },
+            ],
+        }
+
+    async def source_service(self, **kwargs):  # noqa: ARG001
+        return await source_timeseries(**kwargs)
+
+    monkeypatch.setattr(
+        "app.services.stateful_performance_input_service.fetch_stateful_portfolio_timeseries", source_timeseries
+    )
+    monkeypatch.setattr(
+        "app.services.stateful_input_service.StatefulInputService.get_portfolio_timeseries", source_service
+    )
+    common = {"portfolio_id": "SOURCE_DECIMAL_CONTROL", "input_mode": "stateful", "annualization": {"enabled": False}}
+    if endpoint.endswith("/mwr"):
+        payload = {
+            **common,
+            "as_of": "2025-01-01",
+            "mwr_method": "DIETZ",
+            "stateful_input": {"window_start_date": "2024-12-31"},
+        }
+    else:
+        payload = {
+            **common,
+            "performance_start_date": "2024-12-31",
+            "report_end_date": "2025-01-01",
+            "stateful_input": {},
+        }
+        periods = [{"period": "SI", "frequencies": ["daily"]}]
+        if endpoint.endswith("/twr"):
+            payload.update(metric_basis="GROSS", analyses=periods)
+        else:
+            payload["periods"] = periods
+    response = client.post(endpoint, json=payload, headers={"X-Tenant-Id": "tenant-source-control"})
+    assert response.status_code == 200, response.text
+    body = response.json()
+    if endpoint.endswith("/mwr"):
+        assert body["money_weighted_return"] == pytest.approx(10.0)
+        assert len(body["cashflows_used"]) == 1
+        assert body["cashflows_used"][0]["date"] == "2025-01-01"
+        assert _exact_money(body["cashflows_used"][0]["amount"]) == Decimal("0.0000000001")
+    elif endpoint.endswith("/twr"):
+        portfolio = body["results_by_period"]["SI"]["portfolio"]
+        assert portfolio["summary"]["period_return"]["base"] == pytest.approx(10.0)
+        evidence = portfolio["breakdowns"]["daily"][-1]["calculation_evidence"]
+        assert evidence["end_mv"] == "110.0000000001"
+        assert _exact_money(evidence["eod_cf"]) == Decimal("0.0000000001")
+        assert _exact_money(evidence["performance_pnl"]) == Decimal("10")
+    else:
+        period = body["results_by_period"]["SI"]
+        assert period["portfolio_twr"]["net"]["summary"]["period_return"]["base"] == pytest.approx(10.0)
+        assert period["money_weighted_return"]["period_return"] == pytest.approx(10.0)
+        assert _exact_money(period["money_weighted_return"]["economics"]["ending_cash_flow"]) == Decimal("0.0000000001")
+        assert _exact_money(period["money_weighted_return"]["economics"]["flow_adjusted_end_market_value"]) == Decimal(
+            "110"
+        )
+
+
+@pytest.mark.parametrize("precision", ["DECIMAL_STRICT", "FLOAT64"])
+@pytest.mark.parametrize(
+    ("end", "deposit"),
+    [
+        ("9007199254741093.02", "9007199254740993.01"),
+        ("9007199254740993000000000000000100.02", "9007199254740993000000000000000000.01"),
+    ],
+)
+def test_registered_twr_and_workspace_preserve_large_end_day_deposit_cent_profit(client, precision, end, deposit):
+    points = [
+        {"perf_date": "2024-12-31", "begin_mv": "100", "end_mv": "100"},
+        {
+            "perf_date": "2025-01-01",
+            "begin_mv": "100",
+            "end_mv": end,
+            "eod_cf": deposit,
+        },
+    ]
+    common = {
+        "portfolio_id": "EXACT_DEPOSIT_CONTROL",
+        "currency": "USD",
+        "performance_start_date": "2024-12-31",
+        "report_end_date": "2025-01-01",
+        "precision_mode": precision,
+        "annualization": {"enabled": False},
+    }
+    analysis = [{"period": "SI", "frequencies": ["daily"]}]
+    twr = client.post(
+        "/performance/twr", json={**common, "metric_basis": "GROSS", "valuation_points": points, "analyses": analysis}
+    )
+    assert twr.status_code == 200, twr.text
+    summary = twr.json()["results_by_period"]["SI"]["portfolio"]["summary"]
+    assert summary["period_return"]["base"] == pytest.approx(0.01, abs=1e-12)
+    evidence = twr.json()["results_by_period"]["SI"]["portfolio"]["breakdowns"]["daily"][-1]["calculation_evidence"]
+    assert _exact_money(evidence["performance_pnl"]) == Decimal("0.01")
+    assert _exact_money(evidence["adjusted_capital"]) == Decimal("100")
+    assert evidence["end_mv"] == end
+    assert evidence["eod_cf"] == deposit
+    workspace = client.post(
+        "/performance/workspace-summary",
+        json={**common, "stateless_input": {"valuation_points": points}, "periods": analysis},
+    )
+    assert workspace.status_code == 200, workspace.text
+    period = workspace.json()["results_by_period"]["SI"]
+    net = period["portfolio_twr"]["net"]["summary"]
+    assert net["period_return"]["base"] == pytest.approx(0.01, abs=1e-12)
+    assert period["money_weighted_return"]["period_return"] == pytest.approx(0.01, abs=1e-12)
+    assert net["economics"]["end_market_value"] == end
+    assert net["economics"]["ending_cash_flow"] == deposit
+    assert net["economics"]["flow_adjusted_end_market_value"] == "100.01"
+
+
 _FORBIDDEN_METRIC_LABELS = {
     "portfolio_id",
     "account_id",
@@ -550,7 +687,9 @@ def test_workspace_summary_endpoint_returns_multi_horizon_summary_blocks(client)
 
     assert set(data["results_by_period"]) == {"1D", "YTD"}
     one_day = data["results_by_period"]["1D"]
-    assert one_day["portfolio_twr"]["net"]["summary"]["economics"]["begin_market_value"] == pytest.approx(1010.0)
+    assert _exact_money(one_day["portfolio_twr"]["net"]["summary"]["economics"]["begin_market_value"]) == Decimal(
+        "1010"
+    )
     assert one_day["portfolio_twr"]["net"]["summary"]["period_return"]["base"] == pytest.approx(
         one_day["portfolio_twr"]["net"]["summary"]["cumulative_return"]["base"]
     )
@@ -581,9 +720,9 @@ def test_workspace_summary_endpoint_returns_multi_horizon_summary_blocks(client)
     )
 
     ytd = data["results_by_period"]["YTD"]
-    assert ytd["portfolio_twr"]["net"]["breakdowns"]["daily"][0]["economics"]["begin_market_value"] == pytest.approx(
-        1000.0
-    )
+    assert _exact_money(
+        ytd["portfolio_twr"]["net"]["breakdowns"]["daily"][0]["economics"]["begin_market_value"]
+    ) == Decimal("1000")
     assert "period_return" in ytd["benchmark"]["breakdowns"]["daily"][0]
     assert data["audit"]["counts"]["input_rows"] == 2
     assert data["calculation_supportability"]["state"] == "degraded"
@@ -782,14 +921,14 @@ def test_workspace_summary_endpoint_reconciles_all_summary_figures(client):
     mwr = period["money_weighted_return"]
     economics = net["summary"]["economics"]
 
-    assert economics == {
-        "begin_market_value": 1000.0,
-        "end_market_value": 1071.0,
-        "beginning_cash_flow": 100.0,
-        "ending_cash_flow": -50.0,
-        "fees": -10.0,
-        "net_cash_flow": 50.0,
-        "flow_adjusted_end_market_value": 1021.0,
+    assert {key: _exact_money(value) for key, value in economics.items()} == {
+        "begin_market_value": Decimal("1000"),
+        "end_market_value": Decimal("1071"),
+        "beginning_cash_flow": Decimal("100"),
+        "ending_cash_flow": Decimal("-50"),
+        "fees": Decimal("-10"),
+        "net_cash_flow": Decimal("50"),
+        "flow_adjusted_end_market_value": Decimal("1021"),
     }
     assert net["summary"]["period_return"]["base"] == pytest.approx(direct_net["summary"]["period_return"]["base"])
     assert net["summary"]["cumulative_return"]["base"] == pytest.approx(
@@ -1083,10 +1222,10 @@ def test_calculate_twr_endpoint_legacy_path_and_diagnostics(client):
     assert no_flow_evidence["calculation_method"] == "flow_neutralized_daily_twr"
     assert no_flow_evidence["denominator_basis"] == "absolute_begin_mv_plus_bod_cf"
     assert no_flow_evidence["flow_timing_convention"] == "bod_flows_in_denominator_eod_flows_excluded_from_denominator"
-    assert no_flow_evidence["begin_mv"] == 100000.0
-    assert no_flow_evidence["end_mv"] == 101000.0
-    assert no_flow_evidence["adjusted_capital"] == 100000.0
-    assert no_flow_evidence["performance_pnl"] == 1000.0
+    assert _exact_money(no_flow_evidence["begin_mv"]) == Decimal("100000")
+    assert _exact_money(no_flow_evidence["end_mv"]) == Decimal("101000")
+    assert _exact_money(no_flow_evidence["adjusted_capital"]) == Decimal("100000")
+    assert _exact_money(no_flow_evidence["performance_pnl"]) == Decimal("1000")
     assert no_flow_evidence["portfolio_currency"] == "USD"
     assert no_flow_evidence["reporting_currency"] == "USD"
     assert no_flow_evidence["local_daily_return"] == pytest.approx(1.0)
@@ -1096,12 +1235,12 @@ def test_calculate_twr_endpoint_legacy_path_and_diagnostics(client):
     assert no_flow_evidence["reason_codes"] == ["FLOW_NEUTRALIZED_DAILY_RETURN"]
 
     deposit_evidence = daily_breakdown[3]["calculation_evidence"]
-    assert deposit_evidence["bod_cf"] == 25000.0
-    assert deposit_evidence["eod_cf"] == 0.0
-    assert deposit_evidence["external_inflows"] == 25000.0
-    assert deposit_evidence["external_outflows"] == 0.0
-    assert deposit_evidence["adjusted_capital"] == pytest.approx(125989.9)
-    assert deposit_evidence["performance_pnl"] == pytest.approx(1259.39)
+    assert _exact_money(deposit_evidence["bod_cf"]) == Decimal("25000")
+    assert _exact_money(deposit_evidence["eod_cf"]) == Decimal("0")
+    assert _exact_money(deposit_evidence["external_inflows"]) == Decimal("25000")
+    assert _exact_money(deposit_evidence["external_outflows"]) == Decimal("0")
+    assert _exact_money(deposit_evidence["adjusted_capital"]) == Decimal("125989.9")
+    assert _exact_money(deposit_evidence["performance_pnl"]) == Decimal("1259.39")
     assert deposit_evidence["daily_return"] == pytest.approx(0.999596, abs=1e-6)
 
 
@@ -1129,14 +1268,14 @@ def test_twr_daily_calculation_evidence_handles_same_day_deposit_and_withdrawal(
 
     daily_item = response.json()["results_by_period"]["YTD"]["portfolio"]["breakdowns"]["daily"][0]
     evidence = daily_item["calculation_evidence"]
-    assert evidence["begin_mv"] == 1000.0
-    assert evidence["bod_cf"] == 200.0
-    assert evidence["eod_cf"] == -100.0
-    assert evidence["external_inflows"] == 200.0
-    assert evidence["external_outflows"] == 100.0
-    assert evidence["management_fees"] == 2.0
-    assert evidence["adjusted_capital"] == 1200.0
-    assert evidence["performance_pnl"] == 15.0
+    assert _exact_money(evidence["begin_mv"]) == Decimal("1000")
+    assert _exact_money(evidence["bod_cf"]) == Decimal("200")
+    assert _exact_money(evidence["eod_cf"]) == Decimal("-100")
+    assert _exact_money(evidence["external_inflows"]) == Decimal("200")
+    assert _exact_money(evidence["external_outflows"]) == Decimal("100")
+    assert _exact_money(evidence["management_fees"]) == Decimal("2")
+    assert _exact_money(evidence["adjusted_capital"]) == Decimal("1200")
+    assert _exact_money(evidence["performance_pnl"]) == Decimal("15")
     assert evidence["daily_return"] == pytest.approx(1.25)
     assert evidence["status"] == "calculated"
     assert evidence["warnings"] == []
@@ -1358,7 +1497,9 @@ def test_twr_cross_currency_daily_evidence_reconciles_local_fx_and_reporting_ret
         assert evidence["reporting_currency"] == "USD"
         assert evidence["local_daily_return"] == pytest.approx(local_return)
         assert evidence["fx_daily_return"] == pytest.approx(fx_return)
-        assert evidence["performance_pnl"] / evidence["adjusted_capital"] * 100 == pytest.approx(local_return)
+        assert float(
+            _exact_money(evidence["performance_pnl"]) / _exact_money(evidence["adjusted_capital"]) * 100
+        ) == pytest.approx(local_return)
         assert evidence["daily_return"] == pytest.approx(base_return)
         assert item["period_return"]["base"] == pytest.approx(base_return)
         assert ((1 + local_return / 100) * (1 + fx_return / 100) - 1) * 100 == pytest.approx(base_return)
@@ -1511,8 +1652,8 @@ def test_twr_zero_fx_evidence_preserves_flow_and_fee_basis(
     assert response.status_code == 200, response.text
     item = response.json()["results_by_period"]["SI"]["portfolio"]["breakdowns"]["daily"][0]
     evidence = item["calculation_evidence"]
-    assert evidence["adjusted_capital"] == pytest.approx(120.0)
-    assert evidence["performance_pnl"] == pytest.approx(expected_pnl)
+    assert _exact_money(evidence["adjusted_capital"]) == Decimal("120")
+    assert _exact_money(evidence["performance_pnl"]) == Decimal(str(expected_pnl))
     assert evidence["local_daily_return"] == pytest.approx(expected_local_return)
     assert evidence["fx_daily_return"] == pytest.approx(0.0)
     assert evidence["daily_return"] == pytest.approx(expected_reporting_return)
@@ -1601,7 +1742,7 @@ def test_twr_respects_include_timeseries_flag(client):
     daily_breakdown_with = response_with.json()["results_by_period"]["YTD"]["portfolio"]["breakdowns"]["daily"][0]
     assert "daily_data" in daily_breakdown_with
     assert daily_breakdown_with["daily_data"] is not None
-    assert daily_breakdown_with["calculation_evidence"]["adjusted_capital"] == 1000.0
+    assert _exact_money(daily_breakdown_with["calculation_evidence"]["adjusted_capital"]) == Decimal("1000")
 
     # Case 2: Flag is false
     payload_without = base_payload.copy()
@@ -1610,7 +1751,7 @@ def test_twr_respects_include_timeseries_flag(client):
     assert response_without.status_code == 200
     daily_breakdown_without = response_without.json()["results_by_period"]["YTD"]["portfolio"]["breakdowns"]["daily"][0]
     assert daily_breakdown_without.get("daily_data") is None
-    assert daily_breakdown_without["calculation_evidence"]["adjusted_capital"] == 1000.0
+    assert _exact_money(daily_breakdown_without["calculation_evidence"]["adjusted_capital"]) == Decimal("1000")
 
 
 def test_twr_response_includes_portfolio_summary_block(client):

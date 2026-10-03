@@ -23,7 +23,7 @@ class ValuationObservationAdmissionError(ValueError):
 def finite_decimal_value(value: object, *, field_name: str) -> Decimal:
     """Return a finite decimal representation without changing the public numeric contract."""
     try:
-        decimal_value = Decimal(str(value))
+        decimal_value = value if isinstance(value, Decimal) else Decimal(str(value))
     except (InvalidOperation, TypeError, ValueError) as exc:
         raise ValuationObservationAdmissionError(f"{field_name} must be a valid finite number") from exc
     if not decimal_value.is_finite():

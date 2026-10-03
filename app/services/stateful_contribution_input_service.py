@@ -40,6 +40,7 @@ from app.services.stateful_retrieval_metadata import parse_retrieval_metadata
 from app.services.stateful_upstream_errors import raise_for_stateful_control_plane_unavailable
 from app.services.valuation_points_service import portfolio_timeseries_to_valuation_points
 from core.errors import APIUnprocessableEntityError
+from core.monetary_input import validate_calculated_money_model
 from engine.schema import is_reserved_contribution_dimension
 
 
@@ -515,13 +516,14 @@ def _stateful_contribution_portfolio_data(
     source_input: StatefulContributionSourceInput,
     metric_basis: str,
 ) -> PortfolioData:
-    return PortfolioData.model_validate(
+    return validate_calculated_money_model(
+        PortfolioData,
         {
             "metric_basis": metric_basis,
             "valuation_points": portfolio_timeseries_to_valuation_points(
                 observations=source_input.portfolio_input.observations
             ),
-        }
+        },
     )
 
 
@@ -529,12 +531,13 @@ def _stateful_contribution_positions_data(
     position_series: _StatefulContributionPositionSeries,
 ) -> list[PositionData]:
     return [
-        PositionData.model_validate(
+        validate_calculated_money_model(
+            PositionData,
             {
                 "position_id": position_id,
                 "meta": position_series.meta_by_position_id.get(position_id, {}),
                 "valuation_points": position_series.valuation_points_by_position_id.get(position_id, []),
-            }
+            },
         )
         for position_id in sorted(position_series.meta_by_position_id)
     ]
