@@ -6,10 +6,35 @@ import pytest
 from app.models.contribution_requests import ContributionRequest
 from core.envelope import DataPolicy
 from engine.config import EndingValueBasis, EngineConfig, PrecisionMode
-from engine.contribution import _prepare_hierarchical_data
+from engine.contribution import _prepare_hierarchical_data, _retain_zero_capital_contribution
 from engine.contribution_fee_basis import normalize_after_fee_ending_values
 from engine.runtime import run_engine_for_valuation_points
 from engine.schema import PortfolioColumns
+
+
+@pytest.mark.parametrize("decimal_mode", [False, True])
+def test_zero_capital_allocation_preserves_funded_rows_and_zero_portfolio_guard(decimal_mode):
+    number = Decimal if decimal_mode else float
+    frame = pd.DataFrame(
+        {
+            "capital_inst": [number(0), number(100), number(0)],
+            "capital_port": [number(1000), number(1000), number(0)],
+            "_contribution_local_pnl": [number(-10), number(99), number(-10)],
+            "_contribution_base_pnl": [number(-12), number(99), number(-12)],
+            "raw_local_contribution": [number(0), number("0.05"), number(0)],
+            "raw_contribution": [number(0), number("0.06"), number(0)],
+            "raw_fx_contribution": [number(0), number("0.01"), number(0)],
+        }
+    )
+
+    _retain_zero_capital_contribution(frame, decimal_mode=decimal_mode)
+
+    assert frame["raw_contribution"].tolist() == [number("-0.012"), number("0.06"), number(0)]
+    assert frame["raw_local_contribution"].tolist() == [number("-0.01"), number("0.05"), number(0)]
+    assert float(frame["raw_fx_contribution"].iloc[0]) == pytest.approx(-0.002)
+    assert frame["raw_fx_contribution"].iloc[1] == number("0.01")
+    if decimal_mode:
+        assert all(isinstance(value, Decimal) for value in frame["raw_contribution"])
 
 
 def test_contribution_points_reconstruct_fee_exclusive_end_values_in_strict_decimal_mode():

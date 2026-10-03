@@ -17,6 +17,22 @@ from app.models.contribution_analytics_requests import (
 )
 from app.models.contribution_requests import ContributionRequest, PortfolioData, PositionDailyData, PositionData
 from app.models.contribution_responses import ContributionResponse
+from engine.schema import CONTRIBUTION_CALCULATION_COLUMNS
+
+
+@pytest.mark.parametrize("dimension", [*sorted(CONTRIBUTION_CALCULATION_COLUMNS), "_source_hierarchy_memberships"])
+def test_contribution_request_refuses_reserved_hierarchy_dimension(minimal_contribution_request_payload, dimension):
+    payload = {**minimal_contribution_request_payload, "hierarchy": [dimension]}
+    for request_type in (ContributionRequest, ContributionAnalyticsRequest):
+        with pytest.raises(ValidationError, match="reserved calculation dimension"):
+            request_type.model_validate(payload)
+
+
+@pytest.mark.parametrize("hierarchy", [None, [], ["sector", "asset_class", "currency", "position_id"]])
+def test_contribution_request_preserves_business_hierarchy_dimensions(minimal_contribution_request_payload, hierarchy):
+    for request_type in (ContributionRequest, ContributionAnalyticsRequest):
+        request = request_type.model_validate({**minimal_contribution_request_payload, "hierarchy": hierarchy})
+        assert request.hierarchy == hierarchy
 
 
 @pytest.fixture

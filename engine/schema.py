@@ -42,3 +42,46 @@ class PortfolioColumns(str, Enum):
     # --- Helper/Temporary Fields ---
     EFFECTIVE_PERIOD_START_DATE = "effective_period_start_date"
     ACCOUNT_PERFORMANCE_RESET = "account_performance_reset"
+
+
+CONTRIBUTION_CALCULATION_COLUMNS = frozenset(
+    name for column in PortfolioColumns for name in (column.value, f"{column.value}_port")
+) | frozenset(
+    {
+        "adjusted_contribution",
+        "capital_inst",
+        "capital_port",
+        "daily_weight",
+        "source_daily_weight",
+        "selected_average_weight",
+        "selected_weight_component",
+        "local_ror",
+        "fx_ror",
+        "raw_contribution",
+        "raw_local_contribution",
+        "raw_fx_contribution",
+        "smoothed_contribution",
+        "smoothed_local_contribution",
+        "smoothed_fx_contribution",
+        "contribution",
+        "local_contribution",
+        "fx_contribution",
+        "total_contribution",
+        "portfolio_contribution",
+        "weight_sum",
+        "weight_avg",
+        "weight_proportion",
+        "selected_weight_sum",
+        "selected_weight_complete",
+        "group_return",
+        "k_t",
+        "K_total",
+        "R_port_t",
+        "carino_factor",
+    }
+)
+
+
+def is_reserved_contribution_dimension(name: str) -> bool:
+    """Calculation evidence is never a caller/source-owned grouping dimension."""
+    return name.startswith("_") or name in CONTRIBUTION_CALCULATION_COLUMNS

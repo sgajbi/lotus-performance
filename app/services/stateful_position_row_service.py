@@ -197,16 +197,16 @@ def _cash_flow_conversion_factor(
     row: dict[str, object],
     value_basis: PositionValueBasis,
 ) -> Decimal:
-    if value_basis == "position":
-        return Decimal("1")
-
     if _has_cash_flow_position_currency_mismatch(row):
         raise APIUnprocessableEntityError(
             (
                 "Stateful position-timeseries cash_flow_currency must match position_currency when lotus-performance "
-                "normalizes contribution or attribution cash flows from position currency into portfolio/reporting currency."
+                "normalizes contribution, attribution or group-return cash flows in any valuation basis."
             ),
         )
+
+    if value_basis == "position":
+        return Decimal("1")
 
     position_to_portfolio_rate = _decimal_or_one(row.get("position_to_portfolio_fx_rate"))
     if value_basis == "portfolio":

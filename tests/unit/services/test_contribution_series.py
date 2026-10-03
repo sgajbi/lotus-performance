@@ -11,6 +11,7 @@ from app.models.contribution_responses import (
 )
 from app.services.contribution_series import (
     _adjusted_position_hierarchy_records,
+    _apply_effective_source_hierarchy_memberships,
     _apply_hierarchy_unclassified_policy,
     _build_hierarchy_from_adjusted_position_series,
     _daily_hierarchy_metadata,
@@ -26,6 +27,48 @@ from app.services.contribution_series import (
     _target_total_contribution_by_position,
 )
 from engine.schema import PortfolioColumns
+
+
+def test_source_hierarchy_membership_cannot_replace_calculated_evidence():
+    merged = pd.DataFrame(
+        [
+            {
+                "position_id": "SECURITY",
+                "perf_date": date(2025, 1, 1),
+                "adjusted_contribution": 0.1,
+                "daily_weight": 1.0,
+                "sector": "Old",
+                "currency": "USD",
+            }
+        ]
+    )
+    source = pd.DataFrame(
+        [
+            {
+                "position_id": "SECURITY",
+                "perf_date": date(2025, 1, 1),
+                "adjusted_contribution": 999,
+                "daily_weight": 999,
+                "sector": "Technology",
+                "currency": "USD",
+            }
+        ]
+    )
+    result = _apply_effective_source_hierarchy_memberships(
+        merged,
+        source_position_memberships=source,
+        hierarchy_levels=["adjusted_contribution", "daily_weight", "sector", "currency"],
+    )
+    assert result.to_dict("records") == [
+        {
+            "position_id": "SECURITY",
+            "perf_date": date(2025, 1, 1),
+            "adjusted_contribution": 0.1,
+            "daily_weight": 1.0,
+            "sector": "Technology",
+            "currency": "USD",
+        }
+    ]
 
 
 def test_has_adjusted_hierarchy_inputs_requires_hierarchy_period_rows_and_position_series():

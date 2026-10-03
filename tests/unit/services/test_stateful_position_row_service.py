@@ -46,7 +46,8 @@ def test_split_position_cash_flows_in_value_basis_converts_to_portfolio_and_repo
     ) == (Decimal("6.6000"), Decimal("-2.6400"), Decimal("-1.9800"))
 
 
-def test_split_position_cash_flows_in_value_basis_rejects_unsupported_cash_flow_currency_mismatch():
+@pytest.mark.parametrize("value_basis", ["position", "portfolio", "reporting"])
+def test_split_position_cash_flows_in_value_basis_rejects_unsupported_cash_flow_currency_mismatch(value_basis):
     with pytest.raises(APIError, match="cash_flow_currency must match position_currency") as exc:
         split_position_cash_flows_in_value_basis(
             cash_flows_raw=[{"amount": "5", "timing": "bod"}],
@@ -56,7 +57,7 @@ def test_split_position_cash_flows_in_value_basis_rejects_unsupported_cash_flow_
                 "position_to_portfolio_fx_rate": "1.20",
                 "portfolio_to_reporting_fx_rate": "1.10",
             },
-            value_basis="portfolio",
+            value_basis=value_basis,
         )
 
     assert exc.value.status_code == 422

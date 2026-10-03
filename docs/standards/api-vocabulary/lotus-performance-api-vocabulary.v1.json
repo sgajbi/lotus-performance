@@ -8,7 +8,7 @@
       "openApiVersion": "3.1.0"
     }
   ],
-  "generatedAt": "2026-10-03T05:10:38.062536+00:00",
+  "generatedAt": "2026-10-03T08:45:11.384243+00:00",
   "attributeCatalog": [
     {
       "semanticId": "lotus.access_classification",
@@ -3107,7 +3107,7 @@
       "semanticId": "lotus.hierarchy",
       "canonicalTerm": "hierarchy",
       "preferredName": "hierarchy",
-      "description": "Optional hierarchy dimensions such as asset_class, sector, country, currency, or position_id. When supplied, the response includes summary and level rows that reconcile to period contribution.",
+      "description": "Optional hierarchy dimensions such as asset_class, sector, country, currency, or position_id. When supplied, the response includes summary and level rows that reconcile to period contribution. Calculation-column names and underscore-prefixed internal names are reserved and rejected.",
       "example": "STANDARD_VALUE",
       "type": "object",
       "locations": [

@@ -1342,6 +1342,138 @@ def test_contribution_endpoint_allocates_after_fee_position_economics(client):
     assert hierarchy_rows["FEE_FREE"]["contribution"] == pytest.approx(5.0)
 
 
+@pytest.mark.parametrize("precision_mode", ["FLOAT64", "DECIMAL_STRICT"])
+@pytest.mark.parametrize("metric_basis", ["NET", "GROSS"])
+@pytest.mark.parametrize("smoothing_method", ["NONE", "CARINO"])
+@pytest.mark.parametrize("booked_fee", ["-25", "0", "25"])
+@pytest.mark.parametrize("cash_currency", ["USD", "EUR"])
+@pytest.mark.parametrize("linked_period", [False, True])
+@pytest.mark.parametrize("hedge_ratio", ["0", "0.5", "1"])
+def test_contribution_zero_opening_cash_retains_booked_fee_economics(
+    client, precision_mode, metric_basis, smoothing_method, booked_fee, cash_currency, linked_period, hedge_ratio
+):
+    """A booked cash fee contributes money even when cash has no opening capital."""
+    from decimal import Decimal
+
+    prior_rate = Decimal("1.2") if cash_currency == "EUR" else Decimal(1)
+    current_rate = Decimal("1.3") if cash_currency == "EUR" else Decimal(1)
+    effective_rate = prior_rate + (current_rate - prior_rate) * (1 - Decimal(hedge_ratio))
+    reporting_fee = Decimal(booked_fee) * effective_rate
+    payload = {
+        "portfolio_id": "ZERO_OPENING_CASH_FEE",
+        "currency": "USD",
+        "report_ccy": "USD",
+        "currency_mode": "BOTH",
+        "precision_mode": precision_mode,
+        "report_start_date": "2025-08-29",
+        "report_end_date": "2025-08-29",
+        "analyses": [{"period": "SI", "frequencies": ["daily"]}],
+        "portfolio_data": {
+            "metric_basis": metric_basis,
+            "valuation_points": [
+                {
+                    "perf_date": "2025-08-29",
+                    "begin_mv": "6240",
+                    "end_mv": str(Decimal("6600") + reporting_fee),
+                    "mgmt_fees": str(reporting_fee),
+                }
+            ],
+        },
+        "positions_data": [
+            {
+                "position_id": "SECURITY",
+                "meta": {"currency": "USD", "asset_class": "Equity"},
+                "valuation_points": [{"perf_date": "2025-08-29", "begin_mv": "6240", "end_mv": "6600"}],
+            },
+            {
+                "position_id": "CASH",
+                "meta": {
+                    "currency": cash_currency,
+                    "asset_class": "Cash",
+                    "local_pnl": "999",
+                    "base_pnl": "999",
+                    "k_t": "999",
+                    "K_total": "999",
+                    "R_port_t": "999",
+                    "carino_factor": "999",
+                    "fx_ror": "999",
+                    "daily_ror": "999",
+                    "begin_mv": "999",
+                    "bod_cf": "999",
+                    "position_id": "NOT_CASH",
+                },
+                "valuation_points": [
+                    {"perf_date": "2025-08-29", "begin_mv": "0", "end_mv": booked_fee, "mgmt_fees": booked_fee}
+                ],
+            },
+        ],
+        "hierarchy": ["asset_class"],
+        "smoothing": {"method": smoothing_method},
+    }
+    if cash_currency == "EUR":
+        payload["hedging"] = {
+            "mode": "RATIO",
+            "series": [{"date": "2025-08-29", "ccy": "EUR", "hedge_ratio": hedge_ratio}],
+        }
+        payload["fx"] = {
+            "rates": [
+                {"date": "2025-08-28", "ccy": "EUR", "rate": str(prior_rate)},
+                {"date": "2025-08-29", "ccy": "EUR", "rate": str(current_rate)},
+            ]
+        }
+    if linked_period:
+        payload["report_end_date"] = "2025-09-01"
+        payload["portfolio_data"]["valuation_points"].append(
+            {
+                "perf_date": "2025-09-01",
+                "begin_mv": str(Decimal("6600") + reporting_fee),
+                "end_mv": "6600",
+                "eod_cf": str(-reporting_fee),
+            }
+        )
+        payload["positions_data"][0]["valuation_points"].append(
+            {
+                "perf_date": "2025-09-01",
+                "begin_mv": "6600",
+                "end_mv": "6600",
+            }
+        )
+        payload["positions_data"][1]["valuation_points"].append(
+            {
+                "perf_date": "2025-09-01",
+                "begin_mv": booked_fee,
+                "end_mv": "0",
+                "eod_cf": str(-Decimal(booked_fee)),
+            }
+        )
+        if cash_currency == "EUR":
+            payload["fx"]["rates"].extend(
+                [
+                    {"date": "2025-08-31", "ccy": "EUR", "rate": str(current_rate)},
+                    {"date": "2025-09-01", "ccy": "EUR", "rate": str(current_rate)},
+                ]
+            )
+    response = client.post("/performance/contribution", json=payload)
+    assert response.status_code == 200, response.text
+    period = response.json()["results_by_period"]["SI"]
+    denominator = Decimal("6240")
+    fee = Decimal(booked_fee) if metric_basis == "NET" else Decimal(0)
+    expected_security = Decimal("360") / denominator * 100
+    expected_cash = fee * effective_rate / denominator * 100
+    expected_local_cash = fee * prior_rate / denominator * 100
+    expected_total = (Decimal("360") + fee * effective_rate) / denominator * 100
+    positions = {row["position_id"]: row for row in period["position_contributions"]}
+    assert positions["SECURITY"]["total_contribution"] == pytest.approx(float(expected_security), abs=1e-6)
+    assert positions["CASH"]["total_contribution"] == pytest.approx(float(expected_cash), abs=1e-6)
+    assert positions["CASH"]["local_contribution"] == pytest.approx(float(expected_local_cash), abs=1e-6)
+    assert positions["CASH"]["fx_contribution"] == pytest.approx(float(expected_cash - expected_local_cash), abs=1e-6)
+    assert period["total_portfolio_return"] == pytest.approx(float(expected_total), abs=1e-6)
+    assert period["total_contribution"] == pytest.approx(float(expected_total), abs=1e-6)
+    groups = {row["key"]["asset_class"]: row for row in period["levels"][0]["rows"]}
+    assert groups["Equity"]["contribution"] == pytest.approx(float(expected_security), abs=1e-6)
+    assert groups["Cash"]["contribution"] == pytest.approx(float(expected_cash), abs=1e-6)
+
+
 def test_contribution_endpoint_preserves_missing_classification_as_unclassified(client):
     payload = {
         "portfolio_id": "CONTRIB_UNCLASSIFIED",
@@ -2183,18 +2315,22 @@ def test_contribution_supports_stateful_input_mode(client, monkeypatch):
 
 @pytest.mark.parametrize(("metric_basis", "expected_return"), [("NET", 9.0), ("GROSS", 10.0)])
 @pytest.mark.parametrize("precision_mode", ["FLOAT64", "DECIMAL_STRICT"])
+@pytest.mark.parametrize("fee_carried_by_cash", [False, True])
+@pytest.mark.parametrize("smoothing_method", ["NONE", "CARINO"])
 def test_stateful_contribution_normalizes_core_after_fee_ending_values(
     client,
     monkeypatch,
     metric_basis,
     expected_return,
     precision_mode,
+    fee_carried_by_cash,
+    smoothing_method,
 ):
     async def _source(**kwargs):  # noqa: ARG001
         from types import SimpleNamespace
 
         fee = {"amount": "-10", "timing": "eod", "cash_flow_type": "fee"}
-        return SimpleNamespace(
+        source = SimpleNamespace(
             portfolio_input=SimpleNamespace(
                 observations=[
                     {
@@ -2221,6 +2357,22 @@ def test_stateful_contribution_normalizes_core_after_fee_ending_values(
             ],
             position_source_rows_complete=True,
         )
+        if fee_carried_by_cash:
+            source.position_rows[0]["ending_market_value_portfolio_currency"] = "1100"
+            source.position_rows[0]["cash_flows"] = []
+            source.position_rows.append(
+                {
+                    "position_id": "USD_CASH",
+                    "security_id": "USD_CASH",
+                    "position_currency": "USD",
+                    "valuation_date": "2025-01-01",
+                    "beginning_market_value_portfolio_currency": "0",
+                    "ending_market_value_portfolio_currency": "-10",
+                    "cash_flows": [fee],
+                    "dimensions": {"sector": "Cash"},
+                }
+            )
+        return source
 
     monkeypatch.setattr(
         "app.services.contribution_mode_service.retrieve_stateful_contribution_source_input",
@@ -2236,7 +2388,7 @@ def test_stateful_contribution_normalizes_core_after_fee_ending_values(
             "analyses": [{"period": "SI", "frequencies": ["daily"]}],
             "input_mode": "stateful",
             "stateful_input": {"metric_basis": metric_basis},
-            "smoothing": {"method": "NONE"},
+            "smoothing": {"method": smoothing_method},
         },
     )
 
@@ -2244,6 +2396,142 @@ def test_stateful_contribution_normalizes_core_after_fee_ending_values(
     period = response.json()["results_by_period"]["SI"]
     assert period["total_portfolio_return"] == pytest.approx(expected_return)
     assert period["total_contribution"] == pytest.approx(expected_return)
+    if fee_carried_by_cash:
+        positions = {row["position_id"]: row for row in period["position_contributions"]}
+        assert positions["USD_ASSET"]["total_contribution"] == pytest.approx(10.0)
+        expected_cash = -1.0 if metric_basis == "NET" else 0.0
+        assert positions["USD_CASH"]["total_contribution"] == pytest.approx(expected_cash)
+
+
+@pytest.mark.parametrize("metric_basis", ["NET", "GROSS"])
+@pytest.mark.parametrize("precision_mode", ["FLOAT64", "DECIMAL_STRICT"])
+@pytest.mark.parametrize("smoothing_method", ["NONE", "CARINO"])
+@pytest.mark.parametrize("fee", [-25, 0, 25])
+@pytest.mark.parametrize("async_execution", [False, True])
+@pytest.mark.parametrize("native_values_available", [True, False])
+@pytest.mark.parametrize("cash_flow_currency", ["EUR", "USD"])
+def test_stateful_both_contribution_does_not_reconvert_source_cash_fee(
+    client,
+    monkeypatch,
+    metric_basis,
+    precision_mode,
+    smoothing_method,
+    fee,
+    async_execution,
+    native_values_available,
+    cash_flow_currency,
+):
+    from types import SimpleNamespace
+
+    async def _source(**kwargs):  # noqa: ARG001
+        reporting_fee = Decimal(fee) * Decimal("1.3")
+        source = SimpleNamespace(
+            portfolio_input=SimpleNamespace(
+                portfolio_currency="USD",
+                reporting_currency="USD",
+                observations=[
+                    {
+                        "valuation_date": "2025-01-01",
+                        "beginning_market_value": "1200",
+                        "ending_market_value": str(1430 + reporting_fee),
+                        "cash_flows": [{"amount": str(reporting_fee), "timing": "eod", "cash_flow_type": "fee"}],
+                    }
+                ],
+            ),
+            position_rows=[
+                {
+                    "position_id": "EUR_ASSET",
+                    "security_id": "EUR_ASSET",
+                    "position_currency": "EUR",
+                    "valuation_date": "2025-01-01",
+                    "beginning_market_value_position_currency": "1000",
+                    "ending_market_value_position_currency": "1100",
+                    "beginning_market_value_portfolio_currency": "1200",
+                    "ending_market_value_portfolio_currency": "1430",
+                    "beginning_market_value_reporting_currency": "1200",
+                    "ending_market_value_reporting_currency": "1430",
+                    "cash_flows": [],
+                    "dimensions": {"sector": "Equity"},
+                },
+                {
+                    "position_id": "EUR_CASH",
+                    "security_id": "EUR_CASH",
+                    "position_currency": "EUR",
+                    "valuation_date": "2025-01-01",
+                    "cash_flow_currency": cash_flow_currency,
+                    "position_to_portfolio_fx_rate": "1.3",
+                    "portfolio_to_reporting_fx_rate": "1",
+                    "beginning_market_value_position_currency": "0",
+                    "ending_market_value_position_currency": str(fee),
+                    "beginning_market_value_portfolio_currency": "0",
+                    "ending_market_value_portfolio_currency": str(reporting_fee),
+                    "beginning_market_value_reporting_currency": "0",
+                    "ending_market_value_reporting_currency": str(reporting_fee),
+                    "cash_flows": [{"amount": str(fee), "timing": "eod", "cash_flow_type": "fee"}],
+                    "dimensions": {"sector": "Cash"},
+                },
+            ],
+            position_source_rows_complete=True,
+        )
+        if not native_values_available:
+            del source.position_rows[1]["beginning_market_value_position_currency"]
+        return source
+
+    monkeypatch.setattr("app.services.contribution_mode_service.retrieve_stateful_contribution_source_input", _source)
+    if async_execution:
+        monkeypatch.setattr(settings, "CONTRIBUTION_EXECUTOR_POSITION_COUNT", 0)
+    response = client.post(
+        "/performance/contribution",
+        json={
+            "portfolio_id": "STATEFUL_BOTH_FEE",
+            "report_start_date": "2025-01-01",
+            "report_end_date": "2025-01-01",
+            "analyses": [{"period": "SI", "frequencies": ["daily"]}],
+            "input_mode": "stateful",
+            "stateful_input": {"metric_basis": metric_basis},
+            "currency_mode": "BOTH",
+            "report_ccy": "USD",
+            "precision_mode": precision_mode,
+            "smoothing": {"method": smoothing_method},
+            "hierarchy": ["sector"],
+            "fx": {
+                "rates": [
+                    {"ccy": "EUR", "date": "2024-12-31", "rate": 1.2},
+                    {"ccy": "EUR", "date": "2025-01-01", "rate": 1.3},
+                ]
+            },
+        },
+    )
+    if cash_flow_currency != "EUR":
+        assert response.status_code == 422, response.text
+        assert "cash_flow_currency must match position_currency" in response.text
+        return
+    if not native_values_available:
+        assert response.status_code == 422, response.text
+        assert response.json()["error_code"] == "POSITION_LOCAL_VALUATION_INCOMPLETE"
+        return
+    if async_execution:
+        assert response.status_code == 202, response.text
+        assert drain_compute_queue() == 1
+        response = client.get(f"/performance/contribution/results/{response.json()['calculation_id']}")
+    assert response.status_code == 200, response.text
+    period = response.json()["results_by_period"]["SI"]
+    positions = {row["position_id"]: row for row in period["position_contributions"]}
+    applied_fee = Decimal(fee) if metric_basis == "NET" else Decimal(0)
+    cash_base = float(applied_fee * Decimal("1.3") / 1200 * 100)
+    cash_local = float(applied_fee * Decimal("1.2") / 1200 * 100)
+    # Native asset gain100; reporting gain1430-1200=230. No source amount is restated twice.
+    asset_base = float(Decimal(230) / 1200 * 100)
+    assert positions["EUR_ASSET"]["total_contribution"] == pytest.approx(asset_base)
+    assert positions["EUR_ASSET"]["local_contribution"] == pytest.approx(10)
+    assert positions["EUR_ASSET"]["fx_contribution"] == pytest.approx(asset_base - 10)
+    assert positions["EUR_CASH"]["total_contribution"] == pytest.approx(cash_base)
+    assert positions["EUR_CASH"]["local_contribution"] == pytest.approx(cash_local)
+    assert positions["EUR_CASH"]["fx_contribution"] == pytest.approx(cash_base - cash_local)
+    assert period["total_contribution"] == pytest.approx(asset_base + cash_base)
+    assert period["total_portfolio_return"] == pytest.approx(asset_base + cash_base)
+    assert period["summary"]["local_contribution"] == pytest.approx(10 + cash_local)
+    assert period["summary"]["fx_contribution"] == pytest.approx(asset_base - 10 + cash_base - cash_local)
 
 
 def test_contribution_registered_api_degrades_rejected_component_scope_without_using_rows(
@@ -3229,6 +3517,79 @@ def test_contribution_stateful_converts_non_base_cash_flows_using_explicit_fx_me
     assert itd["by_position_timeseries"][0]["series"][0]["contribution"] == pytest.approx(0.0)
 
 
+@pytest.mark.parametrize("precision_mode", ["FLOAT64", "DECIMAL_STRICT"])
+@pytest.mark.parametrize("smoothing_method", ["NONE", "CARINO"])
+@pytest.mark.parametrize("dimension", ["adjusted_contribution", "contribution", "group_return", "weight_avg"])
+def test_contribution_stateful_refuses_calculated_hierarchy_dimension(
+    client, monkeypatch, precision_mode, smoothing_method, dimension
+):
+    from types import SimpleNamespace
+
+    source_calls = []
+
+    async def retrieve(**kwargs):  # noqa: ARG001
+        source_calls.append(kwargs)
+        return SimpleNamespace(
+            portfolio_input=SimpleNamespace(
+                portfolio_currency="USD",
+                reporting_currency="USD",
+                observations=[
+                    {"valuation_date": "2025-01-01", "beginning_market_value": "100", "ending_market_value": "110"}
+                ],
+            ),
+            position_rows=[
+                {
+                    "position_id": "SECURITY",
+                    "security_id": "SECURITY",
+                    "position_currency": "USD",
+                    "valuation_date": "2025-01-01",
+                    "beginning_market_value_portfolio_currency": "100",
+                    "ending_market_value_portfolio_currency": "110",
+                    "dimensions": {
+                        dimension: "999",
+                        "adjusted_contribution": "999",
+                        "position_id": "NOT_SECURITY",
+                        "currency": "EUR",
+                        "perf_date": "2099-01-01",
+                        "sector": "Technology",
+                    },
+                }
+            ],
+        )
+
+    monkeypatch.setattr("app.services.contribution_mode_service.retrieve_stateful_contribution_source_input", retrieve)
+    payload = {
+        "portfolio_id": "RESERVED_SOURCE_DIMENSION",
+        "report_start_date": "2025-01-01",
+        "report_end_date": "2025-01-01",
+        "analyses": [{"period": "SI", "frequencies": ["daily"]}],
+        "input_mode": "stateful",
+        "stateful_input": {},
+        "currency_mode": "BASE_ONLY",
+        "precision_mode": precision_mode,
+        "smoothing": {"method": smoothing_method},
+        "hierarchy": [dimension],
+    }
+    original_threshold = settings.CONTRIBUTION_EXECUTOR_WINDOW_DAYS
+    monkeypatch.setattr(settings, "CONTRIBUTION_EXECUTOR_WINDOW_DAYS", 0)
+    response = client.post("/performance/contribution", json=payload)
+    assert response.status_code == 422, response.text
+    assert response.json()["error_code"] == "VALIDATION_ERROR"
+    assert source_calls == []
+    monkeypatch.setattr(settings, "CONTRIBUTION_EXECUTOR_WINDOW_DAYS", original_threshold)
+    payload["hierarchy"] = ["sector", "currency", "position_id"]
+    valid = client.post("/performance/contribution", json=payload)
+    assert valid.status_code == 200, valid.text
+    period = valid.json()["results_by_period"]["SI"]
+    assert period["total_contribution"] == pytest.approx(10)
+    assert period["levels"][0]["rows"][0]["contribution"] == pytest.approx(10)
+    assert period["levels"][2]["rows"][0]["key"] == {
+        "sector": "Technology",
+        "currency": "USD",
+        "position_id": "SECURITY",
+    }
+
+
 def test_contribution_stateful_emit_timeseries_returns_series(client, monkeypatch):
     async def _mock_retrieve_stateful_contribution_source_input(**kwargs):  # noqa: ARG001
         from types import SimpleNamespace
@@ -3710,8 +4071,9 @@ def test_contribution_stateful_same_currency_decomposition_availability(client, 
     [(None, "POSITION_CURRENCY_INCOMPLETE"), ("EUR", "POSITION_CURRENCY_CONFLICT")],
 )
 @pytest.mark.parametrize("reverse_rows", [False, True])
+@pytest.mark.parametrize("native_only", [False, True])
 def test_contribution_stateful_both_rejects_dated_position_currency_gap(
-    client, monkeypatch, first_currency, expected_error, reverse_rows
+    client, monkeypatch, first_currency, expected_error, reverse_rows, native_only
 ):
     from types import SimpleNamespace
 
@@ -3734,6 +4096,10 @@ def test_contribution_stateful_both_rejects_dated_position_currency_gap(
                 "cash_flows": [],
             },
         ]
+        if native_only:
+            for row in position_rows:
+                row["beginning_market_value_position_currency"] = row.pop("beginning_market_value_portfolio_currency")
+                row["ending_market_value_position_currency"] = row.pop("ending_market_value_portfolio_currency")
         if reverse_rows:
             position_rows.reverse()
         return SimpleNamespace(

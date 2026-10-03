@@ -22,7 +22,7 @@ from app.services.analytics_observation_dates import (
 )
 from app.services.contribution_methodology import _as_numeric
 from app.services.currency_code_normalization import normalized_currency_code
-from engine.schema import PortfolioColumns
+from engine.schema import PortfolioColumns, is_reserved_contribution_dimension
 
 
 def _build_daily_contribution_series(period_slice_df: pd.DataFrame) -> list[DailyContribution]:
@@ -424,7 +424,7 @@ def _apply_effective_source_hierarchy_memberships(
         return merged_df
     join_columns = ["position_id", PortfolioColumns.PERF_DATE.value]
     available_authority_columns = set(source_position_memberships.columns).difference(join_columns)
-    authority_columns = [column for column in [*hierarchy_levels, "currency"] if column in available_authority_columns]
+    authority_columns = _source_hierarchy_authority_columns(available_authority_columns, hierarchy_levels)
     if not authority_columns:
         return merged_df
 
@@ -441,6 +441,15 @@ def _apply_effective_source_hierarchy_memberships(
     return result.drop(
         columns=[*source_column_names.values(), "__source_membership_present"],
     )
+
+
+def _source_hierarchy_authority_columns(available_columns: set[str], hierarchy_levels: list[str]) -> list[str]:
+    """Project source grouping authority without duplicating currency or calculation evidence."""
+    return [
+        column
+        for column in dict.fromkeys([*hierarchy_levels, "currency"])
+        if column in available_columns and not is_reserved_contribution_dimension(column)
+    ]
 
 
 def _initial_hierarchy_summary(request: ContributionRequest, *, decompose_currency: bool) -> dict[str, Any]:

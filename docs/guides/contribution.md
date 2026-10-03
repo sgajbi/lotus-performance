@@ -40,6 +40,15 @@ Inside the current contract:
 
 - stateless `portfolio_data` contains `metric_basis` and `valuation_points`
 - each stateless entry in `positions_data` contains `position_id`, optional `meta`, and `valuation_points`
+- Position `meta` supplies grouping dimensions, not calculation overrides. Keys matching engine
+  columns or beginning with `_` are ignored; valuation, flow, identity and return values retain
+  their authoritative input or calculated values.
+- Requested hierarchy names matching calculation columns or beginning with `_` return
+  `422 VALIDATION_ERROR` before source retrieval or async acceptance. Stateful source dimensions
+  cannot replace canonical observation date, position/security identity or currency. Business
+  dimensions, `currency` and canonical `position_id` grouping remain supported.
+  Carino linking intermediates are also reserved. Cash-flow currency mismatch is refused in
+  every native/portfolio/reporting valuation basis; absence behavior is unchanged.
 - contribution `end_mv` is the ending market value after booked `mgmt_fees`. NET retains that fee
   effect once; GROSS removes it once. Negative `mgmt_fees` are fee debits and positive values are
   refunds. Portfolio and position rows use the same convention in stateless and stateful modes.
@@ -72,6 +81,10 @@ Inside the current contract:
   currencies across consumed dates of one engine position are also rejected before metadata is
   collapsed. Missing or conflicting source currency is rejected, and
   missing FX coverage is rejected with HTTP `422` before contribution calculation starts
+- stateful `BOTH` foreign positions require finite native position-currency beginning/ending
+  values and normalize cash flows in that same denomination. Reporting/portfolio values are
+  not converted again. Missing native pairs return `422 POSITION_LOCAL_VALUATION_INCOMPLETE`
+  before synchronous calculation or queued acceptance; `BASE_ONLY` remains source-preconverted.
 - cross-endpoint currency vocabulary is governed by the
   [RFC-020 multi-currency support matrix](../technical/rfc-020-multi-currency-support-matrix.md)
 - position `total_contribution` is available in every supported mode. Position `local_contribution`
@@ -440,6 +453,10 @@ front-office and audit confusion:
   `1000 -> 1090` valuation with a `-10` fee returns `9%` NET and `10%` GROSS; the shared TWR
   engine's direct input convention is unchanged. `data_policy.overrides.market_values[].end_mv`
   uses the same after-fee basis and is applied only to its named portfolio or position;
+- a zero-opening cash position retains its booked NET fee contribution as monetary P&L
+  divided by portfolio beginning capital, despite its zero position weight. GROSS removes
+  the fee. This allocation precedes smoothing and does not manufacture a standalone
+  zero-capital return or transfer the fee to a funded security through residual allocation;
 - `data_policy.outliers.scope` is honored per engine run: `SECURITY_RETURNS` evaluates positions,
   while `PORTFOLIO_RETURNS` evaluates the portfolio. Contribution outlier samples include
   `entity_type` and `entity_id` so each flagged observation remains attributable;
