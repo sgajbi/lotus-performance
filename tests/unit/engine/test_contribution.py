@@ -102,7 +102,7 @@ def test_build_contribution_fx_rates_frame_normalizes_dates_and_keeps_latest_dup
 
     assert len(fx_rates_df) == 2
     assert fx_rates_df["date"].dt.strftime("%Y-%m-%d").tolist() == ["2025-01-01", "2025-01-02"]
-    assert fx_rates_df["rate"].tolist() == [1.2, 1.3]
+    assert fx_rates_df["rate"].tolist() == [Decimal("1.2"), Decimal("1.3")]
 
 
 @pytest.mark.parametrize("fx_payload", [{}, {"rates": []}])

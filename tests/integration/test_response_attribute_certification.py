@@ -236,8 +236,8 @@ def test_mwr_response_attributes_tie_to_deterministic_stateless_inputs(client):
         "metric_labels": _EXPECTED_SUPPORTABILITY_METRIC_LABELS,
     }
     assert body["cashflows_used"] == [
-        {"amount": 100.0, "date": "2026-01-02"},
-        {"amount": -20.0, "date": "2026-01-03"},
+        {"amount": "100.0", "date": "2026-01-02"},
+        {"amount": "-20.0", "date": "2026-01-03"},
     ]
     expected_mwr = ((1120.0 - 1000.0 - 80.0) / (1000.0 + 80.0 / 2.0)) * 100
     assert body["money_weighted_return"] == pytest.approx(expected_mwr)

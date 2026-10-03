@@ -805,6 +805,16 @@ Important validation expectations:
 
 ## Standards And RFCs That Govern This Repository
 
+Monetary request admission is owned by `core/monetary_input.py`. MWR values and cash-flow amounts
+and shared FX rates retain Decimal inputs; exact JSON transport uses decimal strings. Ordinary
+numeric inputs are compatibility projections, not recoverable original decimal tokens. Preserve
+eight-digit money and twelve-digit FX input scales, refuse booleans/non-finite/unsafe large float
+inputs, and keep Decimal serialized request evidence distinct from numerical return outputs.
+MWR Dietz retains Decimal capital arithmetic; XIRR nets same-date economics before explicit finite
+float64 coefficient projection. Stateful and workspace MWR must not project market values earlier.
+See `docs/standards/rounding-precision.md`; this does not change runtime topology or claim a new
+arbitrary-precision root solver.
+
 Most relevant current governance:
 
 1. `../lotus-platform/rfcs/RFC-0022-performance-analytics-engineering-alignment-to-dpm-standard.md`

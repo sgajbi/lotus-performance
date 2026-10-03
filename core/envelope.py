@@ -6,13 +6,20 @@ from uuid import UUID, uuid4
 from pydantic import BaseModel, Field, field_validator, model_validator
 
 from common.enums import canonical_performance_period_code
+from core.monetary_input import FXRateInput
 
 
 # --- NEW FX & Hedging Request Models ---
 class FXRate(BaseModel):
     date: date
     ccy: str
-    rate: float = Field(..., gt=0, allow_inf_nan=False)
+    rate: FXRateInput = Field(
+        ...,
+        gt=0,
+        allow_inf_nan=False,
+        examples=["1.123456789012"],
+        description="Positive finite source-to-reporting rate. Decimal strings preserve exact input; numeric input is a compatibility projection.",
+    )
 
 
 class FXRequestBlock(BaseModel):

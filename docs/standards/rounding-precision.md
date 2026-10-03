@@ -65,9 +65,44 @@ The 2026-09-22 review of expired cohort #472 retired 35 dimensionless-ratio or d
 #530 then migrated its reviewed market-value, benchmark-price, and FX-conversion boundaries to
 Decimal and removed their dated allowances. Compatibility serializers may emit JSON numbers only
 at the response edge; benchmark returns remain dimensionless float outputs. The guard still blocks
-stale and newly introduced unapproved monetary floats. Workspace MWR continues to convert its
-admitted Decimal market values at the existing float solver boundary; issue #473 owns that broader
-cash-flow and solver migration.
+stale and newly introduced unapproved monetary floats. MWR retains admitted Decimal market values
+and cash flows through date aggregation and Dietz capital arithmetic. XIRR projects same-date net
+economics at an explicit finite float64 solver boundary; its root search is not an arbitrary-precision
+money engine.
+
+## Monetary Request Admission
+
+MWR market values and cash-flow amounts, and shared `FXRate.rate`, use Decimal admission.
+Use JSON decimal strings for exact transport, for example `"123.45"` or `"1.123456789012"`.
+Ordinary JSON numbers remain compatibility inputs: their parsed numeric value is converted via
+its decimal text, not reconstructed from unavailable original digits. Float inputs with absolute
+value at least `2^53` are refused; send a decimal string instead. JSON integers remain exact.
+
+Boolean, absent required, non-finite and over-scale inputs refuse validation. Existing maximum
+input scales remain eight fractional digits for money and twelve for FX rates. FX rates must be
+positive. This changes representation, not rounding-policy version or output scales.
+
+Decimal request serialization and emitted MWR `cashflows_used.amount` use JSON strings. Numerical
+return outputs remain numbers. Request fingerprints bind the admitted serialized representation;
+do not reuse a calculation identifier across changed payloads. Retained previous results are not
+rewritten to adopt a new request representation.
+
+Dietz retains Decimal amounts and day-count weights until the dimensionless return boundary.
+XIRR first nets same-date economics in Decimal, then explicitly projects finite solver coefficients;
+overflow or nonzero underflow refuses rather than fabricating zeros. Arithmetic uses a local context
+that preserves admitted significands, with a 4096-digit computation-span limit to refuse unbounded
+exponent allocation. Decimal sign reversal uses `copy_negate`, not ambient-context unary negation.
+Unsupported engine domains return a non-retryable typed input refusal, not HTTP 500 or a zero result.
+Finite ratios must also remain representable after percentage scaling and compounding. Overflow or
+non-real compounded MWR refuses explicitly; currency return validation preserves missing-economics
+handling rather than replacing missing returns with zero.
+FX conversion retains admitted
+rates and monetary products before any `FLOAT64` compatibility projection. `DECIMAL_STRICT`
+continues to preserve Decimal calculations; `FLOAT64` is not an exact-money calculation claim.
+
+The two retired monetary request allowances are removed. Two existing MWR/NumPy interoperability
+allowances are relocated to `engine/numerical_boundary.py`, with their original 2026-11-06 review
+deadline retained. They cover the checked legacy numerical projection, not request monetary storage.
 
 ## Deviation and Change Control
 

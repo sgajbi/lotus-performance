@@ -18,6 +18,12 @@ values and cash flows to already be expressed in one consistent reporting curren
 Modified Dietz, or Simple Dietz execution. This is intentional: today's `cashflows_used` response
 echo proves the signed schedule used by the engine, not FX conversion provenance.
 
+MWR amounts now retain Decimal input evidence and serialize `cashflows_used[].amount` as JSON
+decimal strings under calculation identity v14. Numeric inputs remain a compatibility projection;
+exact clients send strings. Deploy consumers that accept Decimal strings before promoting this
+response change; retained pre-v14 responses are not rewritten. See
+[monetary admission and migration](../standards/rounding-precision.md#monetary-request-admission).
+
 Stateless callers may now supply `source_preconverted_fx_evidence` for already converted inputs.
 When present, `lotus-performance` validates complete per-input FX provenance for both market values
 and every cash flow. The declared pair must exactly equal

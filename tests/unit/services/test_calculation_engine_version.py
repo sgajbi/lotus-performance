@@ -19,7 +19,7 @@ def test_calculation_engine_version_is_not_deployable_app_version() -> None:
 
 
 def test_history_coverage_qualification_has_new_reproducibility_identity() -> None:
-    assert CALCULATION_ENGINE_VERSION == "lotus-performance-calculation-engine.v13"
+    assert CALCULATION_ENGINE_VERSION == "lotus-performance-calculation-engine.v14"
     source_input = {
         "portfolio_id": "BHB_REPLAY",
         "model": "BHB",
@@ -48,3 +48,11 @@ def test_calculation_engine_version_manifest_governs_all_hash_families() -> None
     }
     assert "APP_VERSION" in str(manifest["build_identity_boundary"])
     assert "do not change calculation hashes" in str(manifest["build_identity_boundary"])
+
+
+def test_exact_monetary_semantics_do_not_reuse_prior_calculation_identity() -> None:
+    request = {"begin_mv": "100", "end_mv": "9007199254741093.02", "cash_flows": [{"amount": "9007199254740993.01"}]}
+    old_fingerprint, old_hash = generate_canonical_hash_from_value(request, "lotus-performance-calculation-engine.v13")
+    new_fingerprint, new_hash = generate_canonical_hash_from_value(request, CALCULATION_ENGINE_VERSION)
+    assert new_fingerprint == old_fingerprint
+    assert new_hash != old_hash

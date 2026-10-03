@@ -1,6 +1,6 @@
 from dataclasses import asdict, dataclass, is_dataclass
 from decimal import Decimal
-from typing import Any, cast
+from typing import Any, NoReturn, cast
 
 import pandas as pd
 
@@ -16,6 +16,7 @@ from app.services.calculation_supportability_service import (
     build_calculation_supportability,
     record_supportability_metric,
 )
+from app.services.engine_exception_mapping_service import map_engine_exception_to_http_error
 from app.services.execution_lifecycle_service import complete_execution_with_lineage, record_execution_failure
 from app.services.execution_registry import execution_registry
 from app.services.execution_stage_errors import is_mappable_application_error, safe_unexpected_failure_message
@@ -313,34 +314,12 @@ async def calculate_mwr_response(
             resolved_request=resolved_request,
         )
     except Exception as exc:
-        if isinstance(exc, APIError):
-            record_execution_failure(
-                calculation_id=request.calculation_id,
-                message="Mapped application error raised during MWR execution.",
-                execution_stage_started=execution_stage_started,
-                lineage_stage_started=lineage_stage_started,
-            )
-            raise
-        if is_mappable_application_error(exc):
-            mapped_error = APIError(
-                status_code=int(getattr(exc, "status_code")),
-                detail=getattr(exc, "detail"),
-            )
-            record_execution_failure(
-                calculation_id=request.calculation_id,
-                message="Mapped application error raised during MWR execution.",
-                execution_stage_started=execution_stage_started,
-                lineage_stage_started=lineage_stage_started,
-            )
-            raise mapped_error from exc
-        detail = safe_unexpected_failure_message("MWR calculation")
-        record_execution_failure(
+        _raise_mwr_workflow_http_error(
             calculation_id=request.calculation_id,
-            message=detail,
+            exc=exc,
             execution_stage_started=execution_stage_started,
             lineage_stage_started=lineage_stage_started,
         )
-        raise APIInternalServerError(detail) from exc
 
     _complete_mwr_execution(
         request=request,
@@ -349,6 +328,33 @@ async def calculate_mwr_response(
     )
 
     return completed_calculation.response_model
+
+
+def _raise_mwr_workflow_http_error(
+    *, calculation_id, exc: Exception, execution_stage_started: bool, lineage_stage_started: bool
+) -> NoReturn:
+    message = "Mapped application error raised during MWR execution."
+    if isinstance(exc, APIError):
+        error = exc
+    elif is_mappable_application_error(exc):
+        error = APIError(status_code=int(getattr(exc, "status_code")), detail=getattr(exc, "detail"))
+    else:
+        engine_error = map_engine_exception_to_http_error(exc)
+        if engine_error is not None:
+            message = engine_error.failure_message
+            error = APIError(status_code=engine_error.status_code, detail=engine_error.detail)
+        else:
+            message = safe_unexpected_failure_message("MWR calculation")
+            error = APIInternalServerError(message)
+    record_execution_failure(
+        calculation_id=calculation_id,
+        message=message,
+        execution_stage_started=execution_stage_started,
+        lineage_stage_started=lineage_stage_started,
+    )
+    if error is exc:
+        raise
+    raise error from exc
 
 
 def _register_mwr_execution(request: MoneyWeightedReturnAnalyticsRequest) -> _RegisteredMWRExecution:

@@ -54,6 +54,8 @@ does not delegate performance conclusions to `lotus-core`.
    currencies, and weights instead of reconstructing returns from contribution divided by weight.
 10. Versioned source corrections schedule new stateful calculations while preserving tenant-scoped
     original and corrected results; Core remains the correction-command and source-data owner.
+11. Exact monetary requests use decimal strings; MWR and FX compatibility boundaries are defined in
+    the [rounding and admission standard](docs/standards/rounding-precision.md).
 
 ## Enterprise Readiness Evidence
 

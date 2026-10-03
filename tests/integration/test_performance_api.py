@@ -1218,7 +1218,8 @@ def test_calculate_twr_endpoint_multi_period(client):
     assert compounded_ytd_return == pytest.approx(3.02)
 
 
-def test_calculate_twr_endpoint_multi_currency(client):
+@pytest.mark.parametrize("decimal_strings", [False, True])
+def test_calculate_twr_endpoint_multi_currency(client, decimal_strings):
     """Tests an end-to-end multi-currency TWR request."""
     payload = {
         "portfolio_id": "MULTI_CCY_API_TEST",
@@ -1241,6 +1242,9 @@ def test_calculate_twr_endpoint_multi_currency(client):
             ]
         },
     }
+    if decimal_strings:
+        for rate in payload["fx"]["rates"]:
+            rate["rate"] = str(rate["rate"])
     response = client.post("/performance/twr", json=payload)
     assert response.status_code == 200
     data = response.json()
@@ -1268,6 +1272,46 @@ def test_calculate_twr_endpoint_multi_currency(client):
     rejected = client.post("/performance/twr", json=payload)
     assert rejected.status_code == 422
     assert rejected.json()["error_code"] == "FX_REPORT_CURRENCY_REQUIRED"
+
+
+@pytest.mark.parametrize("precision_mode", ["FLOAT64", "DECIMAL_STRICT"])
+@pytest.mark.parametrize("current_rate", ["1.01", "1e5000", "1e308"])
+def test_workspace_summary_admits_exact_fx_strings_and_refuses_unbounded_domain(client, precision_mode, current_rate):
+    payload = {
+        "calculation_id": str(uuid4()),
+        "portfolio_id": "WORKSPACE_EXACT_FX_CONTROL",
+        "performance_start_date": "2025-01-01",
+        "report_end_date": "2025-01-01",
+        "periods": [{"period": "SI", "frequencies": ["daily"]}],
+        "stateless_input": {"valuation_points": [{"perf_date": "2025-01-01", "begin_mv": "100", "end_mv": "102"}]},
+        "currency": "EUR",
+        "report_ccy": "USD",
+        "currency_mode": "BOTH",
+        "precision_mode": precision_mode,
+        "fx": {
+            "rates": [
+                {"date": "2024-12-31", "ccy": "EUR", "rate": "1.00"},
+                {"date": "2025-01-01", "ccy": "EUR", "rate": current_rate},
+            ]
+        },
+    }
+    response = client.post("/performance/workspace-summary", json=payload)
+    if current_rate != "1.01":
+        assert response.status_code == 400, response.text
+        assert response.json()["retryable"] is False
+        expected_domain = (
+            "bounded Decimal arithmetic domain" if current_rate == "1e5000" else "finite float64 numerical domain"
+        )
+        assert expected_domain in response.json()["detail"]
+        execution = client.get(f"/performance/executions/{payload['calculation_id']}")
+        assert execution.status_code == 200
+        assert execution.json()["status"] == "failed"
+        return
+    assert response.status_code == 200, response.text
+    period = response.json()["results_by_period"]["SI"]
+    # Independent base growth: (102 / 100) * (1.01 / 1.00) - 1 = 3.02%.
+    for basis in ["net", "gross"]:
+        assert period["portfolio_twr"][basis]["summary"]["cumulative_return"]["base"] == pytest.approx(3.02)
 
 
 @pytest.mark.parametrize("precision_mode", ["FLOAT64", "DECIMAL_STRICT"])

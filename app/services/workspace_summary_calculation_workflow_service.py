@@ -18,6 +18,7 @@ from app.services.analytics_workflow_types import ANALYTICS_WORKFLOW_WORKSPACE_S
 from app.services.applied_currency_evidence_service import require_reporting_currency_for_both
 from app.services.async_observability_context import async_observability_request_payload
 from app.services.calculation_engine_version import calculation_engine_version
+from app.services.engine_exception_mapping_service import map_engine_exception_to_http_error
 from app.services.execution_lifecycle_service import record_execution_cancellation, record_execution_failure
 from app.services.execution_registry import execution_registry
 from app.services.execution_stage_errors import safe_unexpected_failure_message
@@ -34,7 +35,7 @@ from app.services.workspace_summary_service import (
     calculate_workspace_summary_async,
     workspace_longest_requested_window_days,
 )
-from core.errors import APIInternalServerError, APIUnprocessableEntityError
+from core.errors import APIError, APIInternalServerError, APIUnprocessableEntityError
 from core.workspace_periods import resolve_workspace_periods
 
 logger = logging.getLogger(__name__)
@@ -327,6 +328,10 @@ def _raise_workspace_summary_workflow_error(*, calculation_id, exc: Exception) -
         record_execution_failure(calculation_id=calculation_id, message=detail)
         raise APIUnprocessableEntityError(detail=detail, error_code=OBSERVATIONS_UNAVAILABLE_FOR_WINDOW) from exc
 
+    engine_error = map_engine_exception_to_http_error(exc)
+    if engine_error is not None:
+        record_execution_failure(calculation_id=calculation_id, message=engine_error.failure_message)
+        raise APIError(status_code=engine_error.status_code, detail=engine_error.detail) from exc
     detail = safe_unexpected_failure_message("Workspace summary calculation")
     # The public detail is deliberately sanitised, which previously meant the recorded failure named
     # no cause at all: a correlation id resolved to "failed unexpectedly" and nothing else. Log the

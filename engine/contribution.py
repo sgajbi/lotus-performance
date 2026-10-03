@@ -18,6 +18,7 @@ from engine.contribution_smoothing import (
     apply_contribution_smoothing,
 )
 from engine.diagnostics import EngineDiagnostics
+from engine.numerical_boundary import finite_float64_projection, monetary_arithmetic_context
 from engine.ror import _local_daily_return_numerator
 from engine.runtime import run_engine_for_valuation_points_with_diagnostics
 from engine.schema import PortfolioColumns, is_reserved_contribution_dimension
@@ -340,8 +341,7 @@ def _build_contribution_fx_rates_frame(request: ContributionRequestLike) -> pd.D
     fx_rates_df = pd.DataFrame([rate.model_dump() for rate in request.fx.rates])
     fx_rates_df["date"] = pd.to_datetime(fx_rates_df["date"])
     fx_rates_df.drop_duplicates(subset=["date", "ccy"], keep="last", inplace=True)
-    if request.precision_mode == PrecisionMode.DECIMAL_STRICT:
-        fx_rates_df["rate"] = fx_rates_df["rate"].map(lambda value: Decimal(str(value)))
+    fx_rates_df["rate"] = fx_rates_df["rate"].map(lambda value: Decimal(str(value)))
     return fx_rates_df
 
 
@@ -441,11 +441,17 @@ def _apply_position_fx_capital_conversion(
     )
     converted_df = position_results_df.copy()
     converted_df["prior_date"] = converted_df[PortfolioColumns.PERF_DATE.value] - pd.Timedelta(days=1)
-    conversion_rates = converted_df["prior_date"].map(pos_fx_lookup)
-    for col in [PortfolioColumns.BEGIN_MV.value, PortfolioColumns.BOD_CF.value]:
-        converted_df[col] *= conversion_rates
+    conversion_rates = converted_df["prior_date"].map(pos_fx_lookup).map(lambda value: Decimal(str(value)))
+    columns = [PortfolioColumns.BEGIN_MV.value, PortfolioColumns.BOD_CF.value]
     if "_contribution_local_pnl" in converted_df.columns:
-        converted_df["_contribution_local_pnl"] *= conversion_rates
+        columns.append("_contribution_local_pnl")
+    for col in columns:
+        amounts = converted_df[col].map(lambda value: Decimal(str(value)))
+        with monetary_arithmetic_context([*amounts, *conversion_rates], products=True):
+            converted_df[col] = amounts * conversion_rates
+        if request.precision_mode != PrecisionMode.DECIMAL_STRICT:
+            converted_df[col] = converted_df[col].map(finite_float64_projection)
+    if "_contribution_local_pnl" in converted_df.columns:
         hundred = Decimal(100) if request.precision_mode == PrecisionMode.DECIMAL_STRICT else 100.0
         converted_df["_contribution_base_pnl"] = converted_df["_contribution_local_pnl"] * (
             1 + converted_df["fx_ror"] / hundred

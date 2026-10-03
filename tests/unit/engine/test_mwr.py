@@ -1,5 +1,6 @@
 # tests/unit/engine/test_mwr.py
 from datetime import date
+from decimal import Decimal
 
 import numpy as np
 import pytest
@@ -627,9 +628,9 @@ def test_dietz_return_components_project_capital_base_and_periodic_rate():
     )
 
     assert components.method == "MODIFIED_DIETZ"
-    assert components.numerator == pytest.approx(25.0)
-    assert components.denominator == pytest.approx(1000.0 + (100.0 * 91 / 181))
-    assert components.periodic_rate == pytest.approx(components.numerator / components.denominator)
+    assert components.numerator == Decimal("25")
+    assert components.denominator == Decimal("1000") + Decimal("100") * Decimal("91") / Decimal("181")
+    assert components.periodic_rate == pytest.approx(float(components.numerator / components.denominator))
 
 
 def test_simple_dietz_denominator_uses_average_cash_flows():

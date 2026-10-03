@@ -1,7 +1,7 @@
 # Lotus Performance Test Taxonomy Inventory
 
-Report date: 2026-10-03
-Branch: `feat/composite-materialization`
+Report date: 2026-10-04
+Branch: `fix/monetary-request-boundaries`
 Mode: regression-blocking test taxonomy inventory; `make quality-test-taxonomy-gate` enforces
 minimum API/runtime and contract/governance breadth plus the current uncategorized-test ceiling.
 
@@ -22,9 +22,9 @@ python scripts/python_test_taxonomy_inventory.py --limit 30 --min-api-runtime-te
 
 | Metric | Value |
 | --- | ---: |
-| Test modules inventoried | 348 |
-| Test functions inventoried | 4265 |
-| Integration/API/runtime test functions | 901 |
+| Test modules inventoried | 349 |
+| Test functions inventoried | 4288 |
+| Integration/API/runtime test functions | 905 |
 | Contract/governance test functions | 206 |
 
 ## Test Functions By Suite
@@ -33,8 +33,8 @@ python scripts/python_test_taxonomy_inventory.py --limit 30 --min-api-runtime-te
 | --- | ---: | ---: |
 | benchmarks | 11 | 53 |
 | e2e | 1 | 21 |
-| integration | 32 | 465 |
-| unit | 304 | 3726 |
+| integration | 32 | 469 |
+| unit | 305 | 3745 |
 
 ## Test Functions By Family
 
@@ -44,11 +44,11 @@ above does sum to it, because a module belongs to exactly one suite.
 
 | Family | Test functions |
 | --- | ---: |
-| analytics_domain | 2170 |
-| api_or_runtime | 901 |
+| analytics_domain | 2174 |
+| api_or_runtime | 905 |
 | contract_or_governance | 206 |
 | observability_or_readiness | 690 |
-| quality_or_security | 270 |
+| quality_or_security | 288 |
 | uncategorized | 565 |
 
 ## Largest Test Modules
@@ -57,11 +57,11 @@ above does sum to it, because a module belongs to exactly one suite.
 | ---: | --- | --- | ---: | --- |
 | 1 | `tests/unit/services/test_returns_series_service.py` | unit | 96 | analytics_domain |
 | 2 | `tests/unit/app/test_enterprise_readiness_additional.py` | unit | 88 | observability_or_readiness |
-| 3 | `tests/integration/test_contribution_api.py` | integration | 76 | analytics_domain, api_or_runtime |
-| 4 | `tests/unit/services/test_stateful_attribution_input_service.py` | unit | 71 | analytics_domain |
-| 5 | `tests/unit/docs/test_public_docs_contract.py` | unit | 71 | contract_or_governance |
+| 3 | `tests/integration/test_contribution_api.py` | integration | 77 | analytics_domain, api_or_runtime |
+| 4 | `tests/unit/docs/test_public_docs_contract.py` | unit | 71 | contract_or_governance |
+| 5 | `tests/unit/services/test_stateful_attribution_input_service.py` | unit | 71 | analytics_domain |
 | 6 | `tests/unit/services/test_compute_job_store.py` | unit | 70 | observability_or_readiness |
-| 7 | `tests/integration/test_performance_api.py` | integration | 64 | api_or_runtime |
+| 7 | `tests/integration/test_performance_api.py` | integration | 65 | api_or_runtime |
 | 8 | `tests/unit/services/test_lineage_metadata_store.py` | unit | 62 | observability_or_readiness |
 | 9 | `tests/unit/services/test_workspace_summary_service.py` | unit | 62 | analytics_domain |
 | 10 | `tests/unit/app/test_openapi_enrichment.py` | unit | 61 | api_or_runtime |
@@ -311,3 +311,8 @@ legacy-safe fallback, additive schema upgrade, restart recovery, repeated pollin
 fallback, tenant isolation, legacy polling sanitization, bounded fields, and malformed stored
 contracts. Current source test functions measure `4,198`, API/runtime functions `887`, and
 uncategorized functions remain `565`; no floor or ceiling changed.
+
+The #473 monetary-request slice adds exact admission, independent Dietz/XIRR and FX figures,
+bounded numerical refusals, stateful Decimal retention, registered API and lineage controls.
+The measured tree has 4,288 source functions, 905 API/runtime and 206 contract/governance functions.
+The unchanged uncategorized ceiling is 565; collection is not execution or consumer acceptance.

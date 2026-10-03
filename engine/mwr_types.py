@@ -1,12 +1,16 @@
 from dataclasses import dataclass, field
 from datetime import date
+from decimal import Decimal
 from typing import Literal, Protocol
 
 Number = float
+MonetaryValue = Decimal
 
 
 class CashFlowLike(Protocol):
-    amount: Number
+    @property
+    def amount(self) -> MonetaryValue: ...
+
     date: date
 
 

@@ -35,7 +35,8 @@ ALLOWLIST_PATH = REPO_ROOT / "docs/standards/monetary-float-allowlist.json"
 BOILERPLATE_JUSTIFICATION = "Temporary approved monetary floating-point usage; convert to Decimal."
 
 DISPOSITIONED_FINDINGS = {
-    "app/models/mwr_requests.py:14:amount: float",
+    "engine/numerical_boundary.py:13:def finite_float64_projection(value: Decimal) -> float:",
+    "engine/numerical_boundary.py:15:projected = float(value)",
 }
 MIGRATION_ISSUE = "https://github.com/sgajbi/lotus-performance/issues/473"
 
@@ -94,6 +95,23 @@ def test_the_annualize_return_ratio_is_not_an_allowlist_entry():
     offenders = [entry["finding"] for entry in payload["allowlist"] if "annualize_return" in entry["finding"]]
 
     assert offenders == [], offenders
+
+
+def test_migrated_request_fields_have_no_standing_float_allowance():
+    payload = json.loads(ALLOWLIST_PATH.read_text(encoding="utf-8"))
+    retired = {
+        "app/models/mwr_requests.py:amount: float",
+        "core/envelope.py:rate: float = Field(..., gt=0, allow_inf_nan=False)",
+        "engine/mwr.py:def _net_same_day_flows(values: list[float], dates: list[date]) -> tuple[np.ndarray, np.ndarray]:",
+        "engine/mwr.py:np.array([amount for _, amount in sorted_items], dtype=float),",
+    }
+    assert not retired.intersection(_finding_key(entry["finding"]) for entry in payload["allowlist"])
+    numerical_boundary = [
+        entry for entry in payload["allowlist"] if entry["finding"].startswith("engine/numerical_boundary.py:")
+    ]
+    assert len(numerical_boundary) == 2
+    assert {entry["review_by"] for entry in numerical_boundary} == {"2026-11-06"}
+    assert all(entry["owner"] == "lotus-performance" for entry in numerical_boundary)
 
 
 def test_breakdown_percentage_returns_are_not_dated_monetary_allowlist_entries():

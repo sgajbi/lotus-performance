@@ -74,6 +74,7 @@ from app.services.contribution_smoothing import (
 )
 from app.services.contribution_source_economics import build_contribution_source_economics_evidence
 from app.services.currency_code_normalization import normalized_currency_code
+from app.services.engine_exception_mapping_service import map_engine_exception_to_http_error
 from app.services.execution_lifecycle_service import (
     complete_execution_with_lineage,
     record_execution_failure,
@@ -1041,6 +1042,14 @@ def _run_contribution_calculation(
                 execution_stage_started=True,
             )
             raise APIError(status_code=int(getattr(exc, "status_code")), detail=detail) from exc
+        engine_error = map_engine_exception_to_http_error(exc)
+        if engine_error is not None:
+            record_execution_failure(
+                calculation_id=request.calculation_id,
+                message=engine_error.failure_message,
+                execution_stage_started=True,
+            )
+            raise APIError(status_code=engine_error.status_code, detail=engine_error.detail) from exc
         failure_detail = safe_unexpected_failure_message("Contribution calculation")
         logger.exception(
             "Contribution calculation failed unexpectedly.",
