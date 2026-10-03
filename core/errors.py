@@ -25,6 +25,7 @@ class APIError(ValueError):
         *,
         error_code: str | None = None,
         retryable: bool | None = None,
+        remediation_hint: str | None = None,
         headers: dict[str, str] | None = None,
     ):
         super().__init__(detail)
@@ -32,6 +33,7 @@ class APIError(ValueError):
         self.detail = detail
         self.error_code = error_code
         self.retryable = retryable
+        self.remediation_hint = remediation_hint
         self.headers = headers
 
 

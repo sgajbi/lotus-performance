@@ -17,6 +17,11 @@ from sqlalchemy.orm import DeclarativeBase, Mapped, Session, mapped_column, sess
 from app.core.config import get_settings
 from app.services.calculation_id_filtering import apply_calculation_id_prefix_filter
 from app.services.durable_database_engine import create_durable_database_engine
+from app.services.durable_failure_classification import (
+    DurableFailureClassification,
+    generic_durable_failure,
+    load_durable_failure,
+)
 from app.services.durable_schema_creation import create_durable_schema
 from app.services.durable_store_inspection import (
     INSPECTION_STATUS_ACTIVE,
@@ -104,6 +109,7 @@ class ComputeJobModel(Base):
     response_json: Mapped[str | None] = mapped_column(Text, nullable=True)
     error_message: Mapped[str | None] = mapped_column(Text, nullable=True)
     error_type: Mapped[str | None] = mapped_column(String(128), nullable=True)
+    failure_json: Mapped[str | None] = mapped_column(Text, nullable=True)
     attempt_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
     max_attempts: Mapped[int] = mapped_column(Integer, nullable=False, default=1)
     worker_id: Mapped[str | None] = mapped_column(String(128), nullable=True)
@@ -142,6 +148,7 @@ class ComputeJobRecord:
     created_at_utc: str
     started_at_utc: str | None
     completed_at_utc: str | None
+    failure: DurableFailureClassification | None = None
 
 
 @dataclass(frozen=True)
@@ -573,6 +580,7 @@ class ComputeJobStore:
             schema_upgrades=(
                 self._ensure_lease_owner_column,
                 self._ensure_tenant_id_column,
+                self._ensure_failure_json_column,
                 self._ensure_runtime_indexes,
             ),
         )
@@ -805,6 +813,7 @@ class ComputeJobStore:
             row.attempt_count += 1
             row.error_message = None
             row.error_type = None
+            row.failure_json = None
             now = datetime.now(timezone.utc)
             row.started_at_utc = row.started_at_utc or now
             row.leased_at_utc = now
@@ -836,6 +845,7 @@ class ComputeJobStore:
             row.attempt_count += 1
             row.error_message = None
             row.error_type = None
+            row.failure_json = None
             row.started_at_utc = row.started_at_utc or now
             row.leased_at_utc = now
             row.lease_expires_at_utc = now + timedelta(seconds=lease_seconds)
@@ -883,6 +893,7 @@ class ComputeJobStore:
             row.response_json = json.dumps(response_payload, sort_keys=True)
             row.error_message = None
             row.error_type = None
+            row.failure_json = None
             row.lease_owner_id = None
             row.started_at_utc = row.started_at_utc or now
             row.completed_at_utc = now
@@ -896,6 +907,7 @@ class ComputeJobStore:
         error_message: str,
         error_type: str | None = None,
         worker_id: str | None = None,
+        failure: DurableFailureClassification | None = None,
     ) -> None:
         with self._session() as session:
             row = self._get_model(session, calculation_id)
@@ -910,6 +922,7 @@ class ComputeJobStore:
             row.job_status = ComputeJobStatus.FAILED.value
             row.error_message = error_message
             row.error_type = error_type
+            row.failure_json = None if failure is None else failure.to_json()
             row.started_at_utc = row.started_at_utc or now
             row.completed_at_utc = now
             row.last_error_at_utc = now
@@ -942,6 +955,7 @@ class ComputeJobStore:
                     job_status=ComputeJobStatus.FAILED.value,
                     error_message=reason,
                     error_type="SourceCorrectionCancelled",
+                    failure_json=None,
                     completed_at_utc=now,
                     lease_owner_id=None,
                     leased_at_utc=None,
@@ -960,6 +974,7 @@ class ComputeJobStore:
         error_message: str,
         error_type: str | None = None,
         worker_id: str | None = None,
+        failure: DurableFailureClassification | None = None,
     ) -> bool:
         with self._session() as session:
             row = self._get_model(session, calculation_id)
@@ -973,6 +988,7 @@ class ComputeJobStore:
             )
             row.error_message = error_message
             row.error_type = error_type
+            row.failure_json = None if failure is None else failure.to_json()
             row.last_error_at_utc = now
             row.lease_owner_id = None
             row.leased_at_utc = None
@@ -1015,6 +1031,7 @@ class ComputeJobStore:
         row.error_type = outcome.error_type
         row.completed_at_utc = outcome.completed_at_utc
         row.job_status = outcome.job_status.value
+        row.failure_json = generic_durable_failure(retryable=outcome.job_status == ComputeJobStatus.PENDING).to_json()
         return ReconciledJobRecord(
             calculation_id=UUID(row.calculation_id),
             analytics_type=row.analytics_type,
@@ -1603,6 +1620,14 @@ class ComputeJobStore:
     def _ensure_lease_owner_column(self, connection: Connection) -> None:
         self._ensure_additive_column(connection, "lease_owner_id")
 
+    def _ensure_failure_json_column(self, connection: Connection) -> None:
+        inspector = inspect(connection)
+        if "analytics_compute_job" not in inspector.get_table_names():
+            return
+        if "failure_json" in {column["name"] for column in inspector.get_columns("analytics_compute_job")}:
+            return
+        connection.execute(text("ALTER TABLE analytics_compute_job ADD COLUMN failure_json TEXT"))
+
     def _to_record(self, row: ComputeJobModel) -> ComputeJobRecord:
         request_payload = _load_request_payload(row)
         response_payload = _load_response_payload(row)
@@ -1629,6 +1654,7 @@ class ComputeJobStore:
             created_at_utc=format_timestamp(row.created_at_utc) or "",
             started_at_utc=format_timestamp(row.started_at_utc),
             completed_at_utc=format_timestamp(row.completed_at_utc),
+            failure=load_durable_failure(row.failure_json, identity=row.calculation_id),
         )
 
     def _to_inspection_item(self, row: ComputeJobModel, *, now: datetime) -> ComputeQueueInspectionItem:

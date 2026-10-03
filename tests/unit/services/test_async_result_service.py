@@ -18,8 +18,136 @@ from app.services.async_result_service import (
 )
 from app.services.async_result_store import AsyncResultRecord, AsyncResultStatus
 from app.services.compute_job_store import ComputeJobRecord, ComputeJobStatus
+from app.services.durable_failure_classification import (
+    DURABLE_FAILURE_CONTRACT_VERSION,
+    GENERIC_ASYNC_FAILURE_CODE,
+    GENERIC_ASYNC_FAILURE_MESSAGE,
+    DurableFailureClassification,
+    classify_durable_failure,
+    load_durable_failure,
+)
 from app.services.execution_registry import ExecutionRecord, ExecutionStatus
-from core.errors import APIError
+from core.errors import APIError, APIUnprocessableEntityError
+
+
+def test_durable_failure_classification_preserves_safe_governed_domain_error():
+    failure = classify_durable_failure(
+        APIUnprocessableEntityError(
+            "History window exceeds the governed maximum.",
+            error_code="PERFORMANCE_HISTORY_COVERAGE_WINDOW_TOO_LARGE",
+        )
+    )
+
+    assert failure.contract_version == DURABLE_FAILURE_CONTRACT_VERSION
+    assert failure.status_code == 422
+    assert failure.error_code == "PERFORMANCE_HISTORY_COVERAGE_WINDOW_TOO_LARGE"
+    assert failure.message == "History window exceeds the governed maximum."
+    assert failure.retryable is False
+    assert load_durable_failure(failure.to_json(), identity="calc-1") == failure
+
+
+def test_durable_failure_classification_sanitizes_unknown_exception():
+    failure = classify_durable_failure(RuntimeError("secret=bank-account-123"))
+
+    assert failure.status_code == 409
+    assert failure.error_code == GENERIC_ASYNC_FAILURE_CODE
+    assert failure.message == GENERIC_ASYNC_FAILURE_MESSAGE
+    assert failure.retryable is False
+    assert "secret" not in failure.to_json()
+
+
+def test_durable_failure_classification_rejects_future_contract(caplog):
+    assert load_durable_failure(None, identity="calc-legacy") is None
+    with caplog.at_level(logging.WARNING):
+        failure = load_durable_failure(
+            '{"contract_version":"v2","status_code":422,"error_code":"X","message":"safe","retryable":false}',
+            identity="calc-legacy",
+        )
+
+    assert failure is None
+    assert "legacy generic handling" in caplog.text
+
+
+def test_durable_failure_classification_sanitizes_server_error_and_preserves_metadata():
+    failure = classify_durable_failure(
+        APIError(
+            status_code=503,
+            detail="secret upstream credential",
+            error_code="SOURCE_UNAVAILABLE",
+            retryable=True,
+            remediation_hint=" Retry after source recovery. ",
+        )
+    )
+
+    restored = failure.to_api_error()
+    assert failure.message == GENERIC_ASYNC_FAILURE_MESSAGE
+    assert failure.retryable is True
+    assert failure.remediation_hint == "Retry after source recovery."
+    assert restored.status_code == 503
+    assert restored.error_code == "SOURCE_UNAVAILABLE"
+    assert restored.remediation_hint == "Retry after source recovery."
+    assert "secret upstream credential" not in failure.to_json()
+
+
+def test_durable_failure_classification_derives_uncoded_service_unavailable_contract():
+    failure = classify_durable_failure(APIError(status_code=503, detail="upstream unavailable"))
+
+    assert failure.status_code == 503
+    assert failure.error_code == "SOURCE_UNAVAILABLE"
+    assert failure.retryable is True
+    assert failure.message == GENERIC_ASYNC_FAILURE_MESSAGE
+
+
+def test_durable_failure_classification_bounds_controlled_fields_and_extracts_dict_message():
+    failure = classify_durable_failure(
+        APIError(
+            status_code=422,
+            detail={"message": " Governed refusal. "},
+            error_code="X" * 200,
+            remediation_hint="R" * 600,
+        )
+    )
+
+    assert failure.message == "Governed refusal."
+    assert len(failure.error_code) == 128
+    assert len(failure.remediation_hint or "") == 512
+
+
+@pytest.mark.parametrize(
+    "raw_value",
+    [
+        "not-json",
+        "[]",
+        '{"contract_version":"v1"}',
+        '{"contract_version":"v1","status_code":399,"error_code":"X","message":"safe","retryable":false}',
+        '{"contract_version":"v1","status_code":418,"error_code":"X","message":"safe","retryable":false}',
+        '{"contract_version":"v1","status_code":422,"error_code":"X","message":"safe","retryable":"false"}',
+        '{"contract_version":"v1","status_code":422.9,"error_code":"X","message":"safe","retryable":false}',
+        '{"contract_version":"v1","status_code":true,"error_code":"X","message":"safe","retryable":false}',
+        '{"contract_version":"v1","status_code":422,"error_code":{"code":"X"},"message":"safe","retryable":false}',
+        '{"contract_version":"v1","status_code":422,"error_code":"X","message":{"secret":"value"},"retryable":false}',
+        '{"contract_version":"v1","status_code":422,"error_code":"X","message":"safe","retryable":false,"remediation_hint":42}',
+        '{"contract_version":"v1","status_code":422,"error_code":"","message":"safe","retryable":false}',
+        '{"contract_version":"v1","status_code":422,"error_code":"X","message":"","retryable":false}',
+    ],
+)
+def test_durable_failure_classification_rejects_malformed_or_untrusted_stored_values(raw_value):
+    assert load_durable_failure(raw_value, identity="calc-invalid") is None
+
+
+def test_durable_failure_classification_uses_safe_fallback_for_non_message_detail():
+    failure = classify_durable_failure(
+        APIError(status_code=422, detail={"unexpected": "value"}, error_code="DOMAIN_REFUSAL")
+    )
+
+    assert failure.message == "The asynchronous calculation was refused."
+
+
+def test_durable_failure_classification_constrains_unknown_http_status_to_documented_generic_contract():
+    failure = classify_durable_failure(APIError(status_code=418, detail="unexpected status"))
+
+    assert failure.status_code == 409
+    assert failure.error_code == GENERIC_ASYNC_FAILURE_CODE
 
 
 class _AsyncResponse(BaseModel):
@@ -79,6 +207,7 @@ def _job_record(
     analytics_type: str = "ReturnsSeries",
     response_payload: dict[str, Any] | None = None,
     error_message: str | None = None,
+    failure: DurableFailureClassification | None = None,
 ) -> ComputeJobRecord:
     return ComputeJobRecord(
         calculation_id=calculation_id,
@@ -98,6 +227,7 @@ def _job_record(
         created_at_utc="2026-06-13T00:00:00Z",
         started_at_utc=None,
         completed_at_utc=None,
+        failure=failure,
     )
 
 
@@ -108,6 +238,7 @@ def _async_result_record(
     analytics_type: str = "ReturnsSeries",
     response_payload: dict[str, Any] | None = None,
     error_message: str | None = None,
+    failure: DurableFailureClassification | None = None,
 ) -> AsyncResultRecord:
     return AsyncResultRecord(
         calculation_id=calculation_id,
@@ -118,6 +249,7 @@ def _async_result_record(
         error_type=None,
         created_at_utc="2026-06-13T00:00:00Z",
         updated_at_utc="2026-06-13T00:00:01Z",
+        failure=failure,
     )
 
 
@@ -133,6 +265,7 @@ def _execution_record(
     status: ExecutionStatus = ExecutionStatus.COMPLETE,
     response_payload: dict[str, Any] | None = None,
     error_message: str | None = None,
+    failure: DurableFailureClassification | None = None,
 ) -> ExecutionRecord:
     return ExecutionRecord(
         calculation_id=calculation_id,
@@ -151,6 +284,7 @@ def _execution_record(
         stages=[],
         upstream_snapshots=[],
         response_payload=response_payload,
+        failure=failure,
     )
 
 
@@ -220,7 +354,40 @@ def test_resolve_compute_job_result_raises_conflict_for_failed_job():
         )
 
     assert exc_info.value.status_code == 409
-    assert exc_info.value.detail == "worker failed"
+    assert exc_info.value.detail == GENERIC_ASYNC_FAILURE_MESSAGE
+    assert exc_info.value.error_code == "ASYNC_EXECUTION_FAILED"
+
+
+def test_resolve_compute_job_result_restores_governed_failure_classification():
+    calculation_id = uuid4()
+    failure = DurableFailureClassification(
+        contract_version="v1",
+        status_code=422,
+        error_code="PERFORMANCE_HISTORY_COVERAGE_WINDOW_TOO_LARGE",
+        message="History window exceeds the governed maximum.",
+        retryable=False,
+    )
+    job = _job_record(
+        calculation_id,
+        job_status=ComputeJobStatus.FAILED,
+        error_message=failure.message,
+        failure=failure,
+    )
+
+    with pytest.raises(APIError) as exc_info:
+        _resolve_compute_job_result(
+            calculation_id=calculation_id,
+            job=job,
+            expected_analytics_type="ReturnsSeries",
+            response_model=_AsyncResponse,
+            accepted_response_factory=_accepted_response,
+            not_found_detail="not found",
+            failed_detail="failed",
+        )
+
+    assert exc_info.value.status_code == 422
+    assert exc_info.value.error_code == "PERFORMANCE_HISTORY_COVERAGE_WINDOW_TOO_LARGE"
+    assert exc_info.value.retryable is False
 
 
 def test_resolve_async_result_returns_accepted_for_active_compute_job(monkeypatch):
@@ -388,7 +555,7 @@ def test_resolve_retained_execution_result_refuses_unavailable_states(retained_s
         )
 
     assert exc_info.value.status_code == (409 if retained_state == "failed" else 404)
-    assert exc_info.value.detail == ("retained execution failed" if retained_state == "failed" else "not found")
+    assert exc_info.value.detail == (GENERIC_ASYNC_FAILURE_MESSAGE if retained_state == "failed" else "not found")
 
 
 def test_resolve_async_result_uses_persisted_empty_authority_for_stateless_poll(monkeypatch):
@@ -548,7 +715,7 @@ def test_resolve_async_result_raises_conflict_for_failed_stored_async_result(mon
         )
 
     assert exc_info.value.status_code == 409
-    assert exc_info.value.detail == "worker failed"
+    assert exc_info.value.detail == GENERIC_ASYNC_FAILURE_MESSAGE
 
 
 def test_resolve_async_result_upgrades_then_validates_completed_compute_job_payload(monkeypatch):

@@ -74,6 +74,19 @@ ASYNC_RESULT_ROUTES = (
     ),
 )
 
+DURABLE_FAILURE_RESPONSES = {
+    "400": False,
+    "401": False,
+    "403": False,
+    "408": True,
+    "422": False,
+    "429": True,
+    "500": True,
+    "502": True,
+    "503": True,
+    "504": True,
+}
+
 STATEFUL_TENANT_ROUTES = (
     "/performance/attribution",
     "/performance/benchmark",
@@ -109,6 +122,9 @@ def test_async_result_routes_document_pending_and_terminal_error_contracts() -> 
         for status_code in ("404", "409"):
             assert _response_schema_name(responses[status_code]) == "ErrorDetailResponse"
             _assert_error_detail_example(responses[status_code], expected_retryable=False)
+        for status_code, expected_retryable in DURABLE_FAILURE_RESPONSES.items():
+            assert _response_schema_name(responses[status_code]) == "ErrorDetailResponse"
+            _assert_error_detail_example(responses[status_code], expected_retryable=expected_retryable)
 
 
 def test_exactly_stateful_capable_routes_publish_conditional_tenant_authority_contract() -> None:

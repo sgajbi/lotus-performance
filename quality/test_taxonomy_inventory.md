@@ -1,7 +1,7 @@
 # Lotus Performance Test Taxonomy Inventory
 
 Report date: 2026-10-03
-Branch: `fix/552-benchmark-validation-classification`
+Branch: `fix/336-async-error-classification`
 Mode: regression-blocking test taxonomy inventory; `make quality-test-taxonomy-gate` enforces
 minimum API/runtime and contract/governance breadth plus the current uncategorized-test ceiling.
 
@@ -23,8 +23,8 @@ python scripts/python_test_taxonomy_inventory.py --limit 30 --min-api-runtime-te
 | Metric | Value |
 | --- | ---: |
 | Test modules inventoried | 343 |
-| Test functions inventoried | 4182 |
-| Integration/API/runtime test functions | 872 |
+| Test functions inventoried | 4198 |
+| Integration/API/runtime test functions | 887 |
 | Contract/governance test functions | 205 |
 
 ## Test Functions By Suite
@@ -33,8 +33,8 @@ python scripts/python_test_taxonomy_inventory.py --limit 30 --min-api-runtime-te
 | --- | ---: | ---: |
 | benchmarks | 10 | 47 |
 | e2e | 1 | 21 |
-| integration | 31 | 451 |
-| unit | 301 | 3663 |
+| integration | 31 | 452 |
+| unit | 301 | 3678 |
 
 ## Test Functions By Family
 
@@ -45,9 +45,9 @@ above does sum to it, because a module belongs to exactly one suite.
 | Family | Test functions |
 | --- | ---: |
 | analytics_domain | 2105 |
-| api_or_runtime | 872 |
+| api_or_runtime | 887 |
 | contract_or_governance | 205 |
-| observability_or_readiness | 689 |
+| observability_or_readiness | 690 |
 | quality_or_security | 270 |
 | uncategorized | 565 |
 
@@ -305,3 +305,9 @@ The #530 Decimal-boundary slice adds exact model, service, inspection, adapter, 
 and benchmark API regressions. Source test functions measure `4,138`, API/runtime functions `847`,
 analytics-domain functions `2,078`, and uncategorized functions remain `565`; no floor or ceiling
 changed.
+
+The #336 durable async-failure slice adds eight source functions covering versioned classification,
+legacy-safe fallback, additive schema upgrade, restart recovery, repeated polling, retention
+fallback, tenant isolation, legacy polling sanitization, bounded fields, and malformed stored
+contracts. Current source test functions measure `4,198`, API/runtime functions `887`, and
+uncategorized functions remain `565`; no floor or ceiling changed.

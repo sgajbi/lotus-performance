@@ -8,7 +8,7 @@
       "openApiVersion": "3.1.0"
     }
   ],
-  "generatedAt": "2026-10-02T22:28:35.498910+00:00",
+  "generatedAt": "2026-10-03T05:10:38.062536+00:00",
   "attributeCatalog": [
     {
       "semanticId": "lotus.access_classification",
@@ -458,8 +458,16 @@
       "description": "Endpoint-specific async result metadata when a durable result record exists.",
       "example": {
         "result_status": "complete",
-        "error_message": "explode",
+        "error_message": "Compute job execution failed unexpectedly. Use the correlation_id for support.",
         "error_type": "RuntimeError",
+        "failure": {
+          "contract_version": "v1",
+          "status_code": 422,
+          "error_code": "PERFORMANCE_HISTORY_COVERAGE_WINDOW_TOO_LARGE",
+          "message": "example_message",
+          "retryable": true,
+          "remediation_hint": "example_remediation_hint"
+        },
         "created_at_utc": "2026-04-10T12:00:06Z",
         "updated_at_utc": "2026-04-10T12:00:08Z"
       },
@@ -1321,8 +1329,16 @@
         "attempt_count": 1,
         "max_attempts": 3,
         "worker_id": "performance-compute-executor-1",
-        "error_message": "temporary upstream issue",
+        "error_message": "The source dependency is temporarily unavailable.",
         "error_type": "HTTPException",
+        "failure": {
+          "contract_version": "v1",
+          "status_code": 422,
+          "error_code": "PERFORMANCE_HISTORY_COVERAGE_WINDOW_TOO_LARGE",
+          "message": "example_message",
+          "retryable": true,
+          "remediation_hint": "example_remediation_hint"
+        },
         "leased_at_utc": "2026-04-10T12:00:03Z",
         "lease_expires_at_utc": "2026-04-10T12:05:03Z",
         "last_error_at_utc": "2026-04-10T12:00:04Z",
@@ -2576,6 +2592,27 @@
       ],
       "observedTypes": [
         "integer"
+      ]
+    },
+    {
+      "semanticId": "lotus.failure",
+      "canonicalTerm": "failure",
+      "preferredName": "failure",
+      "description": "Retained versioned failure classification used after queue or result retention.",
+      "example": {
+        "contract_version": "v1",
+        "status_code": 422,
+        "error_code": "PERFORMANCE_HISTORY_COVERAGE_WINDOW_TOO_LARGE",
+        "message": "example_message",
+        "retryable": true,
+        "remediation_hint": "example_remediation_hint"
+      },
+      "type": "object",
+      "locations": [
+        "body"
+      ],
+      "observedTypes": [
+        "object"
       ]
     },
     {
@@ -12863,6 +12900,14 @@
             "type": "string",
             "semanticId": "lotus.error_message",
             "attributeRef": "#/attributeCatalog/lotus.error_message"
+          },
+          {
+            "name": "failure",
+            "location": "body",
+            "required": false,
+            "type": "object",
+            "semanticId": "lotus.failure",
+            "attributeRef": "#/attributeCatalog/lotus.failure"
           },
           {
             "name": "created_at_utc",
