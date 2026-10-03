@@ -569,9 +569,13 @@ def _ensure_compute_job_can_mark_running(
 
 
 class ComputeJobStore:
-    def __init__(self, database_url: str):
-        self._engine = create_durable_database_engine(database_url)
-        self._session_factory = sessionmaker(bind=self._engine, future=True)
+    def __init__(self, database_url: str, *, connection: Connection | None = None):
+        self._engine = connection.engine if connection is not None else create_durable_database_engine(database_url)
+        self._session_factory = sessionmaker(
+            bind=connection if connection is not None else self._engine,
+            future=True,
+            join_transaction_mode="create_savepoint",
+        )
 
     def create_schema(self) -> None:
         create_durable_schema(

@@ -1,0 +1,110 @@
+"""Verify retained member evidence without consulting an expired execution record."""
+
+from typing import NoReturn
+
+from app.models.composite_materialization import (
+    CompositeMaterializationCommand,
+    CompositeMemberMaterializationOutcome,
+    CompositeMemberSourceEvidence,
+)
+from app.models.composites import CompositeMemberReturnFact, CompositeReturnView
+from app.services.reproducibility_service import generate_value_fingerprint
+from core.errors import APIConflictError
+
+
+def _refuse() -> NoReturn:
+    raise APIConflictError(
+        "Retained member source evidence conflicts with its immutable fact.",
+        error_code="COMPOSITE_MATERIALIZATION_MEMBER_EVIDENCE_REFUSED",
+    )
+
+
+def require_member_source_evidence(
+    command: CompositeMaterializationCommand, outcome: CompositeMemberMaterializationOutcome
+) -> None:
+    fact, evidence = outcome.fact, outcome.source_evidence
+    if fact is None or evidence is None:
+        _refuse()
+    receipt_digest, _ = generate_value_fingerprint(evidence, "composite-member-source.v1")
+    if fact.source_snapshot_id != receipt_digest or evidence.membership_snapshot_id != command.membership_content_hash:
+        _refuse()
+    input_digest, calculation_digest = generate_value_fingerprint(evidence.calculation_request, evidence.engine_version)
+    if (input_digest, calculation_digest) != (evidence.input_fingerprint, evidence.calculation_hash):
+        _refuse()
+    if (
+        generate_value_fingerprint(evidence.source_assets, "portfolio-source-assets.v1")[0]
+        != evidence.asset_evidence_fingerprint
+    ):
+        _refuse()
+    _require_member_request_scope(command, outcome.portfolio_id, fact, evidence)
+    _require_source_assets_scope(command, fact, evidence)
+    _require_core_snapshot_scope(command, outcome.portfolio_id, evidence)
+
+
+def _require_member_request_scope(
+    command: CompositeMaterializationCommand,
+    portfolio_id: str,
+    fact: CompositeMemberReturnFact,
+    evidence: CompositeMemberSourceEvidence,
+) -> None:
+    request = evidence.calculation_request.portfolio
+    basis = "GROSS" if command.return_view == CompositeReturnView.GROSS else "NET"
+    reference = next((item for item in command.member_calculations if item.portfolio_id == portfolio_id), None)
+    if reference is None:
+        _refuse()
+    if (
+        str(request.calculation_id),
+        request.portfolio_id,
+        request.metric_basis,
+        request.precision_mode,
+        evidence.input_fingerprint,
+        evidence.calculation_hash,
+        fact.portfolio_id,
+        fact.return_value,
+    ) != (
+        fact.calculation_id,
+        portfolio_id,
+        basis,
+        evidence.precision_mode,
+        reference.input_fingerprint,
+        reference.calculation_hash,
+        portfolio_id,
+        evidence.period_return,
+    ):
+        _refuse()
+
+
+def _require_source_assets_scope(
+    command: CompositeMaterializationCommand,
+    fact: CompositeMemberReturnFact,
+    evidence: CompositeMemberSourceEvidence,
+) -> None:
+    assets = evidence.source_assets
+    first, last = assets.observations[0], assets.observations[-1]
+    if (
+        assets.portfolio_currency,
+        first.valuation_date,
+        last.valuation_date,
+        first.beginning_market_value,
+        last.ending_market_value,
+    ) != (
+        command.reporting_currency,
+        command.period_start,
+        command.period_end,
+        fact.beginning_market_value,
+        fact.ending_market_value,
+    ):
+        _refuse()
+
+
+def _require_core_snapshot_scope(
+    command: CompositeMaterializationCommand,
+    portfolio_id: str,
+    evidence: CompositeMemberSourceEvidence,
+) -> None:
+    ids = [item.snapshot_id for item in evidence.core_snapshots]
+    if len(ids) != len(set(ids)) or any(
+        (item.source_identifier, item.request_as_of_date) != (portfolio_id, command.period_end)
+        for item in evidence.core_snapshots
+    ):
+        _refuse()

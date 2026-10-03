@@ -191,8 +191,14 @@ def finalize_twr_resolved_execution_identity(
                     "resolved_benchmark_id": resolved_request.resolved_benchmark_id,
                     "benchmark_return_source": twr_resolved_benchmark_return_source(request).value,
                     "portfolio_id": request.portfolio_id,
+                    "source_asset_evidence": (
+                        resolved_request.source_asset_evidence.model_dump(mode="json")
+                        if resolved_request.source_asset_evidence is not None
+                        else None
+                    ),
                 }
             ),
+            source_request_payload=request.model_dump(mode="json"),
             should_offload=should_offload_resolved_twr(resolved_input_count),
             offload_reason="large_resolved_stateful_twr",
             accepted_response_factory=accepted_twr_response,

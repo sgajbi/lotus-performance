@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import logging
 from collections.abc import Callable
+from dataclasses import dataclass
 from typing import Any
 from uuid import UUID
 
@@ -12,6 +13,7 @@ from app.observability import record_idempotent_submission, tenant_id_var
 from app.services.compute_job_store import (
     ComputeJobRegistrationResult,
     ComputeJobRegistrationStatus,
+    ComputeJobStore,
     compute_job_store,
 )
 from app.services.core_tenant_authority import (
@@ -19,9 +21,11 @@ from app.services.core_tenant_authority import (
     MissingStatefulSubmissionTenantAuthorityError,
     admitted_tenant_authority,
 )
+from app.services.durable_store_runtime import RuntimeStoreProxy
 from app.services.execution_registry import (
     ExecutionRegistrationResult,
     ExecutionRegistrationStatus,
+    ExecutionRegistry,
     ExecutionStatus,
     execution_registry,
 )
@@ -29,6 +33,18 @@ from app.services.execution_stage_names import EXECUTION_STAGE_SUBMISSION
 from core.errors import APIConflictError
 
 logger = logging.getLogger(__name__)
+
+
+@dataclass(frozen=True)
+class AsyncSubmissionStores:
+    """Existing stores, optionally bound by an adapter to one database transaction."""
+
+    executions: ExecutionRegistry | RuntimeStoreProxy[ExecutionRegistry]
+    jobs: ComputeJobStore | RuntimeStoreProxy[ComputeJobStore]
+
+
+def _submission_stores(stores: AsyncSubmissionStores | None) -> AsyncSubmissionStores:
+    return stores or AsyncSubmissionStores(execution_registry, compute_job_store)
 
 
 def register_sync_execution_or_raise(
@@ -75,12 +91,14 @@ def register_async_submission_or_raise(
     submission_identity_fingerprint: str | None = None,
     submission_contract_version: str | None = None,
     idempotency_conflict_error_code: str | None = None,
+    stores: AsyncSubmissionStores | None = None,
 ) -> ApplicationHttpResponse:
+    stores = _submission_stores(stores)
     _require_submission_tenant_if_needed(
         requires_tenant_authority=requires_tenant_authority,
         requires_idempotency_authority=submission_idempotency_key_hash is not None,
     )
-    registration = execution_registry.register_execution(
+    registration = stores.executions.register_execution(
         calculation_id=calculation_id,
         tenant_id=tenant_id_var.get(),
         analytics_type=analytics_type,
@@ -108,7 +126,7 @@ def register_async_submission_or_raise(
         request_payload=request_payload,
     )
     if created_execution:
-        execution_registry.start_stage(registered_calculation_id, EXECUTION_STAGE_SUBMISSION)
+        stores.executions.start_stage(registered_calculation_id, EXECUTION_STAGE_SUBMISSION)
 
     if not _is_durably_resolved_execution_replay(registration):
         job_registration = _register_async_compute_job_or_rollback_execution(
@@ -117,6 +135,7 @@ def register_async_submission_or_raise(
             request_payload=registered_request_payload,
             created_execution=created_execution,
             preserve_created_execution=submission_idempotency_key_hash is not None,
+            stores=stores,
         )
 
         _complete_async_submission_stage_if_needed(
@@ -125,6 +144,7 @@ def register_async_submission_or_raise(
             compute_job_registration_status=job_registration.status,
             created_execution=created_execution,
             offload_reason=offload_reason,
+            stores=stores,
         )
 
     _record_idempotent_submission_outcome(
@@ -197,9 +217,11 @@ def _register_async_compute_job_or_rollback_execution(
     request_payload: dict[str, Any],
     created_execution: bool,
     preserve_created_execution: bool = False,
+    stores: AsyncSubmissionStores | None = None,
 ) -> ComputeJobRegistrationResult:
+    stores = _submission_stores(stores)
     try:
-        job_registration = compute_job_store.register_job(
+        job_registration = stores.jobs.register_job(
             calculation_id=calculation_id,
             analytics_type=analytics_type,
             tenant_id=tenant_id_var.get(),
@@ -217,6 +239,7 @@ def _register_async_compute_job_or_rollback_execution(
             analytics_type=analytics_type,
             created_execution=created_execution,
             preserve_created_execution=preserve_created_execution,
+            stores=stores,
         )
         raise
 
@@ -226,6 +249,7 @@ def _register_async_compute_job_or_rollback_execution(
             analytics_type=analytics_type,
             created_execution=created_execution,
             preserve_created_execution=preserve_created_execution,
+            stores=stores,
         )
         raise APIConflictError(
             "A different async compute job already exists for this calculation_id. "
@@ -240,11 +264,12 @@ def _rollback_created_async_execution(
     analytics_type: str,
     created_execution: bool,
     preserve_created_execution: bool = False,
+    stores: AsyncSubmissionStores | None = None,
 ) -> None:
     if not created_execution or preserve_created_execution:
         return
     try:
-        execution_registry.delete_execution(calculation_id)
+        _submission_stores(stores).executions.delete_execution(calculation_id)
     except Exception:
         logger.warning(
             "Async execution registration cleanup failed for calculation_id=%s analytics_type=%s.",
@@ -261,9 +286,11 @@ def _complete_async_submission_stage_if_needed(
     compute_job_registration_status: ComputeJobRegistrationStatus,
     created_execution: bool,
     offload_reason: str,
+    stores: AsyncSubmissionStores | None = None,
 ) -> None:
+    executions = _submission_stores(stores).executions
     if created_execution:
-        execution_registry.complete_stage(
+        executions.complete_stage(
             calculation_id,
             EXECUTION_STAGE_SUBMISSION,
             details={"offload_reason": offload_reason},
@@ -273,8 +300,8 @@ def _complete_async_submission_stage_if_needed(
         execution_registration_status == ExecutionRegistrationStatus.REPLAY
         and compute_job_registration_status == ComputeJobRegistrationStatus.CREATED
     ):
-        execution_registry.start_stage(calculation_id, EXECUTION_STAGE_SUBMISSION)
-        execution_registry.complete_stage(
+        executions.start_stage(calculation_id, EXECUTION_STAGE_SUBMISSION)
+        executions.complete_stage(
             calculation_id,
             EXECUTION_STAGE_SUBMISSION,
             details={"offload_reason": offload_reason},
@@ -284,7 +311,7 @@ def _complete_async_submission_stage_if_needed(
         execution_registration_status == ExecutionRegistrationStatus.REPLAY
         and compute_job_registration_status == ComputeJobRegistrationStatus.REPLAY
     ):
-        execution_registry.complete_stage_if_in_progress(
+        executions.complete_stage_if_in_progress(
             calculation_id,
             EXECUTION_STAGE_SUBMISSION,
             details={"offload_reason": offload_reason},
@@ -324,6 +351,7 @@ def promote_existing_execution_to_async_submission_or_raise(
         calculation_id,
         input_fingerprint=input_fingerprint,
         calculation_hash=calculation_hash,
+        request_payload=request_payload,
     )
     execution_registry.start_stage(calculation_id, EXECUTION_STAGE_SUBMISSION)
     execution_registry.complete_stage(

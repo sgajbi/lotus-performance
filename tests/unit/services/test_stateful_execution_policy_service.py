@@ -97,8 +97,40 @@ def test_finalize_resolved_stateful_execution_updates_execution_without_offload(
         calculation_id,
         input_fingerprint="resolved-fingerprint",
         calculation_hash="resolved-hash",
+        request_payload={"portfolio_id": "P1"},
     )
     promote.assert_not_called()
+
+
+@pytest.mark.parametrize("should_offload", [False, True])
+def test_finalization_retains_source_command_separately_from_frozen_engine_inputs(mocker, should_offload):
+    update_contract = mocker.patch(
+        "app.services.stateful_execution_policy_service.execution_registry.update_execution_contract"
+    )
+    update_identity = mocker.patch(
+        "app.services.stateful_execution_policy_service.execution_registry.update_execution_identity"
+    )
+    promote = mocker.patch(
+        "app.services.stateful_execution_policy_service.promote_existing_execution_to_async_submission_or_raise"
+    )
+    original = {"portfolio_id": "P1", "input_mode": "stateful", "stateful_input": {}}
+    resolved = {"resolved_request": {"portfolio_id": "P1", "valuation_points": [{"end_mv": "110"}]}}
+    finalize_resolved_stateful_execution(
+        calculation_id=uuid4(),
+        analytics_type="TWR",
+        requested_window={"start_date": "2026-01-05", "end_date": "2026-01-05"},
+        input_fingerprint="resolved-fingerprint",
+        calculation_hash="resolved-hash",
+        resolved_request_payload=resolved,
+        source_request_payload=original,
+        should_offload=should_offload,
+        offload_reason="large_resolved_stateful_twr",
+        accepted_response_factory=_accepted_response_factory,
+    )
+    retained = (promote if should_offload else update_identity).call_args.kwargs["request_payload"]
+    assert retained == {**resolved, "source_request": original}
+    assert "source_request" not in resolved  # Do not mutate caller-owned envelopes.
+    assert update_contract.call_count == (0 if should_offload else 1)
 
 
 def test_finalize_resolved_stateful_execution_promotes_async_when_requested(mocker):

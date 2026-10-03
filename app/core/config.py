@@ -52,6 +52,8 @@ class Settings(BaseSettings):
     CORE_CONTROL_PLANE_BASE_URL: str | None = "http://core-control.dev.lotus"
     CORE_QUERY_BASE_URL: str | None = None
     CORE_TIMEOUT_SECONDS: float = Field(default=10.0, gt=0.0)
+    MANAGE_BASE_URL: str | None = None
+    MANAGE_TIMEOUT_SECONDS: float = Field(default=10.0, gt=0.0)
     CORE_MAX_RETRIES: int = Field(default=2, ge=0)
     CORE_RETRY_BACKOFF_SECONDS: float = Field(default=0.2, ge=0.0)
     UPSTREAM_HTTP_MAX_CONNECTIONS: int = Field(default=100, gt=0)

@@ -403,9 +403,15 @@ def _execution_record_from_model(
 
 
 class ExecutionRegistry:
-    def __init__(self, database_url: str):
-        self._engine = create_durable_database_engine(database_url)
-        self._session_factory = sessionmaker(bind=self._engine, future=True)
+    def __init__(self, database_url: str, *, connection: Connection | None = None):
+        # A borrowed connection participates in the caller's outer transaction;
+        # each existing method owns only its savepoint, never the shared engine.
+        self._engine = connection.engine if connection is not None else create_durable_database_engine(database_url)
+        self._session_factory = sessionmaker(
+            bind=connection if connection is not None else self._engine,
+            future=True,
+            join_transaction_mode="create_savepoint",
+        )
 
     def create_schema(self) -> None:
         create_durable_schema(
@@ -627,11 +633,14 @@ class ExecutionRegistry:
         *,
         input_fingerprint: str | None,
         calculation_hash: str | None,
+        request_payload: dict[str, Any] | None = None,
     ) -> None:
         with self._session() as session:
             execution = self._get_execution_model(session, calculation_id)
             execution.input_fingerprint = input_fingerprint
             execution.calculation_hash = calculation_hash
+            if request_payload is not None:
+                execution.request_json = json.dumps(request_payload, sort_keys=True)
 
     def retain_response_payload(self, calculation_id: UUID, *, response_payload: dict[str, Any]) -> None:
         with self._session() as session:

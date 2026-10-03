@@ -273,7 +273,8 @@ def _schedule_recalculation(*, execution: Any, request: SourceCorrectionRequest,
         NAMESPACE_URL,
         f"lotus-performance:{tenant_id}:{request.correction_id}:{execution.calculation_id}",
     )
-    replacement_payload = dict(execution.request_payload or {})
+    retained_payload = execution.request_payload or {}
+    replacement_payload = dict(retained_payload.get("source_request", retained_payload))
     replacement_payload["calculation_id"] = str(replacement_id)
     registration = execution_registry.register_execution(
         calculation_id=replacement_id,
@@ -409,7 +410,8 @@ def _is_impacted(execution: Any, request: SourceCorrectionRequest) -> bool:
 
 
 def _uses_stateful_input(payload: dict[str, Any]) -> bool:
-    return str(payload.get("input_mode", "")).lower() == "stateful"
+    source_request = payload.get("source_request", payload)
+    return isinstance(source_request, dict) and str(source_request.get("input_mode", "")).lower() == "stateful"
 
 
 def _source_target_matches(payload: Any, request: SourceCorrectionRequest) -> bool:

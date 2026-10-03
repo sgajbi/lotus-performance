@@ -22,6 +22,17 @@ Current declaration files:
    Route-level inventory for every active `CoreIntegrationService.get_*` dependency, including
    time-bound exceptions where upstream producer declarations are not available yet.
 
+### Bounded Manage Source Contracts
+
+Composite materialization consumes Manage `CompositeDefinition/v1`, `CompositeMembership/v1` and
+`CompositeUniverseAttestation/v1` through pinned operational API contracts. These published wires
+are not present in the governed mesh producer declarations inspected for this slice. The existing
+Core dependency inventory remains Core-specific; passing its validator does not certify Manage
+source qualification. See [the workflow guide](../../docs/guides/composite_materialization.md) and
+[Manage #714](https://github.com/sgajbi/lotus-manage/issues/714) for the live-universe acceptance dependency.
+
+### Validation
+
 Local validation command:
 
 ```powershell

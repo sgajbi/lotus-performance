@@ -9,6 +9,7 @@ from fastapi.openapi.utils import get_openapi
 from app.api.endpoints import (
     benchmark,
     benchmark_exposure_context,
+    composite_materialization,
     composites,
     contribution,
     executions,
@@ -122,6 +123,7 @@ app.add_exception_handler(RequestValidationError, request_validation_exception_h
 app.include_router(performance.router, prefix="/performance")
 app.include_router(benchmark.router, prefix="/performance")
 app.include_router(composites.router, prefix="/performance")
+app.include_router(composite_materialization.router, prefix="/performance")
 app.include_router(contribution.router, prefix="/performance")
 app.include_router(executions.router, prefix="/performance")
 app.include_router(source_corrections.router, prefix="/performance")

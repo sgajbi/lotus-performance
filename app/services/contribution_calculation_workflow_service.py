@@ -178,6 +178,7 @@ async def _resolve_promoted_stateful_contribution_response(
             calculation_hash=resolved_calculation_hash,
             resolved_request_payload=_resolved_contribution_async_request_payload(resolved),
             should_offload=should_offload_resolved_contribution(resolved.position_count),
+            source_request_payload=request.model_dump(mode="json"),
             offload_reason="large_resolved_stateful_contribution",
             accepted_response_factory=accepted_contribution_response,
         )

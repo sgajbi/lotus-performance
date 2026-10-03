@@ -5,6 +5,7 @@ from datetime import date
 from uuid import UUID
 
 from app.core.config import Settings
+from app.models.portfolio_asset_evidence import PortfolioSourceAssetEvidence
 from app.models.source_quality import PerformanceSourceQualityEvidence
 from app.services.portfolio_source_service import (
     fetch_stateful_portfolio_timeseries,
@@ -149,4 +150,24 @@ def build_stateful_portfolio_valuation_input(
         ),
         portfolio_currency=source_input.portfolio_currency,
         reporting_currency=source_input.reporting_currency,
+    )
+
+
+def build_stateful_portfolio_asset_evidence(
+    source_input: StatefulPortfolioValuationInput | None,
+) -> PortfolioSourceAssetEvidence | None:
+    if source_input is None or source_input.portfolio_currency is None:
+        return None
+    return PortfolioSourceAssetEvidence.model_validate(
+        {
+            "portfolio_currency": source_input.portfolio_currency,
+            "observations": [
+                {
+                    "valuation_date": point["perf_date"],
+                    "beginning_market_value": point["begin_mv"],
+                    "ending_market_value": point["end_mv"],
+                }
+                for point in sorted(source_input.valuation_points, key=lambda item: str(item["perf_date"]))
+            ],
+        }
     )

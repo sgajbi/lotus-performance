@@ -178,12 +178,20 @@ def test_source_correction_recalculates_registered_stateful_twr_against_changed_
         original_id = original_body["calculation_id"]
         original_return = original_body["results_by_period"]["SI"]["portfolio"]["summary"]["period_return"]["base"]
         assert original_return == pytest.approx(10.0)
+        retained = execution_store.get_execution(UUID(original_id)).request_payload
+        assert retained["source_request"]["input_mode"] == "stateful"
+        assert retained["source_request"]["stateful_input"] == {}
+        assert retained["resolved_request"]["portfolio"]["valuation_points"][0]["end_mv"] == "110"
         execution_store.mark_complete(UUID(original_id))
 
         ending_value["amount"] = "108"
         correction_response = client.post("/performance/source-corrections", json=_payload())
         assert correction_response.status_code == 202
         corrected_id = correction_response.json()["impacts"][0]["corrected_calculation_id"]
+        corrected_command = compute_store.get_job(UUID(corrected_id)).request_payload
+        assert corrected_command["input_mode"] == "stateful"
+        assert "resolved_request" not in corrected_command
+        assert "source_asset_evidence" not in corrected_command
 
     assert (
         _process_pending_jobs(
