@@ -12,6 +12,10 @@ from app.observability import tenant_id_var
 from app.services.async_result_store import AsyncResultRecord, AsyncResultStatus, async_result_store
 from app.services.calculation_result_access import authorize_calculation_result_access
 from app.services.compute_job_store import ComputeJobRecord, ComputeJobStatus, compute_job_store
+from app.services.durable_failure_classification import (
+    GENERIC_ASYNC_FAILURE_CODE,
+    GENERIC_ASYNC_FAILURE_MESSAGE,
+)
 from app.services.execution_registry import ExecutionRecord, ExecutionStatus, execution_registry
 from core.errors import APIConflictError, APINotFoundError
 
@@ -53,7 +57,12 @@ def _resolve_stored_async_result(
         source="async_result_store",
     )
     if async_result.result_status == AsyncResultStatus.FAILED:
-        raise APIConflictError(async_result.error_message or failed_detail)
+        if async_result.failure is not None:
+            raise async_result.failure.to_api_error()
+        raise APIConflictError(
+            GENERIC_ASYNC_FAILURE_MESSAGE,
+            error_code=GENERIC_ASYNC_FAILURE_CODE,
+        )
     return _validate_response_payload(
         calculation_id=async_result.calculation_id,
         response_model=response_model,
@@ -85,7 +94,9 @@ def _resolve_compute_job_result(
     if _is_active_async_job_status(job.job_status):
         return accepted_application_response(accepted_response_factory(calculation_id))
     if job.job_status == ComputeJobStatus.FAILED:
-        raise APIConflictError(job.error_message or failed_detail)
+        if job.failure is not None:
+            raise job.failure.to_api_error()
+        raise APIConflictError(GENERIC_ASYNC_FAILURE_MESSAGE, error_code=GENERIC_ASYNC_FAILURE_CODE)
     return _validate_response_payload(
         calculation_id=calculation_id,
         response_model=response_model,
@@ -235,7 +246,9 @@ def _resolve_retained_execution_result(
         source="execution_registry",
     )
     if execution.status == ExecutionStatus.FAILED:
-        raise APIConflictError(execution.error_message or failed_detail)
+        if execution.failure is not None:
+            raise execution.failure.to_api_error()
+        raise APIConflictError(GENERIC_ASYNC_FAILURE_MESSAGE, error_code=GENERIC_ASYNC_FAILURE_CODE)
     if execution.response_payload is None:
         raise APINotFoundError(not_found_detail)
     return _validate_response_payload(

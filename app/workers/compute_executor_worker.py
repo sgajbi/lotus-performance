@@ -55,10 +55,14 @@ from app.services.compute_job_store import (
 )
 from app.services.contribution_mode_service import resolve_contribution_request, resolved_contribution_identity_payload
 from app.services.contribution_service import calculate_contribution
+from app.services.durable_failure_classification import (
+    DurableFailureClassification,
+    classify_durable_failure,
+    generic_durable_failure,
+)
 from app.services.durable_metadata_bootstrap import bootstrap_durable_metadata_stores
 from app.services.durable_store_runtime import RuntimeStoreProxy
 from app.services.execution_registry import ExecutionRegistry, execution_registry
-from app.services.execution_stage_errors import safe_unexpected_failure_message
 from app.services.inspection import run_twr_inspection
 from app.services.returns_series_service import calculate_returns_series, to_dataframe
 from app.services.twr_mode_service import resolve_twr_request
@@ -758,15 +762,18 @@ def _handle_compute_job_failure(
     result_store: AsyncResultStore | RuntimeStoreProxy[AsyncResultStore],
     execution_store: ExecutionRegistry | RuntimeStoreProxy[ExecutionRegistry],
 ) -> None:
-    error_message = safe_unexpected_failure_message("Compute job execution")
+    retryable = _is_retryable_exception(exc)
+    failure = classify_durable_failure(exc, retryable=retryable)
+    error_message = failure.message
     error_type = type(exc).__name__
-    if _is_retryable_exception(exc):
+    if retryable:
         try:
             will_retry = job_store.mark_retryable_failure(
                 job.calculation_id,
                 error_message=error_message,
                 error_type=error_type,
                 worker_id=job.worker_id,
+                failure=failure,
             )
         except ComputeJobLeaseOwnershipError as ownership_exc:
             _log_stale_compute_failure_finalization_skipped(job, exc, ownership_exc, retryable=True)
@@ -793,6 +800,7 @@ def _handle_compute_job_failure(
             tenant_id=None if job.tenant_id is None else job.tenant_id.strip(),
             error_message=error_message,
             error_type=error_type,
+            failure=failure,
             missing_execution_log_message="Execution record missing for compute job %s",
             result_store=result_store,
             execution_store=execution_store,
@@ -804,6 +812,7 @@ def _handle_compute_job_failure(
             error_message=error_message,
             error_type=error_type,
             worker_id=job.worker_id,
+            failure=failure,
         )
     except ComputeJobLeaseOwnershipError as ownership_exc:
         _log_stale_compute_failure_finalization_skipped(job, exc, ownership_exc, retryable=False)
@@ -814,6 +823,7 @@ def _handle_compute_job_failure(
         tenant_id=None if job.tenant_id is None else job.tenant_id.strip(),
         error_message=error_message,
         error_type=error_type,
+        failure=failure,
         missing_execution_log_message="Execution record missing for compute job %s",
         result_store=result_store,
         execution_store=execution_store,
@@ -934,6 +944,7 @@ def _handle_reconciled_stale_job(
             tenant_id=None if reconciled_job.tenant_id is None else reconciled_job.tenant_id.strip(),
             error_message=reconciled_job.error_message,
             error_type=reconciled_job.error_type,
+            failure=generic_durable_failure(),
             missing_execution_log_message="Execution record missing for reconciled compute job %s",
             result_store=result_store,
             execution_store=execution_store,
@@ -994,9 +1005,7 @@ def _recover_reconciled_job_from_success_result(
 
 def _is_retryable_exception(exc: Exception) -> bool:
     if isinstance(exc, APIError):
-        if exc.retryable is not None:
-            return exc.retryable
-        return exc.status_code >= 500
+        return classify_durable_failure(exc).retryable
     if isinstance(
         exc,
         (
@@ -1261,7 +1270,9 @@ def _record_terminal_failure(
     missing_execution_log_message: str,
     result_store: AsyncResultStore | RuntimeStoreProxy[AsyncResultStore] | None = None,
     execution_store: ExecutionRegistry | RuntimeStoreProxy[ExecutionRegistry] | None = None,
+    failure: DurableFailureClassification | None = None,
 ) -> None:
+    failure = failure or generic_durable_failure()
     active_result_store = result_store or async_result_store
     active_execution_store = execution_store or execution_registry
     active_result_store.record_failure(
@@ -1270,10 +1281,11 @@ def _record_terminal_failure(
         tenant_id=tenant_id,
         error_message=error_message,
         error_type=error_type,
+        failure=failure,
     )
     try:
         active_execution_store.fail_in_progress_stages(calculation_id, error_message)
-        active_execution_store.mark_failed(calculation_id, error_message)
+        active_execution_store.mark_failed(calculation_id, error_message, failure=failure)
     except KeyError:
         logger.exception(
             missing_execution_log_message,

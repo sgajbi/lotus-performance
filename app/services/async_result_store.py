@@ -14,6 +14,7 @@ from sqlalchemy.engine import Connection
 from sqlalchemy.orm import DeclarativeBase, Mapped, Session, mapped_column, sessionmaker
 
 from app.services.durable_database_engine import create_durable_database_engine
+from app.services.durable_failure_classification import DurableFailureClassification, load_durable_failure
 from app.services.durable_schema_creation import create_durable_schema
 from app.services.durable_store_json import load_json_object_or_none
 from app.services.durable_store_runtime import RuntimeStoreProxy, resolve_runtime_store
@@ -50,6 +51,7 @@ class AsyncResultModel(Base):
     response_json: Mapped[str | None] = mapped_column(Text, nullable=True)
     error_message: Mapped[str | None] = mapped_column(Text, nullable=True)
     error_type: Mapped[str | None] = mapped_column(String(128), nullable=True)
+    failure_json: Mapped[str | None] = mapped_column(Text, nullable=True)
     created_at_utc: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
     updated_at_utc: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
 
@@ -65,6 +67,7 @@ class AsyncResultRecord:
     created_at_utc: str
     updated_at_utc: str
     tenant_id: str | None = None
+    failure: DurableFailureClassification | None = None
 
 
 @dataclass(frozen=True)
@@ -84,7 +87,11 @@ class AsyncResultStore:
         create_durable_schema(
             self._engine,
             Base.metadata,
-            schema_upgrades=(self._ensure_tenant_id_column, self._ensure_runtime_indexes),
+            schema_upgrades=(
+                self._ensure_tenant_id_column,
+                self._ensure_failure_json_column,
+                self._ensure_runtime_indexes,
+            ),
         )
 
     @contextmanager
@@ -158,6 +165,7 @@ class AsyncResultStore:
                     response_json=json.dumps(response_payload, sort_keys=True),
                     error_message=None,
                     error_type=None,
+                    failure_json=None,
                     created_at_utc=now,
                     updated_at_utc=now,
                 )
@@ -171,6 +179,7 @@ class AsyncResultStore:
         error_message: str,
         error_type: str | None = None,
         tenant_id: str | None = None,
+        failure: DurableFailureClassification | None = None,
     ) -> None:
         canonical_tenant_id = None if tenant_id is None else tenant_id.strip()
         now = datetime.now(timezone.utc)
@@ -204,6 +213,7 @@ class AsyncResultStore:
                     response_json=None,
                     error_message=error_message,
                     error_type=error_type,
+                    failure_json=None if failure is None else failure.to_json(),
                     created_at_utc=created_at,
                     updated_at_utc=now,
                 )
@@ -250,6 +260,14 @@ class AsyncResultStore:
         connection.execute(
             text("CREATE INDEX IF NOT EXISTS ix_async_result_updated_at ON analytics_async_result (updated_at_utc)")
         )
+
+    def _ensure_failure_json_column(self, connection: Connection) -> None:
+        inspector = inspect(connection)
+        if "analytics_async_result" not in inspector.get_table_names():
+            return
+        if "failure_json" in {column["name"] for column in inspector.get_columns("analytics_async_result")}:
+            return
+        connection.execute(text("ALTER TABLE analytics_async_result ADD COLUMN failure_json TEXT"))
 
 
 def _load_response_payload(row: AsyncResultModel) -> dict[str, Any] | None:
@@ -300,6 +318,7 @@ def _async_result_record_from_row(row: AsyncResultModel) -> AsyncResultRecord:
         response_payload=payload_state.response_payload,
         error_message=payload_state.error_message,
         error_type=payload_state.error_type,
+        failure=load_durable_failure(row.failure_json, identity=row.calculation_id),
         created_at_utc=format_timestamp(row.created_at_utc) or "",
         updated_at_utc=format_timestamp(row.updated_at_utc) or "",
     )

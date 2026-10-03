@@ -1,5 +1,7 @@
 import os
 import shutil
+from datetime import datetime, timedelta, timezone
+from importlib import import_module
 from uuid import uuid4
 
 import pytest
@@ -1286,6 +1288,84 @@ def test_execution_api_exposes_terminal_async_result_metadata(client, monkeypatc
             == "Compute job execution failed unexpectedly. Use the correlation_id for support."
         )
         assert body["async_result"]["error_type"] == "RuntimeError"
+        assert body["async_result"]["failure"] == {
+            "contract_version": "v1",
+            "status_code": 409,
+            "error_code": "ASYNC_EXECUTION_FAILED",
+            "message": "Compute job execution failed unexpectedly. Use the correlation_id for support.",
+            "retryable": True,
+            "remediation_hint": None,
+        }
+        result_response = client.get(f"/integration/returns/series/results/{calculation_id}")
+        assert result_response.status_code == 409
+        assert result_response.json()["error_code"] == "ASYNC_EXECUTION_FAILED"
+        assert "explode" not in result_response.text
+    finally:
+        settings.RETURNS_SERIES_EXECUTOR_WINDOW_DAYS = original_threshold
+        settings.COMPUTE_EXECUTOR_MAX_ATTEMPTS = original_attempts
+
+
+def test_async_domain_failure_survives_polling_repeated_reads_and_store_restart(client, monkeypatch):
+    original_threshold = settings.RETURNS_SERIES_EXECUTOR_WINDOW_DAYS
+    original_attempts = settings.COMPUTE_EXECUTOR_MAX_ATTEMPTS
+    settings.RETURNS_SERIES_EXECUTOR_WINDOW_DAYS = 0
+    settings.COMPUTE_EXECUTOR_MAX_ATTEMPTS = 1
+
+    async def _refuse(_request):
+        from core.errors import APIUnprocessableEntityError
+
+        raise APIUnprocessableEntityError(
+            "Performance history coverage windows cannot exceed 36600 days.",
+            error_code="PERFORMANCE_HISTORY_COVERAGE_WINDOW_TOO_LARGE",
+        )
+
+    monkeypatch.setattr("app.workers.compute_executor_worker.calculate_returns_series", _refuse)
+    payload = {
+        "portfolio_id": "ASYNC_HISTORY_REFUSAL",
+        "as_of_date": "2026-02-25",
+        "window": {"mode": "EXPLICIT", "from_date": "2026-02-23", "to_date": "2026-02-25"},
+        "frequency": "DAILY",
+        "metric_basis": "NET",
+        "input_mode": "stateful",
+        "stateful_input": {},
+    }
+
+    try:
+        accepted = client.post("/integration/returns/series", json=payload)
+        assert accepted.status_code == 202
+        calculation_id = accepted.json()["calculation_id"]
+        assert drain_compute_queue() == 1
+
+        for _ in range(2):
+            failed = client.get(f"/integration/returns/series/results/{calculation_id}")
+            assert failed.status_code == 422
+            assert failed.json()["error_code"] == "PERFORMANCE_HISTORY_COVERAGE_WINDOW_TOO_LARGE"
+            assert failed.json()["retryable"] is False
+
+        execution = client.get(f"/performance/executions/{calculation_id}").json()
+        assert execution["failure"]["error_code"] == "PERFORMANCE_HISTORY_COVERAGE_WINDOW_TOO_LARGE"
+        assert execution["compute_job"]["failure"] == execution["failure"]
+        assert execution["async_result"]["failure"] == execution["failure"]
+
+        import_module("app.services.async_result_store")._store_cache.clear()
+        import_module("app.services.compute_job_store")._store_cache.clear()
+        import_module("app.services.execution_registry")._store_cache.clear()
+
+        after_restart = client.get(f"/integration/returns/series/results/{calculation_id}")
+        assert after_restart.status_code == 422
+        assert after_restart.json()["error_code"] == "PERFORMANCE_HISTORY_COVERAGE_WINDOW_TOO_LARGE"
+        retention_cutoff = datetime.now(timezone.utc) + timedelta(days=1)
+        assert async_result_store.prune_results_older_than(retention_cutoff) == 1
+        assert compute_job_store.prune_terminal_jobs_older_than(retention_cutoff) == 1
+        retained_execution = client.get(f"/integration/returns/series/results/{calculation_id}")
+        assert retained_execution.status_code == 422
+        assert retained_execution.json()["error_code"] == "PERFORMANCE_HISTORY_COVERAGE_WINDOW_TOO_LARGE"
+        denied = client.get(
+            f"/integration/returns/series/results/{calculation_id}",
+            headers={"X-Tenant-Id": "tenant-b"},
+        )
+        assert denied.status_code in {403, 404}
+        assert "PERFORMANCE_HISTORY_COVERAGE_WINDOW_TOO_LARGE" not in denied.text
     finally:
         settings.RETURNS_SERIES_EXECUTOR_WINDOW_DAYS = original_threshold
         settings.COMPUTE_EXECUTOR_MAX_ATTEMPTS = original_attempts

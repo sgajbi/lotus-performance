@@ -7,6 +7,7 @@ from app.core.application_responses import ApplicationHttpResponse
 from app.models.execution_polling import (
     AsyncResultResponse,
     ComputeJobResponse,
+    DurableFailureResponse,
     ExecutionResponse,
     ExecutionStageResponse,
     UpstreamSnapshotResponse,
@@ -20,6 +21,10 @@ from app.ports.execution_polling import (
     ExecutionPollingUpstreamSnapshotRecord,
 )
 from app.services.calculation_result_access import authorize_calculation_result_access
+from app.services.durable_failure_classification import (
+    GENERIC_ASYNC_FAILURE_MESSAGE,
+    DurableFailureClassification,
+)
 
 EXECUTION_POLLING_NOT_FOUND_DETAIL = "Execution data not found for the given calculation_id."
 
@@ -56,25 +61,30 @@ def build_execution_response(
         requested_window=record.requested_window,
         input_fingerprint=record.input_fingerprint,
         calculation_hash=record.calculation_hash,
-        error_message=record.error_message,
+        error_message=_public_failure_message(record.error_message, record.failure),
+        failure=_failure_response(record.failure),
         created_at_utc=record.created_at_utc,
         started_at_utc=record.started_at_utc,
         completed_at_utc=record.completed_at_utc,
-        stages=[_stage_response(stage) for stage in record.stages],
+        stages=[_stage_response(stage, failure=record.failure) for stage in record.stages],
         upstream_snapshots=[_upstream_snapshot_response(snapshot) for snapshot in record.upstream_snapshots],
         compute_job=_compute_job_response(job),
         async_result=_async_result_response(async_result),
     )
 
 
-def _stage_response(stage: ExecutionPollingStageRecord) -> ExecutionStageResponse:
+def _stage_response(
+    stage: ExecutionPollingStageRecord,
+    *,
+    failure: DurableFailureClassification | None,
+) -> ExecutionStageResponse:
     return ExecutionStageResponse(
         stage_name=stage.stage_name,
         status=stage.status.value,
         started_at_utc=stage.started_at_utc,
         completed_at_utc=stage.completed_at_utc,
         details=stage.details,
-        error_message=stage.error_message,
+        error_message=_public_failure_message(stage.error_message, failure),
     )
 
 
@@ -100,8 +110,9 @@ def _compute_job_response(job: ExecutionPollingComputeJobRecord | None) -> Compu
         attempt_count=job.attempt_count,
         max_attempts=job.max_attempts,
         worker_id=job.worker_id,
-        error_message=job.error_message,
+        error_message=_public_failure_message(job.error_message, job.failure),
         error_type=job.error_type,
+        failure=_failure_response(job.failure),
         leased_at_utc=job.leased_at_utc,
         lease_expires_at_utc=job.lease_expires_at_utc,
         last_error_at_utc=job.last_error_at_utc,
@@ -116,8 +127,33 @@ def _async_result_response(async_result: ExecutionPollingAsyncResultRecord | Non
         return None
     return AsyncResultResponse(
         result_status=async_result.result_status.value,
-        error_message=async_result.error_message,
+        error_message=_public_failure_message(async_result.error_message, async_result.failure),
         error_type=async_result.error_type,
+        failure=_failure_response(async_result.failure),
         created_at_utc=async_result.created_at_utc,
         updated_at_utc=async_result.updated_at_utc,
     )
+
+
+def _failure_response(failure: DurableFailureClassification | None) -> DurableFailureResponse | None:
+    if failure is None:
+        return None
+    return DurableFailureResponse(
+        contract_version=failure.contract_version,
+        status_code=failure.status_code,
+        error_code=failure.error_code,
+        message=failure.message,
+        retryable=failure.retryable,
+        remediation_hint=failure.remediation_hint,
+    )
+
+
+def _public_failure_message(
+    stored_message: str | None,
+    failure: DurableFailureClassification | None,
+) -> str | None:
+    if stored_message is None:
+        return None
+    if failure is not None:
+        return failure.message
+    return GENERIC_ASYNC_FAILURE_MESSAGE

@@ -18,6 +18,10 @@ from app.observability_contracts import (
     PERFORMANCE_CALCULATION_SUPPORTABILITY_METRIC_LABELS,
 )
 from app.services.calculation_engine_version import calculation_engine_version
+from app.services.durable_failure_classification import (
+    GENERIC_ASYNC_FAILURE_CODE,
+    GENERIC_ASYNC_FAILURE_MESSAGE,
+)
 from app.services.reproducibility_service import generate_request_fingerprint
 from app.services.twr_calculation_service import generate_twr_request_hashes
 from app.services.twr_mode_service import ResolvedTWRRequest
@@ -2314,10 +2318,11 @@ def test_twr_records_http_failure_detail_in_execution_status(client, monkeypatch
     assert execution_response.status_code == 200
     body = execution_response.json()
     assert body["status"] == "failed"
-    assert "does not cover requested date 2025-01-01" in body["error_message"]
+    assert body["error_message"] == GENERIC_ASYNC_FAILURE_MESSAGE
+    assert "does not cover requested date 2025-01-01" not in body["error_message"]
     retrieval_stage = {stage["stage_name"]: stage for stage in body["stages"]}["retrieval"]
     assert retrieval_stage["status"] == "failed"
-    assert "does not cover requested date 2025-01-01" in retrieval_stage["error_message"]
+    assert retrieval_stage["error_message"] == GENERIC_ASYNC_FAILURE_MESSAGE
 
 
 def test_twr_supports_stateless_benchmark_price_points(client):
@@ -2645,7 +2650,8 @@ def test_twr_async_result_missing_and_failed_contracts(client, monkeypatch):
         compute_job_store.mark_failed(UUID(calculation_id), error_message="explode")
         failed = client.get(f"/performance/twr/results/{calculation_id}")
         assert failed.status_code == 409
-        assert failed.json()["detail"] == "explode"
+        assert failed.json()["detail"] == GENERIC_ASYNC_FAILURE_MESSAGE
+        assert failed.json()["error_code"] == GENERIC_ASYNC_FAILURE_CODE
     finally:
         settings.TWR_EXECUTOR_WINDOW_DAYS = original_window_threshold
         settings.TWR_EXECUTOR_INPUT_COUNT = original_input_threshold

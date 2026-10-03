@@ -2,7 +2,7 @@ from datetime import datetime, timezone
 from uuid import uuid4
 
 import pytest
-from sqlalchemy import event, inspect
+from sqlalchemy import event, inspect, text
 
 from app.services.async_result_store import (
     INVALID_ASYNC_RESULT_PAYLOAD_ERROR_TYPE,
@@ -14,6 +14,8 @@ from app.services.async_result_store import (
     _async_result_record_payload_state,
     _has_invalid_response_payload,
 )
+from app.services.durable_failure_classification import classify_durable_failure
+from core.errors import APIUnprocessableEntityError
 
 
 def test_async_result_store_records_success_and_failure(tmp_path):
@@ -44,6 +46,51 @@ def test_async_result_store_records_success_and_failure(tmp_path):
     assert failure.response_payload is None
     assert failure.error_message == "boom"
     assert failure.error_type == "RuntimeError"
+
+
+def test_async_result_store_round_trips_governed_failure_after_reopen(tmp_path):
+    database_url = f"sqlite:///{tmp_path / 'async_results.db'}"
+    store = AsyncResultStore(database_url)
+    store.create_schema()
+    calculation_id = uuid4()
+    classification = classify_durable_failure(
+        APIUnprocessableEntityError("Window is too large.", error_code="HISTORY_WINDOW_TOO_LARGE")
+    )
+    store.record_failure(
+        calculation_id=calculation_id,
+        tenant_id="tenant-a",
+        analytics_type="TWR",
+        error_message=classification.message,
+        error_type="APIUnprocessableEntityError",
+        failure=classification,
+    )
+
+    reopened = AsyncResultStore(database_url)
+    reopened.create_schema()
+    result = reopened.get_result_for_tenant(calculation_id, tenant_id="tenant-a")
+
+    assert result is not None
+    assert result.failure == classification
+
+
+def test_async_result_store_schema_bootstrap_adds_failure_to_legacy_table(tmp_path):
+    database_url = f"sqlite:///{tmp_path / 'legacy-async-results.db'}"
+    store = AsyncResultStore(database_url)
+    with store._engine.begin() as connection:
+        connection.execute(
+            text(
+                "CREATE TABLE analytics_async_result ("
+                "calculation_id VARCHAR(36) PRIMARY KEY, tenant_id VARCHAR(128), "
+                "analytics_type VARCHAR(64) NOT NULL, result_status VARCHAR(32) NOT NULL, "
+                "response_json TEXT, error_message TEXT, error_type VARCHAR(128), "
+                "created_at_utc DATETIME NOT NULL, updated_at_utc DATETIME NOT NULL)"
+            )
+        )
+
+    store.create_schema()
+
+    columns = {column["name"] for column in inspect(store._engine).get_columns("analytics_async_result")}
+    assert "failure_json" in columns
 
 
 def test_async_result_store_scopes_reads_and_rejects_cross_tenant_overwrite(tmp_path):

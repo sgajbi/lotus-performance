@@ -12,6 +12,8 @@
 - Owner: `app/services/execution_registry.py`
 - Purpose: canonical execution handle, analytics type, status, retained request/response payloads, input fingerprint, calculation hash, and top-level failure state
 - Recovery role: source of truth for execution polling and lifecycle reconciliation
+- Failure contract: nullable `failure_json` retains the bounded versioned public classification after
+  compute-job and async-result retention; null remains the explicit legacy-row posture.
 
 ### `analytics_execution_stage`
 
@@ -35,12 +37,16 @@
   with an idempotent column-add path so concurrent service startup does not depend on a single process owning
   the upgrade window.
 - Recovery role: durable job recovery after worker crash or lease expiry
+- Failure contract: nullable `failure_json` stores bounded versioned public classification. Null is
+  the explicit legacy-row posture; readers fall back to a sanitized generic failure.
 
 ### `analytics_async_result`
 
 - Owner: `app/services/async_result_store.py`
 - Purpose: durable async success/failure payloads for result retrieval endpoints
 - Recovery role: poll/result APIs remain available across process restarts
+- Failure contract: nullable `failure_json` mirrors the compute classification so result routes can
+  restore the safe status, code and retryability without parsing messages or Python class names.
 
 ### `analytics_source_correction`
 

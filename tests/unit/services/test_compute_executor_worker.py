@@ -43,7 +43,7 @@ from app.services.execution_stage_names import EXECUTION_STAGE_LINEAGE_MATERIALI
 from app.services.lineage_metadata_store import LineageMetadataStore
 from app.services.lineage_service import LineageService
 from app.workers import compute_executor_worker
-from core.errors import APIServiceUnavailableError
+from core.errors import APIError, APIServiceUnavailableError
 
 
 def _worker_settings(**overrides):
@@ -597,11 +597,12 @@ def test_compute_executor_worker_skips_stale_owner_retryable_failure_finalizatio
     warnings: list[tuple[tuple, dict]] = []
 
     class _JobStore:
-        def mark_retryable_failure(self, calculation_id_arg, *, error_message, error_type, worker_id):
+        def mark_retryable_failure(self, calculation_id_arg, *, error_message, error_type, worker_id, failure):
             assert calculation_id_arg == calculation_id
             assert error_message == "Compute job execution failed unexpectedly. Use the correlation_id for support."
             assert error_type == "RuntimeError"
             assert worker_id == "worker-test"
+            assert failure.error_code == "ASYNC_EXECUTION_FAILED"
             raise ComputeJobLeaseOwnershipError("stale worker")
 
         def mark_failed(self, *args, **kwargs):  # noqa: ANN002, ANN003
@@ -649,11 +650,12 @@ def test_compute_executor_worker_skips_stale_owner_terminal_failure_finalization
         def mark_retryable_failure(self, *args, **kwargs):  # noqa: ANN002, ANN003
             raise AssertionError("non-retryable failure must not mark retryable failure")
 
-        def mark_failed(self, calculation_id_arg, *, error_message, error_type, worker_id):
+        def mark_failed(self, calculation_id_arg, *, error_message, error_type, worker_id, failure):
             assert calculation_id_arg == calculation_id
             assert error_message == "Compute job execution failed unexpectedly. Use the correlation_id for support."
             assert error_type == "ValueError"
             assert worker_id == "worker-test"
+            assert failure.error_code == "ASYNC_EXECUTION_FAILED"
             raise ComputeJobLeaseOwnershipError("stale worker")
 
     class _ResultStore:
@@ -707,10 +709,11 @@ def test_compute_executor_worker_does_not_complete_job_when_success_result_publi
         def mark_complete(self, *args, **kwargs):  # noqa: ANN002, ANN003
             raise AssertionError("job must not complete without a persisted result")
 
-        def mark_retryable_failure(self, calculation_id_arg, *, error_message, error_type, worker_id):
+        def mark_retryable_failure(self, calculation_id_arg, *, error_message, error_type, worker_id, failure):
             calls.append(("mark_retryable_failure", calculation_id_arg, error_type))
             assert isinstance(worker_id, str)
             assert worker_id.startswith(f"cj:{calculation_id.hex[:12]}:")
+            assert failure.error_code == "ASYNC_EXECUTION_FAILED"
             return True
 
     class _ResultStore:
@@ -2502,6 +2505,8 @@ def test_compute_executor_worker_handles_retryable_failure_with_remaining_budget
     assert updated_job is not None
     assert updated_job.job_status == ComputeJobStatus.PENDING
     assert updated_job.error_type == "RuntimeError"
+    assert updated_job.failure is not None
+    assert updated_job.failure.retryable is True
     assert result_store.get_result(job.calculation_id) is None
     execution = execution_store.get_execution(job.calculation_id)
     assert execution is not None
@@ -2531,6 +2536,8 @@ def test_compute_executor_worker_handles_retryable_failure_after_exhausted_budge
     updated_job = job_store.get_job(job.calculation_id)
     assert updated_job is not None
     assert updated_job.job_status == ComputeJobStatus.FAILED
+    assert updated_job.failure is not None
+    assert updated_job.failure.retryable is True
     result = result_store.get_result(job.calculation_id)
     assert result is not None
     assert result.result_status == AsyncResultStatus.FAILED
@@ -2874,3 +2881,4 @@ def test_unknowable_authority_is_terminal_rather_than_retried() -> None:
     # The default this had been falling through to, held alongside it so the contrast
     # is visible: an unrecognised failure stays retryable, and that is correct.
     assert compute_executor_worker._is_retryable_exception(RuntimeError("transient")) is True
+    assert compute_executor_worker._is_retryable_exception(APIError(status_code=429, detail="slow down")) is True

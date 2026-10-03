@@ -35,6 +35,7 @@ from app.services.compute_job_store import (
     _stale_job_reconciliation_outcome,
     get_compute_job_store,
 )
+from app.services.durable_failure_classification import DurableFailureClassification
 from app.services.durable_store_inspection import build_inspection_query_context
 
 
@@ -535,6 +536,8 @@ def test_compute_job_store_reconciles_stale_running_job(tmp_path):
     assert pending.job_status == ComputeJobStatus.PENDING
     assert pending.error_type == "LeaseExpired"
     assert pending.worker_id is None
+    assert pending.failure is not None
+    assert pending.failure.retryable is True
 
     store.lease_pending_jobs(worker_id="worker-b", limit=10, lease_seconds=30)
     store.mark_running(calculation_id, worker_id="worker-b", lease_seconds=30)
@@ -550,6 +553,8 @@ def test_compute_job_store_reconciles_stale_running_job(tmp_path):
     assert failed is not None
     assert failed.job_status == ComputeJobStatus.FAILED
     assert failed.error_message == "Compute job execution lease expired after exhausting retry budget."
+    assert failed.failure is not None
+    assert failed.failure.error_code == "ASYNC_EXECUTION_FAILED"
 
 
 def test_compute_job_store_renew_lease_preserves_attempt_count(tmp_path):
@@ -630,6 +635,59 @@ def test_compute_job_store_mark_running_acquired_preserves_worker_identity_and_s
     with store._session() as session:
         row = store._get_model(session, calculation_id)
         assert row.lease_owner_id is None
+
+
+def test_compute_job_store_successful_retry_clears_prior_failure_classification(tmp_path):
+    store = ComputeJobStore(f"sqlite:///{tmp_path / 'compute.db'}")
+    store.create_schema()
+    calculation_id = uuid4()
+    failure = DurableFailureClassification(
+        contract_version="v1",
+        status_code=503,
+        error_code="SOURCE_UNAVAILABLE",
+        message="Compute job execution failed unexpectedly. Use the correlation_id for support.",
+        retryable=True,
+    )
+    store.enqueue_job(
+        calculation_id=calculation_id,
+        analytics_type="ReturnsSeries",
+        tenant_id="tenant-test",
+        request_payload={"portfolio_id": "P1"},
+        max_attempts=2,
+    )
+    store.lease_pending_jobs(worker_id="worker-a", limit=1, lease_seconds=30)
+    store.mark_running_acquired(
+        calculation_id,
+        current_worker_id="worker-a",
+        acquisition_worker_id="worker-a:acquisition",
+        lease_seconds=30,
+    )
+    assert store.mark_retryable_failure(
+        calculation_id,
+        error_message=failure.message,
+        error_type="APIServiceUnavailableError",
+        worker_id="worker-a:acquisition",
+        failure=failure,
+    )
+    assert store.get_job(calculation_id).failure == failure
+
+    store.lease_pending_jobs(worker_id="worker-b", limit=1, lease_seconds=30)
+    store.mark_running_acquired(
+        calculation_id,
+        current_worker_id="worker-b",
+        acquisition_worker_id="worker-b:acquisition",
+        lease_seconds=30,
+    )
+    assert store.get_job(calculation_id).failure is None
+
+    with store._session() as session:
+        store._get_model(session, calculation_id).failure_json = failure.to_json()
+    store.mark_complete(
+        calculation_id,
+        response_payload={"calculation_id": str(calculation_id)},
+        worker_id="worker-b:acquisition",
+    )
+    assert store.get_job(calculation_id).failure is None
 
 
 def test_compute_job_store_mark_running_acquired_rejects_stale_queue_owner(tmp_path):
@@ -1617,6 +1675,7 @@ def test_compute_job_store_declares_hot_path_indexes(tmp_path):
     }
 
     assert "lease_owner_id" in columns
+    assert "failure_json" in columns
     assert indexes["ix_compute_job_status_created_at"] == ("job_status", "created_at_utc")
     assert indexes["ix_compute_job_status_analytics_type_created_at"] == (
         "job_status",
@@ -1631,7 +1690,7 @@ def test_compute_job_store_declares_hot_path_indexes(tmp_path):
     )
 
 
-def test_compute_job_store_schema_bootstrap_adds_lease_owner_to_legacy_table(tmp_path):
+def test_compute_job_store_schema_bootstrap_adds_durable_columns_to_legacy_table(tmp_path):
     store = ComputeJobStore(f"sqlite:///{tmp_path / 'compute.db'}")
     with store._engine.begin() as connection:
         connection.execute(
@@ -1663,6 +1722,8 @@ def test_compute_job_store_schema_bootstrap_adds_lease_owner_to_legacy_table(tmp
 
     columns = {column["name"] for column in inspect(store._engine).get_columns("analytics_compute_job")}
     assert "lease_owner_id" in columns
+    assert "tenant_id" in columns
+    assert "failure_json" in columns
 
 
 @pytest.mark.parametrize("column_name", ["lease_owner_id", "tenant_id"])
@@ -2000,6 +2061,15 @@ def test_cancel_pending_jobs_is_atomic_and_tenant_scoped(tmp_path):
     leased = store.lease_pending_jobs(worker_id="worker-a", limit=1, lease_seconds=30)
     leased_id = leased[0].calculation_id
     pending_id = next(value for value in calculation_ids if value != leased_id)
+    failure = DurableFailureClassification(
+        contract_version="v1",
+        status_code=503,
+        error_code="SOURCE_UNAVAILABLE",
+        message="Compute job execution failed unexpectedly. Use the correlation_id for support.",
+        retryable=True,
+    )
+    with store._session() as session:
+        store._get_model(session, pending_id).failure_json = failure.to_json()
 
     assert (
         store.cancel_pending_jobs(
@@ -2012,4 +2082,6 @@ def test_cancel_pending_jobs_is_atomic_and_tenant_scoped(tmp_path):
     assert store.get_job_for_tenant(pending_id, tenant_id="bank-a").job_status == ComputeJobStatus.PENDING
     assert store.cancel_pending_job(pending_id, tenant_id="bank-b", reason="foreign") is False
     assert store.cancel_pending_job(pending_id, tenant_id="bank-a", reason="cancelled") is True
-    assert store.get_job_for_tenant(pending_id, tenant_id="bank-a").error_type == "SourceCorrectionCancelled"
+    cancelled = store.get_job_for_tenant(pending_id, tenant_id="bank-a")
+    assert cancelled.error_type == "SourceCorrectionCancelled"
+    assert cancelled.failure is None

@@ -2,6 +2,7 @@ from uuid import uuid4
 
 from app.services.async_result_store import AsyncResultRecord, AsyncResultStatus
 from app.services.compute_job_store import ComputeJobRecord, ComputeJobStatus
+from app.services.durable_failure_classification import GENERIC_ASYNC_FAILURE_MESSAGE, DurableFailureClassification
 from app.services.execution_polling_service import (
     EXECUTION_POLLING_NOT_FOUND_DETAIL,
     _compute_job_response,
@@ -108,6 +109,73 @@ def test_build_execution_response_handles_missing_optional_async_metadata():
     assert response.async_result is None
     assert response.upstream_snapshots == []
     assert _compute_job_response(None) is None
+
+
+def test_build_execution_response_exposes_versioned_failure_classification():
+    calculation_id = uuid4()
+    failure = DurableFailureClassification(
+        contract_version="v1",
+        status_code=422,
+        error_code="PERFORMANCE_HISTORY_COVERAGE_WINDOW_TOO_LARGE",
+        message="History window exceeds the governed maximum.",
+        retryable=False,
+    )
+    record = _execution_record(calculation_id)
+    record = ExecutionRecord(**{**record.__dict__, "failure": failure, "status": ExecutionStatus.FAILED})
+    job = _compute_job_record(calculation_id)
+    job = ComputeJobRecord(**{**job.__dict__, "failure": failure, "job_status": ComputeJobStatus.FAILED})
+
+    response = build_execution_response(record=record, job=job, async_result=None)
+
+    assert response.failure is not None
+    assert response.failure.error_code == "PERFORMANCE_HISTORY_COVERAGE_WINDOW_TOO_LARGE"
+    assert response.compute_job is not None
+    assert response.compute_job.failure == response.failure
+
+
+def test_build_execution_response_sanitizes_legacy_failure_messages():
+    calculation_id = uuid4()
+    failed_stage = ExecutionStageRecord(
+        stage_name="calculation",
+        status=ExecutionStageStatus.FAILED,
+        started_at_utc="2026-03-14T00:00:00Z",
+        completed_at_utc="2026-03-14T00:00:01Z",
+        details=None,
+        error_message="database password leaked",
+    )
+    record = _execution_record(calculation_id, stages=[failed_stage])
+    record = ExecutionRecord(
+        **{
+            **record.__dict__,
+            "status": ExecutionStatus.FAILED,
+            "error_message": "database password leaked",
+        }
+    )
+    job = _compute_job_record(calculation_id)
+    job = ComputeJobRecord(
+        **{
+            **job.__dict__,
+            "job_status": ComputeJobStatus.FAILED,
+            "error_message": "database password leaked",
+        }
+    )
+    async_result = _async_result_record(calculation_id)
+    async_result = AsyncResultRecord(
+        **{
+            **async_result.__dict__,
+            "result_status": AsyncResultStatus.FAILED,
+            "error_message": "database password leaked",
+        }
+    )
+
+    response = build_execution_response(record=record, job=job, async_result=async_result)
+
+    assert response.error_message == GENERIC_ASYNC_FAILURE_MESSAGE
+    assert response.stages[0].error_message == GENERIC_ASYNC_FAILURE_MESSAGE
+    assert response.compute_job is not None
+    assert response.compute_job.error_message == GENERIC_ASYNC_FAILURE_MESSAGE
+    assert response.async_result is not None
+    assert response.async_result.error_message == GENERIC_ASYNC_FAILURE_MESSAGE
 
 
 def test_get_execution_polling_response_reads_durable_metadata_once():

@@ -92,7 +92,7 @@ def async_result_responses(
     failed_detail: str,
 ) -> dict[int, dict[str, Any]]:
     id_field_name = _accepted_id_field_name(accepted_model)
-    return {
+    responses = {
         202: {
             "model": accepted_model,
             "description": (
@@ -105,7 +105,10 @@ def async_result_responses(
         },
         404: {
             "model": ErrorDetailResponse,
-            "description": f"No async {analytics_name} result exists for the supplied {id_field_name}.",
+            "description": (
+                f"No async {analytics_name} result exists for the supplied {id_field_name}, or the durable "
+                "execution retained a governed not-found classification."
+            ),
             "content": {
                 "application/json": {
                     "example": _error_detail_example(
@@ -131,6 +134,43 @@ def async_result_responses(
                 }
             },
         },
+    }
+    responses.update(_durable_failure_responses(analytics_name))
+    return responses
+
+
+def _durable_failure_responses(analytics_name: str) -> dict[int, dict[str, Any]]:
+    response_contracts = {
+        400: ("INVALID_REQUEST", False),
+        401: ("UNAUTHORIZED", False),
+        403: ("FORBIDDEN", False),
+        408: ("INTERNAL_SERVER_ERROR", True),
+        422: ("INVALID_REQUEST", False),
+        429: ("RATE_LIMITED", True),
+        500: ("INTERNAL_SERVER_ERROR", True),
+        502: ("SOURCE_UNAVAILABLE", True),
+        503: ("SOURCE_UNAVAILABLE", True),
+        504: ("SOURCE_UNAVAILABLE", True),
+    }
+    return {
+        status_code: {
+            "model": ErrorDetailResponse,
+            "description": (
+                f"The async {analytics_name} execution retained a governed {status_code} failure classification. "
+                "The safe status, machine code, and retryability are preserved across durable polling."
+            ),
+            "content": {
+                "application/json": {
+                    "example": _error_detail_example(
+                        detail="The asynchronous calculation failed under a governed rule.",
+                        error_code=error_code,
+                        message="The asynchronous calculation failed under a governed rule.",
+                        retryable=retryable,
+                    )
+                }
+            },
+        }
+        for status_code, (error_code, retryable) in response_contracts.items()
     }
 
 

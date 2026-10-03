@@ -16,6 +16,10 @@ from app.services.async_result_store import async_result_store
 from app.services.benchmark_mode_service import ResolvedBenchmarkRequest
 from app.services.calculation_engine_version import calculation_engine_version
 from app.services.compute_job_store import compute_job_store
+from app.services.durable_failure_classification import (
+    GENERIC_ASYNC_FAILURE_CODE,
+    GENERIC_ASYNC_FAILURE_MESSAGE,
+)
 from app.services.execution_registry import execution_registry
 from app.services.lineage_metadata_store import lineage_metadata_store
 from core.repro import generate_canonical_hash
@@ -949,10 +953,11 @@ def test_calculate_benchmark_endpoint_records_http_failure_detail_in_execution_s
     assert execution_response.status_code == 200
     body = execution_response.json()
     assert body["status"] == "failed"
-    assert "does not cover requested date 2026-01-02" in body["error_message"]
+    assert body["error_message"] == GENERIC_ASYNC_FAILURE_MESSAGE
+    assert "does not cover requested date 2026-01-02" not in body["error_message"]
     retrieval_stage = {stage["stage_name"]: stage for stage in body["stages"]}["retrieval"]
     assert retrieval_stage["status"] == "failed"
-    assert "does not cover requested date 2026-01-02" in retrieval_stage["error_message"]
+    assert retrieval_stage["error_message"] == GENERIC_ASYNC_FAILURE_MESSAGE
 
 
 def test_calculate_benchmark_endpoint_supports_explicit_vendor_series_mode(client, monkeypatch):
@@ -1283,7 +1288,8 @@ def test_benchmark_async_result_missing_and_failed_contracts(client, monkeypatch
         compute_job_store.mark_failed(UUID(calculation_id), error_message="explode")
         failed = client.get(f"/performance/benchmark/results/{calculation_id}")
         assert failed.status_code == 409
-        assert failed.json()["detail"] == "explode"
+        assert failed.json()["detail"] == GENERIC_ASYNC_FAILURE_MESSAGE
+        assert failed.json()["error_code"] == GENERIC_ASYNC_FAILURE_CODE
     finally:
         settings.BENCHMARK_EXECUTOR_WINDOW_DAYS = original_window_threshold
         settings.COMPUTE_EXECUTOR_MAX_ATTEMPTS = original_attempts

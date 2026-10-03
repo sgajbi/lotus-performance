@@ -114,6 +114,12 @@ after completion. Core owns correction-command admission; the Performance contra
 workflow, not live Core producer acceptance. See the
 [source-correction guide](https://github.com/sgajbi/lotus-performance/blob/main/docs/guides/source-correction-recalculation.md).
 
+Terminal async failures expose a versioned `failure` block at execution, compute-job and
+async-result levels. Governed codes and retryability survive restart and queue/result retention.
+Endpoint-specific result routes restore the safe HTTP classification; legacy results use
+`ASYNC_EXECUTION_FAILED`, and execution polling replaces unclassified stored exception text with a
+generic support-safe message.
+
 The two `…/artifacts/{artifact_name}` routes are how an artifact is actually retrieved: call the
 listing route first, then request one of the artifact links it returns. Both refuse an artifact
 name that durable metadata does not declare, so an undeclared name is never served.

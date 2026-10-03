@@ -157,6 +157,11 @@ Equal dates are valid. Other period types retain their existing date-resolution 
   - `upstream_snapshots[]` for stateful source provenance including upstream endpoint, source identifier, fingerprints, retrieval status, and paging metadata
   - `compute_job` for async executor status, attempts, worker lease, retry, and failure-pressure metadata
   - `async_result` for endpoint-specific result materialization status and terminal error details
+  - top-level, compute-job and async-result `failure` blocks preserve a versioned safe status,
+    machine code and retryability; endpoint-specific result reads restore that classification after
+    restart and retention, while legacy or unknown result failures use `ASYNC_EXECUTION_FAILED`
+  - execution polling never exposes stored legacy exception text; unclassified failure messages are
+    replaced with the generic support-safe message
 - downstream consumers:
   - `lotus-risk` uses this endpoint when polling async returns-series integration results
   - `lotus-gateway` currently handles synchronous analytics and accepted-payload replay behavior but does not directly poll this endpoint
@@ -1260,7 +1265,10 @@ Executor-backed endpoints use one common pattern:
 - async endpoints treat an exact resubmission with the same `calculation_id` as an idempotent replay and return the same accepted handle
 - reusing the same `calculation_id` with a different payload returns `409 Conflict`
 - synchronous endpoints require a fresh `calculation_id` for each new submission
-- OpenAPI declares the `202 Accepted` accepted-envelope schema for every async-capable submission route and every endpoint-specific result route; result routes also publish governed `404` unknown-calculation and `409` failed-calculation error responses
+- OpenAPI declares the `202 Accepted` envelope for every async-capable submission and result route.
+  Result routes publish every replayable durable status: `400`, `401`, `403`, `404`, `408`, `409`,
+  `422`, `429`, `500`, `502`, `503`, and `504`; unknown statuses are constrained to the sanitized
+  generic `409` contract.
 - endpoint-specific result routes only serve calculation ids whose durable `analytics_type` matches that endpoint; a cross-endpoint handle returns the endpoint's governed `404` response and logs reason `async_result_analytics_type_mismatch`
 - completed endpoint-specific result routes return `409 Conflict` with detail `Async result payload failed response contract validation.` if durable state contains a JSON payload that cannot satisfy the endpoint response schema; diagnostics use reason `async_result_response_schema_invalid` and omit payload contents
 - execution polling responses preserve nullable contract fields as explicit JSON `null` values when

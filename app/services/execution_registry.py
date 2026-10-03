@@ -15,6 +15,7 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import DeclarativeBase, Mapped, Session, mapped_column, relationship, sessionmaker
 
 from app.services.durable_database_engine import create_durable_database_engine
+from app.services.durable_failure_classification import DurableFailureClassification, load_durable_failure
 from app.services.durable_schema_creation import create_durable_schema
 from app.services.durable_store_json import load_json_object_or_none
 from app.services.durable_store_runtime import RuntimeStoreProxy, resolve_runtime_store
@@ -79,6 +80,7 @@ class AnalyticsExecutionModel(Base):
     input_fingerprint: Mapped[str | None] = mapped_column(Text, nullable=True)
     calculation_hash: Mapped[str | None] = mapped_column(Text, nullable=True)
     error_message: Mapped[str | None] = mapped_column(Text, nullable=True)
+    failure_json: Mapped[str | None] = mapped_column(Text, nullable=True)
     created_at_utc: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
     started_at_utc: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     completed_at_utc: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
@@ -173,6 +175,7 @@ class ExecutionRecord:
     tenant_id: str | None = None
     request_payload: dict[str, Any] | None = None
     response_payload: dict[str, Any] | None = None
+    failure: DurableFailureClassification | None = None
 
 
 @dataclass(frozen=True)
@@ -390,6 +393,7 @@ def _execution_record_from_model(
         input_fingerprint=execution.input_fingerprint,
         calculation_hash=execution.calculation_hash,
         error_message=execution.error_message,
+        failure=load_durable_failure(execution.failure_json, identity=execution.calculation_id),
         created_at_utc=format_timestamp(execution.created_at_utc) or "",
         started_at_utc=format_timestamp(execution.started_at_utc),
         completed_at_utc=format_timestamp(execution.completed_at_utc),
@@ -411,6 +415,7 @@ class ExecutionRegistry:
                 self._ensure_tenant_id_column,
                 self._ensure_retained_payload_columns,
                 self._ensure_submission_idempotency_columns,
+                self._ensure_failure_json_column,
                 self._ensure_runtime_indexes,
             ),
         )
@@ -588,6 +593,7 @@ class ExecutionRegistry:
             execution.started_at_utc = execution.started_at_utc or datetime.now(timezone.utc)
             execution.completed_at_utc = None
             execution.error_message = None
+            execution.failure_json = None
 
     def mark_complete(self, calculation_id: UUID) -> None:
         with self._session() as session:
@@ -597,8 +603,15 @@ class ExecutionRegistry:
             execution.started_at_utc = execution.started_at_utc or now
             execution.completed_at_utc = now
             execution.error_message = None
+            execution.failure_json = None
 
-    def mark_failed(self, calculation_id: UUID, error_message: str) -> None:
+    def mark_failed(
+        self,
+        calculation_id: UUID,
+        error_message: str,
+        *,
+        failure: DurableFailureClassification | None = None,
+    ) -> None:
         with self._session() as session:
             execution = self._get_execution_model(session, calculation_id)
             now = datetime.now(timezone.utc)
@@ -606,6 +619,7 @@ class ExecutionRegistry:
             execution.started_at_utc = execution.started_at_utc or now
             execution.completed_at_utc = now
             execution.error_message = error_message
+            execution.failure_json = None if failure is None else failure.to_json()
 
     def update_execution_identity(
         self,
@@ -1090,6 +1104,14 @@ class ExecutionRegistry:
             connection.execute(
                 text("ALTER TABLE analytics_execution ADD COLUMN submission_contract_version VARCHAR(64)")
             )
+
+    def _ensure_failure_json_column(self, connection: Connection) -> None:
+        inspector = inspect(connection)
+        if "analytics_execution" not in inspector.get_table_names():
+            return
+        if "failure_json" in {column["name"] for column in inspector.get_columns("analytics_execution")}:
+            return
+        connection.execute(text("ALTER TABLE analytics_execution ADD COLUMN failure_json TEXT"))
 
 
 _store_cache: dict[str, ExecutionRegistry] = {}

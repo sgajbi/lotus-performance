@@ -54,6 +54,7 @@ async def core_api_error_exception_handler(request: Request, exc: APIError):
             detail=exc.detail,
             error_code=exc.error_code,
             retryable=exc.retryable,
+            remediation_hint=exc.remediation_hint,
         ),
         headers=exc.headers,
     )

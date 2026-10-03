@@ -11,6 +11,10 @@ from app.services.analytics_workflow_types import ANALYTICS_WORKFLOW_BENCHMARK
 from app.services.async_result_store import async_result_store
 from app.services.calculation_engine_version import calculation_engine_version
 from app.services.compute_job_store import compute_job_store
+from app.services.durable_failure_classification import (
+    GENERIC_ASYNC_FAILURE_CODE,
+    GENERIC_ASYNC_FAILURE_MESSAGE,
+)
 from app.services.durable_metadata_bootstrap import bootstrap_durable_metadata_stores
 from app.services.execution_registry import execution_registry
 from app.services.returns_series_service import ResolvedStatefulReturnsSeriesRequest
@@ -886,7 +890,8 @@ def test_returns_series_async_result_not_found_and_failed(monkeypatch):
                 headers={"X-Tenant-Id": "tenant-test"},
             )
             assert failed.status_code == 409
-            assert failed.json()["detail"] == "executor boom"
+            assert failed.json()["detail"] == GENERIC_ASYNC_FAILURE_MESSAGE
+            assert failed.json()["error_code"] == GENERIC_ASYNC_FAILURE_CODE
     finally:
         settings.RETURNS_SERIES_EXECUTOR_WINDOW_DAYS = original_threshold
 

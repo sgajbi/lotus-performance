@@ -55,6 +55,7 @@ Top-level fields:
 | `input_fingerprint` | Fingerprint of submitted or resolved input where available. |
 | `calculation_hash` | Hash of completed output where available. |
 | `error_message` | Top-level failure message for failed executions. |
+| `failure` | Versioned, public-safe terminal classification with HTTP status, stable code, retryability and optional remediation. Retained on the execution after queue/result retention. |
 | `created_at_utc`, `started_at_utc`, `completed_at_utc` | Lifecycle timestamps. |
 
 Nested output families:
@@ -63,8 +64,8 @@ Nested output families:
 | --- | --- |
 | `stages[]` | Ordered stage state for submission, retrieval, normalization, execution, lineage, or endpoint-specific stages. |
 | `upstream_snapshots[]` | Stateful upstream source provenance, request and response fingerprints, retrieval status, and paging metadata. |
-| `compute_job` | Async executor job state, attempt count, lease state, worker identity, and retry or failure details. |
-| `async_result` | Endpoint-specific result materialization state and terminal error details. |
+| `compute_job` | Async executor job state, attempt count, lease state, worker identity, and retry or failure details, including the versioned `failure` block when classified. |
+| `async_result` | Endpoint-specific result materialization state and terminal error details, including the versioned `failure` block when classified. |
 
 Nullable contract fields are serialized as explicit JSON `null` values when the durable lifecycle
 record has no value yet or the field is intentionally absent for that execution. This includes
@@ -90,7 +91,8 @@ Certified behavior:
 - retryable compute failures expose `compute_job.attempt_count`, `error_type`, `last_error_at_utc`,
   and a pending job state while retry budget remains;
 - terminal compute failures expose failed top-level execution state and failed `async_result`
-  metadata;
+  metadata; governed domain codes survive result polling, repeated reads, process restart and
+  queue/result retention, while unknown exceptions retain only `ASYNC_EXECUTION_FAILED`;
 - terminal lineage or artifact materialization failures expose failed top-level execution state and
   a failed stage record, not only a child queue failure;
 - pending or no-result executions preserve nullable contract fields as explicit `null` members

@@ -6,6 +6,21 @@ from uuid import UUID
 from pydantic import BaseModel, Field
 
 
+class DurableFailureResponse(BaseModel):
+    contract_version: str = Field(
+        description="Version of the durable failure classification contract.", examples=["v1"]
+    )
+    status_code: int = Field(
+        description="HTTP status reproduced by endpoint-specific result retrieval.", examples=[422]
+    )
+    error_code: str = Field(
+        description="Stable machine-readable failure code.", examples=["PERFORMANCE_HISTORY_COVERAGE_WINDOW_TOO_LARGE"]
+    )
+    message: str = Field(description="Bounded public-safe failure message.")
+    retryable: bool = Field(description="Whether a consumer may retry without changing request or source conditions.")
+    remediation_hint: str | None = Field(default=None, description="Optional public-safe remediation guidance.")
+
+
 class ExecutionStageResponse(BaseModel):
     stage_name: str = Field(
         description="Stable execution stage name within the calculation lifecycle.",
@@ -97,13 +112,17 @@ class ComputeJobResponse(BaseModel):
     )
     error_message: str | None = Field(
         default=None,
-        description="Most recent compute failure message when retryable or terminal failure occurred.",
-        examples=["temporary upstream issue"],
+        description="Public-safe compute failure message when retryable or terminal failure occurred.",
+        examples=["The source dependency is temporarily unavailable."],
     )
     error_type: str | None = Field(
         default=None,
         description="Most recent compute failure class or governed error type.",
         examples=["HTTPException"],
+    )
+    failure: DurableFailureResponse | None = Field(
+        default=None,
+        description="Versioned public failure classification; null for legacy rows and successful work.",
     )
     leased_at_utc: str | None = Field(
         default=None,
@@ -143,13 +162,17 @@ class AsyncResultResponse(BaseModel):
     )
     error_message: str | None = Field(
         default=None,
-        description="Terminal async-result failure message, if result materialization failed.",
-        examples=["explode"],
+        description="Public-safe terminal failure message, if result materialization failed.",
+        examples=["Compute job execution failed unexpectedly. Use the correlation_id for support."],
     )
     error_type: str | None = Field(
         default=None,
         description="Terminal async-result failure class or governed error type.",
         examples=["RuntimeError"],
+    )
+    failure: DurableFailureResponse | None = Field(
+        default=None,
+        description="Versioned public failure classification; null for legacy rows and successful work.",
     )
     created_at_utc: str = Field(
         description="UTC timestamp when the async-result record was created.",
@@ -204,8 +227,12 @@ class ExecutionResponse(BaseModel):
     )
     error_message: str | None = Field(
         default=None,
-        description="Top-level execution failure message when the calculation failed.",
+        description="Public-safe top-level execution failure message when the calculation failed.",
         examples=["No benchmark assignment found for portfolio."],
+    )
+    failure: DurableFailureResponse | None = Field(
+        default=None,
+        description="Retained versioned failure classification used after queue or result retention.",
     )
     created_at_utc: str = Field(
         description="UTC timestamp when the execution record was created.",

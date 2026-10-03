@@ -721,6 +721,7 @@ def test_execution_registry_upgrades_existing_schema_for_idempotent_submission(t
         "submission_idempotency_key_hash",
         "submission_identity_fingerprint",
         "submission_contract_version",
+        "failure_json",
     } <= columns
     assert indexes["ux_execution_submission_idempotency"]["unique"] == 1
 
