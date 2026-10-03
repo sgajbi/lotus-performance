@@ -456,6 +456,9 @@ Return semantics for the workspace surface are now explicit rather than inferred
   - stateless calculated mode accepts exactly one of:
     - `stateless_input.component_observations`
     - `stateless_input.component_price_points`
+  - component observations require unique `component_id` / `perf_date` identities; optional local
+    and FX returns must be supplied together on every observation, otherwise admission returns
+    non-retryable `422 VALIDATION_ERROR` without registering work
   - stateful calculated mode sources benchmark definition, component price series, and FX inputs from lotus-core and normalizes them into canonical benchmark component observations before engine execution
   - stateful calculated mode supports multi-segment rebalance windows through the lotus-core composition-window contract
   - `benchmark_spec` is not a supported request field; RFC-023 is superseded for current API purposes by RFC-042 and `docs/technical/rfc-023-benchmark-contract-baseline.md`

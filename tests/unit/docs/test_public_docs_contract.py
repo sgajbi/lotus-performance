@@ -1008,6 +1008,8 @@ def test_benchmark_guide_uses_current_request_shape():
     assert 'return_source="calculated"' in guide
     assert 'return_source="vendor_series"' in guide
     assert "stateless_input.component_price_points" in guide
+    assert "duplicate or incomplete decomposition input returns non-retryable `422 VALIDATION_ERROR`" in guide
+    assert "unique `component_id` / `perf_date` identities" in api_reference
     assert "multi-segment benchmark composition windows internally" in guide
     assert "benchmark.summary.period_return" in guide
     assert "benchmark.breakdowns.<requested_frequency>[].cumulative_return" in guide

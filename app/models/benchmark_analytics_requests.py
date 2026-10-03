@@ -7,7 +7,7 @@ from uuid import UUID, uuid4
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
-from app.models.benchmark_requests import BenchmarkPerformanceRequest
+from app.models.benchmark_requests import BenchmarkPerformanceRequest, validate_benchmark_component_observations
 from app.models.numeric_types import ExactDecimalInput
 from app.models.request_window_validation import validate_ordered_explicit_window
 from app.models.requests import Analysis
@@ -119,7 +119,11 @@ class BenchmarkStatelessInput(BaseModel):
     )
     component_observations: list[BenchmarkComponentObservationInput] = Field(
         default_factory=list,
-        description="Daily benchmark component return observations used when return_source=calculated.",
+        description=(
+            "Daily benchmark component return observations used when return_source=calculated. "
+            "Each component_id/perf_date identity must be unique. Local and FX returns are optional "
+            "only as a complete pair across every observation."
+        ),
     )
     component_price_points: list[BenchmarkComponentPricePointInput] = Field(
         default_factory=list,
@@ -129,6 +133,11 @@ class BenchmarkStatelessInput(BaseModel):
         default_factory=list,
         description="Daily benchmark return observations used only when return_source=vendor_series.",
     )
+
+    @model_validator(mode="after")
+    def validate_component_observations(self) -> "BenchmarkStatelessInput":
+        validate_benchmark_component_observations(self.component_observations)
+        return self
 
 
 def benchmark_stateless_work_units(
