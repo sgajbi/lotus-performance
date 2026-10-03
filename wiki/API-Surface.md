@@ -87,6 +87,9 @@ component before a return is published. `index_price` and `fx_rate_to_benchmark`
 numbers or exact decimal text and remain Decimal through price normalization; only the derived
 dimensionless return uses the compatibility numeric output. In `return_source="vendor_series"` mode, authored
 `benchmark_return_points` supply the benchmark series instead of the calculated component path.
+Calculated component observations require unique component/date identities. Optional local and FX
+returns are all-or-none across the request. Violations return non-retryable `422 VALIDATION_ERROR`
+before sync or async work is registered.
 
 Async and supportability routes:
 

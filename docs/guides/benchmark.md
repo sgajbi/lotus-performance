@@ -69,6 +69,10 @@ In calculated mode:
 
 - lotus-performance derives component daily returns
 - stateless callers may provide either precomputed component returns or raw component price points
+- each precomputed `component_id` / `perf_date` identity must be unique; if local or FX
+  decomposition is supplied, both fields must be present on every observation
+- duplicate or incomplete decomposition input returns non-retryable `422 VALIDATION_ERROR` before
+  sync or async registration; base-only observations remain supported
 - raw `index_price` and `fx_rate_to_benchmark` values accept JSON numbers or exact decimal text;
   lotus-performance retains Decimal through price normalization and converts only the derived
   dimensionless returns to the compatibility output type

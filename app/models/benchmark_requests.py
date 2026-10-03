@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from datetime import date as dt_date
-from typing import Literal, Sequence
+from typing import Any, Literal, Protocol, Sequence
 from uuid import UUID, uuid4
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
@@ -38,6 +38,61 @@ class BenchmarkComponentObservation(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
 
+class BenchmarkComponentObservationLike(Protocol):
+    component_id: str
+    perf_date: dt_date
+    component_return_local: Any
+    component_return_fx: Any
+
+
+def validate_benchmark_component_observations(
+    component_observations: Sequence[BenchmarkComponentObservationLike],
+) -> None:
+    _validate_unique_benchmark_component_observations(component_observations)
+    _validate_complete_benchmark_component_decomposition(component_observations)
+
+
+def _validate_unique_benchmark_component_observations(
+    component_observations: Sequence[BenchmarkComponentObservationLike],
+) -> None:
+    seen_identities: set[tuple[str, dt_date]] = set()
+    for observation in component_observations:
+        identity = (observation.component_id, observation.perf_date)
+        if identity in seen_identities:
+            raise ValueError(
+                "duplicate benchmark component observation for "
+                f"component_id={observation.component_id}, perf_date={observation.perf_date.isoformat()}"
+            )
+        seen_identities.add(identity)
+
+
+def _validate_complete_benchmark_component_decomposition(
+    component_observations: Sequence[BenchmarkComponentObservationLike],
+) -> None:
+    has_decomposition = False
+    incomplete_observation: BenchmarkComponentObservationLike | None = None
+    for observation in component_observations:
+        has_local = observation.component_return_local is not None
+        has_fx = observation.component_return_fx is not None
+        if has_local != has_fx:
+            raise ValueError(
+                "component_return_local and component_return_fx must be supplied together for "
+                f"component_id={observation.component_id}, perf_date={observation.perf_date.isoformat()}"
+            )
+        if has_local:
+            has_decomposition = True
+        else:
+            incomplete_observation = observation
+
+    if has_decomposition and incomplete_observation is not None:
+        raise ValueError(
+            "component_return_local and component_return_fx must be populated for every observation when "
+            "decomposition is supplied; "
+            f"component_id={incomplete_observation.component_id}, "
+            f"perf_date={incomplete_observation.perf_date.isoformat()}"
+        )
+
+
 class BenchmarkReturnPoint(BaseModel):
     perf_date: dt_date = Field(..., description="Benchmark return observation date.")
     benchmark_return: float = Field(  # monetary-float-allow: dimensionless return
@@ -68,6 +123,7 @@ def _validate_calculated_benchmark_payload(
         raise ValueError("component_observations are required when return_source=calculated")
     if benchmark_return_points:
         raise ValueError("benchmark_return_points must be empty when return_source=calculated")
+    validate_benchmark_component_observations(component_observations)
 
 
 def _validate_vendor_benchmark_payload(
@@ -125,7 +181,13 @@ class BenchmarkPerformanceRequest(BaseModel):
         description="Benchmark return source mode.",
     )
     benchmark_currency: str = Field(..., description="Benchmark currency.")
-    component_observations: list[BenchmarkComponentObservation] = Field(default_factory=list)
+    component_observations: list[BenchmarkComponentObservation] = Field(
+        default_factory=list,
+        description=(
+            "Canonical component returns with unique component_id/perf_date identities and either "
+            "complete local/FX decomposition across all observations or no decomposition."
+        ),
+    )
     benchmark_return_points: list[BenchmarkReturnPoint] = Field(default_factory=list)
     precision_mode: Literal["FLOAT64", "DECIMAL_STRICT"] = Field(
         "FLOAT64",

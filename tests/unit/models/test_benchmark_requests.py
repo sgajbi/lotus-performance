@@ -172,6 +172,52 @@ def test_benchmark_performance_request_accepts_valid_calculated_and_vendor_paylo
     assert vendor.benchmark_return_points[0].benchmark_return == 0.01
 
 
+@pytest.mark.parametrize(
+    ("mutated_observation", "expected_message"),
+    [
+        (
+            {
+                "component_id": "IDX_1",
+                "perf_date": "2025-01-02",
+                "weight_bop": 1.0,
+                "component_return": 0.02,
+                "component_return_local": 0.02,
+                "component_return_fx": 0.0,
+            },
+            "duplicate benchmark component observation.*IDX_1.*2025-01-02",
+        ),
+        (
+            {
+                "component_id": "IDX_2",
+                "perf_date": "2025-01-02",
+                "weight_bop": 0.0,
+                "component_return": 0.0,
+            },
+            "component_return_local and component_return_fx must be populated for every observation.*IDX_2.*2025-01-02",
+        ),
+    ],
+)
+def test_benchmark_performance_request_rejects_ambiguous_component_observations(
+    base_payload, mutated_observation, expected_message
+):
+    complete_observation = {
+        "component_id": "IDX_1",
+        "perf_date": "2025-01-02",
+        "weight_bop": 1.0,
+        "component_return": 0.01,
+        "component_return_local": 0.01,
+        "component_return_fx": 0.0,
+    }
+
+    with pytest.raises(ValidationError, match=expected_message):
+        BenchmarkPerformanceRequest.model_validate(
+            {
+                **base_payload,
+                "component_observations": [complete_observation, mutated_observation],
+            }
+        )
+
+
 def test_benchmark_performance_request_requires_report_start_date_for_explicit_period(base_payload):
     explicit_payload = {
         **base_payload,

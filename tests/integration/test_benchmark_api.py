@@ -1,5 +1,6 @@
 import os
 import shutil
+from copy import deepcopy
 from uuid import UUID, uuid4
 
 import pytest
@@ -156,6 +157,82 @@ def test_calculate_benchmark_endpoint_supports_stateless_calculated_mode(client)
         "daily_returns": 2,
     }
     assert body["audit"]["residual_applied_bp"] == pytest.approx(0.0)
+
+
+@pytest.mark.parametrize(
+    ("mutation", "message_fragment"),
+    [
+        ("identical_duplicate", "duplicate benchmark component observation"),
+        ("conflicting_duplicate", "duplicate benchmark component observation"),
+        ("missing_local", "component_return_local and component_return_fx must be supplied together"),
+        ("missing_fx", "component_return_local and component_return_fx must be supplied together"),
+        ("incomplete_row", "must be populated for every observation"),
+    ],
+)
+def test_benchmark_endpoint_rejects_deterministic_component_input_errors_before_registration(
+    client, mutation, message_fragment
+):
+    calculation_id = uuid4()
+    observations = [
+        {
+            "component_id": component_id,
+            "perf_date": perf_date,
+            "weight_bop": weight,
+            "component_return": component_return,
+            "component_return_local": component_return,
+            "component_return_fx": 0.0,
+        }
+        for perf_date, returns in (
+            ("2026-01-02", (0.02, 0.01)),
+            ("2026-01-03", (0.01, 0.005)),
+        )
+        for component_id, weight, component_return in zip(("IDX_A", "IDX_B"), (0.6, 0.4), returns, strict=True)
+    ]
+    if mutation.endswith("duplicate"):
+        duplicate = deepcopy(observations[0])
+        if mutation == "conflicting_duplicate":
+            duplicate["component_return"] = 0.03
+        observations.append(duplicate)
+    elif mutation == "missing_local":
+        observations[0].pop("component_return_local")
+    elif mutation == "missing_fx":
+        observations[0].pop("component_return_fx")
+    else:
+        observations[0].pop("component_return_local")
+        observations[0].pop("component_return_fx")
+
+    payload = {
+        "calculation_id": str(calculation_id),
+        "benchmark_id": "BMK_INVALID_COMPONENT_INPUT",
+        "benchmark_start_date": "2026-01-02",
+        "report_end_date": "2026-01-03",
+        "analyses": [{"period": "SI", "frequencies": ["daily"]}],
+        "input_mode": "stateless",
+        "return_source": "calculated",
+        "stateless_input": {
+            "benchmark_currency": "USD",
+            "component_observations": observations,
+        },
+    }
+
+    settings = get_settings()
+    original_threshold = settings.BENCHMARK_EXECUTOR_INPUT_COUNT
+    settings.BENCHMARK_EXECUTOR_INPUT_COUNT = 1
+    try:
+        for _ in range(2):
+            response = client.post("/performance/benchmark", json=payload)
+
+            assert response.status_code == 422
+            body = response.json()
+            assert body["error_code"] == "VALIDATION_ERROR"
+            assert body["retryable"] is False
+            assert body["correlation_id"]
+            assert any(message_fragment in error["msg"] for error in body["validation_errors"])
+
+        assert execution_registry.get_execution(calculation_id) is None
+        assert compute_job_store.get_job(calculation_id) is None
+    finally:
+        settings.BENCHMARK_EXECUTOR_INPUT_COUNT = original_threshold
 
 
 @pytest.mark.parametrize(
