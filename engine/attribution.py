@@ -8,6 +8,7 @@ import numpy as np
 import pandas as pd
 
 from common.enums import AttributionMode, AttributionModel, LinkingMethod
+from core.attribution_precision_policy import require_attribution_precision
 from core.valuation_observation_admission import finite_decimal_value
 from engine.attribution_supportability import (
     build_attribution_supportability_evidence,
@@ -72,6 +73,9 @@ class AttributionObservationGroupLike(Protocol):
 
 
 class AttributionRequestLike(Protocol):
+    @property
+    def precision_mode(self) -> str: ...
+
     @property
     def report_start_date(self) -> dt_date: ...
 
@@ -248,6 +252,7 @@ def _prepare_data_from_instruments(request: AttributionRequestLike) -> list[Attr
     Runs TWR engine on instrument data and aggregates returns and weights
     up to the requested group levels.
     """
+    precision_mode = PrecisionMode(require_attribution_precision(request.precision_mode))
     if not request.portfolio_data or not request.instruments_data:
         raise ValueError("'portfolio_data' and 'instruments_data' are required for 'by_instrument' mode.")
 
@@ -257,6 +262,7 @@ def _prepare_data_from_instruments(request: AttributionRequestLike) -> list[Attr
         report_end_date=request.report_end_date,
         metric_basis=request.portfolio_data.metric_basis,
         period_type=request.analyses[0].period,
+        precision_mode=precision_mode,
         currency_mode=request.currency_mode,
         report_ccy=request.report_ccy,
         fx=request.fx,
@@ -315,6 +321,7 @@ def _build_instrument_attribution_panel(
     twr_config: EngineConfig,
     portfolio_bop_mv: pd.Series,
 ) -> pd.DataFrame | None:
+    require_attribution_precision(twr_config.precision_mode)
     if not inst.valuation_points:
         return None
 
@@ -335,7 +342,7 @@ def _build_instrument_attribution_panel(
     inst_results["weight_bop"] = calculate_monetary_weights(
         inst_bop_mv,
         portfolio_bop_mv,
-        decimal_mode=twr_config.precision_mode == PrecisionMode.DECIMAL_STRICT,
+        decimal_mode=False,
     )
 
     _normalize_instrument_return_columns(
@@ -779,6 +786,7 @@ def aggregate_attribution_results(
     effects_df: pd.DataFrame, request: AttributionRequestLike
 ) -> Tuple[SinglePeriodAttributionResult, Dict[str, pd.DataFrame]]:
     """Aggregates a DataFrame of daily effects into the final response model for a single period."""
+    require_attribution_precision(request.precision_mode)
     aggregation_lineage = {}
     aggregation_base = _build_attribution_aggregation_base(effects_df, request)
 
@@ -931,6 +939,7 @@ def run_attribution_calculations(request: AttributionRequestLike) -> Tuple[pd.Da
     Orchestrates the calculation of daily attribution effects over a master period.
     Returns a tuple of (daily_effects_df, lineage_data_dictionary).
     """
+    require_attribution_precision(request.precision_mode)
     lineage_data = {}
     if request.mode == AttributionMode.BY_INSTRUMENT:
         portfolio_groups_data = _prepare_data_from_instruments(request)

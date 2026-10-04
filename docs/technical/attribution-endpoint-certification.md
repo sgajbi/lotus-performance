@@ -76,6 +76,15 @@ Downstream systems should use the explicit `*_total_pct` fields for footers and 
 They must not infer authoritative totals by summing visible rows because a UI may filter, truncate, or
 hide rows.
 
+## Numerical Policy
+
+Only FLOAT64 is supported across instrument/group, currency and linking paths. Certification
+must exercise `ATTRIBUTION_PRECISION_UNSUPPORTED` before source or job admission for strict
+legacy/nested/stateful requests, and verify actual FLOAT64 engine configuration and result
+metadata on immediate, async, replay and restored paths. Independent signed, zero-exposure and
+large-money controls must reconcile without changing financial tolerances. Historic retained
+precision labels remain as reported; retrieval does not certify their original execution.
+
 ## Upstream Integration
 
 Stateful attribution sources portfolio and position analytics inputs from lotus-core query control

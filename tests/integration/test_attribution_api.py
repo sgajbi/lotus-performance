@@ -2,6 +2,7 @@ import asyncio
 import os
 import shutil
 from datetime import date, datetime, timedelta, timezone
+from decimal import Decimal
 from uuid import UUID, uuid4
 
 import pytest
@@ -29,7 +30,53 @@ from tests.conftest import drain_compute_queue, drain_lineage_queue
 settings = get_settings()
 
 
-def test_instrument_attribution_preserves_independent_cent_profit_beside_large_deposit(client):
+@pytest.mark.parametrize("shape", ["legacy", "nested", "stateful"])
+@pytest.mark.parametrize("async_requested", [False, True])
+def test_attribution_strict_precision_refused_before_source_or_job_admission(
+    client, monkeypatch, shape, async_requested
+):
+    payload = _single_period_sector_attribution_payload(model="BF", portfolio_weights=(0.6, 0.4))
+    calculation_id = uuid4()
+    payload.update(calculation_id=str(calculation_id), precision_mode="DECIMAL_STRICT")
+    if shape == "nested":
+        payload["stateless_input"] = {
+            key: payload.pop(key) for key in ("portfolio_groups_data", "benchmark_groups_data")
+        }
+    elif shape == "stateful":
+        payload.pop("portfolio_groups_data")
+        payload.pop("benchmark_groups_data")
+        payload.update(mode="by_instrument", input_mode="stateful", stateful_input={"metric_basis": "NET"})
+
+    async def unexpected_source_read(*args, **kwargs):
+        raise AssertionError("Unsupported precision must be refused before source resolution")
+
+    monkeypatch.setattr(
+        "app.services.attribution_calculation_workflow_service.resolve_attribution_request", unexpected_source_read
+    )
+    headers = {"Idempotency-Key": "precision-refusal"} if async_requested else {}
+    response = client.post("/performance/attribution", json=payload, headers=headers)
+    assert response.status_code == 422, response.text
+    body = response.json()
+    assert body["retryable"] is False
+    assert any(
+        error["type"] == "ATTRIBUTION_PRECISION_UNSUPPORTED" and error["loc"] == ["body", "precision_mode"]
+        for error in body["validation_errors"]
+    )
+    assert execution_registry.get_execution(calculation_id) is None
+    assert compute_job_store.get_job(calculation_id) is None
+
+
+def test_instrument_attribution_preserves_independent_cent_profit_beside_large_deposit(client, monkeypatch):
+    import engine.attribution as attribution_engine
+
+    actual_engine = attribution_engine.run_engine_for_valuation_points
+    executed_modes = []
+
+    def capture_actual_engine(points, config, **kwargs):
+        executed_modes.append(config.precision_mode.value)
+        return actual_engine(points, config, **kwargs)
+
+    monkeypatch.setattr(attribution_engine, "run_engine_for_valuation_points", capture_actual_engine)
     points = [
         {"perf_date": "2025-01-01", "begin_mv": "100", "end_mv": "9007199254741093.02", "eod_cf": "9007199254740993.01"}
     ]
@@ -53,12 +100,43 @@ def test_instrument_attribution_preserves_independent_cent_profit_beside_large_d
     }
     response = client.post("/performance/attribution", json=payload)
     assert response.status_code == 200, response.text
+    assert executed_modes == ["FLOAT64"]
+    assert response.json()["meta"]["precision_mode"] == "FLOAT64"
     period = response.json()["results_by_period"]["SI"]
     assert period["reconciliation"]["total_active_return"] == pytest.approx(0.01, abs=1e-12)
     assert period["reconciliation"]["sum_of_effects"] == pytest.approx(0.01, abs=1e-12)
     group = period["levels"][0]["groups"][0]
     assert group["portfolio_return"] == pytest.approx(0.01, abs=1e-12)
     assert group["selection"] == pytest.approx(0.01, abs=1e-12)
+
+
+@pytest.mark.parametrize("weights", [("0.6", "0.4"), ("1.2", "-0.2"), ("0", "1")])
+def test_attribution_float64_signed_zero_weight_independent_effects(client, weights):
+    payload = _single_period_sector_attribution_payload(model="BF", portfolio_weights=tuple(map(float, weights)))
+    payload["precision_mode"] = "FLOAT64"
+    response = client.post("/performance/attribution", json=payload)
+    assert response.status_code == 200, response.text
+    assert response.json()["meta"]["precision_mode"] == "FLOAT64"
+    period = response.json()["results_by_period"]["SI"]
+    # Independent one-day BF equations. Linking NONE reports the arithmetic difference,
+    # not the relative wealth ratio (1 + Rp) / (1 + Rb) - 1.
+    wp = list(map(Decimal, weights))
+    wb = [Decimal("0.5"), Decimal("0.5")]
+    rp = [Decimal("0.10"), Decimal("0")]
+    rb = [Decimal("0.04"), Decimal("0.02")]
+    portfolio_return = sum(w * r for w, r in zip(wp, rp))
+    benchmark_return = Decimal("0.03")
+    active = portfolio_return - benchmark_return
+    groups = {group["key"]["sector"]: group for group in period["levels"][0]["groups"]}
+    for index, name in enumerate(("Tech", "Health")):
+        expected = {
+            "allocation": (wp[index] - wb[index]) * (rb[index] - benchmark_return),
+            "selection": wb[index] * (rp[index] - rb[index]),
+            "interaction": (wp[index] - wb[index]) * (rp[index] - rb[index]),
+        }
+        for effect, value in expected.items():
+            assert groups[name][effect] == pytest.approx(float(value * 100), abs=1e-12)
+    assert period["reconciliation"]["total_active_return"] == pytest.approx(float(active * 100), abs=1e-12)
 
 
 _EXPECTED_SUPPORTABILITY_METRIC_LABELS = list(PERFORMANCE_CALCULATION_SUPPORTABILITY_METRIC_LABELS)
@@ -957,6 +1035,7 @@ def test_attribution_async_result_retrieval(client):
         complete = client.get(f"/performance/attribution/results/{calculation_id}")
         assert complete.status_code == 200
         assert complete.json()["calculation_id"] == calculation_id
+        assert complete.json()["meta"]["precision_mode"] == "FLOAT64"
     finally:
         settings.ATTRIBUTION_EXECUTOR_INPUT_COUNT = original_threshold
 
@@ -2420,6 +2499,9 @@ def test_attribution_completed_idempotent_replay_returns_original_result_without
     assert first.status_code == 202
     assert drain_compute_queue() == 1
     assert drain_lineage_queue() >= 1
+    original_result = client.get(first.json()["result_path"], headers={"X-Tenant-Id": "tenant-a"})
+    assert original_result.status_code == 200
+    assert original_result.json()["meta"]["precision_mode"] == "FLOAT64"
     assert compute_job_store.prune_terminal_jobs_older_than(datetime.now(timezone.utc) + timedelta(seconds=1)) == 1
     assert async_result_store.prune_results_older_than(datetime.now(timezone.utc) + timedelta(seconds=1)) == 1
     assert compute_job_store.get_job(UUID(first_calculation_id)) is None
@@ -2439,11 +2521,39 @@ def test_attribution_completed_idempotent_replay_returns_original_result_without
     assert drain_compute_queue() == 0
     assert result.status_code == 200
     assert result.json()["calculation_id"] == first_calculation_id
+    assert result.json() == original_result.json()
+    refused = client.post(
+        "/performance/attribution",
+        json={**payload, "precision_mode": "DECIMAL_STRICT"},
+        headers=headers,
+    )
+    assert refused.status_code == 422
+    assert client.get(first.json()["result_path"], headers={"X-Tenant-Id": "tenant-a"}).json() == original_result.json()
     assert foreign_status.status_code == 403
     assert foreign_result.status_code == 403
     assert foreign_status.json()["reason"] == "result_tenant_authority_mismatch"
     assert foreign_result.json()["reason"] == "result_tenant_authority_mismatch"
     assert compute_job_store.get_job(UUID(retry_calculation_id)) is None
+
+
+def test_attribution_retained_legacy_precision_metadata_is_not_rewritten_on_retrieval(client):
+    payload = _single_period_sector_attribution_payload(model="BF", portfolio_weights=(0.6, 0.4))
+    calculation_id = uuid4()
+    payload["calculation_id"] = str(calculation_id)
+    response = client.post("/performance/attribution", json=payload)
+    assert response.status_code == 200
+    assert drain_lineage_queue() >= 1
+    # Explicit historical fixture: old metadata could report strict although the engine
+    # executed FLOAT64. Retrieval preserves reported evidence, never certifies or repairs it.
+    historical = response.json()
+    historical["meta"]["precision_mode"] = "DECIMAL_STRICT"
+    historical["meta"]["engine_version"] = "lotus-performance-calculation-engine.v15"
+    execution_registry.retain_response_payload(calculation_id, response_payload=historical)
+    result = client.get(f"/performance/attribution/results/{calculation_id}")
+    assert result.status_code == 200
+    assert result.json() == historical
+    assert execution_registry.get_execution(calculation_id).response_payload == historical
+    assert compute_job_store.get_job(calculation_id) is None
 
 
 def test_attribution_compute_complete_idempotent_replay_does_not_requeue_while_lineage_is_pending(client):

@@ -432,6 +432,8 @@ Current request-model highlights:
   missing-benchmark readiness is generated through `make idea-opportunity-runtime-evidence`
 - attribution emits source-owned `currency_attribution_totals` for portfolio-level
   Karnosky-Singer FX attribution when `currency_mode=BOTH` is source-ready
+- attribution supports `precision_mode="FLOAT64"` only; unsupported strict selection is refused
+  before source reads or job admission. See the [attribution guide](docs/guides/attribution.md).
 - TWR, Workspace Summary, Contribution, and Attribution publish `currency_evidence` for the
   actually applied reporting currency; exact prior/current-date EOD FX coverage is validated and
   `meta.report_ccy` remains a compatibility request echo

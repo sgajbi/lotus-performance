@@ -1,7 +1,7 @@
 # Lotus Performance Test Taxonomy Inventory
 
 Report date: 2026-10-04
-Branch: `fix/valuation-money-boundaries`
+Branch: `fix/attribution-precision-policy`
 Mode: regression-blocking test taxonomy inventory; `make quality-test-taxonomy-gate` enforces
 minimum API/runtime and contract/governance breadth plus the current uncategorized-test ceiling.
 
@@ -22,10 +22,10 @@ python scripts/python_test_taxonomy_inventory.py --limit 30 --min-api-runtime-te
 
 | Metric | Value |
 | --- | ---: |
-| Test modules inventoried | 351 |
-| Test functions inventoried | 4324 |
-| Integration/API/runtime test functions | 909 |
-| Contract/governance test functions | 206 |
+| Test modules inventoried | 352 |
+| Test functions inventoried | 4331 |
+| Integration/API/runtime test functions | 913 |
+| Contract/governance test functions | 207 |
 
 ## Test Functions By Suite
 
@@ -33,8 +33,8 @@ python scripts/python_test_taxonomy_inventory.py --limit 30 --min-api-runtime-te
 | --- | ---: | ---: |
 | benchmarks | 11 | 53 |
 | e2e | 1 | 21 |
-| integration | 32 | 473 |
-| unit | 307 | 3777 |
+| integration | 32 | 476 |
+| unit | 308 | 3781 |
 
 ## Test Functions By Family
 
@@ -44,9 +44,9 @@ above does sum to it, because a module belongs to exactly one suite.
 
 | Family | Test functions |
 | --- | ---: |
-| analytics_domain | 2194 |
-| api_or_runtime | 909 |
-| contract_or_governance | 206 |
+| analytics_domain | 2201 |
+| api_or_runtime | 913 |
+| contract_or_governance | 207 |
 | observability_or_readiness | 691 |
 | quality_or_security | 313 |
 | uncategorized | 565 |
@@ -317,7 +317,12 @@ bounded numerical refusals, stateful Decimal retention, registered API and linea
 That historical tree had 4,288 source functions, 905 API/runtime and 206 contract/governance functions.
 The unchanged uncategorized ceiling is 565; collection is not execution or consumer acceptance.
 
-The #600 valuation slice measures 351 modules and 4,324 source functions: 909 API/runtime,
+The historical #600 valuation slice measured 351 modules and 4,324 source functions: 909 API/runtime,
 206 contract/governance, 691 observability/readiness, 313 quality/security and 2,194 analytics-domain.
 The uncategorized ceiling remains 565. Financial controls cover exact source precision, signed
 cash-flow cancellation, conversion and restoration; this inventory does not establish acceptance.
+
+The #601 attribution precision-policy candidate measures 352 modules and 4,331 source functions:
+913 API/runtime, 207 contract/governance, 691 observability/readiness, 313 quality/security and
+2,201 analytics-domain. The uncategorized ceiling remains565; refusal/replay controls do not
+establish independent acceptance or strict attribution support.

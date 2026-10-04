@@ -31,6 +31,7 @@ from app.services.submission_fencing_service import (
     register_async_submission_or_raise,
     register_sync_execution_or_raise,
 )
+from core.attribution_precision_policy import require_attribution_precision
 from core.errors import APIBadRequestError, APIInternalServerError
 
 logger = logging.getLogger(__name__)
@@ -304,6 +305,7 @@ async def calculate_attribution_workflow(
     idempotency_key: str | None = None,
 ) -> AttributionResponse | ApplicationHttpResponse:
     """Resolve, fence, execute, and map errors for one attribution analytics request."""
+    require_attribution_precision(request.precision_mode)
     require_reporting_currency_for_both(currency_mode=request.currency_mode, requested_report_ccy=request.report_ccy)
     active_settings = get_settings()
     input_fingerprint, calculation_hash = generate_request_fingerprint(

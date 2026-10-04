@@ -1,6 +1,15 @@
 from main import app
 
 
+def test_attribution_openapi_only_advertises_executable_precision_policy():
+    schemas = app.openapi()["components"]["schemas"]
+    field = schemas["AttributionAnalyticsRequest"]["properties"]["precision_mode"]
+    assert field["const"] == "FLOAT64"
+    assert field["default"] == "FLOAT64"
+    assert "ATTRIBUTION_PRECISION_UNSUPPORTED" in field["description"]
+    assert "before source resolution or job admission" in field["description"]
+
+
 def test_attribution_openapi_documents_private_banking_usage_and_error_paths() -> None:
     spec = app.openapi()
 

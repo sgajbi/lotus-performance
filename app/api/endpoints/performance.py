@@ -307,7 +307,8 @@ async def calculate_mwr_endpoint(request: MoneyWeightedReturnAnalyticsRequest):
             "description": (
                 "Attribution source contract cannot support the requested calculation, such as missing benchmark "
                 "assignment, unsupported stateful mode, missing FX for mixed-currency stateful attribution, or "
-                "unsupported grouping dimension."
+                "unsupported grouping dimension, or unsupported attribution precision. Only FLOAT64 is supported; "
+                "DECIMAL_STRICT returns non-retryable ATTRIBUTION_PRECISION_UNSUPPORTED before admission."
             ),
             "content": {
                 "application/json": {

@@ -810,6 +810,13 @@ Important validation expectations:
 
 ## Standards And RFCs That Govern This Repository
 
+Attribution supports FLOAT64 only across instrument/group, currency and linking paths. The shared
+`core/attribution_precision_policy.py` guard applies before source/job admission and at engine
+entry; successful metadata reports the supported policy. Strict requests receive non-retryable
+`ATTRIBUTION_PRECISION_UNSUPPORTED`. Exact money is not strict attribution. Identity v16 includes
+this admission/provenance correction; retained historical responses remain unchanged and their
+original precision labels are not retroactive execution certification.
+
 Monetary request admission is owned by `core/monetary_input.py`. Daily and position valuation
 values, cash flows, fees, MWR amounts and shared FX rates retain Decimal inputs; exact JSON
 transport uses decimal strings. Ordinary

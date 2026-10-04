@@ -19,7 +19,7 @@ def test_calculation_engine_version_is_not_deployable_app_version() -> None:
 
 
 def test_governed_calculation_changes_have_new_reproducibility_identity() -> None:
-    assert CALCULATION_ENGINE_VERSION == "lotus-performance-calculation-engine.v15"
+    assert CALCULATION_ENGINE_VERSION == "lotus-performance-calculation-engine.v16"
     source_input = {
         "portfolio_id": "BHB_REPLAY",
         "model": "BHB",
