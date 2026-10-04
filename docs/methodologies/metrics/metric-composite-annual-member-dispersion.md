@@ -82,6 +82,16 @@ A monthly return exactly -100% links to an annual return of -100%. No interpolat
 
 ## Configuration Options
 
+### Pinned annual output comparison v1
+
+The separate `/performance/composites/analytics/comparison` operation invokes this unchanged annual v1 method independently for baseline and candidate. Common composite, year, fee basis, currency, method, admitted definition digest and policy are mandatory; membership/source revisions remain explicit. It introduces no estimator or official selection.
+
+Let `q_B` and `q_C` denote available annual outputs already quantized to `1e-12`. `DIFFERENCE_OF_QUANTIZED_V1_OUTPUTS` defines `delta = q_C - q_B`, metric `DISPERSION_OUTPUT_DELTA`, comparison version `v1`, unit `DECIMAL_RETURN`. Subtraction uses an independent Decimal context: 60 significant digits, half-even rounding, exponent bounds -128 to 128. It does not re-estimate unrounded dispersion. Null on either side produces null difference and side-prefixed annual reasons. No tolerance, relative growth, attribution, materiality or approval rule is implied.
+
+Independent Fraction sample-variance controls map 1%–6% to `7/20000`, output `0.018708286934`; {1%,2%,3%,4%,5%,7%} to `7/15000`, output `0.021602468995`, difference `0.002894182061`; 1%–5% to `1/4000`, output `0.015811388301`, difference `-0.002896898633`. Fixtures retain one observed month plus eleven zero months. `tests/unit/services/test_composite_annual_comparison_service.py` verifies independent expectations, reversal, null, evidence-changing zero and caller-context independence; `tests/integration/test_composite_annual_comparison_api.py` verifies retained publication/reopen, tenant refusals and full registered HTTP examples.
+
+Sorted member differences compare full-year identity sets only. Both entire annual responses retain qualification and independent December/full-year counts. The fingerprint binds tenant and both complete results under `composite-annual-comparison.v1`. Changed evidence does not establish causality or authority. DEC-10/12/13 remain unresolved; this supplies a bounded numerical foundation for #610 previews.
+
 The request selects either named estimator. Precision, quantum, complete-year requirement, supported fee views, and population limits are registered method behavior, not caller options. Original and corrected vectors remain separately selectable by immutable UUID; there is no implicit latest selection.
 
 ## Outputs

@@ -308,6 +308,18 @@ The current implementation does not support:
 - multi-currency composite aggregation beyond the single reporting-currency guard;
 - benchmark active return for composites.
 
+## Pinned Annual Comparison
+
+`POST /performance/composites/analytics/comparison` compares two explicit annual receipt vectors
+on common composite/year/fee/currency/method and admitted definition/policy. Both complete v1
+results remain visible. `DISPERSION_OUTPUT_DELTA` is candidate minus baseline quantized output,
+with null and side-specific reasons if either is unavailable; sorted full-year member additions
+and removals describe populations. Changed evidence can yield zero. No causal, materiality,
+official-selection or freeze claim follows. DEC-10/12/13 and live qualification remain unresolved.
+See the [caller guide](https://github.com/sgajbi/lotus-performance/blob/main/docs/guides/composite_annual_dispersion.md)
+for internal/client/Excel consumption and refusal behavior. This is only a bounded foundation for
+#610 impact previews; publication of approved generations remains separate.
+
 ## References
 
 - [Composite performance guide](https://github.com/sgajbi/lotus-performance/blob/main/docs/guides/composite_performance.md)

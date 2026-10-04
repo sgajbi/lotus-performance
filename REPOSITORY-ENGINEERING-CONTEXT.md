@@ -922,6 +922,17 @@ behavior. Owning tests have distinct engine/model/service/adapter/API names so c
 collection remains valid. Keep new service logic behind the read port and do not bypass source
 or publication admission to broaden a population.
 
+## Pinned Annual Comparison Practice
+
+`POST /performance/composites/analytics/comparison` reuses the public annual calculation twice through
+the retained read port. Keep paired scope and admitted definition/policy compatible. Preserve both
+complete annual v1 responses; compute only their available quantized output difference and sorted
+full-year member identity differences. Null remains null. Fingerprints bind tenant and both results.
+Do not add estimator logic, automatic revision selection, causal/materiality interpretation or
+official approval/freeze claims. DEC-10/12/13 remain unresolved. Complete packaged HTTP examples
+must match real registered retained-reader responses. The caller guide includes internal/client/Excel
+consumption; it does not certify a Report producer or live source qualification.
+
 ## Cross-Links
 
 1. `../lotus-platform/context/LOTUS-QUICKSTART-CONTEXT.md`

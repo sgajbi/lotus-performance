@@ -5,10 +5,12 @@ from typing import Annotated
 from fastapi import APIRouter, Depends, HTTPException, Request, status
 
 from app.api.dependencies.composite_annual_dispersion import (
+    annual_comparison_openapi_examples,
     annual_dispersion_openapi_examples,
     get_annual_dispersion_receipt_reader,
 )
 from app.api.http_status import HTTP_422_UNPROCESSABLE
+from app.models.composite_annual_comparison import CompositeAnnualComparisonRequest, CompositeAnnualComparisonResponse
 from app.models.composite_annual_dispersion import CompositeAnnualDispersionRequest, CompositeAnnualDispersionResponse
 from app.models.composites import (
     CompositeErrorResponse,
@@ -22,6 +24,7 @@ from app.models.composites import (
 from app.models.platform_surfaces import ErrorDetailResponse
 from app.ports.composite_annual_dispersion import AnnualDispersionReceiptReader
 from app.services.composite_annual_dispersion.application import calculate_annual_member_dispersion
+from app.services.composite_annual_dispersion.comparison import compare_annual_member_dispersion
 from app.services.composite_calculation_service import (
     CompositeDefinitionNotFoundError,
     calculate_composite_twr_from_persisted_facts,
@@ -386,3 +389,59 @@ def evaluate_composite_analytics(
     reader: Annotated[AnnualDispersionReceiptReader, Depends(get_annual_dispersion_receipt_reader)],
 ) -> CompositeAnnualDispersionResponse:
     return calculate_annual_member_dispersion(request, tenant_id=tenant_id, reader=reader)
+
+
+ANNUAL_COMPARISON_OPENAPI_EXAMPLES = annual_comparison_openapi_examples()
+
+
+@router.post(
+    "/composites/analytics/comparison",
+    response_model=CompositeAnnualComparisonResponse,
+    summary="Compare two explicit pinned annual dispersion results",
+    description=(
+        "Independently admits both retained annual receipt vectors on the same composite, year, fee, currency, "
+        "method, definition and policy basis. Preserves both full v1 results and compares their quantized outputs. "
+        "Member additions/removals describe full-year identity sets, not causal attribution. Neither side is "
+        "automatically original, latest, approved, frozen or official. Synthetic examples require retained tenant evidence."
+    ),
+    responses={
+        200: {
+            "description": "Available output difference or null with side-specific unavailability reasons.",
+            "content": {"application/json": {"example": ANNUAL_COMPARISON_OPENAPI_EXAMPLES["response"]}},
+        },
+        **COMPOSITE_TENANT_AUTHORITY_RESPONSES,
+        **{
+            code: {
+                "model": ErrorDetailResponse,
+                "description": description,
+                "content": {
+                    "application/json": {
+                        "examples": {
+                            name: {"value": ANNUAL_COMPARISON_OPENAPI_EXAMPLES["errors"][name]} for name in names
+                        }
+                    }
+                },
+            }
+            for code, description, names in (
+                (404, "Either side selects a receipt absent in the admitted tenant.", ("not_found",)),
+                (409, "Either selected receipt or publication is incomplete.", ("incomplete",)),
+                (
+                    422,
+                    "Invalid paired request or incompatible admitted evidence or numerical domain.",
+                    ("request_validation", "domain_admission", "comparison_basis"),
+                ),
+                (503, "Retained evidence failed validation; reviewed recovery is required.", ("retained_evidence",)),
+            )
+        },
+    },
+    openapi_extra={
+        **COMPOSITE_TENANT_OPENAPI_EXTRA,
+        "requestBody": {"content": {"application/json": {"example": ANNUAL_COMPARISON_OPENAPI_EXAMPLES["request"]}}},
+    },
+)
+def evaluate_composite_analytics_comparison(
+    request: CompositeAnnualComparisonRequest,
+    tenant_id: Annotated[str, Depends(_required_composite_tenant)],
+    reader: Annotated[AnnualDispersionReceiptReader, Depends(get_annual_dispersion_receipt_reader)],
+) -> CompositeAnnualComparisonResponse:
+    return compare_annual_member_dispersion(request, tenant_id=tenant_id, reader=reader)
