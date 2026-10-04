@@ -5,7 +5,7 @@ from pathlib import Path
 
 from sqlalchemy import create_engine, inspect
 
-from scripts.durable_schema_apply import apply_durable_schema, main
+from scripts.durable_schema_apply import BOOTSTRAP_STORES, apply_durable_schema, main
 
 
 def _create_legacy_lineage_schema(database_url: str) -> None:
@@ -170,3 +170,29 @@ def test_durable_schema_apply_main_writes_operator_evidence(tmp_path: Path) -> N
     assert latest_payload["operation"] == "durable_schema_bootstrap_apply_verify"
     assert latest_payload["status"] == "passed"
     assert latest_payload["missing_owned_tables"] == []
+    assert latest_payload["schema_version"] == "lotus-performance-durable-schema-apply.v2"
+    assert [check["store_name"] for check in latest_payload["schema_verification_checks"]] == list(BOOTSTRAP_STORES)
+    assert all(
+        check["status"] == "passed" and check["issues"] == [] for check in latest_payload["schema_verification_checks"]
+    )
+
+
+def test_owner_evidence_refuses_existing_same_named_incompatible_index(tmp_path):
+    database_url = f"sqlite:///{tmp_path / 'incompatible-index.db'}"
+    assert apply_durable_schema(database_url=database_url).status == "passed"
+    engine = create_engine(database_url)
+    try:
+        with engine.begin() as connection:
+            connection.exec_driver_sql("DROP INDEX ix_lineage_payloads_created_at")
+            connection.exec_driver_sql(
+                "CREATE INDEX ix_lineage_payloads_created_at ON lineage_payloads (attempt_count)"
+            )
+    finally:
+        engine.dispose()
+    evidence = apply_durable_schema(database_url=database_url)
+    assert evidence.status == "failed"
+    assert evidence.bootstrap_error is None
+    checks = {check.store_name: check for check in evidence.schema_verification_checks}
+    assert checks["LineageMetadataStore"].status == "failed"
+    assert "index:lineage_payloads.ix_lineage_payloads_created_at" in checks["LineageMetadataStore"].issues
+    assert main(["--database-url", database_url, "--output-dir", str(tmp_path / "evidence")]) == 1

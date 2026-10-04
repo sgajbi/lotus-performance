@@ -44,7 +44,7 @@ from app.openapi_enrichment import enrich_openapi_schema
 from app.services.async_result_store import async_result_store
 from app.services.build_metadata_service import build_runtime_metadata
 from app.services.compute_job_store import compute_job_store
-from app.services.durable_metadata_bootstrap import bootstrap_durable_metadata_stores
+from app.services.durable_metadata_bootstrap import verify_durable_metadata_stores
 from app.services.execution_registry import execution_registry
 from app.services.http_resilience import close_upstream_http_client_pool, configure_upstream_http_client_pool
 from app.services.lineage_metadata_store import lineage_metadata_store
@@ -56,16 +56,16 @@ settings = get_settings()
 @asynccontextmanager
 async def _app_lifespan(application: FastAPI) -> AsyncIterator[None]:
     application.state.is_draining = False
-    configure_upstream_http_client_pool(
-        max_connections=settings.UPSTREAM_HTTP_MAX_CONNECTIONS,
-        max_keepalive_connections=settings.UPSTREAM_HTTP_MAX_KEEPALIVE_CONNECTIONS,
-        keepalive_expiry_seconds=settings.UPSTREAM_HTTP_KEEPALIVE_EXPIRY_SECONDS,
-    )
-    bootstrap_durable_metadata_stores(
+    verify_durable_metadata_stores(
         execution_store=execution_registry,
         compute_store=compute_job_store,
         async_result_store_=async_result_store,
         lineage_store=lineage_metadata_store,
+    )
+    configure_upstream_http_client_pool(
+        max_connections=settings.UPSTREAM_HTTP_MAX_CONNECTIONS,
+        max_keepalive_connections=settings.UPSTREAM_HTTP_MAX_KEEPALIVE_CONNECTIONS,
+        keepalive_expiry_seconds=settings.UPSTREAM_HTTP_KEEPALIVE_EXPIRY_SECONDS,
     )
     try:
         yield

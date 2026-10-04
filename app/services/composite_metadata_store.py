@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import json
 import logging
-import re
 from contextlib import contextmanager
 from dataclasses import dataclass
 from datetime import date as dt_date
@@ -27,6 +26,7 @@ from sqlalchemy import (
     text,
 )
 from sqlalchemy.engine import Connection
+from sqlalchemy.engine.interfaces import Dialect
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import DeclarativeBase, Mapped, Session, mapped_column, sessionmaker
 
@@ -41,6 +41,8 @@ from app.adapters.composite_schema_policy import (
     SQLITE_STRIP_CHARACTERS_SQL,
     SQLITE_TENANT_ID_CHECK_SQL,
 )
+from app.adapters.durable_schema.predicates import predicate_identity
+from app.adapters.durable_schema.statements import SchemaStatements, SchemaStatementWriter
 from app.models.composites import (
     CompositeDefinition,
     CompositeMemberReturnFact,
@@ -93,10 +95,6 @@ POSTGRES_CANONICAL_REPORTING_CURRENCY_CHECK_SQL = (
     "AND substr(reporting_currency, 2, 1) <= 'Z' "
     "AND substr(reporting_currency, 3, 1) >= 'A' "
     "AND substr(reporting_currency, 3, 1) <= 'Z'"
-)
-POSTGRES_CHECK_CAST_PATTERN = re.compile(
-    r"::(?:text|date|integer|bigint|character varying)(?:\(\d+\))?",
-    flags=re.IGNORECASE,
 )
 MEMBER_RETURN_FACT_SCHEMA_UPGRADE_COLUMNS = {
     "return_view": "TEXT NOT NULL DEFAULT 'NET_ACTUAL'",
@@ -216,6 +214,10 @@ class CompositeMemberReturnFactModel(Base):
             SQLITE_MEMBER_RETURN_FACT_VERSION_CHECK_SQL,
             name=MEMBER_RETURN_FACT_VERSION_CHECK,
         ).ddl_if(dialect="sqlite"),
+        CheckConstraint(
+            POSTGRES_MEMBER_RETURN_FACT_VERSION_CHECK_SQL,
+            name=MEMBER_RETURN_FACT_VERSION_CHECK,
+        ).ddl_if(dialect="postgresql"),
         Index(
             "ix_composite_member_return_facts_composite_period",
             "tenant_id",
@@ -587,9 +589,7 @@ def _tenant_check_shape_issues(
         POSTGRES_TENANT_ID_CHECK_SQL if inspector.bind.dialect.name == "postgresql" else SQLITE_TENANT_ID_CHECK_SQL
     )
     installed_sql = installed.get(target.tenant_check_name)
-    if installed_sql is not None and _normalize_postgres_check_definition(
-        installed_sql
-    ) == _normalize_postgres_check_definition(expected_sql):
+    if _postgres_check_is_current(installed_sql, expected_sql):
         return []
     return [f"tenant check {target.tenant_check_name} is missing or stale"]
 
@@ -684,16 +684,6 @@ def _current_partial_composite_table_shapes(connection: Connection) -> tuple[set
     return existing_tables, _partial_composite_table_shapes(inspector, existing_tables)
 
 
-def _is_supported_pre_sequence_shape(partial_shapes: dict[str, list[str]]) -> bool:
-    fact_issues = partial_shapes.get("composite_member_return_facts", [])
-    all_issues = [issue for issues in partial_shapes.values() for issue in issues]
-    return "missing identity columns restatement_sequence" in fact_issues and all(
-        issue == "missing identity columns restatement_sequence"
-        or (issue.startswith("unique index ") and " is None, expected " in issue)
-        for issue in all_issues
-    )
-
-
 def _raise_partial_composite_tenant_schema(
     connection: Connection,
     existing_tables: set[str],
@@ -714,7 +704,7 @@ def _require_current_composite_tenant_schema(connection: Connection) -> None:
     """Refuse populated partial target shapes before any schema mutation."""
 
     existing_tables, partial_shapes = _current_partial_composite_table_shapes(connection)
-    if not partial_shapes or _is_supported_pre_sequence_shape(partial_shapes):
+    if not partial_shapes:
         return
     _raise_partial_composite_tenant_schema(connection, existing_tables, partial_shapes)
 
@@ -1505,9 +1495,17 @@ def _postgres_check_is_current(
     installed_definition: str | None,
     postgres_definition: str,
 ) -> bool:
-    return installed_definition is not None and _normalize_postgres_check_definition(
-        installed_definition
-    ) == _normalize_postgres_check_definition(postgres_definition)
+    if installed_definition is None:
+        return False
+    context = {
+        "text_columns": {"tenant_id", "reporting_currency", "restatement_version"},
+        "integer_columns": {"restatement_sequence"},
+        "date_columns": {"period_start", "period_end"},
+    }
+    try:
+        return predicate_identity(installed_definition, **context) == predicate_identity(postgres_definition, **context)
+    except ValueError:
+        return False
 
 
 def _stale_postgres_constraints(
@@ -1522,11 +1520,6 @@ def _stale_postgres_constraints(
             postgres_definition,
         )
     ]
-
-
-def _normalize_postgres_check_definition(definition: str) -> str:
-    normalized = POSTGRES_CHECK_CAST_PATTERN.sub("", definition.strip().lower())
-    return re.sub(r"[\s()]", "", normalized)
 
 
 def _upgrade_publication_schema(connection: Connection) -> None:
@@ -1594,7 +1587,7 @@ def _drop_composite_fact_database_guards(connection: Connection) -> None:
             connection.exec_driver_sql(f"DROP TRIGGER IF EXISTS {trigger_name} ON {table_name}")
 
 
-def _create_sqlite_composite_fact_validation_guards(connection: Connection) -> None:
+def _create_sqlite_composite_fact_validation_guards(connection: SchemaStatementWriter) -> None:
     if connection.dialect.name != "sqlite":
         raise RuntimeError("SQLite composite-fact validation guards require a SQLite connection")
     connection.exec_driver_sql("DROP TRIGGER IF EXISTS trg_composite_member_return_facts_validate_insert")
@@ -1765,7 +1758,7 @@ def _create_sqlite_composite_fact_validation_guards(connection: Connection) -> N
     )
 
 
-def _create_sqlite_definition_currency_guards(connection: Connection) -> None:
+def _create_sqlite_definition_currency_guards(connection: SchemaStatementWriter) -> None:
     connection.exec_driver_sql("DROP TRIGGER IF EXISTS trg_composite_definitions_validate_insert")
     connection.exec_driver_sql("DROP TRIGGER IF EXISTS trg_composite_definitions_validate_update")
     statements = (
@@ -1800,7 +1793,7 @@ def _create_sqlite_definition_currency_guards(connection: Connection) -> None:
         connection.exec_driver_sql(statement)
 
 
-def _create_sqlite_member_return_fact_immutability_guards(connection: Connection) -> None:
+def _create_sqlite_member_return_fact_immutability_guards(connection: SchemaStatementWriter) -> None:
     connection.exec_driver_sql("DROP TRIGGER IF EXISTS trg_composite_member_return_facts_completed_insert")
     connection.exec_driver_sql("DROP TRIGGER IF EXISTS trg_composite_member_return_facts_immutable_update")
     connection.exec_driver_sql("DROP TRIGGER IF EXISTS trg_composite_member_return_facts_completed_delete")
@@ -1851,7 +1844,7 @@ def _create_sqlite_member_return_fact_immutability_guards(connection: Connection
     )
 
 
-def _create_sqlite_publication_immutability_guard(connection: Connection) -> None:
+def _create_sqlite_publication_immutability_guard(connection: SchemaStatementWriter) -> None:
     connection.exec_driver_sql(f"DROP TRIGGER IF EXISTS {PUBLICATION_IMMUTABLE_UPDATE_TRIGGER}")
     connection.exec_driver_sql(f"DROP TRIGGER IF EXISTS {PUBLICATION_IMMUTABLE_DELETE_TRIGGER}")
     for trigger_name, operation in (
@@ -1869,7 +1862,7 @@ def _create_sqlite_publication_immutability_guard(connection: Connection) -> Non
         )
 
 
-def _create_postgres_member_return_fact_immutability_guards(connection: Connection) -> None:
+def _create_postgres_member_return_fact_immutability_guards(connection: SchemaStatementWriter) -> None:
     # The tenant argument changes the PostgreSQL function signature. PostgreSQL
     # overloads instead of replacing a function when argument types differ, so
     # remove the pre-tenant helper explicitly rather than leaving callable stale
@@ -1994,7 +1987,7 @@ def _create_postgres_member_return_fact_immutability_guards(connection: Connecti
     )
 
 
-def _create_postgres_publication_lineage_guard(connection: Connection) -> None:
+def _create_postgres_publication_lineage_guard(connection: SchemaStatementWriter) -> None:
     connection.exec_driver_sql(
         """
         CREATE OR REPLACE FUNCTION validate_composite_fact_publication_lineage()
@@ -2144,7 +2137,7 @@ def _create_postgres_publication_lineage_guard(connection: Connection) -> None:
     )
 
 
-def _create_postgres_publication_immutability_guard(connection: Connection) -> None:
+def _create_postgres_publication_immutability_guard(connection: SchemaStatementWriter) -> None:
     connection.exec_driver_sql(
         """
         CREATE OR REPLACE FUNCTION reject_composite_fact_publication_mutation()
@@ -2179,7 +2172,7 @@ def _create_postgres_publication_immutability_guard(connection: Connection) -> N
         )
 
 
-def _create_composite_fact_database_guards(connection: Connection) -> None:
+def _create_composite_fact_database_guards(connection: SchemaStatementWriter) -> None:
     if connection.dialect.name == "sqlite":
         _create_sqlite_definition_currency_guards(connection)
         _create_sqlite_composite_fact_validation_guards(connection)
@@ -2189,6 +2182,13 @@ def _create_composite_fact_database_guards(connection: Connection) -> None:
         _create_postgres_member_return_fact_immutability_guards(connection)
         _create_postgres_publication_lineage_guard(connection)
         _create_postgres_publication_immutability_guard(connection)
+
+
+def composite_fact_guard_statements(dialect: Dialect) -> tuple[str, ...]:
+    """Render the owner's guard contract without a database connection or DDL."""
+    writer = SchemaStatements(dialect)
+    _create_composite_fact_database_guards(writer)
+    return tuple(writer.statements)
 
 
 def _resolve_member_return_fact_sequence(
@@ -2448,6 +2448,16 @@ class CompositeMetadataStore:
                 _create_composite_fact_database_guards,
                 create_materialization_schema,
             ),
+        )
+
+    def verify_schema(self) -> None:
+        from app.adapters.durable_schema.catalog import verify_durable_schema
+
+        verify_durable_schema(
+            self._engine,
+            Base.metadata,
+            CompositeMaterializationModel.__table__.metadata,
+            managed_guards=composite_fact_guard_statements(self._engine.dialect),
         )
 
     def _upgrade_member_return_fact_schema(self, connection: Connection) -> None:

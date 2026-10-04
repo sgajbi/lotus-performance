@@ -1,13 +1,18 @@
 from uuid import uuid4
 
 import pandas as pd
+import pytest
 from pydantic import BaseModel
+from sqlalchemy import event, inspect
 
+from app.adapters.durable_schema.catalog import require_metadata_schema
+from app.adapters.durable_schema.errors import DurableSchemaMigrationRequiredError
 from app.services.async_result_store import AsyncResultStore
 from app.services.composite_metadata_store import CompositeMetadataStore
 from app.services.compute_job_store import ComputeJobStore
 from app.services.durable_metadata_bootstrap import bootstrap_durable_metadata_stores
 from app.services.execution_registry import ExecutionRegistry
+from app.services.lineage_metadata_store import Base as LineageBase
 from app.services.lineage_metadata_store import LineageMetadataStore
 from app.services.lineage_service import LineageService
 from app.services.source_correction_store import SourceCorrectionStore
@@ -16,6 +21,54 @@ from app.workers import lineage_worker
 
 class _Model(BaseModel):
     key: str
+
+
+@pytest.mark.parametrize(
+    "store_type",
+    [
+        ExecutionRegistry,
+        ComputeJobStore,
+        AsyncResultStore,
+        LineageMetadataStore,
+        CompositeMetadataStore,
+        SourceCorrectionStore,
+    ],
+)
+def test_each_store_read_only_verification_refuses_empty_database(store_type, tmp_path):
+    store = store_type(f"sqlite:///{tmp_path / 'unapplied.db'}")
+    try:
+        with pytest.raises(DurableSchemaMigrationRequiredError):
+            store.verify_schema()
+        assert inspect(store._engine).get_table_names() == []
+    finally:
+        store._engine.dispose()
+
+
+@pytest.mark.parametrize(
+    "store_type",
+    [
+        ExecutionRegistry,
+        ComputeJobStore,
+        AsyncResultStore,
+        LineageMetadataStore,
+        CompositeMetadataStore,
+        SourceCorrectionStore,
+    ],
+)
+def test_each_store_owner_applied_schema_verifies_without_mutation(store_type, tmp_path):
+    store = store_type(f"sqlite:///{tmp_path / 'applied.db'}")
+    try:
+        store.create_schema()
+        statements = []
+        event.listen(store._engine, "before_cursor_execute", lambda _, __, sql, *args: statements.append(sql))
+        store.verify_schema()
+        assert statements
+        assert all(
+            not sql.lstrip().upper().startswith(("CREATE", "ALTER", "DROP", "INSERT", "UPDATE", "DELETE"))
+            for sql in statements
+        )
+    finally:
+        store._engine.dispose()
 
 
 def test_bootstrap_durable_metadata_stores_calls_all_store_bootstraps(mocker):
@@ -87,6 +140,9 @@ def test_bootstrap_durable_metadata_stores_supports_recovery_drill_on_legacy_lin
         composite_store=composite_store,
         correction_store=correction_store,
     )
+
+    with lineage_store._engine.connect() as connection:
+        require_metadata_schema(connection, LineageBase.metadata)
 
     service = LineageService(storage_path=str(tmp_path), metadata_store=lineage_store)
     calculation_id = uuid4()

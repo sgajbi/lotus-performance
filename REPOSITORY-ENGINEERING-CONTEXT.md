@@ -186,6 +186,13 @@ Current repository posture:
     completes. Advisory-lock acquisition temporarily disables the durable engine's short
     `lock_timeout`, applies an explicit 30-second acquisition statement timeout even when the
     runtime statement timeout is disabled, and restores both configured timeouts before DDL.
+    Schema application belongs to `scripts/durable_schema_apply.py` / `make migration-apply`;
+    API and compute, lineage, and retention entrypoints call read-only verification before serving,
+    polling, or API client allocation. Compose's same-build `performance-schema-apply` must exit
+    successfully before workloads start. Evidence v2 requires six store verifications, not table
+    presence alone. Populated tenant-owned composites missing sequence identity refuse before DDL;
+    never invent a retained sequence. Tests apply schema through an explicit owner fixture and patch
+    resolved stores rather than proxy methods, whose restoration can pin a stale database instance.
 22. Mutable test payload fixtures must be function-scoped. `make test-unit-order-stability`
     verifies that `pytest-randomly` seeds `1`, `2`, and `3` collect the same unit-test node-id set
     and executes the contribution regression surface under all three orders; disabling randomized
@@ -809,7 +816,12 @@ Important validation expectations:
     `LINEAGE_METADATA_DATABASE_URL` and `LINEAGE_STORAGE_PATH` for independent proof runs; do not
     migrate or remove a developer's legacy database to make tests pass. Repository fixture cleanup
     can otherwise race collection on the same lineage directory. Locked Docker snapshots remain
-    the required delivery environment, not a claim of isolated native artifacts.
+    the required delivery environment, not a claim of isolated native artifacts. Auxiliary gate
+    processes inside one CI container also share defaults: isolate database/artifact settings for
+    gates that execute APIs, or run them serially with the test lanes.
+    Integration shards apply the complete explicit owner in `tests/integration/conftest.py`
+    before module-scoped clients start. Prove shards against fresh storage: running unit tests
+    first can mask incomplete HTTP fixture setup. Startup-refusal cases use separate databases.
 
 ## Standards And RFCs That Govern This Repository
 

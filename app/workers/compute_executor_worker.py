@@ -63,7 +63,7 @@ from app.services.durable_failure_classification import (
     classify_durable_failure,
     generic_durable_failure,
 )
-from app.services.durable_metadata_bootstrap import bootstrap_durable_metadata_stores
+from app.services.durable_metadata_bootstrap import verify_durable_metadata_stores
 from app.services.durable_store_runtime import RuntimeStoreProxy
 from app.services.execution_lifecycle_service import complete_execution_with_lineage
 from app.services.execution_registry import ExecutionRegistry, execution_registry
@@ -1350,7 +1350,7 @@ def run_forever(*, stop_event: Event | None = None, settings=None) -> None:
             queue=_QUEUE_NAME,
         ),
     )
-    bootstrap_durable_metadata_stores(
+    verify_durable_metadata_stores(
         execution_store=execution_registry,
         compute_store=compute_job_store,
         async_result_store_=async_result_store,

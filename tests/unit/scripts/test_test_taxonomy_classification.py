@@ -42,6 +42,12 @@ CLASSIFIED_SURFACES = (
     ("business_calendar", "analytics_domain"),
     ("durable_schema_apply", "observability_or_readiness"),
     ("durable_schema_creation", "observability_or_readiness"),
+    ("durable_schema_catalog", "observability_or_readiness"),
+    ("durable_schema_guards", "observability_or_readiness"),
+    ("durable_schema_predicates", "observability_or_readiness"),
+    ("durable_schema_startup", "observability_or_readiness"),
+    ("durable_metadata_bootstrap", "observability_or_readiness"),
+    ("sqlite_identity_upgrade", "observability_or_readiness"),
     ("durable_recovery_drill", "observability_or_readiness"),
     ("durable_schema_inventory_check", "contract_or_governance"),
 )

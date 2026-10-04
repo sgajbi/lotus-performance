@@ -45,7 +45,22 @@ Primary runtime surfaces:
 | API or workers fail readiness with lineage storage unreadable | `docker compose ps -a`, initializer exit status, `/app/lineage_data` owner/mode | deployment revision, volume identity, initializer logs, exact owner/mode, affected service health |
 | Recovery or retention looks degraded | runtime recoveries, recovery drills, retention cleanup history | recovery id or cleanup id, trigger source, terminal status, error summary, retention target manifest and phase results |
 
-## Persisted lineage-volume recovery
+## Durable Schema Startup
+
+The explicit `make migration-apply` owner applies and verifies the six durable stores. API and
+ordinary workers perform read-only startup verification; absent or incompatible schema fails with
+`DURABLE_SCHEMA_MIGRATION_REQUIRED` before traffic or queue polling. They do not repair schema.
+
+Compose gates workloads on successful `performance-schema-apply` completion from the same build,
+after database health and lineage-volume initialization. Check `docker compose ps -a`, owner logs
+and its exit status first. For direct local runs, apply against the workload's configured database
+before `make run`. Do not bypass verification or infer tenant/sequence identity for retained rows.
+
+See the [migration contract](https://github.com/sgajbi/lotus-performance/blob/main/docs/standards/migration-contract.md)
+for apply evidence v2, retained-schema refusals and forward-fix policy. Startup verification is not
+deployment, restore, capacity or independent consumer acceptance.
+
+## Persisted Lineage-Volume Recovery
 
 Compose runs `performance-lineage-volume-init` before every long-running workload that mounts the
 shared lineage volume. A successful initializer leaves `/app/lineage_data` owned by

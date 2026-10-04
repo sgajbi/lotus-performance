@@ -149,6 +149,14 @@ def _families_for_path(path: str) -> tuple[str, ...]:
             # checks above as runtime evidence. See #478 for the wider unmapped groups.
             "durable_schema_apply",
             "durable_schema_creation",
+            # Catalogue/guard verification and owner-only identity upgrades determine whether
+            # API and worker startup can admit the installed durable schema without mutation.
+            "durable_schema_catalog",
+            "durable_schema_guards",
+            "durable_schema_predicates",
+            "durable_schema_startup",
+            "durable_metadata_bootstrap",
+            "sqlite_identity_upgrade",
         )
     ):
         families.add("observability_or_readiness")

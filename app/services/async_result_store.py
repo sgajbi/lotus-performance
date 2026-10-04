@@ -94,6 +94,11 @@ class AsyncResultStore:
             ),
         )
 
+    def verify_schema(self) -> None:
+        from app.adapters.durable_schema.catalog import verify_durable_schema
+
+        verify_durable_schema(self._engine, Base.metadata)
+
     @contextmanager
     def _session(self) -> Iterator[Session]:
         session = self._session_factory()

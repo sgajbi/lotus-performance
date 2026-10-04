@@ -24,6 +24,7 @@ from app.services.execution_registry import ExecutionRegistry
 from core.errors import APIError, APINotFoundError
 from engine.composites import calculate_asset_weighted_composite_twr
 from main import app
+from scripts.durable_schema_apply import apply_durable_schema
 from tests.benchmarks.postgres_runtime_helpers import get_postgres_database_url
 from tests.composite_materialization_helpers import (
     INVALID_MATERIALIZATION_DATABASE_WRITES,
@@ -170,9 +171,8 @@ def test_postgres_http_admission_contention_never_exposes_partial_rows(monkeypat
 @pytest.fixture
 def postgres_materialization_stores():
     url = get_postgres_database_url()
+    assert apply_durable_schema(database_url=url).status == "passed"
     ledger, facts, jobs = CompositeMaterializationStore(url), CompositeMetadataStore(url), ComputeJobStore(url)
-    facts.create_schema()
-    jobs.create_schema()
     try:
         yield url, ledger, facts, jobs
     finally:

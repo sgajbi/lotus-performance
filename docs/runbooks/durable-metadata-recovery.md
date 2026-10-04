@@ -31,19 +31,24 @@ Recovery must include:
 - `composite_definitions`
 - `composite_memberships`
 - `composite_member_return_facts`
+- `composite_member_return_fact_publications`
+- `composite_materializations`
 
 ## Backup and Restore Order
 
 1. Stop write traffic to `performance-analytics`.
 2. Stop `performance-compute-executor`.
-3. Stop `performance-lineage-worker`.
+3. Stop `performance-lineage-worker` and `performance-runtime-retention` when enabled.
 4. Stop all cleanup, demo-seed, and composite-publication processes, including older application
    revisions; they must not overlap the immutable-manifest guard cutover.
 5. Restore the durable metadata database from the selected backup.
-6. Run schema bootstrap/upgrade once using the matching application revision. The upgrade holds a
+6. Run `make migration-apply` from the repository root, using the matching application revision
+   and the restored `LINEAGE_METADATA_DATABASE_URL`. The explicit owner holds a
    real database transaction, suspends managed guards before legacy normalization, validates
    retained family manifests and fingerprints, and recreates guards before commit.
-7. Verify owned tables exist and health/readiness can reach the durable metadata store.
+7. Require apply evidence v2 with `status="passed"` and all six `schema_verification_checks`
+   passed. API and worker startup verify without DDL; a migration refusal must be resolved before
+   restart, not bypassed. Table presence alone is insufficient.
 
 ## Worker Restart Order
 
@@ -52,13 +57,16 @@ Recovery must include:
 3. Start `performance-compute-executor`.
 4. Start `performance-lineage-worker`.
 5. Verify `/integration/runtime-status` for backlog, retry, leased, and terminal-failure visibility.
+6. Restart the optional retention worker only after the same schema verification succeeds.
 
 ## Post-Restore Validation
 
 - `make migration-smoke`
 - `make migration-apply`
   - verify the emitted evidence shows `status="passed"` and no `missing_owned_tables`
-  - verify `artifacts/durable-schema-apply/latest.json` records the applied bootstrap stores and additive column checks, including publication `expected_families_json` and `source_fingerprint`; a partially restored publication table missing either lineage column must fail closed
+  - verify `artifacts/durable-schema-apply/latest.json` records all six successful store checks,
+    including materializations, indexes, constraints and managed guards; a partially restored
+    publication table missing either lineage column must fail closed
 - synthetic smoke drill:
   `python scripts/durable_recovery_drill.py --operator-id <operator> --backup-identifier <backup-id>`
   - verify the emitted evidence shows both `compute_async_result_status="complete"` and lineage artifact materialization success

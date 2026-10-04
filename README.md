@@ -210,6 +210,10 @@ is why the requirement is invisible in a green pipeline and only appears on a de
 
 Run the API locally:
 
+From the repository root, set `LINEAGE_METADATA_DATABASE_URL` for the owner and API, then run
+`make migration-apply` before starting. Startup verifies the schema and fails closed without DDL.
+See the [migration contract](docs/standards/migration-contract.md) for Compose ownership and recovery.
+
 ```bash
 make run
 ```

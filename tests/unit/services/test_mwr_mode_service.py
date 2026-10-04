@@ -6,6 +6,7 @@ import pytest
 from fastapi import HTTPException
 
 from app.models.mwr_analytics_requests import MoneyWeightedReturnAnalyticsRequest, MWRInputMode
+from app.services import mwr_mode_service
 from app.services.mwr_mode_service import resolve_mwr_request
 from app.services.stateful_mwr_input_service import (
     MWRCashFlowEvidenceComponent,
@@ -730,6 +731,8 @@ def test_parse_decimal_handles_none_and_invalid_values():
     [("1000", "1125", "100"), ("9007199254740993.01", "9007199254741093.02", "100.01")],
 )
 async def test_resolve_mwr_request_uses_stateful_portfolio_window(monkeypatch, begin_mv, end_mv, cash_flow):
+    monkeypatch.setattr(mwr_mode_service, "execution_registry", mwr_mode_service.execution_registry._resolver())
+
     async def _mock_retrieve_stateful_portfolio_input(**kwargs):
         assert kwargs["start_date"] == date(2025, 1, 1)
         assert kwargs["end_date"] == date(2025, 1, 3)
@@ -760,12 +763,13 @@ async def test_resolve_mwr_request_uses_stateful_portfolio_window(monkeypatch, b
         _mock_retrieve_stateful_portfolio_input,
     )
     completed: list[tuple[tuple, dict]] = []
-    monkeypatch.setattr("app.services.mwr_mode_service.execution_registry.start_stage", lambda *args, **kwargs: None)
+    monkeypatch.setattr(mwr_mode_service.execution_registry, "start_stage", lambda *args, **kwargs: None)
     monkeypatch.setattr(
-        "app.services.mwr_mode_service.execution_registry.complete_stage",
+        mwr_mode_service.execution_registry,
+        "complete_stage",
         lambda *args, **kwargs: completed.append((args, kwargs)),
     )
-    monkeypatch.setattr("app.services.mwr_mode_service.execution_registry.fail_stage", lambda *args, **kwargs: None)
+    monkeypatch.setattr(mwr_mode_service.execution_registry, "fail_stage", lambda *args, **kwargs: None)
 
     request = MoneyWeightedReturnAnalyticsRequest.model_validate(
         {
@@ -825,15 +829,18 @@ async def test_resolve_mwr_request_passthroughs_stateless_mode():
 
 @pytest.mark.asyncio
 async def test_resolve_mwr_request_fails_retrieval_stage(monkeypatch):
+    monkeypatch.setattr(mwr_mode_service, "execution_registry", mwr_mode_service.execution_registry._resolver())
+
     async def _boom(**kwargs):  # noqa: ARG001
         raise HTTPException(status_code=503, detail="source unavailable")
 
     failed: list[tuple] = []
     monkeypatch.setattr("app.services.mwr_mode_service.retrieve_stateful_portfolio_input", _boom)
-    monkeypatch.setattr("app.services.mwr_mode_service.execution_registry.start_stage", lambda *args, **kwargs: None)
-    monkeypatch.setattr("app.services.mwr_mode_service.execution_registry.complete_stage", lambda *args, **kwargs: None)
+    monkeypatch.setattr(mwr_mode_service.execution_registry, "start_stage", lambda *args, **kwargs: None)
+    monkeypatch.setattr(mwr_mode_service.execution_registry, "complete_stage", lambda *args, **kwargs: None)
     monkeypatch.setattr(
-        "app.services.mwr_mode_service.execution_registry.fail_stage",
+        mwr_mode_service.execution_registry,
+        "fail_stage",
         lambda *args, **kwargs: failed.append(args),
     )
 
@@ -857,6 +864,8 @@ async def test_resolve_mwr_request_fails_retrieval_stage(monkeypatch):
 
 @pytest.mark.asyncio
 async def test_resolve_mwr_request_fails_normalization_stage(monkeypatch):
+    monkeypatch.setattr(mwr_mode_service, "execution_registry", mwr_mode_service.execution_registry._resolver())
+
     async def _mock_retrieve_stateful_portfolio_input(**kwargs):  # noqa: ARG001
         return StatefulPortfolioInput(
             performance_start_date=date(2024, 1, 1),
@@ -879,10 +888,11 @@ async def test_resolve_mwr_request_fails_normalization_stage(monkeypatch):
         "app.services.mwr_mode_service.build_stateful_mwr_input_for_window",
         lambda **kwargs: (_ for _ in ()).throw(ValueError("bad normalization")),
     )
-    monkeypatch.setattr("app.services.mwr_mode_service.execution_registry.start_stage", lambda *args, **kwargs: None)
-    monkeypatch.setattr("app.services.mwr_mode_service.execution_registry.complete_stage", lambda *args, **kwargs: None)
+    monkeypatch.setattr(mwr_mode_service.execution_registry, "start_stage", lambda *args, **kwargs: None)
+    monkeypatch.setattr(mwr_mode_service.execution_registry, "complete_stage", lambda *args, **kwargs: None)
     monkeypatch.setattr(
-        "app.services.mwr_mode_service.execution_registry.fail_stage",
+        mwr_mode_service.execution_registry,
+        "fail_stage",
         lambda *args, **kwargs: failed.append(args),
     )
 

@@ -18,14 +18,15 @@ from app.workers.compute_executor_worker import process_pending_jobs
 from app.workers.lineage_worker import process_pending_jobs as process_lineage
 from core.errors import APINotFoundError
 from main import app
+from scripts.durable_schema_apply import apply_durable_schema
 from tests.composite_materialization_helpers import command_for, source_products
 
 
 @pytest.fixture(autouse=True)
 def isolated_materialization_api_metadata(monkeypatch, tmp_path):
-    monkeypatch.setattr(
-        get_settings(), "LINEAGE_METADATA_DATABASE_URL", "sqlite:///" + (tmp_path / "metadata.db").as_posix()
-    )
+    database_url = "sqlite:///" + (tmp_path / "metadata.db").as_posix()
+    monkeypatch.setattr(get_settings(), "LINEAGE_METADATA_DATABASE_URL", database_url)
+    assert apply_durable_schema(database_url=database_url).status == "passed"
 
 
 STANDARD_ASSETS = {"A": ("100", "110"), "B": ("200", "210"), "C": ("300", "294")}

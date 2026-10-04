@@ -8,6 +8,7 @@ import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy import create_engine, event, inspect, text
 from sqlalchemy.exc import IntegrityError
+from sqlalchemy.schema import CreateTable
 
 from app.models.composites import (
     CompositeDefinition,
@@ -20,6 +21,7 @@ from app.services.composite_metadata_store import (
     SQLITE_TENANT_ID_CHECK_SQL,
     CompositeDefinitionIdentityConflictError,
     CompositeDefinitionOwnershipError,
+    CompositeMemberReturnFactModel,
     CompositeMemberReturnFactSelectionError,
     CompositeMetadataStore,
     CompositeTenantMigrationRequiredError,
@@ -668,6 +670,48 @@ def test_populated_current_schema_missing_tenant_unique_index_refuses_without_re
                 index["name"] for index in inspector.get_indexes("composite_definitions")
             }
             assert connection.execute(text("SELECT tenant_id FROM composite_definitions")).scalar_one() == "tenant-a"
+    finally:
+        store.close()
+
+
+def test_populated_tenant_schema_without_sequence_refuses_without_inventing_identity(tmp_path) -> None:
+    database_url = f"sqlite:///{tmp_path / 'missing-sequence.db'}"
+    store = CompositeMetadataStore(database_url)
+    try:
+        store.create_schema()
+        store.upsert_definition(_definition("tenant-a"), tenant_id="tenant-a")
+        fact_table = CompositeMemberReturnFactModel.__table__
+        with store._engine.begin() as connection:
+            fact_table.drop(connection)
+            current_sql = str(CreateTable(fact_table).compile(dialect=connection.dialect))
+            partial_sql = "\n".join(line for line in current_sql.splitlines() if "restatement_sequence" not in line)
+            connection.exec_driver_sql(partial_sql)
+            for index in fact_table.indexes:
+                if "restatement_sequence" not in {column.name for column in index.columns}:
+                    index.create(connection)
+            connection.exec_driver_sql(
+                "INSERT INTO composite_member_return_facts VALUES ("
+                "'retained-fact', 'tenant-a', 'SHARED_COMPOSITE', 'SHARED_PORTFOLIO', "
+                "'2026-01-01', '2026-01-31', '0.01', 'NET_ACTUAL', '100.00', '101.00', "
+                "'USD', 'retained-calculation', 'retained-snapshot', 'sha256:retained', "
+                "'reported-version', 'READY', '[]')"
+            )
+        with store._engine.connect() as connection:
+            before_schema = connection.exec_driver_sql("SELECT type, name, sql FROM sqlite_master ORDER BY name").all()
+            before_rows = connection.exec_driver_sql("SELECT * FROM composite_member_return_facts").all()
+
+        with pytest.raises(
+            CompositeTenantMigrationRequiredError, match="missing identity columns restatement_sequence"
+        ):
+            store.create_schema()
+
+        with store._engine.connect() as connection:
+            assert (
+                connection.exec_driver_sql("SELECT type, name, sql FROM sqlite_master ORDER BY name").all()
+                == before_schema
+            )
+            assert connection.exec_driver_sql("SELECT * FROM composite_member_return_facts").all() == before_rows
+            assert connection.exec_driver_sql("SELECT tenant_id FROM composite_definitions").scalar_one() == "tenant-a"
     finally:
         store.close()
 

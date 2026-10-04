@@ -6,11 +6,15 @@ from uuid import UUID, uuid4
 
 import pytest
 from pydantic import BaseModel
-from sqlalchemy import Column, MetaData, String, Table, event, inspect, text
+from sqlalchemy import Column, Index, Integer, MetaData, String, Table, create_engine, event, inspect, text
+from sqlalchemy.exc import IntegrityError
 
+from app.adapters.durable_schema.errors import DurableSchemaMigrationRequiredError
+from app.adapters.durable_schema.guards import require_managed_guards
 from app.observability import tenant_id_var
 from app.services import submission_fencing_service
 from app.services.async_result_store import AsyncResultStore, AsyncResultTenantConflictError
+from app.services.composite_metadata_store import CompositeMetadataStore, composite_fact_guard_statements
 from app.services.compute_job_store import ComputeJobRegistrationStatus, ComputeJobStore
 from app.services.durable_database_engine import (
     DurableDatabaseEnginePolicy,
@@ -38,9 +42,228 @@ from app.services.source_correction_store import (
     SourceCorrectionStore,
 )
 from tests.benchmarks.postgres_runtime_helpers import get_postgres_database_url
+from tests.durable_schema_startup_helpers import (
+    ENTRYPOINTS,
+    assert_read_only_restart,
+    assert_startup_refusal,
+    resolved_runtime_stores,
+)
 
 POSTGRES_CONCURRENCY_ROWS = 20
 POSTGRES_CONCURRENCY_CLAIM_LIMIT = 10
+
+
+@pytest.mark.parametrize("entrypoint", ENTRYPOINTS)
+@pytest.mark.parametrize("shape", ["empty", "missing_index"])
+def test_postgres_startup_refuses_without_serving_polling_allocation_or_ddl(monkeypatch, entrypoint, shape):
+    with resolved_runtime_stores(get_postgres_database_url(), monkeypatch) as stores:
+        assert_startup_refusal(stores, monkeypatch, entrypoint, shape)
+
+
+@pytest.mark.parametrize("entrypoint", ENTRYPOINTS)
+def test_postgres_owner_applied_startup_and_restart_are_read_only(monkeypatch, entrypoint):
+    with resolved_runtime_stores(get_postgres_database_url(), monkeypatch) as stores:
+        assert_read_only_restart(stores, entrypoint)
+
+
+def test_postgres_current_managed_guards_verify_without_mutation():
+    from app.adapters.composite_materialization_records import MaterializationBase
+    from app.adapters.durable_schema.catalog import require_metadata_schema
+    from app.services.async_result_store import Base as ResultBase
+    from app.services.composite_metadata_store import Base as CompositeBase
+    from app.services.compute_job_store import Base as ComputeBase
+    from app.services.execution_registry import Base as ExecutionBase
+    from app.services.lineage_metadata_store import Base as LineageBase
+    from app.services.source_correction_store import Base as CorrectionBase
+    from scripts.durable_schema_apply import apply_durable_schema
+
+    database_url = get_postgres_database_url()
+    # Race complete owner invocations, not ordinary workload starters. Each
+    # owner must finish all six store checks against the initially empty schema.
+    start = Barrier(4)
+    with ThreadPoolExecutor(max_workers=4) as owners:
+        evidence = list(
+            owners.map(
+                lambda _: (start.wait(timeout=10), apply_durable_schema(database_url=database_url))[1],
+                range(4),
+                timeout=60,
+            )
+        )
+    assert all(item.status == "passed" for item in evidence)
+    assert all(len(item.schema_verification_checks) == 6 for item in evidence)
+    lineage = LineageMetadataStore(database_url)
+    try:
+        calculation_id = uuid4()
+        lineage.create_pending_record(calculation_id=calculation_id, calculation_type="TWR")
+        lineage.mark_complete(calculation_id=calculation_id, artifact_names=["retained-response.json"])
+        retained = lineage.get_record(calculation_id)
+        assert retained is not None and retained.status == LineageStatus.COMPLETE
+        assert apply_durable_schema(database_url=database_url).status == "passed"
+        assert lineage.get_record(calculation_id) == retained
+    finally:
+        lineage._engine.dispose()
+    store = CompositeMetadataStore(database_url)
+    try:
+        statements: list[str] = []
+        event.listen(store._engine, "before_cursor_execute", lambda _, __, sql, *args: statements.append(sql))
+        with store._engine.connect() as connection:
+            for base in (
+                ExecutionBase,
+                ComputeBase,
+                ResultBase,
+                LineageBase,
+                CompositeBase,
+                CorrectionBase,
+                MaterializationBase,
+            ):
+                require_metadata_schema(connection, base.metadata)
+            require_managed_guards(connection, composite_fact_guard_statements(connection.dialect))
+        assert statements and all(sql.lstrip().upper().startswith("SELECT") for sql in statements)
+    finally:
+        store.close()
+
+
+@pytest.mark.parametrize("tamper", ["disabled", "function", "event"])
+def test_postgres_same_named_weak_guard_refuses_without_repair(tamper):
+    store = CompositeMetadataStore(get_postgres_database_url())
+    try:
+        store.create_schema()
+        with store._engine.begin() as connection:
+            if tamper == "disabled":
+                connection.exec_driver_sql(
+                    "ALTER TABLE composite_member_return_facts DISABLE TRIGGER trg_composite_member_return_facts_immutable_update"
+                )
+            elif tamper == "function":
+                connection.exec_driver_sql(
+                    "CREATE OR REPLACE FUNCTION reject_composite_member_return_fact_mutation() "
+                    "RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN RETURN NEW; END; $$"
+                )
+            else:
+                connection.exec_driver_sql(
+                    "DROP TRIGGER trg_composite_member_return_facts_immutable_update ON composite_member_return_facts"
+                )
+                connection.exec_driver_sql(
+                    "CREATE TRIGGER trg_composite_member_return_facts_immutable_update "
+                    "BEFORE INSERT ON composite_member_return_facts FOR EACH ROW "
+                    "EXECUTE FUNCTION reject_composite_member_return_fact_mutation()"
+                )
+            statements: list[str] = []
+            event.listen(connection, "before_cursor_execute", lambda _, __, sql, *args: statements.append(sql))
+            with pytest.raises(DurableSchemaMigrationRequiredError) as error:
+                require_managed_guards(connection, composite_fact_guard_statements(connection.dialect))
+            prefix = "function:" if tamper == "function" else "trigger:"
+            assert any(issue.startswith(prefix) for issue in error.value.issues)
+            assert statements and all(sql.lstrip().upper().startswith("SELECT") for sql in statements)
+    finally:
+        store.close()
+
+
+@pytest.mark.parametrize("tamper", ["weakened", "not_valid", "default"])
+def test_postgres_changed_check_or_default_refuses_without_repair(tamper):
+    from app.adapters.composite_materialization_records import MaterializationBase
+    from app.adapters.durable_schema.catalog import require_metadata_schema
+
+    store = CompositeMetadataStore(get_postgres_database_url())
+    try:
+        store.create_schema()
+        with store._engine.begin() as connection:
+            if tamper == "default":
+                connection.exec_driver_sql(
+                    "ALTER TABLE composite_member_return_facts ALTER COLUMN restatement_sequence SET DEFAULT 2"
+                )
+                from app.services.composite_metadata_store import Base
+
+                metadata = Base.metadata
+            else:
+                connection.exec_driver_sql(
+                    "ALTER TABLE composite_materializations DROP CONSTRAINT ck_composite_materialization_sequence"
+                )
+                predicate = "restatement_sequence >= 0" if tamper == "weakened" else "restatement_sequence >= 1"
+                suffix = " NOT VALID" if tamper == "not_valid" else ""
+                connection.exec_driver_sql(
+                    "ALTER TABLE composite_materializations ADD CONSTRAINT ck_composite_materialization_sequence "
+                    f"CHECK ({predicate}){suffix}"
+                )
+                metadata = MaterializationBase.metadata
+            with pytest.raises(DurableSchemaMigrationRequiredError) as error:
+                require_metadata_schema(connection, metadata)
+            prefix = {"weakened": "check:", "not_valid": "unvalidated_constraint:", "default": "default:"}[tamper]
+            assert any(issue.startswith(prefix) for issue in error.value.issues)
+    finally:
+        store.close()
+
+
+def test_postgres_failed_concurrent_unique_index_is_not_readiness():
+    from app.adapters.durable_schema.catalog import require_metadata_schema
+
+    metadata = MetaData()
+    table = Table("indexed_identity", metadata, Column("identity", Integer, nullable=False))
+    Index("uq_indexed_identity", table.c.identity, unique=True)
+    database = create_engine(get_postgres_database_url())
+    try:
+        with database.connect().execution_options(isolation_level="AUTOCOMMIT") as connection:
+            connection.exec_driver_sql("CREATE TABLE indexed_identity (identity INTEGER NOT NULL)")
+            connection.exec_driver_sql("INSERT INTO indexed_identity (identity) VALUES (1), (1)")
+            with pytest.raises(IntegrityError):
+                connection.exec_driver_sql(
+                    "CREATE UNIQUE INDEX CONCURRENTLY uq_indexed_identity ON indexed_identity (identity)"
+                )
+            assert inspect(connection).get_indexes(table.name)[0]["unique"]
+            with pytest.raises(DurableSchemaMigrationRequiredError) as error:
+                require_metadata_schema(connection, metadata)
+            assert "invalid_index:indexed_identity.uq_indexed_identity" in error.value.issues
+            assert connection.execute(table.select()).scalars().all() == [1, 1]
+    finally:
+        database.dispose()
+
+
+def test_postgres_legacy_lineage_lease_upgrade_preserves_pending_recovery():
+    from app.adapters.durable_schema.catalog import require_metadata_schema
+    from app.services.lineage_metadata_store import Base
+
+    database_url = get_postgres_database_url()
+    store = LineageMetadataStore(database_url)
+    calculation_id = uuid4()
+    restarted = None
+    try:
+        with store._engine.begin() as connection:
+            connection.exec_driver_sql(
+                "CREATE TABLE lineage_records (calculation_id VARCHAR(36) PRIMARY KEY, "
+                "calculation_type VARCHAR(64) NOT NULL, status VARCHAR(32) NOT NULL, "
+                "timestamp_utc TIMESTAMP WITH TIME ZONE NOT NULL, artifact_names TEXT NOT NULL, error_message TEXT)"
+            )
+            connection.exec_driver_sql(
+                "CREATE TABLE lineage_payloads (calculation_id VARCHAR(36) PRIMARY KEY, "
+                "calculation_type VARCHAR(64) NOT NULL, request_json TEXT NOT NULL, response_json TEXT NOT NULL, "
+                "details_json TEXT NOT NULL, created_at_utc TIMESTAMP WITH TIME ZONE NOT NULL, attempt_count INTEGER NOT NULL)"
+            )
+            connection.execute(
+                text("INSERT INTO lineage_records VALUES (:id, 'TWR', 'pending', CURRENT_TIMESTAMP, '', NULL)"),
+                {"id": str(calculation_id)},
+            )
+            connection.execute(
+                text("INSERT INTO lineage_payloads VALUES (:id, 'TWR', '{}', '{}', '{}', CURRENT_TIMESTAMP, 3)"),
+                {"id": str(calculation_id)},
+            )
+        store.create_schema()
+        with store._engine.connect() as connection:
+            require_metadata_schema(connection, Base.metadata)
+        store._engine.dispose()
+        restarted = LineageMetadataStore(database_url)
+        payload = restarted.get_payload(calculation_id)
+        assert payload is not None and payload.attempt_count == 3 and payload.worker_id is None
+        record = restarted.get_record(calculation_id)
+        assert record is not None and record.status == LineageStatus.PENDING
+        claimed = restarted.lease_pending_payload(
+            calculation_id=calculation_id, worker_id="restored-lineage", lease_seconds=60
+        )
+        assert claimed is not None and claimed.worker_id == "restored-lineage"
+        restarted.mark_complete(calculation_id, ["response.json"], worker_id="restored-lineage")
+        assert restarted.get_record(calculation_id).status == LineageStatus.COMPLETE
+    finally:
+        store._engine.dispose()
+        if restarted is not None:
+            restarted._engine.dispose()
 
 
 class _AcceptedSubmission(BaseModel):

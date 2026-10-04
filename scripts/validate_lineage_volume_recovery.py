@@ -100,6 +100,7 @@ def build_runtime_environment(project_name: str) -> dict[str, str]:
         "LINEAGE_METADATA_DATABASE_URL": _LINEAGE_DATABASE_URL,
         "PA_LINEAGE_DB_CONTAINER_NAME": f"{project_name}-db",
         "PA_LINEAGE_VOLUME_INIT_CONTAINER_NAME": f"{project_name}-volume-init",
+        "PA_SCHEMA_APPLY_CONTAINER_NAME": f"{project_name}-schema-apply",
         "PA_ANALYTICS_CONTAINER_NAME": f"{project_name}-analytics",
         "PA_LINEAGE_WORKER_CONTAINER_NAME": f"{project_name}-lineage-worker",
         "PA_COMPUTE_EXECUTOR_CONTAINER_NAME": f"{project_name}-compute-executor",
@@ -139,6 +140,7 @@ def run_validation() -> dict[str, object]:
     runtime_environment = build_runtime_environment(project_name)
     container_names = {
         "initializer": runtime_environment["PA_LINEAGE_VOLUME_INIT_CONTAINER_NAME"],
+        "schema_apply": runtime_environment["PA_SCHEMA_APPLY_CONTAINER_NAME"],
         "analytics": runtime_environment["PA_ANALYTICS_CONTAINER_NAME"],
         "lineage_worker": runtime_environment["PA_LINEAGE_WORKER_CONTAINER_NAME"],
         "compute_executor": runtime_environment["PA_COMPUTE_EXECUTOR_CONTAINER_NAME"],
@@ -175,6 +177,7 @@ def run_validation() -> dict[str, object]:
             env=runtime_environment,
         )
         _assert_initializer_succeeded(container_names["initializer"], runtime_environment)
+        _assert_schema_apply_succeeded(container_names["schema_apply"], runtime_environment)
         _wait_for_healthy_runtime(container_names, runtime_environment)
         _assert_non_root_volume_access(project_name, runtime_environment)
 
@@ -188,6 +191,7 @@ def run_validation() -> dict[str, object]:
             "status": "passed",
             "project_name": project_name,
             "initializer_exit_code": 0,
+            "schema_apply_exit_code": 0,
             "root_owned_volume_repaired": True,
             "lineage_evidence_retained": True,
             "healthy_after_restart": list(RUNTIME_SERVICES),
@@ -272,6 +276,12 @@ def _assert_initializer_succeeded(container_name: str, env: dict[str, str]) -> N
         raise RuntimeError(f"lineage volume initializer exited with code {exit_code}")
 
 
+def _assert_schema_apply_succeeded(container_name: str, env: dict[str, str]) -> None:
+    exit_code = _capture(docker_command("inspect", "--format", "{{.State.ExitCode}}", container_name), env=env).strip()
+    if exit_code != "0":
+        raise RuntimeError(f"durable schema owner exited with code {exit_code}")
+
+
 def _wait_for_healthy_runtime(
     container_names: dict[str, str],
     env: dict[str, str],
@@ -279,7 +289,7 @@ def _wait_for_healthy_runtime(
     timeout_seconds: int = 180,
 ) -> None:
     deadline = time.monotonic() + timeout_seconds
-    pending = {name for key, name in container_names.items() if key != "initializer"}
+    pending = {name for key, name in container_names.items() if key not in {"initializer", "schema_apply"}}
     while pending and time.monotonic() < deadline:
         pending = {
             name

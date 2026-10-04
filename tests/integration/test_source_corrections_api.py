@@ -6,6 +6,7 @@ import pytest
 from fastapi.testclient import TestClient
 
 from app.core.config import get_settings
+from app.services import durable_metadata_bootstrap as schema_service
 from app.services.async_result_store import AsyncResultStore
 from app.services.compute_job_store import ComputeJobStore
 from app.services.execution_registry import ExecutionRegistry
@@ -21,15 +22,27 @@ def correction_api_stores(tmp_path, monkeypatch):
     compute_store = ComputeJobStore(database_url)
     result_store = AsyncResultStore(database_url)
     correction_store = SourceCorrectionStore(database_url)
-    execution_store.create_schema()
-    compute_store.create_schema()
-    result_store.create_schema()
-    correction_store.create_schema()
+    lineage_store = schema_service.LineageMetadataStore(database_url)
+    composite_store = schema_service.CompositeMetadataStore(database_url)
+    owned = {
+        "execution_registry": execution_store,
+        "compute_job_store": compute_store,
+        "async_result_store": result_store,
+        "source_correction_store": correction_store,
+        "lineage_metadata_store": lineage_store,
+        "composite_metadata_store": composite_store,
+    }
+    for name, store in owned.items():
+        monkeypatch.setattr(getattr(schema_service, name), "_resolver", lambda store=store: store)
+    schema_service.bootstrap_durable_metadata_stores()
     monkeypatch.setattr("app.services.source_correction_service.execution_registry", execution_store)
     monkeypatch.setattr("app.services.source_correction_service.compute_job_store", compute_store)
     monkeypatch.setattr("app.services.source_correction_service.source_correction_store", correction_store)
-    monkeypatch.setattr("main.bootstrap_durable_metadata_stores", lambda **_: None)
-    return execution_store, compute_store, result_store
+    try:
+        yield execution_store, compute_store, result_store
+    finally:
+        for store in owned.values():
+            store._engine.dispose()
 
 
 def _retain_stateful_twr(execution_store: ExecutionRegistry):

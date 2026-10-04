@@ -4,6 +4,8 @@
 - Scope: durable operational metadata, correction impact state, and composite persisted-fact metadata
 - Persistence class: control-plane metadata, async execution state, retained results, correction state, lineage metadata, composite persisted facts
 - Change control: RFC/ADR required for schema ownership changes; see `docs/standards/migration-contract.md`
+- Apply owner: `make migration-apply`; API and all ordinary workers verify only. Compose gates
+  workloads on `performance-schema-apply` completion from the same application build.
 
 ## Owned Tables
 
@@ -33,9 +35,9 @@
 - Purpose: executor-backed async compute queue with claim, retry, and terminal-failure state
 - Lease ownership: `worker_id` remains the configured executor identity exposed to operators, while nullable
   `lease_owner_id` stores the bounded internal per-acquisition fence used to validate renew, success, and
-  failure finalization without letting stale workers mutate a newer attempt. Existing schemas are bootstrapped
-  with an idempotent column-add path so concurrent service startup does not depend on a single process owning
-  the upgrade window.
+  failure finalization without letting stale workers mutate a newer attempt. The explicit schema
+  owner applies the idempotent column upgrade under shared fencing; ordinary service startup never
+  owns that upgrade window.
 - Recovery role: durable job recovery after worker crash or lease expiry
 - Failure contract: nullable `failure_json` stores bounded versioned public classification. Null is
   the explicit legacy-row posture; readers fall back to a sanitized generic failure.

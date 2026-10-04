@@ -8,11 +8,22 @@ from fastapi.testclient import TestClient
 
 from app.core.config import get_settings
 from app.models.benchmark_requests import BenchmarkComponentObservation
+from app.services.durable_metadata_bootstrap import bootstrap_durable_metadata_stores
 from app.services.stateful_benchmark_input_service import StatefulBenchmarkNormalizedInput
 from main import app
 from tests.conftest import drain_compute_queue, drain_lineage_queue
 
 settings = get_settings()
+
+
+@pytest.fixture(autouse=True)
+def isolated_workflow_runtime(monkeypatch, tmp_path):
+    # A bounded queue drain must not consume backlog from a previous CI leg.
+    # Apply the complete schema explicitly, never through ordinary startup.
+    monkeypatch.setattr(settings, "LINEAGE_METADATA_DATABASE_URL", f"sqlite:///{tmp_path / 'workflow.db'}")
+    monkeypatch.setattr(settings, "LINEAGE_STORAGE_PATH", tmp_path / "lineage")
+    settings.LINEAGE_STORAGE_PATH.mkdir()
+    bootstrap_durable_metadata_stores()
 
 
 def _patch_stateful_attribution_benchmark_input(monkeypatch, *observations: BenchmarkComponentObservation) -> None:

@@ -1,6 +1,6 @@
-# Provenance for every service built from this file. An anchor rather than five
+# Provenance for every service built from this file. A shared anchor avoids
 # copies: the defect this closes is two build paths stating different things about one
-# commit, and five unsynchronised copies is the same defect with more places to
+# commit, and unsynchronised copies are the same defect with more places to
 # introduce it. Defaults match the Dockerfile's own ARG defaults so a build outside a
 # checkout still works and still says so.
 x-provenance-build: &provenance-build
@@ -55,6 +55,30 @@ services:
       - no-new-privileges:true
     restart: "no"
 
+  performance-schema-apply:
+    build: *provenance-build
+    container_name: "${PA_SCHEMA_APPLY_CONTAINER_NAME:-performance-schema-apply}"
+    command: ["python", "-m", "scripts.durable_schema_apply", "--output-dir", "/tmp/durable-schema-apply"]
+    environment:
+      LINEAGE_METADATA_DATABASE_URL: "${LINEAGE_METADATA_DATABASE_URL:-postgresql+psycopg://lotus:lotus@performance-lineage-db:5432/lotus_performance}"
+    volumes:
+      - performance-lineage-data:/app/lineage_data
+    depends_on:
+      performance-lineage-db:
+        condition: service_healthy
+      performance-lineage-volume-init:
+        condition: service_completed_successfully
+    healthcheck:
+      disable: true
+    read_only: true
+    tmpfs:
+      - /tmp:rw,noexec,nosuid,size=16m
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    restart: "no"
+
   performance-analytics:
     build: *provenance-build
     container_name: "${PA_ANALYTICS_CONTAINER_NAME:-performance-analytics}"
@@ -72,6 +96,8 @@ services:
       performance-lineage-db:
         condition: service_healthy
       performance-lineage-volume-init:
+        condition: service_completed_successfully
+      performance-schema-apply:
         condition: service_completed_successfully
     healthcheck:
       test:
@@ -103,6 +129,8 @@ services:
         condition: service_healthy
       performance-lineage-volume-init:
         condition: service_completed_successfully
+      performance-schema-apply:
+        condition: service_completed_successfully
     healthcheck:
       test: ["CMD", "python", "-m", "app.workers.healthcheck", "lineage"]
       interval: 30s
@@ -126,6 +154,8 @@ services:
       performance-lineage-db:
         condition: service_healthy
       performance-lineage-volume-init:
+        condition: service_completed_successfully
+      performance-schema-apply:
         condition: service_completed_successfully
     healthcheck:
       test: ["CMD", "python", "-m", "app.workers.healthcheck", "compute-executor"]
@@ -152,6 +182,8 @@ services:
       performance-lineage-db:
         condition: service_healthy
       performance-lineage-volume-init:
+        condition: service_completed_successfully
+      performance-schema-apply:
         condition: service_completed_successfully
     healthcheck:
       test: ["CMD", "python", "-m", "app.workers.healthcheck", "runtime-retention"]

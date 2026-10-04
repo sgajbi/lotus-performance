@@ -3,7 +3,7 @@
 Report date: 2026-07-10
 Branch: `feat/performance-architecture-boundary-refactor`
 Baseline source: `quality/baseline_report.md`
-Testing inventory refresh: 2026-10-04, monetary allowance dispositions (#472).
+Testing inventory refresh: 2026-10-04, durable schema ownership candidate (#488).
 Other phase-zero measurements, including coverage percentages, remain historical.
 Historical #540 exact main `39aec74c` passed all ten jobs in run `37136810103`; its candidate
 coverage was raw 98.5068273355382% (30,539 statements/456 missing), passing the unchanged configured
@@ -19,7 +19,9 @@ PR602/main89764ece; exact-main37160878964 passed all ten jobs. Independent QA re
 #472's disposition tree merged through PR605/main44f4a27c; exact-main37167914454 passed all ten jobs.
 Its focused API/financial/scanner pack passed299 tests; all11 touched analytics/DTO ASTs were unchanged.
 Main passed4731 unit tests (three governed skips),1253 integration and21 E2E tests. Collection alone
-is not execution evidence; independent numerical-boundary QA and consumer qualification remain open.
+is not execution evidence. Independent QA accepted and closed #472 on exact main4ffad93e
+([acceptance](https://github.com/sgajbi/lotus-performance/issues/472#issuecomment-5976115586)).
+#473/#600/#601 financial and consumer qualifications remain separate; exception deadlines are unchanged.
 Report mode: phase-zero scorecard; complexity, architecture, duplicate-code, repository hygiene,
 router-thinness, observability-readiness, domain-product validation, deterministic API evaluation,
 test taxonomy breadth, Python security posture, license compliance, and container supply-chain
@@ -92,13 +94,13 @@ link the commit, command, or CI artifact that proves the change.
 
 | Metric | Baseline | Current | Status | Evidence |
 | --- | ---: | ---: | --- | --- |
-| Test modules | 228 | 352 | measured | `rg --files tests -g 'test_*.py'` |
-| Collected tests | 2,035 | 6,078 | measured | `python -m pytest --collect-only -q` |
+| Test modules | 228 | 357 | measured | `rg --files tests -g 'test_*.py'` |
+| Collected tests | 2,035 | 6,234 | measured | `python -m pytest --collect-only -q` |
 | Line coverage | unknown | 99.58% | measured | `quality/coverage_inventory.md` via `make branch-coverage-baseline` (`3,013` unit, `308` integration, and `21` e2e tests under branch coverage; `21,154` covered lines of `21,244` statements) |
 | Branch coverage | unknown | 98.00% | measured | `quality/coverage_inventory.md` via `make branch-coverage-baseline` (`3,013` unit, `308` integration, and `21` e2e tests under branch coverage; `4,318` covered branches of `4,406`, `88` missing branches, `88` partial branches) |
-| Integration/API/runtime test functions | unknown | 913 | enforced | `quality/test_taxonomy_inventory.md`; `make quality-test-taxonomy-gate` |
-| Contract/governance test functions | unknown | 207 | enforced | `quality/test_taxonomy_inventory.md`; `make quality-test-taxonomy-gate` |
-| Uncategorized test functions | unknown | 565 | enforced ceiling | `quality/test_taxonomy_inventory.md`; `make quality-test-taxonomy-gate`; #542 classified source-correction and runtime-retention evidence, then tightened the ceiling to the measured tree. |
+| Integration/API/runtime test functions | unknown | 915 | enforced | `quality/test_taxonomy_inventory.md`; `make quality-test-taxonomy-gate` |
+| Contract/governance test functions | unknown | 215 | enforced | `quality/test_taxonomy_inventory.md`; `make quality-test-taxonomy-gate` |
+| Uncategorized test functions | unknown | 563 | enforced ceiling | `quality/test_taxonomy_inventory.md`; `make quality-test-taxonomy-gate`; #488 classifies schema ownership and verification as readiness evidence. |
 
 ## Security And Dependencies
 
@@ -1682,3 +1684,12 @@ Future commits should update this report when they:
 4. add a new CI quality gate,
 5. convert a `not-yet-measured` dimension into `measured`,
 6. convert a report-only measurement into a regression-blocking or strict gate.
+
+## Durable Schema Ownership Development Inventory (#488)
+
+Current AST inventory: 357 modules, 4,388 source test functions, 915 integration/API/runtime test functions, 215 contract/governance test functions, 735 observability/readiness test functions, 324 quality/security test functions, 2,212 analytics-domain test functions, and 563 uncategorized test functions.
+Schema-verification and owner-upgrade tests are readiness evidence; the uncategorized ceiling
+tightens from 565 to 563. Pinned Docker typecheck passed342 source files. The initial full Docker
+lane retained three inventory failures with4796 unit passes/three governed skips; integration,
+coverage, runtime rollout and exact-main acceptance remain pending. Historical results above
+are unchanged.
