@@ -933,6 +933,17 @@ official approval/freeze claims. DEC-10/12/13 remain unresolved. Complete packag
 must match real registered retained-reader responses. The caller guide includes internal/client/Excel
 consumption; it does not certify a Report producer or live source qualification.
 
+## PostgreSQL Annual Consumer Acceptance Practice
+
+Annual/comparison retained-consumer PostgreSQL acceptance belongs in the existing
+`tests/benchmarks/test_postgres_composite_materialization.py` target. Provision its full thirteen-table
+schema through `apply_durable_schema`; seed controlled publications with explicit tenant ownership.
+Use the default registered reader, independent financial oracles, retained-row snapshots and SQL
+read-only observation. Preserve SQLite helper behavior. Store close/reopen proves pinned retained
+replay, not a process restart, worker recovery or live upstream authority. The caller guide provides
+the focused native PostgreSQL gate command and working directory. Keep production/schema/Compose
+and gate contracts unchanged for this acceptance-only slice.
+
 ## Cross-Links
 
 1. `../lotus-platform/context/LOTUS-QUICKSTART-CONTEXT.md`

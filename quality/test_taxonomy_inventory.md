@@ -1,7 +1,7 @@
 # Lotus Performance Test Taxonomy Inventory
 
 Report date: 2026-10-04
-Branch: `feat/610-pinned-annual-comparison`
+Branch: `test/608-postgres-annual-consumer`
 Mode: regression-blocking test taxonomy inventory; `make quality-test-taxonomy-gate` enforces
 minimum API/runtime and contract/governance breadth plus the current uncategorized-test ceiling.
 
@@ -23,7 +23,7 @@ python scripts/python_test_taxonomy_inventory.py --limit 30 --min-api-runtime-te
 | Metric | Value |
 | --- | ---: |
 | Test modules inventoried | 366 |
-| Test functions inventoried | 4436 |
+| Test functions inventoried | 4441 |
 | Integration/API/runtime test functions | 929 |
 | Contract/governance test functions | 220 |
 
@@ -31,7 +31,7 @@ python scripts/python_test_taxonomy_inventory.py --limit 30 --min-api-runtime-te
 
 | Suite | Modules | Test functions |
 | --- | ---: | ---: |
-| benchmarks | 11 | 61 |
+| benchmarks | 11 | 66 |
 | e2e | 1 | 21 |
 | integration | 35 | 487 |
 | unit | 319 | 3867 |
@@ -44,7 +44,7 @@ above does sum to it, because a module belongs to exactly one suite.
 
 | Family | Test functions |
 | --- | ---: |
-| analytics_domain | 2260 |
+| analytics_domain | 2265 |
 | api_or_runtime | 929 |
 | contract_or_governance | 220 |
 | observability_or_readiness | 735 |

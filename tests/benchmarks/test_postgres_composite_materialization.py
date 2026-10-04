@@ -1,21 +1,27 @@
 """Real database proof; controlled source ports do not certify live upstream authority."""
 
 from concurrent.futures import ThreadPoolExecutor
-from decimal import Decimal
+from contextlib import contextmanager
+from decimal import ROUND_HALF_EVEN, Context, Decimal, localcontext
+from fractions import Fraction
 from threading import Event
 from time import monotonic, sleep
 
 import pytest
 from fastapi.testclient import TestClient
-from sqlalchemy import event, inspect, text
+from sqlalchemy import event, inspect, text, update
+from sqlalchemy.engine import Engine, make_url
 from sqlalchemy.exc import DBAPIError
 
+from app.adapters.composite_materialization_records import CompositeMaterializationModel
 from app.adapters.composite_materialization_repository import (
     CompositeMaterializationStore,
+    _store_cache,
     get_composite_materialization_store,
 )
 from app.adapters.composite_materialization_schema import CompositeMaterializationMigrationRequiredError
 from app.adapters.composite_schema_policy import CANONICAL_REPORTING_CURRENCY_CHECK_SQL
+from app.api.dependencies.composite_annual_dispersion import get_annual_dispersion_receipt_reader
 from app.core.config import get_settings
 from app.services.composite_materialization.application import run_materialization_attempt
 from app.services.composite_metadata_store import CompositeMetadataStore
@@ -35,8 +41,231 @@ from tests.composite_materialization_helpers import (
     facts_for,
     running_job,
 )
+from tests.unit.adapters.test_composite_annual_dispersion_adapter import persist_records_in_stores
+from tests.unit.services.test_composite_annual_comparison_service import candidate_records, pair_request
+from tests.unit.services.test_composite_annual_dispersion_service import annual_request, year_records
 
 CALLER_HEADERS = {"X-Tenant-Id": "tenant-a", "X-Actor-Id": "operator", "X-Role": "DPM_COMPOSITE_CONSUMER"}
+
+ANNUAL_PATH = "/performance/composites/analytics"
+COMPARISON_PATH = ANNUAL_PATH + "/comparison"
+
+
+def _independent_annual_output(returns, *, population=False):
+    values = [Fraction(value, 100) for value in returns]
+    mean = sum(values) / len(values)
+    variance = sum((value - mean) ** 2 for value in values) / (len(values) if population else len(values) - 1)
+    with localcontext(Context(prec=60, rounding=ROUND_HALF_EVEN)):
+        return (Decimal(variance.numerator) / Decimal(variance.denominator)).sqrt().quantize(Decimal("1e-12"))
+
+
+def _retained_snapshot(engine):
+    tables = (
+        "composite_materializations",
+        "composite_member_return_facts",
+        "composite_member_return_fact_publications",
+    )
+    with engine.connect() as connection:
+        return {
+            table: sorted((tuple(row) for row in connection.execute(text(f"SELECT * FROM {table}"))), key=repr)
+            for table in tables
+        }
+
+
+@contextmanager
+def _default_annual_pg_client(url, monkeypatch):
+    monkeypatch.setattr(get_settings(), "LINEAGE_METADATA_DATABASE_URL", url)
+    assert get_annual_dispersion_receipt_reader not in app.dependency_overrides
+    store = get_composite_materialization_store()
+    assert store._engine.dialect.name == "postgresql"
+    assert store._engine.url == make_url(url)
+    with store._engine.connect() as connection:
+        assert len(inspect(connection).get_table_names()) == 13
+    before = _retained_snapshot(store._engine)
+    reads = []
+
+    def require_read_only(connection, cursor, statement, parameters, context, executemany):
+        if connection.engine.url == make_url(url):
+            assert statement.lstrip().split(None, 1)[0].upper() in {"SELECT", "SHOW"}, statement
+            reads.append(statement)
+
+    event.listen(Engine, "before_cursor_execute", require_read_only)
+    try:
+        with TestClient(app, headers=CALLER_HEADERS) as client:
+            yield client, store
+        assert any("composite_materializations" in statement for statement in reads)
+        assert _retained_snapshot(store._engine) == before
+    finally:
+        event.remove(Engine, "before_cursor_execute", require_read_only)
+        if _store_cache.get(url) is store:
+            _store_cache.pop(url)
+        store.close()
+
+
+@pytest.mark.parametrize("method", ["EQUAL_WEIGHT_SAMPLE_STDDEV", "YEAR_BEGIN_ASSET_WEIGHTED_POPULATION_STDDEV"])
+def test_postgres_default_annual_http_oracles_population_reversal_and_read_only(
+    postgres_materialization_stores, monkeypatch, method
+):
+    url, ledger, facts, _ = postgres_materialization_stores
+    baseline, candidate = year_records(), candidate_records(count=7, excluded=("6",))
+    persist_records_in_stores(baseline + candidate, ledger=ledger, facts=facts)
+    payload = pair_request(baseline, candidate).model_dump(mode="json")
+    payload["baseline"]["method"] = payload["candidate"]["method"] = method
+    population = method == "YEAR_BEGIN_ASSET_WEIGHTED_POPULATION_STDDEV"
+    expected_baseline = _independent_annual_output([1, 2, 3, 4, 5, 6], population=population)
+    expected_candidate = _independent_annual_output([1, 2, 3, 4, 5, 7], population=population)
+    with _default_annual_pg_client(url, monkeypatch) as (client, _):
+        annual = client.post(ANNUAL_PATH, json=payload["baseline"])
+        response = client.post(COMPARISON_PATH, json=payload)
+        assert annual.status_code == response.status_code == 200, response.text
+        result = response.json()
+        assert result["baseline"] == annual.json()
+        assert Decimal(result["baseline"]["value"]) == expected_baseline
+        assert Decimal(result["candidate"]["value"]) == expected_candidate
+        assert Decimal(result["value"]) == expected_candidate - expected_baseline
+        assert result["full_year_members_added"] == ["7"] and result["full_year_members_removed"] == ["6"]
+        assert {item["materialization_id"] for item in result["baseline"]["months"]} == set(
+            payload["baseline"]["materialization_ids"]
+        )
+        assert result["candidate"]["full_year_member_count"] == result["candidate"]["year_end_member_count"] == 6
+        reverse = client.post(
+            COMPARISON_PATH, json={"baseline": payload["candidate"], "candidate": payload["baseline"]}
+        )
+        assert reverse.status_code == 200
+        assert Decimal(reverse.json()["value"]) == expected_baseline - expected_candidate
+        assert reverse.json()["full_year_members_added"] == ["6"]
+        reordered = {
+            side: {**request, "materialization_ids": request["materialization_ids"][::-1]}
+            for side, request in payload.items()
+        }
+        assert client.post(COMPARISON_PATH, json=reordered).json() == result
+
+
+@pytest.mark.parametrize("shape", ["partial-year", "unavailable", "zero"])
+def test_postgres_default_annual_http_population_null_and_zero(postgres_materialization_stores, monkeypatch, shape):
+    url, ledger, facts, _ = postgres_materialization_stores
+    baseline = year_records()
+    if shape == "partial-year":
+        candidate = candidate_records()
+        candidate[5] = candidate_records(excluded=("6",))[5]
+    elif shape == "unavailable":
+        candidate = candidate_records(count=1)
+    else:
+        candidate = candidate_records(corrected=True, count=7, excluded=("2", "3", "4", "5", "6"))
+    persist_records_in_stores(baseline + candidate, ledger=ledger, facts=facts)
+    with _default_annual_pg_client(url, monkeypatch) as (client, _):
+        response = client.post(COMPARISON_PATH, json=pair_request(baseline, candidate).model_dump(mode="json"))
+        assert response.status_code == 200, response.text
+        result = response.json()
+        if shape == "partial-year":
+            assert result["candidate"]["full_year_member_count"] == 5
+            assert result["candidate"]["year_end_member_count"] == 6
+            assert Decimal(result["candidate"]["value"]) == _independent_annual_output([1, 2, 3, 4, 5])
+            assert result["full_year_members_removed"] == ["6"]
+        elif shape == "unavailable":
+            assert result["candidate"]["value"] is result["value"] is None
+            assert result["status"] == "UNAVAILABLE"
+            assert result["reason_codes"] == ["CANDIDATE_ANNUAL_DISPERSION_INSUFFICIENT_MEMBERS"]
+        else:
+            assert result["candidate"]["full_year_member_count"] == 2
+            assert Decimal(result["candidate"]["value"]) == 0
+            assert result["status"] == "AVAILABLE" and result["reason_codes"] == []
+            assert Decimal(result["value"]) == -_independent_annual_output([1, 2, 3, 4, 5, 6])
+
+
+def test_postgres_default_annual_http_close_reopen_pins_original_and_changed_evidence(
+    postgres_materialization_stores, monkeypatch
+):
+    url, ledger, facts, _ = postgres_materialization_stores
+    original, corrected = year_records(), year_records(corrected=True)
+    persist_records_in_stores(original, ledger=ledger, facts=facts)
+    request = annual_request(original).model_dump(mode="json")
+    with _default_annual_pg_client(url, monkeypatch) as (client, first_store):
+        old = client.post(ANNUAL_PATH, json=request)
+        assert old.status_code == 200
+        old_result = old.json()
+    persist_records_in_stores(corrected, ledger=ledger, facts=facts)
+    pair = pair_request(original, corrected).model_dump(mode="json")
+    with _default_annual_pg_client(url, monkeypatch) as (client, reopened_store):
+        assert reopened_store is not first_store and reopened_store._engine is not first_store._engine
+        assert client.post(ANNUAL_PATH, json=request).json() == old_result
+        updated = client.post(COMPARISON_PATH, json=pair)
+        assert updated.status_code == 200
+        comparison = updated.json()
+        assert comparison["baseline"] == old_result
+        assert Decimal(comparison["value"]) == 0
+        assert comparison["baseline"]["result_fingerprint"] != comparison["candidate"]["result_fingerprint"]
+        assert comparison["baseline"]["members"][0]["annual_return"] == "0.01"
+        assert comparison["candidate"]["members"][0]["annual_return"] == "0.07"
+    with _default_annual_pg_client(url, monkeypatch) as (client, _):
+        assert client.post(COMPARISON_PATH, json=pair).json() == comparison
+
+
+def test_postgres_default_annual_http_two_tenant_authority(postgres_materialization_stores, monkeypatch):
+    url, ledger, facts, _ = postgres_materialization_stores
+    tenants = {"tenant-a": year_records(), "tenant-b": year_records(count=5, tenant="tenant-b")}
+    for tenant, records in tenants.items():
+        persist_records_in_stores(records, ledger=ledger, facts=facts, tenant_id=tenant)
+    with _default_annual_pg_client(url, monkeypatch) as (client, _):
+        results = []
+        for tenant, records in tenants.items():
+            own = client.post(
+                COMPARISON_PATH,
+                json=pair_request(records, records).model_dump(mode="json"),
+                headers={"X-Tenant-Id": tenant},
+            )
+            assert own.status_code == 200, own.text
+            results.append(own.json())
+            foreign = tenants["tenant-b" if tenant == "tenant-a" else "tenant-a"]
+            refused = client.post(
+                COMPARISON_PATH,
+                json=pair_request(foreign, foreign).model_dump(mode="json"),
+                headers={"X-Tenant-Id": tenant},
+            )
+            assert refused.status_code == 404
+            assert "baseline" not in refused.json() and "candidate" not in refused.json()
+        assert results[0]["result_fingerprint"] != results[1]["result_fingerprint"]
+        assert results[0]["baseline"]["full_year_member_count"] == 6
+        assert results[1]["baseline"]["full_year_member_count"] == 5
+
+
+@pytest.mark.parametrize("fault", ["incomplete", "corrupt", "policy"])
+def test_postgres_default_annual_http_refuses_retained_fault_without_partial_pair(
+    postgres_materialization_stores, monkeypatch, fault
+):
+    url, ledger, facts, _ = postgres_materialization_stores
+    baseline = year_records()
+    candidate = candidate_records(count=5, **({"policy_version": "policy.v2"} if fault == "policy" else {}))
+    persist_records_in_stores(baseline + candidate, ledger=ledger, facts=facts)
+    payload = pair_request(baseline, candidate).model_dump(mode="json")
+    with _default_annual_pg_client(url, monkeypatch) as (client, _):
+        control = client.post(COMPARISON_PATH, json=pair_request(baseline, baseline).model_dump(mode="json"))
+        assert control.status_code == 200
+    if fault != "policy":
+        with ledger._engine.begin() as connection:
+            connection.execute(
+                update(CompositeMaterializationModel)
+                .where(
+                    CompositeMaterializationModel.tenant_id == "tenant-a",
+                    CompositeMaterializationModel.materialization_id == str(candidate[0].command.materialization_id),
+                )
+                .values(**({"state": "WAITING"} if fault == "incomplete" else {"source_json": "{}"}))
+            )
+    expected = {
+        "incomplete": (409, "ANNUAL_DISPERSION_MONTH_NOT_COMPLETE"),
+        "corrupt": (503, "COMPOSITE_MATERIALIZATION_RETAINED_EVIDENCE_REFUSED"),
+        "policy": (422, "ANNUAL_COMPARISON_POLICY_BASIS_MISMATCH"),
+    }
+    with _default_annual_pg_client(url, monkeypatch) as (client, _):
+        refused = client.post(COMPARISON_PATH, json=payload)
+        status, code = expected[fault]
+        assert refused.status_code == status, refused.text
+        assert refused.json()["error_code"] == code
+        assert "baseline" not in refused.json() and "candidate" not in refused.json()
+        assert (
+            client.post(COMPARISON_PATH, json=pair_request(baseline, baseline).model_dump(mode="json")).json()
+            == control.json()
+        )
 
 
 @pytest.mark.parametrize("shape", ["partial", "weakened-check", "global-key", "nullable-actor", "locale-currency"])

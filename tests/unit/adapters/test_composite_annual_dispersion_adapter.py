@@ -9,51 +9,57 @@ from core.errors import APINotFoundError
 from tests.unit.services.test_composite_annual_dispersion_service import annual_request, year_records
 
 
+def persist_records_in_stores(records, *, ledger, facts, tenant_id="tenant-a"):
+    """Seed controlled publications using explicitly supplied, already provisioned stores."""
+    for record in records:
+        command = record.command
+        facts.upsert_definition(record.source.definition.performance_definition(), tenant_id=tenant_id)
+        ledger.register(command, tenant_id=tenant_id, actor_id="operator")
+        ledger.save(
+            command.materialization_id,
+            tenant_id=tenant_id,
+            expected_revision=0,
+            source=record.source,
+            outcomes=record.outcomes,
+            state=CompositeMaterializationState.PUBLISHING,
+            reason_code=None,
+        )
+        for outcome in record.outcomes:
+            if outcome.fact is not None:
+                facts.upsert_member_return_fact(outcome.fact, tenant_id=tenant_id)
+        facts.complete_member_return_fact_publication(
+            tenant_id=tenant_id,
+            composite_id=command.composite_id,
+            return_view=command.return_view,
+            reporting_currency=command.reporting_currency,
+            restatement_sequence=command.restatement_sequence,
+            period_start=command.period_start,
+            period_end=command.period_end,
+            expected_families={
+                (outcome.portfolio_id, command.period_start, command.period_end)
+                for outcome in record.outcomes
+                if outcome.fact is not None
+            },
+            source_fingerprint=command.attestation_content_hash,
+        )
+        ledger.save(
+            command.materialization_id,
+            tenant_id=tenant_id,
+            expected_revision=1,
+            source=record.source,
+            outcomes=record.outcomes,
+            state=CompositeMaterializationState.COMPLETE,
+            reason_code=None,
+        )
+
+
 def persist_records(url, records):
+    """Preserve the original SQLite seeding wrapper and its explicit setup ownership."""
     ledger, facts = CompositeMaterializationStore(url), CompositeMetadataStore(url)
     try:
         facts.create_schema()
         ledger.create_schema()
-        for record in records:
-            command = record.command
-            facts.upsert_definition(record.source.definition.performance_definition(), tenant_id="tenant-a")
-            ledger.register(command, tenant_id="tenant-a", actor_id="operator")
-            ledger.save(
-                command.materialization_id,
-                tenant_id="tenant-a",
-                expected_revision=0,
-                source=record.source,
-                outcomes=record.outcomes,
-                state=CompositeMaterializationState.PUBLISHING,
-                reason_code=None,
-            )
-            for outcome in record.outcomes:
-                if outcome.fact is not None:
-                    facts.upsert_member_return_fact(outcome.fact, tenant_id="tenant-a")
-            facts.complete_member_return_fact_publication(
-                tenant_id="tenant-a",
-                composite_id=command.composite_id,
-                return_view=command.return_view,
-                reporting_currency=command.reporting_currency,
-                restatement_sequence=command.restatement_sequence,
-                period_start=command.period_start,
-                period_end=command.period_end,
-                expected_families={
-                    (outcome.portfolio_id, command.period_start, command.period_end)
-                    for outcome in record.outcomes
-                    if outcome.fact is not None
-                },
-                source_fingerprint=command.attestation_content_hash,
-            )
-            ledger.save(
-                command.materialization_id,
-                tenant_id="tenant-a",
-                expected_revision=1,
-                source=record.source,
-                outcomes=record.outcomes,
-                state=CompositeMaterializationState.COMPLETE,
-                reason_code=None,
-            )
+        persist_records_in_stores(records, ledger=ledger, facts=facts)
     finally:
         facts.close()
         ledger.close()
