@@ -5,7 +5,7 @@ from pathlib import Path
 
 import pytest
 
-from scripts.check_monetary_float_usage import _finding_key, load_allowlist, scan_repo
+from scripts.check_monetary_float_usage import _finding_key, load_allowlist, scan_repo, write_allowlist
 
 
 def test_finding_key_is_stable_when_line_numbers_move():
@@ -20,6 +20,161 @@ def test_finding_key_preserves_source_expression():
     changed = "app/services/example.py:42:market_value=float(row['market_value'])"
 
     assert _finding_key(approved) != _finding_key(changed)
+
+
+def _approved_entry(finding: str) -> dict:
+    return {
+        "finding": finding,
+        "justification": "Projected solver monetary residual; review https://github.com/sgajbi/lotus-performance/issues/472.",
+        "owner": "lotus-performance",
+        "review_by": "2099-12-31",
+    }
+
+
+def test_allowlist_refuses_generic_approval(tmp_path):
+    entry = _approved_entry("solver.py:1:return float(amount)")
+    entry["justification"] = "Temporary approved monetary floating-point usage; convert to Decimal."
+    path = tmp_path / "allowlist.json"
+    path.write_text(json.dumps({"allowlist": [entry]}), encoding="utf-8")
+
+    _, errors, _ = load_allowlist(path)
+
+    assert any("finding-specific" in error for error in errors)
+
+
+@pytest.mark.parametrize(
+    "field,value",
+    [
+        ("owner", " "),
+        ("justification", 7),
+        ("review_by", "bad-date"),
+        ("finding", "solver.py:not-a-line:return float(amount)"),
+    ],
+)
+def test_allowlist_refuses_malformed_evidence(tmp_path, field, value):
+    entry = _approved_entry("solver.py:1:return float(amount)")
+    entry[field] = value
+    path = tmp_path / "allowlist.json"
+    path.write_text(json.dumps({"allowlist": [entry]}), encoding="utf-8")
+
+    _, errors, _ = load_allowlist(path)
+
+    assert errors
+
+
+@pytest.mark.parametrize("payload", [[], {}, {"allowlist": None}, {"allowlist": {}}])
+def test_allowlist_refuses_invalid_container(tmp_path, payload):
+    path = tmp_path / "allowlist.json"
+    path.write_text(json.dumps(payload), encoding="utf-8")
+    _, errors, _ = load_allowlist(path)
+    assert errors
+
+
+def test_allowlist_refuses_duplicate_approvals_after_line_shift(tmp_path):
+    path = tmp_path / "allowlist.json"
+    path.write_text(
+        json.dumps(
+            {
+                "allowlist": [
+                    _approved_entry("solver.py:1:return float(amount)"),
+                    _approved_entry("solver.py:5:return float(amount)"),
+                ]
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    _, errors, _ = load_allowlist(path)
+
+    assert any("Duplicate" in error for error in errors)
+
+
+def test_refresh_preserves_approval_and_deadline_after_line_shift(tmp_path):
+    original = _approved_entry("solver.py:1:return float(amount)")
+    path = tmp_path / "allowlist.json"
+
+    write_allowlist(path, ["solver.py:5:return float(amount)"], {original["finding"]: original})
+
+    refreshed = json.loads(path.read_text(encoding="utf-8"))["allowlist"]
+    assert len(refreshed) == 1
+    assert refreshed[0] == {**original, "finding": "solver.py:5:return float(amount)"}
+
+
+def test_refresh_cannot_manufacture_new_approval_or_overwrite_evidence(tmp_path):
+    path = tmp_path / "allowlist.json"
+    original = b"retained approval evidence\n"
+    path.write_bytes(original)
+
+    with pytest.raises(ValueError, match="reviewed approval"):
+        write_allowlist(path, ["solver.py:1:return float(amount)"], {})
+
+    assert path.read_bytes() == original
+
+
+def test_refresh_keeps_one_approval_for_repeated_source_expression(tmp_path):
+    original = _approved_entry("solver.py:1:return float(amount)")
+    path = tmp_path / "allowlist.json"
+
+    write_allowlist(path, [original["finding"], "solver.py:5:return float(amount)"], {original["finding"]: original})
+
+    entries, errors, stale = load_allowlist(path)
+    assert errors == []
+    assert stale == []
+    assert list(entries.values()) == [original]
+
+
+def test_cli_refuses_orphaned_allowance(tmp_path):
+    (tmp_path / "solver.py").write_text("observation_count: int = 0\n", encoding="utf-8")
+    allowance = tmp_path / "allowlist.json"
+    allowance.write_text(
+        json.dumps({"allowlist": [_approved_entry("solver.py:1:return float(amount)")]}), encoding="utf-8"
+    )
+
+    result = subprocess.run(
+        [
+            sys.executable,
+            str(REPO_ROOT / "scripts/check_monetary_float_usage.py"),
+            "--repo-root",
+            str(tmp_path),
+            "--allowlist",
+            str(allowance),
+        ],
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+
+    assert result.returncode == 1
+    assert "no longer matched" in result.stdout
+
+
+@pytest.mark.parametrize("approved", [False, True])
+def test_cli_refresh_cannot_approve_new_or_renew_expired_evidence(tmp_path, approved):
+    (tmp_path / "solver.py").write_text("return float(amount)\n", encoding="utf-8")
+    allowance = tmp_path / "allowlist.json"
+    entry = _approved_entry("solver.py:1:return float(amount)")
+    entry["review_by"] = "2000-01-01"
+    allowance.write_text(json.dumps({"allowlist": [entry] if approved else []}), encoding="utf-8")
+    original = allowance.read_bytes()
+
+    result = subprocess.run(
+        [
+            sys.executable,
+            str(REPO_ROOT / "scripts/check_monetary_float_usage.py"),
+            "--repo-root",
+            str(tmp_path),
+            "--allowlist",
+            str(allowance),
+            "--update-allowlist",
+        ],
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+
+    assert result.returncode == 1
+    assert ("stale entries" if approved else "Unauthorized") in result.stdout
+    assert allowance.read_bytes() == original
 
 
 def test_source_exemption_does_not_hide_unmarked_monetary_float(tmp_path: Path):
@@ -128,21 +283,18 @@ def test_every_allowlisted_finding_is_still_produced_by_the_scan():
     ), "Issue #530 retired the reviewed contribution end_mv float boundary."
 
 
-def test_dispositioned_entries_name_their_specific_finding_and_migration():
-    """The two entries this repository has actually reviewed must not regress to boilerplate.
-
-    The other entries still carry the generic text. That is a larger clean-up than an
-    unblock and is recorded on #472 rather than pretended away here; this test holds the
-    ground that has been taken.
-    """
+def test_every_remaining_entry_names_its_reviewed_boundary_and_owner():
+    """Ratio matches are retired; monetary numerical boundaries retain accountable review."""
 
     payload = json.loads(ALLOWLIST_PATH.read_text(encoding="utf-8"))
-    reviewed = {entry["finding"]: entry for entry in payload["allowlist"] if entry["finding"] in DISPOSITIONED_FINDINGS}
+    reviewed = {entry["finding"]: entry for entry in payload["allowlist"]}
 
-    assert set(reviewed) == DISPOSITIONED_FINDINGS
+    assert DISPOSITIONED_FINDINGS.issubset(reviewed)
     for finding, entry in reviewed.items():
         assert entry["justification"].strip() != BOILERPLATE_JUSTIFICATION, finding
         assert MIGRATION_ISSUE in entry["justification"], finding
+        assert "https://github.com/sgajbi/lotus-performance/issues/472" in entry["justification"], finding
+        assert entry["owner"] == "lotus-performance", finding
 
 
 def test_the_annualize_return_ratio_is_not_an_allowlist_entry():

@@ -1,444 +1,84 @@
 {
-  "description": "Approved baseline monetary-float findings. New findings fail CI.",
+  "description": "Reviewed monetary numerical-boundary exceptions. Dimensionless false positives are dispositioned at source; new, duplicate, obsolete, generic or expired approvals fail CI.",
   "policy_version": "1.1.0",
-  "generated_at": "2026-09-22T11:40:45Z",
+  "generated_at": "2026-10-04T00:43:04Z",
   "allowlist": [
     {
-      "finding": "app/models/attribution_requests.py:56:weight_bop: float = Field(",
-      "justification": "Temporary approved monetary floating-point usage; convert to Decimal.",
-      "owner": "platform-governance",
-      "review_by": "2026-10-12"
-    },
-    {
-      "finding": "app/models/attribution_requests.py:60:return_base: Optional[float] = Field(",
-      "justification": "Temporary approved monetary floating-point usage; convert to Decimal.",
-      "owner": "platform-governance",
-      "review_by": "2026-11-06"
-    },
-    {
-      "finding": "app/models/attribution_requests.py:69:return_local: Optional[float] = Field(",
-      "justification": "Temporary approved monetary floating-point usage; convert to Decimal.",
-      "owner": "platform-governance",
-      "review_by": "2026-11-06"
-    },
-    {
-      "finding": "app/models/attribution_requests.py:74:return_fx: Optional[float] = Field(",
-      "justification": "Temporary approved monetary floating-point usage; convert to Decimal.",
-      "owner": "platform-governance",
-      "review_by": "2026-11-06"
-    },
-    {
-      "finding": "app/models/attribution_responses.py:115:total_active_return: float = Field(",
-      "justification": "Temporary approved monetary floating-point usage; convert to Decimal.",
-      "owner": "platform-governance",
-      "review_by": "2026-10-27"
-    },
-    {
-      "finding": "app/models/attribution_responses.py:19:portfolio_weight_avg: float = Field(",
-      "justification": "Temporary approved monetary floating-point usage; convert to Decimal.",
-      "owner": "platform-governance",
-      "review_by": "2026-10-27"
-    },
-    {
-      "finding": "app/models/attribution_responses.py:23:benchmark_weight_avg: float = Field(",
-      "justification": "Temporary approved monetary floating-point usage; convert to Decimal.",
-      "owner": "platform-governance",
-      "review_by": "2026-10-27"
-    },
-    {
-      "finding": "app/models/attribution_responses.py:27:portfolio_return: float = Field(",
-      "justification": "Temporary approved monetary floating-point usage; convert to Decimal.",
-      "owner": "platform-governance",
-      "review_by": "2026-10-27"
-    },
-    {
-      "finding": "app/models/attribution_responses.py:289:weight_portfolio_avg: float = Field(",
-      "justification": "Temporary approved monetary floating-point usage; convert to Decimal.",
-      "owner": "platform-governance",
-      "review_by": "2026-11-07"
-    },
-    {
-      "finding": "app/models/attribution_responses.py:293:weight_benchmark_avg: float = Field(",
-      "justification": "Temporary approved monetary floating-point usage; convert to Decimal.",
-      "owner": "platform-governance",
-      "review_by": "2026-11-07"
-    },
-    {
-      "finding": "app/models/attribution_responses.py:31:benchmark_return: float = Field(",
-      "justification": "Temporary approved monetary floating-point usage; convert to Decimal.",
-      "owner": "platform-governance",
-      "review_by": "2026-10-27"
-    },
-    {
-      "finding": "app/models/benchmark_analytics_requests.py:33:weight_bop: float = Field(",
-      "justification": "Temporary approved monetary floating-point usage; convert to Decimal.",
-      "owner": "platform-governance",
-      "review_by": "2026-10-12"
-    },
-    {
-      "finding": "app/models/benchmark_analytics_requests.py:43:component_return: float = Field(",
-      "justification": "Temporary approved monetary floating-point usage; convert to Decimal.",
-      "owner": "platform-governance",
-      "review_by": "2026-10-12"
-    },
-    {
-      "finding": "app/models/benchmark_analytics_requests.py:48:component_return_local: float | None = Field(",
-      "justification": "Temporary approved monetary floating-point usage; convert to Decimal.",
-      "owner": "platform-governance",
-      "review_by": "2026-10-12"
-    },
-    {
-      "finding": "app/models/benchmark_analytics_requests.py:53:component_return_fx: float | None = Field(",
-      "justification": "Temporary approved monetary floating-point usage; convert to Decimal.",
-      "owner": "platform-governance",
-      "review_by": "2026-10-12"
-    },
-    {
-      "finding": "app/models/benchmark_analytics_requests.py:69:weight_bop: float = Field(",
-      "justification": "Temporary approved monetary floating-point usage; convert to Decimal.",
-      "owner": "platform-governance",
-      "review_by": "2026-10-12"
-    },
-    {
-      "finding": "app/models/benchmark_analytics_requests.py:99:benchmark_return: float = Field(",
-      "justification": "Temporary approved monetary floating-point usage; convert to Decimal.",
-      "owner": "platform-governance",
-      "review_by": "2026-10-12"
-    },
-    {
-      "finding": "app/models/contribution_requests.py:100:threshold_weight: float = Field(",
-      "justification": "Temporary approved monetary floating-point usage; convert to Decimal.",
-      "owner": "platform-governance",
-      "review_by": "2026-10-12"
-    },
-    {
-      "finding": "app/models/contribution_responses.py:101:weight_avg: Optional[float] = Field(",
-      "justification": "Temporary approved monetary floating-point usage; convert to Decimal.",
-      "owner": "platform-governance",
-      "review_by": "2026-10-27"
-    },
-    {
-      "finding": "app/models/contribution_responses.py:191:linked_return: float = Field(",
-      "justification": "Temporary approved monetary floating-point usage; convert to Decimal.",
-      "owner": "platform-governance",
-      "review_by": "2026-11-06"
-    },
-    {
-      "finding": "app/models/contribution_responses.py:21:average_weight: float = Field(",
-      "justification": "Temporary approved monetary floating-point usage; convert to Decimal.",
-      "owner": "platform-governance",
-      "review_by": "2026-10-27"
-    },
-    {
-      "finding": "app/models/contribution_responses.py:25:total_return: float = Field(description=\"Position return in percentage-point output units.\", examples=[4.96])",
-      "justification": "Temporary approved monetary floating-point usage; convert to Decimal.",
-      "owner": "platform-governance",
-      "review_by": "2026-10-27"
-    },
-    {
-      "finding": "app/models/contribution_responses.py:312:total_portfolio_return: Optional[float] = Field(",
-      "justification": "Temporary approved monetary floating-point usage; convert to Decimal.",
-      "owner": "platform-governance",
-      "review_by": "2026-11-06"
-    },
-    {
-      "finding": "app/models/mwr_responses.py:27:rate_lower_bound: Optional[float] = Field(default=None, description=\"Lower searched annual rate bound.\")",
-      "justification": "Temporary approved monetary floating-point usage; convert to Decimal.",
-      "owner": "platform-governance",
-      "review_by": "2026-11-06"
-    },
-    {
-      "finding": "app/models/mwr_responses.py:28:rate_upper_bound: Optional[float] = Field(default=None, description=\"Upper searched annual rate bound.\")",
-      "justification": "Temporary approved monetary floating-point usage; convert to Decimal.",
-      "owner": "platform-governance",
-      "review_by": "2026-11-06"
-    },
-    {
-      "finding": "app/models/mwr_responses.py:38:mwr: float = Field(description=\"Money-weighted return in percentage-point output units.\", examples=[11.723])",
-      "justification": "Temporary approved monetary floating-point usage; convert to Decimal.",
-      "owner": "platform-governance",
-      "review_by": "2026-11-06"
-    },
-    {
-      "finding": "app/models/mwr_responses.py:56:holding_period_return: Optional[float] = Field(",
-      "justification": "Temporary approved monetary floating-point usage; convert to Decimal.",
-      "owner": "platform-governance",
-      "review_by": "2026-11-06"
-    },
-    {
-      "finding": "app/models/mwr_responses.py:74:money_weighted_return: float = Field(",
-      "justification": "Temporary approved monetary floating-point usage; convert to Decimal.",
-      "owner": "platform-governance",
-      "review_by": "2026-11-06"
-    },
-    {
-      "finding": "app/models/mwr_responses.py:89:holding_period_return: Optional[float] = Field(",
-      "justification": "Temporary approved monetary floating-point usage; convert to Decimal.",
-      "owner": "platform-governance",
-      "review_by": "2026-11-06"
-    },
-    {
-      "finding": "app/models/workspace_summary_responses.py:219:base: float = Field(description=\"Return in percentage-point output units.\", examples=[1.25])",
-      "justification": "Temporary approved monetary floating-point usage; convert to Decimal.",
-      "owner": "platform-governance",
-      "review_by": "2026-10-11"
-    },
-    {
-      "finding": "app/models/workspace_summary_responses.py:299:period_return: float = Field(",
-      "justification": "Temporary approved monetary floating-point usage; convert to Decimal.",
-      "owner": "platform-governance",
-      "review_by": "2026-10-11"
-    },
-    {
-      "finding": "app/models/workspace_summary_responses.py:303:cumulative_return: float = Field(",
-      "justification": "Temporary approved monetary floating-point usage; convert to Decimal.",
-      "owner": "platform-governance",
-      "review_by": "2026-10-11"
-    },
-    {
-      "finding": "app/models/workspace_summary_responses.py:307:annualized_return: float = Field(",
-      "justification": "Temporary approved monetary floating-point usage; convert to Decimal.",
-      "owner": "platform-governance",
-      "review_by": "2026-10-11"
-    },
-    {
-      "finding": "app/services/benchmark_calculation_service.py:203:def _series_return(return_series: pd.Series) -> float:",
-      "justification": "Temporary approved monetary floating-point usage; convert to Decimal.",
-      "owner": "platform-governance",
-      "review_by": "2026-10-12"
-    },
-    {
-      "finding": "app/services/benchmark_calculation_service.py:207:return float((running - Decimal(\"1\")) * Decimal(str(PERCENT_SCALE)))",
-      "justification": "Temporary approved monetary floating-point usage; convert to Decimal.",
-      "owner": "platform-governance",
-      "review_by": "2026-10-12"
-    },
-    {
-      "finding": "app/services/benchmark_calculation_service.py:210:def _scale_percent(value: object) -> float | None:",
-      "justification": "Temporary approved monetary floating-point usage; convert to Decimal.",
-      "owner": "platform-governance",
-      "review_by": "2026-10-12"
-    },
-    {
-      "finding": "app/services/benchmark_calculation_service.py:214:return float(str(value)) * PERCENT_SCALE",
-      "justification": "Temporary approved monetary floating-point usage; convert to Decimal.",
-      "owner": "platform-governance",
-      "review_by": "2026-10-12"
-    },
-    {
-      "finding": "app/services/benchmark_calculation_service.py:223:benchmark_return=float(row[\"benchmark_return\"]) * PERCENT_SCALE,",
-      "justification": "Temporary approved monetary floating-point usage; convert to Decimal.",
-      "owner": "platform-governance",
-      "review_by": "2026-10-12"
-    },
-    {
-      "finding": "app/services/benchmark_calculation_service.py:224:cumulative_return=float(row[\"cumulative_return\"]) * PERCENT_SCALE,",
-      "justification": "Temporary approved monetary floating-point usage; convert to Decimal.",
-      "owner": "platform-governance",
-      "review_by": "2026-10-12"
-    },
-    {
-      "finding": "app/services/benchmark_calculation_service.py:238:weight_bop=float(row[\"weight_bop\"]),",
-      "justification": "Temporary approved monetary floating-point usage; convert to Decimal.",
-      "owner": "platform-governance",
-      "review_by": "2026-10-12"
-    },
-    {
-      "finding": "app/services/benchmark_calculation_service.py:239:component_return=float(row[\"component_return\"]) * PERCENT_SCALE,",
-      "justification": "Temporary approved monetary floating-point usage; convert to Decimal.",
-      "owner": "platform-governance",
-      "review_by": "2026-10-12"
-    },
-    {
-      "finding": "app/services/twr_service.py:150:def _link_return_series(series: pd.Series) -> float:",
-      "justification": "Temporary approved monetary floating-point usage; convert to Decimal.",
-      "owner": "platform-governance",
-      "review_by": "2026-10-27"
-    },
-    {
-      "finding": "app/services/twr_service.py:154:return float((running - Decimal(\"1\")) * Decimal(\"100\"))",
-      "justification": "Temporary approved monetary floating-point usage; convert to Decimal.",
-      "owner": "platform-governance",
-      "review_by": "2026-10-27"
-    },
-    {
-      "finding": "engine/attribution.py:108:portfolio_weight_avg=float(row[\"portfolio_weight_avg\"]) * 100,",
-      "justification": "Temporary approved monetary floating-point usage; convert to Decimal.",
-      "owner": "platform-governance",
-      "review_by": "2026-11-06"
-    },
-    {
-      "finding": "engine/attribution.py:109:benchmark_weight_avg=float(row[\"benchmark_weight_avg\"]) * 100,",
-      "justification": "Temporary approved monetary floating-point usage; convert to Decimal.",
-      "owner": "platform-governance",
-      "review_by": "2026-11-06"
-    },
-    {
-      "finding": "engine/attribution.py:110:portfolio_return=float(row[\"portfolio_return\"]) * 100,",
-      "justification": "Temporary approved monetary floating-point usage; convert to Decimal.",
-      "owner": "platform-governance",
-      "review_by": "2026-11-06"
-    },
-    {
-      "finding": "engine/attribution.py:111:benchmark_return=float(row[\"benchmark_return\"]) * 100,",
-      "justification": "Temporary approved monetary floating-point usage; convert to Decimal.",
-      "owner": "platform-governance",
-      "review_by": "2026-11-06"
-    },
-    {
-      "finding": "engine/attribution.py:314:return None if pd.isna(first_value) else float(first_value)",
-      "justification": "Temporary approved monetary floating-point usage; convert to Decimal.",
-      "owner": "platform-governance",
-      "review_by": "2026-11-06"
-    },
-    {
-      "finding": "engine/attribution.py:320:return float((1 + numeric_returns).prod() - 1)",
-      "justification": "Temporary approved monetary floating-point usage; convert to Decimal.",
-      "owner": "platform-governance",
-      "review_by": "2026-11-06"
-    },
-    {
-      "finding": "engine/attribution.py:33:def _calculate_linked_return(return_series: pd.Series) -> float:",
-      "justification": "Temporary approved monetary floating-point usage; convert to Decimal.",
-      "owner": "platform-governance",
-      "review_by": "2026-11-06"
-    },
-    {
-      "finding": "engine/attribution.py:38:return float((1 + numeric_returns).prod() - 1)",
-      "justification": "Temporary approved monetary floating-point usage; convert to Decimal.",
-      "owner": "platform-governance",
-      "review_by": "2026-11-06"
-    },
-    {
-      "finding": "engine/attribution.py:41:def _calculate_weighted_average_return(weights: pd.Series, returns: pd.Series) -> float:",
-      "justification": "Temporary approved monetary floating-point usage; convert to Decimal.",
-      "owner": "platform-governance",
-      "review_by": "2026-11-06"
-    },
-    {
-      "finding": "engine/attribution.py:45:total_weight = float(numeric_weights.sum())",
-      "justification": "Temporary approved monetary floating-point usage; convert to Decimal.",
-      "owner": "platform-governance",
-      "review_by": "2026-11-06"
-    },
-    {
-      "finding": "engine/attribution.py:48:return float((numeric_weights * numeric_returns).sum() / total_weight)",
-      "justification": "Temporary approved monetary floating-point usage; convert to Decimal.",
-      "owner": "platform-governance",
-      "review_by": "2026-11-06"
-    },
-    {
-      "finding": "engine/attribution.py:71:\"portfolio_weight\": float(pd.to_numeric(group[\"w_p\"], errors=\"coerce\").fillna(0.0).sum()),",
-      "justification": "Temporary approved monetary floating-point usage; convert to Decimal.",
-      "owner": "platform-governance",
-      "review_by": "2026-11-06"
-    },
-    {
-      "finding": "engine/attribution.py:72:\"benchmark_weight\": float(pd.to_numeric(group[\"w_b\"], errors=\"coerce\").fillna(0.0).sum()),",
-      "justification": "Temporary approved monetary floating-point usage; convert to Decimal.",
-      "owner": "platform-governance",
-      "review_by": "2026-11-06"
-    },
-    {
-      "finding": "engine/attribution.py:84:\"portfolio_weight_avg\": float(pd.to_numeric(group[\"portfolio_weight\"], errors=\"coerce\").mean()),",
-      "justification": "Temporary approved monetary floating-point usage; convert to Decimal.",
-      "owner": "platform-governance",
-      "review_by": "2026-11-06"
-    },
-    {
-      "finding": "engine/attribution.py:85:\"benchmark_weight_avg\": float(pd.to_numeric(group[\"benchmark_weight\"], errors=\"coerce\").mean()),",
-      "justification": "Temporary approved monetary floating-point usage; convert to Decimal.",
-      "owner": "platform-governance",
-      "review_by": "2026-11-06"
-    },
-    {
       "finding": "engine/numerical_boundary.py:13:def finite_float64_projection(value: Decimal) -> float:",
-      "justification": "Relocates the existing MWR numerical interoperability allowance reviewed by https://github.com/sgajbi/lotus-performance/issues/473. Admitted and same-date-netted money stays Decimal until this finite float64 solver boundary; FLOAT64 FX products use the same checked legacy numerical boundary. This is not exact-money solver acceptance; the original review deadline is retained.",
+      "justification": "Checked projection of admitted/netted Decimal financial coefficients into the finite float64 numerical domain; retained input evidence stays Decimal. Governed boundary and independent QA: https://github.com/sgajbi/lotus-performance/issues/473; allowance review: https://github.com/sgajbi/lotus-performance/issues/472. Retire when this projected monetary solver boundary is removed; no deadline renewal or arbitrary-precision solver claim.",
       "owner": "lotus-performance",
       "review_by": "2026-11-06"
     },
     {
       "finding": "engine/numerical_boundary.py:15:projected = float(value)",
-      "justification": "Relocates the existing NumPy monetary projection allowance to the explicit finite boundary governed by https://github.com/sgajbi/lotus-performance/issues/473. Overflow and nonzero underflow refuse; original Decimal request/lineage evidence is retained. The original review deadline is retained, not renewed.",
+      "justification": "Finite float64 projection itself; rejects overflow and nonzero underflow rather than replacing original Decimal custody. Governed boundary and independent QA: https://github.com/sgajbi/lotus-performance/issues/473; allowance review: https://github.com/sgajbi/lotus-performance/issues/472. Retire when this projected monetary solver boundary is removed; no deadline renewal or arbitrary-precision solver claim.",
       "owner": "lotus-performance",
       "review_by": "2026-11-06"
     },
     {
       "finding": "engine/mwr.py:32:def _npv_at_rate(values: np.ndarray, taus: np.ndarray, rate: float) -> float:",
-      "justification": "Temporary approved monetary floating-point usage; convert to Decimal.",
-      "owner": "platform-governance",
+      "justification": "XIRR NPV objective returns a discounted monetary residual from already projected coefficients; its rate argument alone is dimensionless. Governed boundary and independent QA: https://github.com/sgajbi/lotus-performance/issues/473; allowance review: https://github.com/sgajbi/lotus-performance/issues/472. Retire when this projected monetary solver boundary is removed; no deadline renewal or arbitrary-precision solver claim.",
+      "owner": "lotus-performance",
       "review_by": "2026-11-06"
     },
     {
       "finding": "engine/mwr.py:33:return float(np.sum(values / ((1 + rate) ** taus)))",
-      "justification": "Temporary approved monetary floating-point usage; convert to Decimal.",
-      "owner": "platform-governance",
+      "justification": "Discounted sum of projected XIRR monetary coefficients used to evaluate root residuals, not an exact source-money total. Governed boundary and independent QA: https://github.com/sgajbi/lotus-performance/issues/473; allowance review: https://github.com/sgajbi/lotus-performance/issues/472. Retire when this projected monetary solver boundary is removed; no deadline renewal or arbitrary-precision solver claim.",
+      "owner": "lotus-performance",
       "review_by": "2026-11-06"
     },
     {
       "finding": "engine/mwr.py:37:func, left: float, right: float, *, value_tolerance: float, rate_tolerance: float, max_iter: int",
-      "justification": "Temporary approved monetary floating-point usage; convert to Decimal.",
-      "owner": "platform-governance",
-      "review_by": "2026-11-06"
-    },
-    {
-      "finding": "engine/mwr.py:58:rate_lower_bound: float = -0.999999999,",
-      "justification": "Temporary approved monetary floating-point usage; convert to Decimal.",
-      "owner": "platform-governance",
-      "review_by": "2026-11-06"
-    },
-    {
-      "finding": "engine/mwr.py:59:rate_upper_bound: float = 1000.0,",
-      "justification": "Temporary approved monetary floating-point usage; convert to Decimal.",
-      "owner": "platform-governance",
+      "justification": "Bisection carries a monetary value_tolerance alongside dimensionless rate bounds/tolerance; the mixed signature is not a ratio-only exemption. Governed boundary and independent QA: https://github.com/sgajbi/lotus-performance/issues/473; allowance review: https://github.com/sgajbi/lotus-performance/issues/472. Retire when this projected monetary solver boundary is removed; no deadline renewal or arbitrary-precision solver claim.",
+      "owner": "lotus-performance",
       "review_by": "2026-11-06"
     },
     {
       "finding": "engine/mwr.py:67:gross_cash_flow_scale = float(np.sum(np.abs(values)))",
-      "justification": "Magnitude of the already projected XIRR float64 solver coefficients, not the original monetary schedule. This existing numerical-boundary exception is governed by https://github.com/sgajbi/lotus-performance/issues/473; https://github.com/sgajbi/lotus-performance/issues/600 exposes its diagnostic DTO annotations. Wider exception review remains https://github.com/sgajbi/lotus-performance/issues/472.",
+      "justification": "Absolute sum of already projected XIRR cash-flow coefficients sets convergence scale; not original cash-flow evidence. Governed boundary and independent QA: https://github.com/sgajbi/lotus-performance/issues/473; allowance review: https://github.com/sgajbi/lotus-performance/issues/472. Retire when this projected monetary solver boundary is removed; no deadline renewal or arbitrary-precision solver claim.",
       "owner": "lotus-performance",
       "review_by": "2026-11-06"
     },
     {
       "finding": "engine/mwr.py:119:gross_cash_flow_scale: float,",
-      "justification": "Carries the existing projected XIRR coefficient magnitude into numerical convergence diagnostics, not source-money evidence. Same exception and unchanged deadline as the producing expression: https://github.com/sgajbi/lotus-performance/issues/473; scanner reconciliation https://github.com/sgajbi/lotus-performance/issues/600 and ongoing review https://github.com/sgajbi/lotus-performance/issues/472.",
+      "justification": "Internal convergence constructor carries the projected monetary coefficient magnitude without introducing a new request-money conversion. Governed boundary and independent QA: https://github.com/sgajbi/lotus-performance/issues/473; allowance review: https://github.com/sgajbi/lotus-performance/issues/472. Retire when this projected monetary solver boundary is removed; no deadline renewal or arbitrary-precision solver claim.",
       "owner": "lotus-performance",
       "review_by": "2026-11-06"
     },
     {
       "finding": "engine/mwr_types.py:34:gross_cash_flow_scale: float | None = None",
-      "justification": "Internal convergence DTO for the existing finite projected XIRR coefficient magnitude. It is a solver-scale diagnostic, not an exact monetary total. Preserve the numerical-boundary deadline from https://github.com/sgajbi/lotus-performance/issues/473; reconciliation https://github.com/sgajbi/lotus-performance/issues/600 and review https://github.com/sgajbi/lotus-performance/issues/472.",
+      "justification": "Internal convergence DTO retains projected monetary coefficient magnitude; independent boundary QA must not mistake it for exact money. Governed boundary and independent QA: https://github.com/sgajbi/lotus-performance/issues/473; allowance review: https://github.com/sgajbi/lotus-performance/issues/472. Retire when this projected monetary solver boundary is removed; no deadline renewal or arbitrary-precision solver claim.",
       "owner": "lotus-performance",
       "review_by": "2026-11-06"
     },
     {
       "finding": "app/models/mwr_responses.py:45:gross_cash_flow_scale: Optional[float] = Field(default=None, description=\"Gross absolute solver-flow scale.\")",
-      "justification": "Public numeric convergence diagnostic of the existing projected XIRR coefficient magnitude; callers must not use it as exact source cash-flow evidence. No new monetary input projection. Unchanged numerical-boundary deadline from https://github.com/sgajbi/lotus-performance/issues/473; reconciliation https://github.com/sgajbi/lotus-performance/issues/600 and review https://github.com/sgajbi/lotus-performance/issues/472.",
+      "justification": "Public convergence diagnostic emits projected monetary coefficient magnitude as a compatibility number, not exact source cash-flow evidence. Governed boundary and independent QA: https://github.com/sgajbi/lotus-performance/issues/473; allowance review: https://github.com/sgajbi/lotus-performance/issues/472. Retire when this projected monetary solver boundary is removed; no deadline renewal or arbitrary-precision solver claim.",
       "owner": "lotus-performance",
       "review_by": "2026-11-06"
     },
     {
       "finding": "engine/mwr.py:265:value_tolerance = max(tolerance * max(float(np.sum(np.abs(coefficients))), 1.0), 1e-8)",
-      "justification": "The XIRR exponential-polynomial solver scales its monetary residual tolerance in the same float domain as the existing cash-flow vector. Decimal migration remains governed by https://github.com/sgajbi/lotus-performance/issues/473.",
-      "owner": "platform-governance",
+      "justification": "Exponential XIRR solver scales monetary residual tolerance from projected coefficients; the rate tolerance itself is dimensionless. Governed boundary and independent QA: https://github.com/sgajbi/lotus-performance/issues/473; allowance review: https://github.com/sgajbi/lotus-performance/issues/472. Retire when this projected monetary solver boundary is removed; no deadline renewal or arbitrary-precision solver claim.",
+      "owner": "lotus-performance",
       "review_by": "2026-11-24"
     },
     {
       "finding": "engine/mwr.py:328:def evaluate(log_rate: float) -> float:",
-      "justification": "The XIRR exponential-polynomial objective returns a signed monetary residual while its input is a dimensionless log rate. Decimal migration remains governed by https://github.com/sgajbi/lotus-performance/issues/473.",
-      "owner": "platform-governance",
+      "justification": "Exponential XIRR objective accepts a dimensionless log rate but returns a monetary residual, so the entire function is not ratio-only. Governed boundary and independent QA: https://github.com/sgajbi/lotus-performance/issues/473; allowance review: https://github.com/sgajbi/lotus-performance/issues/472. Retire when this projected monetary solver boundary is removed; no deadline renewal or arbitrary-precision solver claim.",
+      "owner": "lotus-performance",
       "review_by": "2026-11-24"
     },
     {
       "finding": "engine/mwr.py:330:return float(np.sum(coefficients * np.exp(-log_rate * exponents)))",
-      "justification": "The XIRR exponential-polynomial objective sums the existing float cash-flow coefficients after dimensionless discounting. Decimal migration remains governed by https://github.com/sgajbi/lotus-performance/issues/473.",
-      "owner": "platform-governance",
+      "justification": "Exponential discounting sums projected monetary coefficients; source cash flows were admitted and netted in Decimal before this boundary. Governed boundary and independent QA: https://github.com/sgajbi/lotus-performance/issues/473; allowance review: https://github.com/sgajbi/lotus-performance/issues/472. Retire when this projected monetary solver boundary is removed; no deadline renewal or arbitrary-precision solver claim.",
+      "owner": "lotus-performance",
       "review_by": "2026-11-24"
     },
     {
       "finding": "engine/mwr.py:370:value_tolerance: float,",
-      "justification": "The internal XIRR isolation helpers carry the scaled monetary residual tolerance in the existing float solver domain. Decimal migration remains governed by https://github.com/sgajbi/lotus-performance/issues/473.",
-      "owner": "platform-governance",
+      "justification": "Root-isolation helpers carry monetary residual tolerance in the numerical solver domain; rate interval controls remain dimensionless. Governed boundary and independent QA: https://github.com/sgajbi/lotus-performance/issues/473; allowance review: https://github.com/sgajbi/lotus-performance/issues/472. Retire when this projected monetary solver boundary is removed; no deadline renewal or arbitrary-precision solver claim.",
+      "owner": "lotus-performance",
       "review_by": "2026-11-24"
     }
   ]

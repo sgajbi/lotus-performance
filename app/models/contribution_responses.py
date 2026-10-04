@@ -24,11 +24,13 @@ class PositionContribution(BaseModel):
         description="Total position contribution to portfolio return in percentage-point output units.",
         examples=[1.24],
     )
-    average_weight: float = Field(
+    average_weight: float = Field(  # monetary-float-allow: dimensionless weight
         description="Average portfolio weight for the position in percentage units. Example: 25.0 means 25%.",
         examples=[25.0],
     )
-    total_return: float = Field(description="Position return in percentage-point output units.", examples=[4.96])
+    total_return: float = Field(  # monetary-float-allow: dimensionless return
+        description="Position return in percentage-point output units.", examples=[4.96]
+    )
     local_contribution: Optional[float] = Field(
         default=None,
         description="Local-market contribution in percentage points when currency_mode=BOTH and every position consumed in the period has currency evidence; null otherwise.",
@@ -134,7 +136,7 @@ class ContributionRow(BaseModel):
         description="Row contribution in percentage-point output units.",
         examples=[1.42],
     )
-    weight_avg: Optional[float] = Field(
+    weight_avg: Optional[float] = Field(  # monetary-float-allow: dimensionless weight
         default=None,
         description="Average row weight in percentage units. Example: 18.0 means 18%.",
         examples=[18.0],
@@ -230,7 +232,7 @@ class ContributionSmoothingEvidence(BaseModel):
             "CARINO_INVALID_DAILY_LOG_DOMAIN, RESIDUAL_ALLOCATED_TO_RECONCILE_PERIOD."
         ),
     )
-    linked_return: float = Field(
+    linked_return: float = Field(  # monetary-float-allow: dimensionless return
         description="Portfolio linked return for the period in percentage-point output units.",
         examples=[-1.0],
     )
@@ -367,10 +369,12 @@ class ContributionSourceEconomicsEvidence(BaseModel):
 class SinglePeriodContributionResult(BaseModel):
     """Contains the full set of contribution results for a single, resolved period."""
 
-    total_portfolio_return: Optional[float] = Field(
-        default=None,
-        description="Total portfolio return for the period in percentage-point output units.",
-        examples=[3.48],
+    total_portfolio_return: Optional[float] = (  # monetary-float-allow: dimensionless return
+        Field(
+            default=None,
+            description="Total portfolio return for the period in percentage-point output units.",
+            examples=[3.48],
+        )
     )
     total_contribution: Optional[float] = Field(
         default=None,

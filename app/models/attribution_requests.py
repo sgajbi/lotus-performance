@@ -57,11 +57,11 @@ class BenchmarkObservation(BaseModel):
     """Represents a single benchmark data point for a period."""
 
     date: Date = Field(description="Observation date for the benchmark group return and beginning weight.")
-    weight_bop: float = Field(
+    weight_bop: float = Field(  # monetary-float-allow: dimensionless weight
         description="Benchmark group beginning-of-period weight as a decimal ratio. Example: 0.6 means 60%.",
         examples=[0.6],
     )
-    return_base: Optional[float] = Field(
+    return_base: Optional[float] = Field(  # monetary-float-allow: dimensionless return
         default=None,
         description=(
             "Benchmark group base-currency return for the observation as a decimal ratio. "
@@ -70,12 +70,12 @@ class BenchmarkObservation(BaseModel):
         ),
         examples=[0.0125],
     )
-    return_local: Optional[float] = Field(
+    return_local: Optional[float] = Field(  # monetary-float-allow: dimensionless return
         default=None,
         description="Optional local-currency benchmark return as a decimal ratio for currency-aware attribution.",
         examples=[0.01],
     )
-    return_fx: Optional[float] = Field(
+    return_fx: Optional[float] = Field(  # monetary-float-allow: dimensionless return
         default=None,
         description="Optional FX return component as a decimal ratio for currency-aware attribution.",
         examples=[0.0025],

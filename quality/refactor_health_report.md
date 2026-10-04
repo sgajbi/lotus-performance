@@ -3,7 +3,7 @@
 Report date: 2026-07-10
 Branch: `feat/performance-architecture-boundary-refactor`
 Baseline source: `quality/baseline_report.md`
-Testing inventory refresh: 2026-10-04, attribution precision-policy candidate (#601).
+Testing inventory refresh: 2026-10-04, monetary allowance-disposition candidate (#472).
 Other phase-zero measurements, including coverage percentages, remain historical.
 Historical #540 exact main `39aec74c` passed all ten jobs in run `37136810103`; its candidate
 coverage was raw 98.5068273355382% (30,539 statements/456 missing), passing the unchanged configured
@@ -15,7 +15,9 @@ passed12 tests;58 PostgreSQL-dependent skips are not database proof. Independent
 #473 merged through PR599 to `4f3ed981`; exact-main run
 `37146392604` passed all ten jobs and wiki publication passed strict parity. #600 merged through
 PR602/main89764ece; exact-main37160878964 passed all ten jobs. Independent QA remains open.
-#601 is an unmerged candidate; collection is not execution evidence.
+#601 merged through PR603/main e6e5127e; exact-main37164578813 passed all ten jobs.
+#472 is an unmerged candidate; collection is not execution evidence. Its focused registered API,
+financial and scanner pack passed299 tests; all11 touched analytics/DTO ASTs are unchanged.
 Report mode: phase-zero scorecard; complexity, architecture, duplicate-code, repository hygiene,
 router-thinness, observability-readiness, domain-product validation, deterministic API evaluation,
 test taxonomy breadth, Python security posture, license compliance, and container supply-chain
@@ -89,7 +91,7 @@ link the commit, command, or CI artifact that proves the change.
 | Metric | Baseline | Current | Status | Evidence |
 | --- | ---: | ---: | --- | --- |
 | Test modules | 228 | 352 | measured | `rg --files tests -g 'test_*.py'` |
-| Collected tests | 2,035 | 6,062 | measured | `python -m pytest --collect-only -q` |
+| Collected tests | 2,035 | 6,078 | measured | `python -m pytest --collect-only -q` |
 | Line coverage | unknown | 99.58% | measured | `quality/coverage_inventory.md` via `make branch-coverage-baseline` (`3,013` unit, `308` integration, and `21` e2e tests under branch coverage; `21,154` covered lines of `21,244` statements) |
 | Branch coverage | unknown | 98.00% | measured | `quality/coverage_inventory.md` via `make branch-coverage-baseline` (`3,013` unit, `308` integration, and `21` e2e tests under branch coverage; `4,318` covered branches of `4,406`, `88` missing branches, `88` partial branches) |
 | Integration/API/runtime test functions | unknown | 913 | enforced | `quality/test_taxonomy_inventory.md`; `make quality-test-taxonomy-gate` |

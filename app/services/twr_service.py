@@ -177,11 +177,15 @@ def _build_return_value_from_decomposition(
     )
 
 
-def _link_return_series(series: pd.Series) -> float:
+def _link_return_series(
+    series: pd.Series,
+) -> float:  # monetary-float-allow: dimensionless return
     running = Decimal("1")
     for value in series.tolist():
         running *= Decimal("1") + Decimal(str(_as_numeric(value)))
-    return float((running - Decimal("1")) * Decimal("100"))
+    return float(  # monetary-float-allow: dimensionless return
+        (running - Decimal("1")) * Decimal("100")
+    )
 
 
 from app.services.twr_benchmark_supportability import build_twr_benchmark_supportability_evidence  # noqa: E402

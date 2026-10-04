@@ -4,7 +4,8 @@ This repository adopts the platform-wide mandatory standard defined in `lotus-pl
 
 ## Local Enforcement
 
-- Monetary/financial calculations use `Decimal`.
+- Monetary inputs and capital arithmetic retain `Decimal`; supported numerical projections are
+  explicitly bounded below. Dimensionless returns and weights follow their calculation policy.
 - Intermediate calculations do not round.
 - Output boundaries apply canonical scale + `ROUND_HALF_EVEN` via `precision_policy` helpers.
 - Runtime policy metadata is exposed as `ROUNDING_POLICY_VERSION = "1.1.0"`.
@@ -36,8 +37,12 @@ new metadata reports actual FLOAT64 policy. Historical result evidence remains u
 - CI runs python scripts/check_monetary_float_usage.py.
 - Baseline allowlist: docs/standards/monetary-float-allowlist.json.
 - New findings fail CI until explicitly approved and allowlisted in dedicated PR.
-- Each allowlist entry requires `justification`, `owner`, and `review_by` metadata.
+- Each allowlist entry requires a finding-specific `justification` with an owning Performance
+  issue, `owner`, and `review_by`. Generic approvals and duplicate source-expression identities fail.
 - Stale allowlist entries (past `review_by`) fail CI.
+- Obsolete allowances fail the same CLI gate, not only a unit-test check.
+- `--update-allowlist` refreshes existing approved source locations and removes obsolete entries;
+  it cannot create approvals or renew deadlines. Publish new evidence through a reviewed PR.
 
 ### What the guard is about: amounts, not ratios
 
@@ -67,9 +72,9 @@ Exactly one of two, chosen by what the value *is*:
    allowlist entry whose `justification` says what this specific value is and links the issue
    that sizes the migration. A justification true of every entry explains none of them.
 
-An allowlist entry the scan no longer produces must be **removed**, not carried. The guard only
-computes findings-minus-allowlist, so a resolved finding keeps its approval unless somebody takes
-it away; `tests/unit/scripts/test_monetary_float_usage.py` fails when an orphaned entry appears.
+An allowlist entry the scan no longer produces must be **removed**, not carried. The CLI checks
+both unauthorized findings and orphaned approvals. Source identity is path plus expression;
+line movement does not change an approval or its deadline.
 
 The 2026-09-22 review of expired cohort #472 retired 35 dimensionless-ratio or docstring matches.
 #530 then migrated its reviewed market-value, benchmark-price, and FX-conversion boundaries to
@@ -79,6 +84,12 @@ stale and newly introduced unapproved monetary floats. MWR retains admitted Deci
 and cash flows through date aggregation and Dietz capital arithmetic. XIRR projects same-date net
 economics at an explicit finite float64 solver boundary; its root search is not an arbitrary-precision
 money engine.
+
+The October #472 review retires another 60 return, exposure-weight and rate-bound allowances at
+their source sites. The remaining 13 entries describe the finite float64 coefficient boundary,
+discounted monetary residuals, residual tolerances and convergence-scale diagnostics. Their
+November 6/24 deadlines are unchanged. They are not ratio-only exemptions or a claim that XIRR is
+an arbitrary-precision monetary solver; boundary qualification remains explicit in #473/#600 QA.
 
 ## Monetary Request Admission
 

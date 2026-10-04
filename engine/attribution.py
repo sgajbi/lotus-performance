@@ -150,22 +150,30 @@ class _BaseWeightRecord(TypedDict):
     capital: Decimal
 
 
-def _calculate_linked_return(return_series: pd.Series) -> float:
+def _calculate_linked_return(
+    return_series: pd.Series,
+) -> float:  # monetary-float-allow: dimensionless return
     """Calculates a linked period return from per-date group returns expressed as decimal ratios."""
     numeric_returns = pd.to_numeric(return_series, errors="coerce").dropna()
     if numeric_returns.empty:
         return 0.0
-    return float((1 + numeric_returns).prod() - 1)
+    return float(  # monetary-float-allow: dimensionless return
+        (1 + numeric_returns).prod() - 1
+    )
 
 
-def _calculate_weighted_average_return(weights: pd.Series, returns: pd.Series) -> float:
+def _calculate_weighted_average_return(
+    weights: pd.Series, returns: pd.Series
+) -> float:  # monetary-float-allow: dimensionless return
     """Calculates a one-date weighted average group return from aligned weight and return series."""
     numeric_weights = pd.to_numeric(weights, errors="coerce").fillna(0.0)
     numeric_returns = pd.to_numeric(returns, errors="coerce").fillna(0.0)
-    total_weight = float(numeric_weights.sum())
+    total_weight = float(numeric_weights.sum())  # monetary-float-allow: dimensionless weight
     if total_weight == 0.0:
         return 0.0
-    return float((numeric_weights * numeric_returns).sum() / total_weight)
+    return float(  # monetary-float-allow: dimensionless return
+        (numeric_weights * numeric_returns).sum() / total_weight
+    )
 
 
 def _calculate_group_context_metrics(effects_df: pd.DataFrame, group_by: list[str]) -> pd.DataFrame:
@@ -188,8 +196,12 @@ def _calculate_group_context_metrics(effects_df: pd.DataFrame, group_by: list[st
     dated_grouped = effects_df.groupby(["date"] + group_by, dropna=False).apply(
         lambda group: pd.Series(
             {
-                "portfolio_weight": float(pd.to_numeric(group["w_p"], errors="coerce").fillna(0.0).sum()),
-                "benchmark_weight": float(pd.to_numeric(group["w_b"], errors="coerce").fillna(0.0).sum()),
+                "portfolio_weight": float(  # monetary-float-allow: dimensionless weight
+                    pd.to_numeric(group["w_p"], errors="coerce").fillna(0.0).sum()
+                ),
+                "benchmark_weight": float(  # monetary-float-allow: dimensionless weight
+                    pd.to_numeric(group["w_b"], errors="coerce").fillna(0.0).sum()
+                ),
                 "portfolio_return": _calculate_weighted_average_return(group["w_p"], group["r_base_p"]),
                 "benchmark_return": _calculate_weighted_average_return(group["w_b"], group["r_base_b"]),
             }
@@ -201,8 +213,12 @@ def _calculate_group_context_metrics(effects_df: pd.DataFrame, group_by: list[st
     return grouped.apply(
         lambda group: pd.Series(
             {
-                "portfolio_weight_avg": float(pd.to_numeric(group["portfolio_weight"], errors="coerce").mean()),
-                "benchmark_weight_avg": float(pd.to_numeric(group["benchmark_weight"], errors="coerce").mean()),
+                "portfolio_weight_avg": float(  # monetary-float-allow: dimensionless weight
+                    pd.to_numeric(group["portfolio_weight"], errors="coerce").mean()
+                ),
+                "benchmark_weight_avg": float(  # monetary-float-allow: dimensionless weight
+                    pd.to_numeric(group["benchmark_weight"], errors="coerce").mean()
+                ),
                 "portfolio_return": _calculate_linked_return(group["portfolio_return"]),
                 "benchmark_return": _calculate_linked_return(group["benchmark_return"]),
             }
@@ -225,10 +241,14 @@ def _build_attribution_group_result(
     """Builds a single attribution group row with side-by-side portfolio and benchmark context."""
     return AttributionGroupResult(
         key=_build_group_key_dict(group_key, level_group_by),
-        portfolio_weight_avg=float(row["portfolio_weight_avg"]) * 100,
-        benchmark_weight_avg=float(row["benchmark_weight_avg"]) * 100,
-        portfolio_return=float(row["portfolio_return"]) * 100,
-        benchmark_return=float(row["benchmark_return"]) * 100,
+        portfolio_weight_avg=float(row["portfolio_weight_avg"])  # monetary-float-allow: dimensionless weight
+        * 100,
+        benchmark_weight_avg=float(row["benchmark_weight_avg"])  # monetary-float-allow: dimensionless weight
+        * 100,
+        portfolio_return=float(row["portfolio_return"])  # monetary-float-allow: dimensionless return
+        * 100,
+        benchmark_return=float(row["benchmark_return"])  # monetary-float-allow: dimensionless return
+        * 100,
         allocation=float(row["allocation"]) * 100,
         selection=float(row["selection"]) * 100,
         interaction=float(row["interaction"]) * 100,
@@ -536,14 +556,18 @@ def _first_row_preserving_missing(series: pd.Series):
     if series.empty:
         return None
     first_value = series.iloc[0]
-    return None if pd.isna(first_value) else float(first_value)
+    return (
+        None if pd.isna(first_value) else float(first_value)  # monetary-float-allow: dimensionless weight
+    )
 
 
 def _link_period_returns(series: pd.Series):
     numeric_returns = pd.to_numeric(series, errors="coerce").dropna()
     if numeric_returns.empty:
         return None
-    return float((1 + numeric_returns).prod() - 1)
+    return float(  # monetary-float-allow: dimensionless return
+        (1 + numeric_returns).prod() - 1
+    )
 
 
 def _resampled_attribution_return_data(

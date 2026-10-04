@@ -403,11 +403,15 @@ def _benchmark_breakdown_label(*, frequency: Frequency, period_end: date) -> str
     return period_end.isoformat()
 
 
-def _series_return(return_series: pd.Series) -> float:
+def _series_return(
+    return_series: pd.Series,
+) -> float:  # monetary-float-allow: dimensionless return
     running = Decimal("1")
     for value in return_series:
         running *= Decimal("1") + Decimal(str(value))
-    return float((running - Decimal("1")) * Decimal(str(PERCENT_SCALE)))
+    return float(  # monetary-float-allow: dimensionless return
+        (running - Decimal("1")) * Decimal(str(PERCENT_SCALE))
+    )
 
 
 def _scale_decimal_return(value: Decimal) -> float:  # monetary-float-allow
@@ -431,11 +435,15 @@ def _is_missing_return_component(value: object) -> bool:
     return math.isnan(value)
 
 
-def _scale_percent(value: object) -> float | None:
+def _scale_percent(
+    value: object,
+) -> float | None:  # monetary-float-allow: dimensionless return
     if value is None:
         return None
     try:
-        return float(str(value)) * PERCENT_SCALE
+        return (
+            float(str(value)) * PERCENT_SCALE  # monetary-float-allow: dimensionless return
+        )
     except (TypeError, ValueError):
         return None
 
@@ -444,8 +452,10 @@ def _daily_return_records(df: pd.DataFrame) -> list[DailyBenchmarkReturn]:
     return [
         DailyBenchmarkReturn(
             date=row["date"],
-            benchmark_return=float(row["benchmark_return"]) * PERCENT_SCALE,
-            cumulative_return=float(row["cumulative_return"]) * PERCENT_SCALE,
+            benchmark_return=float(row["benchmark_return"])  # monetary-float-allow: dimensionless return
+            * PERCENT_SCALE,
+            cumulative_return=float(row["cumulative_return"])  # monetary-float-allow: dimensionless return
+            * PERCENT_SCALE,
             benchmark_return_local=_scale_percent(row.get("benchmark_return_local")),
             benchmark_return_fx=_scale_percent(row.get("benchmark_return_fx")),
         )
@@ -459,8 +469,9 @@ def _component_contribution_records(df: pd.DataFrame) -> list[DailyBenchmarkComp
             date=row["date"],
             component_id=row["component_id"],
             component_currency=row.get("component_currency"),
-            weight_bop=float(row["weight_bop"]),
-            component_return=float(row["component_return"]) * PERCENT_SCALE,
+            weight_bop=float(row["weight_bop"]),  # monetary-float-allow: dimensionless weight
+            component_return=float(row["component_return"])  # monetary-float-allow: dimensionless return
+            * PERCENT_SCALE,
             component_return_local=_scale_percent(row.get("component_return_local")),
             component_return_fx=_scale_percent(row.get("component_return_fx")),
             contribution=float(row["contribution"]) * PERCENT_SCALE,
