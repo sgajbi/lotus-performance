@@ -35,3 +35,21 @@ If either side is unavailable, comparison value stays null with `UNAVAILABLE` an
 Internal callers and clients should retain both complete results, request vectors and comparison fingerprint; parse decimal strings with decimal arithmetic and consume API eligibility rather than reconstructing it. Complete synthetic examples are packaged in `app/api/examples/composite_annual_comparison.json` and exposed in OpenAPI; execution requires retained tenant evidence.
 
 For Report-owned Excel consumption, retain baseline/candidate outputs, availability, method/version, December/full-year counts, source vectors and fingerprints in separate columns. With B2/C2 containing available API decimal strings and D2/E2 their statuses, a presentation formula is `=IF(AND(D2="AVAILABLE",E2="AVAILABLE"),NUMBERVALUE(C2,".",",")-NUMBERVALUE(B2,".",","),NA())`. Treat the returned comparison value as authoritative because Excel can introduce binary rounding. This is consumption guidance only; no Excel producer or official report authority is implemented. DEC-10/12/13, live qualification and full #610 selection/freeze/publication remain separately governed dependencies.
+
+## PostgreSQL retained-consumer acceptance
+
+The existing required PostgreSQL materialization target also exercises these registered HTTP operations through their default retained reader. Its isolated database schema is provisioned by the complete thirteen-table durable schema owner; controlled tenant publications use the existing materialization and fact stores. The tests do not override the financial reader or calculation ports.
+
+Independent rational/Decimal oracles check sample and equal-asset weighted population dispersion, paired differences and reversal. The same target covers historical full-year/December counts, unavailable null versus available zero, two-tenant receipt authority, reordered replay, changed-evidence fingerprints and refusal without a partial pair. SQL observation and before/after retained-row snapshots establish read-only consumption. Closing and reopening the retained store preserves a pinned original and replays the corrected pair; this is store reopen evidence, not process or worker restart evidence.
+
+From the `lotus-performance` repository root, with `LOTUS_POSTGRES_PLAN_DATABASE_URL` set to a separately provisioned PostgreSQL database, run:
+
+```powershell
+python scripts/postgres_concurrency_contracts_gate.py --target tests/benchmarks/test_postgres_composite_materialization.py
+```
+
+```bash
+python scripts/postgres_concurrency_contracts_gate.py --target tests/benchmarks/test_postgres_composite_materialization.py
+```
+
+The unchanged native gate requires every collected contract to pass with no skips, using pytest's JUnit report. This controlled retained-consumer proof does not certify live ingestion, institutional methodology, official generation selection or the complete upstream/downstream consumer chain.

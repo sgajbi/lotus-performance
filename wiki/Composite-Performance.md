@@ -320,6 +320,15 @@ See the [caller guide](https://github.com/sgajbi/lotus-performance/blob/main/doc
 for internal/client/Excel consumption and refusal behavior. This is only a bounded foundation for
 #610 impact previews; publication of approved generations remains separate.
 
+## PostgreSQL Retained-Consumer Acceptance
+
+The required PostgreSQL materialization target includes registered annual/comparison HTTP reads
+through the default retained reader and the complete durable schema owner. Controlled tenant
+publications support independent numerical oracles, population/null/zero/refusal cases, two-tenant
+authority, fingerprints, read-only snapshots and pinned replay after store close/reopen. Store
+reopen is not a process restart or live-ingestion proof. The caller guide documents the focused
+native gate; institutional decisions and the complete consumer chain remain separate acceptance.
+
 ## References
 
 - [Composite performance guide](https://github.com/sgajbi/lotus-performance/blob/main/docs/guides/composite_performance.md)
