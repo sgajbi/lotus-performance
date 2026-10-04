@@ -206,6 +206,23 @@ telemetry at `contracts/trust-telemetry/money-weighted-return-analytics.telemetr
 `contracts/domain-data-products/lotus-performance-products.v1.json` must have a matching
 repo-owned trust telemetry snapshot or a machine-readable exception policy.
 
+## Annual Composite Member Dispersion
+
+Implemented bounded analysis: `POST /performance/composites/analytics` selects
+`ANNUAL_MEMBER_DISPERSION` with equal-weight sample or year-begin asset-weighted population
+standard deviation. Inputs are twelve exact COMPLETE retained monthly receipts, not submitted
+member economics. Historical full-year intersection, separate December count, small-population
+presentation signal, explicit correction-vector replay, and source fingerprints are supported.
+
+The [methodology](https://github.com/sgajbi/lotus-performance/blob/main/docs/methodologies/metrics/metric-composite-annual-member-dispersion.md)
+and [caller guide](https://github.com/sgajbi/lotus-performance/blob/main/docs/guides/composite_annual_dispersion.md)
+bind synthetic worked examples to engine, service, reopened-store, and registered API tests.
+Output is `CALCULATED_ANALYSIS`, qualified only as
+`RETAINED_SOURCE_ATTESTATION_NOT_LIVE_QUALIFIED`. Official approval/selection (#610), imported
+history (#543), external return admission (#607), model-net policy (#609), and live producer
+qualification are not established by this operation. Production PostgreSQL and scale acceptance
+require separate evidence.
+
 ## References
 
 - [Time-Weighted Return](Time-Weighted-Return)

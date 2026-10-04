@@ -252,6 +252,26 @@ Common blocked reasons:
 - mixed member return views;
 - mixed reporting currencies.
 
+## Annual Member Dispersion Analysis
+
+`POST /performance/composites/analytics` supports `ANNUAL_MEMBER_DISPERSION` from twelve exact
+COMPLETE calendar-month materialization receipts. It links each historical full-year member's
+returns before measuring their cross-sectional spread. Select `EQUAL_WEIGHT_SAMPLE_STDDEV` or
+`YEAR_BEGIN_ASSET_WEIGHTED_POPULATION_STDDEV`; the weighted method uses positive January assets.
+Full-year member count and December member count are separate. Five or fewer full-year members
+can have an available number while presentation is not required for that small population.
+
+The synthetic six-member sample yields decimal dispersion `0.018708286934`; this is a tested
+example, not a qualified live portfolio. An original receipt vector remains replayable after a
+correction and store reopen; the API never silently chooses latest inputs or today's survivors.
+
+Read the [caller guide](https://github.com/sgajbi/lotus-performance/blob/main/docs/guides/composite_annual_dispersion.md)
+and [methodology with worked examples](https://github.com/sgajbi/lotus-performance/blob/main/docs/methodologies/metrics/metric-composite-annual-member-dispersion.md).
+Results carry `CALCULATED_ANALYSIS` and `RETAINED_SOURCE_ATTESTATION_NOT_LIVE_QUALIFIED`.
+Official selection (#610), imported history (#543), external input admission (#607), and live
+producer qualification remain separate. This operation does not establish GIPS compliance,
+institutional approval, live runtime acceptance, or production scale acceptance.
+
 ## Business And Demo Readiness
 
 Demo-safe claims:

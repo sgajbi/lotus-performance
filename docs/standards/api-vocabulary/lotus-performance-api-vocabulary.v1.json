@@ -8,7 +8,7 @@
       "openApiVersion": "3.1.0"
     }
   ],
-  "generatedAt": "2026-10-03T23:42:31.337982+00:00",
+  "generatedAt": "2026-10-04T07:04:46.467870+00:00",
   "attributeCatalog": [
     {
       "semanticId": "lotus.access_classification",
@@ -313,6 +313,20 @@
       ]
     },
     {
+      "semanticId": "lotus.annual_return",
+      "canonicalTerm": "annual_return",
+      "preferredName": "annual_return",
+      "description": "Geometrically linked full-year member return; decimal ratio.",
+      "example": "example_annual_return",
+      "type": "string",
+      "locations": [
+        "body"
+      ],
+      "observedTypes": [
+        "string"
+      ]
+    },
+    {
       "semanticId": "lotus.annualization",
       "canonicalTerm": "annualization",
       "preferredName": "annualization",
@@ -497,7 +511,7 @@
       "semanticId": "lotus.attestation_content_hash",
       "canonicalTerm": "attestation_content_hash",
       "preferredName": "attestation_content_hash",
-      "description": "Expected Manage universe-attestation digest.",
+      "description": "Admitted producer universe digest.",
       "example": "example_attestation_content_hash",
       "type": "string",
       "locations": [
@@ -511,7 +525,7 @@
       "semanticId": "lotus.attestation_version",
       "canonicalTerm": "attestation_version",
       "preferredName": "attestation_version",
-      "description": "Immutable Manage universe attestation revision.",
+      "description": "Exact universe attestation version.",
       "example": "example_attestation_version",
       "type": "string",
       "locations": [
@@ -2135,7 +2149,7 @@
       "semanticId": "lotus.definition_content_hash",
       "canonicalTerm": "definition_content_hash",
       "preferredName": "definition_content_hash",
-      "description": "Expected Manage definition digest.",
+      "description": "Admitted producer definition digest.",
       "example": "example_definition_content_hash",
       "type": "string",
       "locations": [
@@ -2149,7 +2163,7 @@
       "semanticId": "lotus.definition_version",
       "canonicalTerm": "definition_version",
       "preferredName": "definition_version",
-      "description": "Immutable Manage definition revision.",
+      "description": "Exact Manage definition version.",
       "example": "example_definition_version",
       "type": "string",
       "locations": [
@@ -2981,6 +2995,20 @@
       ],
       "observedTypes": [
         "string"
+      ]
+    },
+    {
+      "semanticId": "lotus.full_year_member_count",
+      "canonicalTerm": "full_year_member_count",
+      "preferredName": "full_year_member_count",
+      "description": "Member count included for every complete calendar month.",
+      "example": 1,
+      "type": "integer",
+      "locations": [
+        "body"
+      ],
+      "observedTypes": [
+        "integer"
       ]
     },
     {
@@ -4149,7 +4177,7 @@
       "semanticId": "lotus.materialization_id",
       "canonicalTerm": "materialization_id",
       "preferredName": "materialization_id",
-      "description": "Stable immutable command identity across retries.",
+      "description": "Retained complete month receipt.",
       "example": "MATERIALIZATION_001",
       "type": "string",
       "locations": [
@@ -4158,6 +4186,22 @@
       ],
       "observedTypes": [
         "string"
+      ]
+    },
+    {
+      "semanticId": "lotus.materialization_ids",
+      "canonicalTerm": "materialization_ids",
+      "preferredName": "materialization_ids",
+      "description": "Twelve exact immutable monthly receipts. Order is normalized by their retained calendar windows.",
+      "example": [
+        "example_materialization_ids_item"
+      ],
+      "type": "array",
+      "locations": [
+        "body"
+      ],
+      "observedTypes": [
+        "array"
       ]
     },
     {
@@ -4312,250 +4356,18 @@
       "semanticId": "lotus.members",
       "canonicalTerm": "members",
       "preferredName": "members",
-      "description": "All outcome types; missing members are not omitted.",
+      "description": "Sorted qualifying annual member economics and evidence references.",
       "example": [
         {
           "portfolio_id": "DEMO_DPM_EUR_001",
-          "state": "WAITING",
-          "reason_code": "example_reason_code",
-          "retryable": true,
-          "inspection_attempts": 1,
-          "fact": {
-            "composite_id": "PB_GLOBAL_BALANCED_USD",
-            "portfolio_id": "PB_SG_GLOBAL_BAL_001",
-            "period_start": "2026-01-01",
-            "period_end": "2026-01-31",
-            "return_value": "0.0125",
-            "return_view": "GROSS",
-            "beginning_market_value": "1000000.00",
-            "ending_market_value": "1012500.00",
-            "reporting_currency": "USD",
-            "calculation_id": "7f2b08b0-58e5-49be-b3ef-7a9cfb0321ce",
-            "source_snapshot_id": "portfolio-twr-2026-01-31T23:59:59Z",
-            "source_fingerprint": "sha256:member-return-fact-pb-sg-global-bal-001-2026-01",
-            "restatement_version": "v1",
-            "restatement_sequence": 1,
-            "status": "READY",
-            "reason_codes": [
-              "missing_final_valuation"
-            ]
-          },
-          "source_evidence": {
-            "contract_version": "v1",
-            "methodology": "example_methodology",
-            "engine_version": "example_engine_version",
-            "precision_mode": "FLOAT64",
-            "input_fingerprint": "example_input_fingerprint",
-            "calculation_hash": "example_calculation_hash",
-            "calculation_request": {
-              "portfolio": {
-                "calculation_id": "2f4f3e0e-6e0e-4e0e-8e0e-2f4f3e0e6e0e",
-                "portfolio_id": "DEMO_DPM_EUR_001",
-                "performance_start_date": "2024-12-31",
-                "metric_basis": "NET",
-                "report_start_date": "2026-01-01",
-                "report_end_date": "2026-01-31",
-                "analyses": [
-                  {
-                    "period": "MTD",
-                    "frequencies": [
-                      "DAILY"
-                    ]
-                  }
-                ],
-                "valuation_points": [
-                  {
-                    "perf_date": "2026-02-27",
-                    "begin_mv": "example_begin_mv",
-                    "bod_cf": "example_bod_cf",
-                    "eod_cf": "example_eod_cf",
-                    "mgmt_fees": "example_mgmt_fees",
-                    "end_mv": "example_end_mv"
-                  }
-                ],
-                "currency": "USD",
-                "precision_mode": "FLOAT64",
-                "rounding_precision": 1,
-                "calendar": {
-                  "type": "BUSINESS",
-                  "trading_calendar": "example_trading_calendar"
-                },
-                "annualization": {
-                  "enabled": true,
-                  "basis": "BUS/252",
-                  "periods_per_year": 0.1234
-                },
-                "output": {
-                  "include_timeseries": true,
-                  "include_cumulative": true,
-                  "top_n": 1
-                },
-                "flags": {
-                  "fail_fast": true
-                },
-                "fee_effect": {
-                  "enabled": true
-                },
-                "reset_policy": {
-                  "emit": true
-                },
-                "data_policy": {
-                  "overrides": {
-                    "market_values": [
-                      {
-                        "key": "value"
-                      }
-                    ],
-                    "cash_flows": [
-                      {
-                        "key": "value"
-                      }
-                    ]
-                  },
-                  "ignore_days": [
-                    {
-                      "entity_type": "PORTFOLIO",
-                      "entity_id": "ENTITY_001",
-                      "dates": [
-                        "2026-02-27"
-                      ]
-                    }
-                  ],
-                  "outliers": {
-                    "enabled": true,
-                    "scope": [
-                      "example_scope_item"
-                    ],
-                    "method": "example_method",
-                    "params": {
-                      "key": "value"
-                    },
-                    "action": "example_action"
-                  }
-                },
-                "source_quality_evidence": {
-                  "source_product": "PortfolioTimeseriesInput",
-                  "source_owner": "lotus-core",
-                  "input_mode": "stateful",
-                  "quality_state": "degraded",
-                  "observation_count": 252,
-                  "valid_valuation_point_count": 251,
-                  "skipped_observation_count": 1,
-                  "unsupported_cashflow_count": 2,
-                  "source_conflict_count": 0,
-                  "latest_observation_date": "2026-03-31",
-                  "report_end_date": "2026-03-31",
-                  "warnings": [
-                    "UNSUPPORTED_CASHFLOW_LABELS",
-                    "MISSING_VALUATION_POINTS"
-                  ],
-                  "source_classification_counts": {
-                    "manual_adjustment": 2,
-                    "official": 250
-                  }
-                },
-                "currency_mode": "BASE_ONLY",
-                "report_ccy": "example_report_ccy",
-                "fx": {
-                  "source": "example_source",
-                  "fixing": "example_fixing",
-                  "rates": [
-                    {
-                      "date": "2026-02-27",
-                      "ccy": "example_ccy",
-                      "rate": "1.123456789012"
-                    }
-                  ]
-                },
-                "hedging": {
-                  "mode": "example_mode",
-                  "series": [
-                    {
-                      "date": "2026-02-27",
-                      "ccy": "example_ccy",
-                      "hedge_ratio": 0.1234
-                    }
-                  ]
-                }
-              },
-              "benchmark": {
-                "calculation_id": "2f4f3e0e-6e0e-4e0e-8e0e-2f4f3e0e6e0e",
-                "benchmark_id": "BENCHMARK_001",
-                "benchmark_start_date": "2026-02-27",
-                "report_start_date": "2026-01-01",
-                "report_end_date": "2026-01-31",
-                "analyses": [
-                  {
-                    "period": "MTD",
-                    "frequencies": [
-                      "DAILY"
-                    ]
-                  }
-                ],
-                "return_source": "calculated",
-                "benchmark_currency": "USD",
-                "component_observations": [
-                  {
-                    "component_id": "COMPONENT_001",
-                    "perf_date": "2026-02-27",
-                    "weight_bop": 0.1234,
-                    "component_currency": "USD",
-                    "component_return": 0.1234,
-                    "component_return_local": 0.1234,
-                    "component_return_fx": 0.1234
-                  }
-                ],
-                "benchmark_return_points": [
-                  {
-                    "perf_date": "2026-02-27",
-                    "benchmark_return": 0.1234
-                  }
-                ],
-                "precision_mode": "FLOAT64",
-                "rounding_precision": 1,
-                "calendar": {
-                  "type": "BUSINESS",
-                  "trading_calendar": "example_trading_calendar"
-                },
-                "annualization": {
-                  "enabled": true,
-                  "basis": "BUS/252",
-                  "periods_per_year": 0.1234
-                },
-                "output": {
-                  "include_timeseries": true,
-                  "include_cumulative": true,
-                  "top_n": 1
-                }
-              }
-            },
-            "membership_snapshot_id": "MEMBERSHIP_SNAPSHOT_001",
-            "asset_evidence_fingerprint": "example_asset_evidence_fingerprint",
-            "period_return": "example_period_return",
-            "source_assets": {
-              "contract_version": "v1",
-              "source_owner": "example_source_owner",
-              "source_product": "example_source_product",
-              "portfolio_currency": "USD",
-              "observations": [
-                {
-                  "valuation_date": "2026-01-05",
-                  "beginning_market_value": "100.001",
-                  "ending_market_value": "110.0011"
-                }
-              ]
-            },
-            "core_snapshots": [
-              {
-                "snapshot_id": "SNAPSHOT_001",
-                "source_identifier": "example_source_identifier",
-                "request_as_of_date": "2026-02-27",
-                "request_fingerprint": "example_request_fingerprint",
-                "response_fingerprint": "example_response_fingerprint",
-                "retrieved_at_utc": "2026-02-27T10:30:00Z"
-              }
-            ]
-          }
+          "annual_return": "example_annual_return",
+          "year_begin_assets": "example_year_begin_assets",
+          "source_snapshot_ids": [
+            "example_source_snapshot_ids_item"
+          ],
+          "source_fingerprints": [
+            "example_source_fingerprints_item"
+          ]
         }
       ],
       "type": "array",
@@ -4570,7 +4382,7 @@
       "semanticId": "lotus.membership_content_hash",
       "canonicalTerm": "membership_content_hash",
       "preferredName": "membership_content_hash",
-      "description": "Expected Manage membership digest.",
+      "description": "Admitted producer membership digest.",
       "example": "example_membership_content_hash",
       "type": "string",
       "locations": [
@@ -4584,7 +4396,7 @@
       "semanticId": "lotus.membership_revision",
       "canonicalTerm": "membership_revision",
       "preferredName": "membership_revision",
-      "description": "Immutable Manage effective-membership revision.",
+      "description": "Exact historical Manage membership revision.",
       "example": "example_membership_revision",
       "type": "string",
       "locations": [
@@ -4655,6 +4467,20 @@
       ]
     },
     {
+      "semanticId": "lotus.method_version",
+      "canonicalTerm": "method_version",
+      "preferredName": "method_version",
+      "description": "Registered financial method revision.",
+      "example": "example_method_version",
+      "type": "string",
+      "locations": [
+        "body"
+      ],
+      "observedTypes": [
+        "string"
+      ]
+    },
+    {
       "semanticId": "lotus.methodology",
       "canonicalTerm": "methodology",
       "preferredName": "methodology",
@@ -4711,6 +4537,20 @@
       "observedTypes": [
         "string",
         "MetricBasis"
+      ]
+    },
+    {
+      "semanticId": "lotus.metric_id",
+      "canonicalTerm": "metric_id",
+      "preferredName": "metric_id",
+      "description": "Cross-sectional annual member dispersion, distinct from composite volatility.",
+      "example": "METRIC_001",
+      "type": "string",
+      "locations": [
+        "body"
+      ],
+      "observedTypes": [
+        "string"
       ]
     },
     {
@@ -4830,6 +4670,35 @@
       ],
       "observedTypes": [
         "number"
+      ]
+    },
+    {
+      "semanticId": "lotus.months",
+      "canonicalTerm": "months",
+      "preferredName": "months",
+      "description": "Exact chronological source vector; no latest-version substitution.",
+      "example": [
+        {
+          "materialization_id": "MATERIALIZATION_001",
+          "period_start": "2026-02-27",
+          "period_end": "2026-02-27",
+          "definition_version": "example_definition_version",
+          "definition_content_hash": "example_definition_content_hash",
+          "membership_revision": "example_membership_revision",
+          "membership_content_hash": "example_membership_content_hash",
+          "attestation_version": "example_attestation_version",
+          "attestation_content_hash": "example_attestation_content_hash",
+          "policy_version": "tenant-default-v1",
+          "source_cut_id": "SOURCE_CUT_001",
+          "restatement_sequence": 1
+        }
+      ],
+      "type": "array",
+      "locations": [
+        "body"
+      ],
+      "observedTypes": [
+        "array"
       ]
     },
     {
@@ -5692,7 +5561,7 @@
       "semanticId": "lotus.policy_version",
       "canonicalTerm": "policy_version",
       "preferredName": "policy_version",
-      "description": "Manage membership/universe policy version.",
+      "description": "Pinned membership policy.",
       "example": "tenant-default-v1",
       "type": "string",
       "locations": [
@@ -6119,6 +5988,34 @@
       ],
       "observedTypes": [
         "integer"
+      ]
+    },
+    {
+      "semanticId": "lotus.publication_state",
+      "canonicalTerm": "publication_state",
+      "preferredName": "publication_state",
+      "description": "Analysis result requiring separate official publication controls.",
+      "example": "example_publication_state",
+      "type": "string",
+      "locations": [
+        "body"
+      ],
+      "observedTypes": [
+        "string"
+      ]
+    },
+    {
+      "semanticId": "lotus.qualification",
+      "canonicalTerm": "qualification",
+      "preferredName": "qualification",
+      "description": "Retained attested evidence was validated; live qualification is outside this operation.",
+      "example": "example_qualification",
+      "type": "string",
+      "locations": [
+        "body"
+      ],
+      "observedTypes": [
+        "string"
       ]
     },
     {
@@ -6560,6 +6457,20 @@
       "preferredName": "report_start_date",
       "description": "Canonical report start date used by lotus-performance APIs.",
       "example": "2025-03-31",
+      "type": "string",
+      "locations": [
+        "body"
+      ],
+      "observedTypes": [
+        "string"
+      ]
+    },
+    {
+      "semanticId": "lotus.reporting_applicability",
+      "canonicalTerm": "reporting_applicability",
+      "preferredName": "reporting_applicability",
+      "description": "Provision-level presentation review signal, never methodology approval.",
+      "example": "NOT_REQUIRED_SMALL_POPULATION",
       "type": "string",
       "locations": [
         "body"
@@ -7022,6 +6933,20 @@
       "preferredName": "restored_schema_mode",
       "description": "Schema restore or upgrade mode exercised during the recovery drill.",
       "example": "example_restored_schema_mode",
+      "type": "string",
+      "locations": [
+        "body"
+      ],
+      "observedTypes": [
+        "string"
+      ]
+    },
+    {
+      "semanticId": "lotus.result_fingerprint",
+      "canonicalTerm": "result_fingerprint",
+      "preferredName": "result_fingerprint",
+      "description": "Deterministic digest binding tenant, method, selected input versions and result.",
+      "example": "example_result_fingerprint",
       "type": "string",
       "locations": [
         "body"
@@ -7770,7 +7695,7 @@
       "semanticId": "lotus.source_cut_id",
       "canonicalTerm": "source_cut_id",
       "preferredName": "source_cut_id",
-      "description": "Pinned Manage universe source cut, never a consumer date.",
+      "description": "Producer source cut, not inferred from year.",
       "example": "SOURCE_CUT_001",
       "type": "string",
       "locations": [
@@ -8296,6 +8221,22 @@
       ],
       "observedTypes": [
         "string"
+      ]
+    },
+    {
+      "semanticId": "lotus.source_snapshot_ids",
+      "canonicalTerm": "source_snapshot_ids",
+      "preferredName": "source_snapshot_ids",
+      "description": "Ordered twelve retained member evidence digests.",
+      "example": [
+        "example_source_snapshot_ids_item"
+      ],
+      "type": "array",
+      "locations": [
+        "body"
+      ],
+      "observedTypes": [
+        "array"
       ]
     },
     {
@@ -8982,6 +8923,20 @@
       ]
     },
     {
+      "semanticId": "lotus.unit",
+      "canonicalTerm": "unit",
+      "preferredName": "unit",
+      "description": "Decimal return ratio, not percent.",
+      "example": "example_unit",
+      "type": "string",
+      "locations": [
+        "body"
+      ],
+      "observedTypes": [
+        "string"
+      ]
+    },
+    {
       "semanticId": "lotus.upstream_endpoint",
       "canonicalTerm": "upstream_endpoint",
       "preferredName": "upstream_endpoint",
@@ -9101,6 +9056,20 @@
       ],
       "observedTypes": [
         "array"
+      ]
+    },
+    {
+      "semanticId": "lotus.value",
+      "canonicalTerm": "value",
+      "preferredName": "value",
+      "description": "Canonical value used by lotus-performance APIs.",
+      "example": "STANDARD_VALUE",
+      "type": "string",
+      "locations": [
+        "body"
+      ],
+      "observedTypes": [
+        "string"
       ]
     },
     {
@@ -9333,7 +9302,35 @@
       "semanticId": "lotus.year",
       "canonicalTerm": "year",
       "preferredName": "year",
-      "description": "Canonical year used by lotus-performance APIs.",
+      "description": "Complete calendar year under analysis.",
+      "example": 1,
+      "type": "integer",
+      "locations": [
+        "body"
+      ],
+      "observedTypes": [
+        "integer"
+      ]
+    },
+    {
+      "semanticId": "lotus.year_begin_assets",
+      "canonicalTerm": "year_begin_assets",
+      "preferredName": "year_begin_assets",
+      "description": "January beginning assets in the selected currency.",
+      "example": "example_year_begin_assets",
+      "type": "string",
+      "locations": [
+        "body"
+      ],
+      "observedTypes": [
+        "string"
+      ]
+    },
+    {
+      "semanticId": "lotus.year_end_member_count",
+      "canonicalTerm": "year_end_member_count",
+      "preferredName": "year_end_member_count",
+      "description": "December included member count, independent of full-year intersection.",
       "example": 1,
       "type": "integer",
       "locations": [
@@ -9464,6 +9461,18 @@
       "allowedValues": [],
       "semanticId": "lotus.calculation_id",
       "attributeRef": "#/attributeCatalog/lotus.calculation_id"
+    },
+    {
+      "name": "x_tenant_id",
+      "kind": "request_option",
+      "location": "header",
+      "required": true,
+      "type": "string",
+      "description": "Required admitted tenant authority for Performance-owned composite state. Surrounding whitespace is trimmed; the service never mints or defaults this value.",
+      "example": "private-bank-sg",
+      "allowedValues": [],
+      "semanticId": "lotus.x_tenant_id",
+      "attributeRef": "#/attributeCatalog/lotus.x_tenant_id"
     },
     {
       "name": "x_tenant_id",
@@ -13253,6 +13262,381 @@
             "type": "string",
             "semanticId": "lotus.artifact_content",
             "attributeRef": "#/attributeCatalog/lotus.artifact_content"
+          }
+        ]
+      }
+    },
+    {
+      "domain": "performance",
+      "method": "POST",
+      "path": "/performance/composites/analytics",
+      "operationId": "evaluate_composite_analytics_performance_composites_analytics_post",
+      "summary": "Evaluate annual member dispersion from exact retained composite evidence",
+      "request": {
+        "fields": [
+          {
+            "name": "X-Tenant-Id",
+            "location": "header",
+            "required": true,
+            "type": "string",
+            "semanticId": "lotus.x_tenant_id",
+            "attributeRef": "#/attributeCatalog/lotus.x_tenant_id"
+          },
+          {
+            "name": "metric_id",
+            "location": "body",
+            "required": false,
+            "type": "string",
+            "semanticId": "lotus.metric_id",
+            "attributeRef": "#/attributeCatalog/lotus.metric_id"
+          },
+          {
+            "name": "composite_id",
+            "location": "body",
+            "required": true,
+            "type": "string",
+            "semanticId": "lotus.composite_id",
+            "attributeRef": "#/attributeCatalog/lotus.composite_id"
+          },
+          {
+            "name": "year",
+            "location": "body",
+            "required": true,
+            "type": "integer",
+            "semanticId": "lotus.year",
+            "attributeRef": "#/attributeCatalog/lotus.year"
+          },
+          {
+            "name": "return_view",
+            "location": "body",
+            "required": true,
+            "type": "string",
+            "semanticId": "lotus.return_view",
+            "attributeRef": "#/attributeCatalog/lotus.return_view"
+          },
+          {
+            "name": "reporting_currency",
+            "location": "body",
+            "required": true,
+            "type": "string",
+            "semanticId": "lotus.reporting_currency",
+            "attributeRef": "#/attributeCatalog/lotus.reporting_currency"
+          },
+          {
+            "name": "method",
+            "location": "body",
+            "required": false,
+            "type": "string",
+            "semanticId": "lotus.method",
+            "attributeRef": "#/attributeCatalog/lotus.method"
+          },
+          {
+            "name": "materialization_ids",
+            "location": "body",
+            "required": true,
+            "type": "array",
+            "semanticId": "lotus.materialization_ids",
+            "attributeRef": "#/attributeCatalog/lotus.materialization_ids"
+          }
+        ]
+      },
+      "response": {
+        "fields": [
+          {
+            "name": "metric_id",
+            "location": "body",
+            "required": false,
+            "type": "string",
+            "semanticId": "lotus.metric_id",
+            "attributeRef": "#/attributeCatalog/lotus.metric_id"
+          },
+          {
+            "name": "method",
+            "location": "body",
+            "required": true,
+            "type": "string",
+            "semanticId": "lotus.method",
+            "attributeRef": "#/attributeCatalog/lotus.method"
+          },
+          {
+            "name": "method_version",
+            "location": "body",
+            "required": false,
+            "type": "string",
+            "semanticId": "lotus.method_version",
+            "attributeRef": "#/attributeCatalog/lotus.method_version"
+          },
+          {
+            "name": "composite_id",
+            "location": "body",
+            "required": true,
+            "type": "string",
+            "semanticId": "lotus.composite_id",
+            "attributeRef": "#/attributeCatalog/lotus.composite_id"
+          },
+          {
+            "name": "period_start",
+            "location": "body",
+            "required": true,
+            "type": "string",
+            "semanticId": "lotus.period_start",
+            "attributeRef": "#/attributeCatalog/lotus.period_start"
+          },
+          {
+            "name": "period_end",
+            "location": "body",
+            "required": true,
+            "type": "string",
+            "semanticId": "lotus.period_end",
+            "attributeRef": "#/attributeCatalog/lotus.period_end"
+          },
+          {
+            "name": "return_view",
+            "location": "body",
+            "required": true,
+            "type": "CompositeReturnView",
+            "semanticId": "lotus.return_view",
+            "attributeRef": "#/attributeCatalog/lotus.return_view"
+          },
+          {
+            "name": "reporting_currency",
+            "location": "body",
+            "required": true,
+            "type": "string",
+            "semanticId": "lotus.reporting_currency",
+            "attributeRef": "#/attributeCatalog/lotus.reporting_currency"
+          },
+          {
+            "name": "unit",
+            "location": "body",
+            "required": false,
+            "type": "string",
+            "semanticId": "lotus.unit",
+            "attributeRef": "#/attributeCatalog/lotus.unit"
+          },
+          {
+            "name": "value",
+            "location": "body",
+            "required": true,
+            "type": "string",
+            "semanticId": "lotus.value",
+            "attributeRef": "#/attributeCatalog/lotus.value"
+          },
+          {
+            "name": "status",
+            "location": "body",
+            "required": true,
+            "type": "string",
+            "semanticId": "lotus.status",
+            "attributeRef": "#/attributeCatalog/lotus.status"
+          },
+          {
+            "name": "reason_codes",
+            "location": "body",
+            "required": true,
+            "type": "array",
+            "semanticId": "lotus.reason_codes",
+            "attributeRef": "#/attributeCatalog/lotus.reason_codes"
+          },
+          {
+            "name": "year_end_member_count",
+            "location": "body",
+            "required": true,
+            "type": "integer",
+            "semanticId": "lotus.year_end_member_count",
+            "attributeRef": "#/attributeCatalog/lotus.year_end_member_count"
+          },
+          {
+            "name": "full_year_member_count",
+            "location": "body",
+            "required": true,
+            "type": "integer",
+            "semanticId": "lotus.full_year_member_count",
+            "attributeRef": "#/attributeCatalog/lotus.full_year_member_count"
+          },
+          {
+            "name": "reporting_applicability",
+            "location": "body",
+            "required": true,
+            "type": "string",
+            "semanticId": "lotus.reporting_applicability",
+            "attributeRef": "#/attributeCatalog/lotus.reporting_applicability"
+          },
+          {
+            "name": "publication_state",
+            "location": "body",
+            "required": false,
+            "type": "string",
+            "semanticId": "lotus.publication_state",
+            "attributeRef": "#/attributeCatalog/lotus.publication_state"
+          },
+          {
+            "name": "qualification",
+            "location": "body",
+            "required": false,
+            "type": "string",
+            "semanticId": "lotus.qualification",
+            "attributeRef": "#/attributeCatalog/lotus.qualification"
+          },
+          {
+            "name": "result_fingerprint",
+            "location": "body",
+            "required": true,
+            "type": "string",
+            "semanticId": "lotus.result_fingerprint",
+            "attributeRef": "#/attributeCatalog/lotus.result_fingerprint"
+          },
+          {
+            "name": "months",
+            "location": "body",
+            "required": true,
+            "type": "array",
+            "semanticId": "lotus.months",
+            "attributeRef": "#/attributeCatalog/lotus.months"
+          },
+          {
+            "name": "months[].materialization_id",
+            "location": "body",
+            "required": true,
+            "type": "string",
+            "semanticId": "lotus.materialization_id",
+            "attributeRef": "#/attributeCatalog/lotus.materialization_id"
+          },
+          {
+            "name": "months[].period_start",
+            "location": "body",
+            "required": true,
+            "type": "string",
+            "semanticId": "lotus.period_start",
+            "attributeRef": "#/attributeCatalog/lotus.period_start"
+          },
+          {
+            "name": "months[].period_end",
+            "location": "body",
+            "required": true,
+            "type": "string",
+            "semanticId": "lotus.period_end",
+            "attributeRef": "#/attributeCatalog/lotus.period_end"
+          },
+          {
+            "name": "months[].definition_version",
+            "location": "body",
+            "required": true,
+            "type": "string",
+            "semanticId": "lotus.definition_version",
+            "attributeRef": "#/attributeCatalog/lotus.definition_version"
+          },
+          {
+            "name": "months[].definition_content_hash",
+            "location": "body",
+            "required": true,
+            "type": "string",
+            "semanticId": "lotus.definition_content_hash",
+            "attributeRef": "#/attributeCatalog/lotus.definition_content_hash"
+          },
+          {
+            "name": "months[].membership_revision",
+            "location": "body",
+            "required": true,
+            "type": "string",
+            "semanticId": "lotus.membership_revision",
+            "attributeRef": "#/attributeCatalog/lotus.membership_revision"
+          },
+          {
+            "name": "months[].membership_content_hash",
+            "location": "body",
+            "required": true,
+            "type": "string",
+            "semanticId": "lotus.membership_content_hash",
+            "attributeRef": "#/attributeCatalog/lotus.membership_content_hash"
+          },
+          {
+            "name": "months[].attestation_version",
+            "location": "body",
+            "required": true,
+            "type": "string",
+            "semanticId": "lotus.attestation_version",
+            "attributeRef": "#/attributeCatalog/lotus.attestation_version"
+          },
+          {
+            "name": "months[].attestation_content_hash",
+            "location": "body",
+            "required": true,
+            "type": "string",
+            "semanticId": "lotus.attestation_content_hash",
+            "attributeRef": "#/attributeCatalog/lotus.attestation_content_hash"
+          },
+          {
+            "name": "months[].policy_version",
+            "location": "body",
+            "required": true,
+            "type": "string",
+            "semanticId": "lotus.policy_version",
+            "attributeRef": "#/attributeCatalog/lotus.policy_version"
+          },
+          {
+            "name": "months[].source_cut_id",
+            "location": "body",
+            "required": true,
+            "type": "string",
+            "semanticId": "lotus.source_cut_id",
+            "attributeRef": "#/attributeCatalog/lotus.source_cut_id"
+          },
+          {
+            "name": "months[].restatement_sequence",
+            "location": "body",
+            "required": true,
+            "type": "integer",
+            "semanticId": "lotus.restatement_sequence",
+            "attributeRef": "#/attributeCatalog/lotus.restatement_sequence"
+          },
+          {
+            "name": "members",
+            "location": "body",
+            "required": true,
+            "type": "array",
+            "semanticId": "lotus.members",
+            "attributeRef": "#/attributeCatalog/lotus.members"
+          },
+          {
+            "name": "members[].portfolio_id",
+            "location": "body",
+            "required": true,
+            "type": "string",
+            "semanticId": "lotus.portfolio_id",
+            "attributeRef": "#/attributeCatalog/lotus.portfolio_id"
+          },
+          {
+            "name": "members[].annual_return",
+            "location": "body",
+            "required": true,
+            "type": "string",
+            "semanticId": "lotus.annual_return",
+            "attributeRef": "#/attributeCatalog/lotus.annual_return"
+          },
+          {
+            "name": "members[].year_begin_assets",
+            "location": "body",
+            "required": true,
+            "type": "string",
+            "semanticId": "lotus.year_begin_assets",
+            "attributeRef": "#/attributeCatalog/lotus.year_begin_assets"
+          },
+          {
+            "name": "members[].source_snapshot_ids",
+            "location": "body",
+            "required": true,
+            "type": "array",
+            "semanticId": "lotus.source_snapshot_ids",
+            "attributeRef": "#/attributeCatalog/lotus.source_snapshot_ids"
+          },
+          {
+            "name": "members[].source_fingerprints",
+            "location": "body",
+            "required": true,
+            "type": "array",
+            "semanticId": "lotus.source_fingerprints",
+            "attributeRef": "#/attributeCatalog/lotus.source_fingerprints"
           }
         ]
       }

@@ -21,6 +21,7 @@ This index maps implemented lotus-performance metrics to detailed methodology do
 | Currency Allocation | POST /performance/attribution | Stateless + Stateful (multi-currency path) | [metric-currency-allocation.md](./metric-currency-allocation.md) |
 | Currency Selection | POST /performance/attribution | Stateless + Stateful (multi-currency path) | [metric-currency-selection.md](./metric-currency-selection.md) |
 | Composite Time-Weighted Return | POST /performance/composites/twr | Persisted member-return facts | [metric-composite-twr.md](./metric-composite-twr.md) |
+| Annual Composite Member Dispersion | POST /performance/composites/analytics | Twelve exact retained monthly receipts; calculated analysis | [metric-composite-annual-member-dispersion.md](./metric-composite-annual-member-dispersion.md) |
 | Portfolio Return Series | POST /integration/returns/series | Stateless + Stateful | [metric-returns-series-portfolio.md](./metric-returns-series-portfolio.md) |
 | Benchmark Return Series | POST /integration/returns/series | Stateless + Stateful | [metric-returns-series-benchmark.md](./metric-returns-series-benchmark.md) |
 | Active Return Series | POST /integration/returns/series | Stateless + Stateful | [metric-returns-series-active.md](./metric-returns-series-active.md) |
