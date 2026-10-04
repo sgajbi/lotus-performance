@@ -170,7 +170,7 @@ recovery-drill-smoke:
 	python scripts/durable_recovery_drill.py --output-dir artifacts/durable-recovery-drill --retention-limit 30 --retention-max-age-days 90 --operator-id migration-smoke --backup-identifier migration-smoke-local
 
 runtime-retention-smoke:
-	python scripts/runtime_retention_cleanup.py --scheduled --output-dir artifacts/runtime-retention-cleanup --retention-limit 30 --retention-max-age-days 90
+	python -m scripts.runtime_retention_cleanup --scheduled
 
 lineage-volume-recovery-smoke:
 	python scripts/validate_lineage_volume_recovery.py

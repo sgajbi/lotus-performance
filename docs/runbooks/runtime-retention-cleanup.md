@@ -85,8 +85,16 @@ one-day policy, while `--retention-days 0` is invalid.
 
 ## Safe Execution Sequence
 
+Run these commands from the repository root after installing the pinned dependencies and applying
+the durable schema (`make migration-apply` or the Compose schema-owner job). The module invocation
+also works from `/app` in the shipped non-root image; no `PYTHONPATH` setup is required.
+`--retention-days`, `--retention-limit` and `--retention-max-age-days` accept positive integers only;
+invalid overrides exit before cleanup or evidence pruning. The CLI does not apply schema migrations.
+The scheduled Make smoke uses validated environment settings, including the artifact path and history
+policy; with no overrides their repository defaults remain unchanged.
+
 1. Run a dry run first:
-   - `python scripts/runtime_retention_cleanup.py`
+   - `python -m scripts.runtime_retention_cleanup`
 2. Review the JSON summary:
    - `prunable_execution_count`
    - `prunable_compute_job_count`
@@ -101,12 +109,12 @@ one-day policy, while `--retention-days 0` is invalid.
    - `protected_reason_counts`
    - for apply evidence, `target_manifest` and `phase_results`
 3. If the counts are expected, apply the cleanup:
-   - `python scripts/runtime_retention_cleanup.py --apply`
+   - `python -m scripts.runtime_retention_cleanup --apply`
 4. If a non-default window is required, use:
-   - `python scripts/runtime_retention_cleanup.py --retention-days <days>`
-   - `python scripts/runtime_retention_cleanup.py --retention-days <days> --apply`
+   - `python -m scripts.runtime_retention_cleanup --retention-days <days>`
+   - `python -m scripts.runtime_retention_cleanup --retention-days <days> --apply`
 5. For governed scheduled automation, use:
-   - `python scripts/runtime_retention_cleanup.py --scheduled --apply`
+   - `python -m scripts.runtime_retention_cleanup --scheduled --apply`
    - confirm the retained evidence records `trigger_mode="scheduled"` and the expected automation `job_id`
    - for a safe scheduled dry run, use `make runtime-retention-smoke`
    - for continuous scheduled execution, enable the optional `performance-runtime-retention-worker` compose service
@@ -150,7 +158,7 @@ Example hold file:
 To place a hold:
 
 1. Add the `calculation_id`, bounded `reason_code`, and approval or case `source`.
-2. Run `python scripts/runtime_retention_cleanup.py` and confirm protected counts and
+2. Run `python -m scripts.runtime_retention_cleanup` and confirm protected counts and
    `protected_reason_counts` are present before apply.
 3. Keep the hold file under the configured durable artifact location for every API, worker, and
    scheduled cleanup process that can run retention.

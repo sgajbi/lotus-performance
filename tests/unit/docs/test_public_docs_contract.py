@@ -2383,8 +2383,8 @@ def test_runtime_retention_cleanup_runbook_is_governed():
     runbook = _read("docs/runbooks/runtime-retention-cleanup.md")
     api_reference = _read("docs/guides/api_reference.md")
 
-    assert "python scripts/runtime_retention_cleanup.py" in runbook
-    assert "python scripts/runtime_retention_cleanup.py --apply" in runbook
+    assert "python -m scripts.runtime_retention_cleanup" in runbook
+    assert "python -m scripts.runtime_retention_cleanup --apply" in runbook
     assert "GET /integration/runtime-retention-cleanups" in runbook
     assert "POST /integration/runtime-retention-cleanups/run" in runbook
     assert "RUNTIME_RETENTION_DAYS" in runbook

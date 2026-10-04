@@ -136,7 +136,7 @@ Runtime-status unexpected-read handling:
 - First actions:
   - inspect `GET /integration/runtime-retention-cleanups`
   - identify the latest retained cleanup `operator_id`, `cleanup_mode`, and `retention_days`
-  - rerun `python scripts/runtime_retention_cleanup.py --operator-id <operator> --apply` after validating the dry-run summary if the retained cleanup is stale or only planned
+  - rerun `python -m scripts.runtime_retention_cleanup --operator-id <operator> --apply` after validating the dry-run summary if the retained cleanup is stale or only planned
   - confirm retained cleanup evidence refreshed `latest.json` plus `manifest.json`
 
 ## Escalation Rule

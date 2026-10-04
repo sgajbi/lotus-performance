@@ -1201,7 +1201,7 @@ Return semantics for the workspace surface are now explicit rather than inferred
 
 ## Runtime Operations
 
-### `python scripts/runtime_retention_cleanup.py`
+### `python -m scripts.runtime_retention_cleanup`
 
 - purpose: inspect or prune retained terminal runtime state and lineage artifacts beyond the configured retention window
 - governed runbook:
@@ -1210,11 +1210,11 @@ Return semantics for the workspace surface are now explicit rather than inferred
   - dry run only
   - prints a JSON summary of prunable runtime records and lineage artifact directories
 - apply behavior:
-  - `python scripts/runtime_retention_cleanup.py --apply`
+  - `python -m scripts.runtime_retention_cleanup --apply`
 - override behavior:
-  - `python scripts/runtime_retention_cleanup.py --retention-days <days>`
+  - `python -m scripts.runtime_retention_cleanup --retention-days <days>`
 - scheduled automation behavior:
-  - `python scripts/runtime_retention_cleanup.py --scheduled --apply`
+  - `python -m scripts.runtime_retention_cleanup --scheduled --apply`
   - evidence records `trigger_mode` plus the configured automation `job_id`
   - `make runtime-retention-smoke` runs the governed scheduled dry-run path with retained evidence
 - safety contract:

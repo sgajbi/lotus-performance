@@ -15,6 +15,12 @@ this repository and published after merge; unpublished drift is expected on feat
 
 ## Operator surface summary
 
+For retention, run `python -m scripts.runtime_retention_cleanup` from the repository root or `/app`
+in the shipped image after the durable schema owner completes. The default is an attributable
+dry-run; apply requires `--apply`. CLI policy overrides must be positive. `make runtime-retention-smoke`
+uses scheduled identity and validated environment settings without requiring `PYTHONPATH`.
+See the [retention runbook](https://github.com/sgajbi/lotus-performance/blob/main/docs/runbooks/runtime-retention-cleanup.md) before deletion.
+
 Primary runtime surfaces:
 
 - `GET /health`
