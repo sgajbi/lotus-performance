@@ -944,6 +944,16 @@ replay, not a process restart, worker recovery or live upstream authority. The c
 the focused native PostgreSQL gate command and working directory. Keep production/schema/Compose
 and gate contracts unchanged for this acceptance-only slice.
 
+Composite HTTP benchmark fixtures own runtime stores allocated at their unique PostgreSQL schema
+URL, including the six lazy startup stores and materialization store. Observe allocations through
+the genuine resolver/factory; release only tracked owned identities on normal or exceptional exit.
+Preserve existing same-URL borrowed stores, foreign URLs and external replacements. Attempt every
+owned disposal if one fails, and retain the original test failure together with cleanup errors.
+Closing the fixture's directly constructed stores alone does not release startup cache pools.
+Full characterization shares one test process and randomizes order; separate PostgreSQL gate
+subprocesses cannot prove absence of cross-case retained connections. This is test-resource
+ownership, not a production database-lifetime or workload-readiness guarantee.
+
 ## Cross-Links
 
 1. `../lotus-platform/context/LOTUS-QUICKSTART-CONTEXT.md`
