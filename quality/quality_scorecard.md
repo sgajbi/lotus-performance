@@ -28,8 +28,8 @@ metrics in each section are updated with each meaningful slice.
 | Python LOC | 104,454 | 185,003 | 80,549 | measured | `quality/baseline_report.md`; `quality/refactor_health_report.md` |
 | Largest Python file LOC | 2,399 | 2,503 | 104 | measured | `quality/baseline_report.md`; `quality/refactor_health_report.md` |
 | Largest production file LOC | 1,156 | 1,991 | 835 | measured | `quality/refactor_health_report.md`; `quality/architecture_boundary_inventory.md` |
-| Python test modules | 228 | 367 | 139 | measured | `quality/baseline_report.md`; `quality/refactor_health_report.md` |
-| Collected tests | 2,035 | 6,414 | 4,379 | measured | `quality/baseline_report.md`; `quality/refactor_health_report.md` |
+| Python test modules | 228 | 368 | 140 | measured | `quality/baseline_report.md`; `quality/refactor_health_report.md` |
+| Collected tests | 2,035 | 6,428 | 4,393 | measured | `quality/baseline_report.md`; `quality/refactor_health_report.md` |
 | Duplicate code hotspots | 0 | 0 | 0 | enforced | `quality/duplicate_code_inventory.md`; `quality/refactor_health_report.md`; `make quality-duplicate-code-gate` |
 | Tracked local byproduct findings | unknown | 0 | n/a | enforced | `scripts/repository_hygiene_gate.py`; `make repository-hygiene-gate`; `quality/refactor_health_report.md` |
 
@@ -70,7 +70,7 @@ metrics in each section are updated with each meaningful slice.
 | --- | ---: | ---: | ---: | --- | --- |
 | Line coverage | unknown | 99.58% | n/a | measured | `quality/coverage_inventory.md`; `quality/refactor_health_report.md` |
 | Branch coverage | unknown | 98.00% | n/a | measured | `quality/coverage_inventory.md`; `quality/refactor_health_report.md`; `make branch-coverage-baseline` |
-| Integration/API/runtime test functions | unknown | 941 | n/a | enforced | `quality/test_taxonomy_inventory.md`; `quality/refactor_health_report.md`; `make quality-test-taxonomy-gate` |
+| Integration/API/runtime test functions | unknown | 946 | n/a | enforced | `quality/test_taxonomy_inventory.md`; `quality/refactor_health_report.md`; `make quality-test-taxonomy-gate` |
 | Contract/governance test functions | unknown | 224 | n/a | enforced | `quality/test_taxonomy_inventory.md`; `quality/refactor_health_report.md`; `make quality-test-taxonomy-gate` |
 | Uncategorized test functions | unknown | 558 | n/a | enforced ceiling | `quality/test_taxonomy_inventory.md`; `make quality-test-taxonomy-gate`; #619 exact adapter classification measures 558 and separately banks policy 558. |
 
@@ -139,9 +139,17 @@ metrics in each section are updated with each meaningful slice.
 
 ## Durable Schema Ownership Development Inventory (#488)
 
-Current AST inventory: 357 modules, 4,388 source test functions, 915 integration/API/runtime test functions, 215 contract/governance test functions, 735 observability/readiness test functions, 324 quality/security test functions, 2,212 analytics-domain test functions, and 563 uncategorized test functions.
+Historical #488 AST inventory: 357 modules, 4,388 source test functions, 915 integration/API/runtime test functions, 215 contract/governance test functions, 735 observability/readiness test functions, 324 quality/security test functions, 2,212 analytics-domain test functions, and 563 uncategorized test functions.
 Schema-verification and owner-upgrade tests are readiness evidence; the uncategorized ceiling
 tightens from 565 to 563. Pinned Docker typecheck passed342 source files. The initial full Docker
-lane retained three inventory failures with4796 unit passes/three governed skips; integration,
-coverage, runtime rollout and exact-main acceptance remain pending. Historical results above
-are unchanged.
+lane historically retained three inventory failures with4796 unit passes/three governed skips.
+Final #488 main75f8edbd passed all ten jobs in37185500985; independent QA remains separate.
+Historical failures above are unchanged.
+
+## Operator Retention Entrypoint Development Inventory (#604)
+
+Current AST inventory: 368 modules, 4,465 source test functions, 946 integration/API/runtime,
+224 contract/governance, 752 observability/readiness, 326 quality/security, 2,275 analytics-domain
+and 558 uncategorized functions. Fresh subprocess contracts cover help, dry-run, scheduled Make
+execution and positive policy boundaries. No gate or financial formula changed. Release acceptance
+requires pinned delivery gates and immutable image proof; native tests alone are not acceptance.

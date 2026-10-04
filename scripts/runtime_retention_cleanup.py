@@ -30,12 +30,24 @@ __all__ = [
 ]
 
 
+def _positive_integer(value: str) -> int:
+    try:
+        parsed = int(value)
+    except ValueError as exc:
+        raise argparse.ArgumentTypeError("must be a positive integer") from exc
+    if parsed <= 0:
+        raise argparse.ArgumentTypeError("must be a positive integer")
+    return parsed
+
+
 def parse_args() -> argparse.Namespace:
     settings = get_settings()
     parser = argparse.ArgumentParser(
         description="Prune retained lotus-performance runtime state and lineage artifacts."
     )
-    parser.add_argument("--retention-days", type=int, default=None, help="Override runtime retention window in days.")
+    parser.add_argument(
+        "--retention-days", type=_positive_integer, default=None, help="Override runtime retention window in days."
+    )
     parser.add_argument(
         "--apply",
         action="store_true",
@@ -70,13 +82,13 @@ def parse_args() -> argparse.Namespace:
     )
     parser.add_argument(
         "--retention-limit",
-        type=int,
+        type=_positive_integer,
         default=settings.RUNTIME_RETENTION_HISTORY_LIMIT,
         help="Maximum number of retained timestamped cleanup evidence files.",
     )
     parser.add_argument(
         "--retention-max-age-days",
-        type=int,
+        type=_positive_integer,
         default=settings.RUNTIME_RETENTION_HISTORY_MAX_AGE_DAYS,
         help="Maximum age in days for retained cleanup evidence files.",
     )

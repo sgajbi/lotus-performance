@@ -271,6 +271,8 @@ source-economics or reconciliation regressions.
   `make migration-apply`
 - retention smoke
   `make runtime-retention-smoke`
+  uses validated environment settings and scheduled dry-run identity. For manual dry-run, use
+  `python -m scripts.runtime_retention_cleanup` from the repository root after schema application.
 - lineage volume restart recovery
   `make lineage-volume-recovery-smoke`
 - quality baseline reports

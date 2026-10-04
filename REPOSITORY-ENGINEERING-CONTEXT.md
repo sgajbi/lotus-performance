@@ -823,6 +823,12 @@ Important validation expectations:
     before module-scoped clients start. Prove shards against fresh storage: running unit tests
     first can mask incomplete HTTP fixture setup. Startup-refusal cases use separate databases.
 
+45. Operator retention uses `python -m scripts.runtime_retention_cleanup` from the repository root
+    or `/app` in the shipped image, after explicit schema ownership. Do not require inherited
+    `PYTHONPATH` or run the direct script path. Fresh subprocess contracts cover help without database
+    creation, attributable dry-run, positive policy boundaries and pre-apply refusal. The scheduled
+    Make smoke consumes validated settings rather than hard-coded artifact/history overrides.
+
 ## Standards And RFCs That Govern This Repository
 
 Attribution supports FLOAT64 only across instrument/group, currency and linking paths. The shared

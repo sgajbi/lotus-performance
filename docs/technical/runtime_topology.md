@@ -96,7 +96,7 @@ Recommended starting values:
 ### `performance-runtime-retention-worker`
 
 - optional scheduled runtime-retention automation under the compose `ops` profile
-- executes the same governed cleanup path as `python scripts/runtime_retention_cleanup.py --scheduled`
+- executes the same governed cleanup path as `python -m scripts.runtime_retention_cleanup --scheduled`
 - persists retained cleanup evidence with scheduled automation identity and job id
 - defaults to dry-run mode unless `RUNTIME_RETENTION_WORKER_APPLY=true` is set explicitly
 - relies on retention-aligned durable-store indexes plus database-native count/delete operations so

@@ -94,11 +94,11 @@ link the commit, command, or CI artifact that proves the change.
 
 | Metric | Baseline | Current | Status | Evidence |
 | --- | ---: | ---: | --- | --- |
-| Test modules | 228 | 367 | measured | `rg --files tests -g 'test_*.py'` |
-| Collected tests | 2,035 | 6,414 | measured | `python -m pytest --collect-only -q` |
+| Test modules | 228 | 368 | measured | `rg --files tests -g 'test_*.py'` |
+| Collected tests | 2,035 | 6,428 | measured | `python -m pytest --collect-only -q` |
 | Line coverage | unknown | 99.58% | measured | `quality/coverage_inventory.md` via `make branch-coverage-baseline` (`3,013` unit, `308` integration, and `21` e2e tests under branch coverage; `21,154` covered lines of `21,244` statements) |
 | Branch coverage | unknown | 98.00% | measured | `quality/coverage_inventory.md` via `make branch-coverage-baseline` (`3,013` unit, `308` integration, and `21` e2e tests under branch coverage; `4,318` covered branches of `4,406`, `88` missing branches, `88` partial branches) |
-| Integration/API/runtime test functions | unknown | 941 | enforced | `quality/test_taxonomy_inventory.md`; `make quality-test-taxonomy-gate` |
+| Integration/API/runtime test functions | unknown | 946 | enforced | `quality/test_taxonomy_inventory.md`; `make quality-test-taxonomy-gate` |
 | Contract/governance test functions | unknown | 224 | enforced | `quality/test_taxonomy_inventory.md`; `make quality-test-taxonomy-gate` |
 | Uncategorized test functions | unknown | 558 | enforced ceiling | `quality/test_taxonomy_inventory.md`; `make quality-test-taxonomy-gate`; #619 classifies the precise source/error adapter module; observed 558, separately banked policy 558. |
 
@@ -1687,9 +1687,17 @@ Future commits should update this report when they:
 
 ## Durable Schema Ownership Development Inventory (#488)
 
-Current AST inventory: 357 modules, 4,388 source test functions, 915 integration/API/runtime test functions, 215 contract/governance test functions, 735 observability/readiness test functions, 324 quality/security test functions, 2,212 analytics-domain test functions, and 563 uncategorized test functions.
+Historical #488 AST inventory: 357 modules, 4,388 source test functions, 915 integration/API/runtime test functions, 215 contract/governance test functions, 735 observability/readiness test functions, 324 quality/security test functions, 2,212 analytics-domain test functions, and 563 uncategorized test functions.
 Schema-verification and owner-upgrade tests are readiness evidence; the uncategorized ceiling
 tightens from 565 to 563. Pinned Docker typecheck passed342 source files. The initial full Docker
-lane retained three inventory failures with4796 unit passes/three governed skips; integration,
-coverage, runtime rollout and exact-main acceptance remain pending. Historical results above
-are unchanged.
+lane historically retained three inventory failures with4796 unit passes/three governed skips.
+Final #488 main75f8edbd passed all ten jobs in37185500985; independent QA remains separate.
+Historical failures above are unchanged.
+
+## Operator Retention Entrypoint Development Inventory (#604)
+
+Current AST inventory: 368 modules, 4,465 source test functions, 946 integration/API/runtime,
+224 contract/governance, 752 observability/readiness, 326 quality/security, 2,275 analytics-domain
+and 558 uncategorized functions. Fresh subprocess contracts cover help, dry-run, scheduled Make
+execution and positive policy boundaries. No gate or financial formula changed. Release acceptance
+requires pinned delivery gates and immutable image proof; native tests alone are not acceptance.
