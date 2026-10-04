@@ -16,9 +16,13 @@ import re
 import subprocess
 from pathlib import Path
 
+import pytest
+
 from scripts.python_test_taxonomy_inventory import (
+    TestModuleInventory,
     _families_for_path,
     collect_test_modules,
+    evaluate_taxonomy_thresholds,
     summarize_test_taxonomy,
 )
 
@@ -51,6 +55,39 @@ CLASSIFIED_SURFACES = (
     ("durable_recovery_drill", "observability_or_readiness"),
     ("durable_schema_inventory_check", "contract_or_governance"),
 )
+
+
+def test_stateful_source_error_adapter_has_precise_runtime_and_readiness_classification():
+    path = "tests/unit/services/test_stateful_upstream_errors.py"
+    modules = [module for module in collect_test_modules(("tests",)) if module.path == path]
+    assert len(modules) == 1
+    module = modules[0]
+    assert module.test_count > 0
+    assert set(module.families) == {"api_or_runtime", "observability_or_readiness"}
+    for unrelated in (
+        "tests/unit/services/test_stateful_unrelated.py",
+        "tests/unit/services/test_stateful_upstream_errors_extra.py",
+        "tests/other/test_stateful_upstream_errors.py",
+    ):
+        assert _families_for_path(unrelated) == ("uncategorized",)
+    summary = summarize_test_taxonomy([module])
+    assert summary.api_or_runtime_tests == module.test_count
+    assert summary.family_counts["observability_or_readiness"] == module.test_count
+    assert summary.uncategorized_tests == 0
+
+
+@pytest.mark.parametrize("excess", [0, 1])
+def test_uncategorized_policy_accepts_boundary_and_refuses_representative_growth(excess):
+    match = re.search(r"--max-uncategorized-tests (\d+)", MAKEFILE.read_text(encoding="utf-8"))
+    assert match is not None
+    declared = int(match.group(1))
+    summary = summarize_test_taxonomy(
+        [TestModuleInventory("tests/unit/services/test_unrelated.py", "unit", declared + excess, ("uncategorized",))]
+    )
+    failures = evaluate_taxonomy_thresholds(summary, max_uncategorized_tests=declared)
+    assert failures == (
+        [f"Uncategorized test functions {declared + excess} above allowed ceiling {declared}."] if excess else []
+    )
 
 
 def _classifier_tokens() -> tuple[str, ...]:

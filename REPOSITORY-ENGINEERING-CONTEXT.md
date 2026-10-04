@@ -954,6 +954,23 @@ Full characterization shares one test process and randomizes order; separate Pos
 subprocesses cannot prove absence of cross-case retained connections. This is test-resource
 ownership, not a production database-lifetime or workload-readiness guarantee.
 
+## Direct Portfolio Source Refusal Practice
+
+The existing stateful upstream helper recognizes only the direct PortfolioTimeseriesInput
+HTTP 422 problem with matching integer body status, canonical Core problem type,
+QCP_ANALYTICS_INSUFFICIENT_DATA and metadata.analytics_error_code=INSUFFICIENT_DATA.
+An explicitly named source product must agree; explicit retryability is outside the recognized
+contract. Use existing APIError and durable v1 classification with server-owned text, never
+raw upstream diagnostics. Keep export/not-ready, other products, unknown errors and transport
+retry policies unchanged. Scope remains in existing execution requests and retrieval snapshots;
+as-of dates do not prove a frozen source cut. Source repair belongs to Core.
+
+Owning proof uses the actual workspace worker and public routes with controlled HTTP source
+fixtures, independent store reload, exact attempts, tenant denial and explicit calculation-ID
+replay. PostgreSQL cases live in the existing concurrency target and use its isolated schema
+helper; no production schema or calculation change is required. The caller guide and wiki
+troubleshooting page describe client and operator behavior.
+
 ## Cross-Links
 
 1. `../lotus-platform/context/LOTUS-QUICKSTART-CONTEXT.md`

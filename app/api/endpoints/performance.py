@@ -67,7 +67,9 @@ router = APIRouter(tags=["Performance"])
         "valuation observations and optional benchmark input; stateful callers use an empty "
         "stateful_input envelope so lotus-performance can source portfolio and benchmark data from "
         "governed upstream contracts. Large stateful or large-input requests may return 202 with "
-        "poll_path and result_path."
+        "poll_path and result_path. A recognized Core portfolio-timeseries INSUFFICIENT_DATA "
+        "refusal returns 422 QCP_ANALYTICS_INSUFFICIENT_DATA with retryable=false, including "
+        "through durable result polling; repair the source before submitting a new calculation."
     ),
     responses=async_submission_responses(
         accepted_model=WorkspaceSummaryAcceptedResponse,
@@ -90,7 +92,9 @@ async def calculate_workspace_summary_endpoint(
     summary="Retrieve async workspace summary result",
     description=(
         "Retrieves the completed workspace-summary response for an async request, or returns the "
-        "accepted envelope while execution remains pending."
+        "accepted envelope while execution remains pending. A retained Core portfolio-timeseries "
+        "source refusal preserves 422 QCP_ANALYTICS_INSUFFICIENT_DATA and retryable=false; "
+        "polling does not restart the failed execution."
     ),
     responses=async_result_responses(
         accepted_model=WorkspaceSummaryAcceptedResponse,

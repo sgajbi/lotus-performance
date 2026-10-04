@@ -53,6 +53,19 @@ POSTGRES_CONCURRENCY_ROWS = 20
 POSTGRES_CONCURRENCY_CLAIM_LIMIT = 10
 
 
+def test_postgres_source_refusal_worker_restart_and_public_polling(tmp_path, monkeypatch, caplog):
+    from tests.source_refusal_contract_helpers import assert_durable_source_refusal
+
+    assert_durable_source_refusal(get_postgres_database_url(), monkeypatch, tmp_path, caplog)
+
+
+@pytest.mark.parametrize("status", [422, 429, 503, "timeout"])
+def test_postgres_source_refusal_retry_budget_survives_restart(tmp_path, monkeypatch, status, caplog):
+    from tests.source_refusal_contract_helpers import assert_retryable_source_failure
+
+    assert_retryable_source_failure(get_postgres_database_url(), monkeypatch, status, tmp_path, caplog)
+
+
 @pytest.mark.parametrize("entrypoint", ENTRYPOINTS)
 @pytest.mark.parametrize("shape", ["empty", "missing_index"])
 def test_postgres_startup_refuses_without_serving_polling_allocation_or_ddl(monkeypatch, entrypoint, shape):

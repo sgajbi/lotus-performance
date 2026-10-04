@@ -1,7 +1,7 @@
 # Lotus Performance Test Taxonomy Inventory
 
 Report date: 2026-10-04
-Branch: `fix/postgres-benchmark-runtime-lifecycle`
+Branch: `fix/core-source-refusal-outcomes`
 Mode: regression-blocking test taxonomy inventory; `make quality-test-taxonomy-gate` enforces
 minimum API/runtime and contract/governance breadth plus the current uncategorized-test ceiling.
 
@@ -15,26 +15,26 @@ and quality family without executing tests or requiring coverage data.
 
 ```powershell
 python scripts/python_test_taxonomy_inventory.py --limit 30
-python scripts/python_test_taxonomy_inventory.py --limit 30 --min-api-runtime-tests 656 --min-contract-governance-tests 136 --max-uncategorized-tests 563
+python scripts/python_test_taxonomy_inventory.py --limit 30 --min-api-runtime-tests 656 --min-contract-governance-tests 136 --max-uncategorized-tests 558
 ```
 
 ## Summary
 
 | Metric | Value |
 | --- | ---: |
-| Test modules inventoried | 366 |
-| Test functions inventoried | 4449 |
-| Integration/API/runtime test functions | 929 |
-| Contract/governance test functions | 220 |
+| Test modules inventoried | 367 |
+| Test functions inventoried | 4460 |
+| Integration/API/runtime test functions | 941 |
+| Contract/governance test functions | 224 |
 
 ## Test Functions By Suite
 
 | Suite | Modules | Test functions |
 | --- | ---: | ---: |
-| benchmarks | 11 | 66 |
+| benchmarks | 11 | 68 |
 | e2e | 1 | 21 |
-| integration | 35 | 487 |
-| unit | 319 | 3875 |
+| integration | 36 | 489 |
+| unit | 319 | 3882 |
 
 ## Test Functions By Family
 
@@ -44,12 +44,19 @@ above does sum to it, because a module belongs to exactly one suite.
 
 | Family | Test functions |
 | --- | ---: |
-| analytics_domain | 2273 |
-| api_or_runtime | 929 |
-| contract_or_governance | 220 |
-| observability_or_readiness | 735 |
-| quality_or_security | 324 |
-| uncategorized | 563 |
+| analytics_domain | 2275 |
+| api_or_runtime | 941 |
+| contract_or_governance | 224 |
+| observability_or_readiness | 747 |
+| quality_or_security | 326 |
+| uncategorized | 558 |
+
+The #619 source-refusal slice classifies the exact existing stateful upstream error adapter
+module as API/runtime and readiness evidence. Ten actual source functions move from
+uncategorized; unrelated stateful/error paths remain unclassified. The observed count is 558;
+the separately declared Make policy ceiling is tightened from 563 to 558, consistent with the
+existing banked-ratchet guard. Breadth floors remain unchanged. This inventory is not live Core
+acceptance or calculation/source readiness certification.
 
 ## Largest Test Modules
 

@@ -66,6 +66,8 @@ async def retrieve_stateful_portfolio_input(
     raise_for_stateful_control_plane_unavailable(
         source_label="stateful portfolio timeseries source",
         upstream_status=upstream_status,
+        upstream_payload=upstream_payload,
+        source_product="PortfolioTimeseriesInput",
     )
     return _stateful_portfolio_input_from_payload(upstream_payload)
 

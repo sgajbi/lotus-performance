@@ -4,6 +4,18 @@ Use this page for first-response triage. Keep incident notes grounded in observa
 health payloads, readiness payloads, execution records, lineage metadata, runtime work items,
 recovery history, retention history, logs, metrics, and exact request identifiers.
 
+Current scope is implemented service triage; a passing controlled test is not live runtime
+certification. Choose the observed symptom before changing source data or execution state.
+
+## Triage Map
+
+| Symptom | First evidence | Next section |
+| --- | --- | --- |
+| Readiness failure | Database reachability and runtime configuration | [Service readiness](#service-starts-but-readiness-fails) |
+| Source refusal | Safe code, source scope and retrieval snapshots | [Stateful upstream failures](#stateful-requests-fail-against-upstream-sources) |
+| Pending async work | Execution, queue and recovery state | [Async workflows](#async-workflows-stall) |
+| Demo validation failure | Exact failed validation check | [Demo certification](#demo-certification-fails) |
+
 ## Service starts but readiness fails
 
 Check:
@@ -18,6 +30,20 @@ References:
 - [docs/runbooks/durable-metadata-recovery.md](https://github.com/sgajbi/lotus-performance/blob/main/docs/runbooks/durable-metadata-recovery.md)
 
 ## Stateful requests fail against upstream sources
+
+An exact direct portfolio-timeseries Core refusal is preserved as
+`422 QCP_ANALYTICS_INSUFFICIENT_DATA`, `retryable=false`. A durable workspace job fails after
+one attempt; polling retains the safe refusal and does not restart it. Repair the Core source
+history/evidence, then submit a new calculation ID. The original failure remains retained.
+Unknown/malformed errors, unfinished export jobs and transport/throttle/server failures keep
+the existing safe retry policy. Do not weaken source qualification to make a workspace ready.
+
+Use the execution record's portfolio, requested window, as-of date and retrieval fingerprints
+to correlate evidence; dates alone do not establish an immutable data cut. Core diagnostic
+text is not projected into the public failure. See the
+[workspace caller guide](https://github.com/sgajbi/lotus-performance/blob/main/docs/guides/workspace_summary.md#stateful-source-refusal-and-durable-polling)
+for submission, polling and source-repair behavior. Controlled adapter/database tests do not
+replace live source validation.
 
 Check:
 
