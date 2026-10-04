@@ -32,6 +32,20 @@ the current single reporting-currency guard is not supported.
 
 ## Source Flow
 
+Annual member dispersion has its own [caller guide](../guides/composite_annual_dispersion.md) and
+[metric methodology](../methodologies/metrics/metric-composite-annual-member-dispersion.md).
+`POST /performance/composites/analytics` selects the annual metric and either equal-weight sample
+or year-begin asset-weighted population standard deviation. It consumes twelve exact COMPLETE
+historical materialization receipts through a read port and keeps full-year and December counts
+separate. The TWR endpoint certification above does not certify this new operation.
+
+Annual responses are `CALCULATED_ANALYSIS` with
+`RETAINED_SOURCE_ATTESTATION_NOT_LIVE_QUALIFIED`. The existing monthly retained-publication guards
+support exact source replay; official selection, imported history, external input admission,
+model-net policy, live producer acceptance, and production PostgreSQL/scale acceptance remain
+separately governed work. Synthetic numerical and registered API tests demonstrate bounded
+behavior without promoting those missing authorities.
+
 ```mermaid
 flowchart LR
     A[lotus-manage composite definition] --> D[composite metadata store]

@@ -897,6 +897,31 @@ Update this document when:
 7. repo-native domain-product declaration paths or validation commands change,
 8. README or `wiki/` structure changes the repository-local onboarding or operator navigation model.
 
+## Annual Composite Analysis Practice
+
+`POST /performance/composites/analytics` currently selects `ANNUAL_MEMBER_DISPERSION` and either
+`EQUAL_WEIGHT_SAMPLE_STDDEV` or `YEAR_BEGIN_ASSET_WEIGHTED_POPULATION_STDDEV`. The thin router
+uses an application service, typed read port, existing materialization-store adapter, and Decimal
+engine inside the current deployable application. No scheduler, durable table, source fan-out,
+or Risk calculator is added. Future metrics require their own explicit typed contract and
+financial admission; the operation does not accept arbitrary metric names or formulas.
+
+Admit twelve exact tenant-owned COMPLETE calendar-month receipts with compatible composite,
+currency, actual fee view, definition digest, and policy. Historical READY intersection determines
+full-year members; December population determines the separately reported year-end count.
+Explicit historical exclusions remain valid; missing source evidence is refused. Reuse existing
+retained-progress and completed-publication guards. Replay selects immutable UUIDs, never latest
+revisions. Result fingerprints bind the method, tenant, source vector, and financial output.
+
+Responses remain `CALCULATED_ANALYSIS` with
+`RETAINED_SOURCE_ATTESTATION_NOT_LIVE_QUALIFIED`. Do not infer official selection, imported history,
+external-return admission, model-net support, live qualification, GIPS compliance, or institutional
+methodology approval. [Methodology](docs/methodologies/metrics/metric-composite-annual-member-dispersion.md)
+and [caller guide](docs/guides/composite_annual_dispersion.md) carry worked examples and refusal
+behavior. Owning tests have distinct engine/model/service/adapter/API names so combined native
+collection remains valid. Keep new service logic behind the read port and do not bypass source
+or publication admission to broaden a population.
+
 ## Cross-Links
 
 1. `../lotus-platform/context/LOTUS-QUICKSTART-CONTEXT.md`

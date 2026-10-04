@@ -4,7 +4,12 @@ from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, Request, status
 
+from app.api.dependencies.composite_annual_dispersion import (
+    annual_dispersion_openapi_examples,
+    get_annual_dispersion_receipt_reader,
+)
 from app.api.http_status import HTTP_422_UNPROCESSABLE
+from app.models.composite_annual_dispersion import CompositeAnnualDispersionRequest, CompositeAnnualDispersionResponse
 from app.models.composites import (
     CompositeErrorResponse,
     CompositeInspectionRequest,
@@ -15,6 +20,8 @@ from app.models.composites import (
     CompositeTWRResponse,
 )
 from app.models.platform_surfaces import ErrorDetailResponse
+from app.ports.composite_annual_dispersion import AnnualDispersionReceiptReader
+from app.services.composite_annual_dispersion.application import calculate_annual_member_dispersion
 from app.services.composite_calculation_service import (
     CompositeDefinitionNotFoundError,
     calculate_composite_twr_from_persisted_facts,
@@ -312,3 +319,70 @@ def inspect_composite_twr(
             status_code=status.HTTP_409_CONFLICT,
             detail={"code": "COMPOSITE_FACT_SELECTION_INCOMPLETE", "message": str(exc)},
         ) from exc
+
+
+ANNUAL_DISPERSION_OPENAPI_EXAMPLES = annual_dispersion_openapi_examples()
+
+
+@router.post(
+    "/composites/analytics",
+    response_model=CompositeAnnualDispersionResponse,
+    summary="Evaluate annual member dispersion from exact retained composite evidence",
+    description=(
+        "One bounded composite analytics operation with explicit metric and method selection. "
+        "Currently evaluates ANNUAL_MEMBER_DISPERSION over twelve exact COMPLETE calendar-month receipts. "
+        "Consumes historical Manage membership and verified member returns without source fan-out. "
+        "Financial computability, small-population reporting applicability and source qualification are separate. "
+        "Results are non-official calculated analysis; no external-return import, official approval or risk engine is implied. "
+        "Exact replay uses the same retained receipt vector beyond ordinary execution expiry. "
+        "Documentation examples are synthetic; a real call requires its tenant's retained receipts."
+    ),
+    responses={
+        200: {
+            "description": "Available dispersion or typed insufficient full-year member population.",
+            "content": {"application/json": {"example": ANNUAL_DISPERSION_OPENAPI_EXAMPLES["response"]}},
+        },
+        **COMPOSITE_TENANT_AUTHORITY_RESPONSES,
+        404: {
+            "model": ErrorDetailResponse,
+            "description": "A retained receipt is absent in the admitted tenant.",
+            "content": {"application/json": {"example": ANNUAL_DISPERSION_OPENAPI_EXAMPLES["errors"]["not_found"]}},
+        },
+        409: {
+            "model": ErrorDetailResponse,
+            "description": "A selected monthly receipt or its immutable publication is incomplete.",
+            "content": {"application/json": {"example": ANNUAL_DISPERSION_OPENAPI_EXAMPLES["errors"]["incomplete"]}},
+        },
+        422: {
+            "model": ErrorDetailResponse,
+            "description": "Invalid metric request or incompatible annual source, currency, fee, policy or numerical domain.",
+            "content": {
+                "application/json": {
+                    "examples": {
+                        "requestValidation": {
+                            "value": ANNUAL_DISPERSION_OPENAPI_EXAMPLES["errors"]["request_validation"]
+                        },
+                        "domainAdmission": {"value": ANNUAL_DISPERSION_OPENAPI_EXAMPLES["errors"]["domain_admission"]},
+                    }
+                }
+            },
+        },
+        503: {
+            "model": ErrorDetailResponse,
+            "description": "Retained materialization evidence failed validation; reviewed recovery is required.",
+            "content": {
+                "application/json": {"example": ANNUAL_DISPERSION_OPENAPI_EXAMPLES["errors"]["retained_evidence"]}
+            },
+        },
+    },
+    openapi_extra={
+        **COMPOSITE_TENANT_OPENAPI_EXTRA,
+        "requestBody": {"content": {"application/json": {"example": ANNUAL_DISPERSION_OPENAPI_EXAMPLES["request"]}}},
+    },
+)
+def evaluate_composite_analytics(
+    request: CompositeAnnualDispersionRequest,
+    tenant_id: Annotated[str, Depends(_required_composite_tenant)],
+    reader: Annotated[AnnualDispersionReceiptReader, Depends(get_annual_dispersion_receipt_reader)],
+) -> CompositeAnnualDispersionResponse:
+    return calculate_annual_member_dispersion(request, tenant_id=tenant_id, reader=reader)

@@ -13,6 +13,7 @@ analytics and integration surfaces.
 - [guides/attribution.md](../guides/attribution.md)
 - [technical/attribution-documentation-map.md](attribution-documentation-map.md)
 - [guides/composite_performance.md](../guides/composite_performance.md)
+- [guides/composite_annual_dispersion.md](../guides/composite_annual_dispersion.md)
 - [technical/composite-performance-documentation-map.md](composite-performance-documentation-map.md)
 - [guides/workspace_summary.md](../guides/workspace_summary.md)
 - [guides/multi_currency.md](../guides/multi_currency.md)
@@ -26,6 +27,7 @@ Canonical metric-level methodology documents live in:
 
 - [methodologies/metrics/master-index.md](../methodologies/metrics/master-index.md)
 - [methodologies/metrics/metric-composite-twr.md](../methodologies/metrics/metric-composite-twr.md)
+- [methodologies/metrics/metric-composite-annual-member-dispersion.md](../methodologies/metrics/metric-composite-annual-member-dispersion.md)
 
 That set is the authoritative metric-by-metric reference for:
 
