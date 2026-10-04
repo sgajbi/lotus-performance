@@ -25,8 +25,12 @@ class Convergence(BaseModel):
     algorithm: Optional[str] = Field(default=None, description="Solver algorithm used for root detection/refinement.")
     root_count_detected: Optional[int] = Field(default=None, description="Number of unique XIRR roots detected.")
     residual_npv: Optional[float] = Field(default=None, description="Final NPV residual for the selected root.")
-    rate_lower_bound: Optional[float] = Field(default=None, description="Lower searched annual rate bound.")
-    rate_upper_bound: Optional[float] = Field(default=None, description="Upper searched annual rate bound.")
+    rate_lower_bound: Optional[float] = Field(  # monetary-float-allow: dimensionless rate
+        default=None, description="Lower searched annual rate bound."
+    )
+    rate_upper_bound: Optional[float] = Field(  # monetary-float-allow: dimensionless rate
+        default=None, description="Upper searched annual rate bound."
+    )
     day_count_basis: Optional[str] = Field(default=None, description="Day-count convention used for dated XIRR.")
     trading_calendar: Optional[str] = Field(
         default=None, description="Canonical business calendar used for BUS/252 dated fractions."
@@ -67,7 +71,9 @@ class Convergence(BaseModel):
 class MWRResult(BaseModel):
     """A simple data container for the results of an MWR calculation from the engine."""
 
-    mwr: float = Field(description="Money-weighted return in percentage-point output units.", examples=[11.723])
+    mwr: float = Field(  # monetary-float-allow: dimensionless return
+        description="Money-weighted return in percentage-point output units.", examples=[11.723]
+    )
     mwr_annualized: Optional[float] = Field(
         default=None,
         description="Annualized money-weighted return in percentage-point output units when available.",
@@ -85,8 +91,8 @@ class MWRResult(BaseModel):
     )
     reason_codes: List[str] = Field(default_factory=list, description="Machine-readable reason codes.")
     warnings: List[str] = Field(default_factory=list, description="Machine-readable warning codes.")
-    holding_period_return: Optional[float] = Field(
-        default=None, description="Holding-period money-weighted return in percentage-point output units."
+    holding_period_return: Optional[float] = (  # monetary-float-allow: dimensionless return
+        Field(default=None, description="Holding-period money-weighted return in percentage-point output units.")
     )
     is_annualized_primary: Optional[bool] = Field(
         default=None, description="Whether money_weighted_return is an annualized value."
@@ -103,7 +109,7 @@ class MoneyWeightedReturnResponse(BaseModel):
     portfolio_id: str = Field(description="Portfolio identifier.", examples=["PORTFOLIO_001"])
     input_mode: MWRInputMode = Field(default=MWRInputMode.STATELESS, description="Resolved MWR input mode.")
 
-    money_weighted_return: float = Field(
+    money_weighted_return: float = Field(  # monetary-float-allow: dimensionless return
         description="Money-weighted return in percentage-point output units.",
         examples=[11.723],
     )
@@ -118,8 +124,8 @@ class MoneyWeightedReturnResponse(BaseModel):
     )
     reason_codes: List[str] = Field(default_factory=list, description="Machine-readable reason codes.")
     warnings: List[str] = Field(default_factory=list, description="Machine-readable warning codes.")
-    holding_period_return: Optional[float] = Field(
-        default=None, description="Holding-period money-weighted return in percentage-point output units."
+    holding_period_return: Optional[float] = (  # monetary-float-allow: dimensionless return
+        Field(default=None, description="Holding-period money-weighted return in percentage-point output units.")
     )
     is_annualized_primary: Optional[bool] = Field(
         default=None, description="Whether money_weighted_return is an annualized value."

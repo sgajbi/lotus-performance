@@ -140,7 +140,7 @@ class Emit(BaseModel):
         ),
         examples=[10],
     )
-    threshold_weight: float = Field(
+    threshold_weight: float = Field(  # monetary-float-allow: dimensionless weight
         default=0.005,
         description=(
             "Minimum average weight ratio for an explicit hierarchy row. Example: 0.005 means 0.5% "

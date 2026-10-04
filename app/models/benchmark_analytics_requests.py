@@ -32,7 +32,7 @@ class BenchmarkComponentObservationInput(BaseModel):
         description="Benchmark observation date in YYYY-MM-DD format.",
         examples=["2026-01-02"],
     )
-    weight_bop: float = Field(
+    weight_bop: float = Field(  # monetary-float-allow: dimensionless weight
         ...,
         description="Beginning-of-day component benchmark weight as a decimal ratio.",
         examples=[0.6],
@@ -42,20 +42,24 @@ class BenchmarkComponentObservationInput(BaseModel):
         description="Optional benchmark component currency.",
         examples=["USD"],
     )
-    component_return: float = Field(
+    component_return: float = Field(  # monetary-float-allow: dimensionless return
         ...,
         description="Component daily return expressed as a decimal fraction (0.01 = 1%).",
         examples=[0.0125],
     )
-    component_return_local: float | None = Field(
-        default=None,
-        description="Optional component daily local return expressed as a decimal fraction.",
-        examples=[0.01],
+    component_return_local: float | None = (  # monetary-float-allow: dimensionless return
+        Field(
+            default=None,
+            description="Optional component daily local return expressed as a decimal fraction.",
+            examples=[0.01],
+        )
     )
-    component_return_fx: float | None = Field(
-        default=None,
-        description="Optional component daily FX return expressed as a decimal fraction.",
-        examples=[0.002475],
+    component_return_fx: float | None = (  # monetary-float-allow: dimensionless return
+        Field(
+            default=None,
+            description="Optional component daily FX return expressed as a decimal fraction.",
+            examples=[0.002475],
+        )
     )
 
     model_config = ConfigDict(extra="forbid")
@@ -68,7 +72,7 @@ class BenchmarkComponentPricePointInput(BaseModel):
         description="Benchmark price observation date in YYYY-MM-DD format.",
         examples=["2026-01-02"],
     )
-    weight_bop: float = Field(
+    weight_bop: float = Field(  # monetary-float-allow: dimensionless weight
         ...,
         description="Beginning-of-day component benchmark weight as a decimal ratio.",
         examples=[0.4],
@@ -100,7 +104,7 @@ class BenchmarkReturnPointInput(BaseModel):
         description="Benchmark return observation date in YYYY-MM-DD format.",
         examples=["2026-01-02"],
     )
-    benchmark_return: float = Field(
+    benchmark_return: float = Field(  # monetary-float-allow: dimensionless return
         ...,
         description="Benchmark daily return expressed as a decimal fraction (0.01 = 1%).",
         examples=[0.0042],

@@ -636,8 +636,8 @@ def _xirr(
     *,
     annualization: Annualization | None = None,
     calendar: Calendar | None = None,
-    rate_lower_bound: float = -0.999999999,
-    rate_upper_bound: float = 1000.0,
+    rate_lower_bound: float = -0.999999999,  # monetary-float-allow: dimensionless rate
+    rate_upper_bound: float = 1000.0,  # monetary-float-allow: dimensionless rate
     root_scan_steps: int = 512,
     tolerance: float = 1e-10,
     max_iter: int = 200,

@@ -56,7 +56,9 @@ does not delegate performance conclusions to `lotus-core`.
     original and corrected results; Core remains the correction-command and source-data owner.
 11. Exact valuation, cash-flow and FX requests use decimal strings; monetary analytics evidence
     also emits strings while returns remain numbers. Compatibility boundaries are defined in
-    the [rounding and admission standard](docs/standards/rounding-precision.md).
+    the [rounding and admission standard](docs/standards/rounding-precision.md). Monetary-float
+    exceptions require finding-specific issue, owner and deadline evidence; automated refresh
+    cannot approve new findings or renew deadlines.
 
 ## Enterprise Readiness Evidence
 

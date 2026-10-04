@@ -1,7 +1,7 @@
 import argparse
 import json
 import re
-from datetime import UTC, datetime, timedelta
+from datetime import UTC, datetime
 from pathlib import Path
 
 KEYWORDS = (
@@ -29,6 +29,7 @@ IGNORE_DIRS = {"tests", ".venv", "venv", "docs", "rfcs", "output", "build", "dis
 
 FLOAT_ANNOTATION = re.compile(r"\bfloat\b")
 FINDING_PATTERN = re.compile(r"^(?P<path>.+?):(?P<line_no>\d+):(?P<source>.*)$")
+ISSUE_REFERENCE = re.compile(r"https://github\.com/sgajbi/lotus-performance/issues/[1-9]\d*\b")
 
 
 def is_candidate(path: Path) -> bool:
@@ -75,11 +76,14 @@ def load_allowlist(path: Path) -> tuple[dict[str, dict], list[str], list[str]]:
     if not path.exists():
         return {}, [], []
     data = json.loads(path.read_text(encoding="utf-8"))
-    raw_entries = data.get("allowlist", [])
+    if not isinstance(data, dict) or not isinstance(data.get("allowlist"), list):
+        return {}, ["Allowlist must be an object containing an allowlist array."], []
+    raw_entries = data["allowlist"]
     entries: dict[str, dict] = {}
     errors: list[str] = []
     stale: list[str] = []
     today = datetime.now(tz=UTC).date()
+    seen_keys: set[str] = set()
     for item in raw_entries:
         if isinstance(item, str):
             errors.append(f"Legacy allowlist string entry must be migrated: {item}")
@@ -91,11 +95,22 @@ def load_allowlist(path: Path) -> tuple[dict[str, dict], list[str], list[str]]:
         justification = item.get("justification")
         owner = item.get("owner")
         review_by = item.get("review_by")
-        if not all([finding, justification, owner, review_by]):
+        if not all(isinstance(value, str) and value.strip() for value in (finding, justification, owner, review_by)):
             errors.append(
                 "Allowlist entry missing required fields (finding/justification/owner/review_by): "
                 + json.dumps(item, sort_keys=True)
             )
+            continue
+        if FINDING_PATTERN.fullmatch(finding) is None:
+            errors.append(f"Invalid finding identity: {finding}")
+            continue
+        key = _finding_key(finding)
+        if key in seen_keys:
+            errors.append(f"Duplicate allowance for source expression: {finding}")
+            continue
+        seen_keys.add(key)
+        if "temporary approved monetary" in justification.lower() or not ISSUE_REFERENCE.search(justification):
+            errors.append(f"Allowance requires a finding-specific justification and owning issue: {finding}")
             continue
         try:
             review_dt = _parse_review_date(str(review_by))
@@ -113,21 +128,18 @@ def load_allowlist(path: Path) -> tuple[dict[str, dict], list[str], list[str]]:
     return entries, errors, stale
 
 
-def write_allowlist(path: Path, findings: list[str], existing_entries: dict[str, dict], review_by: str) -> None:
+def write_allowlist(path: Path, findings: list[str], existing_entries: dict[str, dict]) -> None:
+    """Refresh source locations only; new approvals require explicit reviewed evidence."""
+    approved_by_key = {_finding_key(finding): entry for finding, entry in existing_entries.items()}
+    unexpected = [finding for finding in findings if _finding_key(finding) not in approved_by_key]
+    if unexpected:
+        raise ValueError("Cannot create a reviewed approval automatically: " + "; ".join(unexpected))
     generated_at = datetime.now(tz=UTC).strftime("%Y-%m-%dT%H:%M:%SZ")
-    allowlist_entries: list[dict] = []
+    refreshed_by_key: dict[str, dict] = {}
     for finding in sorted(set(findings)):
-        if finding in existing_entries:
-            allowlist_entries.append(existing_entries[finding])
-            continue
-        allowlist_entries.append(
-            {
-                "finding": finding,
-                "justification": "Temporary approved monetary floating-point usage; convert to Decimal.",
-                "owner": "platform-governance",
-                "review_by": review_by,
-            }
-        )
+        key = _finding_key(finding)
+        refreshed_by_key.setdefault(key, {**approved_by_key[key], "finding": finding})
+    allowlist_entries = list(refreshed_by_key.values())
     payload = {
         "description": "Approved baseline monetary-float findings. New findings fail CI.",
         "policy_version": "1.1.0",
@@ -145,12 +157,8 @@ def main() -> int:
         "--allowlist",
         default="docs/standards/monetary-float-allowlist.json",
     )
-    parser.add_argument("--update-allowlist", action="store_true")
     parser.add_argument(
-        "--default-review-days",
-        type=int,
-        default=180,
-        help="Days until review_by for newly generated allowlist entries.",
+        "--update-allowlist", action="store_true", help="Refresh reviewed locations; never create approvals."
     )
     args = parser.parse_args()
 
@@ -160,14 +168,11 @@ def main() -> int:
         print("Monetary float guard requires at least one first-party Python source file.")
         return 1
     findings = scan_repo(repo_root)
-    allowlist_entries, allowlist_errors, stale_entries = load_allowlist(allowlist_path)
-
-    if args.update_allowlist:
-        review_deadline = datetime.now(tz=UTC) + timedelta(days=args.default_review_days)
-        default_review_by = review_deadline.strftime("%Y-%m-%d")
-        write_allowlist(allowlist_path, findings, allowlist_entries, default_review_by)
-        print(f"Updated allowlist with {len(findings)} finding(s): {allowlist_path}")
-        return 0
+    try:
+        allowlist_entries, allowlist_errors, stale_entries = load_allowlist(allowlist_path)
+    except (OSError, ValueError) as exc:
+        print(f"Cannot read allowance evidence: {exc}")
+        return 1
 
     if allowlist_errors:
         print("Allowlist schema validation failed:")
@@ -179,7 +184,7 @@ def main() -> int:
         print("Allowlist contains stale entries (review_by in the past):")
         for item in stale_entries:
             print(f" - {item}")
-        print(f"\nUpdate {allowlist_path} with refreshed review dates and remediation status.")
+        print(f"\nReview {allowlist_path}; remediate or publish a finding-specific decision. Do not renew blindly.")
         return 1
 
     allowlist_keys = {_finding_key(finding) for finding in allowlist_entries}
@@ -190,7 +195,22 @@ def main() -> int:
         for item in unexpected:
             print(f" - {item}")
         print(f"\nBaseline allowlist file: {allowlist_path}")
-        print("If intentional and approved, run with --update-allowlist in dedicated PR.")
+        print(
+            "Publish a finding-specific approval and owning issue in a reviewed PR; automatic approval is unavailable."
+        )
+        return 1
+
+    if args.update_allowlist:
+        write_allowlist(allowlist_path, findings, allowlist_entries)
+        print(f"Refreshed reviewed allowlist with {len(findings)} finding(s): {allowlist_path}")
+        return 0
+
+    finding_keys = {_finding_key(finding) for finding in findings}
+    orphaned = sorted(finding for finding in allowlist_entries if _finding_key(finding) not in finding_keys)
+    if orphaned:
+        print("Allowlist entries no longer matched by the scan; remove obsolete approvals:")
+        for finding in orphaned:
+            print(f" - {finding}")
         return 1
 
     print(f"Monetary float guard passed. Findings={len(findings)}, allowlisted={len(allowlist_entries)}")

@@ -18,19 +18,19 @@ class AttributionGroupResult(BaseModel):
     key: Dict[str, Any] = Field(
         description="Resolved grouping key for the attribution row.", examples=[{"asset_class": "equity"}]
     )
-    portfolio_weight_avg: float = Field(
+    portfolio_weight_avg: float = Field(  # monetary-float-allow: dimensionless weight
         description="Average portfolio weight for the group in percentage units. Example: 65.0 means 65%.",
         examples=[65.0],
     )
-    benchmark_weight_avg: float = Field(
+    benchmark_weight_avg: float = Field(  # monetary-float-allow: dimensionless weight
         description="Average benchmark weight for the group in percentage units. Example: 60.0 means 60%.",
         examples=[60.0],
     )
-    portfolio_return: float = Field(
+    portfolio_return: float = Field(  # monetary-float-allow: dimensionless return
         description="Linked portfolio return for the group in percentage-point output units.",
         examples=[4.25],
     )
-    benchmark_return: float = Field(
+    benchmark_return: float = Field(  # monetary-float-allow: dimensionless return
         description="Linked benchmark return for the group in percentage-point output units.",
         examples=[3.8],
     )
@@ -116,7 +116,7 @@ class AttributionLevelResult(BaseModel):
 class Reconciliation(BaseModel):
     """Validation block to confirm the sum of effects matches the active return."""
 
-    total_active_return: float = Field(
+    total_active_return: float = Field(  # monetary-float-allow: dimensionless return
         description="Active return for the period in percentage-point output units.",
         examples=[1.25],
     )
@@ -294,11 +294,11 @@ class CurrencyAttributionResult(BaseModel):
     """The complete currency attribution breakdown for a single currency."""
 
     currency: str = Field(description="Currency bucket identifier.", examples=["USD"])
-    weight_portfolio_avg: float = Field(
+    weight_portfolio_avg: float = Field(  # monetary-float-allow: dimensionless weight
         description="Average portfolio currency weight in percentage units. Example: 65.0 means 65%.",
         examples=[65.0],
     )
-    weight_benchmark_avg: float = Field(
+    weight_benchmark_avg: float = Field(  # monetary-float-allow: dimensionless weight
         description="Average benchmark currency weight in percentage units. Example: 60.0 means 60%.",
         examples=[60.0],
     )

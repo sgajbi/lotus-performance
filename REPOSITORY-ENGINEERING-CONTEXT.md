@@ -347,6 +347,9 @@ Important validation expectations:
    Valuation fields, cash flows and fees are monetary scan targets; an empty source inventory
    fails. Numerical exceptions need an owner, issue and retirement date, not a dimensionless label
    for money. Preserve existing deadlines when refactoring an accepted solver diagnostic.
+   The CLI also rejects generic justifications, duplicate expression approvals and orphaned
+   allowances. `--update-allowlist` refreshes reviewed locations only; it cannot create approval
+   or renew expiry. Disposition ratio false positives at source with an explanatory marker.
 8. `make lint` includes `make repository-hygiene-gate`, which blocks tracked local byproducts such
    as Python caches, virtual environments, local coverage files, build outputs, logs, and local
    database files. `make clean` delegates to `scripts/clean_generated_artifacts.py` and removes

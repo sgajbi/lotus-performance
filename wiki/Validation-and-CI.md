@@ -106,6 +106,7 @@ fails the coverage invariant.
 | --- | --- | --- |
 | Static quality | `make check`, Static Quality Gates | lint, format, typecheck, complexity, architecture boundaries, duplicate-code hotspots, observability markers, no-alias governance |
 | Reproducibility identity | `make calculation-engine-version-gate`, `make lint` | calculation hashes are governed by `CALCULATION_ENGINE_VERSION`, not `APP_VERSION`, image labels, or legacy literal tokens |
+| Monetary boundaries | `make monetary-float-guard`, `make lint` | reviewed money exceptions retain issue, owner and deadline evidence; generic, duplicate, obsolete, expired and unauthorized approvals fail. Dimensionless matches are explained at their source sites, not carried as debt |
 | API contract quality | `make check`, Contract Security Gates | OpenAPI quality, API vocabulary, domain data-product contracts, migration smoke, security scans |
 | Runtime behavior | `make ci`, unit/integration/e2e lanes | calculation behavior, API behavior, async/runtime flows, coverage floor |
 | Performance characterization | `make performance-characterization`, Performance Characterization Evidence workflow | benchmark budget posture plus live PostgreSQL query-plan and concurrency contracts, with artifact evidence under `output/performance-characterization/` |
@@ -115,6 +116,10 @@ fails the coverage invariant.
 | Baseline evidence | `make quality-baseline`, `make quality-baseline-check`, PR Merge Gate, Quality Baseline Snapshot | before/after scorecard data whose committed generated reports cannot drift through a green PR |
 
 ## Documentation contract proof
+
+Allowance refresh changes approved source locations only; it cannot approve new monetary floats
+or extend deadlines. See the [rounding and admission standard](https://github.com/sgajbi/lotus-performance/blob/main/docs/standards/rounding-precision.md)
+for the amount-versus-ratio policy and numerical-boundary limitations.
 
 When a slice changes `README.md` or public guides, run:
 

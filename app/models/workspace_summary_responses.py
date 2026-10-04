@@ -244,7 +244,9 @@ class WorkspaceEconomicContext(BaseModel):
 
 
 class WorkspaceReturnValue(BaseModel):
-    base: float = Field(description="Return in percentage-point output units.", examples=[1.25])
+    base: float = Field(  # monetary-float-allow: dimensionless return
+        description="Return in percentage-point output units.", examples=[1.25]
+    )
     local: float | None = Field(
         default=None,
         description="Local-market return component in percentage-point output units when available.",
@@ -324,15 +326,15 @@ class WorkspaceActiveBlock(BaseModel):
 class WorkspaceMoneyWeightedReturnSummary(BaseModel):
     input_mode: MWRInputMode = Field(description="Resolved MWR input mode.")
     method: str = Field(description="Money-weighted return method used for the summary.")
-    period_return: float = Field(
+    period_return: float = Field(  # monetary-float-allow: dimensionless return
         description="Money-weighted return earned within the resolved window in percentage-point output units.",
         examples=[8.42],
     )
-    cumulative_return: float = Field(
+    cumulative_return: float = Field(  # monetary-float-allow: dimensionless return
         description="Money-weighted return in percentage-point output units.",
         examples=[8.42],
     )
-    annualized_return: float = Field(
+    annualized_return: float = Field(  # monetary-float-allow: dimensionless return
         description="Annualized money-weighted return in percentage-point output units. For periods up to one year this equals cumulative_return.",
         examples=[8.42],
     )
