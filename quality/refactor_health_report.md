@@ -3,7 +3,7 @@
 Report date: 2026-07-10
 Branch: `feat/performance-architecture-boundary-refactor`
 Baseline source: `quality/baseline_report.md`
-Testing inventory refresh: 2026-10-04, monetary allowance-disposition candidate (#472).
+Testing inventory refresh: 2026-10-04, monetary allowance dispositions (#472).
 Other phase-zero measurements, including coverage percentages, remain historical.
 Historical #540 exact main `39aec74c` passed all ten jobs in run `37136810103`; its candidate
 coverage was raw 98.5068273355382% (30,539 statements/456 missing), passing the unchanged configured
@@ -16,8 +16,10 @@ passed12 tests;58 PostgreSQL-dependent skips are not database proof. Independent
 `37146392604` passed all ten jobs and wiki publication passed strict parity. #600 merged through
 PR602/main89764ece; exact-main37160878964 passed all ten jobs. Independent QA remains open.
 #601 merged through PR603/main e6e5127e; exact-main37164578813 passed all ten jobs.
-#472 is an unmerged candidate; collection is not execution evidence. Its focused registered API,
-financial and scanner pack passed299 tests; all11 touched analytics/DTO ASTs are unchanged.
+#472's disposition tree merged through PR605/main44f4a27c; exact-main37167914454 passed all ten jobs.
+Its focused API/financial/scanner pack passed299 tests; all11 touched analytics/DTO ASTs were unchanged.
+Main passed4731 unit tests (three governed skips),1253 integration and21 E2E tests. Collection alone
+is not execution evidence; independent numerical-boundary QA and consumer qualification remain open.
 Report mode: phase-zero scorecard; complexity, architecture, duplicate-code, repository hygiene,
 router-thinness, observability-readiness, domain-product validation, deterministic API evaluation,
 test taxonomy breadth, Python security posture, license compliance, and container supply-chain
