@@ -1,4 +1,8 @@
 import os
+import re
+import sys
+from contextlib import contextmanager
+from importlib import import_module
 from uuid import uuid4
 
 import pytest
@@ -11,6 +15,79 @@ POSTGRES_RUNTIME_DATABASE_URL = os.getenv(
     "postgresql+psycopg://lotus:lotus@127.0.0.1:5435/lotus_performance",
 )
 POSTGRES_RUNTIME_CONNECT_TIMEOUT_SECONDS = 3
+
+RUNTIME_STORE_MODULES = (
+    "app.services.execution_registry",
+    "app.services.compute_job_store",
+    "app.services.async_result_store",
+    "app.services.lineage_metadata_store",
+    "app.services.composite_metadata_store",
+    "app.services.source_correction_store",
+    "app.adapters.composite_materialization_repository",
+)
+
+
+def _runtime_store_modules():
+    return [import_module(name) for name in RUNTIME_STORE_MODULES]
+
+
+def _require_isolated_postgres_url(database_url):
+    url = make_url(database_url)
+    options = url.query.get("options", "")
+    assert url.get_backend_name() == "postgresql"
+    assert isinstance(options, str)
+    assert re.search(
+        r"(?:^|\s)-csearch_path=lotus_perf_bench_[0-9a-f]{32}(?:\s|$)", options
+    ), "Runtime-store ownership requires the benchmark helper's isolated schema URL"
+
+
+@contextmanager
+def owned_postgres_runtime_stores(database_url, monkeypatch):
+    """Observe genuine resolver allocations without replacing caches or store factories."""
+    _require_isolated_postgres_url(database_url)
+    modules = _runtime_store_modules()
+    borrowed = {id(store) for module in modules for store in module._store_cache.values()}
+    owned = []
+    with monkeypatch.context() as ownership:
+        for module in modules:
+            ownership.setattr(
+                module,
+                "resolve_runtime_store",
+                _observe_runtime_resolver(module.resolve_runtime_store, database_url, borrowed, owned),
+            )
+        try:
+            yield
+        finally:
+            original = sys.exception()
+            failures = _dispose_owned_runtime_stores(database_url, owned)
+            if failures:
+                errors = ([original] if original is not None else []) + failures
+                raise BaseExceptionGroup("Owned PostgreSQL runtime cleanup failed", errors)
+
+
+def _dispose_owned_runtime_stores(database_url, owned):
+    failures = []
+    for cache, store in reversed(owned):
+        try:
+            if cache.get(database_url) is store:
+                cache.pop(database_url)
+            store._engine.dispose()
+        except Exception as error:
+            failures.append(error)
+    return failures
+
+
+def _observe_runtime_resolver(resolver, owned_database_url, borrowed, owned):
+    def observe(*, cache, factory, database_url=None):
+        def allocate(active_database_url):
+            store = factory(active_database_url)
+            if active_database_url == owned_database_url and id(store) not in borrowed:
+                owned.append((cache, store))
+            return store
+
+        return resolver(cache=cache, factory=allocate, database_url=database_url)
+
+    return observe
 
 
 def get_postgres_database_url() -> str:

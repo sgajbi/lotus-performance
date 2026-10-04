@@ -31,7 +31,7 @@ from core.errors import APIError, APINotFoundError
 from engine.composites import calculate_asset_weighted_composite_twr
 from main import app
 from scripts.durable_schema_apply import apply_durable_schema
-from tests.benchmarks.postgres_runtime_helpers import get_postgres_database_url
+from tests.benchmarks.postgres_runtime_helpers import get_postgres_database_url, owned_postgres_runtime_stores
 from tests.composite_materialization_helpers import (
     INVALID_MATERIALIZATION_DATABASE_WRITES,
     MembershipSource,
@@ -398,16 +398,17 @@ def test_postgres_http_admission_contention_never_exposes_partial_rows(monkeypat
 
 
 @pytest.fixture
-def postgres_materialization_stores():
+def postgres_materialization_stores(monkeypatch):
     url = get_postgres_database_url()
     assert apply_durable_schema(database_url=url).status == "passed"
-    ledger, facts, jobs = CompositeMaterializationStore(url), CompositeMetadataStore(url), ComputeJobStore(url)
-    try:
-        yield url, ledger, facts, jobs
-    finally:
-        ledger.close()
-        facts.close()
-        jobs._engine.dispose()
+    with owned_postgres_runtime_stores(url, monkeypatch):
+        ledger, facts, jobs = CompositeMaterializationStore(url), CompositeMetadataStore(url), ComputeJobStore(url)
+        try:
+            yield url, ledger, facts, jobs
+        finally:
+            ledger.close()
+            facts.close()
+            jobs._engine.dispose()
 
 
 def _observe_waiting_lock(engine, backend_pid):

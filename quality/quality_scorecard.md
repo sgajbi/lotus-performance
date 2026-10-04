@@ -4,7 +4,7 @@ Report date: 2026-07-10
 Branch: `feat/performance-architecture-boundary-refactor`
 Baseline source: `quality/baseline_report.md`
 Current source: `quality/refactor_health_report.md`
-Testing inventory refresh: 2026-10-04, default-reader PostgreSQL annual consumer candidate (#608).
+Testing inventory refresh: 2026-10-04, isolated PostgreSQL benchmark runtime lifecycle candidate (#616).
 Other phase-zero measurements below remain historical, not current acceptance evidence.
 Mode: phase-zero scorecard; static-quality and evaluation enforcement includes complexity,
 architecture, router-thinness, duplicate-code, repository hygiene, observability-readiness,
@@ -29,7 +29,7 @@ metrics in each section are updated with each meaningful slice.
 | Largest Python file LOC | 2,399 | 2,503 | 104 | measured | `quality/baseline_report.md`; `quality/refactor_health_report.md` |
 | Largest production file LOC | 1,156 | 1,991 | 835 | measured | `quality/refactor_health_report.md`; `quality/architecture_boundary_inventory.md` |
 | Python test modules | 228 | 366 | 138 | measured | `quality/baseline_report.md`; `quality/refactor_health_report.md` |
-| Collected tests | 2,035 | 6,353 | 4,318 | measured | `quality/baseline_report.md`; `quality/refactor_health_report.md` |
+| Collected tests | 2,035 | 6,365 | 4,330 | measured | `quality/baseline_report.md`; `quality/refactor_health_report.md` |
 | Duplicate code hotspots | 0 | 0 | 0 | enforced | `quality/duplicate_code_inventory.md`; `quality/refactor_health_report.md`; `make quality-duplicate-code-gate` |
 | Tracked local byproduct findings | unknown | 0 | n/a | enforced | `scripts/repository_hygiene_gate.py`; `make repository-hygiene-gate`; `quality/refactor_health_report.md` |
 
