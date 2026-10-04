@@ -72,6 +72,16 @@ Optional controls include:
 Older examples using request-level `period_type`, nested `daily_data`, or mixed camelCase group
 dimensions are not current.
 
+## Numerical policy
+
+Attribution supports `precision_mode="FLOAT64"` only across instrument/group, currency and
+linking paths. `DECIMAL_STRICT` returns non-retryable HTTP422 with the validation type
+`ATTRIBUTION_PRECISION_UNSUPPORTED` before source resolution, execution registration or async
+job admission, including requests with `Idempotency-Key`. Exact monetary admission does not
+establish Decimal effects or linking. Successful new responses report the actual FLOAT64 policy.
+Previously retained results remain unchanged and retrievable; legacy precision metadata is
+historical reported evidence, not certification of strict execution.
+
 ## Async execution
 
 Attribution can run synchronously or asynchronously depending on workload shape.

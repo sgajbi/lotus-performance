@@ -6,6 +6,7 @@ import pytest
 
 from app.models.attribution_requests import AttributionRequest
 from common.enums import AttributionModel, LinkingMethod
+from core.errors import APIError
 from engine.attribution import (
     _align_and_prepare_data,
     _attribution_group_observation_records,
@@ -116,6 +117,23 @@ def by_group_request_data():
             },
         ],
     }
+
+
+@pytest.mark.parametrize("entry", ["run", "instrument", "aggregate"])
+def test_attribution_engine_refuses_bypassed_strict_request_before_calculation(by_group_request_data, entry):
+    request = AttributionRequest.model_validate(by_group_request_data).model_copy(
+        update={"precision_mode": "DECIMAL_STRICT"}
+    )
+    with pytest.raises(APIError) as caught:
+        if entry == "run":
+            run_attribution_calculations(request)
+        elif entry == "instrument":
+            _prepare_data_from_instruments(request)
+        else:
+            aggregate_attribution_results(pd.DataFrame(), request)
+    assert caught.value.status_code == 422
+    assert caught.value.error_code == "ATTRIBUTION_PRECISION_UNSUPPORTED"
+    assert caught.value.retryable is False
 
 
 def test_align_and_prepare_data_by_group(by_group_request_data):
@@ -1327,6 +1345,7 @@ def test_currency_attribution_totals_are_invariant_to_extra_grouping_dimensions(
 def test_run_attribution_calculations_invalid_mode_raises_value_error():
     class _UnsupportedRequest:
         mode = "unsupported"
+        precision_mode = "FLOAT64"
 
     with pytest.raises(ValueError, match="Invalid attribution mode specified"):
         run_attribution_calculations(_UnsupportedRequest())

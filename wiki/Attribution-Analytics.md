@@ -43,8 +43,14 @@ reports allocation and portfolio-weighted combined selection; its separate `inte
 zero so active return is not counted twice. Linked and single-period results reconcile using these
 model-specific effects, and downstream consumers must preserve them as authored.
 
-The governed calculation identity is `lotus-performance-calculation-engine.v15`. Attribution's
-scale-aware linking safeguard was introduced in v7; the current service-wide identity also includes
+Only `precision_mode="FLOAT64"` is supported end to end. `DECIMAL_STRICT` is refused with
+non-retryable HTTP422 / `ATTRIBUTION_PRECISION_UNSUPPORTED` before source reads or job admission.
+Exact monetary inputs do not imply Decimal group effects or linking. Retained historical results
+are not rewritten; their original precision metadata is not strict-execution certification.
+
+The governed calculation identity is `lotus-performance-calculation-engine.v16`. Attribution's
+scale-aware linking safeguard was introduced in v7; v16 enforces the supported precision policy.
+The current service-wide identity also includes
 the exact valuation-money/weight boundary, contribution fee-basis, strict Decimal contribution, and benchmark price/FX corrections and prevents
 pre-history-qualification TWR/workspace artifacts from replaying under the current contract.
 

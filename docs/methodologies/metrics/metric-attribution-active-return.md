@@ -99,6 +99,9 @@ Attribution Total Active Return (`reconciliation.total_active_return`)
   are well-conditioned relative to daily active-return activity remain eligible for linking.
 
 ## Configuration Options
+- `precision_mode`: FLOAT64 only across effects and linking. Unsupported DECIMAL_STRICT returns
+  non-retryable HTTP422 / `ATTRIBUTION_PRECISION_UNSUPPORTED` before source reads or job admission.
+  Exact monetary evidence is not strict attribution; historical result labels remain as reported.
 - `linking` (`NONE` vs non-`NONE` geometric active return path)
 - `frequency` (daily/monthly/quarterly/yearly resampling)
 - `mode`, `group_by`, `model`

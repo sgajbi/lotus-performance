@@ -14,6 +14,11 @@ This repository adopts the platform-wide mandatory standard defined in `lotus-pl
 
 ## Enforcement Points
 
+Attribution supports FLOAT64 group effects, currency effects and linking only. Exact monetary
+admission does not establish DECIMAL_STRICT attribution. Unsupported strict requests are refused
+before source reads or job admission with non-retryable `ATTRIBUTION_PRECISION_UNSUPPORTED`;
+new metadata reports actual FLOAT64 policy. Historical result evidence remains unchanged.
+
 - Boundary validation: `precision_policy.py` (`normalize_input`) rejects malformed and over-scale inputs.
 - Output boundary quantization: `quantize_*` helpers apply final rounding for response shaping.
 - Intermediate precision preservation: domain logic keeps unquantized `Decimal` until output-edge serialization.

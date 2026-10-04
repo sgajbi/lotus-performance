@@ -6,6 +6,7 @@ from typing import Any, Dict, List, Literal, Optional
 from uuid import UUID, uuid4
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
+from pydantic_core import PydanticCustomError
 
 from app.models.request_window_validation import validate_ordered_explicit_window
 from app.models.requests import Analysis, DailyInputData  # Import the shared Analysis model
@@ -15,6 +16,7 @@ from common.enums import (
     Frequency,
     LinkingMethod,
 )
+from core.attribution_precision_policy import require_attribution_precision
 from core.envelope import (
     Annualization,
     Calendar,
@@ -23,6 +25,7 @@ from core.envelope import (
     HedgingRequestBlock,
     Output,
 )
+from core.errors import APIError
 
 
 class AttributionPortfolioData(BaseModel):
@@ -166,11 +169,24 @@ class AttributionRequest(BaseModel):
         description="Benchmark group observations used to calculate benchmark returns and active effects."
     )
     currency: str = Field(default="USD", description="Base currency for attribution output.", examples=["USD"])
-    precision_mode: Literal["FLOAT64", "DECIMAL_STRICT"] = Field(
+    precision_mode: Literal["FLOAT64"] = Field(
         default="FLOAT64",
-        description="Numeric precision mode. FLOAT64 is the current production execution path.",
+        description=(
+            "End-to-end attribution numerical policy. Only FLOAT64 is supported; DECIMAL_STRICT is refused "
+            "with ATTRIBUTION_PRECISION_UNSUPPORTED before source resolution or job admission. Exact monetary "
+            "input evidence does not imply Decimal group effects or linking."
+        ),
         examples=["FLOAT64"],
     )
+
+    @field_validator("precision_mode", mode="before")
+    @classmethod
+    def validate_supported_precision(cls, value: object) -> Literal["FLOAT64"]:
+        try:
+            return require_attribution_precision(value)
+        except APIError as exc:
+            raise PydanticCustomError(str(exc.error_code), str(exc.detail)) from exc
+
     rounding_precision: int = Field(
         default=6,
         description="Requested decimal precision for rounded presentation fields where rounding is applied.",

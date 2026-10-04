@@ -30,6 +30,7 @@ from app.services.execution_registry import execution_registry
 from app.services.execution_stage_errors import is_mappable_application_error, safe_unexpected_failure_message
 from app.services.execution_stage_names import EXECUTION_STAGE_EXECUTION
 from app.services.fail_fast_policy import enforce_core_analytics_fail_fast
+from core.attribution_precision_policy import require_attribution_precision
 from core.envelope import Audit, Diagnostics, Meta
 from core.errors import APIBadRequestError, APIError, APIInternalServerError
 from core.periods import resolve_periods
@@ -193,7 +194,7 @@ def _build_attribution_meta(
     return Meta(
         calculation_id=request.calculation_id,
         engine_version=app_version,
-        precision_mode=request.precision_mode,
+        precision_mode=require_attribution_precision(request.precision_mode),
         annualization=request.annualization,
         calendar=request.calendar,
         periods={
