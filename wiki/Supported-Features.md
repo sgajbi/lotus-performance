@@ -223,6 +223,15 @@ history (#543), external return admission (#607), model-net policy (#609), and l
 qualification are not established by this operation. Production PostgreSQL and scale acceptance
 require separate evidence.
 
+## Pinned Annual Result Comparison
+
+Tenant-scoped `POST /performance/composites/analytics/comparison` accepts explicit baseline and
+candidate annual requests, independently admits retained evidence, preserves both complete v1
+results and exposes their available quantized-output difference plus sorted full-year population
+changes. It supports exact replay after later retention; unavailable sides yield null with reasons.
+It does not select, approve or freeze official generations, establish causal/materiality impact,
+or qualify live sources. DEC-10/12/13 and the wider #610 programme remain open dependencies.
+
 ## References
 
 - [Time-Weighted Return](Time-Weighted-Return)
