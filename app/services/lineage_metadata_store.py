@@ -26,8 +26,10 @@ from sqlalchemy import (
 )
 from sqlalchemy.engine import Connection
 from sqlalchemy.orm import DeclarativeBase, Mapped, Session, mapped_column, sessionmaker
+from sqlalchemy.schema import CreateColumn
 from sqlalchemy.sql.elements import ColumnElement
 
+from app.adapters.durable_schema.sqlite_identity_upgrade import upgrade_sqlite_primary_key_nullability
 from app.services.calculation_id_filtering import apply_calculation_id_prefix_filter
 from app.services.durable_database_engine import create_durable_database_engine
 from app.services.durable_schema_creation import create_durable_schema
@@ -225,8 +227,14 @@ class LineageMetadataStore:
         create_durable_schema(
             self._engine,
             Base.metadata,
+            schema_preflights=(lambda connection: upgrade_sqlite_primary_key_nullability(connection, Base.metadata),),
             schema_upgrades=(self._ensure_payload_lease_columns,),
         )
+
+    def verify_schema(self) -> None:
+        from app.adapters.durable_schema.catalog import verify_durable_schema
+
+        verify_durable_schema(self._engine, Base.metadata)
 
     @contextmanager
     def _session(self) -> Iterator[Session]:
@@ -1256,14 +1264,12 @@ class LineageMetadataStore:
             return
 
         existing_columns = {column["name"] for column in inspector.get_columns("lineage_payloads")}
-        missing_columns = {
-            "worker_id": "ALTER TABLE lineage_payloads ADD COLUMN worker_id VARCHAR(128)",
-            "leased_at_utc": "ALTER TABLE lineage_payloads ADD COLUMN leased_at_utc DATETIME",
-            "lease_expires_at_utc": "ALTER TABLE lineage_payloads ADD COLUMN lease_expires_at_utc DATETIME",
-        }
-
-        for column_name, statement in missing_columns.items():
+        for column_name in ("worker_id", "leased_at_utc", "lease_expires_at_utc"):
             if column_name not in existing_columns:
+                definition = str(
+                    CreateColumn(LineagePayloadModel.__table__.c[column_name]).compile(dialect=connection.dialect)
+                )
+                statement = f"ALTER TABLE lineage_payloads ADD COLUMN {definition}"
                 connection.execute(text(statement))
         connection.execute(
             text(

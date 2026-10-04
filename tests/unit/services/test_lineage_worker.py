@@ -655,11 +655,12 @@ def test_mark_lineage_materialization_failed_marks_execution_failed(tmp_path):
     ]
 
 
-def test_run_forever_initializes_schema_and_sleeps_when_idle(monkeypatch):
+@pytest.mark.usefixtures("applied_durable_schema")
+def test_run_forever_verifies_schema_and_sleeps_when_idle(monkeypatch):
     calls: list[str] = []
     settings = _worker_settings(LINEAGE_WORKER_POLL_SECONDS=11.0)
 
-    def _create_schema():
+    def _verify_schema():
         calls.append("schema")
 
     def _process_pending_jobs(**kwargs):
@@ -670,7 +671,7 @@ def test_run_forever_initializes_schema_and_sleeps_when_idle(monkeypatch):
         calls.append(f"sleep:{seconds}")
         raise RuntimeError("stop loop")
 
-    monkeypatch.setattr(lineage_worker.lineage_metadata_store, "create_schema", _create_schema)
+    monkeypatch.setattr(lineage_worker.lineage_metadata_store._resolver(), "verify_schema", _verify_schema)
     monkeypatch.setattr(lineage_worker, "process_pending_jobs", _process_pending_jobs)
     monkeypatch.setattr(lineage_worker.time, "sleep", _sleep)
 
@@ -680,14 +681,19 @@ def test_run_forever_initializes_schema_and_sleeps_when_idle(monkeypatch):
     assert calls == ["schema", "process", f"sleep:{settings.LINEAGE_WORKER_POLL_SECONDS}"]
 
 
+@pytest.mark.usefixtures("applied_durable_schema")
 def test_lineage_worker_run_forever_honors_pre_set_stop_event(monkeypatch):
     stop_event = Event()
     stop_event.set()
     calls: list[str] = []
     settings = _worker_settings()
 
-    monkeypatch.setattr(lineage_worker.execution_registry, "create_schema", lambda: calls.append("exec_schema"))
-    monkeypatch.setattr(lineage_worker.lineage_metadata_store, "create_schema", lambda: calls.append("lineage_schema"))
+    monkeypatch.setattr(
+        lineage_worker.execution_registry._resolver(), "verify_schema", lambda: calls.append("exec_schema")
+    )
+    monkeypatch.setattr(
+        lineage_worker.lineage_metadata_store._resolver(), "verify_schema", lambda: calls.append("lineage_schema")
+    )
     monkeypatch.setattr(lineage_worker, "process_pending_jobs", lambda **kwargs: calls.append("process") or 1)
 
     lineage_worker.run_forever(stop_event=stop_event, settings=settings)
@@ -695,13 +701,18 @@ def test_lineage_worker_run_forever_honors_pre_set_stop_event(monkeypatch):
     assert calls == ["exec_schema", "lineage_schema"]
 
 
+@pytest.mark.usefixtures("applied_durable_schema")
 def test_lineage_worker_run_forever_stops_during_idle_wait(monkeypatch):
     stop_event = Event()
     calls: list[str] = []
     settings = _worker_settings(LINEAGE_WORKER_POLL_SECONDS=4.0)
 
-    monkeypatch.setattr(lineage_worker.execution_registry, "create_schema", lambda: calls.append("exec_schema"))
-    monkeypatch.setattr(lineage_worker.lineage_metadata_store, "create_schema", lambda: calls.append("lineage_schema"))
+    monkeypatch.setattr(
+        lineage_worker.execution_registry._resolver(), "verify_schema", lambda: calls.append("exec_schema")
+    )
+    monkeypatch.setattr(
+        lineage_worker.lineage_metadata_store._resolver(), "verify_schema", lambda: calls.append("lineage_schema")
+    )
     monkeypatch.setattr(lineage_worker, "process_pending_jobs", lambda **kwargs: calls.append("process") or 0)
 
     def _wait(timeout: float) -> bool:

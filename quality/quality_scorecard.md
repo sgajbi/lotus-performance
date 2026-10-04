@@ -4,7 +4,7 @@ Report date: 2026-07-10
 Branch: `feat/performance-architecture-boundary-refactor`
 Baseline source: `quality/baseline_report.md`
 Current source: `quality/refactor_health_report.md`
-Testing inventory refresh: 2026-10-04, monetary allowance-disposition candidate (#472).
+Testing inventory refresh: 2026-10-04, durable schema ownership candidate (#488).
 Other phase-zero measurements below remain historical, not current acceptance evidence.
 Mode: phase-zero scorecard; static-quality and evaluation enforcement includes complexity,
 architecture, router-thinness, duplicate-code, repository hygiene, observability-readiness,
@@ -28,8 +28,8 @@ metrics in each section are updated with each meaningful slice.
 | Python LOC | 104,454 | 185,003 | 80,549 | measured | `quality/baseline_report.md`; `quality/refactor_health_report.md` |
 | Largest Python file LOC | 2,399 | 2,503 | 104 | measured | `quality/baseline_report.md`; `quality/refactor_health_report.md` |
 | Largest production file LOC | 1,156 | 1,991 | 835 | measured | `quality/refactor_health_report.md`; `quality/architecture_boundary_inventory.md` |
-| Python test modules | 228 | 352 | 124 | measured | `quality/baseline_report.md`; `quality/refactor_health_report.md` |
-| Collected tests | 2,035 | 6,078 | 4,043 | measured | `quality/baseline_report.md`; `quality/refactor_health_report.md` |
+| Python test modules | 228 | 357 | 129 | measured | `quality/baseline_report.md`; `quality/refactor_health_report.md` |
+| Collected tests | 2,035 | 6,234 | 4,199 | measured | `quality/baseline_report.md`; `quality/refactor_health_report.md` |
 | Duplicate code hotspots | 0 | 0 | 0 | enforced | `quality/duplicate_code_inventory.md`; `quality/refactor_health_report.md`; `make quality-duplicate-code-gate` |
 | Tracked local byproduct findings | unknown | 0 | n/a | enforced | `scripts/repository_hygiene_gate.py`; `make repository-hygiene-gate`; `quality/refactor_health_report.md` |
 
@@ -70,9 +70,9 @@ metrics in each section are updated with each meaningful slice.
 | --- | ---: | ---: | ---: | --- | --- |
 | Line coverage | unknown | 99.58% | n/a | measured | `quality/coverage_inventory.md`; `quality/refactor_health_report.md` |
 | Branch coverage | unknown | 98.00% | n/a | measured | `quality/coverage_inventory.md`; `quality/refactor_health_report.md`; `make branch-coverage-baseline` |
-| Integration/API/runtime test functions | unknown | 913 | n/a | enforced | `quality/test_taxonomy_inventory.md`; `quality/refactor_health_report.md`; `make quality-test-taxonomy-gate` |
-| Contract/governance test functions | unknown | 207 | n/a | enforced | `quality/test_taxonomy_inventory.md`; `quality/refactor_health_report.md`; `make quality-test-taxonomy-gate` |
-| Uncategorized test functions | unknown | 565 | n/a | enforced ceiling | `quality/test_taxonomy_inventory.md`; `make quality-test-taxonomy-gate`; #542 classified source-correction and runtime-retention evidence, then tightened the ceiling to the measured tree. |
+| Integration/API/runtime test functions | unknown | 915 | n/a | enforced | `quality/test_taxonomy_inventory.md`; `quality/refactor_health_report.md`; `make quality-test-taxonomy-gate` |
+| Contract/governance test functions | unknown | 215 | n/a | enforced | `quality/test_taxonomy_inventory.md`; `quality/refactor_health_report.md`; `make quality-test-taxonomy-gate` |
+| Uncategorized test functions | unknown | 563 | n/a | enforced ceiling | `quality/test_taxonomy_inventory.md`; `make quality-test-taxonomy-gate`; #488 classifies schema ownership and verification as readiness evidence. |
 
 ### Security and Dependencies
 
@@ -136,3 +136,12 @@ metrics in each section are updated with each meaningful slice.
 - `n/a` indicates that a comparable historical pre-baseline value is not yet available in-repo.
 - The next slice should review the branch-coverage gap profile before proposing any threshold,
   exception policy, or CI lane placement.
+
+## Durable Schema Ownership Development Inventory (#488)
+
+Current AST inventory: 357 modules, 4,388 source test functions, 915 integration/API/runtime test functions, 215 contract/governance test functions, 735 observability/readiness test functions, 324 quality/security test functions, 2,212 analytics-domain test functions, and 563 uncategorized test functions.
+Schema-verification and owner-upgrade tests are readiness evidence; the uncategorized ceiling
+tightens from 565 to 563. Pinned Docker typecheck passed342 source files. The initial full Docker
+lane retained three inventory failures with4796 unit passes/three governed skips; integration,
+coverage, runtime rollout and exact-main acceptance remain pending. Historical results above
+are unchanged.

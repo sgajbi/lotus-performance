@@ -2281,15 +2281,18 @@ def test_compute_executor_worker_records_terminal_failure_when_execution_missing
     assert extra_fields["retryable"] is False
 
 
-def test_compute_executor_worker_run_forever_bootstraps_and_sleeps(monkeypatch):
+@pytest.mark.usefixtures("applied_durable_schema")
+def test_compute_executor_worker_run_forever_verifies_and_sleeps(monkeypatch):
     calls: list[str] = []
     settings = _worker_settings(COMPUTE_EXECUTOR_POLL_SECONDS=7.0)
     monkeypatch.setattr(
-        compute_executor_worker.execution_registry, "create_schema", lambda: calls.append("exec_schema")
+        compute_executor_worker.execution_registry._resolver(), "verify_schema", lambda: calls.append("exec_schema")
     )
-    monkeypatch.setattr(compute_executor_worker.compute_job_store, "create_schema", lambda: calls.append("job_schema"))
     monkeypatch.setattr(
-        compute_executor_worker.async_result_store, "create_schema", lambda: calls.append("result_schema")
+        compute_executor_worker.compute_job_store._resolver(), "verify_schema", lambda: calls.append("job_schema")
+    )
+    monkeypatch.setattr(
+        compute_executor_worker.async_result_store._resolver(), "verify_schema", lambda: calls.append("result_schema")
     )
     monkeypatch.setattr(
         compute_executor_worker,
@@ -2315,6 +2318,7 @@ def test_compute_executor_worker_run_forever_bootstraps_and_sleeps(monkeypatch):
     ]
 
 
+@pytest.mark.usefixtures("applied_durable_schema")
 def test_compute_executor_worker_run_forever_honors_pre_set_stop_event(monkeypatch):
     stop_event = Event()
     stop_event.set()
@@ -2322,11 +2326,13 @@ def test_compute_executor_worker_run_forever_honors_pre_set_stop_event(monkeypat
     settings = _worker_settings()
 
     monkeypatch.setattr(
-        compute_executor_worker.execution_registry, "create_schema", lambda: calls.append("exec_schema")
+        compute_executor_worker.execution_registry._resolver(), "verify_schema", lambda: calls.append("exec_schema")
     )
-    monkeypatch.setattr(compute_executor_worker.compute_job_store, "create_schema", lambda: calls.append("job_schema"))
     monkeypatch.setattr(
-        compute_executor_worker.async_result_store, "create_schema", lambda: calls.append("result_schema")
+        compute_executor_worker.compute_job_store._resolver(), "verify_schema", lambda: calls.append("job_schema")
+    )
+    monkeypatch.setattr(
+        compute_executor_worker.async_result_store._resolver(), "verify_schema", lambda: calls.append("result_schema")
     )
     monkeypatch.setattr(
         compute_executor_worker,
@@ -2339,17 +2345,20 @@ def test_compute_executor_worker_run_forever_honors_pre_set_stop_event(monkeypat
     assert calls == ["exec_schema", "job_schema", "result_schema"]
 
 
+@pytest.mark.usefixtures("applied_durable_schema")
 def test_compute_executor_worker_run_forever_stops_during_idle_wait(monkeypatch):
     stop_event = Event()
     calls: list[str] = []
     settings = _worker_settings(COMPUTE_EXECUTOR_POLL_SECONDS=3.0)
 
     monkeypatch.setattr(
-        compute_executor_worker.execution_registry, "create_schema", lambda: calls.append("exec_schema")
+        compute_executor_worker.execution_registry._resolver(), "verify_schema", lambda: calls.append("exec_schema")
     )
-    monkeypatch.setattr(compute_executor_worker.compute_job_store, "create_schema", lambda: calls.append("job_schema"))
     monkeypatch.setattr(
-        compute_executor_worker.async_result_store, "create_schema", lambda: calls.append("result_schema")
+        compute_executor_worker.compute_job_store._resolver(), "verify_schema", lambda: calls.append("job_schema")
+    )
+    monkeypatch.setattr(
+        compute_executor_worker.async_result_store._resolver(), "verify_schema", lambda: calls.append("result_schema")
     )
     monkeypatch.setattr(
         compute_executor_worker,

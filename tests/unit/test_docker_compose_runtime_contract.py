@@ -1,5 +1,7 @@
 from pathlib import Path
 
+import yaml
+
 from scripts.ci_local_compose_project import compose_project_name
 
 RUNTIME_SERVICES = (
@@ -30,6 +32,7 @@ def test_runtime_container_names_are_overrideable_for_isolated_recovery_proof() 
     for variable in (
         "PA_LINEAGE_DB_CONTAINER_NAME",
         "PA_LINEAGE_VOLUME_INIT_CONTAINER_NAME",
+        "PA_SCHEMA_APPLY_CONTAINER_NAME",
         "PA_ANALYTICS_CONTAINER_NAME",
         "PA_LINEAGE_WORKER_CONTAINER_NAME",
         "PA_COMPUTE_EXECUTOR_CONTAINER_NAME",
@@ -58,6 +61,33 @@ def test_runtime_services_wait_for_bounded_lineage_volume_initialization() -> No
         service_block = _service_block(compose, service)
         assert "performance-lineage-volume-init:" in service_block
         assert "condition: service_completed_successfully" in service_block
+
+
+def test_runtime_roles_wait_for_source_matched_read_only_schema_owner() -> None:
+    services = yaml.safe_load(Path("docker-compose.yml").read_text(encoding="utf-8"))["services"]
+    owner = services["performance-schema-apply"]
+    assert owner["command"] == [
+        "python",
+        "-m",
+        "scripts.durable_schema_apply",
+        "--output-dir",
+        "/tmp/durable-schema-apply",
+    ]
+    assert owner["read_only"] is True and owner["restart"] == "no"
+    assert owner["healthcheck"] == {"disable": True}
+    assert owner["cap_drop"] == ["ALL"]
+    assert owner["security_opt"] == ["no-new-privileges:true"]
+    assert owner["depends_on"]["performance-lineage-db"]["condition"] == "service_healthy"
+    assert owner["depends_on"]["performance-lineage-volume-init"]["condition"] == "service_completed_successfully"
+    assert owner["volumes"] == ["performance-lineage-data:/app/lineage_data"]
+    for name in RUNTIME_SERVICES:
+        runtime = services[name]
+        assert runtime["depends_on"]["performance-schema-apply"]["condition"] == "service_completed_successfully"
+        assert runtime["build"] == owner["build"]
+        assert (
+            runtime["environment"]["LINEAGE_METADATA_DATABASE_URL"]
+            == owner["environment"]["LINEAGE_METADATA_DATABASE_URL"]
+        )
 
 
 def test_docker_build_context_excludes_generated_runtime_state() -> None:

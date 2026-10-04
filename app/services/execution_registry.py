@@ -426,6 +426,11 @@ class ExecutionRegistry:
             ),
         )
 
+    def verify_schema(self) -> None:
+        from app.adapters.durable_schema.catalog import verify_durable_schema
+
+        verify_durable_schema(self._engine, Base.metadata)
+
     def ping(self) -> None:
         with self._engine.connect() as connection:
             connection.execute(text("SELECT 1"))

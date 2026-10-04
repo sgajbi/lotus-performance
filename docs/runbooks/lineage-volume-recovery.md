@@ -23,16 +23,18 @@ API and worker containers continue to run as non-root.
 
 ```bash
 docker compose up -d --build performance-analytics performance-lineage-worker performance-compute-executor
-docker compose ps -a performance-lineage-volume-init performance-analytics performance-lineage-worker performance-compute-executor
+docker compose ps -a performance-lineage-volume-init performance-schema-apply performance-analytics performance-lineage-worker performance-compute-executor
 docker compose logs performance-lineage-volume-init
+docker compose logs performance-schema-apply
 ```
 
 Expected result:
 
 1. `performance-lineage-volume-init` exits with code `0`;
-2. API, lineage worker, and compute executor become healthy;
-3. retained lineage artifacts remain readable;
-4. new artifacts can be written by UID/GID `10001:10001`.
+2. `performance-schema-apply` exits with code `0` before workloads start;
+3. API, lineage worker, and compute executor become healthy;
+4. retained lineage artifacts remain readable;
+5. new artifacts can be written by UID/GID `10001:10001`.
 
 ## Isolated release proof
 
@@ -45,7 +47,8 @@ builds the production runtime target, and runs with a bounded subprocess environ
 Docker's local `default` context. Its dedicated Compose override removes database and API host-port
 publication, and its owned in-network database URL cannot be redirected by inherited caller
 configuration or a persisted remote Docker-context selection. It seeds a root-owned `0755` volume with
-a retained marker, runs the bounded initializer, verifies all three non-root workloads, restarts
+a retained marker, runs the bounded initializer and explicit schema owner, verifies all three
+non-root workloads, restarts
 them, and verifies the marker plus write access again. Its finalizer removes only that exact
 project's containers, volume, network, and orphaned services; it deliberately retains shared local
 images. The generated project identity is not a command-line input: a matching prefix alone never
@@ -54,6 +57,10 @@ summary with `status: passed` is emitted only after cleanup exits successfully. 
 the command fails and reports the generated project name, cleanup exit code, and any remaining
 project-owned container, network, or volume names; if validation already failed, that original
 failure is retained as the causal error.
+
+This harness qualifies isolated startup and lineage-volume recovery, not restoration of a real
+database backup, consumer acceptance or horizontal capacity. Default local image labels are not
+an immutable release attestation; capture candidate revisions and image evidence separately.
 
 Do not reuse or supply a disposable proof project name for a live deployment. The validator allocates
 the name itself and never accepts a caller-selected Compose project for destructive cleanup.

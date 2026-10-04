@@ -1,9 +1,8 @@
 """Create durable schema safely when several processes start at the same time.
 
 `MetaData.create_all` is a check-then-create: it queries for existing tables, then issues
-`CREATE TABLE` for the ones it did not find. Every worker replica runs this at boot, so two workers
-starting together both observe a table as absent and both issue the `CREATE TABLE`. The loser
-crashes.
+`CREATE TABLE` for the ones it did not find. Concurrent schema-owner invocations can both observe
+a table as absent and issue the `CREATE TABLE`. The loser crashes unless creation is fenced.
 
 The collision surfaces on PostgreSQL's own catalog rather than on the table:
 
@@ -27,9 +26,8 @@ the acquisition even when the runtime statement timeout is disabled; both config
 restored before DDL. Store-specific column and index upgrades run before the transaction releases
 the shared lock, so protecting only `create_all` cannot leave a second catalog race behind it.
 
-Single-owner schema creation - a bootstrap step that runs before any worker, with workers verifying
-and failing closed - remains the better end state and is tracked on #480. This closes the crash
-without requiring every deployment surface to guarantee step ordering first.
+The explicit schema-apply owner uses this fencing before API or worker startup. Ordinary workloads
+verify the installed schema without DDL and fail closed when owner application is required.
 """
 
 from __future__ import annotations

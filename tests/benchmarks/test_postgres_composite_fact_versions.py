@@ -1063,7 +1063,7 @@ def _create_stale_named_constraint_schema(
                     calculation_id VARCHAR(64) NOT NULL,
                     source_snapshot_id VARCHAR(256) NOT NULL,
                     source_fingerprint VARCHAR(256) NOT NULL,
-                    restatement_version VARCHAR(64) NOT NULL,
+                    restatement_version TEXT NOT NULL,
                     restatement_sequence INTEGER NOT NULL DEFAULT 1,
                     status VARCHAR(64) NOT NULL,
                     reason_codes_json TEXT NOT NULL
@@ -1695,6 +1695,13 @@ def test_postgres_replaces_stale_named_constraints_and_hardens_fact_currency() -
             column["name"]: column for column in inspect(engine).get_columns("composite_member_return_facts")
         }
         assert fact_columns["reporting_currency"]["nullable"] is False
+        assert fact_columns["restatement_version"]["type"].length == 64
+        store.verify_schema()
+        with engine.connect() as connection:
+            assert connection.exec_driver_sql(
+                "SELECT fact_key, restatement_version, return_value, beginning_market_value, ending_market_value "
+                "FROM composite_member_return_facts WHERE calculation_id = 'stale-check-calc'"
+            ).one() == ("stale-check-fact", "v1", "0.01", "100.00", "101.00")
         assert "upper" in definition_checks[COMPOSITE_DEFINITION_CURRENCY_CHECK].lower()
         assert "substr" in definition_checks[COMPOSITE_DEFINITION_CURRENCY_CHECK].lower()
         assert "upper" in fact_checks[MEMBER_RETURN_FACT_CURRENCY_CHECK].lower()
@@ -1722,6 +1729,7 @@ def test_postgres_replaces_stale_named_constraints_and_hardens_fact_currency() -
         event.listen(store._engine, "before_cursor_execute", _capture_statement)
         try:
             store.create_schema()
+            store.verify_schema()
         finally:
             event.remove(store._engine, "before_cursor_execute", _capture_statement)
         managed_tables = (
@@ -1758,11 +1766,54 @@ def test_postgres_replaces_stale_named_constraints_and_hardens_fact_currency() -
         invalid_store.close()
 
 
-def test_postgres_migrates_and_retains_immutable_composite_fact_versions() -> None:
+def test_postgres_retained_tenant_facts_without_sequence_refuse_before_mutation() -> None:
     database_url = get_postgres_database_url()
     _create_pre_sequence_schema(database_url)
     store = CompositeMetadataStore(database_url)
+    tables = ("composite_definitions", "composite_member_return_facts", "composite_member_return_fact_publications")
+    try:
+        with store._engine.connect() as connection:
+            before_columns = {table: inspect(connection).get_columns(table) for table in tables}
+            before_rows = {table: connection.exec_driver_sql(f"SELECT * FROM {table}").all() for table in tables}
+        statements = []
+        event.listen(store._engine, "before_cursor_execute", lambda _, __, sql, *args: statements.append(sql))
+        with pytest.raises(
+            CompositeTenantMigrationRequiredError, match="missing identity columns restatement_sequence"
+        ):
+            store.create_schema()
+        assert not [
+            sql
+            for sql in statements
+            if sql.lstrip().upper().startswith(("CREATE", "ALTER", "DROP", "INSERT", "UPDATE", "DELETE"))
+        ]
+        with store._engine.connect() as connection:
+            for table in tables:
+                assert [column["name"] for column in inspect(connection).get_columns(table)] == [
+                    column["name"] for column in before_columns[table]
+                ]
+                assert connection.exec_driver_sql(f"SELECT * FROM {table}").all() == before_rows[table]
+    finally:
+        store.close()
+
+
+def test_postgres_retains_explicit_immutable_composite_fact_versions() -> None:
+    database_url = get_postgres_database_url()
+    store = CompositeMetadataStore(database_url)
     store.create_schema()
+    store.upsert_definition(_definition())
+    reported_v1 = _fact(
+        return_value="0.0100",
+        return_view="NET_ACTUAL",
+        restatement_version="published",
+        restatement_sequence=1,
+        fingerprint="net-v1",
+    )
+    store.upsert_member_return_fact(reported_v1)
+    _complete_publication(store, reported_v1, source_fingerprint="sha256:net-publication-v1")
+    with store._engine.connect() as connection:
+        reported_fact_key = connection.exec_driver_sql(
+            "SELECT fact_key FROM composite_member_return_facts WHERE calculation_id = 'calc-net-v1'"
+        ).scalar_one()
     second_bootstrap = CompositeMetadataStore(database_url)
     second_bootstrap_statements: list[str] = []
 
@@ -2227,7 +2278,7 @@ def test_postgres_migrates_and_retains_immutable_composite_fact_versions() -> No
             for constraint in inspect(engine).get_check_constraints("composite_member_return_fact_publications")
         }
         with engine.connect() as connection:
-            legacy_row = connection.exec_driver_sql(
+            retained_row = connection.exec_driver_sql(
                 "SELECT fact_key, restatement_sequence FROM composite_member_return_facts "
                 "WHERE calculation_id = 'calc-net-v1'"
             ).one()
@@ -2257,10 +2308,7 @@ def test_postgres_migrates_and_retains_immutable_composite_fact_versions() -> No
     assert COMPOSITE_DEFINITION_CURRENCY_CHECK in definition_check_constraints
     assert column_definitions["restatement_version"]["type"].length == 64
     assert column_definitions["restatement_version"]["nullable"] is False
-    assert legacy_row == (
-        "PB_GLOBAL_BALANCED_USD|PB_SG_GLOBAL_BAL_001|2026-01-01|2026-01-31",
-        1,
-    )
+    assert retained_row == (reported_fact_key, 1)
     assert "uq_composite_member_return_facts_sequence_identity" in indexes
     assert "uq_composite_member_return_facts_version_identity" in indexes
     assert MEMBER_RETURN_FACT_SEQUENCE_CHECK in check_constraints

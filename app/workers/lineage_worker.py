@@ -9,7 +9,7 @@ from uuid import UUID
 
 from app.core.config import get_settings
 from app.observability import setup_worker_logging, worker_log_extra
-from app.services.durable_metadata_bootstrap import bootstrap_durable_metadata_stores
+from app.services.durable_metadata_bootstrap import verify_durable_metadata_stores
 from app.services.durable_store_runtime import RuntimeStoreProxy
 from app.services.execution_registry import ExecutionRegistry, ExecutionStageStatus, execution_registry
 from app.services.lineage_metadata_store import (
@@ -258,7 +258,7 @@ def run_forever(*, stop_event: Event | None = None, settings=None) -> None:
             queue=_QUEUE_NAME,
         ),
     )
-    bootstrap_durable_metadata_stores(
+    verify_durable_metadata_stores(
         execution_store=execution_registry,
         lineage_store=lineage_metadata_store,
     )

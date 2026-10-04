@@ -83,6 +83,7 @@ def test_compose_services_build_runtime_target_and_expose_healthchecks() -> None
     # fails by name instead of by arithmetic.
     for service_name in (
         "performance-lineage-volume-init",
+        "performance-schema-apply",
         "performance-analytics",
         "performance-lineage-worker",
         "performance-compute-executor",

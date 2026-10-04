@@ -1,7 +1,7 @@
 # Lotus Performance Test Taxonomy Inventory
 
 Report date: 2026-10-04
-Branch: `fix/monetary-allowance-dispositions`
+Branch: `fix/durable-schema-startup-ownership`
 Mode: regression-blocking test taxonomy inventory; `make quality-test-taxonomy-gate` enforces
 minimum API/runtime and contract/governance breadth plus the current uncategorized-test ceiling.
 
@@ -15,26 +15,26 @@ and quality family without executing tests or requiring coverage data.
 
 ```powershell
 python scripts/python_test_taxonomy_inventory.py --limit 30
-python scripts/python_test_taxonomy_inventory.py --limit 30 --min-api-runtime-tests 656 --min-contract-governance-tests 136 --max-uncategorized-tests 565
+python scripts/python_test_taxonomy_inventory.py --limit 30 --min-api-runtime-tests 656 --min-contract-governance-tests 136 --max-uncategorized-tests 563
 ```
 
 ## Summary
 
 | Metric | Value |
 | --- | ---: |
-| Test modules inventoried | 352 |
-| Test functions inventoried | 4340 |
-| Integration/API/runtime test functions | 913 |
-| Contract/governance test functions | 207 |
+| Test modules inventoried | 357 |
+| Test functions inventoried | 4388 |
+| Integration/API/runtime test functions | 915 |
+| Contract/governance test functions | 215 |
 
 ## Test Functions By Suite
 
 | Suite | Modules | Test functions |
 | --- | ---: | ---: |
-| benchmarks | 11 | 53 |
+| benchmarks | 11 | 61 |
 | e2e | 1 | 21 |
-| integration | 32 | 476 |
-| unit | 308 | 3790 |
+| integration | 33 | 478 |
+| unit | 312 | 3828 |
 
 ## Test Functions By Family
 
@@ -44,12 +44,12 @@ above does sum to it, because a module belongs to exactly one suite.
 
 | Family | Test functions |
 | --- | ---: |
-| analytics_domain | 2201 |
-| api_or_runtime | 913 |
-| contract_or_governance | 207 |
-| observability_or_readiness | 691 |
-| quality_or_security | 322 |
-| uncategorized | 565 |
+| analytics_domain | 2212 |
+| api_or_runtime | 915 |
+| contract_or_governance | 215 |
+| observability_or_readiness | 735 |
+| quality_or_security | 324 |
+| uncategorized | 563 |
 
 ## Largest Test Modules
 

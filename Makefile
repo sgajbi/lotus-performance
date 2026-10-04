@@ -251,7 +251,7 @@ postgres-concurrency-contracts-local:
 	    python scripts/postgres_concurrency_contracts_gate.py
 
 quality-test-taxonomy-gate:
-	python scripts/python_test_taxonomy_inventory.py --limit 30 --min-api-runtime-tests 656 --min-contract-governance-tests 136 --max-uncategorized-tests 565
+	python scripts/python_test_taxonomy_inventory.py --limit 30 --min-api-runtime-tests 656 --min-contract-governance-tests 136 --max-uncategorized-tests 563
 
 quality-evaluation-gate:
 	$(MAKE) demo-api-certification

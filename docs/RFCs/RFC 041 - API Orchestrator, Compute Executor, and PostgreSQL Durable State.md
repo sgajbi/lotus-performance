@@ -1,9 +1,15 @@
 # RFC 041 - API Orchestrator, Compute Executor, and PostgreSQL Durable State
 
-- Status: Proposed
+- Status: Partially Implemented
 - Authors: Codex
 - Date: 2026-03-08
 - Owner: lotus-performance
+- Last updated: 2026-10-04
+- Amendment: #488 durable schema ownership; governed delivery evidence in the owning issue
+
+Sections 1–18 preserve the original target design. They are not a certification of independently
+scalable sourcing, object storage or production capacity. Section 19 records the bounded ownership
+change; its implementation is not delivered until protected merge and exact-main validation.
 
 ## 1. Summary
 
@@ -671,3 +677,58 @@ The correct move is:
 - use PostgreSQL for durable operational and lineage state
 
 This gives `lotus-performance` a scalable and banking-grade architecture without unnecessary microservice sprawl.
+
+## 19. Durable Schema Ownership Amendment (#488)
+
+### Decision and business outcome
+
+Use the existing `scripts/durable_schema_apply.py` / `make migration-apply` as the sole governed
+schema-application path. API and compute, lineage and retention startup verify installed truth
+without DDL, before serving or polling. This prevents ordinary restarts from becoming migration
+events while preserving tenant ownership, retained calculations and recoverable audit evidence.
+No new service, external API, financial formula, database-role separation or scalability claim is added.
+
+| Requirement | Implementation and verification |
+| --- | --- |
+| Complete explicit owner | `scripts/durable_schema_apply.py`; v2 evidence requires all six stores, thirteen tables and managed guards |
+| Read-only startup | `main.py`, three `app/workers/` entrypoints; `tests/durable_schema_startup_helpers.py` exercises registered API and worker startup on SQLite/PostgreSQL |
+| Actionable refusal | `app/adapters/durable_schema/`; `DURABLE_SCHEMA_MIGRATION_REQUIRED` for absent or incompatible columns, identities, indexes, constraints or guards |
+| Concurrent apply safety | Existing transaction-scoped PostgreSQL advisory fence and SQLite `BEGIN IMMEDIATE`; required PostgreSQL concurrency contracts remain enforced |
+| Deployment ordering | `docker-compose.yml`; same provenance build, database health and lineage initializer before `performance-schema-apply`; successful owner completion before workloads |
+| Retained evidence | Owner-only bounded SQLite primary-key repair; composite partial identity refuses without invented tenants or sequences; retained PostgreSQL versions and replay assertions remain |
+
+### Compatibility and recovery
+
+Drain writes and stop workers and maintenance before apply. Capture a restorable backup and
+lineage-volume identity; use the same revision and database URL for owner and workloads. Require
+all six verification checks before restarting. A workload restart never repairs schema truth.
+
+Supported legacy SQLite lineage repair changes only nullable primary-key declarations under one
+writer transaction and preserves retained values/indexes. Unknown dependencies, NULL identities
+or custom schema refuse before replacement. Unsupported retained composite identity requires a
+reviewed migration, not a startup exception. See `docs/standards/migration-contract.md` and
+`docs/runbooks/durable-metadata-recovery.md` for the bounded compatibility and forward-fix contract.
+
+On failure, leave workloads stopped. Correct forward or restore the captured backup to an isolated
+target and qualify the matching revision. Do not roll back to a mutating-startup binary against a
+partly upgraded database. This amendment requires approval through the governed PR review; the
+author does not self-certify an incompatible migration or the broader RFC acceptance criteria.
+
+### Delivery and evidence boundary
+
+- Ownership implementation: #488, `fix/durable-schema-startup-ownership`, base
+  `4ffad93e7c57789d3521ace5205bf682a6513995`; governed delivery receipts belong to the owning issue.
+- Targeted PostgreSQL proof: 76 contracts across the three required targets, no skips, with
+  registered startup and retained composite-version checks. Isolated Compose recovery also passed
+  owner ordering, non-root access and restart health; neither receipt certifies consumer acceptance.
+- Locked local proof: Python 3.11.16 / Ruff 0.6.9; 4,853 unit passes with three governed skips,
+  1,265 integration passes, 21 E2E passes and mypy on 342 source files. Combined coverage passes
+  the unchanged 99% precision-rounded gate (31,282 statements / 461 missing; raw 98.5263%).
+- Delivery requirements: review/QA, protected PR merge, exact-main CI, wiki publication/parity
+  and safe feature cleanup. The owning issue records current receipts and acceptance; targeted
+  tests alone do not establish delivery.
+- Platform scaffolding/skills: deliberate no change; reuse existing owner CLI, required integration
+  leg and delivery controls. Remove the obsolete partial-identity compatibility exception rather
+  than preserve unsupported inferred authority.
+- Original acceptance remains separate: dedicated sourcing deployment, object-storage qualification,
+  metric-specific partition equivalence and measured horizontal capacity are not established by #488.

@@ -8,7 +8,7 @@ import tempfile
 from dataclasses import asdict, dataclass
 from datetime import UTC, datetime
 from pathlib import Path
-from typing import Sequence
+from typing import Protocol, Sequence
 
 from sqlalchemy import inspect
 from sqlalchemy.engine import Engine, make_url
@@ -68,6 +68,17 @@ class DurableSchemaColumnCheck:
     status: str
 
 
+class _SchemaVerifiable(Protocol):
+    def verify_schema(self) -> None: ...
+
+
+@dataclass(frozen=True)
+class DurableSchemaVerificationCheck:
+    store_name: str
+    status: str
+    issues: list[str]
+
+
 @dataclass(frozen=True)
 class DurableSchemaApplyEvidence:
     schema_version: str
@@ -78,6 +89,7 @@ class DurableSchemaApplyEvidence:
     owned_tables_present: list[str]
     missing_owned_tables: list[str]
     additive_upgrade_checks: list[DurableSchemaColumnCheck]
+    schema_verification_checks: list[DurableSchemaVerificationCheck]
     bootstrap_error: str | None
     status: str
 
@@ -117,10 +129,27 @@ def apply_durable_schema(*, database_url: str | None = None) -> DurableSchemaApp
                 engine=execution_store._engine,
                 bootstrap_error=str(exc),
             )
-        return _build_evidence(database_url=active_database_url, engine=execution_store._engine)
+        checks = _verify_stores(stores)
+        return _build_evidence(
+            database_url=active_database_url, engine=execution_store._engine, verification_checks=checks
+        )
     finally:
         for store in stores:
             store._engine.dispose()
+
+
+def _verify_stores(stores: Sequence[_SchemaVerifiable]) -> list[DurableSchemaVerificationCheck]:
+    from app.adapters.durable_schema.errors import DurableSchemaMigrationRequiredError
+
+    checks = []
+    for store in stores:
+        try:
+            store.verify_schema()
+        except DurableSchemaMigrationRequiredError as exc:
+            checks.append(DurableSchemaVerificationCheck(type(store).__name__, "failed", list(exc.issues)))
+        else:
+            checks.append(DurableSchemaVerificationCheck(type(store).__name__, "passed", []))
+    return checks
 
 
 def _build_evidence(
@@ -128,6 +157,7 @@ def _build_evidence(
     database_url: str,
     engine: Engine,
     bootstrap_error: str | None = None,
+    verification_checks: Sequence[DurableSchemaVerificationCheck] = (),
 ) -> DurableSchemaApplyEvidence:
     available_tables = set(inspect(engine).get_table_names())
     owned_tables_present = [table_name for table_name in OWNED_DURABLE_TABLES if table_name in available_tables]
@@ -138,10 +168,12 @@ def _build_evidence(
         if bootstrap_error is None
         and not missing_owned_tables
         and all(not check.missing_columns for check in additive_upgrade_checks)
+        and [check.store_name for check in verification_checks] == list(BOOTSTRAP_STORES)
+        and all(check.status == "passed" for check in verification_checks)
         else "failed"
     )
     return DurableSchemaApplyEvidence(
-        schema_version="lotus-performance-durable-schema-apply.v1",
+        schema_version="lotus-performance-durable-schema-apply.v2",
         generated_at_utc=datetime.now(UTC).isoformat(),
         operation="durable_schema_bootstrap_apply_verify",
         database_url=_safe_database_url(database_url),
@@ -149,6 +181,7 @@ def _build_evidence(
         owned_tables_present=owned_tables_present,
         missing_owned_tables=missing_owned_tables,
         additive_upgrade_checks=additive_upgrade_checks,
+        schema_verification_checks=list(verification_checks),
         bootstrap_error=bootstrap_error,
         status=status,
     )

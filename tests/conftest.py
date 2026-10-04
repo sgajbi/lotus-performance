@@ -11,6 +11,12 @@ from app.workers.lineage_worker import process_pending_jobs
 
 
 @pytest.fixture
+def applied_durable_schema():
+    """Explicit test setup owner; ordinary runtime startup never applies DDL."""
+    bootstrap_durable_metadata_stores()
+
+
+@pytest.fixture
 def happy_path_payload():
     """Provide a fresh, valid snake_case payload for every contribution test."""
     return {

@@ -7,7 +7,9 @@ from unittest.mock import Mock
 
 import pytest
 from sqlalchemy import String, create_engine, inspect, text
+from sqlalchemy.dialects import postgresql
 from sqlalchemy.exc import IntegrityError
+from sqlalchemy.schema import CreateTable
 
 from app.models.composites import (
     CompositeDefinition,
@@ -62,6 +64,23 @@ def _drop_sqlite_guard_for_restore_fixture(
 
     with store._engine.begin() as connection:
         connection.exec_driver_sql(f"DROP TRIGGER IF EXISTS {trigger_name}")
+
+
+def test_postgres_mapped_fact_schema_declares_source_owned_version_check():
+    ddl = str(CreateTable(CompositeMemberReturnFactModel.__table__).compile(dialect=postgresql.dialect()))
+    assert composite_metadata_store_module.MEMBER_RETURN_FACT_VERSION_CHECK in ddl
+    assert composite_metadata_store_module.POSTGRES_MEMBER_RETURN_FACT_VERSION_CHECK_SQL in ddl
+
+
+@pytest.mark.parametrize(
+    "installed, expected",
+    [
+        ("a AND (b OR c)", "(a AND b) OR c"),
+        ("reporting_currency = 'usd'", "reporting_currency = 'USD'"),
+    ],
+)
+def test_postgres_owner_does_not_accept_changed_grouping_or_literal(installed, expected):
+    assert not composite_metadata_store_module._postgres_check_is_current(installed, expected)
 
 
 def test_postgres_upgrade_replaces_all_legacy_same_named_publication_constraints(monkeypatch):

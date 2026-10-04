@@ -45,14 +45,15 @@ def _load_runtime_dependencies() -> dict[str, Any]:
 
 
 def _ensure_clean_runtime_state() -> None:
+    from scripts.durable_schema_apply import apply_durable_schema
+
     runtime = _load_runtime_dependencies()
-    runtime["execution_registry"].create_schema()
+    evidence = apply_durable_schema(database_url=runtime["get_settings"]().LINEAGE_METADATA_DATABASE_URL)
+    if evidence.status != "passed":
+        raise RuntimeError("Seeded rollout requires successful make migration-apply before cleanup")
     runtime["execution_registry"].clear_all_records()
-    runtime["compute_job_store"].create_schema()
     runtime["compute_job_store"].clear_all_records()
-    runtime["async_result_store"].create_schema()
     runtime["async_result_store"].clear_all_records()
-    runtime["lineage_metadata_store"].create_schema()
     runtime["lineage_metadata_store"].clear_all_records()
 
 

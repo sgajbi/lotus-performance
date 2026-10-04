@@ -20,6 +20,16 @@ from scripts.validate_lineage_volume_recovery import (
 )
 
 
+@pytest.mark.parametrize("exit_code", ["0", "1"])
+def test_schema_owner_completion_is_required_for_recovery_proof(monkeypatch, exit_code):
+    monkeypatch.setattr(recovery, "_capture", lambda *args, **kwargs: exit_code)
+    if exit_code == "0":
+        recovery._assert_schema_apply_succeeded("owned-schema-job", {})
+    else:
+        with pytest.raises(RuntimeError, match="durable schema owner exited with code 1"):
+            recovery._assert_schema_apply_succeeded("owned-schema-job", {})
+
+
 def test_validation_accepts_only_owned_disposable_project_names() -> None:
     project_name = f"{PROJECT_PREFIX}contract-1"
 
@@ -138,6 +148,7 @@ def test_cleanup_failure_prevents_a_passed_recovery_verdict_and_reports_owned_re
     project_name = f"{PROJECT_PREFIX}cleanup-failure"
     monkeypatch.setattr(recovery, "new_project_name", lambda: project_name)
     monkeypatch.setattr(recovery, "_assert_initializer_succeeded", lambda *_args: None)
+    monkeypatch.setattr(recovery, "_assert_schema_apply_succeeded", lambda *_args: None)
     monkeypatch.setattr(recovery, "_wait_for_healthy_runtime", lambda *_args, **_kwargs: None)
     monkeypatch.setattr(recovery, "_assert_non_root_volume_access", lambda *_args: None)
     monkeypatch.setattr(

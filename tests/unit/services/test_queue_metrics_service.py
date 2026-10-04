@@ -4,6 +4,7 @@ from pathlib import Path
 from types import SimpleNamespace
 
 from app.core.config import get_settings
+from app.services import queue_metrics_service
 from app.services.queue_metrics_service import (
     _RECOVERY_DRILL_LIFECYCLE_METRICS,
     DurableQueueCollector,
@@ -111,9 +112,10 @@ def test_durable_queue_collector_describe_preserves_metric_catalog_order_and_lab
 
 def test_load_durable_queue_metric_sources_captures_availability_and_action_paths(monkeypatch):
     lease_calls: list[dict[str, object]] = []
-    monkeypatch.setattr("app.services.queue_metrics_service.compute_job_store.get_queue_stats", lambda: "compute")
+    monkeypatch.setattr(queue_metrics_service.compute_job_store._resolver(), "get_queue_stats", lambda: "compute")
     monkeypatch.setattr(
-        "app.services.queue_metrics_service.lineage_metadata_store.get_pending_payload_stats",
+        queue_metrics_service.lineage_metadata_store._resolver(),
+        "get_pending_payload_stats",
         lambda: "lineage",
     )
     monkeypatch.setattr("app.services.queue_metrics_service.get_lineage_storage_capacity", lambda: "capacity")
@@ -180,9 +182,10 @@ def test_load_operator_action_lease_metric_source_uses_default_artifact_path(mon
 
 
 def test_load_core_queue_metric_sources_preserves_source_availability(monkeypatch):
-    monkeypatch.setattr("app.services.queue_metrics_service.compute_job_store.get_queue_stats", lambda: "compute")
+    monkeypatch.setattr(queue_metrics_service.compute_job_store._resolver(), "get_queue_stats", lambda: "compute")
     monkeypatch.setattr(
-        "app.services.queue_metrics_service.lineage_metadata_store.get_pending_payload_stats",
+        queue_metrics_service.lineage_metadata_store._resolver(),
+        "get_pending_payload_stats",
         lambda: (_ for _ in ()).throw(RuntimeError("lineage unavailable")),
     )
     monkeypatch.setattr("app.services.queue_metrics_service.get_lineage_storage_capacity", lambda: "capacity")
@@ -561,11 +564,13 @@ def test_queue_metrics_collector_emits_compute_and_lineage_metrics(monkeypatch):
         oldest_leased_age_seconds = 4.0
 
     monkeypatch.setattr(
-        "app.services.queue_metrics_service.compute_job_store.get_queue_stats",
+        queue_metrics_service.compute_job_store._resolver(),
+        "get_queue_stats",
         lambda: _ComputeStats(),
     )
     monkeypatch.setattr(
-        "app.services.queue_metrics_service.lineage_metadata_store.get_pending_payload_stats",
+        queue_metrics_service.lineage_metadata_store._resolver(),
+        "get_pending_payload_stats",
         lambda: _LineageStats(),
     )
     monkeypatch.setattr(
@@ -763,11 +768,13 @@ def test_queue_metrics_collector_emits_compute_and_lineage_metrics(monkeypatch):
 
 def test_queue_metrics_collector_exposes_store_unavailability_without_false_zero_backlog(monkeypatch):
     monkeypatch.setattr(
-        "app.services.queue_metrics_service.compute_job_store.get_queue_stats",
+        queue_metrics_service.compute_job_store._resolver(),
+        "get_queue_stats",
         lambda: (_ for _ in ()).throw(RuntimeError("compute unavailable")),
     )
     monkeypatch.setattr(
-        "app.services.queue_metrics_service.lineage_metadata_store.get_pending_payload_stats",
+        queue_metrics_service.lineage_metadata_store._resolver(),
+        "get_pending_payload_stats",
         lambda: (_ for _ in ()).throw(RuntimeError("lineage unavailable")),
     )
     monkeypatch.setattr(
@@ -855,7 +862,8 @@ def test_queue_metrics_collector_exposes_store_unavailability_without_false_zero
 
 def test_queue_metrics_collector_emits_governed_action_reclaim_pressure_breaches(monkeypatch):
     monkeypatch.setattr(
-        "app.services.queue_metrics_service.compute_job_store.get_queue_stats",
+        queue_metrics_service.compute_job_store._resolver(),
+        "get_queue_stats",
         lambda: type(
             "ComputeStats",
             (),
@@ -876,7 +884,8 @@ def test_queue_metrics_collector_emits_governed_action_reclaim_pressure_breaches
         )(),
     )
     monkeypatch.setattr(
-        "app.services.queue_metrics_service.lineage_metadata_store.get_pending_payload_stats",
+        queue_metrics_service.lineage_metadata_store._resolver(),
+        "get_pending_payload_stats",
         lambda: type(
             "LineageStats",
             (),
@@ -1007,7 +1016,8 @@ def test_queue_metrics_collector_emits_governed_action_reclaim_pressure_breaches
 
 def test_queue_metrics_collector_emits_governed_action_lease_metrics(monkeypatch):
     monkeypatch.setattr(
-        "app.services.queue_metrics_service.compute_job_store.get_queue_stats",
+        queue_metrics_service.compute_job_store._resolver(),
+        "get_queue_stats",
         lambda: type(
             "ComputeStats",
             (),
@@ -1028,7 +1038,8 @@ def test_queue_metrics_collector_emits_governed_action_lease_metrics(monkeypatch
         )(),
     )
     monkeypatch.setattr(
-        "app.services.queue_metrics_service.lineage_metadata_store.get_pending_payload_stats",
+        queue_metrics_service.lineage_metadata_store._resolver(),
+        "get_pending_payload_stats",
         lambda: type(
             "LineageStats",
             (),
@@ -1174,7 +1185,8 @@ def test_queue_metrics_collector_emits_governed_action_lease_metrics(monkeypatch
 
 def test_queue_metrics_collector_emits_lineage_storage_breach_state(monkeypatch):
     monkeypatch.setattr(
-        "app.services.queue_metrics_service.compute_job_store.get_queue_stats",
+        queue_metrics_service.compute_job_store._resolver(),
+        "get_queue_stats",
         lambda: type(
             "ComputeStats",
             (),
@@ -1195,7 +1207,8 @@ def test_queue_metrics_collector_emits_lineage_storage_breach_state(monkeypatch)
         )(),
     )
     monkeypatch.setattr(
-        "app.services.queue_metrics_service.lineage_metadata_store.get_pending_payload_stats",
+        queue_metrics_service.lineage_metadata_store._resolver(),
+        "get_pending_payload_stats",
         lambda: type(
             "LineageStats",
             (),
@@ -1255,7 +1268,8 @@ def test_queue_metrics_collector_emits_lineage_storage_breach_state(monkeypatch)
 
 def test_queue_metrics_collector_emits_queue_policy_breach_state(monkeypatch):
     monkeypatch.setattr(
-        "app.services.queue_metrics_service.compute_job_store.get_queue_stats",
+        queue_metrics_service.compute_job_store._resolver(),
+        "get_queue_stats",
         lambda: type(
             "ComputeStats",
             (),
@@ -1276,7 +1290,8 @@ def test_queue_metrics_collector_emits_queue_policy_breach_state(monkeypatch):
         )(),
     )
     monkeypatch.setattr(
-        "app.services.queue_metrics_service.lineage_metadata_store.get_pending_payload_stats",
+        queue_metrics_service.lineage_metadata_store._resolver(),
+        "get_pending_payload_stats",
         lambda: type(
             "LineageStats",
             (),
@@ -1350,7 +1365,8 @@ def test_queue_metrics_collector_emits_queue_policy_breach_state(monkeypatch):
 
 def test_queue_metrics_collector_emits_recovery_drill_breach_state(monkeypatch):
     monkeypatch.setattr(
-        "app.services.queue_metrics_service.compute_job_store.get_queue_stats",
+        queue_metrics_service.compute_job_store._resolver(),
+        "get_queue_stats",
         lambda: type(
             "ComputeStats",
             (),
@@ -1371,7 +1387,8 @@ def test_queue_metrics_collector_emits_recovery_drill_breach_state(monkeypatch):
         )(),
     )
     monkeypatch.setattr(
-        "app.services.queue_metrics_service.lineage_metadata_store.get_pending_payload_stats",
+        queue_metrics_service.lineage_metadata_store._resolver(),
+        "get_pending_payload_stats",
         lambda: type(
             "LineageStats",
             (),
@@ -1453,11 +1470,13 @@ def test_queue_metrics_collector_emits_recovery_drill_breach_state(monkeypatch):
 
 def test_queue_metrics_collector_exposes_runtime_retention_unavailability_without_false_breach(monkeypatch):
     monkeypatch.setattr(
-        "app.services.queue_metrics_service.compute_job_store.get_queue_stats",
+        queue_metrics_service.compute_job_store._resolver(),
+        "get_queue_stats",
         lambda: (_ for _ in ()).throw(RuntimeError("compute unavailable")),
     )
     monkeypatch.setattr(
-        "app.services.queue_metrics_service.lineage_metadata_store.get_pending_payload_stats",
+        queue_metrics_service.lineage_metadata_store._resolver(),
+        "get_pending_payload_stats",
         lambda: (_ for _ in ()).throw(RuntimeError("lineage unavailable")),
     )
     monkeypatch.setattr(

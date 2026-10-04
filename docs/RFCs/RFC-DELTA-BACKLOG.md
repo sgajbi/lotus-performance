@@ -9,6 +9,18 @@ Status values:
 
 ## Open Deltas
 
+### RFC-041-D01 — Explicit durable schema owner
+
+- Status: `open`; owner: Performance; tracked by [#488](https://github.com/sgajbi/lotus-performance/issues/488).
+- Priority: P2, repository hardening; separate from integration consumer qualification.
+- Main baseline: `4ffad93e` still mutates schema during ordinary startup.
+- Candidate: one existing owner CLI, catalogue-only API/worker verification, ordered Compose
+  startup and bounded retained-schema handling. Evidence paths: `scripts/durable_schema_apply.py`,
+  `app/adapters/durable_schema/`, `tests/durable_schema_startup_helpers.py` and required PostgreSQL contracts.
+- Promotion: protected merge, exact-main checks, independent scoped QA and wiki parity recorded
+  in the owning issue. Until then, candidate proof does not close this delta or RFC-041's broader
+  sourcing, object-storage and horizontal-capacity requirements.
+
 ### RFC-001-D01
 - Status: `open`
 - Priority: P1

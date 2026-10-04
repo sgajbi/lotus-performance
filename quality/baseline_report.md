@@ -17,11 +17,11 @@ snapshots are written under ignored `output/quality-baseline/`; curated source r
 
 | Area | Current value | Evidence |
 | --- | ---: | --- |
-| Python files | 747 | `rg --files -g '*.py'` equivalent excluding local caches |
-| Python package markers | 23 | recursive `__init__.py` count |
-| Python LOC | 246,774 | recursive `.py` line count |
-| Test modules | 352 | `tests/**/test_*.py` |
-| Collected tests | 6078 tests | `python -m pytest --collect-only -q` |
+| Python files | 761 | `rg --files -g '*.py'` equivalent excluding local caches |
+| Python package markers | 24 | recursive `__init__.py` count |
+| Python LOC | 249,058 | recursive `.py` line count |
+| Test modules | 357 | `tests/**/test_*.py` |
+| Collected tests | 6234 tests | `python -m pytest --collect-only -q` |
 | Configured CI workflows | 8 | `.github/workflows/*.yml` |
 | Repo-native baseline command | 1 | `make quality-baseline` |
 
@@ -32,15 +32,15 @@ snapshots are written under ignored `output/quality-baseline/`; curated source r
 | 1 | `tests/integration/test_contribution_api.py` | 4447 |
 | 2 | `tests/integration/test_performance_api.py` | 3191 |
 | 3 | `tests/unit/services/test_returns_series_service.py` | 3077 |
-| 4 | `app/services/composite_metadata_store.py` | 2983 |
-| 5 | `tests/unit/services/test_compute_executor_worker.py` | 2934 |
+| 4 | `app/services/composite_metadata_store.py` | 2993 |
+| 5 | `tests/unit/services/test_compute_executor_worker.py` | 2943 |
 | 6 | `tests/unit/services/test_stateful_input_service.py` | 2808 |
-| 7 | `tests/benchmarks/test_postgres_composite_fact_versions.py` | 2743 |
+| 7 | `tests/benchmarks/test_postgres_composite_fact_versions.py` | 2791 |
 | 8 | `tests/unit/services/test_runtime_status_service.py` | 2637 |
 | 9 | `tests/unit/docs/test_public_docs_contract.py` | 2607 |
 | 10 | `app/services/stateful_input_service.py` | 2606 |
 | 11 | `tests/integration/test_attribution_api.py` | 2586 |
-| 12 | `tests/unit/services/test_composite_metadata_store.py` | 2468 |
+| 12 | `tests/unit/services/test_composite_metadata_store.py` | 2487 |
 | 13 | `app/services/returns_series_service.py` | 2343 |
 | 14 | `tests/unit/services/test_workspace_summary_service.py` | 2279 |
 | 15 | `tests/unit/app/test_request_path_runtime_settings.py` | 2276 |

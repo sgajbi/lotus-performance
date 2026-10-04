@@ -24,3 +24,21 @@ def bootstrap_durable_metadata_stores(
     lineage_store.create_schema()
     composite_store.create_schema()
     correction_store.create_schema()
+
+
+def verify_durable_metadata_stores(
+    *,
+    execution_store: ExecutionRegistry | RuntimeStoreProxy[ExecutionRegistry] = execution_registry,
+    compute_store: ComputeJobStore | RuntimeStoreProxy[ComputeJobStore] = compute_job_store,
+    async_result_store_: AsyncResultStore | RuntimeStoreProxy[AsyncResultStore] = async_result_store,
+    lineage_store: LineageMetadataStore | RuntimeStoreProxy[LineageMetadataStore] = lineage_metadata_store,
+    composite_store: CompositeMetadataStore | RuntimeStoreProxy[CompositeMetadataStore] = composite_metadata_store,
+    correction_store: SourceCorrectionStore | RuntimeStoreProxy[SourceCorrectionStore] = source_correction_store,
+) -> None:
+    """Read-only startup contract; only the explicit owner calls bootstrap."""
+    execution_store.verify_schema()
+    compute_store.verify_schema()
+    async_result_store_.verify_schema()
+    lineage_store.verify_schema()
+    composite_store.verify_schema()
+    correction_store.verify_schema()
