@@ -52,6 +52,53 @@ Stateful callers provide:
 - optional `currency_mode`
 - optional `fx`
 
+## Stateful source refusal and durable polling
+
+When the direct Core portfolio-timeseries product returns the recognized problem
+`422 QCP_ANALYTICS_INSUFFICIENT_DATA` with matching `INSUFFICIENT_DATA` metadata,
+Performance preserves that code and status with `retryable=false`. The response uses a
+server-owned message and remediation hint; Core diagnostic text is not returned to callers.
+An asynchronous execution becomes failed after one compute attempt and publishes a failed
+result, never a ready calculation. The same classification survives independent database
+adapter reload and public polling.
+
+For example, submit this stateful request with an admitted `X-Tenant-Id`:
+
+```json
+{
+  "calculation_id": "61900000-1111-4222-8333-abcdefabcdef",
+  "portfolio_id": "CLIENT_PORTFOLIO",
+  "input_mode": "stateful",
+  "stateful_input": {},
+  "performance_start_date": "2025-01-01",
+  "report_end_date": "2025-01-02",
+  "periods": [{"period": "SI", "frequencies": ["daily"]}]
+}
+```
+
+Submit to `POST /performance/workspace-summary`. For a `202` response, follow its `poll_path`
+and `result_path`, respecting its recommended polling interval and keeping the same tenant.
+`GET /performance/executions/{calculation_id}` returns the failed execution, typed failure,
+attempt count and retained upstream snapshots. The result route returns the safe `422`
+classification. Repeating a submission with the same explicit calculation ID does not reset
+the terminal job. Workspace summary does not offer an `Idempotency-Key` header contract.
+After Core source repair, use a new calculation ID; the original failed record remains intact.
+
+| Source outcome | Performance behavior | Operator/client action |
+| --- | --- | --- |
+| Exact direct portfolio refusal | Terminal `422`, `QCP_ANALYTICS_INSUFFICIENT_DATA`, `retryable=false` | Repair Core history/evidence, then submit a new execution |
+| Unknown/malformed problem, export/not-ready product, upstream 400/401/403/404 | Existing safe `503` retry policy | Check source contract, authority and control-plane configuration |
+| Transport failure, throttling or server failure | Existing HTTP retry and durable compute budget; exhaustion remains a failed result | Diagnose dependency health and retry guidance |
+
+Retained portfolio identity, as-of date, requested window and request/response fingerprints
+identify the observed retrieval. Dates alone do not freeze mutable source data. This bounded
+policy does not admit positions, unfinished export jobs or unrecognized refusal codes, and
+does not relax valuation/cashflow/source guards. Controlled source-contract fixtures prove
+adapter and durable behavior; they do not certify a live Core runtime or repair its data.
+
+The owning tests are `tests/integration/test_source_refusal_contract.py` and the
+`source_refusal` cases in `tests/benchmarks/test_postgres_concurrency_contracts.py`.
+
 ## Supported period family
 
 The current workspace period family is:
