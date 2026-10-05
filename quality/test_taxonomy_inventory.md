@@ -1,7 +1,7 @@
 # Lotus Performance Test Taxonomy Inventory
 
-Report date: 2026-10-04
-Branch: `fix/retention-operator-entrypoint`
+Report date: 2026-10-05
+Branch: `fix/characterization-measurement-context`
 Mode: regression-blocking test taxonomy inventory; `make quality-test-taxonomy-gate` enforces
 minimum API/runtime and contract/governance breadth plus the current uncategorized-test ceiling.
 
@@ -22,10 +22,10 @@ python scripts/python_test_taxonomy_inventory.py --limit 30 --min-api-runtime-te
 
 | Metric | Value |
 | --- | ---: |
-| Test modules inventoried | 368 |
-| Test functions inventoried | 4465 |
+| Test modules inventoried | 369 |
+| Test functions inventoried | 4481 |
 | Integration/API/runtime test functions | 946 |
-| Contract/governance test functions | 224 |
+| Contract/governance test functions | 225 |
 
 ## Test Functions By Suite
 
@@ -34,7 +34,7 @@ python scripts/python_test_taxonomy_inventory.py --limit 30 --min-api-runtime-te
 | benchmarks | 11 | 68 |
 | e2e | 1 | 21 |
 | integration | 37 | 494 |
-| unit | 319 | 3882 |
+| unit | 320 | 3898 |
 
 ## Test Functions By Family
 
@@ -46,9 +46,9 @@ above does sum to it, because a module belongs to exactly one suite.
 | --- | ---: |
 | analytics_domain | 2275 |
 | api_or_runtime | 946 |
-| contract_or_governance | 224 |
+| contract_or_governance | 225 |
 | observability_or_readiness | 752 |
-| quality_or_security | 326 |
+| quality_or_security | 341 |
 | uncategorized | 558 |
 
 The #619 source-refusal slice classifies the exact existing stateful upstream error adapter
@@ -65,7 +65,7 @@ acceptance or calculation/source readiness certification.
 | 1 | `tests/unit/services/test_returns_series_service.py` | unit | 96 | analytics_domain |
 | 2 | `tests/unit/app/test_enterprise_readiness_additional.py` | unit | 88 | observability_or_readiness |
 | 3 | `tests/integration/test_contribution_api.py` | integration | 78 | analytics_domain, api_or_runtime |
-| 4 | `tests/unit/docs/test_public_docs_contract.py` | unit | 71 | contract_or_governance |
+| 4 | `tests/unit/docs/test_public_docs_contract.py` | unit | 72 | contract_or_governance |
 | 5 | `tests/unit/services/test_stateful_attribution_input_service.py` | unit | 71 | analytics_domain |
 | 6 | `tests/unit/services/test_compute_job_store.py` | unit | 70 | observability_or_readiness |
 | 7 | `tests/integration/test_performance_api.py` | integration | 67 | api_or_runtime |

@@ -205,6 +205,27 @@ full characterization target, reruns the PostgreSQL plan/concurrency subset with
 required, and uploads the artifacts. The lane is evidence-producing rather than required for merge
 today, but benchmark regressions and all-skipped PostgreSQL characterization fail the workflow.
 
+### Interpreting characterization evidence
+
+The existing artifacts now retain the engine assertion's five ordered samples, exact median,
+admitted workload/config identity and unchanged 75,000-row / 0.500-second budget. Node properties
+are emitted outside timing, before a failing assertion, without xunit2 warnings. Plugin benchmark
+statistics and JUnit whole-test duration are separate measurements.
+
+The summary preserves native pytest exit and separately records artifact-validation exit `4`
+for missing/duplicate/malformed full-run evidence. PostgreSQL-only engine evidence is not
+applicable; archived absent fields are not recorded. CPU/memory observations, mounted cgroup-root
+reads, installed distribution metadata and image/thread declarations carry their own provenance.
+Unavailable fields are null with reasons. A hosted runner and supplied image declaration do not
+prove deployed resource qualification.
+
+Package compatibility remains Python `>=3.11,<3.14`; CI/container target Python 3.11 does not
+silently exclude Windows/3.13. #617 remains open for the original Windows miss and operating
+envelope. Preserve failed evidence and uncertainty; use a reviewed bounded matched-envelope plan,
+not repeated full-suite runs or budget/precision changes. See
+[Performance Characterization](https://github.com/sgajbi/lotus-performance/blob/main/docs/technical/performance_characterization.md)
+for the field contract and qualification limits.
+
 ## Container supply-chain evidence
 
 For release-image evidence, run:

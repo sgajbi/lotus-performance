@@ -977,6 +977,24 @@ replay. PostgreSQL cases live in the existing concurrency target and use its iso
 helper; no production schema or calculation change is required. The caller guide and wiki
 troubleshooting page describe client and operator behavior.
 
+## Characterization Evidence Practice
+
+The existing `scripts/run_performance_characterization.py` summary retains exact five-sample
+engine timing evidence from direct pytest node properties, with the unchanged 75,000-row /
+0.500-second assertion and deep-copy boundary. Serialization follows timing and precedes the
+assertion, so failed budgets retain measurements. Missing/duplicate/malformed full-run evidence
+fails artifact validation independently; original pytest exits always survive. PostgreSQL-only
+engine evidence is not applicable; archived missing fields are not recorded.
+
+Runner context distinguishes installed distributions, host observations, mounted cgroup-root
+reads and environment declarations. Unavailable values are null with reasons; these fields do
+not establish deployment identity or resource entitlement. Python package compatibility remains
+`>=3.11,<3.14`, while current CI/container target Python 3.11; Windows/3.13 is not silently excluded.
+Preserve #617's original Windows miss and missing historical samples/context. A current CI pass
+and unchanged engine tree do not establish causality or operating-envelope qualification.
+Use the named matched-envelope plan in `docs/technical/performance_characterization.md` before
+new measurements; never seek a lucky full-suite pass or weaken precision/budget/source admission.
+
 ## Cross-Links
 
 1. `../lotus-platform/context/LOTUS-QUICKSTART-CONTEXT.md`

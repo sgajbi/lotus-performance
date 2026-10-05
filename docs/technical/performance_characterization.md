@@ -45,6 +45,94 @@ This is a characterization contract, not a theoretical peak claim. If the engine
 materially, we should refresh the budget using measured evidence and record that change in the
 review ledger.
 
+### Retained engine measurements
+
+The owning assertion retains all five ordered `samples_seconds`, the recomputed exact
+`median_seconds`, `row_count=75000`, `budget_seconds=0.50`, one warm-up and five measured calls.
+Each timed call includes `engine_df.copy(deep=True)` and `run_calculations`; request/dataframe
+preparation and evidence serialization remain outside timing. Evidence is appended to the pytest
+node's `user_properties` after the last measured call and before the unchanged budget assertion.
+This direct mechanism supports xunit2 without `record_property` warnings or warning suppression.
+The original assertion still fails when its median exceeds the budget, with its five samples
+retained in JUnit even on that failure.
+
+The existing summary keeps `schema_version=1`, filenames and subprocess `return_code`, adding
+`engine_timing_evidence`, `runtime_context`, `junit_validation_error` and
+`artifact_validation_exit`. The engine evidence is versioned independently. For example, a valid
+measurement value contains:
+
+```json
+{
+  "schema_version": 1,
+  "samples_seconds": [0.4, 0.3, 0.5, 0.2, 0.45],
+  "median_seconds": 0.4,
+  "row_count": 75000,
+  "budget_seconds": 0.5,
+  "warmup_runs": 1,
+  "measured_runs": 5,
+  "units": "seconds",
+  "timed_boundary": "engine_df.copy(deep=True) + run_calculations",
+  "within_budget": true,
+  "workload": {
+    "input_payload_sha256": "illustrative hash; actual run records canonical SHA256",
+    "engine_config": {"precision_mode": "FLOAT64", "rounding_precision": 4}
+  }
+}
+```
+
+This abbreviated illustrative workload is not a measured result. Actual evidence carries
+portfolio/date scope, canonical input-payload/config hashes and admitted engine configuration,
+including precision mode and rounding. The summary wraps it with `status=recorded` and
+`reason=null`. A full run requires exactly one non-skipped owning case and one valid property;
+missing, duplicate, malformed, nonfinite, wrong-count or contract-mismatched evidence is
+`status=invalid`, `value=null`, with a reason and artifact-validation exit `4`.
+An over-budget measurement cannot describe a passed test. A nonzero pytest exit takes precedence
+over artifact validation; the summary retains both statuses. Engine evidence is not applicable
+in PostgreSQL-only mode, which records
+`status=not_applicable`, `value=null`, with an explicit reason. Archived artifacts without these
+fields are **not recorded**; do not invent samples or zero latency for them.
+
+The benchmark plugin's separate statistics and JUnit whole-test durations are not the assertion's
+five samples or median. Preserve those distinctions when comparing runs.
+
+### Runtime context and qualification limits
+
+`runtime_context` is collected in the characterization runner process before pytest, outside
+engine timing. It records interpreter executable/version, platform/architecture, installed
+library metadata and Git checkout SHA. CPU count, available affinity and host physical/available
+memory are observations with provenance, not process resource entitlements. Readable mounted
+cgroup-root CPU/memory/cpuset files are explicitly not verified effective process limits.
+Only named CI/image/thread declarations are retained; no environment dump is performed.
+Installed distribution versions are not a claim about libraries loaded by the timed engine.
+
+Unavailable values use `value=null` and `unavailable_reason`, never invented zero capacity.
+For example, an absent image declaration is:
+
+```json
+{"value": null, "provenance": "environment declaration APP_IMAGE_DIGEST", "unavailable_reason": "Not recorded or not declared"}
+```
+
+CPU governor/load contention and deployment resource entitlement remain explicitly unmeasured.
+An image field supplied through the environment is a declaration, not independently observed
+deployment identity. A hosted CI run does not execute inside or qualify the deployable image.
+
+Package compatibility remains Python `>=3.11,<3.14`; the workflow and container currently target
+Python 3.11. Neither statement silently excludes Windows or Python 3.13, nor guarantees this
+latency on every compatible interpreter/resource combination. Performance issue #617 preserves
+the original Windows median `0.5414720999833662s` against `0.500s`: its five samples and
+contemporaneous version/resource telemetry were not retained. Later diagnostic metadata is not
+that missing historical telemetry. The subsequent exact-main CI pass is separate evidence;
+identical original/current engine and benchmark trees do not establish an environment cause.
+
+Before any prospective diagnosis, agree on source, admitted workload/config, interpreter,
+libraries, observed and declared resources, timing protocol and acceptance scope. Use one bounded
+owning measurement per approved envelope, retaining failures and all five values. Do not rerun
+the full PostgreSQL suite to seek a lucky pass, relax the budget, remove the caller copy, reduce
+rows or downgrade precision. Remaining OS/resource/interpreter differences are unmatched;
+causal claims require a separately reviewed comparison. Resource or supported-limit policy
+changes require explicit governed acceptance. Richer artifacts alone do not close #617 or
+certify deployment readiness.
+
 ## Durable queue-stat budgets
 
 These characterize the control-plane query path behind:
