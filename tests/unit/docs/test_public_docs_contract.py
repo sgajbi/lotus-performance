@@ -10,6 +10,25 @@ from scripts.python_test_taxonomy_inventory import collect_test_modules, summari
 REPO_ROOT = Path(__file__).resolve().parents[3]
 
 
+def test_characterization_measurement_docs_preserve_json_and_qualification_limits():
+    from scripts.run_performance_characterization import _validate_engine_evidence
+
+    technical = _read("docs/technical/performance_characterization.md")
+    examples = [json.loads(block) for block in re.findall(r"```json\n(.*?)\n```", technical, flags=re.DOTALL)]
+    measurement = _validate_engine_evidence(examples[0])
+    assert measurement["samples_seconds"] == [0.4, 0.3, 0.5, 0.2, 0.45]
+    assert measurement["median_seconds"] == 0.4 and measurement["budget_seconds"] == 0.5
+    assert examples[1]["value"] is None and examples[1]["unavailable_reason"]
+    for document in (technical, _read("REPOSITORY-ENGINEERING-CONTEXT.md"), _read("wiki/Validation-and-CI.md")):
+        document = " ".join(document.split())
+        assert ">=3.11,<3.14" in document
+        assert "Windows" in document and "#617" in document
+        assert "not recorded" in document and "not applicable" in document
+    assert "0.5414720999833662s" in technical
+    assert "A hosted CI run does not execute inside or qualify the deployable image" in " ".join(technical.split())
+    assert "nonzero pytest exit takes precedence" in technical
+
+
 def _read(relative_path: str) -> str:
     return (REPO_ROOT / relative_path).read_text(encoding="utf-8")
 

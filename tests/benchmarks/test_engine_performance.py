@@ -1,4 +1,5 @@
 # tests/benchmarks/test_engine_performance.py
+from dataclasses import asdict
 from datetime import date, timedelta
 from statistics import median
 from time import perf_counter
@@ -8,6 +9,11 @@ import pytest
 from adapters.api_adapter import create_engine_config, create_engine_dataframe
 from app.models.requests import PerformanceRequest
 from engine.compute import run_calculations
+from scripts.run_performance_characterization import (
+    ENGINE_EVIDENCE_PROPERTY,
+    encode_engine_timing_evidence,
+    evidence_sha256,
+)
 
 CHARACTERIZATION_ROW_COUNT = 75_000
 CHARACTERIZATION_MEDIAN_SECONDS_BUDGET = 0.50
@@ -78,7 +84,7 @@ def test_vectorized_engine_performance(benchmark, large_input_data):
     benchmark(run)
 
 
-def test_vectorized_engine_characterization_contract(large_input_data):
+def test_vectorized_engine_characterization_contract(large_input_data, request):
     """Enforces a non-flaky runtime budget for the governed large daily workload."""
     pydantic_request = PerformanceRequest.model_validate(large_input_data)
 
@@ -100,6 +106,24 @@ def test_vectorized_engine_characterization_contract(large_input_data):
         timings.append(perf_counter() - start)
 
     median_seconds = median(timings)
+    request.node.user_properties.append(
+        (
+            ENGINE_EVIDENCE_PROPERTY,
+            encode_engine_timing_evidence(
+                timings,
+                row_count=CHARACTERIZATION_ROW_COUNT,
+                budget_seconds=CHARACTERIZATION_MEDIAN_SECONDS_BUDGET,
+                workload={
+                    "portfolio_id": large_input_data["portfolio_id"],
+                    "start_date": effective_start_date.isoformat(),
+                    "end_date": effective_end_date.isoformat(),
+                    "input_payload_sha256": evidence_sha256(large_input_data),
+                    "engine_config": asdict(engine_config),
+                    "engine_config_sha256": evidence_sha256(asdict(engine_config)),
+                },
+            ),
+        )
+    )
     assert median_seconds <= CHARACTERIZATION_MEDIAN_SECONDS_BUDGET, (
         f"Vectorized engine median runtime {median_seconds:.3f}s exceeded "
         f"budget {CHARACTERIZATION_MEDIAN_SECONDS_BUDGET:.3f}s "

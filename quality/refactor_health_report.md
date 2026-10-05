@@ -3,7 +3,7 @@
 Report date: 2026-07-10
 Branch: `feat/performance-architecture-boundary-refactor`
 Baseline source: `quality/baseline_report.md`
-Testing inventory refresh: 2026-10-04, bounded direct portfolio source-refusal candidate (#619).
+Testing inventory refresh: 2026-10-05, bounded characterization measurement/context candidate (#617) composed on accepted operator entrypoint (#604).
 Other phase-zero measurements, including coverage percentages, remain historical.
 Historical #540 exact main `39aec74c` passed all ten jobs in run `37136810103`; its candidate
 coverage was raw 98.5068273355382% (30,539 statements/456 missing), passing the unchanged configured
@@ -94,12 +94,12 @@ link the commit, command, or CI artifact that proves the change.
 
 | Metric | Baseline | Current | Status | Evidence |
 | --- | ---: | ---: | --- | --- |
-| Test modules | 228 | 368 | measured | `rg --files tests -g 'test_*.py'` |
-| Collected tests | 2,035 | 6,428 | measured | `python -m pytest --collect-only -q` |
+| Test modules | 228 | 369 | measured | `rg --files tests -g 'test_*.py'` |
+| Collected tests | 2,035 | 6,470 | measured | `python -m pytest --collect-only -q` |
 | Line coverage | unknown | 99.58% | measured | `quality/coverage_inventory.md` via `make branch-coverage-baseline` (`3,013` unit, `308` integration, and `21` e2e tests under branch coverage; `21,154` covered lines of `21,244` statements) |
 | Branch coverage | unknown | 98.00% | measured | `quality/coverage_inventory.md` via `make branch-coverage-baseline` (`3,013` unit, `308` integration, and `21` e2e tests under branch coverage; `4,318` covered branches of `4,406`, `88` missing branches, `88` partial branches) |
 | Integration/API/runtime test functions | unknown | 946 | enforced | `quality/test_taxonomy_inventory.md`; `make quality-test-taxonomy-gate` |
-| Contract/governance test functions | unknown | 224 | enforced | `quality/test_taxonomy_inventory.md`; `make quality-test-taxonomy-gate` |
+| Contract/governance test functions | unknown | 225 | enforced | `quality/test_taxonomy_inventory.md`; `make quality-test-taxonomy-gate` |
 | Uncategorized test functions | unknown | 558 | enforced ceiling | `quality/test_taxonomy_inventory.md`; `make quality-test-taxonomy-gate`; #619 classifies the precise source/error adapter module; observed 558, separately banked policy 558. |
 
 ## Security And Dependencies
@@ -1696,8 +1696,8 @@ Historical failures above are unchanged.
 
 ## Operator Retention Entrypoint Development Inventory (#604)
 
-Current AST inventory: 368 modules, 4,465 source test functions, 946 integration/API/runtime,
-224 contract/governance, 752 observability/readiness, 326 quality/security, 2,275 analytics-domain
+Current AST inventory: 369 modules, 4,481 source test functions, 946 integration/API/runtime,
+225 contract/governance, 752 observability/readiness, 341 quality/security, 2,275 analytics-domain
 and 558 uncategorized functions. Fresh subprocess contracts cover help, dry-run, scheduled Make
 execution and positive policy boundaries. No gate or financial formula changed. Release acceptance
 requires pinned delivery gates and immutable image proof; native tests alone are not acceptance.
