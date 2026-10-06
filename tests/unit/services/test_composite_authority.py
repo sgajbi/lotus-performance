@@ -284,3 +284,109 @@ def test_pure_asset_reporting_engine_refuses_unselected_ending_assets(monkeypatc
         CompositeMemberReturnFact.model_validate(contradictory)
     with pytest.raises(ValueError, match="^COMPOSITE_ENDING_ASSETS_UNAVAILABLE$"):
         calculate_asset_weighted_composite_twr(composite_id=command.composite_id, member_return_facts=[outcome.fact])
+
+
+@pytest.mark.parametrize("version,numerator,denominator", [("original", 1, 60), ("corrected", 49, 3050)])
+def test_frozen_monthly_wire_retains_exact_raw_economics_and_requires_approved_method(
+    monkeypatch, version, numerator, denominator
+):
+    from decimal import Decimal
+
+    from app.adapters.composite_provider_member_source import AuthorityCompositeMemberResultSource
+    from app.services.composite_materialization.provider_evidence_policy import require_provider_member_evidence
+    from engine.composites import _build_ready_member_contributions
+
+    packet = shared_packet(version)
+    install_test_authorities(monkeypatch, packet)
+    source, command = admit(packet), command_for_packet(packet)
+    raw = packet["supporting_payloads"]["member_facts"]
+
+    class Observations:
+        def read(self, *, tenant_id, selection):
+            return raw
+
+    adapter = AuthorityCompositeMemberResultSource(
+        source.definition, observations=Observations(), admitted_source=source
+    )
+    outcomes = [
+        adapter.read_member(
+            command,
+            None,
+            tenant_id="synthetic-tenant-a",
+            membership_snapshot_id=command.membership_content_hash,
+            request_headers={},
+            member_id=member,
+        )
+        for member in source.attestation.expected_portfolio_ids
+    ]
+    for outcome in outcomes:
+        assert outcome.state == "READY", outcome
+        assert outcome.fact.ending_market_value is None and outcome.fact.calculation_id is None
+        assert outcome.source_evidence.observation_wires == [raw]
+        assert "cash_flows" not in raw["rows"][0]
+        require_provider_member_evidence(source, command, outcome)
+    total = sum((outcome.fact.beginning_market_value for outcome in outcomes), Decimal(0))
+    weighted, _ = _build_ready_member_contributions(
+        ready_facts=[outcome.fact for outcome in outcomes], beginning_assets=total
+    )
+    assert abs(weighted - Decimal(numerator) / Decimal(denominator)) < Decimal("1e-25")
+    absent_admission = AuthorityCompositeMemberResultSource(source.definition, observations=Observations())
+    assert (
+        absent_admission.read_member(
+            command,
+            None,
+            tenant_id="synthetic-tenant-a",
+            membership_snapshot_id=command.membership_content_hash,
+            request_headers={},
+            member_id=outcomes[0].portfolio_id,
+        ).state
+        == "BLOCKED"
+    )
+    monkeypatch.setattr(ports, "method_approval_verifier", lambda: ports.UnavailableApprovalVerification())
+    assert (
+        adapter.read_member(
+            command,
+            None,
+            tenant_id="synthetic-tenant-a",
+            membership_snapshot_id=command.membership_content_hash,
+            request_headers={},
+            member_id=outcomes[0].portfolio_id,
+        ).state
+        == "BLOCKED"
+    )
+
+
+@pytest.mark.parametrize("mutation", ["impossible", "inverted", "window", "version", "extra_flow"])
+def test_frozen_monthly_closed_schema_refuses_invalid_dates_versions_and_invented_flows(mutation):
+    from app.models.composite_external_facts import SyntheticMonthlyMemberFacts
+
+    raw = shared_packet()["supporting_payloads"]["member_facts"]
+    if mutation == "impossible":
+        raw.update(period_start="2026-02-30", period_end="2026-02-30")
+        for row in raw["rows"]:
+            row["beginning_assets_date"] = "2026-02-30"
+    elif mutation == "inverted":
+        raw.update(period_start="2026-09-30", period_end="2026-09-01")
+    elif mutation == "window":
+        raw["rows"][0]["beginning_assets_date"] = "2026-09-02"
+    elif mutation == "version":
+        raw["product_version"] = "v2"
+    else:
+        raw["rows"][0]["cash_flows"] = []
+    with pytest.raises(ValidationError):
+        SyntheticMonthlyMemberFacts.model_validate(raw)
+
+
+def test_frozen_monthly_wrong_fee_view_is_refused_by_separate_method_verification(monkeypatch):
+    packet = shared_packet()
+    install_test_authorities(monkeypatch, packet)
+    command = command_for_packet(packet, return_view="NET_ACTUAL")
+    with pytest.raises(APIUnprocessableEntityError) as refused:
+        admit_pinned_source(
+            command=command,
+            tenant_id="synthetic-tenant-a",
+            definition=packet["definition"],
+            membership=packet["membership"],
+            attestation=packet["attestation"],
+        )
+    assert refused.value.error_code == "COMPOSITE_METHOD_APPROVAL_UNAVAILABLE"

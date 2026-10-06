@@ -84,3 +84,55 @@ def _require_row_window(row, period_start, period_end):
             raise ValueError("Flow evidence must bind the observed period")
         if flow.placement == "PERIOD_END_AFTER_RETURN" and flow.business_date != period_end:
             raise ValueError("Period-end placement requires the actual period end")
+
+
+class SyntheticMonthlyMemberObservation(AuthorityWire):
+    """The frozen monthly contract declares neither ending assets nor cash flows."""
+
+    member_id: Identifier
+    member_return: DecimalWire
+    beginning_assets: DecimalWire
+    beginning_assets_date: BusinessDate
+
+    @property
+    def source_member_id(self):
+        return self.member_id
+
+    @property
+    def ending_assets(self):
+        return None
+
+    @model_validator(mode="after")
+    def nonnegative_assets(self):
+        date.fromisoformat(self.beginning_assets_date)
+        if Decimal(self.beginning_assets) < 0:
+            raise ValueError("Provider asset amounts cannot be negative")
+        return self
+
+
+class SyntheticMonthlyMemberFacts(AuthorityWire):
+    product_name: Literal["SyntheticMonthlyMemberFacts"]
+    product_version: Literal["v1"]
+    evidence_kind: Literal["SYNTHETIC_TEST_ONLY"]
+    tenant_id: Identifier
+    provider_id: Identifier
+    revision: Identifier
+    watermark: Identifier
+    source_cut_id: Identifier
+    period_start: BusinessDate
+    period_end: BusinessDate
+    currency: Annotated[str, Field(strict=True, pattern=r"^[A-Z]{3}$")]
+    return_units: Literal["DECIMAL_FRACTION"]
+    asset_units: Literal["CURRENCY_AMOUNT"]
+    rows: list[SyntheticMonthlyMemberObservation] = Field(min_length=1, max_length=1000)
+
+    @model_validator(mode="after")
+    def exact_window(self):
+        if date.fromisoformat(self.period_end) < date.fromisoformat(self.period_start):
+            raise ValueError("Provider period is inverted")
+        ids = [row.member_id for row in self.rows]
+        if ids != sorted(set(ids)):
+            raise ValueError("Provider members must be sorted and unique")
+        if any(row.beginning_assets_date != self.period_start for row in self.rows):
+            raise ValueError("Provider beginning assets must bind the requested period")
+        return self
