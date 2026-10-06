@@ -1,6 +1,10 @@
 from __future__ import annotations
 
+import json
+import subprocess
+import sys
 from datetime import date
+from pathlib import Path
 
 import pytest
 
@@ -11,6 +15,61 @@ from app.services.composite_calculation_service import (
     calculate_composite_twr_from_persisted_facts,
 )
 from app.services.composite_metadata_store import CompositeMetadataStore
+
+
+@pytest.mark.parametrize("optimized", [False, True])
+def test_pinned_replay_boundaries_refuse_without_assertions(optimized):
+    program = """
+import json
+from dataclasses import replace
+from app.models.composites import CompositeTWRRequest
+from app.models.composite_materialization import CompositeMaterializationState
+from app.services.composite_calculation_service import (
+    calculate_composite_twr_from_materializations, _selected_materializations, _window_evidence
+)
+from app.services.composite_materialization.records import MaterializationRecord
+from core.errors import APIError
+from tests.composite_materialization_helpers import command_for, admitted
+
+command = command_for()
+request = CompositeTWRRequest(composite_id=command.composite_id,
+    period_start=command.period_start, period_end=command.period_end)
+record = MaterializationRecord(command=command, actor_id='operator', source=None,
+    outcomes=[], state=CompositeMaterializationState.COMPLETE, reason_code=None, revision=1)
+result = {}
+for name, operation in (
+    ('missing_selection', lambda: calculate_composite_twr_from_materializations(tenant_id='tenant-a', request=request)),
+    ('missing_source', lambda: _window_evidence(record, {})),
+):
+    try:
+        operation()
+    except APIError as error:
+        result[name] = {'status': error.status_code, 'code': error.error_code}
+    else:
+        raise RuntimeError(name + ' unexpectedly accepted')
+selected = _selected_materializations(request.model_copy(update={'materialization_ids': [command.materialization_id]}))
+if selected != [command.materialization_id]:
+    raise RuntimeError('Explicit selection changed')
+evidence = _window_evidence(replace(record, source=admitted(command)), {})
+if evidence.materialization_id != command.materialization_id or not evidence.retained_receipt_fingerprint.startswith('sha256:'):
+    raise RuntimeError('Valid retained evidence changed')
+result['valid_selection_and_evidence'] = True
+result['optimized'] = not __debug__
+print(json.dumps(result))
+"""
+    completed = subprocess.run(
+        [sys.executable, *(["-O"] if optimized else []), "-c", program],
+        cwd=Path(__file__).resolve().parents[3],
+        capture_output=True,
+        text=True,
+    )
+    assert completed.returncode == 0, completed.stdout + completed.stderr
+    assert json.loads(completed.stdout) == {
+        "missing_selection": {"status": 422, "code": "COMPOSITE_VECTOR_SELECTION_REQUIRED"},
+        "missing_source": {"status": 409, "code": "REQUIRED_PERIOD_UNAVAILABLE"},
+        "valid_selection_and_evidence": True,
+        "optimized": optimized,
+    }
 
 
 @pytest.fixture(autouse=True)

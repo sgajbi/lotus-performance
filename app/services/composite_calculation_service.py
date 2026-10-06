@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from datetime import date as dt_date
+from uuid import UUID
 
 from app.adapters.composite_materialization_repository import get_composite_materialization_store
 from app.models.composite_authority import ManageCompositeDefinitionV2
@@ -29,8 +30,8 @@ def calculate_composite_twr_from_materializations(
     *, tenant_id: str, request: CompositeTWRRequest
 ) -> tuple[CompositeCalculationResult, list[CompositeTWRWindowEvidence]]:
     """Explicit historical selection; never infer latest or official authority."""
-    assert request.materialization_ids is not None
-    records = get_composite_materialization_store().get_many(request.materialization_ids, tenant_id=tenant_id)
+    materialization_ids = _selected_materializations(request)
+    records = get_composite_materialization_store().get_many(materialization_ids, tenant_id=tenant_id)
     _require_vector_order(records)
     cursor = request.period_start.toordinal()
     currency = request.reporting_currency or records[0].command.reporting_currency
@@ -52,6 +53,15 @@ def calculate_composite_twr_from_materializations(
     if records[-1].command.period_end != request.period_end:
         raise APIConflictError("A required retained window is missing.", error_code="REQUIRED_PERIOD_UNAVAILABLE")
     return calculate_asset_weighted_composite_twr(composite_id=request.composite_id, member_return_facts=facts), windows
+
+
+def _selected_materializations(request: CompositeTWRRequest) -> list[UUID]:
+    if request.materialization_ids is None:
+        raise APIUnprocessableEntityError(
+            "Pinned TWR replay requires an explicit materialization selection.",
+            error_code="COMPOSITE_VECTOR_SELECTION_REQUIRED",
+        )
+    return request.materialization_ids
 
 
 def _require_vector_order(records: list[MaterializationRecord]) -> None:
@@ -108,7 +118,8 @@ def _window_facts(record: MaterializationRecord) -> list[CompositeMemberReturnFa
 
 def _window_evidence(record: MaterializationRecord, method: dict[str, str]) -> CompositeTWRWindowEvidence:
     command, source = record.command, record.source
-    assert source is not None
+    if source is None:
+        raise APIConflictError("A required retained window is unavailable.", error_code="REQUIRED_PERIOD_UNAVAILABLE")
     receipt_fingerprint = generate_value_fingerprint(
         {
             "command": command.model_dump(mode="json"),
