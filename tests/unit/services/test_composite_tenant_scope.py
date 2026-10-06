@@ -690,7 +690,11 @@ def test_populated_tenant_schema_without_sequence_refuses_without_inventing_iden
                 if "restatement_sequence" not in {column.name for column in index.columns}:
                     index.create(connection)
             connection.exec_driver_sql(
-                "INSERT INTO composite_member_return_facts VALUES ("
+                "INSERT INTO composite_member_return_facts ("
+                "fact_key, tenant_id, composite_id, portfolio_id, period_start, period_end, "
+                "return_value, return_view, beginning_market_value, ending_market_value, reporting_currency, "
+                "calculation_id, source_snapshot_id, source_fingerprint, restatement_version, status, "
+                "reason_codes_json) VALUES ("
                 "'retained-fact', 'tenant-a', 'SHARED_COMPOSITE', 'SHARED_PORTFOLIO', "
                 "'2026-01-01', '2026-01-31', '0.01', 'NET_ACTUAL', '100.00', '101.00', "
                 "'USD', 'retained-calculation', 'retained-snapshot', 'sha256:retained', "
@@ -699,6 +703,8 @@ def test_populated_tenant_schema_without_sequence_refuses_without_inventing_iden
         with store._engine.connect() as connection:
             before_schema = connection.exec_driver_sql("SELECT type, name, sql FROM sqlite_master ORDER BY name").all()
             before_rows = connection.exec_driver_sql("SELECT * FROM composite_member_return_facts").all()
+
+        assert len(before_rows) == 1, "The refusal must inspect a populated legacy schema"
 
         with pytest.raises(
             CompositeTenantMigrationRequiredError, match="missing identity columns restatement_sequence"

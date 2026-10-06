@@ -1162,7 +1162,12 @@ def _create_whitespace_version_schema(database_url: str) -> None:
             connection.execute(
                 text(
                     """
-                    INSERT INTO composite_member_return_facts VALUES (
+                    INSERT INTO composite_member_return_facts (
+                        fact_key, tenant_id, composite_id, portfolio_id, period_start, period_end,
+                        return_value, return_view, beginning_market_value, ending_market_value,
+                        reporting_currency, calculation_id, source_snapshot_id, source_fingerprint,
+                        restatement_version, restatement_sequence, status, reason_codes_json
+                    ) VALUES (
                         'legacy-whitespace-version', 'test-tenant', 'PB_GLOBAL_BALANCED_USD', 'P1',
                         '2026-01-01', '2026-01-31', '0.01', 'NET_ACTUAL', '100.00', '101.00',
                         'USD', 'legacy-calc', 'legacy-snapshot', 'sha256:legacy',
@@ -1711,7 +1716,12 @@ def test_postgres_replaces_stale_named_constraints_and_hardens_fact_currency() -
             with engine.begin() as connection:
                 connection.exec_driver_sql(
                     """
-                    INSERT INTO composite_member_return_facts VALUES (
+                    INSERT INTO composite_member_return_facts (
+                        fact_key, tenant_id, composite_id, portfolio_id, period_start, period_end,
+                        return_value, return_view, beginning_market_value, ending_market_value,
+                        reporting_currency, calculation_id, source_snapshot_id, source_fingerprint,
+                        restatement_version, restatement_sequence, status, reason_codes_json
+                    ) VALUES (
                         'null-currency-fact', 'test-tenant', 'STALE_CHECKS', 'P2',
                         '2026-01-01', '2026-01-31', '0.01', 'NET_ACTUAL',
                         '100.00', '101.00', NULL, 'null-currency-calc',
