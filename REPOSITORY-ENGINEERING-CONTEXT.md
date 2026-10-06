@@ -727,8 +727,13 @@ Important validation expectations:
     volume, retain evidence across workload restart, verify non-root read/write access and health,
     and clean only its freshly generated `lotus-performance-lineage-recovery-*` project. It must
     not accept a caller-supplied project name, because prefix matching is not ownership. Cleanup is
-    part of acceptance: a nonzero cleanup fails the command with remaining owned resource names,
-    while an earlier validation error remains causal. Its subprocess
+    part of acceptance: require a zero cleanup exit and successfully inspected empty owned
+    container, network, and volume inventories. Leftovers or inspection failures fail the command
+    even after a zero exit, with the native exit and concrete inventory retained; an earlier
+    validation error remains causal. Do not retry deletion or broaden the ownership boundary.
+    The default proof covers API, lineage worker, and compute executor, excluding optional `ops`
+    retention. Any separately authorized profile extension must use consistent profiles for
+    bring-up, restart, teardown, and role health verification. Its subprocess
     environment is allowlisted and pinned to Docker's local `default` context, its Compose override
     publishes no host ports, and its in-network
     lineage database URL is owned by the generated project; do not reintroduce inherited database,

@@ -103,6 +103,13 @@ For first response:
 
 The initializer repairs ownership without deleting retained evidence. Escalate storage-driver,
 mount, or host-filesystem failures separately when the exact owner/mode verification still fails.
+The isolated proof covers API, lineage worker, and compute executor; optional `ops` retention is
+outside its default scope. Success requires cleanup exit zero and successfully inspected empty
+owned container, network, and volume inventories. Retained resources or inspection failures fail
+the proof even when Compose exits zero; preserve the native exit, concrete inventory, and any
+earlier validation error. Do not retry deletion or widen the project ownership boundary. A
+separately authorized profile extension must use consistent profiles during bring-up, restart,
+and teardown and verify every selected role's health.
 The detailed proof and remediation boundaries are in
 [Lineage Volume Recovery](https://github.com/sgajbi/lotus-performance/blob/main/docs/runbooks/lineage-volume-recovery.md).
 

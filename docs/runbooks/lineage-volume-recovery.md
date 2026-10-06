@@ -53,10 +53,17 @@ them, and verifies the marker plus write access again. Its finalizer removes onl
 project's containers, volume, network, and orphaned services; it deliberately retains shared local
 images. The generated project identity is not a command-line input: a matching prefix alone never
 proves ownership, so concurrent recovery invocations cannot clean one another's resources. A JSON
-summary with `status: passed` is emitted only after cleanup exits successfully. If cleanup fails,
+summary with `status: passed` is emitted only after cleanup exits with code zero and successful
+inspection confirms that all three owned resource inventories are empty. A zero Compose exit
+with retained resources, or a failed inventory inspection, fails the proof. If cleanup fails,
 the command fails and reports the generated project name, cleanup exit code, and any remaining
 project-owned container, network, or volume names; if validation already failed, that original
 failure is retained as the causal error.
+
+The default proof covers API, lineage worker, and compute executor. The optional `ops` retention
+worker is outside this harness's default scope. Any separately authorized profile extension must
+use the same explicit profiles for bring-up, restart, and teardown and include every selected role
+in health verification. Cleanup does not retry deletion or broaden its ownership boundary.
 
 This harness qualifies isolated startup and lineage-volume recovery, not restoration of a real
 database backup, consumer acceptance or horizontal capacity. Default local image labels are not
