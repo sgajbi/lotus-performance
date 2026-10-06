@@ -1,11 +1,13 @@
 from __future__ import annotations
 
+import json
 from typing import Any
 from urllib.parse import quote
 
 from pydantic import ValidationError
 
 from app.core.config import get_settings
+from app.models.composite_authority import decode_authority_json
 from app.models.composite_materialization import CompositeMaterializationCommand
 from app.observability import propagation_headers
 from app.services.composite_materialization.source_contract import (
@@ -14,8 +16,28 @@ from app.services.composite_materialization.source_contract import (
     source_refusal,
 )
 from app.services.core_tenant_authority import admitted_tenant_authority, require_composite_tenant_authority
-from app.services.http_resilience import get_with_retry
+from app.services.http_resilience import get_with_retry, response_payload
 from core.errors import APIError
+
+
+def composite_response_payload(response):
+    payload = response_payload(response)
+    versions = []
+
+    def observe_versions(items):
+        versions.extend(value for key, value in items if key == "product_version")
+        return dict(items)
+
+    try:
+        json.loads(response.text, object_pairs_hook=observe_versions)
+    except ValueError:
+        return payload
+    if payload.get("product_name") == "CompositeDefinition" and "v2" in versions:
+        try:
+            return decode_authority_json(response.text)
+        except ValueError as exc:
+            raise source_refusal("COMPOSITE_SOURCE_SCHEMA_INVALID") from exc
+    return payload
 
 
 class ManageCompositeMembershipSource:
@@ -52,6 +74,7 @@ class ManageCompositeMembershipSource:
                 headers=headers,
                 max_retries=settings.CORE_MAX_RETRIES,
                 backoff_seconds=settings.CORE_RETRY_BACKOFF_SECONDS,
+                response_decoder=composite_response_payload,
             )
             if status_code != 200:
                 raise APIError(

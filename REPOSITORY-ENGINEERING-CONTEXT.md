@@ -903,6 +903,32 @@ Update this document when:
 7. repo-native domain-product declaration paths or validation commands change,
 8. README or `wiki/` structure changes the repository-local onboarding or operator navigation model.
 
+## Versioned Composite Source Admission Practice
+
+`CompositeDefinition:v2` uses explicit canonical HP/HB/HC hashing and strict wire decoding;
+the v1 recursive digest convention remains unchanged. Independent server-composed registration,
+authority, eligibility and method verification ports default unavailable. Institutional attestation
+references remain refused until qualified verification exists; test injection is synthetic only.
+
+Use the existing source-contract, materialization worker, ledger and fact-publication path for
+internal/external/hybrid authority. Retained v2 receipts preserve independent per-fact selections,
+provider observation cuts and genuine internal receipts. A provider cut is not the Manage universe
+cut. For internal retained-evidence selections, source watermark means the actual input fingerprint
+and source cut means the Manage command cut, with Core snapshot provenance retained separately.
+
+No explicit ending selection means null ending assets, even if a retained wire contains a number.
+Dependent asset-reporting calculations refuse rather than infer ending wealth. The owner-invoked
+durable schema migration preserves v1 internal rows and constraints while supporting explicit v2
+authority identity; runtime schema verification never performs the migration. Read
+`docs/guides/composite_materialization.md` for rollback limits and the remaining PostgreSQL,
+fresh-process, producer-publication and institutional acceptance boundaries.
+
+From this repository root with the pinned `.venv` Python environment, the focused proof is
+`python -m pytest tests/unit/services/test_composite_authority.py tests/unit/adapters/test_composite_external_fact_schema.py tests/integration/test_composite_provider_materialization_api.py -q`.
+Set `LINEAGE_METADATA_DATABASE_URL` to an approved isolated SQLite URL before importing registered
+API tests; do not reuse a populated legacy developer database. This is controlled in-process proof,
+not live runtime acceptance.
+
 ## Annual Composite Analysis Practice
 
 `POST /performance/composites/analytics` currently selects `ANNUAL_MEMBER_DISPERSION` and either

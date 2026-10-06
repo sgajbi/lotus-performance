@@ -37,6 +37,32 @@ Supported after RFC-049 implementation proof:
 
 ## What The Composite API Does
 
+### Versioned Source Authority
+
+The materialization worker also decodes typed `CompositeDefinition:v2` authority profiles. It
+requires independent provider registration, authority-profile approval, evaluated eligibility
+approval and method/calendar approval. Production verification and observation adapters remain
+unavailable; recognized institutional attestation references fail closed. Controlled synthetic
+tests do not activate live or official sources.
+
+Required member returns and beginning assets may select internal, external or hybrid authority.
+An optional explicit ending-asset selection must cover all members and the full profile horizon.
+Without it, materialization retains null ending assets even when an unselected wire contains a
+number; dependent asset-reporting calculations refuse. External returns have no invented internal
+calculation IDs. Internal returns retain genuine stateful calculation IDs and Core evidence.
+
+`source_authority_identity` summarizes a selected component. Retained v2 receipts preserve every
+fact's selection and provider observation, including each provider's own cut independently of the
+Manage membership/universe cut. Internal receipt selections explicitly pin the actual retained
+input fingerprint and Manage cut; they do not assert a Core source-time watermark.
+
+The owner-invoked schema apply adds an authority-identity JSON column and conditional nullable
+ending assets/calculation identity while preserving v1 internal-fact constraints. Runtime readers
+verify schema rather than migrating. The focused SQLite tests do not certify PostgreSQL migration,
+fresh-process recovery or deployment rollback. See the repository
+[materialization guide](https://github.com/sgajbi/lotus-performance/blob/main/docs/guides/composite_materialization.md)
+for the observation example, refusal boundaries and remaining #607 acceptance.
+
 ### Governed Fact Creation
 
 `POST /performance/composites/materializations` pins Manage definition, membership and complete

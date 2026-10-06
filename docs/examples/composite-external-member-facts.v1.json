@@ -1,0 +1,71 @@
+{
+  "asset_units": "CURRENCY_AMOUNT",
+  "currency": "USD",
+  "method_profile_binding": {
+    "digest": "sha256:5a4a2586565a42350ba9f357caf2c50334eab24084b3a19f1e7ef1018267d02c",
+    "product_name": "SyntheticReturnMethodProfile",
+    "product_version": "v1",
+    "revision": "synthetic.method.r1"
+  },
+  "period_end": "2026-09-30",
+  "period_start": "2026-09-01",
+  "product_name": "CompositeExternalMemberFacts",
+  "product_version": "v1",
+  "provider_id": "synthetic-provider-a",
+  "return_units": "DECIMAL_FRACTION",
+  "return_view": "GROSS",
+  "revision": "observation.original",
+  "rows": [
+    {
+      "beginning_assets": "100.00",
+      "beginning_assets_date": "2026-09-01",
+      "cash_flows": [
+        {
+          "amount": "50.00",
+          "business_date": "2026-09-30",
+          "placement": "PERIOD_END_AFTER_RETURN"
+        }
+      ],
+      "ending_assets": "160.00",
+      "ending_assets_date": "2026-09-30",
+      "member_id": "external-member-a",
+      "member_return": "0.10",
+      "source_member_id": "external-member-a"
+    },
+    {
+      "beginning_assets": "300.00",
+      "beginning_assets_date": "2026-09-01",
+      "cash_flows": [
+        {
+          "amount": "-20.00",
+          "business_date": "2026-09-30",
+          "placement": "PERIOD_END_AFTER_RETURN"
+        }
+      ],
+      "ending_assets": "274.00",
+      "ending_assets_date": "2026-09-30",
+      "member_id": "external-member-b",
+      "member_return": "-0.02",
+      "source_member_id": "external-member-b"
+    },
+    {
+      "beginning_assets": "200.00",
+      "beginning_assets_date": "2026-09-01",
+      "cash_flows": [
+        {
+          "amount": "0.00",
+          "business_date": "2026-09-30",
+          "placement": "PERIOD_END_AFTER_RETURN"
+        }
+      ],
+      "ending_assets": "206.00",
+      "ending_assets_date": "2026-09-30",
+      "member_id": "external-member-c",
+      "member_return": "0.03",
+      "source_member_id": "external-member-c"
+    }
+  ],
+  "source_cut_id": "synthetic-cut-original",
+  "tenant_id": "synthetic-tenant-a",
+  "watermark": "observation.original"
+}
