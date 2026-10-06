@@ -13,8 +13,10 @@ from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field
 
+from app.models.composite_authority import ManageCompositeDefinitionV2, authority_digest
 from app.models.composite_materialization import CompositeMaterializationCommand
 from app.models.composites import CompositeDefinition, CompositeMembership, CompositeSourceAuthority
+from app.services.composite_materialization.authority_policy import admit_authority_profile
 from core.errors import APIUnprocessableEntityError
 
 
@@ -154,7 +156,7 @@ class CompositeSourceWireEvidence(BaseModel):
 
 class PinnedCompositeSource(BaseModel):
     model_config = ConfigDict(extra="forbid")
-    definition: ManageCompositeDefinition
+    definition: ManageCompositeDefinition | ManageCompositeDefinitionV2
     membership: ManageMembershipRevision
     attestation: ManageUniverseAttestation
     wire_evidence: CompositeSourceWireEvidence
@@ -173,7 +175,12 @@ def admit_pinned_source(
         (membership, command.membership_content_hash),
         (attestation, command.attestation_content_hash),
     ):
-        if payload.get("content_hash") != expected_hash or source_digest(payload) != expected_hash:
+        digest = (
+            authority_digest({key: value for key, value in payload.items() if key != "content_hash"})
+            if payload.get("product_name") == "CompositeDefinition" and payload.get("product_version") == "v2"
+            else source_digest(payload)
+        )
+        if payload.get("content_hash") != expected_hash or digest != expected_hash:
             raise source_refusal("COMPOSITE_SOURCE_HASH_MISMATCH")
     source = PinnedCompositeSource.model_validate(
         {
@@ -200,6 +207,18 @@ def require_pinned_source_scope(
     _admit_identity(source, command=command, tenant_id=tenant_id)
     _admit_definition(source.definition, command=command)
     _admit_universe(source, command=command)
+    if isinstance(source.definition, ManageCompositeDefinitionV2):
+        admit_authority_profile(
+            source.definition,
+            command=command,
+            tenant_id=tenant_id,
+            expected_members=source.attestation.expected_portfolio_ids,
+            universe_digest=next(
+                item.content_hash
+                for item in source.attestation.source_products
+                if item.authority_scope == "AUTHORITATIVE_UNIVERSE"
+            ),
+        )
     _admit_membership_coverage(source, command=command)
 
 
@@ -211,7 +230,12 @@ def _require_retained_wire_evidence(source: PinnedCompositeSource) -> None:
         (source.wire_evidence.membership, source.membership),
         (source.wire_evidence.attestation, source.attestation),
     ):
-        if source_digest(raw) != typed.content_hash or type(typed).model_validate(raw) != typed:
+        digest = (
+            authority_digest({key: value for key, value in raw.items() if key != "content_hash"})
+            if isinstance(typed, ManageCompositeDefinitionV2)
+            else source_digest(raw)
+        )
+        if digest != typed.content_hash or type(typed).model_validate(raw) != typed:
             raise source_refusal("COMPOSITE_SOURCE_RETAINED_WIRE_MISMATCH")
 
 
@@ -243,7 +267,12 @@ def _admit_identity(source: PinnedCompositeSource, *, command: CompositeMaterial
         raise source_refusal("COMPOSITE_SOURCE_REVISION_MISMATCH")
 
 
-def _admit_definition(definition: ManageCompositeDefinition, *, command: CompositeMaterializationCommand) -> None:
+def _admit_definition(
+    definition: ManageCompositeDefinition | ManageCompositeDefinitionV2, *, command: CompositeMaterializationCommand
+) -> None:
+    if isinstance(definition, ManageCompositeDefinitionV2):
+        _admit_v2_definition_scope(definition, command)
+        return
     ownership = definition.source_authority
     if (
         ownership.definition_owner,
@@ -264,6 +293,20 @@ def _admit_definition(definition: ManageCompositeDefinition, *, command: Composi
         raise source_refusal("COMPOSITE_SOURCE_POLICY_MISMATCH")
     if definition.inception_date > command.period_start or (
         definition.termination_date is not None and definition.termination_date < command.period_end
+    ):
+        raise source_refusal("COMPOSITE_SOURCE_DEFINITION_WINDOW_MISMATCH")
+
+
+def _admit_v2_definition_scope(
+    definition: ManageCompositeDefinitionV2, command: CompositeMaterializationCommand
+) -> None:
+    if (definition.reporting_currency, definition.eligibility_policy_version) != (
+        command.reporting_currency,
+        command.policy_version,
+    ):
+        raise source_refusal("COMPOSITE_SOURCE_POLICY_MISMATCH")
+    if date.fromisoformat(definition.inception_date) > command.period_start or (
+        definition.termination_date is not None and date.fromisoformat(definition.termination_date) < command.period_end
     ):
         raise source_refusal("COMPOSITE_SOURCE_DEFINITION_WINDOW_MISMATCH")
 

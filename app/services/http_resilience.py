@@ -131,12 +131,14 @@ async def get_with_retry(
     headers: dict[str, str],
     max_retries: int = 2,
     backoff_seconds: float = 0.2,
+    response_decoder: Callable[[httpx.Response], dict[str, Any]] | None = None,
 ) -> tuple[int, dict[str, Any]]:
     return await _request_with_retry(
         timeout_seconds=timeout_seconds,
         max_retries=max_retries,
         backoff_seconds=backoff_seconds,
         request=lambda client: client.get(url, params=query_params, headers=headers),
+        response_decoder=response_decoder,
     )
 
 
@@ -146,6 +148,7 @@ async def _request_with_retry(
     max_retries: int,
     backoff_seconds: float,
     request: Callable[[httpx.AsyncClient], Awaitable[httpx.Response]],
+    response_decoder: Callable[[httpx.Response], dict[str, Any]] | None = None,
 ) -> tuple[int, dict[str, Any]]:
     _validate_retry_controls(
         timeout_seconds=timeout_seconds,
@@ -173,7 +176,7 @@ async def _request_with_retry(
                 )
                 await asyncio.sleep(retry_delay.seconds)
                 continue
-            return response.status_code, response_payload(response)
+            return response.status_code, (response_decoder or response_payload)(response)
         except (httpx.TimeoutException, httpx.NetworkError) as exc:
             if attempt >= max_retries:
                 return 503, {"detail": f"upstream communication failure: {exc.__class__.__name__}"}

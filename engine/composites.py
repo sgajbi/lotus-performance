@@ -20,9 +20,9 @@ class CompositeMemberReturnFactLike(Protocol):
     return_value: Decimal
     return_view: object
     beginning_market_value: Decimal
-    ending_market_value: Decimal
+    ending_market_value: Decimal | None
     reporting_currency: str
-    calculation_id: str
+    calculation_id: str | None
     source_snapshot_id: str
     source_fingerprint: str
     restatement_version: str
@@ -44,7 +44,8 @@ class CompositeMemberContribution:
     source_fingerprint: str
     restatement_version: str
     restatement_sequence: int
-    calculation_id: str
+    calculation_id: str | None
+    source_authority_identity: object | None = None
 
 
 @dataclass(frozen=True)
@@ -214,6 +215,7 @@ def _build_ready_member_contributions(
                 restatement_version=fact.restatement_version,
                 restatement_sequence=fact.restatement_sequence,
                 calculation_id=fact.calculation_id,
+                source_authority_identity=getattr(fact, "source_authority_identity", None),
             )
         )
     return weighted_return, member_contributions
@@ -412,9 +414,12 @@ def _classify_composite_period_facts(
 
 def _sum_composite_member_assets(
     ready_facts: Sequence[CompositeMemberReturnFactLike],
-    asset_value: Callable[[CompositeMemberReturnFactLike], Decimal],
+    asset_value: Callable[[CompositeMemberReturnFactLike], Decimal | None],
 ) -> Decimal:
-    return sum((asset_value(fact) for fact in ready_facts), Decimal("0"))
+    values = [asset_value(fact) for fact in ready_facts]
+    if any(value is None for value in values):
+        raise ValueError("COMPOSITE_ENDING_ASSETS_UNAVAILABLE")
+    return sum(values, Decimal("0"))
 
 
 def _sorted_unique_composite_values(

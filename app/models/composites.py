@@ -3,10 +3,12 @@ from __future__ import annotations
 from datetime import date as dt_date
 from decimal import Decimal
 from enum import StrEnum
-from typing import Annotated, Any
+from typing import Annotated, Any, Literal
 from uuid import UUID, uuid4
 
-from pydantic import BaseModel, BeforeValidator, ConfigDict, Field, field_validator, model_validator
+from pydantic import BaseModel, BeforeValidator, ConfigDict, Field, field_validator, model_serializer, model_validator
+
+from app.models.composite_authority import CompositeAuthorityProfile, Digest, Identifier
 
 
 def _normalize_reporting_currency(value: Any) -> Any:
@@ -115,7 +117,7 @@ class CompositeDefinition(BaseModel):
         description="Composite calculation method approved for RFC 049.",
         examples=["ASSET_WEIGHTED"],
     )
-    source_authority: CompositeSourceAuthority = Field(
+    source_authority: CompositeSourceAuthority | CompositeAuthorityProfile = Field(
         description="Source authority declaration for definition, membership, return, asset, and benchmark inputs."
     )
 
@@ -172,6 +174,18 @@ def _composite_membership_status_reason_valid(*, status: CompositeMembershipStat
     return status == CompositeMembershipStatus.INCLUDED or bool(status_reason)
 
 
+class CompositeFactSourceIdentity(BaseModel):
+    model_config = ConfigDict(extra="forbid", strict=True)
+    source_kind: Literal["INTERNAL", "EXTERNAL_PROVIDER", "HYBRID"]
+    return_source_kind: Literal["LOTUS_PERFORMANCE", "EXTERNAL_PROVIDER"]
+    provider_id: Identifier = Field(examples=["lotus-performance"])
+    source_member_id: Identifier = Field(examples=["MEMBER_A"])
+    product_name: Identifier = Field(examples=["CompositeMemberSourceEvidence"])
+    product_version: Identifier = Field(examples=["composite-member-source.v1"])
+    source_revision: Identifier = Field(examples=["7f2b08b0-58e5-49be-b3ef-7a9cfb0321ce"])
+    source_digest: Digest = Field(examples=["sha256:" + "a" * 64])
+
+
 class CompositeMemberReturnFact(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
@@ -193,7 +207,7 @@ class CompositeMemberReturnFact(BaseModel):
         description="Beginning market value used as the member weight basis.",
         examples=["1000000.00"],
     )
-    ending_market_value: Decimal = Field(
+    ending_market_value: Decimal | None = Field(
         ge=0,
         description="Ending market value retained for composite asset reporting.",
         examples=["1012500.00"],
@@ -202,9 +216,13 @@ class CompositeMemberReturnFact(BaseModel):
         description="ISO reporting currency for this member-return fact.",
         examples=["USD"],
     )
-    calculation_id: str = Field(
+    calculation_id: str | None = Field(
         description="Source portfolio calculation id used to produce the member return.",
         examples=["7f2b08b0-58e5-49be-b3ef-7a9cfb0321ce"],
+    )
+    source_authority_identity: CompositeFactSourceIdentity | None = Field(
+        default=None,
+        description="V2 selected authority summary; per-fact provider and retained receipt provenance remains in source evidence.",
     )
     source_snapshot_id: str = Field(
         description="Source snapshot identifier used for lineage and replay.",
@@ -243,11 +261,40 @@ class CompositeMemberReturnFact(BaseModel):
 
     @model_validator(mode="after")
     def validate_fact(self) -> "CompositeMemberReturnFact":
+        self._validate_source_identity()
         if not _composite_member_return_period_valid(period_start=self.period_start, period_end=self.period_end):
             raise ValueError("period_end cannot be before period_start")
         if not _composite_member_return_status_reason_valid(status=self.status, reason_codes=self.reason_codes):
             raise ValueError("reason_codes are required when member return status is not READY")
         return self
+
+    def _validate_source_identity(self):
+        if self.source_authority_identity is None:
+            if self.ending_market_value is None or not self.calculation_id:
+                raise ValueError("Internal facts require genuine calculation identity and ending assets")
+            return
+        self._validate_authority_kind()
+        if self.source_authority_identity.return_source_kind == "EXTERNAL_PROVIDER" and self.calculation_id is not None:
+            raise ValueError("External facts cannot manufacture an internal calculation identity")
+        elif self.source_authority_identity.return_source_kind == "LOTUS_PERFORMANCE" and not self.calculation_id:
+            raise ValueError("Internal-return authority requires genuine calculation identity")
+
+    def _validate_authority_kind(self):
+        expected_return_kind = {"INTERNAL": "LOTUS_PERFORMANCE", "EXTERNAL_PROVIDER": "EXTERNAL_PROVIDER"}.get(
+            self.source_authority_identity.source_kind
+        )
+        if (
+            expected_return_kind is not None
+            and self.source_authority_identity.return_source_kind != expected_return_kind
+        ):
+            raise ValueError("Selected authority mode conflicts with return ownership")
+
+    @model_serializer(mode="wrap")
+    def serialize_source_identity(self, handler):
+        payload = handler(self)
+        if self.source_authority_identity is None:
+            payload.pop("source_authority_identity", None)
+        return payload
 
     @field_validator("restatement_version")
     @classmethod
@@ -367,7 +414,20 @@ class CompositeMemberContributionResponse(BaseModel):
         description="Numeric restatement chronology selected for this contribution.",
         examples=[1],
     )
-    calculation_id: str = Field(description="Source portfolio calculation identifier.", examples=["calc-1"])
+    calculation_id: str | None = Field(
+        description="Genuine internal source calculation; null for provider returns.", examples=["calc-1"]
+    )
+    source_authority_identity: CompositeFactSourceIdentity | None = Field(
+        default=None,
+        description="V2 selected authority summary; all per-fact provenance remains in retained source evidence.",
+    )
+
+    @model_serializer(mode="wrap")
+    def serialize_source_identity(self, handler):
+        payload = handler(self)
+        if self.source_authority_identity is None:
+            payload.pop("source_authority_identity", None)
+        return payload
 
 
 class CompositePeriodResultResponse(BaseModel):

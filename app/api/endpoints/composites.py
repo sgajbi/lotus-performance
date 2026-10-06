@@ -118,7 +118,7 @@ COMPOSITE_NOT_FOUND_RESPONSE = {
     },
 }
 NO_MEMBER_RETURN_FACTS_RESPONSE = {
-    "description": "The request window is invalid or no persisted member-return facts can support it.",
+    "description": "The request window is invalid, facts are unavailable, or authoritative ending assets are unavailable.",
     "content": {
         "application/json": {
             "schema": {
@@ -128,6 +128,15 @@ NO_MEMBER_RETURN_FACTS_RESPONSE = {
                 ]
             },
             "examples": {
+                "ending_assets_unavailable": {
+                    "summary": "Published v2 facts have no selected ending-asset authority.",
+                    "value": {
+                        "detail": {
+                            "code": "COMPOSITE_ENDING_ASSETS_UNAVAILABLE",
+                            "message": "This composite calculation includes asset reporting and requires authoritative ending assets.",
+                        }
+                    },
+                },
                 "no_persisted_member_return_facts": {
                     "summary": "No persisted member-return facts exist for the requested window.",
                     "value": {
@@ -188,6 +197,7 @@ def _member_contribution_response(item) -> CompositeMemberContributionResponse:
         restatement_version=item.restatement_version,
         restatement_sequence=item.restatement_sequence,
         calculation_id=item.calculation_id,
+        source_authority_identity=item.source_authority_identity,
     )
 
 

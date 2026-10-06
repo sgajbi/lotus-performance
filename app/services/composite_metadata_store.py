@@ -30,6 +30,7 @@ from sqlalchemy.engine.interfaces import Dialect
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import DeclarativeBase, Mapped, Session, mapped_column, sessionmaker
 
+from app.adapters.composite_external_fact_schema import upgrade_external_fact_columns
 from app.adapters.composite_materialization_records import CompositeMaterializationModel, create_materialization_schema
 from app.adapters.composite_materialization_schema import require_materialization_schema
 from app.adapters.composite_schema_policy import (
@@ -190,6 +191,11 @@ class CompositeMembershipModel(Base):
 class CompositeMemberReturnFactModel(Base):
     __tablename__ = "composite_member_return_facts"
     __table_args__ = (
+        CheckConstraint(
+            "source_authority_identity_json IS NOT NULL OR "
+            "(ending_market_value IS NOT NULL AND calculation_id IS NOT NULL)",
+            name="ck_composite_fact_internal_evidence",
+        ),
         ForeignKeyConstraint(
             ["tenant_id", "composite_id"],
             ["composite_definitions.tenant_id", "composite_definitions.composite_id"],
@@ -279,9 +285,10 @@ class CompositeMemberReturnFactModel(Base):
     return_value: Mapped[str] = mapped_column(Text, nullable=False)
     return_view: Mapped[str] = mapped_column(String(32), nullable=False)
     beginning_market_value: Mapped[str] = mapped_column(Text, nullable=False)
-    ending_market_value: Mapped[str] = mapped_column(Text, nullable=False)
+    ending_market_value: Mapped[str | None] = mapped_column(Text, nullable=True)
     reporting_currency: Mapped[str] = mapped_column(String(3), nullable=False)
-    calculation_id: Mapped[str] = mapped_column(String(64), nullable=False)
+    calculation_id: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    source_authority_identity_json: Mapped[str | None] = mapped_column(Text, nullable=True)
     source_snapshot_id: Mapped[str] = mapped_column(String(256), nullable=False)
     source_fingerprint: Mapped[str] = mapped_column(String(256), nullable=False)
     restatement_version: Mapped[str] = mapped_column(String(64), nullable=False)
@@ -980,9 +987,12 @@ def _member_return_fact_from_row(row: Any) -> CompositeMemberReturnFact:
             "return_value": str(_row_value(row, "return_value")),
             "return_view": _row_value(row, "return_view"),
             "beginning_market_value": str(_row_value(row, "beginning_market_value")),
-            "ending_market_value": str(_row_value(row, "ending_market_value")),
+            "ending_market_value": _row_value(row, "ending_market_value"),
             "reporting_currency": _row_value(row, "reporting_currency"),
             "calculation_id": _row_value(row, "calculation_id"),
+            "source_authority_identity": json.loads(_row_value(row, "source_authority_identity_json"))
+            if _row_value(row, "source_authority_identity_json")
+            else None,
             "source_snapshot_id": _row_value(row, "source_snapshot_id"),
             "source_fingerprint": _row_value(row, "source_fingerprint"),
             "restatement_version": _row_value(row, "restatement_version"),
@@ -1010,9 +1020,12 @@ def _member_return_fact_model(
         return_value=str(fact.return_value),
         return_view=fact.return_view.value,
         beginning_market_value=str(fact.beginning_market_value),
-        ending_market_value=str(fact.ending_market_value),
+        ending_market_value=str(fact.ending_market_value) if fact.ending_market_value is not None else None,
         reporting_currency=fact.reporting_currency,
         calculation_id=fact.calculation_id,
+        source_authority_identity_json=fact.source_authority_identity.model_dump_json()
+        if fact.source_authority_identity is not None
+        else None,
         source_snapshot_id=fact.source_snapshot_id,
         source_fingerprint=fact.source_fingerprint,
         restatement_version=fact.restatement_version,
@@ -2465,6 +2478,7 @@ class CompositeMetadataStore:
             column["name"] for column in inspect(connection).get_columns("composite_member_return_facts")
         }
         _add_missing_member_return_fact_columns(connection, existing_columns)
+        upgrade_external_fact_columns(connection, CompositeMemberReturnFactModel.__table__)
         _reject_invalid_member_return_fact_sequences(connection)
         _reject_invalid_member_return_fact_versions(connection)
         if connection.dialect.name == "postgresql":

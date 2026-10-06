@@ -7,6 +7,7 @@ from app.observability import tenant_id_var
 from app.services.composite_metadata_store import CompositeMetadataStore, composite_metadata_store
 from app.services.core_tenant_authority import admitted_tenant_authority, require_composite_tenant_authority
 from app.services.durable_store_runtime import RuntimeStoreProxy
+from core.errors import APIUnprocessableEntityError
 from engine.composites import CompositeCalculationResult, calculate_asset_weighted_composite_twr
 
 
@@ -42,4 +43,9 @@ def calculate_composite_twr_from_persisted_facts(
         reporting_currency=selected_reporting_currency,
         restatement_sequence=restatement_sequence,
     )
+    if any(fact.ending_market_value is None for fact in facts):
+        raise APIUnprocessableEntityError(
+            detail="This composite calculation includes asset reporting and requires authoritative ending assets.",
+            error_code="COMPOSITE_ENDING_ASSETS_UNAVAILABLE",
+        )
     return calculate_asset_weighted_composite_twr(composite_id=composite_id, member_return_facts=facts)

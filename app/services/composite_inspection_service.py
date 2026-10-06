@@ -189,7 +189,7 @@ def _member_input_rows(facts) -> list[dict[str, object]]:
             "return_view": fact.return_view.value,
             "return_value": str(fact.return_value),
             "beginning_market_value": str(fact.beginning_market_value),
-            "ending_market_value": str(fact.ending_market_value),
+            "ending_market_value": str(fact.ending_market_value) if fact.ending_market_value is not None else None,
             "reporting_currency": fact.reporting_currency,
             "status": fact.status.value,
             "reason_codes": "|".join(fact.reason_codes),

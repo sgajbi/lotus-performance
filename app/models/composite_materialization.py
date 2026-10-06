@@ -5,7 +5,7 @@ from __future__ import annotations
 from datetime import date, datetime
 from decimal import Decimal
 from enum import StrEnum
-from typing import Annotated, Literal
+from typing import Annotated, Any, Literal
 from uuid import UUID, uuid4
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
@@ -130,6 +130,20 @@ class CompositeMemberSourceEvidence(BaseModel):
     )
 
 
+class CompositeProviderMemberEvidence(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    contract_version: Literal["composite-member-source.v2"] = "composite-member-source.v2"
+    qualification: Literal["SYNTHETIC_TEST_ONLY"]
+    definition_content_hash: SourceDigest
+    profile_digest: SourceDigest
+    membership_snapshot_id: SourceDigest
+    return_selection_id: SourceReference
+    asset_selection_id: SourceReference
+    ending_asset_selection_id: SourceReference | None = None
+    observation_wires: list[dict[str, Any]] = Field(max_length=3)
+    internal_member_evidence: CompositeMemberSourceEvidence | None = None
+
+
 class CompositeMemberMaterializationOutcome(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
@@ -143,7 +157,7 @@ class CompositeMemberMaterializationOutcome(BaseModel):
     fact: CompositeMemberReturnFact | None = Field(
         default=None, description="Verified staged fact; null for missing input."
     )
-    source_evidence: CompositeMemberSourceEvidence | None = Field(
+    source_evidence: CompositeMemberSourceEvidence | CompositeProviderMemberEvidence | None = Field(
         default=None, description="Pinned money, methodology and source provenance; no fabricated missing evidence."
     )
 

@@ -29,6 +29,103 @@ inclusive dates, native reporting currency, fee view and positive restatement se
 reference pins its portfolio, retained calculation UUID, input fingerprint and calculation hash.
 `GROSS` and `NET_ACTUAL` are supported; `NET_MODEL_FEE` is refused before queued acceptance.
 
+## Versioned External And Hybrid Source Admission
+
+Definition product version selects the consumer: historical `CompositeDefinition:v1` wires keep
+their existing hash, timestamp and internal calculation behavior. `CompositeDefinition:v2` carries
+an immutable economic authority profile. Policy text does not select a version. The consumer
+independently verifies profile HP, pre-approval definition HB and final approval-bearing HC;
+nested source/registry/evidence digests remain hashed inputs. Duplicate raw v2 JSON keys, floats,
+unknown fields, contradictory identities, wrong source kinds, overlapping authority and missing
+required intervals refuse. Adjacent authority changes are distinct from overlap: a materialization
+that spans a change currently requires explicitly split periods and their correctly scoped returns.
+
+Each required member/fact has one selected economic provider. Publishing through Manage does not
+make Manage the return or asset authority. Returns, beginning assets and explicitly selected
+ending assets may have different providers; internal returns require Performance and internal
+assets require Core. When ending assets are selected, coverage must be complete across every
+member and the profile horizon. Without that selection, ending assets stay null even if an
+unselected wire contains a value. The current TWR response includes asset reporting and returns
+HTTP 422 `COMPOSITE_ENDING_ASSETS_UNAVAILABLE` for that generation.
+
+The separate `CompositeExternalMemberFacts:v1` observation model records tenant/provider, source
+member identity, revision/watermark/cut, period, reporting currency, actual fee view, method binding,
+decimal-fraction returns and dated asset amounts. Dated positive/negative cash flows are retained
+with their explicit timing; supplied period returns are not reconstructed from ending wealth.
+External returns have no fabricated internal calculation UUID. Hybrid internal inputs reuse the
+genuine retained `CompositeMemberSourceEvidence` receipt and its Core window/snapshot proof.
+For that retained-evidence selection, contract version is `composite-member-source.v1`, revision
+is the genuine calculation UUID, digest is the recomputed receipt fingerprint, watermark pins the
+actual input fingerprint, and source cut pins the Manage cut. It is not a new published product,
+nor does a Manage cut claim to be a Core business watermark.
+External observation cuts instead match each fact's selected provider cut exactly. They may differ
+from the pinned Manage membership/universe cut and from one another. A summary
+`source_authority_identity` identifies a selected component; it does not assign every fact to that
+provider. The v2 receipt retains selection IDs and all independently selected observation wires,
+plus the genuine internal receipt where applicable. Wholly internal v2 profiles without an ending
+selection use this same receipt path with no external observations and retain the real calculation
+UUID; their ending assets remain null.
+
+Provider registration, authority-profile approval, evaluated eligibility approval and method/calendar
+approval use separate server-composed verification ports. Their production defaults are unavailable;
+request bodies and environment flags cannot choose a synthetic resolver. The recognized
+`INSTITUTIONAL_ATTESTATION_REFERENCE` envelope preserves the agreed immutable issuer/artifact
+reference and HP/HB/HC construction, but refuses admission until a qualified artifact/key verifier
+exists. A digest or reference never grants trust. Owning tests inject exact synthetic records only;
+their provider receipts explicitly carry `qualification=SYNTHETIC_TEST_ONLY`. COMPLETE denotes
+controlled fact publication, not institutional or live-source activation.
+
+The unchanged frozen producer pack proves typed profile decoding and independent admission bindings.
+Its existing `SyntheticMonthlyMemberFacts:v1` observation wire is not yet resolved by the default
+numeric adapter; that compatibility node remains open. The adapter currently resolves the separate
+explicit `CompositeExternalMemberFacts:v1` observation contract. A separate
+new explicit observation/profile example in
+[`tests/composite_authority_helpers.py`](../../tests/composite_authority_helpers.py) includes flows
+after the period return: A beginning100/return10%/ending160/flow+50;
+B300/-2%/274/-20; C200/3%/206/0. The independent weighted return is 1/60 and ending wealth640,
+not the inferred610. Correction B beginning310/ending283.8 yields return49/3050 and ending649.8;
+the original generation remains retrievable. These synthetic observations are not institution policy.
+
+The complete [external observation JSON example](../examples/composite-external-member-facts.v1.json)
+is the exact canonical wire used by the original controlled adapter proof. A producer must retain
+the immutable profile/definition and pin that wire's digest, revision, watermark and provider cut
+in each applicable selection. Posting an observation to the calculation API is not supported;
+the registered materialization command pins the approved Manage definition, membership and universe.
+The existing command and inspection routes stay unchanged. Independent original/correction/replay,
+ending-provider, internal and hybrid client calls are executable examples in
+[`test_composite_provider_materialization_api.py`](../../tests/integration/test_composite_provider_materialization_api.py).
+
+### Durable Upgrade And Rollback Boundary
+
+The existing owner-invoked durable schema apply upgrades the fact table with nullable ending assets
+and internal calculation identity plus explicit external source identity JSON. Internal facts retain
+a database constraint requiring genuine calculation identity and ending assets. SQLite replacement
+preserves populated rows, foreign keys, indexes and checks in the owner's transaction; PostgreSQL
+uses bounded column/constraint alterations. Runtime readers still verify schema and refuse drift;
+they do not run this migration.
+
+From the `lotus-performance` repository root, after selecting the repository's pinned Python environment:
+
+```powershell
+make shell-check
+python scripts/durable_schema_apply.py --database-url <approved-isolated-database-url>
+```
+
+```bash
+python scripts/durable_schema_apply.py --database-url '<approved-isolated-database-url>'
+```
+
+Do not run an old reader against stored v2 receipts or provider facts. Disable new v2 admission
+before rollback; retain a v2-capable reader until a separately proven restore/forward recovery
+reconciles all new rows. Dropping provider identities or replacing null assets with invented amounts
+is not rollback. The focused SQLite proofs do not certify PostgreSQL, fresh-process recovery,
+deployment rollback or actual Manage publication.
+
+Remaining #607 acceptance includes qualified external/internal/hybrid inputs, actual #714 universe,
+selected independently evaluated/approved #778 content, approved return method/calendar/fee/currency/
+precision, registered HTTP through the default worker to real PostgreSQL and fresh-process replay,
+correction and recovery. Controlled adapter proof does not close these obligations.
+
 ## Completion And Recovery
 
 `materialization_id` identifies immutable financial content; `calculation_id` identifies one bounded

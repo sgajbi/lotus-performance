@@ -11,8 +11,10 @@ from app.adapters.composite_materialization_stores import (
 )
 from app.adapters.composite_member_result_source import RetainedCompositeMemberResultSource, member_outcome
 from app.adapters.composite_membership_source import ManageCompositeMembershipSource
+from app.adapters.composite_provider_member_source import AuthorityCompositeMemberResultSource
 from app.core.application_responses import ApplicationHttpResponse
 from app.enterprise_authorization import authorize_privileged_read_request, authorize_write_request
+from app.models.composite_authority import ManageCompositeDefinitionV2
 from app.models.composite_materialization import (
     CompositeMaterializationAcceptedResponse,
     CompositeMaterializationCommand,
@@ -227,7 +229,7 @@ def run_materialization_attempt(
             record,
             tenant_id=tenant_id,
             request_headers=job.request_payload["authority"],
-            member_source=member_source or RetainedCompositeMemberResultSource(),
+            member_source=member_source or _default_member_source(record.source),
             ledger=ledger,
             fence=fence,
         )
@@ -241,6 +243,12 @@ def run_materialization_attempt(
             retryable=True,
         )
     return progress(record)
+
+
+def _default_member_source(source):
+    if source is not None and isinstance(source.definition, ManageCompositeDefinitionV2):
+        return AuthorityCompositeMemberResultSource(source.definition)
+    return RetainedCompositeMemberResultSource()
 
 
 def _read_membership_source(
@@ -339,7 +347,16 @@ def _resolve_members(
     for index, outcome in candidates[:_MAX_MEMBERS_PER_ATTEMPT]:
         fence()
         reference = references.get(outcome.portfolio_id)
-        if reference is None:
+        if isinstance(member_source, AuthorityCompositeMemberResultSource):
+            resolved = member_source.read_member(
+                command,
+                reference,
+                tenant_id=tenant_id,
+                membership_snapshot_id=command.membership_content_hash,
+                request_headers=request_headers,
+                member_id=outcome.portfolio_id,
+            )
+        elif reference is None:
             resolved = member_outcome(outcome.portfolio_id, code="MEMBER_CALCULATION_REFERENCE_REQUIRED")
         else:
             resolved = member_source.read_member(

@@ -4,11 +4,13 @@ from __future__ import annotations
 
 from typing import NoReturn
 
+from app.models.composite_authority import ManageCompositeDefinitionV2
 from app.models.composite_materialization import (
     CompositeMaterializationCommand,
     CompositeMaterializationState,
     CompositeMemberMaterializationOutcome,
     CompositeMemberOutcomeState,
+    CompositeProviderMemberEvidence,
 )
 from app.models.composites import CompositeMemberReturnFact
 from app.services.composite_materialization.member_evidence_policy import require_member_source_evidence
@@ -126,7 +128,27 @@ def _require_member_outcome(
     if outcome.state == CompositeMemberOutcomeState.EXCLUDED:
         _refuse("COMPOSITE_MATERIALIZATION_ELIGIBILITY_MISMATCH")
     if outcome.fact is not None:
-        _require_fact_scope(command, outcome, outcome.fact)
+        _require_outcome_evidence(source, command, outcome)
+
+
+def _require_outcome_evidence(source, command, outcome):
+    if isinstance(outcome.source_evidence, CompositeProviderMemberEvidence):
+        from app.services.composite_materialization.provider_evidence_policy import require_provider_member_evidence
+
+        require_provider_member_evidence(source, command, outcome)
+        return
+    if isinstance(source.definition, ManageCompositeDefinitionV2):
+        from app.services.composite_materialization.internal_authority_policy import require_internal_selection_bindings
+
+        reference = next((ref for ref in command.member_calculations if ref.portfolio_id == outcome.portfolio_id), None)
+        require_internal_selection_bindings(
+            source.definition,
+            command,
+            reference,
+            outcome.source_evidence,
+            facts=["MEMBER_RETURN", "BEGINNING_ASSETS", "ENDING_ASSETS"],
+        )
+    _require_fact_scope(command, outcome, outcome.fact)
 
 
 def _require_fact_scope(
