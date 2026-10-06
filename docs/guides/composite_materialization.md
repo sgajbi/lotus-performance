@@ -144,6 +144,54 @@ only those bounded test nodes; synthetic verification ports are not bank approva
 
 ## Completion And Recovery
 
+### Explicit Retained Window Replay
+
+The existing `POST /performance/composites/twr` request accepts an optional chronological
+`materialization_ids` vector. It is mutually exclusive with `restatement_sequence`. Omitted vector
+and single-sequence requests retain their existing selection behavior. Each selected window must
+be COMPLETE, belong to the admitted tenant and requested composite/fee/currency, and cover the
+requested interval contiguously without overlap. The same exact retained method/calendar binding
+and policy must cover every window; different opaque method digests are refused. Window-specific
+definition, membership, eligibility and source hashes remain independently retained and verified.
+An omitted currency comes from the first selected immutable window, not a current live definition.
+
+This is explicit historical calculated replay, including when a newer correction is pending or
+complete. It does not select latest-approved or official authority and does not freeze edits.
+PostgreSQL reads every selected receipt, publication and fact check under REPEATABLE READ; SQLite
+starts an explicit read transaction. Modified or mixed retained manifests fail existing integrity
+checks. The numerical engine remains unchanged.
+
+The interactive request has a new explicit maximum of **120 retained windows**: this bounds the
+number of receipt/publication validations per call and supports ten years of monthly evidence.
+It is a request resource bound, not a limit on retained history or an institutional policy.
+Empty, duplicate or larger vectors are refused with HTTP 422; no history is silently truncated.
+Missing required windows or selected incomplete receipts return HTTP 409
+`REQUIRED_PERIOD_UNAVAILABLE` with no financial payload. This represents an unavailable return;
+it is an absent refused payload, not a returned numeric zero or a successful null-valued result.
+Overlapping/out-of-order windows and incompatible scope/method are refused with HTTP 422.
+Foreign or absent tenant-owned identities return HTTP 404. Ending-asset authority is still required
+for this asset-reporting route.
+
+Successful vector responses include `selection_manifest`: ordered IDs, per-window sequences,
+definition/membership/attestation hashes, source cuts, exact method binding and retained-receipt
+fingerprints. Its calculation fingerprint binds tenant, exact request, full vector, engine version
+and result using the existing reproducibility helper. No singular sequence is claimed for multiple
+generations. This returned manifest is not a durably captured calculation result; the owned durable
+result/official-vector/approval/freeze obligations under #610 remain open.
+
+The executable examples are `test_registered_external_month_matches_independent_or01`,
+`test_registered_external_two_month_chain_matches_independent_or02`, and
+`test_registered_external_missing_eligible_member_month_cannot_publish_survivor_chain` in
+[`test_composite_provider_materialization_api.py`](../../tests/integration/test_composite_provider_materialization_api.py).
+They bind the exact inputs and expected values from the Platform oracle source
+`lotus-platform/docs/composite-performance/source/05_composite_numerical_oracles.json`, SHA-256
+`faf40e73c552d117ac466c711ac430551f5e20d8907ec20069bc2f9493316f61`.
+OR-01 weights 0.25/0.75 and contributions 0.025/-0.015 give decimal return 0.01; OR-02
+geometrically links 0.01 and 0.02 to 0.0302. OR-18 deliberately omits one eligible member's middle
+month: that window cannot publish partial facts, and the three-window request refuses instead of
+linking the surviving months to 0.0302. Numeric tolerance is 1e-12; categorical and identity checks
+are exact. All producer and approval fixtures are explicitly synthetic.
+
 `materialization_id` identifies immutable financial content; `calculation_id` identifies one bounded
 executor job. Exact replay preserves content and evidence. A changed command requires a new identity
 and a higher sequence within the same composite/view/currency scope. Tenant-local chronology is

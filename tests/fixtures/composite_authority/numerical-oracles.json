@@ -1,0 +1,23 @@
+{
+  "source": "lotus-platform/docs/composite-performance/source/05_composite_numerical_oracles.json",
+  "source_sha256": "faf40e73c552d117ac466c711ac430551f5e20d8907ec20069bc2f9493316f61",
+  "qualification": "INDEPENDENT_SYNTHETIC_SPECIFICATION",
+  "numeric_comparison_absolute_tolerance": "0.000000000001",
+  "fixtures": [
+    {
+      "id": "OR-01",
+      "inputs": {"assets": ["100", "300"], "returns": ["0.10", "-0.02"]},
+      "expected": {"weights": ["0.25", "0.75"], "contributions": ["0.025", "-0.015"], "return": "0.01"}
+    },
+    {
+      "id": "OR-02",
+      "inputs": {"monthly_returns": ["0.01", "0.02"]},
+      "expected": {"cumulative_return": "0.0302"}
+    },
+    {
+      "id": "OR-18",
+      "inputs": {"monthly_returns": ["0.01", null, "0.02"], "required_periods": 3},
+      "expected": {"cumulative_return": null, "reason": "REQUIRED_PERIOD_UNAVAILABLE", "forbidden_survivor_chain": "0.0302"}
+    }
+  ]
+}

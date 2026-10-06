@@ -2,17 +2,133 @@ from __future__ import annotations
 
 from datetime import date as dt_date
 
-from app.models.composites import CompositeReturnView
+from app.adapters.composite_materialization_repository import get_composite_materialization_store
+from app.models.composite_authority import ManageCompositeDefinitionV2
+from app.models.composite_materialization import CompositeMaterializationCommand, CompositeMaterializationState
+from app.models.composites import (
+    CompositeMemberReturnFact,
+    CompositeReturnView,
+    CompositeTWRRequest,
+    CompositeTWRWindowEvidence,
+)
 from app.observability import tenant_id_var
+from app.services.composite_materialization.records import MaterializationRecord
 from app.services.composite_metadata_store import CompositeMetadataStore, composite_metadata_store
 from app.services.core_tenant_authority import admitted_tenant_authority, require_composite_tenant_authority
 from app.services.durable_store_runtime import RuntimeStoreProxy
-from core.errors import APIUnprocessableEntityError
+from app.services.reproducibility_service import generate_value_fingerprint
+from core.errors import APIConflictError, APIUnprocessableEntityError
 from engine.composites import CompositeCalculationResult, calculate_asset_weighted_composite_twr
 
 
 class CompositeDefinitionNotFoundError(ValueError):
     pass
+
+
+def calculate_composite_twr_from_materializations(
+    *, tenant_id: str, request: CompositeTWRRequest
+) -> tuple[CompositeCalculationResult, list[CompositeTWRWindowEvidence]]:
+    """Explicit historical selection; never infer latest or official authority."""
+    assert request.materialization_ids is not None
+    records = get_composite_materialization_store().get_many(request.materialization_ids, tenant_id=tenant_id)
+    _require_vector_order(records)
+    cursor = request.period_start.toordinal()
+    currency = request.reporting_currency or records[0].command.reporting_currency
+    basis = None
+    facts, windows = [], []
+    for record in records:
+        definition = _complete_window_definition(record)
+        _require_window_scope(record.command, request, currency, cursor)
+        method = definition.source_authority.payload.return_method_binding.model_dump(mode="json")
+        selected_basis = (definition.calculation_method, record.command.policy_version, method)
+        if basis is not None and basis != selected_basis:
+            raise APIUnprocessableEntityError(
+                "Selected window method or policy authority differs.", error_code="COMPOSITE_VECTOR_METHOD_MISMATCH"
+            )
+        basis = selected_basis
+        facts.extend(_window_facts(record))
+        windows.append(_window_evidence(record, method))
+        cursor = record.command.period_end.toordinal() + 1
+    if records[-1].command.period_end != request.period_end:
+        raise APIConflictError("A required retained window is missing.", error_code="REQUIRED_PERIOD_UNAVAILABLE")
+    return calculate_asset_weighted_composite_twr(composite_id=request.composite_id, member_return_facts=facts), windows
+
+
+def _require_vector_order(records: list[MaterializationRecord]) -> None:
+    starts = [record.command.period_start for record in records]
+    if starts != sorted(starts):
+        raise APIUnprocessableEntityError(
+            "Selected windows are not in canonical order.", error_code="COMPOSITE_VECTOR_WINDOW_MISMATCH"
+        )
+
+
+def _complete_window_definition(record: MaterializationRecord) -> ManageCompositeDefinitionV2:
+    if record.state != CompositeMaterializationState.COMPLETE or record.source is None:
+        raise APIConflictError("A required retained window is unavailable.", error_code="REQUIRED_PERIOD_UNAVAILABLE")
+    definition = record.source.definition
+    if not isinstance(definition, ManageCompositeDefinitionV2):
+        raise APIUnprocessableEntityError(
+            "Pinned TWR windows require retained method authority.", error_code="COMPOSITE_VECTOR_METHOD_UNAVAILABLE"
+        )
+    return definition
+
+
+def _require_window_scope(
+    command: CompositeMaterializationCommand, request: CompositeTWRRequest, currency: str, cursor: int
+) -> None:
+    if (command.composite_id, command.return_view, command.reporting_currency) != (
+        request.composite_id,
+        request.return_view,
+        currency,
+    ):
+        raise APIUnprocessableEntityError(
+            "Selected window scope differs from the request.", error_code="COMPOSITE_VECTOR_SCOPE_MISMATCH"
+        )
+    if command.period_start.toordinal() > cursor:
+        raise APIConflictError("A required retained window is missing.", error_code="REQUIRED_PERIOD_UNAVAILABLE")
+    if command.period_start.toordinal() < cursor or command.period_end > request.period_end:
+        raise APIUnprocessableEntityError(
+            "Selected windows overlap or are not in canonical order.", error_code="COMPOSITE_VECTOR_WINDOW_MISMATCH"
+        )
+
+
+def _window_facts(record: MaterializationRecord) -> list[CompositeMemberReturnFact]:
+    facts = [outcome.fact for outcome in record.outcomes if outcome.fact is not None]
+    if not facts:
+        raise APIConflictError(
+            "A required retained window has no eligible facts.", error_code="REQUIRED_PERIOD_UNAVAILABLE"
+        )
+    if any(fact.ending_market_value is None for fact in facts):
+        raise APIUnprocessableEntityError(
+            "Pinned asset reporting requires authoritative ending assets.",
+            error_code="COMPOSITE_ENDING_ASSETS_UNAVAILABLE",
+        )
+    return facts
+
+
+def _window_evidence(record: MaterializationRecord, method: dict[str, str]) -> CompositeTWRWindowEvidence:
+    command, source = record.command, record.source
+    assert source is not None
+    receipt_fingerprint = generate_value_fingerprint(
+        {
+            "command": command.model_dump(mode="json"),
+            "source": source.model_dump(mode="json"),
+            "outcomes": [outcome.model_dump(mode="json") for outcome in record.outcomes],
+        },
+        "composite-retained-window.v1",
+    )[0]
+    return CompositeTWRWindowEvidence(
+        materialization_id=command.materialization_id,
+        period_start=command.period_start,
+        period_end=command.period_end,
+        restatement_sequence=command.restatement_sequence,
+        definition_content_hash=command.definition_content_hash,
+        membership_content_hash=command.membership_content_hash,
+        attestation_content_hash=command.attestation_content_hash,
+        source_cut_id=command.source_cut_id,
+        method_binding=method,
+        retained_receipt_fingerprint=receipt_fingerprint,
+    )
 
 
 def calculate_composite_twr_from_persisted_facts(

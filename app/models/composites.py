@@ -359,6 +359,21 @@ class CompositeTWRRequest(BaseModel):
         ),
         examples=[1],
     )
+    materialization_ids: list[UUID] | None = Field(
+        default=None,
+        min_length=1,
+        max_length=120,
+        description="Explicit chronological retained window vector, at most 120 windows; mutually exclusive with restatement_sequence. Historical calculated replay, not official approval.",
+    )
+
+    @model_validator(mode="after")
+    def validate_pinned_vector(self) -> "CompositeTWRRequest":
+        if self.materialization_ids is not None:
+            if self.restatement_sequence is not None:
+                raise ValueError("materialization_ids and restatement_sequence are mutually exclusive")
+            if len(set(self.materialization_ids)) != len(self.materialization_ids):
+                raise ValueError("materialization_ids must be unique")
+        return self
 
     @model_validator(mode="after")
     def validate_window(self) -> "CompositeTWRRequest":
@@ -499,6 +514,26 @@ class CompositePeriodResultResponse(BaseModel):
     )
 
 
+class CompositeTWRWindowEvidence(BaseModel):
+    materialization_id: UUID
+    period_start: dt_date
+    period_end: dt_date
+    restatement_sequence: int
+    definition_content_hash: str
+    membership_content_hash: str
+    attestation_content_hash: str
+    source_cut_id: str
+    method_binding: dict[str, str]
+    retained_receipt_fingerprint: str
+
+
+class CompositeTWRSelectionManifest(BaseModel):
+    qualification: Literal["EXPLICIT_RETAINED_CALCULATED_REPLAY"] = "EXPLICIT_RETAINED_CALCULATED_REPLAY"
+    windows: list[CompositeTWRWindowEvidence]
+    engine_version: str
+    calculation_fingerprint: str
+
+
 class CompositeTWRResponse(BaseModel):
     calculation_id: UUID = Field(
         description="Composite calculation identifier.", examples=["7f2b08b0-58e5-49be-b3ef-7a9cfb0321ce"]
@@ -525,6 +560,14 @@ class CompositeTWRResponse(BaseModel):
         description="Composite methodology identifier used for this response.",
         examples=["persisted_member_return_asset_weighted_twr_v1"],
     )
+    selection_manifest: CompositeTWRSelectionManifest | None = None
+
+    @model_serializer(mode="wrap")
+    def serialize_selection_manifest(self, handler):
+        result = handler(self)
+        if self.selection_manifest is None:
+            result.pop("selection_manifest", None)
+        return result
 
 
 class CompositeInspectionRequest(BaseModel):

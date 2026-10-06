@@ -1,5 +1,19 @@
 # Composite Performance
 
+The existing TWR route supports an explicit chronological `materialization_ids` vector of 1–120
+COMPLETE retained windows, mutually exclusive with `restatement_sequence`. It verifies full contiguous
+coverage, tenant/composite/fee/currency, exact shared method/calendar binding, policy, immutable
+publication and member evidence before invoking the existing engine. Missing/incomplete windows
+refuse with `REQUIRED_PERIOD_UNAVAILABLE` and no financial payload; no survivor chain is returned.
+The request ceiling is a new interactive resource bound, supporting ten years of monthly windows;
+larger requests refuse explicitly and retained history is not truncated.
+
+The returned selection manifest/fingerprint binds the request, exact historical vector, engine and
+result. This is calculated replay, not a stored result, official selection, approval or freeze;
+#610's durable authority obligations remain open. Existing latest and single-sequence behavior stays
+unchanged. See [the executable window-replay guide](https://github.com/sgajbi/lotus-performance/blob/main/docs/guides/composite_materialization.md#explicit-retained-window-replay)
+for canonical OR-01/02/18 examples, exact source hash, snapshot and refusal contracts.
+
 Composite performance is the private-banking group-return capability introduced by RFC-049. It
 calculates asset-weighted composite TWR from persisted member-return facts and keeps the evidence
 needed for audit, operations, support, downstream consumers, and client-demo preparation.

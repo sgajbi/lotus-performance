@@ -24,9 +24,12 @@ def install_provider_wires(monkeypatch, packets, observations):
     by_version = {packet["definition"]["definition_version"]: packet for packet in packets}
 
     async def read(**kwargs):
+        from urllib.parse import unquote, urlsplit
+
         url = kwargs["url"]
         assert kwargs["headers"]["X-Tenant-Id"] == "synthetic-tenant-a"
-        packet = next(packet for version, packet in by_version.items() if version in url)
+        segments = [unquote(segment) for segment in urlsplit(url).path.split("/")]
+        packet = next(packet for version, packet in by_version.items() if version in segments)
         product = (
             "attestation" if "universe-attestations" in url else "membership" if "/membership/" in url else "definition"
         )
@@ -132,6 +135,13 @@ def test_missing_ending_assets_are_retained_but_dependent_calculation_refuses(mo
         result = client.post("/performance/composites/twr", json=request_for(command))
         assert result.status_code == 422, result.text
         assert "COMPOSITE_ENDING_ASSETS_UNAVAILABLE" in result.text
+        pinned = client.post(
+            "/performance/composites/twr",
+            json={**request_for(command), "materialization_ids": [str(command.materialization_id)]},
+        )
+        assert pinned.status_code == 422, pinned.text
+        assert pinned.json()["error_code"] == "COMPOSITE_ENDING_ASSETS_UNAVAILABLE"
+        assert "cumulative_return" not in pinned.json()
 
 
 def test_production_default_refuses_unsigned_provider_trust(monkeypatch):
@@ -165,6 +175,256 @@ def test_two_member_independent_reference_is_one_percent_with_actual_ending_weal
         period = result.json()["periods"][0]
         assert Decimal(str(period["return_value"])) == Decimal("0.01")
         assert Decimal(str(period["ending_market_value"])) == Decimal(469)
+
+
+def test_registered_external_month_matches_independent_or01(monkeypatch):
+    from tests.composite_authority_helpers import numerical_oracles, oracle_month_packet
+
+    packet, wire = oracle_month_packet(1)
+    install_test_authorities(monkeypatch, packet)
+    install_provider_wires(monkeypatch, [packet], [wire])
+    command = command_for_packet(packet, period_start=wire["period_start"], period_end=wire["period_end"])
+    with TestClient(app, headers=HEADERS) as client:
+        accepted = client.post("/performance/composites/materializations", json=command.model_dump(mode="json"))
+        assert accepted.status_code == 202, accepted.text
+        assert process_pending_jobs(limit=1) == 1
+        result = client.post("/performance/composites/twr", json=request_for(command))
+        assert result.status_code == 200, result.text
+        spec = numerical_oracles()["fixtures"][0]
+        period = result.json()["periods"][0]
+        assert Decimal(str(period["return_value"])) == Decimal(spec["expected"]["return"])
+        assert [Decimal(str(row["beginning_asset_weight"])) for row in period["member_contributions"]] == [
+            Decimal(value) for value in spec["expected"]["weights"]
+        ]
+        assert [Decimal(str(row["contribution"])) for row in period["member_contributions"]] == [
+            Decimal(value) for value in spec["expected"]["contributions"]
+        ]
+
+
+def test_registered_external_missing_eligible_member_month_cannot_publish_survivor_chain(monkeypatch):
+    from sqlalchemy import text
+
+    from app.services.composite_metadata_store import composite_metadata_store
+    from tests.composite_authority_helpers import oracle_month_packet
+
+    pairs = [oracle_month_packet(month, missing_member=month == 2) for month in (1, 2, 3)]
+    packets, wires = map(list, zip(*pairs, strict=True))
+    install_test_authorities(monkeypatch, packets)
+    install_provider_wires(monkeypatch, packets, wires)
+    with TestClient(app, headers=HEADERS) as client:
+        identities = []
+        for month, packet in enumerate(packets, 1):
+            wire = wires[month - 1]
+            command = command_for_packet(
+                packet, period_start=wire["period_start"], period_end=wire["period_end"], restatement_sequence=month
+            )
+            accepted = client.post("/performance/composites/materializations", json=command.model_dump(mode="json"))
+            assert accepted.status_code == 202, accepted.text
+            identities.append(str(command.materialization_id))
+            assert process_pending_jobs(limit=1) == 1
+            receipt = client.get(accepted.json()["result_path"]).json()
+            assert receipt["expected_count"] == 2
+            if month == 2:
+                assert receipt["state"] == "BLOCKED" and receipt["ready_count"] == receipt["blocked_count"] == 1
+                assert receipt["members"][1]["fact"] is None
+            else:
+                assert receipt["state"] == "COMPLETE"
+        with composite_metadata_store._engine.connect() as connection:
+            for table in ("composite_member_return_facts", "composite_member_return_fact_publications"):
+                assert (
+                    connection.execute(text(f"SELECT count(*) FROM {table} WHERE restatement_sequence=2")).scalar_one()
+                    == 0
+                )
+        result = client.post(
+            "/performance/composites/twr",
+            json={
+                **request_for(command),
+                "period_start": wires[0]["period_start"],
+                "restatement_sequence": None,
+                "materialization_ids": identities,
+            },
+        )
+        assert result.status_code == 409 and result.json()["error_code"] == "REQUIRED_PERIOD_UNAVAILABLE"
+        assert "cumulative_return" not in result.json()
+
+
+def test_registered_external_two_month_chain_matches_independent_or02(monkeypatch):
+    from tests.composite_authority_helpers import numerical_oracles, oracle_month_packet
+
+    pairs = [oracle_month_packet(month) for month in (1, 2)]
+    corrected_packet, corrected_wire = oracle_month_packet(1, corrected=True)
+    packets, wires = map(list, zip(*pairs, strict=True))
+    install_test_authorities(monkeypatch, [*packets, corrected_packet])
+    install_provider_wires(monkeypatch, [*packets, corrected_packet], [*wires, corrected_wire])
+    with TestClient(app, headers=HEADERS) as client:
+        identities = []
+        for month, packet in enumerate(packets, 1):
+            wire = wires[month - 1]
+            command = command_for_packet(
+                packet, period_start=wire["period_start"], period_end=wire["period_end"], restatement_sequence=month
+            )
+            accepted = client.post("/performance/composites/materializations", json=command.model_dump(mode="json"))
+            assert accepted.status_code == 202, accepted.text
+            identities.append(str(command.materialization_id))
+            assert process_pending_jobs(limit=1) == 1
+            retained = client.get(accepted.json()["result_path"])
+            assert retained.status_code == 200 and retained.json()["state"] == "COMPLETE", retained.text
+            assert all(member["fact"]["calculation_id"] is None for member in retained.json()["members"])
+        payload = {
+            **request_for(command),
+            "period_start": wires[0]["period_start"],
+            "restatement_sequence": None,
+            "materialization_ids": identities,
+            "calculation_id": str(command.calculation_id),
+        }
+        result = client.post("/performance/composites/twr", json=payload)
+        assert result.status_code == 200, result.text
+        spec = numerical_oracles()
+        expected = Decimal(spec["fixtures"][1]["expected"]["cumulative_return"])
+        assert abs(Decimal(str(result.json()["cumulative_return"])) - expected) <= Decimal(
+            spec["numeric_comparison_absolute_tolerance"]
+        )
+        windows = result.json()["selection_manifest"]["windows"]
+        assert [window["materialization_id"] for window in windows] == identities
+        assert [window["restatement_sequence"] for window in windows] == [1, 2]
+        correction = command_for_packet(
+            corrected_packet, period_start="2026-01-01", period_end="2026-01-31", restatement_sequence=3
+        )
+        admitted = client.post("/performance/composites/materializations", json=correction.model_dump(mode="json"))
+        assert admitted.status_code == 202
+        assert client.post("/performance/composites/twr", json=payload).json() == result.json()
+        latest = {key: value for key, value in payload.items() if key != "materialization_ids"}
+        assert client.post("/performance/composites/twr", json=latest).status_code == 409
+        assert process_pending_jobs(limit=1) == 1
+        corrected_receipt = client.get(admitted.json()["result_path"])
+        assert corrected_receipt.status_code == 200, corrected_receipt.text
+        assert corrected_receipt.json()["state"] == "COMPLETE", corrected_receipt.text
+        assert all(member["fact"] is not None for member in corrected_receipt.json()["members"]), corrected_receipt.text
+        assert client.post("/performance/composites/twr", json=payload).json() == result.json()
+        revised = client.post(
+            "/performance/composites/twr",
+            json={**request_for(correction), "materialization_ids": [str(correction.materialization_id)]},
+        )
+        assert revised.status_code == 200 and Decimal(str(revised.json()["cumulative_return"])) == Decimal("0.035")
+        overlapping = client.post(
+            "/performance/composites/twr",
+            json={**payload, "materialization_ids": [identities[0], str(correction.materialization_id), identities[1]]},
+        )
+        assert overlapping.status_code == 422, overlapping.text
+        assert overlapping.json()["error_code"] == "COMPOSITE_VECTOR_WINDOW_MISMATCH"
+        assert "cumulative_return" not in overlapping.json()
+
+
+@pytest.mark.parametrize(
+    "fault", ["gap", "order", "currency", "fee", "foreign", "duplicate", "empty", "oversized", "sequence", "method"]
+)
+def test_pinned_external_vector_refuses_invalid_selection(monkeypatch, fault):
+    from uuid import uuid4
+
+    from tests.composite_authority_helpers import oracle_month_packet
+
+    pairs = [
+        oracle_month_packet(
+            month,
+            calendar="SYNTHETIC_OTHER_CALENDAR" if fault == "method" and month == 2 else "SYNTHETIC_CALENDAR_MONTH",
+        )
+        for month in (1, 2, 3)
+    ]
+    packets, wires = map(list, zip(*pairs, strict=True))
+    install_test_authorities(monkeypatch, packets)
+    install_provider_wires(monkeypatch, packets, wires)
+    identities = []
+    with TestClient(app, headers=HEADERS) as client:
+        for month, (packet, wire) in enumerate(pairs, 1):
+            command = command_for_packet(
+                packet, period_start=wire["period_start"], period_end=wire["period_end"], restatement_sequence=month
+            )
+            assert (
+                client.post(
+                    "/performance/composites/materializations", json=command.model_dump(mode="json")
+                ).status_code
+                == 202
+            )
+            assert process_pending_jobs(limit=1) == 1
+            identities.append(str(command.materialization_id))
+        payload = {**request_for(command), "period_start": "2026-01-01", "materialization_ids": identities}
+        headers = HEADERS
+        if fault == "gap":
+            payload["materialization_ids"] = [identities[0], identities[2]]
+        elif fault == "order":
+            payload["materialization_ids"] = list(reversed(identities))
+        elif fault == "currency":
+            payload["reporting_currency"] = "EUR"
+        elif fault == "fee":
+            payload["return_view"] = "NET_ACTUAL"
+        elif fault == "foreign":
+            headers = {**HEADERS, "X-Tenant-Id": "synthetic-tenant-b"}
+        elif fault == "duplicate":
+            payload["materialization_ids"] = [identities[0], identities[0]]
+        elif fault == "empty":
+            payload["materialization_ids"] = []
+        elif fault == "oversized":
+            payload["materialization_ids"] = [str(uuid4()) for _ in range(121)]
+        elif fault == "sequence":
+            payload["restatement_sequence"] = 1
+        response = client.post("/performance/composites/twr", json=payload, headers=headers)
+        expected = 409 if fault == "gap" else 404 if fault == "foreign" else 422
+        assert response.status_code == expected, response.text
+        assert "cumulative_return" not in response.json()
+        if fault == "method":
+            assert response.json()["error_code"] == "COMPOSITE_VECTOR_METHOD_MISMATCH"
+
+
+def test_pinned_vector_refuses_mixed_retained_manifest(monkeypatch):
+    from dataclasses import replace
+
+    from app.adapters import composite_materialization_repository as repository
+    from tests.composite_authority_helpers import oracle_month_packet
+
+    pairs = [oracle_month_packet(month) for month in (1, 2)]
+    packets, wires = map(list, zip(*pairs, strict=True))
+    install_test_authorities(monkeypatch, packets)
+    install_provider_wires(monkeypatch, packets, wires)
+    with TestClient(app, headers=HEADERS) as client:
+        commands = []
+        for month, (packet, wire) in enumerate(pairs, 1):
+            command = command_for_packet(
+                packet, period_start=wire["period_start"], period_end=wire["period_end"], restatement_sequence=month
+            )
+            assert (
+                client.post(
+                    "/performance/composites/materializations", json=command.model_dump(mode="json")
+                ).status_code
+                == 202
+            )
+            assert process_pending_jobs(limit=1) == 1
+            commands.append(command)
+        store = repository.get_composite_materialization_store()
+        original = store.get(commands[0].materialization_id, tenant_id=HEADERS["X-Tenant-Id"])
+        decode = repository._materialization_record
+
+        def corrupted_manifest(row):
+            record = decode(row)
+            return (
+                replace(record, source=original.source)
+                if record.command.materialization_id == commands[1].materialization_id
+                else record
+            )
+
+        monkeypatch.setattr(repository, "_materialization_record", corrupted_manifest)
+        result = client.post(
+            "/performance/composites/twr",
+            json={
+                **request_for(commands[1]),
+                "period_start": "2026-01-01",
+                "materialization_ids": [str(command.materialization_id) for command in commands],
+            },
+        )
+        assert (
+            result.status_code == 503
+            and result.json()["error_code"] == "COMPOSITE_MATERIALIZATION_RETAINED_EVIDENCE_REFUSED"
+        )
+        assert "cumulative_return" not in result.json()
 
 
 @pytest.mark.parametrize("external_fact", [None, "MEMBER_RETURN", "BEGINNING_ASSETS"])

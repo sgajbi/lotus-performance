@@ -673,6 +673,13 @@ def test_ledger_scope_replay_conflict_and_cross_tenant_identifier(stores):
     other = ledger.register(command, tenant_id="tenant-b", actor_id="other-operator")
     assert other.actor_id == "other-operator"
     assert ledger.get(command.materialization_id, tenant_id="tenant-a").actor_id == "operator"
+    assert ledger.get_many([command.materialization_id], tenant_id="tenant-a") == [first]
+    assert ledger.get_many([command.materialization_id], tenant_id="tenant-b") == [other]
+    for invalid in ([], [command.materialization_id] * 2, [uuid4() for _ in range(121)]):
+        with pytest.raises(ValueError, match="1..120 unique"):
+            ledger.get_many(invalid, tenant_id="tenant-a")
+    with pytest.raises(APINotFoundError):
+        ledger.get_many([command.materialization_id], tenant_id="tenant-c")
     with pytest.raises(APIError) as changed:
         ledger.register(
             command.model_copy(update={"source_cut_id": "different"}), tenant_id="tenant-a", actor_id="operator"
