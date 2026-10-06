@@ -17,11 +17,11 @@ snapshots are written under ignored `output/quality-baseline/`; curated source r
 
 | Area | Current value | Evidence |
 | --- | ---: | --- |
-| Python files | 783 | `rg --files -g '*.py'` equivalent excluding local caches |
+| Python files | 796 | `rg --files -g '*.py'` equivalent excluding local caches |
 | Python package markers | 25 | recursive `__init__.py` count |
-| Python LOC | 252,665 | recursive `.py` line count |
-| Test modules | 369 | `tests/**/test_*.py` |
-| Collected tests | 6470 tests | `python -m pytest --collect-only -q` |
+| Python LOC | 255,826 | recursive `.py` line count |
+| Test modules | 372 | `tests/**/test_*.py` |
+| Collected tests | 6521 tests | `python -m pytest --collect-only -q` |
 | Configured CI workflows | 8 | `.github/workflows/*.yml` |
 | Repo-native baseline command | 1 | `make quality-baseline` |
 
@@ -32,7 +32,7 @@ snapshots are written under ignored `output/quality-baseline/`; curated source r
 | 1 | `tests/integration/test_contribution_api.py` | 4447 |
 | 2 | `tests/integration/test_performance_api.py` | 3191 |
 | 3 | `tests/unit/services/test_returns_series_service.py` | 3077 |
-| 4 | `app/services/composite_metadata_store.py` | 2993 |
+| 4 | `app/services/composite_metadata_store.py` | 3007 |
 | 5 | `tests/unit/services/test_compute_executor_worker.py` | 2943 |
 | 6 | `tests/unit/services/test_stateful_input_service.py` | 2808 |
 | 7 | `tests/benchmarks/test_postgres_composite_fact_versions.py` | 2791 |
