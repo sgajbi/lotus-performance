@@ -625,7 +625,9 @@ def test_postgres_authority_fact_owner_refusal_rolls_back_schema_and_rows(fault)
         store.close()
 
 
-def _provider_process_phase(state_path, database_url, phase, evidence_dir):
+def _provider_process_phase(
+    state_path, database_url, phase, evidence_dir, *, module="tests.benchmarks.composite_provider_process_controls"
+):
     import json
     import os
     import subprocess
@@ -644,7 +646,7 @@ def _provider_process_phase(state_path, database_url, phase, evidence_dir):
     command = [
         sys.executable,
         "-m",
-        "tests.benchmarks.composite_provider_process_controls",
+        module,
         "--state",
         str(state_path),
         "--phase",
@@ -663,6 +665,30 @@ def _provider_process_phase(state_path, database_url, phase, evidence_dir):
     (evidence_dir / f"{phase}.stderr.log").write_text(completed.stderr, encoding="utf-8")
     assert completed.returncode == 0, completed.stdout + completed.stderr
     return json.loads(completed.stdout.splitlines()[-1])
+
+
+def test_postgres_registered_external_oracles_pinned_vector_and_snapshot(tmp_path):
+    import json
+
+    url = get_postgres_database_url()
+    assert apply_durable_schema(database_url=url).status == "passed"
+    state_path = tmp_path / "oracle-state.json"
+    state_path.write_text("{}", encoding="utf-8")
+    module = "tests.benchmarks.composite_oracle_process_controls"
+    write = _provider_process_phase(state_path, url, "write", tmp_path, module=module)
+    read = _provider_process_phase(state_path, url, "read", tmp_path, module=module)
+    assert write["pid"] != read["pid"]
+    assert write["result"]["oracles"] == read["result"]["oracles"]
+    assert read["result"]["snapshot"]["isolation"] == "REPEATABLE READ"
+    assert read["result"]["snapshot"]["before"] == read["result"]["snapshot"]["after"] == 2
+    assert read["result"]["snapshot"]["outside"] == 3
+    proof = {
+        "write": write,
+        "read": read,
+        "database_schema": make_url(url).query["options"],
+        "qualification": "CONTROLLED_SYNTHETIC_ONLY",
+    }
+    (tmp_path / "oracle-process-proof.json").write_text(json.dumps(proof, sort_keys=True), encoding="utf-8")
 
 
 @pytest.mark.parametrize("shape", ["frozen", "explicit_observations"])

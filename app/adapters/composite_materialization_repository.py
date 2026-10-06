@@ -141,6 +141,25 @@ class CompositeMaterializationStore:
                 raise APINotFoundError("Composite materialization was not found.")
             return self._record(row, session=session)
 
+    def get_many(self, materialization_ids: list[UUID], *, tenant_id: str) -> list[MaterializationRecord]:
+        """Read a bounded vector and all publication checks from one database snapshot."""
+        if not 1 <= len(materialization_ids) <= 120 or len(set(materialization_ids)) != len(materialization_ids):
+            raise ValueError("Retained vector requires 1..120 unique materialization identities")
+        tenant_id = _tenant(tenant_id)
+        with self._session_factory() as session:
+            if self._engine.dialect.name == "postgresql":
+                session.connection(execution_options={"isolation_level": "REPEATABLE READ"})
+            else:
+                # SQLite's legacy driver does not begin a snapshot for SELECT alone.
+                session.connection().exec_driver_sql("BEGIN")
+            records = []
+            for identity in materialization_ids:
+                row = session.get(CompositeMaterializationModel, (tenant_id, str(identity)))
+                if row is None:
+                    raise APINotFoundError("Composite materialization was not found.")
+                records.append(self._record(row, session=session))
+            return records
+
     def save(
         self,
         materialization_id: UUID,

@@ -8,7 +8,7 @@
       "openApiVersion": "3.1.0"
     }
   ],
-  "generatedAt": "2026-10-06T19:40:05.249885+00:00",
+  "generatedAt": "2026-10-06T21:46:29.123881+00:00",
   "attributeCatalog": [
     {
       "semanticId": "lotus.access_classification",
@@ -4296,15 +4296,16 @@
       "semanticId": "lotus.materialization_ids",
       "canonicalTerm": "materialization_ids",
       "preferredName": "materialization_ids",
-      "description": "Twelve exact immutable monthly receipts. Order is normalized by their retained calendar windows.",
+      "description": "Explicit chronological retained window vector, at most 120 windows; mutually exclusive with restatement_sequence. Historical calculated replay, not official approval.",
       "example": [
         "example_materialization_ids_item"
       ],
-      "type": "array",
+      "type": "object",
       "locations": [
         "body"
       ],
       "observedTypes": [
+        "object",
         "array"
       ]
     },
@@ -7583,6 +7584,40 @@
       "description": "diagnostics field: samples.",
       "example": {
         "key": "value"
+      },
+      "type": "object",
+      "locations": [
+        "body"
+      ],
+      "observedTypes": [
+        "object"
+      ]
+    },
+    {
+      "semanticId": "lotus.selection_manifest",
+      "canonicalTerm": "selection_manifest",
+      "preferredName": "selection_manifest",
+      "description": "composite twrresponse field: selection manifest.",
+      "example": {
+        "qualification": "example_qualification",
+        "windows": [
+          {
+            "materialization_id": "MATERIALIZATION_001",
+            "period_start": "2026-02-27",
+            "period_end": "2026-02-27",
+            "restatement_sequence": 1,
+            "definition_content_hash": "example_definition_content_hash",
+            "membership_content_hash": "example_membership_content_hash",
+            "attestation_content_hash": "example_attestation_content_hash",
+            "source_cut_id": "SOURCE_CUT_001",
+            "method_binding": {
+              "key": "value"
+            },
+            "retained_receipt_fingerprint": "example_retained_receipt_fingerprint"
+          }
+        ],
+        "engine_version": "example_engine_version",
+        "calculation_fingerprint": "example_calculation_fingerprint"
       },
       "type": "object",
       "locations": [
@@ -12864,6 +12899,14 @@
             "type": "integer",
             "semanticId": "lotus.restatement_sequence",
             "attributeRef": "#/attributeCatalog/lotus.restatement_sequence"
+          },
+          {
+            "name": "materialization_ids",
+            "location": "body",
+            "required": false,
+            "type": "object",
+            "semanticId": "lotus.materialization_ids",
+            "attributeRef": "#/attributeCatalog/lotus.materialization_ids"
           }
         ]
       },
@@ -13180,6 +13223,14 @@
             "type": "string",
             "semanticId": "lotus.methodology",
             "attributeRef": "#/attributeCatalog/lotus.methodology"
+          },
+          {
+            "name": "selection_manifest",
+            "location": "body",
+            "required": false,
+            "type": "object",
+            "semanticId": "lotus.selection_manifest",
+            "attributeRef": "#/attributeCatalog/lotus.selection_manifest"
           }
         ]
       }

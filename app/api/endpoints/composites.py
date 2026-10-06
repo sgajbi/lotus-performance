@@ -20,13 +20,16 @@ from app.models.composites import (
     CompositePeriodResultResponse,
     CompositeTWRRequest,
     CompositeTWRResponse,
+    CompositeTWRSelectionManifest,
 )
 from app.models.platform_surfaces import ErrorDetailResponse
 from app.ports.composite_annual_dispersion import AnnualDispersionReceiptReader
+from app.services.calculation_engine_version import calculation_engine_version
 from app.services.composite_annual_dispersion.application import calculate_annual_member_dispersion
 from app.services.composite_annual_dispersion.comparison import compare_annual_member_dispersion
 from app.services.composite_calculation_service import (
     CompositeDefinitionNotFoundError,
+    calculate_composite_twr_from_materializations,
     calculate_composite_twr_from_persisted_facts,
 )
 from app.services.composite_inspection_service import inspect_composite_twr_from_persisted_facts
@@ -39,6 +42,7 @@ from app.services.core_tenant_authority import (
     admitted_tenant_authority_from_header_values,
     require_composite_tenant_authority,
 )
+from app.services.reproducibility_service import generate_value_fingerprint
 
 router = APIRouter(tags=["Performance"])
 
@@ -169,7 +173,11 @@ NO_MEMBER_RETURN_FACTS_RESPONSE = {
 }
 FACT_SELECTION_CONFLICT_RESPONSE = {
     "model": CompositeErrorResponse,
-    "description": "The explicit fact sequence is absent or the latest sequence is incompletely published.",
+    "description": (
+        "The explicit fact sequence is absent or the latest sequence is incompletely published. "
+        "An explicit retained window vector with a missing or unavailable required period refuses "
+        "with REQUIRED_PERIOD_UNAVAILABLE and no financial result."
+    ),
     "content": {
         "application/json": {
             "example": {
@@ -233,7 +241,12 @@ def _period_response(item) -> CompositePeriodResultResponse:
         "Calculates private-banking composite TWR from persisted member-return facts already owned by "
         "lotus-performance. Use this endpoint after composite definitions, effective-dated membership, "
         "and member-return facts have been materialized. The endpoint does not accept ad hoc member "
-        "returns and does not perform hidden request-time portfolio TWR fan-out."
+        "returns and does not perform hidden request-time portfolio TWR fan-out. Optional materialization_ids "
+        "selects 1–120 chronological immutable windows for calculated historical replay, with exact shared "
+        "method authority and complete interval coverage. The new interactive limit supports ten years of "
+        "monthly windows; larger vectors refuse validation without truncation. This selection is mutually "
+        "exclusive with restatement_sequence. A successful explicit replay returns a selection manifest "
+        "and calculation fingerprint; it does not confer official approval or durable freeze authority."
     ),
     responses={
         200: {"description": "Composite TWR calculated from persisted member-return facts."},
@@ -249,15 +262,19 @@ def calculate_composite_twr(
     tenant_id: Annotated[str, Depends(_required_composite_tenant)],
 ) -> CompositeTWRResponse:
     try:
-        result = calculate_composite_twr_from_persisted_facts(
-            tenant_id=tenant_id,
-            composite_id=request.composite_id,
-            period_start=request.period_start,
-            period_end=request.period_end,
-            return_view=request.return_view,
-            reporting_currency=request.reporting_currency,
-            restatement_sequence=request.restatement_sequence,
-        )
+        windows = None
+        if request.materialization_ids is not None:
+            result, windows = calculate_composite_twr_from_materializations(tenant_id=tenant_id, request=request)
+        else:
+            result = calculate_composite_twr_from_persisted_facts(
+                tenant_id=tenant_id,
+                composite_id=request.composite_id,
+                period_start=request.period_start,
+                period_end=request.period_end,
+                return_view=request.return_view,
+                reporting_currency=request.reporting_currency,
+                restatement_sequence=request.restatement_sequence,
+            )
     except CompositeDefinitionNotFoundError as exc:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -278,7 +295,7 @@ def calculate_composite_twr(
             },
         )
 
-    return CompositeTWRResponse(
+    response = CompositeTWRResponse(
         calculation_id=request.calculation_id,
         composite_id=result.composite_id,
         status=result.status,
@@ -288,6 +305,21 @@ def calculate_composite_twr(
         reason_codes=result.reason_codes,
         periods=[_period_response(period) for period in result.period_results],
     )
+    if windows is not None:
+        version = calculation_engine_version()
+        fingerprint = generate_value_fingerprint(
+            {
+                "tenant_id": tenant_id,
+                "request": request.model_dump(mode="json"),
+                "windows": [window.model_dump(mode="json") for window in windows],
+                "result": response.model_dump(mode="json"),
+            },
+            version,
+        )[0]
+        response.selection_manifest = CompositeTWRSelectionManifest(
+            windows=windows, engine_version=version, calculation_fingerprint=fingerprint
+        )
+    return response
 
 
 @router.post(

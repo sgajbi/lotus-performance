@@ -938,6 +938,16 @@ authority identity; runtime schema verification never performs the migration. Re
 fresh-interpreter replay/recovery proofs. Producer-publication, deployment restart/rollback,
 live qualification and institutional approval remain separate acceptance boundaries.
 
+The TWR request's explicit `materialization_ids` path reads 1–120 chronological retained windows
+under PostgreSQL REPEATABLE READ or an explicit SQLite read transaction. Reuse the existing
+materialization reader's source/progress/publication/fact checks; require exact contiguous coverage
+and the same retained method/calendar binding and policy across windows. Never broaden omitted/latest
+or single-sequence selection to compose windows implicitly. The new 120-window interactive bound
+limits validations per request (ten years at monthly granularity); refuse larger requests without
+truncating retained history. Return a request/vector/engine/result-bound manifest and fingerprint as
+calculated historical replay, not durable result capture, official approval or freeze. A missing or
+incomplete selected window refuses with `REQUIRED_PERIOD_UNAVAILABLE` and no financial payload.
+
 The frozen `SyntheticMonthlyMemberFacts:v1` decoder requires an exact admitted source profile
 and independent method verification against the actual command. It retains the wire unchanged,
 without inferred ending assets or added cash-flow fields. Retryable provider observation failures

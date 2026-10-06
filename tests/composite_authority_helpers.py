@@ -16,6 +16,77 @@ def shared_packet(version="original"):
     return json.loads(FIXTURES.read_text(encoding="utf-8"))["external_versions"][version]
 
 
+def numerical_oracles():
+    path = FIXTURES.with_name("numerical-oracles.json")
+    return json.loads(path.read_text(encoding="utf-8"))
+
+
+def oracle_month_packet(
+    month,
+    *,
+    missing_member=False,
+    corrected=False,
+    composite_id="SYNTHETIC_ORACLE_MONTHLY_USD",
+    calendar="SYNTHETIC_CALENDAR_MONTH",
+):
+    """Independent monthly observations; frozen shared producer bytes stay unchanged."""
+    from calendar import monthrange
+    from decimal import Decimal
+
+    packet, wire = observation_packet(two_members=True)
+    start, end = f"2026-{month:02d}-01", f"2026-{month:02d}-{monthrange(2026, month)[1]}"
+    version = f"oracle.month-{month}" + (".corrected" if corrected else "")
+    replacements = {
+        "2026-09-01": start,
+        "2026-09-30": end,
+        "SYNTHETIC_EXTERNAL_MONTHLY_USD": composite_id,
+        "observation.original": version,
+    }
+
+    def replace(value):
+        if isinstance(value, dict):
+            return {key: replace(item) for key, item in value.items()}
+        if isinstance(value, list):
+            return [replace(item) for item in value]
+        return replacements.get(value, value)
+
+    packet, wire = replace(packet), replace(wire)
+    # One exact synthetic method/calendar approval covers these three windows.
+    # Per-window profile/definition/eligibility hashes remain independent.
+    method = packet["supporting_payloads"]["return_method"]["payload"]
+    method.update(
+        calendar=calendar,
+        period_start="2026-01-01",
+        period_end="2026-03-31",
+        required_periods=[
+            {"start": f"2026-{m:02d}-01", "end": f"2026-{m:02d}-{monthrange(2026, m)[1]}"} for m in (1, 2, 3)
+        ],
+    )
+    oracle = numerical_oracles()["fixtures"][0]
+    returns = oracle["inputs"]["returns"] if month == 1 else ["0.02", "0.02"]
+    if corrected:
+        returns = ["0.20", "-0.02"]
+    for row, beginning, ret in zip(wire["rows"], oracle["inputs"]["assets"], returns, strict=True):
+        row.update(
+            beginning_assets=beginning,
+            member_return=ret,
+            ending_assets=format(Decimal(beginning) * (1 + Decimal(ret)), "f"),
+            cash_flows=[],
+        )
+    if missing_member:
+        wire["rows"].pop()
+    packet["definition"]["source_authority"]["payload"]["providers"][0]["registry_digest"] = authority_digest(
+        packet["supporting_payloads"]["registry"]
+    )
+    refresh_support_bindings(packet)
+    profile = packet["definition"]["source_authority"]["payload"]
+    wire["method_profile_binding"] = copy.deepcopy(profile["return_method_binding"])
+    for selection in profile["selections"]:
+        selection["source_digest"] = authority_digest(wire)
+    rehash_definition(packet["definition"])
+    return packet, wire
+
+
 def command_for_packet(packet, **overrides):
     d, m, a = (packet[key] for key in ("definition", "membership", "attestation"))
     return CompositeMaterializationCommand.model_validate(
@@ -122,13 +193,17 @@ class SyntheticApproval:
         if (
             request.command.reporting_currency,
             str(request.command.return_view),
-            str(request.command.period_start),
-            str(request.command.period_end),
         ) != (
             method["payload"]["currency"],
             method["payload"]["fee_view"],
-            method["payload"]["period_start"],
-            method["payload"]["period_end"],
+        ):
+            return False
+        periods = method["payload"]["required_periods"]
+        if {"start": str(request.command.period_start), "end": str(request.command.period_end)} not in periods:
+            return False
+        if (method["payload"]["period_start"], method["payload"]["period_end"]) != (
+            min(period["start"] for period in periods),
+            max(period["end"] for period in periods),
         ):
             return False
         return True
