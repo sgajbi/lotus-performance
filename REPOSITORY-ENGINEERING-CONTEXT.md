@@ -920,8 +920,15 @@ No explicit ending selection means null ending assets, even if a retained wire c
 Dependent asset-reporting calculations refuse rather than infer ending wealth. The owner-invoked
 durable schema migration preserves v1 internal rows and constraints while supporting explicit v2
 authority identity; runtime schema verification never performs the migration. Read
-`docs/guides/composite_materialization.md` for rollback limits and the remaining PostgreSQL,
-fresh-process, producer-publication and institutional acceptance boundaries.
+`docs/guides/composite_materialization.md` for rollback limits and the bounded PostgreSQL migration,
+fresh-interpreter replay/recovery proofs. Producer-publication, deployment restart/rollback,
+live qualification and institutional approval remain separate acceptance boundaries.
+
+The frozen `SyntheticMonthlyMemberFacts:v1` decoder requires an exact admitted source profile
+and independent method verification against the actual command. It retains the wire unchanged,
+without inferred ending assets or added cash-flow fields. Retryable provider observation failures
+remain WAITING; exhausted execution recovery allocates a replacement executor UUID for the same
+immutable materialization generation. Production approval ports remain unavailable.
 
 From this repository root with the pinned `.venv` Python environment, the focused proof is
 `python -m pytest tests/unit/services/test_composite_authority.py tests/unit/adapters/test_composite_external_fact_schema.py tests/integration/test_composite_provider_materialization_api.py -q`.

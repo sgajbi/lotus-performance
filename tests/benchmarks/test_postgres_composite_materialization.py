@@ -499,3 +499,219 @@ def test_postgres_materialization_restart_recovers_missing_member_without_partia
             restarted.get(command.materialization_id, tenant_id="tenant-b")
     finally:
         restarted.close()
+
+
+def _authority_migration_snapshot(engine):
+    with engine.connect() as connection:
+        inspector = inspect(connection)
+        table = "composite_member_return_facts"
+        return {
+            "rows": [dict(row) for row in connection.execute(text(f"SELECT * FROM {table}")).mappings()],
+            "columns": [{**column, "type": str(column["type"])} for column in inspector.get_columns(table)],
+            "indexes": inspector.get_indexes(table),
+            "foreign_keys": inspector.get_foreign_keys(table),
+            "checks": inspector.get_check_constraints(table),
+        }
+
+
+def _prepare_internal_authority_migration(url):
+    from app.services.composite_materialization.source_contract import ManageCompositeDefinition
+    from tests.composite_materialization_helpers import source_products
+
+    assert apply_durable_schema(database_url=url).status == "passed"
+    store = CompositeMetadataStore(url)
+    products = source_products(composite_id="MIGRATION_STORAGE_FIXTURE")
+    command = command_for(products)
+    # Representative retained v1 storage fixture, not evidence of a live calculation.
+    fact = (
+        MemberSource()
+        .read_member(
+            command,
+            command.member_calculations[0],
+            tenant_id="tenant-a",
+            membership_snapshot_id=command.membership_content_hash,
+            request_headers={},
+        )
+        .fact
+    )
+    store.upsert_definition(
+        ManageCompositeDefinition.model_validate(products[0]).performance_definition(), tenant_id="tenant-a"
+    )
+    store.upsert_member_return_fact(fact, tenant_id="tenant-a")
+    with store._engine.begin() as connection:
+        connection.exec_driver_sql(
+            "ALTER TABLE composite_member_return_facts DROP CONSTRAINT ck_composite_fact_internal_evidence"
+        )
+        connection.exec_driver_sql(
+            "ALTER TABLE composite_member_return_facts DROP COLUMN source_authority_identity_json"
+        )
+        connection.exec_driver_sql(
+            "ALTER TABLE composite_member_return_facts ALTER COLUMN ending_market_value SET NOT NULL"
+        )
+        connection.exec_driver_sql("ALTER TABLE composite_member_return_facts ALTER COLUMN calculation_id SET NOT NULL")
+    return store
+
+
+def _insert_authority_storage_mutant(connection, **changes):
+    from app.services.composite_metadata_store import CompositeMemberReturnFactModel
+
+    row = dict(connection.execute(text("SELECT * FROM composite_member_return_facts LIMIT 1")).mappings().one())
+    row.update(
+        fact_key=row["fact_key"] + ".invalid",
+        restatement_sequence=row["restatement_sequence"] + 1,
+        restatement_version="invalid.storage.fixture",
+        **changes,
+    )
+    connection.execute(CompositeMemberReturnFactModel.__table__.insert().values(**row))
+
+
+def test_postgres_authority_fact_owner_upgrade_preserves_populated_internal_rows_and_constraints():
+    url = get_postgres_database_url()
+    store = _prepare_internal_authority_migration(url)
+    try:
+        before = _authority_migration_snapshot(store._engine)
+        assert apply_durable_schema(database_url=url).status == "passed"
+        after = _authority_migration_snapshot(store._engine)
+        assert [
+            {k: v for k, v in row.items() if k != "source_authority_identity_json"} for row in after["rows"]
+        ] == before["rows"]
+        assert after["rows"][0]["source_authority_identity_json"] is None
+        assert after["indexes"] == before["indexes"] and after["foreign_keys"] == before["foreign_keys"]
+        assert {c["name"] for c in before["checks"]} <= {c["name"] for c in after["checks"]}
+        assert all(c["nullable"] for c in after["columns"] if c["name"] in {"ending_market_value", "calculation_id"})
+        for changes, constraint in (
+            ({"calculation_id": None}, "ck_composite_fact_internal_evidence"),
+            ({"composite_id": "FOREIGN_DEFINITION"}, "fk_composite_member_return_facts_tenant_definition"),
+        ):
+            with pytest.raises(DBAPIError) as refused:
+                with store._engine.begin() as connection:
+                    _insert_authority_storage_mutant(connection, **changes)
+            assert refused.value.orig.diag.constraint_name == constraint
+        assert apply_durable_schema(database_url=url).status == "passed"
+        assert _authority_migration_snapshot(store._engine) == after
+    finally:
+        store.close()
+
+
+@pytest.mark.parametrize("fault", ["weakened", "invalid_partial"])
+def test_postgres_authority_fact_owner_refusal_rolls_back_schema_and_rows(fault):
+    url = get_postgres_database_url()
+    store = _prepare_internal_authority_migration(url)
+    try:
+        with store._engine.begin() as connection:
+            if fault == "weakened":
+                connection.exec_driver_sql(
+                    "ALTER TABLE composite_member_return_facts ADD CONSTRAINT ck_composite_fact_internal_evidence CHECK (1=1)"
+                )
+            else:
+                connection.exec_driver_sql(
+                    "ALTER TABLE composite_member_return_facts ALTER COLUMN ending_market_value DROP NOT NULL"
+                )
+                connection.exec_driver_sql(
+                    "ALTER TABLE composite_member_return_facts ALTER COLUMN calculation_id DROP NOT NULL"
+                )
+                _insert_authority_storage_mutant(connection, calculation_id=None, ending_market_value=None)
+        before = _authority_migration_snapshot(store._engine)
+        if fault == "weakened":
+            refused = apply_durable_schema(database_url=url)
+            assert refused.status == "failed" and refused.bootstrap_error
+        else:
+            assert any(row["ending_market_value"] is None and row["calculation_id"] is None for row in before["rows"])
+            with pytest.raises(DBAPIError) as refused:
+                apply_durable_schema(database_url=url)
+            assert refused.value.orig.diag.constraint_name == "ck_composite_fact_internal_evidence"
+        assert _authority_migration_snapshot(store._engine) == before
+    finally:
+        store.close()
+
+
+def _provider_process_phase(state_path, database_url, phase, evidence_dir):
+    import json
+    import os
+    import subprocess
+    import sys
+    from pathlib import Path
+
+    environment = {
+        **os.environ,
+        "LINEAGE_METADATA_DATABASE_URL": database_url,
+        "LOTUS_POSTGRES_PLAN_DATABASE_URL": database_url,
+        "MANAGE_BASE_URL": "http://manage-process-control",
+        "LINEAGE_STORAGE_PATH": str(evidence_dir / "lineage"),
+    }
+    if phase == "waiting":
+        environment["COMPUTE_EXECUTOR_MAX_ATTEMPTS"] = "1"
+    command = [
+        sys.executable,
+        "-m",
+        "tests.benchmarks.composite_provider_process_controls",
+        "--state",
+        str(state_path),
+        "--phase",
+        phase,
+    ]
+    completed = subprocess.run(
+        command,
+        cwd=Path(__file__).resolve().parents[2],
+        env=environment,
+        capture_output=True,
+        text=True,
+        timeout=60,
+        check=False,
+    )
+    (evidence_dir / f"{phase}.stdout.log").write_text(completed.stdout, encoding="utf-8")
+    (evidence_dir / f"{phase}.stderr.log").write_text(completed.stderr, encoding="utf-8")
+    assert completed.returncode == 0, completed.stdout + completed.stderr
+    return json.loads(completed.stdout.splitlines()[-1])
+
+
+@pytest.mark.parametrize("shape", ["frozen", "explicit_observations"])
+def test_postgres_registered_provider_default_worker_fresh_process_replay_and_recovery(shape, tmp_path):
+    import json
+    from uuid import uuid4
+
+    from tests.benchmarks.composite_provider_process_controls import packets_for
+    from tests.composite_authority_helpers import command_for_packet
+
+    url = get_postgres_database_url()
+    assert apply_durable_schema(database_url=url).status == "passed"
+    original, corrected = packets_for(shape)[0]
+    commands = {
+        "original": command_for_packet(original),
+        "corrected": command_for_packet(corrected, restatement_sequence=2),
+        "waiting": command_for_packet(corrected, restatement_sequence=3),
+    }
+    commands["recover"] = commands["waiting"].model_copy(update={"calculation_id": uuid4()})
+    state_path = tmp_path / "commands.json"
+    state_path.write_text(
+        json.dumps(
+            {"shape": shape, "commands": {key: command.model_dump(mode="json") for key, command in commands.items()}},
+            sort_keys=True,
+        ),
+        encoding="utf-8",
+    )
+    outputs = {}
+    for phase in ("original", "corrected", "read", "waiting", "recover"):
+        outputs[phase] = _provider_process_phase(state_path, url, phase, tmp_path)
+    assert len({output["pid"] for output in outputs.values()}) == len(outputs)
+    assert outputs["read"]["result"]["original"] == outputs["original"]["result"]
+    assert outputs["read"]["result"]["corrected"] == outputs["corrected"]["result"]
+    assert outputs["recover"]["result"]["weighted_return"] == outputs["corrected"]["result"]["weighted_return"]
+    assert commands["waiting"].materialization_id == commands["recover"].materialization_id
+    assert commands["waiting"].calculation_id != commands["recover"].calculation_id
+    summary = {
+        "shape": shape,
+        "database_schema": make_url(url).query["options"],
+        "phases": outputs,
+        "qualification": "CONTROLLED_SYNTHETIC_ONLY",
+    }
+    (tmp_path / "process-proof.json").write_text(json.dumps(summary, sort_keys=True), encoding="utf-8")
+    print(
+        json.dumps(
+            {
+                "fresh_process_proof": str(tmp_path / "process-proof.json"),
+                "phase_pids": {key: output["pid"] for key, output in outputs.items()},
+            },
+            sort_keys=True,
+        )
+    )

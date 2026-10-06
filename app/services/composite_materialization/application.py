@@ -247,7 +247,7 @@ def run_materialization_attempt(
 
 def _default_member_source(source):
     if source is not None and isinstance(source.definition, ManageCompositeDefinitionV2):
-        return AuthorityCompositeMemberResultSource(source.definition)
+        return AuthorityCompositeMemberResultSource(source.definition, admitted_source=source)
     return RetainedCompositeMemberResultSource()
 
 

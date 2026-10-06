@@ -94,6 +94,24 @@ class SyntheticApproval:
             universe["expected_member_ids"]
         ):
             return False
+        if self.purpose == "RETURN_METHOD_CALENDAR" and not self._method_matches(request, profile, support):
+            return False
+        if self.purpose == "ELIGIBILITY_POLICY_EVALUATION" and not self._eligibility_matches(request, profile, support):
+            return False
+        key = (
+            "eligibility_evaluation_binding"
+            if self.purpose == "ELIGIBILITY_POLICY_EVALUATION"
+            else "return_method_binding"
+        )
+        return (
+            request.purpose == self.purpose
+            and request.tenant_id == definition["tenant_id"]
+            and request.definition.model_dump(mode="json") == definition
+            and request.binding.model_dump() == profile[key]
+            and (request.effective_from, request.effective_to) == (profile["effective_from"], profile["effective_to"])
+        )
+
+    def _method_matches(self, request, profile, support):
         method = support["return_method"]
         if (authority_digest(method), method["payload_digest"], method["approval"]["claims"]["payload_digest"]) != (
             profile["return_method_binding"]["digest"],
@@ -113,6 +131,9 @@ class SyntheticApproval:
             method["payload"]["period_end"],
         ):
             return False
+        return True
+
+    def _eligibility_matches(self, request, profile, support):
         eligibility = support["eligibility_evaluation"]
         if (
             authority_digest(eligibility),
@@ -126,18 +147,7 @@ class SyntheticApproval:
             request.universe_digest,
         ):
             return False
-        key = (
-            "eligibility_evaluation_binding"
-            if self.purpose == "ELIGIBILITY_POLICY_EVALUATION"
-            else "return_method_binding"
-        )
-        return (
-            request.purpose == self.purpose
-            and request.tenant_id == definition["tenant_id"]
-            and request.definition.model_dump(mode="json") == definition
-            and request.binding.model_dump() == profile[key]
-            and (request.effective_from, request.effective_to) == (profile["effective_from"], profile["effective_to"])
-        )
+        return True
 
 
 def install_test_authorities(monkeypatch, packet):

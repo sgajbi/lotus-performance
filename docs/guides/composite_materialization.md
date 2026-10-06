@@ -75,11 +75,14 @@ exists. A digest or reference never grants trust. Owning tests inject exact synt
 their provider receipts explicitly carry `qualification=SYNTHETIC_TEST_ONLY`. COMPLETE denotes
 controlled fact publication, not institutional or live-source activation.
 
-The unchanged frozen producer pack proves typed profile decoding and independent admission bindings.
-Its existing `SyntheticMonthlyMemberFacts:v1` observation wire is not yet resolved by the default
-numeric adapter; that compatibility node remains open. The adapter currently resolves the separate
-explicit `CompositeExternalMemberFacts:v1` observation contract. A separate
-new explicit observation/profile example in
+The default adapter resolves the unchanged frozen producer pack's
+`SyntheticMonthlyMemberFacts:v1` wire through its exact admitted profile and independently verified
+method and actual command. The wire supplies member returns and beginning assets only: ending
+assets remain null, no cash-flow fields are invented, and the asset-reporting TWR route refuses
+with HTTP 422. The existing engine contribution primitive proves the original weighted return
+1/60 and corrected return 49/3050. Missing admission, wrong fee view, invalid calendar dates and
+changed wire identity fail closed. The adapter also resolves the separate explicit
+`CompositeExternalMemberFacts:v1` observation contract. The explicit observation/profile example in
 [`tests/composite_authority_helpers.py`](../../tests/composite_authority_helpers.py) includes flows
 after the period return: A beginning100/return10%/ending160/flow+50;
 B300/-2%/274/-20; C200/3%/206/0. The independent weighted return is 1/60 and ending wealth640,
@@ -118,13 +121,26 @@ python scripts/durable_schema_apply.py --database-url '<approved-isolated-databa
 Do not run an old reader against stored v2 receipts or provider facts. Disable new v2 admission
 before rollback; retain a v2-capable reader until a separately proven restore/forward recovery
 reconciles all new rows. Dropping provider identities or replacing null assets with invented amounts
-is not rollback. The focused SQLite proofs do not certify PostgreSQL, fresh-process recovery,
-deployment rollback or actual Manage publication.
+is not rollback. Bounded isolated PostgreSQL owner-migration tests preserve populated internal
+rows, foreign keys, indexes and checks; reject weakened guards; and prove transactional rollback
+on an invalid populated partial schema. These storage fixtures are not live calculation evidence.
+
+Registered HTTP/default-worker PostgreSQL proofs run original, correction, retained read/replay,
+transient outage and recovery in distinct fresh Python processes for both frozen and explicit
+observations. Exact replay returns 202 and conflicting replay 409 without changing either receipt.
+A retryable observation outage leaves all members WAITING with no published facts; exhaustion
+fails the executor job. Recovery uses a new executor UUID for the same immutable materialization
+generation. This proves fresh-interpreter behavior, not an operating-system or deployed-service
+restart. Existing PostgreSQL admission, publication, lineage-storage lease-fence and disjoint
+compute-claim controls separately prove their bounded concurrency behavior; lineage lease tests
+do not certify composite executor lease expiry. None of these tests certifies deployment rollback or actual
+Manage publication.
 
 Remaining #607 acceptance includes qualified external/internal/hybrid inputs, actual #714 universe,
 selected independently evaluated/approved #778 content, approved return method/calendar/fee/currency/
-precision, registered HTTP through the default worker to real PostgreSQL and fresh-process replay,
-correction and recovery. Controlled adapter proof does not close these obligations.
+precision, live joined producer/runtime qualification, deployment recovery and capacity acceptance.
+Controlled registered/default-worker PostgreSQL replay, correction and recovery proofs satisfy
+only those bounded test nodes; synthetic verification ports are not bank approval. #607 remains open.
 
 ## Completion And Recovery
 

@@ -77,6 +77,7 @@ def require_provider_member_evidence(source, command, outcome) -> None:
     reference = next((ref for ref in command.member_calculations if ref.portfolio_id == outcome.portfolio_id), None)
     adapter = AuthorityCompositeMemberResultSource(
         source.definition,
+        admitted_source=source,
         observations=RetainedProviderObservations(evidence.observation_wires),
         internal_source=RetainedInternalMemberSource(command, outcome),
     )

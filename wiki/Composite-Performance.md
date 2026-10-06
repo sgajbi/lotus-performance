@@ -58,8 +58,20 @@ input fingerprint and Manage cut; they do not assert a Core source-time watermar
 
 The owner-invoked schema apply adds an authority-identity JSON column and conditional nullable
 ending assets/calculation identity while preserving v1 internal-fact constraints. Runtime readers
-verify schema rather than migrating. The focused SQLite tests do not certify PostgreSQL migration,
-fresh-process recovery or deployment rollback. See the repository
+verify schema rather than migrating. Bounded isolated PostgreSQL tests prove populated migration
+preservation, guard refusal and transactional rollback. The unchanged frozen monthly wire now
+resolves through exact admitted method/command bindings; it supplies no ending assets and its
+asset-reporting route refuses 422. The existing contribution primitive proves original 1/60 and
+corrected 49/3050 without inventing fields. Separate explicit observations retain selected ending
+assets and support the controlled asset report.
+
+Registered HTTP/default-worker tests use fresh Python processes for original/correction, retained
+read, exact/conflicting replay, transient WAITING and same-generation recovery with a replacement
+executor UUID after retry exhaustion. Fresh interpreters do not certify OS/service restart;
+synthetic authority ports do not grant bank approval. Separate PostgreSQL admission, publication,
+lineage-storage lease-fence and disjoint compute-claim controls cover bounded concurrency; lineage
+lease tests do not certify composite executor lease expiry. Deployment rollback, live joined producer
+qualification and the broader #607 acceptance remain open. See the repository
 [materialization guide](https://github.com/sgajbi/lotus-performance/blob/main/docs/guides/composite_materialization.md)
 for the observation example, refusal boundaries and remaining #607 acceptance.
 

@@ -148,8 +148,8 @@ Historical failures above are unchanged.
 
 ## Operator Retention Entrypoint Development Inventory (#604)
 
-Current AST inventory: 372 modules, 4,500 source test functions, 951 integration/API/runtime,
-225 contract/governance, 752 observability/readiness, 341 quality/security, 2,294 analytics-domain
+Current AST inventory: 372 modules, 4,506 source test functions, 951 integration/API/runtime,
+225 contract/governance, 752 observability/readiness, 341 quality/security, 2,300 analytics-domain
 and 558 uncategorized functions. Fresh subprocess contracts cover help, dry-run, scheduled Make
 execution and positive policy boundaries. No gate or financial formula changed. Release acceptance
 requires pinned delivery gates and immutable image proof; native tests alone are not acceptance.

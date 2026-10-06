@@ -10,7 +10,7 @@ from typing import Any
 
 from app.adapters.composite_member_result_source import RetainedCompositeMemberResultSource, member_outcome
 from app.models.composite_authority import ManageCompositeDefinitionV2, authority_digest
-from app.models.composite_external_facts import CompositeExternalMemberFacts
+from app.models.composite_external_facts import CompositeExternalMemberFacts, SyntheticMonthlyMemberFacts
 from app.models.composite_materialization import (
     CompositeMemberMaterializationOutcome,
     CompositeMemberOutcomeState,
@@ -31,14 +31,14 @@ def provider_observation_source():
     return UnavailableProviderObservations()
 
 
-def read_observation_wire(command, definition, member_id, fact, *, tenant_id, port):
+def read_observation_wire(command, definition, member_id, fact, *, tenant_id, port, admitted_source=None):
     selection = selection_for_window(
         definition, member_id=member_id, fact=fact, period_start=command.period_start, period_end=command.period_end
     )
     raw = port.read(tenant_id=tenant_id, selection=selection)
     if authority_digest(raw) != selection.source_digest:
         raise authority_refusal("COMPOSITE_PROVIDER_OBSERVATION_DIGEST_MISMATCH")
-    wire = CompositeExternalMemberFacts.model_validate(raw)
+    wire = decode_observation(raw, command, definition, tenant_id, admitted_source)
     actual = (
         wire.tenant_id,
         wire.provider_id,
@@ -50,8 +50,6 @@ def read_observation_wire(command, definition, member_id, fact, *, tenant_id, po
         wire.period_start,
         wire.period_end,
         wire.currency,
-        wire.return_view,
-        wire.method_profile_binding,
     )
     expected = (
         tenant_id,
@@ -64,13 +62,35 @@ def read_observation_wire(command, definition, member_id, fact, *, tenant_id, po
         str(command.period_start),
         str(command.period_end),
         command.reporting_currency,
-        str(command.return_view),
-        definition.source_authority.payload.return_method_binding,
     )
     if actual != expected:
         raise authority_refusal("COMPOSITE_PROVIDER_OBSERVATION_SCOPE_MISMATCH")
     row = observation_member_row(wire, definition, member_id)
     return selection, raw, row
+
+
+def decode_observation(raw, command, definition, tenant_id, admitted_source):
+    if raw.get("product_name") == "SyntheticMonthlyMemberFacts":
+        wire = SyntheticMonthlyMemberFacts.model_validate(raw)
+        require_frozen_method_admission(admitted_source, definition, command, tenant_id)
+        return wire
+    wire = CompositeExternalMemberFacts.model_validate(raw)
+    if (wire.return_view, wire.method_profile_binding) != (
+        str(command.return_view),
+        definition.source_authority.payload.return_method_binding,
+    ):
+        raise authority_refusal("COMPOSITE_PROVIDER_OBSERVATION_METHOD_MISMATCH")
+    return wire
+
+
+def require_frozen_method_admission(source, definition, command, tenant_id):
+    from app.services.composite_materialization.source_contract import require_pinned_source_scope
+
+    if source is None or source.definition != definition:
+        raise authority_refusal("COMPOSITE_FROZEN_OBSERVATION_METHOD_ADMISSION_REQUIRED")
+    # Neither fee view nor method is declared by the frozen wire. Recheck source-backed
+    # approvals against this exact command; an opaque digest alone cannot supply them.
+    require_pinned_source_scope(source, command=command, tenant_id=tenant_id)
 
 
 def observation_member_row(wire, definition, member_id):
@@ -84,10 +104,13 @@ def observation_member_row(wire, definition, member_id):
 
 
 class AuthorityCompositeMemberResultSource:
-    def __init__(self, definition: ManageCompositeDefinitionV2, *, observations=None, internal_source=None):
+    def __init__(
+        self, definition: ManageCompositeDefinitionV2, *, observations=None, internal_source=None, admitted_source=None
+    ):
         self.definition = definition
         self.observations = observations or provider_observation_source()
         self.internal_source = internal_source or RetainedCompositeMemberResultSource()
+        self.admitted_source = admitted_source
 
     def read_member(
         self,
@@ -102,7 +125,11 @@ class AuthorityCompositeMemberResultSource:
         member_id = member_id or reference.portfolio_id
         try:
             return self._resolve(command, reference, member_id, tenant_id, membership_snapshot_id, request_headers)
-        except (APIError, ValueError, TypeError, KeyError):
+        except APIError as error:
+            if error.retryable:
+                return member_outcome(member_id, code="COMPOSITE_PROVIDER_OBSERVATION_PENDING", retryable=True)
+            return member_outcome(member_id, code="COMPOSITE_PROVIDER_OBSERVATION_REFUSED")
+        except (ValueError, TypeError, KeyError):
             return member_outcome(member_id, code="COMPOSITE_PROVIDER_OBSERVATION_REFUSED")
 
     def _resolve(self, command, reference, member_id, tenant_id, membership_snapshot_id, request_headers):
@@ -156,7 +183,13 @@ class AuthorityCompositeMemberResultSource:
         for kind in selections:
             if kind not in internal_kinds:
                 _, raw, row = read_observation_wire(
-                    command, self.definition, member_id, kind, tenant_id=tenant_id, port=self.observations
+                    command,
+                    self.definition,
+                    member_id,
+                    kind,
+                    tenant_id=tenant_id,
+                    port=self.observations,
+                    admitted_source=self.admitted_source,
                 )
                 rows[kind] = row
                 wires[authority_digest(raw)] = raw
