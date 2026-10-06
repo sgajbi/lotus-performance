@@ -1,5 +1,7 @@
+from copy import deepcopy
 from pathlib import Path
 
+import pytest
 import yaml
 
 from scripts.ci_local_compose_project import compose_project_name
@@ -10,6 +12,37 @@ RUNTIME_SERVICES = (
     "performance-compute-executor",
     "performance-runtime-retention-worker",
 )
+
+
+def _assert_runtime_privilege_boundary(service: dict, name: str) -> None:
+    assert service.get("cap_drop") == ["ALL"], f"{name}: all capabilities must be dropped"
+    assert not service.get("cap_add"), f"{name}: capabilities cannot be re-added"
+    assert service.get("security_opt") == ["no-new-privileges:true"], f"{name}: privilege elevation must be denied"
+    assert service.get("user", "lotus") in ("lotus", "10001", "10001:10001"), f"{name}: runtime user cannot be root"
+
+
+def test_all_runtime_services_deny_privilege_elevation() -> None:
+    services = yaml.safe_load(Path("docker-compose.yml").read_text(encoding="utf-8"))["services"]
+    for name in RUNTIME_SERVICES:
+        _assert_runtime_privilege_boundary(services[name], name)
+
+
+@pytest.mark.parametrize("name", RUNTIME_SERVICES)
+@pytest.mark.parametrize(
+    ("key", "value", "reason"),
+    (
+        ("cap_drop", [], "all capabilities"),
+        ("cap_add", ["SYS_ADMIN"], "cannot be re-added"),
+        ("security_opt", [], "privilege elevation"),
+        ("user", "0:0", "cannot be root"),
+    ),
+)
+def test_runtime_privilege_guard_refuses_regressed_configuration(name, key, value, reason) -> None:
+    services = yaml.safe_load(Path("docker-compose.yml").read_text(encoding="utf-8"))["services"]
+    mutant = deepcopy(services[name])
+    mutant[key] = value
+    with pytest.raises(AssertionError, match=reason):
+        _assert_runtime_privilege_boundary(mutant, name)
 
 
 def _service_block(compose: str, service: str) -> str:

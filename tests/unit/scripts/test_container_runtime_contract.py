@@ -33,7 +33,13 @@ def test_dockerfile_uses_minimized_non_root_runtime_image() -> None:
     assert "requirements-dev.txt" not in dockerfile
     assert "useradd --system --uid 10001" in dockerfile
     assert "USER lotus" in dockerfile
+    users = [line.split(maxsplit=1)[1] for line in dockerfile.splitlines() if line.startswith("USER ")]
+    assert users[-1] == "lotus", "The effective runtime user must remain non-root"
     assert "COPY --chown=lotus:lotus . ." in dockerfile
+    strip_privileges = "RUN find /usr -xdev -type f -perm /6000 -exec chmod a-s {} +"
+    assert strip_privileges in dockerfile
+    assert dockerfile.index(strip_privileges) > dockerfile.index("COPY --chown=lotus:lotus . .")
+    assert dockerfile.index(strip_privileges) < dockerfile.rindex("USER lotus")
     assert "mkdir -p /app/lineage_data /app/artifacts /app/output" in dockerfile
     assert "PYTHONDONTWRITEBYTECODE=1" in dockerfile
     assert "PYTHONUNBUFFERED=1" in dockerfile

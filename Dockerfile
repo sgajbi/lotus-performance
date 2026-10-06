@@ -83,6 +83,10 @@ ENV APP_VERSION="${APP_VERSION}" \
 
 COPY --chown=lotus:lotus . .
 
+# API and worker roles do not use privileged login or mount helpers. Keep package
+# metadata intact for scanning while removing privilege elevation from shipped files.
+RUN find /usr -xdev -type f -perm /6000 -exec chmod a-s {} +
+
 USER lotus
 
 EXPOSE 8000

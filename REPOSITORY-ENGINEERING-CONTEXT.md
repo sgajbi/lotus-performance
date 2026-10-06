@@ -471,6 +471,15 @@ Important validation expectations:
     report. Unfixable base-image advisories are accepted individually and validated against the
     same scan by `scripts/container_acceptance_gate.py`, which that target runs; an acceptance that gains an upstream fix, stops
     matching its recorded package version, or expires is a failure rather than a suppression.
+    The image strips `/usr` setuid/setgid privilege bits after the final source copy. Long-running
+    API/lineage/compute/retention Compose roles use `cap_drop: [ALL]` and
+    `security_opt: [no-new-privileges:true]`; preserve existing writable volumes and root filesystem
+    behavior. The root volume initializer retains only its CHOWN/DAC_OVERRIDE/FOWNER boundary.
+    These controls reduce privilege exposure, not CVE package findings or acceptance obligations.
+    Read `quality/container_supply_chain_report.md` and #624 for exact-image reassessment and
+    pending decisions; no automatic expiry extension or unstable package installation is allowed.
+    On Windows, set `MSYS_NO_PATHCONV=1` for the existing Git Bash Make Docker mount recipes as
+    evidenced by #613. Evaluate the acceptance script against the single retained scan.
 16. `make performance-characterization` now writes benchmark JUnit, log, and summary artifacts under
     ignored `output/performance-characterization/`. The Performance Characterization Evidence
     workflow runs it on pull requests to `main`, pushes to `main`, weekly schedule, and manual
