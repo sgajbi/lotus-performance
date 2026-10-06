@@ -15,6 +15,22 @@ this repository and published after merge; unpublished drift is expected on feat
 
 ## Operator surface summary
 
+The runtime image removes shipped `/usr` setuid/setgid privilege bits. API, lineage, compute and
+retention Compose services drop all capabilities and set `no-new-privileges:true`. Keep their
+existing writable volumes; this does not impose a new read-only runtime filesystem. The root
+volume initializer retains its narrow CHOWN/DAC_OVERRIDE/FOWNER boundary and schema application
+retains its restricted owner role. Verify actual container settings rather than adopting an
+isolated diagnostic's security flags as deployment evidence.
+
+These controls reduce privilege exposure without fixing package advisories. Eight container
+acceptances expired on 2026-10-05; #624 retains fresh scan evidence and the pending decision.
+Do not extend dates or remove findings because a helper/module is currently unreachable. A
+proposed temporary decision requires an accountable reviewed owner and at most seven days from
+approval, with earlier reassessment on published stable fixes, image/package changes or weaker
+controls. Source ownership is not institutional risk approval. Read the
+[supply-chain report](https://github.com/sgajbi/lotus-performance/blob/main/quality/container_supply_chain_report.md)
+for per-advisory applicability, native commands and refusal boundaries.
+
 For retention, run `python -m scripts.runtime_retention_cleanup` from the repository root or `/app`
 in the shipped image after the durable schema owner completes. The default is an attributable
 dry-run; apply requires `--apply`. CLI policy overrides must be positive. `make runtime-retention-smoke`

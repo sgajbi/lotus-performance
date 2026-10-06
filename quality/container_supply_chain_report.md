@@ -1,6 +1,6 @@
 # Container Supply-Chain Evidence
 
-Report date: 2026-07-10
+Report date: 2026-10-07
 Mode: PR/Main release evidence; the vulnerability gate is blocking, with unfixable base-image
 advisories accepted individually and validated against the live scan.
 
@@ -27,6 +27,7 @@ Runtime image contract:
 | Docker target | `runtime`, selected by `CONTAINER_BUILD_TARGET ?= runtime` and Compose `target: runtime`. |
 | Dependency scope | Refreshes published Debian security packages before installing `requirements.txt` and `requirements-image.txt`. The second holds packages that ship inside the image without being imported by application code (pinned `setuptools`), declared there so the build and the licence inventory read one authority rather than two that drift. `pip` and `wheel` are pinned for the build and uninstalled afterwards, so they are not distributed and not scanned. Development/test dependencies from `requirements-dev.txt` are not installed. |
 | Runtime user | Creates and runs as non-root user `lotus` with UID/GID `10001`. |
+| Privilege elevation | Removes shipped `/usr` setuid/setgid bits after source copy. API, lineage, compute and retention Compose roles drop all capabilities and set `no-new-privileges:true`; this does not remove vulnerable packages or approve findings. |
 | Writable paths | Owns `/app/lineage_data`, `/app/artifacts`, and `/app/output`; source files are copied with `--chown=lotus:lotus`. |
 | API healthcheck | Dockerfile probes `/health/live`; Compose probes `/health/ready` for the API service. |
 | worker healthchecks | Compose uses `python -m app.workers.healthcheck <worker>` for lineage, compute executor, and runtime-retention worker readiness against shared durable metadata and lineage storage dependencies. |
@@ -59,6 +60,76 @@ attests SBOM provenance through GitHub artifact attestations using
 `actions/attest-build-provenance@v3`.
 
 ## Exception And Promotion Policy
+
+### Current Reassessment And Pending Decision
+
+Issue [#624](https://github.com/sgajbi/lotus-performance/issues/624) records the 2026-10-07
+reassessment of eight acceptances that expired on 2026-10-05. The exact pre-hardening source
+`8605dec396edccd99ccd4da262235cbfcf58bd7a` produced runtime image
+`sha256:50f20f38afbf55f22812adede17bd67d2b6c45940e0d9677474c605604fa74dd`, Debian 13.7.
+Trivy 0.71.2 and its retained actual scan database reported 44 HIGH package findings, zero CRITICAL,
+eight advisory IDs and no published stable-package fixes. All eight remain present. The same-scan
+acceptance gate failed on their expired records; the scan itself succeeded. Hardening privilege
+boundaries does not fix these advisories or authorize renewal.
+
+The official Debian tracker still lists bookworm/trixie as vulnerable for
+[ncurses](https://security-tracker.debian.org/tracker/CVE-2025-69720),
+[systemd](https://security-tracker.debian.org/tracker/CVE-2026-16742),
+[ACL](https://security-tracker.debian.org/tracker/CVE-2026-54369),
+[mount hooks](https://security-tracker.debian.org/tracker/CVE-2026-76642),
+[nsenter](https://security-tracker.debian.org/tracker/CVE-2026-78408),
+[mount subdirectories](https://security-tracker.debian.org/tracker/CVE-2026-78409),
+[bind mounts](https://security-tracker.debian.org/tracker/CVE-2026-78410), and
+[Perl Archive::Tar](https://security-tracker.debian.org/tracker/CVE-2026-9538).
+Testing/unstable fixes are not supported stable-image remediation. Removal simulations either
+fail dependency resolution or warn about essential packages; this slice does not purge them.
+
+| Finding | Observed reachability and residual decision |
+| --- | --- |
+| CVE-2025-69720 | `infocmp` is present. Its CLI parser is the affected surface; avoid untrusted terminal-description execution. Package presence remains a scanner finding. |
+| CVE-2026-16742 | Libraries are present; `systemd-homed` executable/service is absent. Do not infer that a future image or mounted service has the same reachability. |
+| CVE-2026-54369 | `libacl` is present. Privileged pathname/ACL callers and attacker-controlled symlinks are the relevant preconditions; keep the root volume initializer narrowly scoped. |
+| CVE-2026-76642 | `mount` is present. Deny runtime privilege elevation/capabilities and external privileged mount helpers. |
+| CVE-2026-78408 | `nsenter` is present. No privileged operator may join attacker-controlled cgroups through this image. |
+| CVE-2026-78409 | `mount` is present. Do not authorize attacker-controlled `X-mount.subdir` paths or mount namespaces. |
+| CVE-2026-78410 | `mount` is present. Deny elevated mount helpers and attacker-controlled authorized source paths. |
+| CVE-2026-9538 | `perl-base` is present; the exact-image `Archive::Tar` module probe fails because that module is absent. No runtime contract invokes Perl archive parsing. |
+
+The long-running roles retain their existing writable volumes and root filesystem behavior.
+The root volume initializer retains only CHOWN, DAC_OVERRIDE and FOWNER, its read-only filesystem,
+and no-new-privileges. Schema application retains its existing restricted boundary. An isolated
+diagnostic's cap-drop settings are not evidence that a deployed workload uses these controls;
+validate the actual rendered Compose and running container configuration.
+
+Decision options remain pending independent review: retain the release block until supported
+remediation exists, or approve narrowly matched per-advisory residual risk only after verifying
+the actual controls and accountable owner. Any proposed temporary decision is bounded to seven
+days from approval and must be reassessed earlier when a stable fix, package/version change,
+new reachable helper/module, or weaker deployment control appears. This is a proposal, not a
+renewal instruction. Repository owner `sgajbi` is a verifiable candidate for accountable release
+maintenance; [#506](https://github.com/sgajbi/lotus-performance/issues/506) must resolve the owner
+vocabulary and approval responsibility. No institutional approver is inferred from repository
+ownership and no acceptance date is changed by this report.
+
+From the `lotus-performance` repository root with the pinned Python environment, use one fresh
+scan for evidence and acceptance. On Windows with the supported Git Bash Make recipe shell:
+
+```powershell
+$env:MSYS_NO_PATHCONV = "1"
+make container-supply-chain-evidence CONTAINER_IMAGE=lotus-performance:reviewed-security CONTAINER_SECURITY_OUTPUT_DIR=output/container-security/reviewed-security
+if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+python scripts/container_acceptance_gate.py --scan output/container-security/reviewed-security/lotus-performance-image-vulnerabilities.json
+```
+
+```bash
+make container-supply-chain-evidence CONTAINER_IMAGE=lotus-performance:reviewed-security CONTAINER_SECURITY_OUTPUT_DIR=output/container-security/reviewed-security
+python scripts/container_acceptance_gate.py --scan output/container-security/reviewed-security/lotus-performance-image-vulnerabilities.json
+```
+
+Resolve a task-owned image tag/output folder before running; preserve image/source/scanner/DB
+provenance and native exits. Do not repeat the scan merely to evaluate acceptance against a
+different snapshot. Issue #613 owns Windows portability improvements; no Make or CI policy changes
+are made here.
 
 The gate is promoted and blocking. The report-only phase existed to avoid turning an unknown
 base-image baseline into noisy release

@@ -82,6 +82,10 @@ services:
   performance-analytics:
     build: *provenance-build
     container_name: "${PA_ANALYTICS_CONTAINER_NAME:-performance-analytics}"
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
     environment:
       CORE_CONTROL_PLANE_BASE_URL: "${CORE_CONTROL_PLANE_BASE_URL:-http://host.docker.internal:8202}"
       HTTP_ALLOWED_HOSTS: "${HTTP_ALLOWED_HOSTS:-testserver,localhost,127.0.0.1,host.docker.internal,*.dev.lotus}"
@@ -115,6 +119,10 @@ services:
   performance-lineage-worker:
     build: *provenance-build
     container_name: "${PA_LINEAGE_WORKER_CONTAINER_NAME:-performance-lineage-worker}"
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
     command: ["python", "-m", "app.workers.lineage_worker"]
     environment:
       CORE_CONTROL_PLANE_BASE_URL: "${CORE_CONTROL_PLANE_BASE_URL:-http://host.docker.internal:8202}"
@@ -141,6 +149,10 @@ services:
   performance-compute-executor:
     build: *provenance-build
     container_name: "${PA_COMPUTE_EXECUTOR_CONTAINER_NAME:-performance-compute-executor}"
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
     command: ["python", "-m", "app.workers.compute_executor_worker"]
     environment:
       CORE_CONTROL_PLANE_BASE_URL: "${CORE_CONTROL_PLANE_BASE_URL:-http://host.docker.internal:8202}"
@@ -167,6 +179,10 @@ services:
   performance-runtime-retention-worker:
     build: *provenance-build
     container_name: "${PA_RUNTIME_RETENTION_CONTAINER_NAME:-performance-runtime-retention-worker}"
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
     command: ["python", "-m", "app.workers.runtime_retention_worker"]
     profiles: ["ops"]
     environment:
