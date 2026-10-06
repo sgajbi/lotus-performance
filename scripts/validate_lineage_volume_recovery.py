@@ -58,6 +58,8 @@ class RecoveryCleanupError(RuntimeError):
         cleanup_outcome = (
             f"could not start: {launch_error}" if launch_error is not None else f"exited with code {returncode}"
         )
+        if returncode == 0:
+            cleanup_outcome += " but owned resource absence could not be verified"
         super().__init__(
             "lineage recovery cleanup failed "
             f"for owned project {project_name}: {cleanup_outcome}; "
@@ -227,11 +229,12 @@ def _cleanup_owned_project(project_name: str, env: dict[str, str]) -> None:
             _remaining_owned_resources(project_name, env),
             launch_error=exc,
         ) from exc
-    if completed.returncode:
+    remaining_resources = _remaining_owned_resources(project_name, env)
+    if completed.returncode or any(remaining_resources.values()):
         raise RecoveryCleanupError(
             project_name,
             completed.returncode,
-            _remaining_owned_resources(project_name, env),
+            remaining_resources,
         )
 
 

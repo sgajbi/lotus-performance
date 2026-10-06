@@ -142,8 +142,10 @@ def test_recovery_cli_refuses_a_caller_selected_project_name(
     assert exc_info.value.code == 2
 
 
+@pytest.mark.parametrize("cleanup_exit", (0, 19))
 def test_cleanup_failure_prevents_a_passed_recovery_verdict_and_reports_owned_resources(
     monkeypatch: pytest.MonkeyPatch,
+    cleanup_exit: int,
 ) -> None:
     project_name = f"{PROJECT_PREFIX}cleanup-failure"
     monkeypatch.setattr(recovery, "new_project_name", lambda: project_name)
@@ -158,11 +160,11 @@ def test_cleanup_failure_prevents_a_passed_recovery_verdict_and_reports_owned_re
     )
 
     def fake_run(command: list[str], *, env: dict[str, str], check: bool = True) -> subprocess.CompletedProcess[str]:
-        return subprocess.CompletedProcess(command, 19 if command == cleanup_command(project_name) else 0)
+        return subprocess.CompletedProcess(command, cleanup_exit if command == cleanup_command(project_name) else 0)
 
     monkeypatch.setattr(recovery, "_run", fake_run)
 
-    with pytest.raises(recovery.RecoveryCleanupError, match="exited with code 19") as exc_info:
+    with pytest.raises(recovery.RecoveryCleanupError, match=f"exited with code {cleanup_exit}") as exc_info:
         run_validation()
 
     assert exc_info.value.project_name == project_name
@@ -193,6 +195,82 @@ def test_primary_failure_is_retained_when_owned_cleanup_also_fails(
 
     assert isinstance(exc_info.value.__cause__, subprocess.CalledProcessError)
     assert exc_info.value.cleanup_error.returncode == 23
+
+
+@pytest.mark.parametrize("resource", ("containers", "networks", "volumes"))
+def test_zero_exit_cleanup_refuses_retained_owned_resources(monkeypatch, resource):
+    project = f"{PROJECT_PREFIX}zero-exit-leftover"
+    remaining = {"containers": [], "networks": [], "volumes": []}
+    remaining[resource] = [f"{project}-retained"]
+    monkeypatch.setattr(recovery, "_run", lambda command, **kwargs: subprocess.CompletedProcess(command, 0))
+    monkeypatch.setattr(recovery, "_remaining_owned_resources", lambda *args: remaining)
+
+    with pytest.raises(recovery.RecoveryCleanupError, match="exited with code 0 but owned resource absence") as exc:
+        recovery._cleanup_owned_project(project, {})
+
+    assert exc.value.returncode == 0
+    assert exc.value.remaining_resources == remaining
+
+
+@pytest.mark.parametrize("failure", ("launch", "nonzero"))
+@pytest.mark.parametrize("resource", ("containers", "networks", "volumes"))
+def test_zero_exit_cleanup_refuses_resource_inspection_failure(monkeypatch, resource, failure):
+    project = f"{PROJECT_PREFIX}inspection-failure"
+    monkeypatch.setattr(recovery, "_run", lambda command, **kwargs: subprocess.CompletedProcess(command, 0))
+
+    def inspect(command, **kwargs):
+        kind = "containers" if "ps" in command else "networks" if "network" in command else "volumes"
+        if kind == resource:
+            if failure == "launch":
+                raise OSError("inspection unavailable")
+            return subprocess.CompletedProcess(command, 17, "", "inspection denied")
+        return subprocess.CompletedProcess(command, 0, "", "")
+
+    monkeypatch.setattr(recovery, "_capture_completed", inspect)
+    with pytest.raises(recovery.RecoveryCleanupError, match="owned resource absence") as exc:
+        recovery._cleanup_owned_project(project, {})
+    assert exc.value.returncode == 0
+    assert "inspection failed" in exc.value.remaining_resources[resource][0]
+
+
+def test_zero_exit_cleanup_accepts_only_successfully_inspected_empty_inventories(monkeypatch):
+    project = f"{PROJECT_PREFIX}empty-owned-project"
+    commands = []
+    monkeypatch.setattr(recovery, "_run", lambda command, **kwargs: subprocess.CompletedProcess(command, 0))
+
+    def inspect(command, **kwargs):
+        commands.append(command)
+        return subprocess.CompletedProcess(command, 0, "", "")
+
+    monkeypatch.setattr(recovery, "_capture_completed", inspect)
+    recovery._cleanup_owned_project(project, {})
+    assert len(commands) == 3
+    assert all("default" in command and f"name={project}" in command for command in commands)
+
+
+def test_primary_failure_is_retained_when_zero_exit_cleanup_leaves_owned_resources(monkeypatch):
+    project = f"{PROJECT_PREFIX}primary-and-leftover"
+    primary = compose_command(project, "build", "performance-lineage-volume-init")
+    monkeypatch.setattr(recovery, "new_project_name", lambda: project)
+    monkeypatch.setattr(
+        recovery,
+        "_remaining_owned_resources",
+        lambda *args: {"containers": [], "networks": [], "volumes": [f"{project}_lineage-data"]},
+    )
+
+    def run(command, **kwargs):
+        if command == primary:
+            raise subprocess.CalledProcessError(7, command)
+        assert command == cleanup_command(project)
+        return subprocess.CompletedProcess(command, 0)
+
+    monkeypatch.setattr(recovery, "_run", run)
+    with pytest.raises(recovery.RecoveryValidationError, match="cleanup also failed") as exc:
+        run_validation()
+    assert isinstance(exc.value.__cause__, subprocess.CalledProcessError)
+    assert exc.value.__cause__.returncode == 7
+    assert exc.value.cleanup_error.returncode == 0
+    assert exc.value.cleanup_error.remaining_resources["volumes"] == [f"{project}_lineage-data"]
 
 
 def test_primary_failure_is_retained_when_owned_cleanup_cannot_start(
@@ -232,6 +310,9 @@ def test_initial_failure_cannot_clean_a_preexisting_same_prefix_project(
     primary_command = compose_command(owned_project, "build", "performance-lineage-volume-init")
     commands: list[list[str]] = []
     monkeypatch.setattr(recovery, "new_project_name", lambda: owned_project)
+    monkeypatch.setattr(
+        recovery, "_capture_completed", lambda command, **kwargs: subprocess.CompletedProcess(command, 0, "", "")
+    )
 
     def fake_run(command: list[str], *, env: dict[str, str], check: bool = True) -> subprocess.CompletedProcess[str]:
         commands.append(command)

@@ -108,8 +108,12 @@ published host ports, and an owned in-network database URL. It does not inherit 
 remote Docker context. It seeds root-owned persisted evidence, requires the bounded initializer to repair
 ownership, proves API and worker health as UID/GID `10001`, restarts the workloads, rechecks retained
 evidence, and removes only the invocation-owned containers, volume, network, and orphaned services
-(not shared local images). The validator cannot report success when `down -v --remove-orphans` fails;
-it reports remaining owned resource names and preserves an earlier validation failure. PR Merge Gate feeds this job
+(not shared local images). Success requires a zero `down -v --remove-orphans` exit and successfully
+inspected empty container, network, and volume inventories. Leftovers or inspection failures refuse
+success even after a zero exit; the validator reports the native exit and remaining owned resources
+and preserves an earlier validation failure. The default proof covers API, lineage worker, and
+compute executor; optional `ops` retention is outside this scope. A separately authorized profile
+extension must use consistent profiles for bring-up, restart, and teardown. PR Merge Gate feeds this job
 into the required compatibility aggregate; Main Releasability repeats it on the merged SHA.
 
 Performance characterization evidence is produced by the dedicated Performance Characterization
