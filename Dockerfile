@@ -1,4 +1,4 @@
-FROM python:3.11-slim AS runtime
+FROM docker.io/library/python@sha256:e529028263dbe6910a2d96f7d2b8f5266385e917fd45d286ef166977c094a51e AS runtime
 
 ARG APP_VERSION=0.1.0
 ARG APP_GIT_COMMIT_SHA=local

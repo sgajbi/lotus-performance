@@ -228,6 +228,21 @@ for the field contract and qualification limits.
 
 ## Container supply-chain evidence
 
+The production runtime base is official Python `3.11.17-slim-trixie`, pinned to the linux/amd64
+child `docker.io/library/python@sha256:e529028263dbe6910a2d96f7d2b8f5266385e917fd45d286ef166977c094a51e`.
+This selects one architecture; multi-architecture builds require separately reviewed manifests.
+The existing Debian package refresh and dependency resolution remain dependent on repositories
+at build time, so the base pin alone does not make final images reproducible.
+
+The bounded [#624 application qualification](https://github.com/sgajbi/lotus-performance/issues/624#issuecomment-6041708068)
+verified Python 3.11.17, bundled Expat 2.8.5, API/worker imports and isolated hardening for committed
+application `8292151fce69fd3b289492d8f1698561b32e3b53` plus an external FROM-only change. It does not
+qualify pending composite changes or prove four-role readiness. Its retained report still has
+44 HIGH Debian findings across eight expired advisory acceptances, zero CRITICAL findings, and
+a failing native acceptance verdict. No acceptance or expiry changes accompany the base pin.
+See the [container supply-chain report](https://github.com/sgajbi/lotus-performance/blob/main/quality/container_supply_chain_report.md)
+for supplier provenance, exact image identity and proof limits.
+
 For release-image evidence, run:
 
 ```bash
@@ -239,6 +254,11 @@ and image-digest metadata fields, creates `output/container-security/lotus-perfo
 and creates `output/container-security/lotus-performance-image-vulnerabilities.json`. Runtime
 `GET /version` exposes the same support-safe metadata shape for release audit. PR Merge Gate and
 Main Releasability upload those artifacts. Main Releasability also attests SBOM provenance.
+
+The existing SBOM recipe explicitly enables vulnerability analysis, so the SBOM and HIGH/CRITICAL
+report perform two analyses. Acceptance consumes the retained HIGH/CRITICAL report; the base pin
+does not change this producer behavior or justify rerunning a report-producing target to judge
+previous evidence.
 
 `make container-vulnerability-gate` is blocking. It ran report-only until the first artifacts were
 reviewed,
