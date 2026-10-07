@@ -480,6 +480,18 @@ Important validation expectations:
     pending decisions; no automatic expiry extension or unstable package installation is allowed.
     On Windows, set `MSYS_NO_PATHCONV=1` for the existing Git Bash Make Docker mount recipes as
     evidenced by #613. Evaluate the acceptance script against the single retained scan.
+    The supported runtime base is official Python `3.11.17-slim-trixie`, pinned to linux/amd64
+    child `docker.io/library/python@sha256:e529028263dbe6910a2d96f7d2b8f5266385e917fd45d286ef166977c094a51e`.
+    This pin selects one architecture, not the supplier multi-architecture index. Retain the
+    existing apt refresh and dependency resolution; they make final builds time-dependent even
+    with an immutable base. Bind actual source/image/config/inventory evidence for each build.
+    The retained #624 qualification covers committed application `8292151` plus an external
+    FROM-only change, with actual Python 3.11.17/Expat 2.8.5 imports and isolated hardening.
+    It does not qualify pending composite changes or prove four-role readiness. Its unchanged
+    report still has 44 HIGH findings across eight expired Debian OS advisory acceptances,
+    zero CRITICAL findings and a failing native acceptance verdict. No acceptance or expiry
+    change follows from the interpreter fix. The existing SBOM recipe enables vulnerability
+    analysis too; SBOM plus report means two analyses, with acceptance reading the retained report.
 16. `make performance-characterization` now writes benchmark JUnit, log, and summary artifacts under
     ignored `output/performance-characterization/`. The Performance Characterization Evidence
     workflow runs it on pull requests to `main`, pushes to `main`, weekly schedule, and manual

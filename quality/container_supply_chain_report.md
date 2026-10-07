@@ -25,12 +25,39 @@ Runtime image contract:
 | Control | Current posture |
 | --- | --- |
 | Docker target | `runtime`, selected by `CONTAINER_BUILD_TARGET ?= runtime` and Compose `target: runtime`. |
+| Supported base | Official Python `3.11.17-slim-trixie`, pinned to linux/amd64 child `docker.io/library/python@sha256:e529028263dbe6910a2d96f7d2b8f5266385e917fd45d286ef166977c094a51e`. This is an architecture-specific manifest, not a multi-architecture index. |
 | Dependency scope | Refreshes published Debian security packages before installing `requirements.txt` and `requirements-image.txt`. The second holds packages that ship inside the image without being imported by application code (pinned `setuptools`), declared there so the build and the licence inventory read one authority rather than two that drift. `pip` and `wheel` are pinned for the build and uninstalled afterwards, so they are not distributed and not scanned. Development/test dependencies from `requirements-dev.txt` are not installed. |
 | Runtime user | Creates and runs as non-root user `lotus` with UID/GID `10001`. |
 | Privilege elevation | Removes shipped `/usr` setuid/setgid bits after source copy. API, lineage, compute and retention Compose roles drop all capabilities and set `no-new-privileges:true`; this does not remove vulnerable packages or approve findings. |
 | Writable paths | Owns `/app/lineage_data`, `/app/artifacts`, and `/app/output`; source files are copied with `--chown=lotus:lotus`. |
 | API healthcheck | Dockerfile probes `/health/live`; Compose probes `/health/ready` for the API service. |
 | worker healthchecks | Compose uses `python -m app.workers.healthcheck <worker>` for lineage, compute executor, and runtime-retention worker readiness against shared durable metadata and lineage storage dependencies. |
+
+### Pinned Base And Qualification Boundary
+
+The base pin selects the supported official Python 3.11.17 runtime with bundled Expat 2.8.5.
+Supplier provenance binds docker-library/python commit
+`cede844ace77284e32c03b61ebc35cdfc945e862`, directory `3.11/slim-trixie`, to the immutable
+linux/amd64 child above. A future multi-architecture build needs separately reviewed platform
+manifests; it must not silently replace this pin with the supplier index or a floating tag.
+
+The retained bounded application evidence in
+[#624](https://github.com/sgajbi/lotus-performance/issues/624#issuecomment-6041708068) covers committed
+application `8292151fce69fd3b289492d8f1698561b32e3b53` plus an external FROM-only change, producing
+image `sha256:0b8f61ab78a78c1c8d3438efc42e08fa862d45cc4c16ecf167362e490eaae2d2`.
+Its explicit shadow provenance is not a clean source revision or evidence for pending composite
+changes. Actual API/worker imports, Python 3.11.17/Expat 2.8.5 and isolated hardening passed;
+four-role readiness remains unproven because no governed database-backed runtime was exercised.
+The same retained HIGH/CRITICAL report still contains 44 HIGH findings across eight original Debian
+OS advisory IDs, zero CRITICAL findings, and expired acceptances; native acceptance failed.
+The interpreter fix does not remediate those OS packages or authorize expiry renewal.
+
+Pinning the base does not make the final build deterministic: the existing `apt-get upgrade`
+refresh and dependency resolution still depend on package repositories at build time. Bind each
+final image/config, source tree, dependency inventory, SBOM and verdict report to that actual build.
+The existing native SBOM command explicitly enables vulnerability analysis, so one SBOM plus one
+HIGH/CRITICAL report performs two analyses. The acceptance verdict reads the retained report;
+this base change does not repair scan-count orchestration or create readiness evidence.
 
 Build identity fields:
 
