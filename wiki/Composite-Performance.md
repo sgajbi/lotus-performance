@@ -31,6 +31,9 @@ Native regime changes, including a continuing member's source-money currency cha
 window vector require explicit history treatment and currently refuse.
 Annual dispersion and comparison use the same retained FX compatibility checks before
 linking monthly returns, even when each selected month is individually complete.
+Only READY participating identities enter continuing-member currency comparisons.
+Malformed nonfinite or non-JSON FX source wires block before release. Retained validation
+admits one shared FX source per transition/read while checking every member's money evidence.
 FX-bound release and reload require normalized v3 evidence for every member, including
 identity conversions; legacy receipts cannot substitute for that custody proof.
 See the [money, flow, fee and correction examples](https://github.com/sgajbi/lotus-performance/blob/main/docs/guides/composite_materialization.md#retained-member-currency-normalization)

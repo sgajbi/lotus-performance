@@ -25,7 +25,7 @@ from tests.unit.services.test_composite_annual_dispersion_service import (
 @pytest.mark.parametrize(
     "endpoint", ["/performance/composites/analytics", "/performance/composites/analytics/comparison"]
 )
-@pytest.mark.parametrize("mismatch", [None, "order", "membership", "method", "member-regime"])
+@pytest.mark.parametrize("mismatch", [None, "order", "membership", "method", "member-regime", "excluded-member-regime"])
 def test_registered_annual_vectors_require_shared_fx_authority(
     monkeypatch, tmp_path, endpoint, mismatch, database_url=None
 ):
@@ -49,7 +49,7 @@ def test_registered_annual_vectors_require_shared_fx_authority(
     try:
         with TestClient(app) as client:
             response = client.post(endpoint, json=payload.model_dump(mode="json"), headers={"X-Tenant-Id": "tenant-a"})
-        if mismatch in (None, "order", "membership"):
+        if mismatch in (None, "order", "membership", "excluded-member-regime"):
             assert response.status_code == 200, response.text
             assert response.json()["value"] == ("0.018708286934" if endpoint.endswith("analytics") else "0E-12")
         else:

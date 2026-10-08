@@ -6,7 +6,7 @@ from datetime import datetime, timedelta, timezone
 from types import SimpleNamespace
 
 from app.models.composite_authority import EvidenceBinding, authority_digest
-from app.models.composite_materialization import CompositeMemberSourceEvidence
+from app.models.composite_materialization import CompositeMemberOutcomeState, CompositeMemberSourceEvidence
 from app.models.portfolio_asset_evidence import PortfolioSourceAssetEvidence
 from app.models.twr_requests import TWRResolvedExecutionRequest
 from app.services.composite_materialization.currency_normalization import normalize_member_money
@@ -14,9 +14,11 @@ from app.services.composite_materialization.currency_source_admission import (
     admit_composite_fx_source,
     fx_resolution_for_command,
 )
+from app.services.composite_materialization.source_contract import source_digest
 from app.services.reproducibility_service import generate_value_fingerprint
 from app.services.stateful_input_service import StatefulInputService
 from tests.composite_currency_normalization_helpers import normalization_wire, synthetic_fx_verification
+from tests.composite_materialization_helpers import admitted
 from tests.unit.services.test_composite_annual_dispersion_service import month_record, year_records
 
 
@@ -28,7 +30,31 @@ def normalized_year_records(monkeypatch, *, mismatch=None):
     records = year_records()
     if mismatch == "membership":
         records = [month_record(month, count=6 if month < 7 else 7) for month in range(1, 13)]
+    if mismatch == "excluded-member-regime":
+        records = [month_record(month, count=7) for month in range(1, 13)]
     return [normalized_month_record(record, mismatch) for record in records]
+
+
+def _exclude_seventh_member(record):
+    products = [
+        item.model_dump(mode="json")
+        for item in (record.source.definition, record.source.membership, record.source.attestation)
+    ]
+    definition, membership, attestation = products
+    decision = next(item for item in membership["decisions"] if item["portfolio_id"] == "7")
+    decision.update(status="EXCLUDED", reason_code="POLICY_EXCLUDED")
+    definition["content_hash"] = source_digest(definition)
+    membership["content_hash"] = source_digest(membership)
+    attestation["membership_content_hash"] = membership["content_hash"]
+    attestation["content_hash"] = source_digest(attestation)
+    command = record.command.model_copy(
+        update={
+            "definition_content_hash": definition["content_hash"],
+            "membership_content_hash": membership["content_hash"],
+            "attestation_content_hash": attestation["content_hash"],
+        }
+    )
+    return replace(record, command=command, source=admitted(command, products, tenant_id="tenant-a"))
 
 
 def _daily_native(record, outcome, currency):
@@ -72,6 +98,7 @@ def _daily_native(record, outcome, currency):
     return CompositeMemberSourceEvidence.model_validate(
         {
             **original.model_dump(),
+            "membership_snapshot_id": record.command.membership_content_hash,
             "calculation_request": request,
             "input_fingerprint": fingerprint,
             "calculation_hash": calculation_hash,
@@ -138,13 +165,19 @@ def _member_wire(command, native, identity, template):
 
 
 def normalized_month_record(record, mismatch=None):
+    if mismatch == "excluded-member-regime":
+        record = _exclude_seventh_member(record)
     command = record.command
     natives = {
         item.portfolio_id: _daily_native(
             record,
             item,
             "EUR"
-            if mismatch == "member-regime" and command.period_start.month >= 7 and item.portfolio_id == "1"
+            if command.period_start.month >= 7
+            and (
+                (mismatch == "member-regime" and item.portfolio_id == "1")
+                or (mismatch == "excluded-member-regime" and item.portfolio_id == "7")
+            )
             else "USD",
         )
         for item in record.outcomes
@@ -204,7 +237,19 @@ def normalized_month_record(record, mismatch=None):
                 "source_snapshot_id": generate_value_fingerprint(evidence, "composite-member-source.v3")[0],
             }
         )
-        outcomes.append(original.model_copy(update={"fact": fact, "source_evidence": evidence}))
+        if mismatch == "excluded-member-regime" and original.portfolio_id == "7":
+            outcomes.append(
+                original.model_copy(
+                    update={
+                        "state": CompositeMemberOutcomeState.EXCLUDED,
+                        "reason_code": "POLICY_EXCLUDED",
+                        "fact": None,
+                        "source_evidence": None,
+                    }
+                )
+            )
+        else:
+            outcomes.append(original.model_copy(update={"fact": fact, "source_evidence": evidence}))
     return replace(
         record,
         command=command,

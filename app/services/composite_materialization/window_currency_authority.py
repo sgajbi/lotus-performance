@@ -4,6 +4,7 @@ from dataclasses import dataclass
 from typing import Any
 
 from app.models.composite_currency_normalization import CompositeFXNormalizationSource
+from app.models.composite_materialization import CompositeMemberOutcomeState
 from app.services.composite_materialization.records import MaterializationRecord
 from core.errors import APIConflictError, APIUnprocessableEntityError
 
@@ -24,10 +25,15 @@ def retained_currency_authority(record: MaterializationRecord) -> CurrencyWindow
         return CurrencyWindowAuthority(None, native, {})
     # Callers first admit each record's raw source and normalized member custody.
     source = CompositeFXNormalizationSource.model_validate(wire)
+    participating = {row.portfolio_id for row in record.outcomes if row.state == CompositeMemberOutcomeState.READY}
     return CurrencyWindowAuthority(
         source.method_binding.model_dump(mode="json"),
         native,
-        {member.member_id: member.source_money_currency for member in source.members},
+        {
+            member.member_id: member.source_money_currency
+            for member in source.members
+            if member.member_id in participating
+        },
     )
 
 

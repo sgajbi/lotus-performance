@@ -1107,6 +1107,10 @@ inspection share that selector, including legacy default and release/completenes
 Explicit TWR vectors and annual dispersion/comparison share retained currency-window
 authority checks; individually complete months cannot bypass method/native/continuing-money
 compatibility. Compare continuing identities, allowing source order and supported membership changes.
+Use READY outcomes for economically participating currency identities, excluding unused
+source rows. Canonicalization failures map to COMPOSITE_FX_SOURCE_WIRE_REFUSED before release.
+Share one verified FX admission within each retained transition/read; keep per-member
+financial reconstruction and refusal checks, and never cache admission across requests.
 Refuse cross-window native-regime changes without explicit history treatment, even
 when each window separately completes and reports in the same requested currency.
 Compare source-money currency by continuing member identity across adjacent windows;

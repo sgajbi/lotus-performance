@@ -56,6 +56,8 @@ source-money currency change refuse with
 `COMPOSITE_VECTOR_CURRENCY_REGIME_UNAVAILABLE`; no approved history treatment is
 inferred from a reporting projection or a definition update.
 Member order and admitted arrivals/departures alone do not constitute currency-regime drift.
+Continuing-member comparisons include only READY outcomes that economically participate
+in each window; excluded source rows cannot block an otherwise compatible vector.
 The same retained FX method, composite-native and continuing-member money-currency
 checks apply before linking twelve-month annual dispersion and comparison vectors.
 Each month can be individually COMPLETE while the annual vector still refuses; no
@@ -67,6 +69,10 @@ currency pairs. Extra snapshots with valid request identity but unauthenticated 
 refuse; agreeing authenticated overlapping retrievals retain their distinct custody.
 Identity conversions require no FX snapshots or retrieval wires; they cannot manufacture
 FX custody for a conversion that did not occur.
+Nonfinite or non-JSON source values refuse with `COMPOSITE_FX_SOURCE_WIRE_REFUSED`
+before release, retaining the admitted Manage population. Each retained transition/read
+admits its shared FX source once and rechecks every member's financial evidence against
+that admission; no admission object is cached across transitions or requests.
 
 The defined method is unhedged, direct pair, complete natural daily observations,
 UTC EOD fixing and exact decimal monetary multiplication without intermediate rounding.

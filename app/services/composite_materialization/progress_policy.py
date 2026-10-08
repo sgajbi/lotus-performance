@@ -59,11 +59,13 @@ def require_progress_transition(
             _refuse("COMPOSITE_MATERIALIZATION_SOURCE_REQUIRED")
         return
     require_pinned_source_scope(source, command=command, tenant_id=tenant_id)
-    _require_currency_source(source, command=command, tenant_id=tenant_id, outcomes=outcomes, state=state)
+    admitted_fx_source = _require_currency_source(
+        source, command=command, tenant_id=tenant_id, outcomes=outcomes, state=state
+    )
     _require_full_universe(source, outcomes)
     _require_retained_outcomes(prior_outcomes, outcomes)
     for outcome in outcomes:
-        _require_member_outcome(source, command, outcome)
+        _require_member_outcome(source, command, outcome, admitted_fx_source=admitted_fx_source)
     _require_release_state(outcomes, state)
 
 
@@ -118,6 +120,7 @@ def _require_currency_source(source, *, command, tenant_id, outcomes, state):
         fx_resolution_for_command(command, tenant_id=tenant_id), retained_wire=source.currency_normalization_wire
     )
     require_composite_native_currency(admitted, source.definition)
+    return admitted
 
 
 def require_retained_progress(
@@ -168,6 +171,8 @@ def _require_member_outcome(
     source: PinnedCompositeSource,
     command: CompositeMaterializationCommand,
     outcome: CompositeMemberMaterializationOutcome,
+    *,
+    admitted_fx_source=None,
 ) -> None:
     decision = membership_decision_for_window(source, command=command, portfolio_id=outcome.portfolio_id)
     if decision.status == "EXCLUDED":
@@ -181,10 +186,10 @@ def _require_member_outcome(
     if outcome.state == CompositeMemberOutcomeState.EXCLUDED:
         _refuse("COMPOSITE_MATERIALIZATION_ELIGIBILITY_MISMATCH")
     if outcome.fact is not None:
-        _require_outcome_evidence(source, command, outcome)
+        _require_outcome_evidence(source, command, outcome, admitted_fx_source=admitted_fx_source)
 
 
-def _require_outcome_evidence(source, command, outcome):
+def _require_outcome_evidence(source, command, outcome, *, admitted_fx_source=None):
     if isinstance(outcome.source_evidence, CompositeProviderMemberEvidence):
         from app.services.composite_materialization.provider_evidence_policy import require_provider_member_evidence
 
@@ -207,6 +212,7 @@ def _require_outcome_evidence(source, command, outcome):
         outcome.fact,
         tenant_id=source.definition.tenant_id,
         currency_normalization_wire=source.currency_normalization_wire,
+        admitted_fx_source=admitted_fx_source,
     )
 
 
@@ -217,6 +223,7 @@ def _require_fact_scope(
     *,
     tenant_id: str | None = None,
     currency_normalization_wire: dict | None = None,
+    admitted_fx_source=None,
 ) -> None:
     reference = next((item for item in command.member_calculations if item.portfolio_id == outcome.portfolio_id), None)
     if reference is None:
@@ -248,7 +255,11 @@ def _require_fact_scope(
     if actual != expected:
         _refuse("COMPOSITE_MATERIALIZATION_FACT_SCOPE_MISMATCH")
     require_member_source_evidence(
-        command, outcome, tenant_id=tenant_id, currency_normalization_wire=currency_normalization_wire
+        command,
+        outcome,
+        tenant_id=tenant_id,
+        currency_normalization_wire=currency_normalization_wire,
+        admitted_fx_source=admitted_fx_source,
     )
 
 

@@ -117,6 +117,16 @@ def test_changed_fixing_cannot_replay_under_an_original_digest():
     assert error.value.error_code == "COMPOSITE_FX_SOURCE_DIGEST_MISMATCH"
 
 
+@pytest.mark.parametrize("value", [float("nan"), float("inf"), {"not-json"}])
+def test_uncanonicalizable_source_is_a_governed_wire_refusal(value):
+    wire = normalization_wire()
+    request = _request(wire)
+    wire["members"][0]["fixings"][0]["rate"] = value
+    with pytest.raises(APIUnprocessableEntityError) as error:
+        admit_composite_fx_source(request, **_ports(wire))
+    assert error.value.error_code == "COMPOSITE_FX_SOURCE_WIRE_REFUSED"
+
+
 def test_boolean_verification_is_not_a_bound_receipt():
     wire = normalization_wire()
     with pytest.raises(APIUnprocessableEntityError) as error:

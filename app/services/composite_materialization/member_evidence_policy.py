@@ -26,12 +26,17 @@ def require_member_source_evidence(
     *,
     tenant_id: str | None = None,
     currency_normalization_wire: dict | None = None,
+    admitted_fx_source=None,
 ) -> None:
     fact, evidence = outcome.fact, outcome.source_evidence
     _require_normalization_evidence_version(command, evidence)
     if isinstance(evidence, CompositeNormalizedMemberSourceEvidence):
         _require_normalized_member_evidence(
-            command, outcome, tenant_id=tenant_id, currency_normalization_wire=currency_normalization_wire
+            command,
+            outcome,
+            tenant_id=tenant_id,
+            currency_normalization_wire=currency_normalization_wire,
+            admitted_fx_source=admitted_fx_source,
         )
         return
     if fact is None or evidence is None:
@@ -59,7 +64,9 @@ def _require_normalization_evidence_version(command, evidence):
         _refuse()
 
 
-def _require_normalized_member_evidence(command, outcome, *, tenant_id, currency_normalization_wire):
+def _require_normalized_member_evidence(
+    command, outcome, *, tenant_id, currency_normalization_wire, admitted_fx_source=None
+):
     from app.services.composite_materialization.currency_normalization import normalize_member_money
     from app.services.composite_materialization.currency_snapshot_custody import require_fx_snapshot_custody
     from app.services.composite_materialization.currency_source_admission import (
@@ -73,7 +80,7 @@ def _require_normalized_member_evidence(command, outcome, *, tenant_id, currency
     _require_native_receipt(command, native)
     _require_member_request_scope(command, outcome.portfolio_id, fact, native)
     _require_core_snapshot_scope(command, outcome.portfolio_id, native)
-    admitted = admit_composite_fx_source(
+    admitted = admitted_fx_source or admit_composite_fx_source(
         fx_resolution_for_command(command, tenant_id=tenant_id), retained_wire=currency_normalization_wire
     )
     member = next(row for row in admitted.source.members if row.member_id == outcome.portfolio_id)
