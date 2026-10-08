@@ -1094,8 +1094,12 @@ do not widen economic mismatch tolerance to compensate for a different calculati
 FX-bound internal admission may project into a different report currency only when
 independently verified source native currency matches the exact Manage definition.
 Retained reads repeat that check; unbound native/report equality remains unchanged.
-Publish the verified command currency into Performance reporting metadata, preserving the
-exact native Manage definition/hash/inception in retained source custody. Resolve omitted
+Keep the Performance definition/default and retained Manage custody native. Scoped publication
+manifests own each verified reporting projection's currency; publishing one cannot overwrite
+explicit legacy-window default truth. Latest selection still requires a completed manifest.
+Require exact consumed/supplied request-response snapshot keys for direct FX custody;
+unmatched snapshots refuse, never silently discard them. Identity custody requires empty
+snapshots and retrieval wires. Resolve omitted
 currency through covering-window publication authority in the existing fact selector; multiple
 tenant/composite/window/view/sequence projections require explicit currency. TWR and
 inspection share that selector, including legacy default and release/completeness checks.

@@ -19,7 +19,7 @@ def _retrieval_digest(wire):
 def require_fx_snapshot_custody(member, *, reporting_currency, calculation_id, snapshots):
     snapshots = [CompositeFXSnapshot.model_validate(row) for row in snapshots]
     if member.conversion_kind == "IDENTITY":
-        if member.retrieval_wires:
+        if member.retrieval_wires or snapshots:
             raise ValueError("Identity conversion must not manufacture FX retrieval evidence")
         return snapshots
     pair = f"{member.source_money_currency}/{reporting_currency}"
@@ -29,6 +29,8 @@ def require_fx_snapshot_custody(member, *, reporting_currency, calculation_id, s
         snapshot, response_hash = _matched_retrieval(retrieval, by_request_and_response, seen)
         start, end = _require_retrieval_window(member, reporting_currency, retrieval, snapshot)
         _retain_response_rates(retrieval.response_wire, response_hash, start, end, observed, economic_rates)
+    if seen != by_request_and_response.keys():
+        raise ValueError("Unconsumed FX snapshot has no source-owned retrieval wire")
     _require_admitted_observations(member, observed)
     return snapshots
 

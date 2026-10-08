@@ -415,13 +415,40 @@ def test_postgres_registered_fx_normalization_retained_legacy_identity_refusal(
     postgres_materialization_stores, monkeypatch
 ):
     from tests.integration.test_composite_materialization_api import (
-        test_registered_fx_normalization_refuses_legacy_retained_identity_member_after_child_expiry as registered_control,
+        test_registered_fx_normalization_refuses_unbound_retained_member_custody_after_child_expiry as registered_control,
     )
 
     url, ledger, _, _ = postgres_materialization_stores
     assert ledger._engine.dialect.name == "postgresql"
     monkeypatch.setattr(get_settings(), "LINEAGE_METADATA_DATABASE_URL", url)
-    registered_control(monkeypatch)
+    registered_control(monkeypatch, "legacy-identity")
+
+
+def test_postgres_registered_fx_normalization_retained_extra_direct_snapshot_refusal(
+    postgres_materialization_stores, monkeypatch
+):
+    from tests.integration.test_composite_materialization_api import (
+        test_registered_fx_normalization_refuses_unbound_retained_member_custody_after_child_expiry as registered_control,
+    )
+
+    url, ledger, _, _ = postgres_materialization_stores
+    assert ledger._engine.dialect.name == "postgresql"
+    monkeypatch.setattr(get_settings(), "LINEAGE_METADATA_DATABASE_URL", url)
+    registered_control(monkeypatch, "extra-direct-snapshot")
+
+
+@pytest.mark.parametrize("normalization_fault", ["unconsumed-snapshot", "unconsumed-identity-snapshot"])
+def test_postgres_registered_fx_normalization_unconsumed_source_snapshot_refusal(
+    postgres_materialization_stores, monkeypatch, normalization_fault
+):
+    from tests.integration.test_composite_materialization_api import (
+        test_registered_fx_normalization_refuses_unconsumed_source_snapshot_before_release as registered_control,
+    )
+
+    url, ledger, _, _ = postgres_materialization_stores
+    assert ledger._engine.dialect.name == "postgresql"
+    monkeypatch.setattr(get_settings(), "LINEAGE_METADATA_DATABASE_URL", url)
+    registered_control(monkeypatch, normalization_fault)
 
 
 @pytest.mark.parametrize("eod_flow", ["0", "10"], ids=["no-flow", "economic-date-flow"])
@@ -536,6 +563,17 @@ def test_postgres_registered_projection_default_selection(
     url, ledger, _, _ = postgres_materialization_stores
     assert ledger._engine.dialect.name == "postgresql"
     registered_control(monkeypatch, tmp_path, endpoint, same_window, database_url=url)
+
+
+@pytest.mark.parametrize("endpoint", ["/performance/composites/twr", "/performance/composites/inspect"])
+def test_postgres_registered_legacy_currency_default(postgres_materialization_stores, monkeypatch, tmp_path, endpoint):
+    from tests.integration.test_composite_projection_selection_api import (
+        test_registered_legacy_currency_default_survives_a_later_reporting_projection as registered_control,
+    )
+
+    url, ledger, _, _ = postgres_materialization_stores
+    assert ledger._engine.dialect.name == "postgresql"
+    registered_control(monkeypatch, tmp_path, endpoint, database_url=url)
 
 
 @pytest.mark.parametrize(
