@@ -952,6 +952,9 @@ Both Manage adapters carry existing service identity/capability authority from t
 with the original correlation through the existing propagation helper. Selected tenant, actor and
 role remain protected; case-insensitive duplicate or conflicting authority refuses before I/O.
 No service identity or capability is supplied when the admitted context lacks it.
+The shared retry parser refuses nonfinite numeric `Retry-After` values before float
+conversion. Malformed/nonfinite values fall back to bounded backoff; finite numeric and
+valid HTTP-date controls are exercised through the resolver's public POST transport.
 The producer resolver joins published custody; Performance also digest-checks the separately read
 canonical definition, membership and universe, binds the final definition/member map/source cut,
 and retains the resolved graph in existing source JSON evidence. Staged approvals and booleans do

@@ -7,7 +7,7 @@ from pydantic import ValidationError
 from app.models.composite_authority import ManageCompositeDefinitionV2, decode_authority_json
 from app.models.composite_external_facts import CompositeExternalMemberFacts
 from app.ports import composite_external_evidence as ports
-from app.services.composite_materialization.authority_policy import selection_for_window
+from app.services.composite_materialization.authority_policy import admit_authority_profile, selection_for_window
 from app.services.composite_materialization.source_contract import admit_pinned_source
 from core.errors import APIUnprocessableEntityError
 from tests.composite_authority_helpers import (
@@ -25,6 +25,188 @@ def admit(packet):
         command=command_for_packet(packet),
         tenant_id="synthetic-tenant-a",
         **{key: packet[key] for key in ("definition", "membership", "attestation")},
+    )
+
+
+@pytest.mark.parametrize(
+    "changes,code",
+    [
+        ({"eligibility_policy_version": "other-policy"}, "COMPOSITE_SOURCE_POLICY_MISMATCH"),
+        ({"inception_date": "2026-09-02"}, "COMPOSITE_SOURCE_DEFINITION_WINDOW_MISMATCH"),
+        ({"termination_date": "2026-09-29"}, "COMPOSITE_SOURCE_DEFINITION_WINDOW_MISMATCH"),
+    ],
+)
+def test_pinned_v2_source_refuses_rehashed_definition_outside_command_scope(monkeypatch, changes, code):
+    packet = shared_packet()
+    install_test_authorities(monkeypatch, packet)
+    assert admit(packet).definition.composite_id == packet["definition"]["composite_id"]
+    packet["definition"].update(changes)
+    rehash_definition(packet["definition"])
+    with pytest.raises(APIUnprocessableEntityError) as refused:
+        admit(packet)
+    assert refused.value.error_code == code
+
+
+@pytest.mark.parametrize(
+    "mutation,code",
+    [
+        ("profile_digest", "COMPOSITE_PROFILE_DIGEST_MISMATCH"),
+        ("definition_digest", "COMPOSITE_DEFINITION_PAYLOAD_DIGEST_MISMATCH"),
+        ("final_digest", "COMPOSITE_SOURCE_HASH_MISMATCH"),
+        ("self_approval", "COMPOSITE_AUTHORITY_SELF_APPROVAL_FORBIDDEN"),
+        ("definition_window", "COMPOSITE_SOURCE_DEFINITION_WINDOW_MISMATCH"),
+        ("tenant", "COMPOSITE_SOURCE_SCOPE_MISMATCH"),
+        ("command_window", "COMPOSITE_PROFILE_WINDOW_MISMATCH"),
+        ("universe", "COMPOSITE_AUTHORITY_UNIVERSE_MISMATCH"),
+        ("internal_owner", "COMPOSITE_AUTHORITY_INTERNAL_OWNER_MISMATCH"),
+        ("member_provider", "COMPOSITE_AUTHORITY_PROVIDER_MISMATCH"),
+        ("member_kind", "COMPOSITE_AUTHORITY_MEMBER_KIND_MISMATCH"),
+        ("selection_provider", "COMPOSITE_AUTHORITY_PROVIDER_MISMATCH"),
+        ("economic_owner", "COMPOSITE_ECONOMIC_AUTHORITY_MISMATCH"),
+        ("selection_window", "COMPOSITE_PROFILE_WINDOW_MISMATCH"),
+        ("method", "COMPOSITE_METHOD_BINDING_MISMATCH"),
+    ],
+)
+def test_projected_authority_admission_refuses_corruption_before_trust(monkeypatch, mutation, code):
+    """Typed projection alone cannot authorize a retained or rehashed contradictory definition."""
+    packet = shared_packet()
+    install_test_authorities(monkeypatch, packet)
+    source = admit(packet)
+    command = command_for_packet(packet)
+    wire = deepcopy(packet["definition"])
+    profile = wire["source_authority"]["payload"]
+    members = list(source.attestation.expected_portfolio_ids)
+    tenant = source.definition.tenant_id
+    if mutation == "self_approval":
+        wire["authority_approval"]["claims"]["approving_identity"] = wire["created_by"]
+    elif mutation == "definition_window":
+        wire["inception_date"] = "2026-09-02"
+    elif mutation == "tenant":
+        tenant = "foreign-tenant"
+    elif mutation == "command_window":
+        command = command_for_packet(packet, period_end="2026-10-01")
+    elif mutation == "universe":
+        members.pop()
+    elif mutation == "internal_owner":
+        profile["providers"][0]["source_kind"] = "LOTUS_CORE"
+    elif mutation == "member_provider":
+        profile["member_identities"][0]["provider_id"] = "missing-provider"
+    elif mutation == "member_kind":
+        profile["member_identities"][0]["identity_kind"] = "CORE_PORTFOLIO"
+    elif mutation == "selection_provider":
+        profile["selections"][0]["provider_id"] = "missing-provider"
+    elif mutation == "economic_owner":
+        profile["selections"][0]["economic_authority"] = "other-owner"
+    elif mutation == "selection_window":
+        profile["selections"][0]["effective_to"] = "2026-10-01"
+    elif mutation == "method":
+        selected = next(item for item in profile["selections"] if item["fact"] == "MEMBER_RETURN")
+        selected["method_profile_binding"]["revision"] = "other-method"
+    rehash_definition(wire)
+    if mutation == "profile_digest":
+        wire["source_authority"]["profile_digest"] = "sha256:" + "f" * 64
+    elif mutation == "definition_digest":
+        wire["definition_payload_digest"] = "sha256:" + "f" * 64
+    elif mutation == "final_digest":
+        wire["content_hash"] = "sha256:" + "f" * 64
+    definition = ManageCompositeDefinitionV2.model_validate(wire)
+    with pytest.raises(APIUnprocessableEntityError) as refused:
+        admit_authority_profile(
+            definition,
+            command=command,
+            tenant_id=tenant,
+            expected_members=members,
+            universe_digest=source.attestation.content_hash,
+        )
+    assert refused.value.error_code == code
+
+
+@pytest.mark.parametrize(
+    "mutation",
+    [
+        "negative_assets",
+        "unpaired_ending",
+        "inverted_period",
+        "duplicate_members",
+        "beginning_date",
+        "flow_outside",
+        "period_end_placement",
+    ],
+)
+def test_provider_observation_wire_refuses_ambiguous_economic_scope(mutation):
+    _, wire = observation_packet(ending_assets=True)
+    row = wire["rows"][0]
+    if mutation == "negative_assets":
+        row["beginning_assets"] = "-1"
+    elif mutation == "unpaired_ending":
+        row["ending_assets_date"] = None
+    elif mutation == "inverted_period":
+        wire["period_end"] = "2026-08-31"
+    elif mutation == "duplicate_members":
+        wire["rows"].append(deepcopy(row))
+    elif mutation == "beginning_date":
+        row["beginning_assets_date"] = "2026-09-02"
+    elif mutation == "flow_outside":
+        row["cash_flows"][0]["business_date"] = "2026-10-01"
+    else:
+        row["cash_flows"][0].update(business_date="2026-09-15", placement="PERIOD_END_AFTER_RETURN")
+    with pytest.raises(ValidationError):
+        CompositeExternalMemberFacts.model_validate(wire)
+
+
+@pytest.mark.parametrize(
+    "mutation",
+    ["selection_interval", "selection_members", "profile_interval", "duplicate_provider", "definition_interval"],
+)
+def test_authority_wire_refuses_noncanonical_identity_and_date_windows(mutation):
+    wire = shared_packet()["definition"]
+    profile = wire["source_authority"]["payload"]
+    if mutation == "selection_interval":
+        profile["selections"][0]["effective_to"] = "2026-08-31"
+    elif mutation == "selection_members":
+        profile["selections"][0]["member_ids"].append(profile["selections"][0]["member_ids"][0])
+    elif mutation == "profile_interval":
+        profile["effective_to"] = "2026-08-31"
+    elif mutation == "duplicate_provider":
+        profile["providers"].append(deepcopy(profile["providers"][0]))
+    else:
+        wire["termination_date"] = "1900-01-01"
+    with pytest.raises(ValidationError):
+        ManageCompositeDefinitionV2.model_validate(wire)
+
+
+@pytest.mark.parametrize("retryable", [False, True])
+def test_provider_transport_refusal_preserves_retry_disposition(monkeypatch, retryable):
+    from app.adapters.composite_provider_member_source import AuthorityCompositeMemberResultSource
+    from core.errors import APIError
+
+    packet, _ = observation_packet()
+    install_test_authorities(monkeypatch, packet)
+    source = admit(packet)
+
+    class Unavailable:
+        def read(self, **kwargs):
+            raise APIError(
+                status_code=503,
+                detail="Unavailable controlled provider",
+                error_code="SOURCE_UNAVAILABLE",
+                retryable=retryable,
+            )
+
+    command = command_for_packet(packet)
+    outcome = AuthorityCompositeMemberResultSource(source.definition, observations=Unavailable()).read_member(
+        command,
+        None,
+        tenant_id=source.definition.tenant_id,
+        member_id="external-member-a",
+        membership_snapshot_id=command.membership_content_hash,
+        request_headers={},
+    )
+    assert outcome.state == ("WAITING" if retryable else "BLOCKED")
+    assert outcome.retryable is retryable
+    assert outcome.fact is None
+    assert outcome.reason_code == (
+        "COMPOSITE_PROVIDER_OBSERVATION_PENDING" if retryable else "COMPOSITE_PROVIDER_OBSERVATION_REFUSED"
     )
 
 
@@ -118,7 +300,7 @@ def test_adjacent_selection_is_valid_transition_not_overlap():
     assert refused.value.error_code == "COMPOSITE_AUTHORITY_TRANSITION_REQUIRES_SPLIT_PERIOD"
 
 
-@pytest.mark.parametrize("wire", ['{"x":1,"x":2}', '{"x":NaN}', '{"x":1.25}', '{"x":Infinity}'])
+@pytest.mark.parametrize("wire", ['{"x":1,"x":2}', '{"x":NaN}', '{"x":1.25}', '{"x":Infinity}', "[]"])
 def test_strict_raw_authority_decode_refuses_ambiguous_numbers_and_duplicate_keys(wire):
     with pytest.raises(ValueError):
         decode_authority_json(wire)
@@ -356,7 +538,9 @@ def test_frozen_monthly_wire_retains_exact_raw_economics_and_requires_approved_m
     )
 
 
-@pytest.mark.parametrize("mutation", ["impossible", "inverted", "window", "version", "extra_flow"])
+@pytest.mark.parametrize(
+    "mutation", ["impossible", "inverted", "window", "version", "extra_flow", "negative_assets", "duplicate_members"]
+)
 def test_frozen_monthly_closed_schema_refuses_invalid_dates_versions_and_invented_flows(mutation):
     from app.models.composite_external_facts import SyntheticMonthlyMemberFacts
 
@@ -371,6 +555,10 @@ def test_frozen_monthly_closed_schema_refuses_invalid_dates_versions_and_invente
         raw["rows"][0]["beginning_assets_date"] = "2026-09-02"
     elif mutation == "version":
         raw["product_version"] = "v2"
+    elif mutation == "negative_assets":
+        raw["rows"][0]["beginning_assets"] = "-1"
+    elif mutation == "duplicate_members":
+        raw["rows"].append(deepcopy(raw["rows"][0]))
     else:
         raw["rows"][0]["cash_flows"] = []
     with pytest.raises(ValidationError):

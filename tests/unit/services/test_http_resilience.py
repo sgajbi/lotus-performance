@@ -455,6 +455,59 @@ class _ManagedPoolClient:
 
 
 @pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "header,expected_delay,source",
+    [
+        ("Thu, 08 Oct 2026 00:00:02 GMT", 2.0, "retry_after"),
+        ("Thu, 08 Oct 2026 00:00:02 -0000", 2.0, "retry_after"),
+        ("not-a-date", 0.25, "jittered_exponential_backoff"),
+        ("", 0.25, "jittered_exponential_backoff"),
+        ("NaN", 0.25, "jittered_exponential_backoff"),
+        ("sNaN", 0.25, "jittered_exponential_backoff"),
+        ("Infinity", 0.25, "jittered_exponential_backoff"),
+        ("-Infinity", 0.25, "jittered_exponential_backoff"),
+    ],
+)
+async def test_resolver_retry_after_dates_and_malformed_values_keep_bounded_delay(
+    monkeypatch, caplog, header, expected_delay, source
+):
+    from datetime import UTC, datetime
+
+    from app.services import http_resilience
+
+    class FrozenDatetime(datetime):
+        @classmethod
+        def now(cls, tz=None):
+            return datetime(2026, 10, 8, tzinfo=UTC)
+
+    delays = []
+
+    async def capture(delay):
+        delays.append(delay)
+
+    _TransientStatusClient.attempts = 0
+    _TransientStatusClient.responses = [
+        _json_response(503, {"detail": "resolver unavailable"}, headers={"Retry-After": header}),
+        _json_response(200, {"publication": "retained"}),
+    ]
+    monkeypatch.setattr(http_resilience, "datetime", FrozenDatetime)
+    monkeypatch.setattr(http_resilience.httpx, "AsyncClient", _TransientStatusClient)
+    monkeypatch.setattr(http_resilience.asyncio, "sleep", capture)
+    monkeypatch.setattr(http_resilience._JITTER_RANDOM, "random", lambda: 0.0)
+    status, payload = await post_with_retry(
+        url="http://manage/eligibility-evidence/resolve",
+        timeout_seconds=1.0,
+        json_body={"revision": "retained"},
+        headers={},
+        max_retries=1,
+        backoff_seconds=0.25,
+    )
+    assert (status, payload) == (200, {"publication": "retained"})
+    assert delays == [expected_delay]
+    assert caplog.records[-1].extra_fields["delay_source"] == source
+
+
+@pytest.mark.asyncio
 async def test_managed_upstream_client_pool_reuses_client_across_retries_and_requests(monkeypatch):
     _ManagedPoolClient.instances = []
     _ManagedPoolClient.responses = [

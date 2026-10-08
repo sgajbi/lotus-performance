@@ -117,3 +117,43 @@ def test_invalid_populated_partial_upgrade_rolls_back_schema_and_rows():
             assert connection.execute(table.select()).one().fact_key == 1
     finally:
         engine.dispose()
+
+
+@pytest.mark.parametrize(
+    "shape", ["unknown_columns", "referenced_table", "unexpected_trigger", "replacement_collision"]
+)
+def test_external_fact_upgrade_refuses_unowned_schema_without_mutation(shape):
+    engine = create_engine("sqlite://")
+    metadata = MetaData()
+    table = Table(
+        "composite_member_return_facts",
+        metadata,
+        Column("fact_key", Integer, primary_key=True),
+        Column("ending_market_value", Text),
+        Column("calculation_id", String(64)),
+    )
+    try:
+        with engine.begin() as connection:
+            metadata.create_all(connection)
+            connection.execute(table.insert().values(fact_key=1, ending_market_value="100", calculation_id="calc"))
+            if shape == "unknown_columns":
+                connection.exec_driver_sql("ALTER TABLE composite_member_return_facts ADD COLUMN foreign_evidence TEXT")
+            elif shape == "referenced_table":
+                Table("dependent_evidence", metadata, Column("fact_key", Integer, ForeignKey(table.c.fact_key))).create(
+                    connection
+                )
+            elif shape == "unexpected_trigger":
+                connection.exec_driver_sql(
+                    "CREATE TRIGGER keep_evidence AFTER INSERT ON composite_member_return_facts BEGIN SELECT 1; END"
+                )
+            else:
+                Table("_lotus_external_fact_upgrade", metadata, Column("owner_marker", Text)).create(connection)
+            catalog = text("SELECT type,name,tbl_name,sql FROM sqlite_master ORDER BY type,name")
+            before_catalog = connection.execute(catalog).all()
+            before_rows = connection.execute(table.select()).all()
+            with pytest.raises(DurableSchemaMigrationRequiredError, match=shape):
+                upgrade_external_fact_columns(connection, table)
+            assert connection.execute(catalog).all() == before_catalog
+            assert connection.execute(table.select()).all() == before_rows
+    finally:
+        engine.dispose()
