@@ -143,3 +143,33 @@ def test_revision_availability_is_required_and_cannot_be_inferred_from_original_
         wire["members"][0]["fixings"][0]["revision_available_at"] = available
     with pytest.raises(ValidationError):
         CompositeFXNormalizationSource.model_validate(wire)
+
+
+@pytest.mark.parametrize(
+    "fault, message",
+    [
+        ("inverted-method", "method interval is inverted"),
+        ("empty-direct", "Direct conversion requires fixing evidence"),
+        ("duplicate-member", "members must be sorted and unique"),
+        ("inverted-period", "period is inverted"),
+        ("outside-method", "does not cover"),
+        ("identity-pair", "Identity conversion must match"),
+    ],
+)
+def test_currency_source_refuses_incoherent_method_population_and_window(fault, message):
+    wire = normalization_wire()
+    if fault == "inverted-method":
+        wire["method"].update(effective_from="2026-01-06", effective_to="2026-01-05")
+        wire["method_binding"]["digest"] = authority_digest(wire["method"])
+    elif fault == "empty-direct":
+        wire["members"][0]["fixings"] = []
+    elif fault == "duplicate-member":
+        wire["members"].append(deepcopy(wire["members"][0]))
+    elif fault == "inverted-period":
+        wire["period_start"] = "2026-01-06"
+    elif fault == "outside-method":
+        wire["period_end"] = "2026-02-01"
+    else:
+        wire["members"][0].update(conversion_kind="IDENTITY", fixings=[])
+    with pytest.raises(ValidationError, match=message):
+        CompositeFXNormalizationSource.model_validate(wire)
