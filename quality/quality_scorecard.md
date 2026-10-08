@@ -4,7 +4,7 @@ Report date: 2026-07-10
 Branch: `feat/performance-architecture-boundary-refactor`
 Baseline source: `quality/baseline_report.md`
 Current source: `quality/refactor_health_report.md`
-Testing inventory refresh: 2026-10-05, bounded characterization measurement/context candidate (#617) composed on accepted operator entrypoint (#604).
+Testing inventory refresh: 2026-10-09, bounded portfolio SOD-reset optimization and numerical equivalence (#617).
 Other phase-zero measurements below remain historical, not current acceptance evidence.
 Mode: phase-zero scorecard; static-quality and evaluation enforcement includes complexity,
 architecture, router-thinness, duplicate-code, repository hygiene, observability-readiness,
@@ -23,13 +23,13 @@ metrics in each section are updated with each meaningful slice.
 
 | Metric | Baseline | Current | Delta | Status | Evidence |
 | --- | ---: | ---: | ---: | --- | --- |
-| Python files | 480 | 817 | 337 | measured | `quality/baseline_report.md`; `quality/refactor_health_report.md` |
+| Python files | 480 | 818 | 338 | measured | `quality/baseline_report.md`; `quality/refactor_health_report.md` |
 | Python package markers | 18 | 25 | 7 | measured | `quality/baseline_report.md`; `quality/refactor_health_report.md` |
-| Python LOC | 104,454 | 264,132 | 159,678 | measured | `quality/baseline_report.md`; `quality/refactor_health_report.md` |
+| Python LOC | 104,454 | 264,208 | 159,754 | measured | `quality/baseline_report.md`; `quality/refactor_health_report.md` |
 | Largest Python file LOC | 2,399 | 4,447 | 2,048 | measured | `quality/baseline_report.md`; `quality/refactor_health_report.md` |
 | Largest production file LOC | 1,156 | 3,069 | 1,913 | measured | `quality/refactor_health_report.md`; `quality/architecture_boundary_inventory.md` |
-| Python test modules | 228 | 380 | 152 | measured | `quality/baseline_report.md`; `quality/refactor_health_report.md` |
-| Collected tests | 2,035 | 6,975 | 4,940 | measured | `quality/baseline_report.md`; `quality/refactor_health_report.md` |
+| Python test modules | 228 | 381 | 153 | measured | `quality/baseline_report.md`; `quality/refactor_health_report.md` |
+| Collected tests | 2,035 | 7,002 | 4,967 | measured | `quality/baseline_report.md`; `quality/refactor_health_report.md` |
 | Duplicate code hotspots | 0 | 0 | 0 | enforced | `quality/duplicate_code_inventory.md`; `quality/refactor_health_report.md`; `make quality-duplicate-code-gate` |
 | Tracked local byproduct findings | unknown | 0 | n/a | enforced | `scripts/repository_hygiene_gate.py`; `make repository-hygiene-gate`; `quality/refactor_health_report.md` |
 
@@ -148,8 +148,8 @@ Historical failures above are unchanged.
 
 ## Operator Retention Entrypoint Development Inventory (#604)
 
-Current AST inventory: 380 modules, 4,658 source test functions, 973 integration/API/runtime,
-227 contract/governance, 755 observability/readiness, 349 quality/security, 2,439 analytics-domain
+Current AST inventory: 381 modules, 4,661 source test functions, 973 integration/API/runtime,
+227 contract/governance, 755 observability/readiness, 349 quality/security, 2,442 analytics-domain
 and 558 uncategorized functions. Fresh subprocess contracts cover help, dry-run, scheduled Make
 execution and positive policy boundaries. No gate or financial formula changed. Release acceptance
 requires pinned delivery gates and immutable image proof; native tests alone are not acceptance.
