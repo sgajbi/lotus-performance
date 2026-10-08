@@ -173,6 +173,15 @@ Accepted exceptions must be narrow, time-bound, and tied to image package identi
 CVE/advisory identifier, affected version, fixed version if available, and owner. Do not use a broad
 scanner allowlist to hide unknown image risk.
 
+The gate's `ACCOUNTABLE_OWNERS` vocabulary names verified GitHub principals with actual repository
+accountability. Its initial member is `sgajbi`: the GitHub repository API verified this existing
+User owner and admin/maintain/push permissions on 2026-10-08. Repository-name placeholders and
+unknown principals refuse even when every other acceptance field matches. Before changing the
+vocabulary, verify current repository ownership or maintainer access, document that evidence in
+[#506](https://github.com/sgajbi/lotus-performance/issues/506), and review the source and acceptance
+records together. CI uses the reviewed source vocabulary without requiring a privileged API token.
+Repository maintenance accountability does not imply institutional risk approval or renew expiry.
+
 ## Security Tab Alignment
 
 This slice benefits from GitHub Security features by publishing release artifacts that can be tied
