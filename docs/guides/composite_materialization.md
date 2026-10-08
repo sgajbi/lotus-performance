@@ -34,7 +34,7 @@ For a bound internal projection, the requested reporting currency may differ fro
 the composite's native currency in its exact admitted Manage definition. The verified
 command currency is persisted in Performance's reporting definition when the projection
 is published. Unpinned TWR and inspection requests omitting `reporting_currency` select
-the single published currency in their tenant, composite, requested window, fee view and
+the single published currency covering their whole requested window in their tenant, composite, fee view and
 optional sequence scope. Multiple currencies in that scope refuse with
 `409 COMPOSITE_FACT_SELECTION_INCOMPLETE`; provide an explicit currency rather than
 letting publication order select a projection. A projection in another period or fee

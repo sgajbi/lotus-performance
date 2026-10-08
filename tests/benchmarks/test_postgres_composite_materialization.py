@@ -525,7 +525,7 @@ def test_postgres_registered_fx_normalization_different_native_currency(
 
 
 @pytest.mark.parametrize("endpoint", ["/performance/composites/twr", "/performance/composites/inspect"])
-@pytest.mark.parametrize("same_window", [True, False])
+@pytest.mark.parametrize("same_window", [True, False, "partial"])
 def test_postgres_registered_projection_default_selection(
     postgres_materialization_stores, monkeypatch, tmp_path, endpoint, same_window
 ):

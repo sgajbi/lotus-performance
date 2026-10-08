@@ -18,7 +18,7 @@ Bound internal projections may report in a currency different from the admitted 
 definition, with independently verified matching native-currency evidence. The native
 Manage definition custody stays unchanged. Published Performance reporting metadata
 carries the verified command currency. Omitted-currency TWR and inspection reads select
-the single published currency in the requested tenant/composite/window/fee-view/sequence
+the single published currency covering the whole requested window in the tenant/composite/fee-view/sequence
 scope; multiple projections require explicit currency and refuse with 409 otherwise.
 Other periods or views cannot silently select a projection. Explicit currency and
 pinned-window requests retain their exact scope; legacy unbound defaults remain supported.

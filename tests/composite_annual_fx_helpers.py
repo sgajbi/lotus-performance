@@ -44,6 +44,8 @@ def _daily_native(record, outcome, currency):
         **original.calculation_request.portfolio.model_dump(),
         "calculation_id": reference.calculation_id,
         "currency": currency,
+        "report_start_date": record.command.period_start,
+        "report_end_date": record.command.period_end,
         "rounding_precision": 12,
         "valuation_points": points,
     }
@@ -195,6 +197,8 @@ def normalized_month_record(record, mismatch=None):
         fact = original.fact.model_copy(
             update={
                 "reporting_currency": command.reporting_currency,
+                "period_start": command.period_start,
+                "period_end": command.period_end,
                 "calculation_id": str(evidence.native_evidence.calculation_request.portfolio.calculation_id),
                 "source_fingerprint": evidence.native_evidence.calculation_hash,
                 "source_snapshot_id": generate_value_fingerprint(evidence, "composite-member-source.v3")[0],
