@@ -524,6 +524,42 @@ def test_postgres_registered_fx_normalization_different_native_currency(
     registered_control(monkeypatch, native_currency, tenant_id, legacy_native)
 
 
+@pytest.mark.parametrize("endpoint", ["/performance/composites/twr", "/performance/composites/inspect"])
+@pytest.mark.parametrize("same_window", [True, False])
+def test_postgres_registered_projection_default_selection(
+    postgres_materialization_stores, monkeypatch, tmp_path, endpoint, same_window
+):
+    from tests.integration.test_composite_projection_selection_api import (
+        test_registered_projection_defaults_are_scoped_or_require_explicit_currency as registered_control,
+    )
+
+    url, ledger, _, _ = postgres_materialization_stores
+    assert ledger._engine.dialect.name == "postgresql"
+    registered_control(monkeypatch, tmp_path, endpoint, same_window, database_url=url)
+
+
+@pytest.mark.parametrize(
+    "endpoint,mismatch",
+    [
+        ("/performance/composites/analytics", None),
+        ("/performance/composites/analytics", "method"),
+        ("/performance/composites/analytics", "member-regime"),
+        ("/performance/composites/analytics/comparison", "method"),
+        ("/performance/composites/analytics/comparison", "member-regime"),
+    ],
+)
+def test_postgres_registered_annual_fx_window_authority(
+    postgres_materialization_stores, monkeypatch, tmp_path, endpoint, mismatch
+):
+    from tests.integration.test_composite_annual_dispersion_api import (
+        test_registered_annual_vectors_require_shared_fx_authority as registered_control,
+    )
+
+    url, ledger, _, _ = postgres_materialization_stores
+    assert ledger._engine.dialect.name == "postgresql"
+    registered_control(monkeypatch, tmp_path, endpoint, mismatch, database_url=url)
+
+
 def test_postgres_registered_fx_normalization_wrong_native_refusal(postgres_materialization_stores, monkeypatch):
     from tests.integration.test_composite_materialization_api import (
         test_registered_fx_normalization_refuses_wrong_native_source_without_losing_manage_population as registered_control,

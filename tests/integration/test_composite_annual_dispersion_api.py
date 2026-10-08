@@ -21,6 +21,51 @@ from tests.unit.services.test_composite_annual_dispersion_service import (
     year_records,
 )
 
+
+@pytest.mark.parametrize(
+    "endpoint", ["/performance/composites/analytics", "/performance/composites/analytics/comparison"]
+)
+@pytest.mark.parametrize("mismatch", [None, "order", "membership", "method", "member-regime"])
+def test_registered_annual_vectors_require_shared_fx_authority(
+    monkeypatch, tmp_path, endpoint, mismatch, database_url=None
+):
+    from app.core.config import get_settings
+    from scripts.durable_schema_apply import apply_durable_schema
+    from tests.composite_annual_fx_helpers import normalized_year_records
+    from tests.unit.services.test_composite_annual_comparison_service import pair_request
+
+    records = normalized_year_records(monkeypatch, mismatch=mismatch)
+    url = database_url or "sqlite:///" + (tmp_path / "annual-fx.db").as_posix()
+    monkeypatch.setattr(get_settings(), "LINEAGE_METADATA_DATABASE_URL", url)
+    assert apply_durable_schema(database_url=url).status == "passed"
+    persist_records(url, records)
+    selected = list(reversed(records)) if mismatch == "order" else records
+    payload = annual_request(selected) if endpoint.endswith("analytics") else pair_request(selected, selected)
+    previous = app.dependency_overrides.copy()
+    store = CompositeMaterializationStore(url)
+    app.dependency_overrides[get_annual_dispersion_receipt_reader] = lambda: RetainedAnnualDispersionReceiptReader(
+        store
+    )
+    try:
+        with TestClient(app) as client:
+            response = client.post(endpoint, json=payload.model_dump(mode="json"), headers={"X-Tenant-Id": "tenant-a"})
+        if mismatch in (None, "order", "membership"):
+            assert response.status_code == 200, response.text
+            assert response.json()["value"] == ("0.018708286934" if endpoint.endswith("analytics") else "0E-12")
+        else:
+            assert response.status_code == 422, response.text
+            assert response.json()["error_code"] == (
+                "COMPOSITE_VECTOR_METHOD_MISMATCH"
+                if mismatch == "method"
+                else "COMPOSITE_VECTOR_CURRENCY_REGIME_UNAVAILABLE"
+            )
+            assert "members" not in response.json() and "baseline" not in response.json()
+    finally:
+        app.dependency_overrides.clear()
+        app.dependency_overrides.update(previous)
+        store.close()
+
+
 ERROR_EXAMPLE_HEADERS = {
     "X-Tenant-Id": "tenant-a",
     "X-Correlation-Id": "annual-dispersion-example",

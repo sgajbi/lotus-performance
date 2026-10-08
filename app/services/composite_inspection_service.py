@@ -106,14 +106,13 @@ def inspect_composite_twr_from_persisted_facts(
     if definition is None:
         raise CompositeDefinitionNotFoundError(f"Composite definition not found: {composite_id}")
 
-    selected_reporting_currency = reporting_currency or definition.reporting_currency
     facts = store.list_member_return_facts(
         tenant_id=tenant_id,
         composite_id=composite_id,
         period_start=period_start,
         period_end=period_end,
         return_view=return_view,
-        reporting_currency=selected_reporting_currency,
+        reporting_currency=reporting_currency,
         restatement_sequence=restatement_sequence,
     )
     result = calculate_asset_weighted_composite_twr(composite_id=composite_id, member_return_facts=facts)

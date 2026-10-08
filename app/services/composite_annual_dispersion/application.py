@@ -18,6 +18,7 @@ from app.models.composites import CompositeMemberReturnFact
 from app.ports.composite_annual_dispersion import AnnualDispersionReceiptReader
 from app.services.composite_materialization.progress_policy import require_retained_progress
 from app.services.composite_materialization.records import MaterializationRecord
+from app.services.composite_materialization.window_currency_authority import require_compatible_currency_windows
 from app.services.core_tenant_authority import admitted_tenant_authority, require_composite_tenant_authority
 from app.services.reproducibility_service import generate_value_fingerprint
 from core.errors import APIConflictError, APIUnprocessableEntityError
@@ -51,6 +52,7 @@ def _records(
         )
     if len({item.command.materialization_id for item in ordered}) != 12:
         _refuse("ANNUAL_DISPERSION_RECEIPT_IDENTITY_MISMATCH")
+    require_compatible_currency_windows(ordered)
     bases = {(item.command.definition_content_hash, item.command.policy_version) for item in ordered}
     if len(bases) != 1:
         _refuse("ANNUAL_DISPERSION_POLICY_BASIS_MISMATCH")
