@@ -163,6 +163,7 @@ class PinnedCompositeSource(BaseModel):
     attestation: ManageUniverseAttestation
     wire_evidence: CompositeSourceWireEvidence
     published_eligibility: evidence_ports.PublishedEligibilityEvidence | None = None
+    currency_normalization_wire: dict[str, Any] | None = None
 
 
 def admit_pinned_source(
@@ -421,7 +422,7 @@ def _admit_definition(
     ):
         raise source_refusal("COMPOSITE_SOURCE_OWNER_MISMATCH")
     if (
-        definition.reporting_currency != command.reporting_currency
+        not _definition_currency_admissible(definition, command)
         or definition.eligibility_policy_version != command.policy_version
     ):
         raise source_refusal("COMPOSITE_SOURCE_POLICY_MISMATCH")
@@ -434,15 +435,24 @@ def _admit_definition(
 def _admit_v2_definition_scope(
     definition: ManageCompositeDefinitionV2, command: CompositeMaterializationCommand
 ) -> None:
-    if (definition.reporting_currency, definition.eligibility_policy_version) != (
-        command.reporting_currency,
-        command.policy_version,
+    if (
+        not _definition_currency_admissible(definition, command)
+        or definition.eligibility_policy_version != command.policy_version
     ):
         raise source_refusal("COMPOSITE_SOURCE_POLICY_MISMATCH")
     if date.fromisoformat(definition.inception_date) > command.period_start or (
         definition.termination_date is not None and date.fromisoformat(definition.termination_date) < command.period_end
     ):
         raise source_refusal("COMPOSITE_SOURCE_DEFINITION_WINDOW_MISMATCH")
+
+
+def _definition_currency_admissible(definition, command):
+    # A bound projection is admitted only while pending; release separately
+    # verifies that its native currency matches this exact Manage definition.
+    return (
+        definition.reporting_currency == command.reporting_currency
+        or command.currency_normalization_binding is not None
+    )
 
 
 def _admit_universe(source: PinnedCompositeSource, *, command: CompositeMaterializationCommand) -> None:

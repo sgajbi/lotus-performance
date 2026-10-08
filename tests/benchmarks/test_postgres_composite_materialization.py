@@ -411,6 +411,151 @@ def postgres_materialization_stores(monkeypatch):
             jobs._engine.dispose()
 
 
+@pytest.mark.parametrize("eod_flow", ["0", "10"], ids=["no-flow", "economic-date-flow"])
+def test_postgres_registered_fx_normalization_money_replay_and_rederivation(
+    postgres_materialization_stores, monkeypatch, eod_flow
+):
+    from tests.integration.test_composite_materialization_api import (
+        test_registered_materialization_refuses_translated_return_without_converted_source_money as registered_control,
+    )
+
+    url, ledger, _, _ = postgres_materialization_stores
+    assert ledger._engine.dialect.name == "postgresql"
+    monkeypatch.setattr(get_settings(), "LINEAGE_METADATA_DATABASE_URL", url)
+    # Reuse the exact registered HTTP/worker/oracle control against an owned real
+    # database. Source ports remain synthetic; this is an in-process store reopen.
+    registered_control(monkeypatch=monkeypatch, normalize=True, eod_flow=eod_flow)
+
+
+@pytest.mark.parametrize(
+    "fault, code",
+    [
+        ("missing-member", "COMPOSITE_FX_SOURCE_SCOPE_MISMATCH"),
+        ("zero-rate", "COMPOSITE_FX_SOURCE_WIRE_REFUSED"),
+        ("reversed-direction", "COMPOSITE_FX_SOURCE_WIRE_REFUSED"),
+    ],
+)
+def test_postgres_registered_fx_normalization_population_refusals(
+    postgres_materialization_stores, monkeypatch, fault, code
+):
+    from tests.integration.test_composite_materialization_api import (
+        test_registered_fx_source_refusal_retains_admitted_eligible_population as registered_control,
+    )
+
+    url, ledger, _, _ = postgres_materialization_stores
+    assert ledger._engine.dialect.name == "postgresql"
+    monkeypatch.setattr(get_settings(), "LINEAGE_METADATA_DATABASE_URL", url)
+    registered_control(monkeypatch, fault, code)
+
+
+@pytest.mark.parametrize("rounding", [6, 12])
+def test_postgres_registered_fx_normalization_float_projection(postgres_materialization_stores, monkeypatch, rounding):
+    from tests.integration.test_composite_materialization_api import (
+        test_registered_fx_normalization_preserves_float_return_projection_and_exact_money as registered_control,
+    )
+
+    url, ledger, _, _ = postgres_materialization_stores
+    assert ledger._engine.dialect.name == "postgresql"
+    monkeypatch.setattr(get_settings(), "LINEAGE_METADATA_DATABASE_URL", url)
+    registered_control(monkeypatch, rounding)
+
+
+def test_postgres_registered_fx_normalization_actual_fee_views(postgres_materialization_stores, monkeypatch):
+    from tests.integration.test_composite_materialization_api import (
+        test_registered_fx_normalization_converts_actual_fee_without_changing_money_between_views as registered_control,
+    )
+
+    url, ledger, _, _ = postgres_materialization_stores
+    assert ledger._engine.dialect.name == "postgresql"
+    monkeypatch.setattr(get_settings(), "LINEAGE_METADATA_DATABASE_URL", url)
+    registered_control(monkeypatch)
+
+
+def test_postgres_registered_fx_normalization_temporary_source_recovery(postgres_materialization_stores, monkeypatch):
+    from tests.integration.test_composite_materialization_api import (
+        test_registered_fx_normalization_recovers_exact_pending_source_after_temporary_outage as registered_control,
+    )
+
+    url, ledger, _, _ = postgres_materialization_stores
+    assert ledger._engine.dialect.name == "postgresql"
+    monkeypatch.setattr(get_settings(), "LINEAGE_METADATA_DATABASE_URL", url)
+    registered_control(monkeypatch)
+
+
+@pytest.mark.parametrize("mismatch", ["fx-method", "policy", "native-regime"])
+def test_postgres_registered_fx_normalization_incompatible_admitted_windows(
+    postgres_materialization_stores, monkeypatch, mismatch
+):
+    from tests.integration.test_composite_materialization_api import (
+        test_registered_fx_normalization_refuses_independently_admitted_incompatible_windows as registered_control,
+    )
+
+    url, ledger, _, _ = postgres_materialization_stores
+    assert ledger._engine.dialect.name == "postgresql"
+    monkeypatch.setattr(get_settings(), "LINEAGE_METADATA_DATABASE_URL", url)
+    registered_control(monkeypatch, mismatch)
+
+
+@pytest.mark.parametrize("native_currency", ["EUR", "GBP"])
+def test_postgres_registered_fx_normalization_different_native_currency(
+    postgres_materialization_stores, monkeypatch, native_currency
+):
+    from tests.integration.test_composite_materialization_api import (
+        test_registered_fx_normalization_reports_independently_admitted_native_composite_in_usd as registered_control,
+    )
+
+    url, ledger, _, _ = postgres_materialization_stores
+    assert ledger._engine.dialect.name == "postgresql"
+    monkeypatch.setattr(get_settings(), "LINEAGE_METADATA_DATABASE_URL", url)
+    registered_control(monkeypatch, native_currency)
+
+
+def test_postgres_registered_fx_normalization_wrong_native_refusal(postgres_materialization_stores, monkeypatch):
+    from tests.integration.test_composite_materialization_api import (
+        test_registered_fx_normalization_refuses_wrong_native_source_without_losing_manage_population as registered_control,
+    )
+
+    url, ledger, _, _ = postgres_materialization_stores
+    assert ledger._engine.dialect.name == "postgresql"
+    monkeypatch.setattr(get_settings(), "LINEAGE_METADATA_DATABASE_URL", url)
+    registered_control(monkeypatch)
+
+
+def test_postgres_registered_fx_normalization_native_currency_adjacent_periods(
+    postgres_materialization_stores, monkeypatch
+):
+    from tests.integration.test_composite_materialization_api import (
+        test_registered_fx_normalization_links_native_eur_windows_in_usd_without_resetting_history as registered_control,
+    )
+
+    url, ledger, _, _ = postgres_materialization_stores
+    assert ledger._engine.dialect.name == "postgresql"
+    monkeypatch.setattr(get_settings(), "LINEAGE_METADATA_DATABASE_URL", url)
+    registered_control(monkeypatch)
+
+
+def test_postgres_registered_fx_normalization_adjacent_periods(postgres_materialization_stores, monkeypatch):
+    from tests.integration.test_composite_materialization_api import (
+        test_registered_fx_normalization_links_adjacent_periods_without_resetting_inception as registered_control,
+    )
+
+    url, ledger, _, _ = postgres_materialization_stores
+    assert ledger._engine.dialect.name == "postgresql"
+    monkeypatch.setattr(get_settings(), "LINEAGE_METADATA_DATABASE_URL", url)
+    registered_control(monkeypatch)
+
+
+def test_postgres_registered_fx_normalization_positive_two_tenants(postgres_materialization_stores, monkeypatch):
+    from tests.integration.test_composite_materialization_api import (
+        test_registered_fx_normalization_keeps_positive_tenant_populations_separate as registered_control,
+    )
+
+    url, ledger, _, _ = postgres_materialization_stores
+    assert ledger._engine.dialect.name == "postgresql"
+    monkeypatch.setattr(get_settings(), "LINEAGE_METADATA_DATABASE_URL", url)
+    registered_control(monkeypatch)
+
+
 def _observe_waiting_lock(engine, backend_pid):
     deadline = monotonic() + 10
     while monotonic() < deadline:
@@ -665,6 +810,32 @@ def _provider_process_phase(
     (evidence_dir / f"{phase}.stderr.log").write_text(completed.stderr, encoding="utf-8")
     assert completed.returncode == 0, completed.stdout + completed.stderr
     return json.loads(completed.stdout.splitlines()[-1])
+
+
+@pytest.mark.parametrize("eod_flow", ["0", "10"], ids=["no-flow", "economic-date-flow"])
+def test_postgres_registered_fx_normalization_fresh_process_receipts(
+    postgres_materialization_stores, tmp_path, eod_flow
+):
+    import json
+
+    url, _, _, _ = postgres_materialization_stores
+    state_path = tmp_path / "fx-state.json"
+    state_path.write_text(json.dumps({"eod_flow": eod_flow}), encoding="utf-8")
+    module = "tests.benchmarks.composite_fx_process_controls"
+    write = _provider_process_phase(state_path, url, "write", tmp_path, module=module)
+    read = _provider_process_phase(state_path, url, "read", tmp_path, module=module)
+    assert write["pid"] != read["pid"]
+    for version in ("original", "corrected"):
+        assert write["result"][version]["receipt"] == read["result"][version]["receipt"]
+        assert write["result"][version]["periods"] == read["result"][version]["periods"]
+        assert read["result"][version]["default_verifier_status"] == 503
+    proof = {
+        "write": write,
+        "read": read,
+        "database_schema": make_url(url).query["options"],
+        "qualification": "CONTROLLED_SYNTHETIC_ONLY",
+    }
+    (tmp_path / "fx-process-proof.json").write_text(json.dumps(proof, sort_keys=True), encoding="utf-8")
 
 
 def test_postgres_registered_external_oracles_pinned_vector_and_snapshot(tmp_path):

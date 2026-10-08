@@ -6,6 +6,7 @@ from app.models.composite_materialization import (
     CompositeMaterializationCommand,
     CompositeMemberMaterializationOutcome,
     CompositeMemberSourceEvidence,
+    CompositeNormalizedMemberSourceEvidence,
 )
 from app.models.composites import CompositeMemberReturnFact, CompositeReturnView
 from app.services.reproducibility_service import generate_value_fingerprint
@@ -20,9 +21,18 @@ def _refuse() -> NoReturn:
 
 
 def require_member_source_evidence(
-    command: CompositeMaterializationCommand, outcome: CompositeMemberMaterializationOutcome
+    command: CompositeMaterializationCommand,
+    outcome: CompositeMemberMaterializationOutcome,
+    *,
+    tenant_id: str | None = None,
+    currency_normalization_wire: dict | None = None,
 ) -> None:
     fact, evidence = outcome.fact, outcome.source_evidence
+    if isinstance(evidence, CompositeNormalizedMemberSourceEvidence):
+        _require_normalized_member_evidence(
+            command, outcome, tenant_id=tenant_id, currency_normalization_wire=currency_normalization_wire
+        )
+        return
     if fact is None or evidence is None:
         _refuse()
     receipt_digest, _ = generate_value_fingerprint(evidence, "composite-member-source.v1")
@@ -39,6 +49,66 @@ def require_member_source_evidence(
     _require_member_request_scope(command, outcome.portfolio_id, fact, evidence)
     _require_source_assets_scope(command, fact, evidence)
     _require_core_snapshot_scope(command, outcome.portfolio_id, evidence)
+
+
+def _require_normalized_member_evidence(command, outcome, *, tenant_id, currency_normalization_wire):
+    from app.services.composite_materialization.currency_normalization import normalize_member_money
+    from app.services.composite_materialization.currency_snapshot_custody import require_fx_snapshot_custody
+    from app.services.composite_materialization.currency_source_admission import (
+        admit_composite_fx_source,
+        fx_resolution_for_command,
+    )
+
+    evidence, fact = outcome.source_evidence, outcome.fact
+    _require_normalized_identity(command, evidence, fact, tenant_id, currency_normalization_wire)
+    native = evidence.native_evidence
+    _require_native_receipt(command, native)
+    _require_member_request_scope(command, outcome.portfolio_id, fact, native)
+    _require_core_snapshot_scope(command, outcome.portfolio_id, native)
+    admitted = admit_composite_fx_source(
+        fx_resolution_for_command(command, tenant_id=tenant_id), retained_wire=currency_normalization_wire
+    )
+    member = next(row for row in admitted.source.members if row.member_id == outcome.portfolio_id)
+    snapshots = require_fx_snapshot_custody(
+        member,
+        reporting_currency=command.reporting_currency,
+        calculation_id=native.calculation_request.portfolio.calculation_id,
+        snapshots=[row.model_dump(mode="json") for row in evidence.fx_snapshots],
+    )
+    expected = normalize_member_money(command, native, admitted, member_id=outcome.portfolio_id, fx_snapshots=snapshots)
+    if (
+        expected != evidence
+        or generate_value_fingerprint(evidence, "composite-member-source.v3")[0] != fact.source_snapshot_id
+    ):
+        _refuse()
+    if (fact.beginning_market_value, fact.ending_market_value, fact.reporting_currency) != (
+        expected.normalized_assets.observations[0].beginning_market_value,
+        expected.normalized_assets.observations[-1].ending_market_value,
+        expected.normalized_assets.reporting_currency,
+    ):
+        _refuse()
+
+
+def _require_normalized_identity(command, evidence, fact, tenant_id, currency_normalization_wire):
+    if (
+        tenant_id is None
+        or fact is None
+        or command.currency_normalization_binding is None
+        or currency_normalization_wire is None
+        or evidence.normalization_binding != command.currency_normalization_binding
+    ):
+        _refuse()
+
+
+def _require_native_receipt(command, native):
+    if (
+        native.membership_snapshot_id != command.membership_content_hash
+        or generate_value_fingerprint(native.calculation_request, native.engine_version)
+        != (native.input_fingerprint, native.calculation_hash)
+        or generate_value_fingerprint(native.source_assets, "portfolio-source-assets.v1")[0]
+        != native.asset_evidence_fingerprint
+    ):
+        _refuse()
 
 
 def _require_member_request_scope(

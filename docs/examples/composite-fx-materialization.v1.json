@@ -1,0 +1,124 @@
+{
+  "qualification": "SYNTHETIC_TEST_ONLY",
+  "official_activation": "UNAVAILABLE",
+  "usage": "Historical registered API example; use deployment-issued exact pins for new requests. This fixture cannot establish production authority.",
+  "request": {
+    "attestation_content_hash": "sha256:ceb6937f2817dd33a1511900859edd8bce85755c0cd3dd4ab185d147a2521189",
+    "attestation_version": "u1",
+    "calculation_id": "71b56bbc-7311-4a14-8a6e-c3528925e85a",
+    "composite_id": "COMPOSITE_dc521506f9a040b5b8b5c1d4ba1c8e2e",
+    "currency_normalization_binding": {
+      "digest": "sha256:309d49d9f9dc24ef0e96e2cd3d6947f9c2ddc158618775a0d399dd2fc875c640",
+      "product_name": "CompositeFXNormalizationSource",
+      "product_version": "v1",
+      "revision": "normalization1"
+    },
+    "definition_content_hash": "sha256:f3f8245b64c33987da3280bac424d77c5788f5f9dec41f4e0ad0ad4073284959",
+    "definition_version": "d1",
+    "materialization_id": "0a460b72-6f2d-4dc4-82a6-3d8f90482f18",
+    "member_calculations": [
+      {
+        "calculation_hash": "sha256:0462f1405640218decc9141f6c3ece04712031231bc2f11fc946c91402940645",
+        "calculation_id": "dcdd3551-3ed2-44e9-8c68-6ca8363aba26",
+        "input_fingerprint": "sha256:68d8f6633b672320edf069706c424dc09b60c7bfdc9782ac1cc1ffebeb02ea00",
+        "portfolio_id": "A"
+      },
+      {
+        "calculation_hash": "sha256:a5e2f4797ba7d1d67ead31ba3e6ac39a2743a854707d3ecf2c2bf18636fd4942",
+        "calculation_id": "33592997-ba57-4e98-9c27-1073a7b6a929",
+        "input_fingerprint": "sha256:e9f0cf3999a3afa3a1e2cf393b69077feb8877bc160fe0a5fa4f743b89faa17a",
+        "portfolio_id": "B"
+      },
+      {
+        "calculation_hash": "sha256:63ae267edb51b9c41b21a768575a63579288956a96a581e7b1db521eaaab956a",
+        "calculation_id": "b11f0e09-c2d0-424c-95af-046c3df52502",
+        "input_fingerprint": "sha256:20d8d9215df9eb7de13561027dd8390e6e7df0346044037896b737152c95fe8d",
+        "portfolio_id": "C"
+      }
+    ],
+    "membership_content_hash": "sha256:c7c6e594b243acea716a3c0d4ede22db5455e8c5abc53611cbcd669039155bc0",
+    "membership_revision": "m1",
+    "period_end": "2026-01-05",
+    "period_start": "2026-01-05",
+    "policy_version": "policy.v1",
+    "reporting_currency": "USD",
+    "restatement_sequence": 1,
+    "return_view": "NET_ACTUAL",
+    "source_cut_id": "cut1"
+  },
+  "expected_population": [
+    "A",
+    "B",
+    "C"
+  ],
+  "reported_periods": [
+    {
+      "beginning_market_value": "630.000000",
+      "cumulative_return": "0.026666666667",
+      "dispersion_equal_weight": "0.059556215467",
+      "ending_market_value": "646.800000",
+      "excluded_member_count": 0,
+      "member_contributions": [
+        {
+          "beginning_asset_weight": "0.206349206349",
+          "beginning_market_value": "130.000000",
+          "calculation_id": "dcdd3551-3ed2-44e9-8c68-6ca8363aba26",
+          "contribution": "0.020317460317",
+          "period_end": "2026-01-05",
+          "period_start": "2026-01-05",
+          "portfolio_id": "A",
+          "restatement_sequence": 1,
+          "restatement_version": "0a460b72-6f2d-4dc4-82a6-3d8f90482f18",
+          "return_value": "0.098461538462",
+          "source_fingerprint": "sha256:0462f1405640218decc9141f6c3ece04712031231bc2f11fc946c91402940645",
+          "source_snapshot_id": "sha256:91c9166769089429225217e057a8506dc376fd19e9a275715092b22001a68c52"
+        },
+        {
+          "beginning_asset_weight": "0.317460317460",
+          "beginning_market_value": "200.000000",
+          "calculation_id": "33592997-ba57-4e98-9c27-1073a7b6a929",
+          "contribution": "0.015873015873",
+          "period_end": "2026-01-05",
+          "period_start": "2026-01-05",
+          "portfolio_id": "B",
+          "restatement_sequence": 1,
+          "restatement_version": "0a460b72-6f2d-4dc4-82a6-3d8f90482f18",
+          "return_value": "0.050000000000",
+          "source_fingerprint": "sha256:a5e2f4797ba7d1d67ead31ba3e6ac39a2743a854707d3ecf2c2bf18636fd4942",
+          "source_snapshot_id": "sha256:970788ff351ecaf2a0453d4c8697d4c0d04ebb9ab27bb8f65e1d63e56c50c72c"
+        },
+        {
+          "beginning_asset_weight": "0.476190476190",
+          "beginning_market_value": "300.000000",
+          "calculation_id": "b11f0e09-c2d0-424c-95af-046c3df52502",
+          "contribution": "-0.009523809524",
+          "period_end": "2026-01-05",
+          "period_start": "2026-01-05",
+          "portfolio_id": "C",
+          "restatement_sequence": 1,
+          "restatement_version": "0a460b72-6f2d-4dc4-82a6-3d8f90482f18",
+          "return_value": "-0.020000000000",
+          "source_fingerprint": "sha256:63ae267edb51b9c41b21a768575a63579288956a96a581e7b1db521eaaab956a",
+          "source_snapshot_id": "sha256:57a01b550ac06357a75eb56a70c29bb1cdb3576316a9b4b94d4c9bc0a258ce04"
+        }
+      ],
+      "member_count": 3,
+      "period_end": "2026-01-05",
+      "period_start": "2026-01-05",
+      "reason_codes": [],
+      "reporting_currency": "USD",
+      "restatement_sequence": 1,
+      "restatement_versions": [
+        "0a460b72-6f2d-4dc4-82a6-3d8f90482f18"
+      ],
+      "return_value": "0.026666666667",
+      "return_view": "NET_ACTUAL",
+      "source_fingerprints": [
+        "sha256:0462f1405640218decc9141f6c3ece04712031231bc2f11fc946c91402940645",
+        "sha256:63ae267edb51b9c41b21a768575a63579288956a96a581e7b1db521eaaab956a",
+        "sha256:a5e2f4797ba7d1d67ead31ba3e6ac39a2743a854707d3ecf2c2bf18636fd4942"
+      ],
+      "status": "READY"
+    }
+  ]
+}

@@ -4,6 +4,23 @@ Composite performance calculates asset-weighted group TWR from retained member f
 the source evidence needed for audit and client reporting. Supported calculated replay remains
 separate from official approval, freeze, live-source qualification and institutional compliance.
 
+The retained internal TWR materialization path can consume a pinned FX normalization
+source to convert original member assets and EOD flows into the reporting currency.
+It preserves original money and each fixing revision; changed fixing evidence requires
+a separate restatement. The defined increment supports direct unhedged natural daily
+EOD fixings. Production source/verifier composition remains unavailable, and external
+or hybrid aggregate normalization refuses. Actual signed fees translate at the economic-day
+fixing; gross and actual net views preserve the same source money. Retained FLOAT64 returns
+keep the shipped reporting precision while asset and flow translation stays exact.
+Adjacent windows require compatible independently admitted method and policy bindings;
+temporary FX outages retain the full admitted population for same-job recovery.
+Bound internal projections may report in a currency different from the admitted native
+definition, with independently verified matching native-currency evidence. Native
+regime changes across a window vector require explicit history treatment and currently refuse.
+See the [money, flow, fee and correction examples](https://github.com/sgajbi/lotus-performance/blob/main/docs/guides/composite_materialization.md#retained-member-currency-normalization)
+for the internal calculation and client explanation. Synthetic registered PostgreSQL
+and fresh-process proof does not establish live source or official publication authority.
+
 ## Current scope and reader paths
 
 | Reader | Start here |

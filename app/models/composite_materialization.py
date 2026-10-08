@@ -10,8 +10,13 @@ from uuid import UUID, uuid4
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
+from app.models.composite_authority import EvidenceBinding
+from app.models.composite_currency_normalization import (
+    CompositeFXSnapshot,
+    CompositeFXVerificationReceipt,
+)
 from app.models.composites import CompositeMemberReturnFact, CompositeReturnView, ReportingCurrency
-from app.models.portfolio_asset_evidence import PortfolioSourceAssetEvidence
+from app.models.portfolio_asset_evidence import PortfolioSourceAssetEvidence, PortfolioSourceAssetObservation
 from app.models.twr_requests import TWRResolvedExecutionRequest
 
 SourceReference = Annotated[str, Field(min_length=1, max_length=128, pattern=r"^[A-Za-z0-9_.:-]+$")]
@@ -57,6 +62,10 @@ class CompositeMaterializationCommand(BaseModel):
         max_length=1000,
         description="Pinned TWR references. Unavailable results wait; an omitted eligible reference blocks release.",
     )
+    currency_normalization_binding: EvidenceBinding | None = Field(
+        default=None,
+        description="Pinned independently admitted FX source/method evidence. Absence preserves single-currency behavior.",
+    )
 
     @model_validator(mode="after")
     def ordered_unique_members(self) -> CompositeMaterializationCommand:
@@ -69,7 +78,10 @@ class CompositeMaterializationCommand(BaseModel):
         return self
 
     def immutable_payload(self) -> dict:
-        return self.model_dump(mode="json", exclude={"calculation_id"})
+        excluded = {"calculation_id"}
+        if self.currency_normalization_binding is None:
+            excluded.add("currency_normalization_binding")
+        return self.model_dump(mode="json", exclude=excluded)
 
 
 class CompositeMemberOutcomeState(StrEnum):
@@ -130,6 +142,36 @@ class CompositeMemberSourceEvidence(BaseModel):
     )
 
 
+class CompositeNormalizedCashFlow(BaseModel):
+    model_config = ConfigDict(extra="forbid", allow_inf_nan=False)
+    business_date: date
+    placement: Literal["END_OF_DAY"]
+    native_amount: Decimal
+    reporting_amount: Decimal
+    fixing_date: date
+    rate: Decimal = Field(gt=0)
+
+
+class CompositeNormalizedAssetEvidence(BaseModel):
+    model_config = ConfigDict(extra="forbid", allow_inf_nan=False)
+    source_owner: Literal["lotus-performance"] = "lotus-performance"
+    source_product: Literal["CompositeCurrencyNormalization"] = "CompositeCurrencyNormalization"
+    reporting_currency: ReportingCurrency
+    observations: list[PortfolioSourceAssetObservation] = Field(min_length=1)
+
+
+class CompositeNormalizedMemberSourceEvidence(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    contract_version: Literal["composite-member-source.v3"] = "composite-member-source.v3"
+    native_evidence: CompositeMemberSourceEvidence
+    normalization_binding: EvidenceBinding
+    verification_receipt: CompositeFXVerificationReceipt
+    normalized_assets: CompositeNormalizedAssetEvidence
+    normalized_cash_flows: list[CompositeNormalizedCashFlow]
+    normalized_management_fees: list[CompositeNormalizedCashFlow]
+    fx_snapshots: list[CompositeFXSnapshot]
+
+
 class CompositeProviderMemberEvidence(BaseModel):
     model_config = ConfigDict(extra="forbid")
     contract_version: Literal["composite-member-source.v2"] = "composite-member-source.v2"
@@ -157,7 +199,9 @@ class CompositeMemberMaterializationOutcome(BaseModel):
     fact: CompositeMemberReturnFact | None = Field(
         default=None, description="Verified staged fact; null for missing input."
     )
-    source_evidence: CompositeMemberSourceEvidence | CompositeProviderMemberEvidence | None = Field(
+    source_evidence: (
+        CompositeMemberSourceEvidence | CompositeProviderMemberEvidence | CompositeNormalizedMemberSourceEvidence | None
+    ) = Field(
         default=None, description="Pinned money, methodology and source provenance; no fabricated missing evidence."
     )
 
