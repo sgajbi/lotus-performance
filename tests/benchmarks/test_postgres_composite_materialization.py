@@ -411,6 +411,19 @@ def postgres_materialization_stores(monkeypatch):
             jobs._engine.dispose()
 
 
+def test_postgres_registered_fx_normalization_retained_legacy_identity_refusal(
+    postgres_materialization_stores, monkeypatch
+):
+    from tests.integration.test_composite_materialization_api import (
+        test_registered_fx_normalization_refuses_legacy_retained_identity_member_after_child_expiry as registered_control,
+    )
+
+    url, ledger, _, _ = postgres_materialization_stores
+    assert ledger._engine.dialect.name == "postgresql"
+    monkeypatch.setattr(get_settings(), "LINEAGE_METADATA_DATABASE_URL", url)
+    registered_control(monkeypatch)
+
+
 @pytest.mark.parametrize("eod_flow", ["0", "10"], ids=["no-flow", "economic-date-flow"])
 def test_postgres_registered_fx_normalization_money_replay_and_rederivation(
     postgres_materialization_stores, monkeypatch, eod_flow
