@@ -62,7 +62,8 @@ Each month can be individually COMPLETE while the annual vector still refuses; n
 partial annual statistic or comparison payload is released. Source order and supported
 membership changes remain admissible. This does not qualify live or since-inception history.
 Every direct-conversion FX snapshot must match an exact source-owned request/response
-retrieval wire. Extra snapshots with valid request identity but unauthenticated response
+retrieval wire. All execution FX snapshots reach custody validation, including unexpected
+currency pairs. Extra snapshots with valid request identity but unauthenticated response
 refuse; agreeing authenticated overlapping retrievals retain their distinct custody.
 Identity conversions require no FX snapshots or retrieval wires; they cannot manufacture
 FX custody for a conversion that did not occur.

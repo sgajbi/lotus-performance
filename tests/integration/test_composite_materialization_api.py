@@ -443,7 +443,10 @@ def test_registered_materialization_refuses_translated_return_without_converted_
     run_registered_fx_money_control(monkeypatch, normalize=normalize, eod_flow=eod_flow)
 
 
-@pytest.mark.parametrize("normalization_fault", ["unconsumed-snapshot", "unconsumed-identity-snapshot"])
+@pytest.mark.parametrize(
+    "normalization_fault",
+    ["unconsumed-snapshot", "unconsumed-identity-snapshot", "unexpected-direct-pair", "unexpected-identity-pair"],
+)
 def test_registered_fx_normalization_refuses_unconsumed_source_snapshot_before_release(
     monkeypatch, normalization_fault
 ):
@@ -615,14 +618,21 @@ def run_registered_fx_money_control(
             )
         assert process_pending_jobs(limit=10) == 1
         receipt = client.get(accepted.json()["result_path"]).json()
-        if normalization_fault in ("unconsumed-snapshot", "unconsumed-identity-snapshot"):
+        if normalization_fault in (
+            "unconsumed-snapshot",
+            "unconsumed-identity-snapshot",
+            "unexpected-direct-pair",
+            "unexpected-identity-pair",
+        ):
             assert (receipt["state"], receipt["expected_count"], receipt["blocked_count"], receipt["ready_count"]) == (
                 "BLOCKED",
                 3,
                 1,
                 2,
             ), receipt
-            blocked_member = "B" if normalization_fault == "unconsumed-identity-snapshot" else "A"
+            blocked_member = (
+                "B" if normalization_fault in ("unconsumed-identity-snapshot", "unexpected-identity-pair") else "A"
+            )
             member = next(row for row in receipt["members"] if row["portfolio_id"] == blocked_member)
             assert member["reason_code"] == "MEMBER_FINANCIAL_EVIDENCE_REFUSED"
             assert member["fact"] is None and member["source_evidence"] is None
@@ -987,10 +997,24 @@ def install_normalization_source_controls(
     if command.restatement_sequence > 1:
         wire.update(revision="normalization2", source_as_of_cut=source_cut_day + "T02:00:00Z")
     original["retrieval_wires"] = [{"request_wire": snapshot.paging_metadata, "response_wire": response}]
-    if normalization_fault in ("unconsumed-snapshot", "unconsumed-identity-snapshot"):
+    if normalization_fault in (
+        "unconsumed-snapshot",
+        "unconsumed-identity-snapshot",
+        "unexpected-direct-pair",
+        "unexpected-identity-pair",
+    ):
         extra_day = prior_day - timedelta(days=1)
-        extra_currency = "USD" if normalization_fault == "unconsumed-identity-snapshot" else source_money_currency
-        extra_reference = command.member_calculations[1 if normalization_fault == "unconsumed-identity-snapshot" else 0]
+        identity = normalization_fault in ("unconsumed-identity-snapshot", "unexpected-identity-pair")
+        extra_currency = (
+            "EUR"
+            if normalization_fault == "unexpected-identity-pair"
+            else "GBP"
+            if normalization_fault == "unexpected-direct-pair"
+            else "USD"
+            if identity
+            else source_money_currency
+        )
+        extra_reference = command.member_calculations[1 if identity else 0]
 
         async def extra_fx(**kwargs):
             return 200, {
