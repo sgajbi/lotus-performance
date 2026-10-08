@@ -1,5 +1,12 @@
 # Validation and CI
 
+Container exceptions are reassessed against an exact image and retained scan. The
+[October 8 technical disposition](https://github.com/sgajbi/lotus-performance/issues/624#issuecomment-6058552287)
+expires October 15 and records per-advisory exposure, actual four-role privilege controls and
+release-block/removal triggers. The same-scan gate requires decision evidence and rejects
+future reviews or periods exceeding seven days. Repository accountability does not imply
+institutional approval or financial source qualification.
+
 Use this page to map local proof, PR proof, and main-branch releasability evidence. The goal is to
 make quality measurable and repeatable, not to treat CI as a ceremonial final step.
 

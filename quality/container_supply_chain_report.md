@@ -1,6 +1,6 @@
 # Container Supply-Chain Evidence
 
-Report date: 2026-10-07
+Report date: 2026-10-08
 Mode: PR/Main release evidence; the vulnerability gate is blocking, with unfixable base-image
 advisories accepted individually and validated against the live scan.
 
@@ -47,10 +47,20 @@ application `8292151fce69fd3b289492d8f1698561b32e3b53` plus an external FROM-onl
 image `sha256:0b8f61ab78a78c1c8d3438efc42e08fa862d45cc4c16ecf167362e490eaae2d2`.
 Its explicit shadow provenance is not a clean source revision or evidence for pending composite
 changes. Actual API/worker imports, Python 3.11.17/Expat 2.8.5 and isolated hardening passed;
-four-role readiness remains unproven because no governed database-backed runtime was exercised.
+four-role readiness was not proven by that historical diagnostic.
 The same retained HIGH/CRITICAL report still contains 44 HIGH findings across eight original Debian
 OS advisory IDs, zero CRITICAL findings, and expired acceptances; native acceptance failed.
 The interpreter fix does not remediate those OS packages or authorize expiry renewal.
+
+Current clean signed source `40a5507b24233e2b35fd7f3137f3bc0ad01e21b2` produced image/index
+`sha256:719a30aab0f8b004244eb76dfb5e998adbbe7e75af95d2a5c045b20e2a047045`.
+The [October 8 disposition](https://github.com/sgajbi/lotus-performance/issues/624#issuecomment-6058552287)
+binds its platform manifest/config, inventory-only SBOM, unfiltered report, actual scanner DB,
+and successful isolated PostgreSQL-backed four-role readiness/restart/volume proof.
+Actual API, lineage, compute and retention roles ran as UID/GID 10001 with CapEff=0,
+NoNewPrivs=1 and no `/usr` setuid/setgid files. Initializer and schema application exited zero;
+task-owned resources were removed and inventories verified empty. This is runtime evidence,
+not financial source qualification or production certification.
 
 Pinning the base does not make the final build deterministic: the existing `apt-get upgrade`
 refresh and dependency resolution still depend on package repositories at build time. Bind each
@@ -88,7 +98,7 @@ attests SBOM provenance through GitHub artifact attestations using
 
 ## Exception And Promotion Policy
 
-### Current Reassessment And Pending Decision
+### Current Reassessment And Bounded Decision
 
 Issue [#624](https://github.com/sgajbi/lotus-performance/issues/624) records the 2026-10-07
 reassessment of eight acceptances that expired on 2026-10-05. The exact pre-hardening source
@@ -128,15 +138,30 @@ and no-new-privileges. Schema application retains its existing restricted bounda
 diagnostic's cap-drop settings are not evidence that a deployed workload uses these controls;
 validate the actual rendered Compose and running container configuration.
 
-Decision options remain pending independent review: retain the release block until supported
-remediation exists, or approve narrowly matched per-advisory residual risk only after verifying
-the actual controls and accountable owner. Any proposed temporary decision is bounded to seven
-days from approval and must be reassessed earlier when a stable fix, package/version change,
-new reachable helper/module, or weaker deployment control appears. This is a proposal, not a
-renewal instruction. Repository owner `sgajbi` is a verifiable candidate for accountable release
-maintenance; [#506](https://github.com/sgajbi/lotus-performance/issues/506) must resolve the owner
-vocabulary and approval responsibility. No institutional approver is inferred from repository
-ownership and no acceptance date is changed by this report.
+On October 8, Codex authored the
+[bounded technical disposition](https://github.com/sgajbi/lotus-performance/issues/624#issuecomment-6058552287)
+under the human user's standing authorization for autonomous Composite delivery and
+policy-supported residual-risk decisions. Verified repository owner `sgajbi` is accountable for
+maintenance. This does not assert independent human review, institutional approval, production
+authorization or bank-buyable certification. The new exact-image report still has 44 HIGH,
+zero CRITICAL findings and no FixedVersion. The
+[scanner refresh confirmation](https://github.com/sgajbi/lotus-performance/issues/624#issuecomment-6058665038)
+records a newly downloaded task-owned DB on October 8, with supplier UpdatedAt October 7 and
+NextUpdate October 8. Download time is not publication time or complete current knowledge.
+One additional exact-image analysis retained the same finding tuples; DB hashes before/after
+match. The earlier frozen October 6 DB comparison remains historical. The current report and
+DB hashes are bound in the single acceptance record. The risk-policy successor is not the
+source40a5507b runtime image; final-head protected CI and main evidence remain required.
+
+The eight narrowly matched decisions expire October 15, seven days after reassessment. Each
+record carries its review date, decision reference, exposure, controls and removal trigger.
+The gate rejects future reviews, malformed dates and periods longer than seven days, as well
+as existing fixability, package/version, severity, stale-record, owner and expiry violations.
+Reassess earlier on a stable fix, package/version change, newly reachable helper/module or
+weaker deployment control. Hold release/promotion and stop affected roles until a supported
+verified image is available; do not roll back to the interpreter-vulnerable predecessor.
+The planned fix is a supported stable base/package refresh with an exact-image report and
+four-role proof; remove stale records when findings disappear.
 
 From the `lotus-performance` repository root with the pinned Python environment, use one fresh
 scan for evidence and acceptance. On Windows with the supported Git Bash Make recipe shell:

@@ -492,6 +492,14 @@ Important validation expectations:
     zero CRITICAL findings and a failing native acceptance verdict. No acceptance or expiry
     change follows from the interpreter fix. The existing SBOM recipe enables vulnerability
     analysis too; SBOM plus report means two analyses, with acceptance reading the retained report.
+    The October 8 #624 technical disposition supersedes that historical runtime gap: clean
+    source `40a5507b` and exact image `sha256:719a30aab0f8b004244eb76dfb5e998adbbe7e75af95d2a5c045b20e2a047045`
+    passed isolated PostgreSQL-backed API/lineage/compute/retention readiness, restart and
+    volume recovery with actual non-root/no-capability/no-new-privileges controls. The eight
+    existing HIGH package tuples were re-decided through October 15 under delegated delivery
+    authority, with per-advisory exposure and removal triggers. The gate requires decision
+    evidence and enforces a nonfuture review and at most seven days. Neither repository
+    accountability nor runtime proof supplies institutional or financial source authority.
 16. `make performance-characterization` now writes benchmark JUnit, log, and summary artifacts under
     ignored `output/performance-characterization/`. The Performance Characterization Evidence
     workflow runs it on pull requests to `main`, pushes to `main`, weekly schedule, and manual
