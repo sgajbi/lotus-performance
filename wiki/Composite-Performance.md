@@ -15,8 +15,12 @@ keep the shipped reporting precision while asset and flow translation stays exac
 Adjacent windows require compatible independently admitted method and policy bindings;
 temporary FX outages retain the full admitted population for same-job recovery.
 Bound internal projections may report in a currency different from the admitted native
-definition, with independently verified matching native-currency evidence. Native
-regime changes, including a continuing member's source-money currency change, across a
+definition, with independently verified matching native-currency evidence. The native
+Manage definition custody stays unchanged. Published Performance reporting metadata
+carries the verified command currency: omitted-currency unpinned TWR reads select that
+projection, while explicit currency and pinned-window requests retain their exact scope.
+Older native-currency facts cannot silently substitute for the published reporting projection.
+Native regime changes, including a continuing member's source-money currency change, across a
 window vector require explicit history treatment and currently refuse.
 FX-bound release and reload require normalized v3 evidence for every member, including
 identity conversions; legacy receipts cannot substitute for that custody proof.

@@ -733,11 +733,15 @@ def test_registered_fx_normalization_preserves_float_return_projection_and_exact
         normalize_member_money(command, changed, admitted, member_id="A", fx_snapshots=evidence.fx_snapshots)
 
 
-@pytest.mark.parametrize("native_currency", ["EUR", "GBP"])
+@pytest.mark.parametrize("native_currency,tenant_id", [("EUR", "tenant-a"), ("GBP", "tenant-b")])
+@pytest.mark.parametrize("legacy_native", [False, True])
 def test_registered_fx_normalization_reports_independently_admitted_native_composite_in_usd(
-    monkeypatch, native_currency
+    monkeypatch, native_currency, tenant_id, legacy_native
 ):
-    products = source_products(composite_id="COMPOSITE_" + uuid4().hex)
+    from app.models.composites import CompositeMemberReturnFact
+    from app.services.composite_metadata_store import composite_metadata_store
+
+    products = source_products(tenant_id=tenant_id, composite_id="COMPOSITE_" + uuid4().hex)
     products[0]["reporting_currency"] = native_currency
     products[0]["content_hash"] = source_digest(products[0])
 
@@ -747,6 +751,55 @@ def test_registered_fx_normalization_reports_independently_admitted_native_compo
         native = receipt["members"][0]["source_evidence"]["native_evidence"]
         assert native["calculation_request"]["portfolio"]["performance_start_date"] == "2026-01-01"
         assert native["source_assets"]["portfolio_currency"] == "EUR"
+        if legacy_native:
+            legacy = CompositeMemberReturnFact.model_validate(
+                {
+                    **receipt["members"][0]["fact"],
+                    "portfolio_id": "LEGACY_NATIVE",
+                    "reporting_currency": native_currency,
+                    "beginning_market_value": "100",
+                    "ending_market_value": "150",
+                    "return_value": "0.5",
+                    "calculation_id": "legacy-native-calculation",
+                    "source_snapshot_id": "legacy-native-snapshot",
+                    "source_fingerprint": "sha256:legacy-native-independent-facts",
+                }
+            )
+            composite_metadata_store.upsert_member_return_fact(legacy, tenant_id=tenant_id)
+            composite_metadata_store.complete_member_return_fact_publication(
+                tenant_id=tenant_id,
+                composite_id=command.composite_id,
+                return_view=command.return_view,
+                reporting_currency=native_currency,
+                restatement_sequence=command.restatement_sequence,
+                period_start=command.period_start,
+                period_end=command.period_end,
+                expected_families={(legacy.portfolio_id, command.period_start, command.period_end)},
+                source_fingerprint="sha256:legacy-native-publication",
+            )
+        request = composite_request(command)
+        request.pop("reporting_currency")
+        with TestClient(app, headers={"X-Tenant-Id": tenant_id}) as client:
+            default = client.post("/performance/composites/twr", json=request)
+            assert default.status_code == 200, default.text
+            assert default.json()["periods"] == periods
+            explicit = client.post("/performance/composites/twr", json={**request, "reporting_currency": "USD"})
+            assert explicit.status_code == 200 and explicit.json()["periods"] == periods
+            pinned = client.post(
+                "/performance/composites/twr",
+                json={**request, "materialization_ids": [str(command.materialization_id)]},
+            )
+            assert pinned.status_code == 200 and pinned.json()["periods"] == periods
+            foreign = client.post("/performance/composites/twr", json=request, headers={"X-Tenant-Id": "other-tenant"})
+            assert foreign.status_code == 404
+        retained = composite_materialization_store.get(command.materialization_id, tenant_id=tenant_id)
+        assert retained.source.definition.reporting_currency == native_currency
+        assert retained.source.definition.content_hash == products[0]["content_hash"]
+        assert str(retained.source.definition.inception_date) == "2026-01-01"
+        assert (
+            composite_metadata_store.get_definition(command.composite_id, tenant_id=tenant_id).reporting_currency
+            == "USD"
+        )
 
     run_registered_fx_money_control(monkeypatch, normalize=True, eod_flow="10", products=products, capture=capture)
 

@@ -509,9 +509,10 @@ def test_postgres_registered_fx_normalization_incompatible_admitted_windows(
     registered_control(monkeypatch, mismatch)
 
 
-@pytest.mark.parametrize("native_currency", ["EUR", "GBP"])
+@pytest.mark.parametrize("native_currency,tenant_id", [("EUR", "tenant-a"), ("GBP", "tenant-b")])
+@pytest.mark.parametrize("legacy_native", [False, True])
 def test_postgres_registered_fx_normalization_different_native_currency(
-    postgres_materialization_stores, monkeypatch, native_currency
+    postgres_materialization_stores, monkeypatch, native_currency, tenant_id, legacy_native
 ):
     from tests.integration.test_composite_materialization_api import (
         test_registered_fx_normalization_reports_independently_admitted_native_composite_in_usd as registered_control,
@@ -520,7 +521,7 @@ def test_postgres_registered_fx_normalization_different_native_currency(
     url, ledger, _, _ = postgres_materialization_stores
     assert ledger._engine.dialect.name == "postgresql"
     monkeypatch.setattr(get_settings(), "LINEAGE_METADATA_DATABASE_URL", url)
-    registered_control(monkeypatch, native_currency)
+    registered_control(monkeypatch, native_currency, tenant_id, legacy_native)
 
 
 def test_postgres_registered_fx_normalization_wrong_native_refusal(postgres_materialization_stores, monkeypatch):
