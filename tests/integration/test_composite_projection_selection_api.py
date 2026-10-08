@@ -57,7 +57,7 @@ def response_currency(endpoint, data):
 
 
 @pytest.mark.parametrize("endpoint", ["/performance/composites/twr", "/performance/composites/inspect"])
-@pytest.mark.parametrize("same_window", [True, False])
+@pytest.mark.parametrize("same_window", [True, False, "partial"])
 def test_registered_projection_defaults_are_scoped_or_require_explicit_currency(
     monkeypatch, tmp_path, endpoint, same_window, database_url=None
 ):
@@ -84,6 +84,8 @@ def test_registered_projection_defaults_are_scoped_or_require_explicit_currency(
             ],
         }
     )
+    if same_window == "partial":
+        command = command.model_copy(update={"period_start": command.period_start.replace(day=15)})
     outcomes = [
         item.model_copy(
             update={
@@ -99,7 +101,7 @@ def test_registered_projection_defaults_are_scoped_or_require_explicit_currency(
     publish_projection(url, gbp)
     with TestClient(app, headers={"X-Tenant-Id": "tenant-a"}) as client:
         omitted = client.post(endpoint, json=request_for(usd))
-        if same_window:
+        if same_window is True:
             assert omitted.status_code == 409, omitted.text
             assert omitted.json()["detail"]["code"] == "COMPOSITE_FACT_SELECTION_INCOMPLETE"
         else:

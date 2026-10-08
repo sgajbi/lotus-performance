@@ -2204,6 +2204,13 @@ def composite_fact_guard_statements(dialect: Dialect) -> tuple[str, ...]:
     return tuple(writer.statements)
 
 
+def _covering_publication_window_filters(period_start: dt_date, period_end: dt_date) -> tuple[Any, ...]:
+    return (
+        CompositeMemberReturnFactPublicationModel.period_start <= period_start,
+        CompositeMemberReturnFactPublicationModel.period_end >= period_end,
+    )
+
+
 def _resolve_member_return_reporting_currency(
     session: Session,
     *,
@@ -2224,8 +2231,7 @@ def _resolve_member_return_reporting_currency(
             publication.tenant_id == tenant_id,
             publication.composite_id == composite_id,
             publication.return_view == return_view.value,
-            publication.period_start <= period_end,
-            publication.period_end >= period_start,
+            *_covering_publication_window_filters(period_start, period_end),
         )
         .distinct()
     )
@@ -2934,8 +2940,7 @@ class CompositeMetadataStore:
             )
             covering_publication_filters = (
                 *publication_identity_filters,
-                CompositeMemberReturnFactPublicationModel.period_start <= period_start,
-                CompositeMemberReturnFactPublicationModel.period_end >= period_end,
+                *_covering_publication_window_filters(period_start, period_end),
             )
             filters = (
                 CompositeMemberReturnFactModel.tenant_id == tenant_id,

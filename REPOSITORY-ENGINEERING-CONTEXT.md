@@ -1096,7 +1096,7 @@ independently verified source native currency matches the exact Manage definitio
 Retained reads repeat that check; unbound native/report equality remains unchanged.
 Publish the verified command currency into Performance reporting metadata, preserving the
 exact native Manage definition/hash/inception in retained source custody. Resolve omitted
-currency through scoped publication authority in the existing fact selector; multiple
+currency through covering-window publication authority in the existing fact selector; multiple
 tenant/composite/window/view/sequence projections require explicit currency. TWR and
 inspection share that selector, including legacy default and release/completeness checks.
 Explicit TWR vectors and annual dispersion/comparison share retained currency-window
