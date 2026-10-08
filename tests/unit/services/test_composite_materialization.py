@@ -741,7 +741,7 @@ def test_legacy_command_wire_replays_but_new_fx_binding_conflicts(stores):
 
     ledger, _, _ = stores
     command = command_for()
-    legacy_wire = command.model_dump(mode="json", exclude={"currency_normalization_binding"})
+    legacy_wire = command.model_dump(mode="json", exclude={"currency_normalization_binding", "model_fee_binding"})
     legacy_payload = {key: value for key, value in legacy_wire.items() if key != "calculation_id"}
     assert generate_value_fingerprint(command.immutable_payload(), "composite-materialization.v1") == (
         generate_value_fingerprint(legacy_payload, "composite-materialization.v1")

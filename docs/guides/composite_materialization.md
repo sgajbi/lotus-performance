@@ -322,7 +322,10 @@ OpenAPI defines the complete command. Pin the composite identity, definition ver
 membership revision/digest, universe-attestation version/digest, source cut, policy version,
 inclusive dates, native reporting currency, fee view and positive restatement sequence. Each member
 reference pins its portfolio, retained calculation UUID, input fingerprint and calculation hash.
-`GROSS` and `NET_ACTUAL` are supported; `NET_MODEL_FEE` is refused before queued acceptance.
+`GROSS` and `NET_ACTUAL` are supported. `NET_MODEL_FEE` requires the exact immutable
+profile binding and approved internal native gross/asset selections described in
+[Periodic Model-Fee Materialization](#periodic-model-fee-materialization). Unbound,
+incompatible or independently unapproved methods refuse; publication alone grants no approval.
 
 ## Versioned External And Hybrid Source Admission
 
