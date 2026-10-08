@@ -32,7 +32,13 @@ activation `UNAVAILABLE`.
 
 For a bound internal projection, the requested reporting currency may differ from
 the composite's native currency in its exact admitted Manage definition. The verified
-normalization source must repeat that native currency; a contradictory native label
+command currency is persisted in Performance's reporting definition when the projection
+is published. An unpinned TWR request omitting `reporting_currency` therefore selects
+that reporting currency, including when older native-currency facts exist. The original
+Manage definition, content hash, native currency and inception date remain in pinned
+materialization custody. Explicit currency requests continue to select their exact scope;
+an explicitly pinned window defaults to its own retained command currency. The verified
+normalization source must repeat the admitted native currency; a contradictory native label
 refuses before any member facts are released and retains the full admitted population.
 Without an FX binding, the historical native/report equality rule remains in force.
 Registered EUR-native and GBP-native composites can report this example in USD without
