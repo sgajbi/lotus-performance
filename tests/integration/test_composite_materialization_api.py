@@ -270,6 +270,80 @@ def test_retained_member_adapter_refuses_conflicting_execution_and_financial_evi
         assert execution_registry.get_execution_for_tenant(pinned.calculation_id, tenant_id="tenant-a") == retained
 
 
+def test_registered_fx_normalization_refuses_legacy_retained_identity_member_after_child_expiry(monkeypatch):
+    import json
+
+    from sqlalchemy import text
+
+    from app.adapters.composite_materialization_repository import CompositeMaterializationStore
+    from app.models.composite_materialization import CompositeMemberSourceEvidence
+    from app.services.reproducibility_service import generate_value_fingerprint
+    from core.errors import APIError
+
+    captured = {}
+
+    def capture(command, wire, receipt, periods):
+        captured.update(command=command, receipt=receipt, periods=periods)
+
+    run_registered_fx_money_control(monkeypatch, normalize=True, eod_flow="0", capture=capture)
+    command = captured["command"]
+
+    def refuse_refetch(*args, **kwargs):
+        raise AssertionError("Retained custody validation cannot consult expired child executions")
+
+    monkeypatch.setattr(execution_registry, "get_execution_for_tenant", refuse_refetch)
+    ledger = CompositeMaterializationStore(get_settings().LINEAGE_METADATA_DATABASE_URL)
+    identity = {"identity": str(command.materialization_id), "tenant": "tenant-a"}
+    update = text(
+        "UPDATE composite_materializations SET outcomes_json=:wire "
+        "WHERE materialization_id=:identity AND tenant_id=:tenant"
+    )
+    try:
+        with ledger._engine.connect() as connection:
+            original = connection.execute(
+                text(
+                    "SELECT outcomes_json FROM composite_materializations "
+                    "WHERE materialization_id=:identity AND tenant_id=:tenant"
+                ),
+                identity,
+            ).scalar_one()
+        outcomes = json.loads(original)
+        member = next(row for row in outcomes if row["portfolio_id"] == "B")
+        legacy = CompositeMemberSourceEvidence.model_validate(member["source_evidence"]["native_evidence"])
+        assert legacy.source_assets.portfolio_currency == member["fact"]["reporting_currency"] == "USD"
+        member["source_evidence"] = legacy.model_dump(mode="json")
+        member["fact"]["source_snapshot_id"] = generate_value_fingerprint(legacy, "composite-member-source.v1")[0]
+        with ledger._engine.begin() as connection:
+            assert connection.execute(update, {**identity, "wire": json.dumps(outcomes)}).rowcount == 1
+        try:
+            with pytest.raises(APIError) as refused:
+                ledger.get(command.materialization_id, tenant_id="tenant-a")
+            assert refused.value.error_code == "COMPOSITE_MATERIALIZATION_RETAINED_EVIDENCE_REFUSED"
+            assert refused.value.__cause__.error_code == "COMPOSITE_MATERIALIZATION_MEMBER_EVIDENCE_REFUSED"
+            headers = {"X-Tenant-Id": "tenant-a", "X-Actor-Id": "operator", "X-Role": "DPM_COMPOSITE_CONSUMER"}
+            with TestClient(app, headers=headers) as client:
+                inspected = client.get(f"/performance/composites/materializations/{command.materialization_id}")
+                assert inspected.status_code == 503, inspected.text
+                assert inspected.json()["error_code"] == "COMPOSITE_MATERIALIZATION_RETAINED_EVIDENCE_REFUSED"
+                report = client.post(
+                    "/performance/composites/twr",
+                    json={**composite_request(command), "materialization_ids": [str(command.materialization_id)]},
+                )
+                assert report.status_code == 503 and "cumulative_return" not in report.json(), report.text
+        finally:
+            with ledger._engine.begin() as connection:
+                assert connection.execute(update, {**identity, "wire": original}).rowcount == 1
+        with TestClient(app, headers=headers) as client:
+            assert (
+                client.get(f"/performance/composites/materializations/{command.materialization_id}").json()
+                == captured["receipt"]
+            )
+            report = client.post("/performance/composites/twr", json=composite_request(command))
+            assert report.status_code == 200 and report.json()["periods"] == captured["periods"], report.text
+    finally:
+        ledger.close()
+
+
 @pytest.mark.parametrize("basis,view", [("NET", "NET_ACTUAL"), ("GROSS", "GROSS")])
 @pytest.mark.parametrize("precision", ["FLOAT64", "DECIMAL_STRICT"])
 @pytest.mark.parametrize("rounding", [6, 12])
