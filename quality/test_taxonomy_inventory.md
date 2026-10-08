@@ -1,7 +1,7 @@
 # Lotus Performance Test Taxonomy Inventory
 
-Report date: 2026-10-08
-Branch: `feature/composite-fx-normalization`
+Report date: 2026-10-09
+Branch: `fix/portfolio-engine-hotpath`
 Mode: regression-blocking test taxonomy inventory; `make quality-test-taxonomy-gate` enforces
 minimum API/runtime and contract/governance breadth plus the current uncategorized-test ceiling.
 
@@ -22,8 +22,8 @@ python scripts/python_test_taxonomy_inventory.py --limit 30 --min-api-runtime-te
 
 | Metric | Value |
 | --- | ---: |
-| Test modules inventoried | 380 |
-| Test functions inventoried | 4658 |
+| Test modules inventoried | 381 |
+| Test functions inventoried | 4661 |
 | Integration/API/runtime test functions | 973 |
 | Contract/governance test functions | 227 |
 
@@ -34,7 +34,7 @@ python scripts/python_test_taxonomy_inventory.py --limit 30 --min-api-runtime-te
 | benchmarks | 11 | 92 |
 | e2e | 1 | 21 |
 | integration | 39 | 521 |
-| unit | 329 | 4024 |
+| unit | 330 | 4027 |
 
 ## Test Functions By Family
 
@@ -44,7 +44,7 @@ above does sum to it, because a module belongs to exactly one suite.
 
 | Family | Test functions |
 | --- | ---: |
-| analytics_domain | 2439 |
+| analytics_domain | 2442 |
 | api_or_runtime | 973 |
 | contract_or_governance | 227 |
 | observability_or_readiness | 755 |
@@ -80,7 +80,7 @@ acceptance or calculation/source readiness certification.
 | 16 | `tests/unit/engine/test_mwr.py` | unit | 54 | analytics_domain |
 | 17 | `tests/unit/services/test_twr_inspection_calculation_consistency.py` | unit | 53 | analytics_domain |
 | 18 | `tests/unit/services/test_twr_mode_service.py` | unit | 49 | analytics_domain |
-| 19 | `tests/unit/services/test_composite_metadata_store.py` | unit | 44 | analytics_domain |
+| 19 | `tests/unit/services/test_composite_metadata_store.py` | unit | 46 | analytics_domain |
 | 20 | `tests/unit/services/test_stateful_benchmark_input_service.py` | unit | 44 | analytics_domain |
 | 21 | `tests/unit/engine/test_contribution.py` | unit | 43 | analytics_domain |
 | 22 | `tests/unit/services/test_benchmark_exposure_context_service.py` | unit | 41 | analytics_domain |

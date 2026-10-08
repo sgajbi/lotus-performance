@@ -3,7 +3,7 @@
 Report date: 2026-07-10
 Branch: `feat/performance-architecture-boundary-refactor`
 Baseline source: `quality/baseline_report.md`
-Testing inventory refresh: 2026-10-05, bounded characterization measurement/context candidate (#617) composed on accepted operator entrypoint (#604).
+Testing inventory refresh: 2026-10-09, bounded portfolio SOD-reset optimization and numerical equivalence (#617).
 Other phase-zero measurements, including coverage percentages, remain historical.
 Historical #540 exact main `39aec74c` passed all ten jobs in run `37136810103`; its candidate
 coverage was raw 98.5068273355382% (30,539 statements/456 missing), passing the unchanged configured
@@ -47,9 +47,9 @@ link the commit, command, or CI artifact that proves the change.
 
 | Metric | Baseline | Current | Status | Evidence |
 | --- | ---: | ---: | --- | --- |
-| Python files | 480 | 817 | measured | `quality/baseline_report.md` |
+| Python files | 480 | 818 | measured | `quality/baseline_report.md` |
 | Python package markers | 18 | 25 | measured | recursive `__init__.py` count |
-| Python LOC | 104,454 | 264,132 | measured | `quality/baseline_report.md` |
+| Python LOC | 104,454 | 264,208 | measured | `quality/baseline_report.md` |
 | Largest Python file LOC | 2,399 | 4,447 | measured | largest-file inventory on this branch |
 | Largest production file LOC | 1,156 | 3,069 | measured | `app/services/composite_metadata_store.py` |
 | Duplicate code hotspots | 0 | 0 | enforced | `quality/duplicate_code_inventory.md`; `make quality-duplicate-code-gate` with `--min-lines 12 --max-groups 0`; duplicated LOC reduced from `24` to `0` in LP-CR-1407 |
@@ -94,8 +94,8 @@ link the commit, command, or CI artifact that proves the change.
 
 | Metric | Baseline | Current | Status | Evidence |
 | --- | ---: | ---: | --- | --- |
-| Test modules | 228 | 380 | measured | `rg --files tests -g 'test_*.py'` |
-| Collected tests | 2,035 | 6,975 | measured | `python -m pytest --collect-only -q` |
+| Test modules | 228 | 381 | measured | `rg --files tests -g 'test_*.py'` |
+| Collected tests | 2,035 | 7,002 | measured | `python -m pytest --collect-only -q` |
 | Line coverage | unknown | 99.58% | measured | `quality/coverage_inventory.md` via `make branch-coverage-baseline` (`3,013` unit, `308` integration, and `21` e2e tests under branch coverage; `21,154` covered lines of `21,244` statements) |
 | Branch coverage | unknown | 98.00% | measured | `quality/coverage_inventory.md` via `make branch-coverage-baseline` (`3,013` unit, `308` integration, and `21` e2e tests under branch coverage; `4,318` covered branches of `4,406`, `88` missing branches, `88` partial branches) |
 | Integration/API/runtime test functions | unknown | 973 | enforced | `quality/test_taxonomy_inventory.md`; `make quality-test-taxonomy-gate` |
@@ -1696,8 +1696,8 @@ Historical failures above are unchanged.
 
 ## Operator Retention Entrypoint Development Inventory (#604)
 
-Current AST inventory: 380 modules, 4,658 source test functions, 973 integration/API/runtime,
-227 contract/governance, 755 observability/readiness, 349 quality/security, 2,439 analytics-domain
+Current AST inventory: 381 modules, 4,661 source test functions, 973 integration/API/runtime,
+227 contract/governance, 755 observability/readiness, 349 quality/security, 2,442 analytics-domain
 and 558 uncategorized functions. Fresh subprocess contracts cover help, dry-run, scheduled Make
 execution and positive policy boundaries. No gate or financial formula changed. Release acceptance
 requires pinned delivery gates and immutable image proof; native tests alone are not acceptance.
