@@ -153,6 +153,7 @@ def admit_authority_profile(
     tenant_id: str,
     expected_members: list[str],
     universe_digest: str,
+    published_eligibility: approval_ports.PublishedEligibilityEvidence | None = None,
 ) -> None:
     verify_definition_digests(definition)
     payload = definition.source_authority.payload
@@ -170,7 +171,7 @@ def admit_authority_profile(
     if definition.authority_approval.evidence_kind == "INSTITUTIONAL_ATTESTATION_REFERENCE":
         raise authority_refusal("COMPOSITE_INSTITUTIONAL_AUTHORITY_UNAVAILABLE")
     _verify_registrations(payload, providers, tenant_id)
-    _verify_independent_approvals(definition, command, universe_digest, expected_members)
+    _verify_independent_approvals(definition, command, universe_digest, expected_members, published_eligibility)
 
 
 def _verify_registrations(payload, providers, tenant_id):
@@ -192,8 +193,13 @@ def _verify_registrations(payload, providers, tenant_id):
             raise authority_refusal("COMPOSITE_PROVIDER_TRUST_UNAVAILABLE")
 
 
-def _verify_independent_approvals(definition, command, universe_digest, expected_members) -> None:
+def _verify_independent_approvals(
+    definition, command, universe_digest, expected_members, published_eligibility=None
+) -> None:
     payload = definition.source_authority.payload
+    if payload.eligibility_evaluation_binding.product_name == "CompositeSubjectEvaluationApproval":
+        _verify_lifecycle_approvals(published_eligibility)
+        return
     checks = (
         (
             "COMPOSITE_ECONOMIC_AUTHORITY_PROFILE",
@@ -230,6 +236,35 @@ def _verify_independent_approvals(definition, command, universe_digest, expected
         )
         if not factory().verify(request):
             raise authority_refusal(code)
+
+
+def _verify_lifecycle_approvals(published_eligibility) -> None:
+    if not isinstance(published_eligibility, approval_ports.PublishedEligibilityEvidence):
+        raise authority_refusal("COMPOSITE_ELIGIBILITY_PUBLISHED_CUSTODY_UNAVAILABLE")
+    finalization = published_eligibility.receipt.finalization
+    proposal = finalization.evaluation_approval.proposal
+    receipts = [
+        proposal.policy_approval.verification,
+        finalization.evaluation_approval.verification,
+        *finalization.verifications,
+    ]
+    verifier = approval_ports.composite_receipt_verifier()
+    for receipt in receipts:
+        result = verifier.verify(receipt.request.model_copy(deep=True))
+        if not isinstance(result, approval_ports.VerifiedCompositeEvidence) or result.expectation is None:
+            raise authority_refusal("COMPOSITE_RECEIPT_VERIFICATION_UNAVAILABLE")
+        _admit_lifecycle_verification(receipt, result)
+
+
+def _admit_lifecycle_verification(receipt, result) -> None:
+    if result.expectation.request != receipt.request:
+        raise authority_refusal("COMPOSITE_RECEIPT_VERIFICATION_REQUEST_MISMATCH")
+    try:
+        verified = approval_ports.admit_verified_receipt(result.expectation, result, allow_synthetic=True)
+    except ValueError as exc:
+        raise authority_refusal(str(exc)) from exc
+    if verified != receipt:
+        raise authority_refusal("COMPOSITE_RECEIPT_VERIFICATION_ARTIFACT_MISMATCH")
 
 
 def _verify_selections(definition, command, members, providers) -> None:

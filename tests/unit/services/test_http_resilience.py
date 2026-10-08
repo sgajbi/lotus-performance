@@ -19,6 +19,44 @@ async def _capture_sleep(delay_seconds: float) -> None:
     _CapturedSleep.delays.append(delay_seconds)
 
 
+@pytest.mark.asyncio
+@pytest.mark.parametrize("wire", ['{"a":1,"a":2}', '{"amount":0.10}'])
+async def test_post_optional_decoder_rejects_ambiguous_authority_wire(monkeypatch, wire):
+    from app.models.composite_authority import decode_authority_json
+
+    class WireClient(_FlakyAsyncClient):
+        async def post(self, url, json=None, headers=None):
+            return httpx.Response(200, text=wire, request=httpx.Request("POST", url))
+
+    monkeypatch.setattr("httpx.AsyncClient", WireClient)
+    with pytest.raises(ValueError):
+        await post_with_retry(
+            url="http://manage/resolve",
+            timeout_seconds=1.0,
+            json_body={},
+            headers={},
+            max_retries=0,
+            response_decoder=lambda response: decode_authority_json(response.text),
+        )
+
+
+@pytest.mark.asyncio
+async def test_post_optional_decoder_retains_default_behavior_and_exact_string_wire(monkeypatch):
+    from app.models.composite_authority import decode_authority_json
+
+    class WireClient(_FlakyAsyncClient):
+        async def post(self, url, json=None, headers=None):
+            return httpx.Response(
+                200, text='{"amount":"0.10","at":"2026-10-02T00:00:00.000000Z"}', request=httpx.Request("POST", url)
+            )
+
+    monkeypatch.setattr("httpx.AsyncClient", WireClient)
+    request = dict(url="http://manage/resolve", timeout_seconds=1.0, json_body={}, headers={}, max_retries=0)
+    default = await post_with_retry(**request)
+    strict = await post_with_retry(**request, response_decoder=lambda response: decode_authority_json(response.text))
+    assert default == strict == (200, {"amount": "0.10", "at": "2026-10-02T00:00:00.000000Z"})
+
+
 class _CapturedSleep:
     delays: list[float] = []
 

@@ -211,7 +211,8 @@ def run_materialization_attempt(
             record,
             tenant_id=tenant_id,
             ledger=ledger,
-            membership_source=membership_source or ManageCompositeMembershipSource(),
+            membership_source=membership_source
+            or ManageCompositeMembershipSource(request_headers=job.request_payload["authority"]),
             fence=fence,
         )
         fence()

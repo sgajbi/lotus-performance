@@ -13,9 +13,11 @@ from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field
 
-from app.models.composite_authority import ManageCompositeDefinitionV2, authority_digest
+from app.models.composite_authority import EvidenceBinding, ManageCompositeDefinitionV2, authority_digest
+from app.models.composite_eligibility_evidence import SubjectFinalizationReceipt
 from app.models.composite_materialization import CompositeMaterializationCommand
 from app.models.composites import CompositeDefinition, CompositeMembership, CompositeSourceAuthority
+from app.ports import composite_external_evidence as evidence_ports
 from app.services.composite_materialization.authority_policy import admit_authority_profile
 from core.errors import APIUnprocessableEntityError
 
@@ -160,6 +162,7 @@ class PinnedCompositeSource(BaseModel):
     membership: ManageMembershipRevision
     attestation: ManageUniverseAttestation
     wire_evidence: CompositeSourceWireEvidence
+    published_eligibility: evidence_ports.PublishedEligibilityEvidence | None = None
 
 
 def admit_pinned_source(
@@ -169,7 +172,15 @@ def admit_pinned_source(
     definition: dict[str, Any],
     membership: dict[str, Any],
     attestation: dict[str, Any],
+    published_eligibility: evidence_ports.PublishedEligibilityEvidence | None = None,
 ) -> PinnedCompositeSource:
+    verify_source_wire_hashes(command, definition, membership, attestation)
+    source = _project_source(definition, membership, attestation, published_eligibility)
+    require_pinned_source_scope(source, command=command, tenant_id=tenant_id)
+    return source
+
+
+def verify_source_wire_hashes(command, definition, membership, attestation) -> None:
     for payload, expected_hash in (
         (definition, command.definition_content_hash),
         (membership, command.membership_content_hash),
@@ -182,16 +193,18 @@ def admit_pinned_source(
         )
         if payload.get("content_hash") != expected_hash or digest != expected_hash:
             raise source_refusal("COMPOSITE_SOURCE_HASH_MISMATCH")
-    source = PinnedCompositeSource.model_validate(
+
+
+def _project_source(definition, membership, attestation, published_eligibility=None) -> PinnedCompositeSource:
+    return PinnedCompositeSource.model_validate(
         {
             "definition": definition,
             "membership": membership,
             "attestation": attestation,
             "wire_evidence": {"definition": definition, "membership": membership, "attestation": attestation},
+            "published_eligibility": published_eligibility,
         }
     )
-    require_pinned_source_scope(source, command=command, tenant_id=tenant_id)
-    return source
 
 
 def require_pinned_source_scope(
@@ -208,6 +221,7 @@ def require_pinned_source_scope(
     _admit_definition(source.definition, command=command)
     _admit_universe(source, command=command)
     if isinstance(source.definition, ManageCompositeDefinitionV2):
+        _admit_published_eligibility(source, command=command)
         admit_authority_profile(
             source.definition,
             command=command,
@@ -218,8 +232,128 @@ def require_pinned_source_scope(
                 for item in source.attestation.source_products
                 if item.authority_scope == "AUTHORITATIVE_UNIVERSE"
             ),
+            published_eligibility=source.published_eligibility,
         )
     _admit_membership_coverage(source, command=command)
+
+
+def published_eligibility_from_wire(
+    *,
+    command: CompositeMaterializationCommand,
+    tenant_id: str,
+    definition: dict[str, Any],
+    membership: dict[str, Any],
+    attestation: dict[str, Any],
+    receipt: SubjectFinalizationReceipt,
+) -> evidence_ports.PublishedEligibilityEvidence:
+    """Join the configured resolver's published graph with separately fetched canonical products."""
+    verify_source_wire_hashes(command, definition, membership, attestation)
+    source = _project_source(definition, membership, attestation)
+    _admit_identity(source, command=command, tenant_id=tenant_id)
+    _admit_definition(source.definition, command=command)
+    _admit_universe(source, command=command)
+    _admit_membership_coverage(source, command=command)
+    if not isinstance(source.definition, ManageCompositeDefinitionV2):
+        raise source_refusal("COMPOSITE_ELIGIBILITY_RESOLUTION_BINDING_MISMATCH")
+    result = evidence_ports.PublishedEligibilityEvidence(
+        receipt=receipt,
+        membership_binding=EvidenceBinding(
+            product_name="CompositeMembership",
+            product_version="v1",
+            revision=source.membership.membership_revision,
+            digest=source.membership.content_hash,
+        ),
+        universe_binding=EvidenceBinding(
+            product_name="CompositeUniverseAttestation",
+            product_version="v1",
+            revision=source.attestation.attestation_version,
+            digest=source.attestation.content_hash,
+        ),
+        source_cut_id=source.attestation.source_cut_id,
+        publication_sequence=receipt.publication_sequence,
+        member_identities=tuple(source.definition.source_authority.payload.member_identities),
+    )
+    source.published_eligibility = result
+    _admit_published_eligibility(source, command=command)
+    return result
+
+
+def _admit_published_eligibility(source: PinnedCompositeSource, *, command: CompositeMaterializationCommand) -> None:
+    definition = source.definition
+    if not isinstance(definition, ManageCompositeDefinitionV2):
+        return
+    binding = definition.source_authority.payload.eligibility_evaluation_binding
+    if binding.product_name != "CompositeSubjectEvaluationApproval":
+        return
+    request = evidence_ports.EligibilityResolutionRequest(
+        tenant_id=definition.tenant_id,
+        composite_id=definition.composite_id,
+        definition_version=definition.definition_version,
+        evaluation_binding=binding,
+        membership_binding=EvidenceBinding(
+            product_name="CompositeMembership",
+            product_version="v1",
+            revision=command.membership_revision,
+            digest=command.membership_content_hash,
+        ),
+        universe_binding=EvidenceBinding(
+            product_name="CompositeUniverseAttestation",
+            product_version="v1",
+            revision=command.attestation_version,
+            digest=command.attestation_content_hash,
+        ),
+        source_cut_id=command.source_cut_id,
+        effective_from=source.attestation.coverage_from.isoformat(),
+        effective_to=source.attestation.coverage_to.isoformat(),
+        member_identities=tuple(definition.source_authority.payload.member_identities),
+    )
+    try:
+        receipt = evidence_ports.admit_resolved_eligibility(
+            request, source.published_eligibility or evidence_ports.UnavailableCompositeEvidence()
+        )
+    except ValueError as exc:
+        raise source_refusal(str(exc)) from exc
+    _admit_eligibility_graph(source, receipt)
+
+
+def _admit_eligibility_graph(source: PinnedCompositeSource, receipt: SubjectFinalizationReceipt) -> None:
+    finalization = receipt.finalization
+    if finalization.definition.model_dump() != source.wire_evidence.definition:
+        raise source_refusal("COMPOSITE_ELIGIBILITY_FINAL_DEFINITION_MISMATCH")
+    universe = finalization.subject.universe
+    expected = universe.model_dump()["source_products"] + [
+        finalization.evaluation_approval.proposal.observation_binding.model_dump()
+    ]
+    if [product.model_dump() for product in source.attestation.source_products] != expected:
+        raise source_refusal("COMPOSITE_ELIGIBILITY_PUBLISHED_SOURCE_PRODUCTS_MISMATCH")
+    if source.attestation.expected_portfolio_ids != [member.member_id for member in universe.members]:
+        raise source_refusal("COMPOSITE_ELIGIBILITY_PUBLICATION_MEMBER_MISMATCH")
+    _admit_evaluation_publication(source, receipt)
+
+
+def _admit_evaluation_publication(source: PinnedCompositeSource, receipt: SubjectFinalizationReceipt) -> None:
+    finalization = receipt.finalization
+    evaluation = finalization.evaluation_approval.proposal.evaluation
+    if source.attestation.observed_portfolio_count != evaluation.observed_count:
+        raise source_refusal("COMPOSITE_ELIGIBILITY_PUBLICATION_MEMBER_MISMATCH")
+    verdicts = {item.portfolio_id: item.status for item in evaluation.portfolios}
+    for decision in source.membership.decisions:
+        actual = (
+            decision.status,
+            decision.source_snapshot_id,
+            decision.approval_ref,
+            decision.effective_from.isoformat(),
+            decision.effective_to.isoformat() if decision.effective_to else None,
+        )
+        expected = (
+            verdicts.get(decision.portfolio_id),
+            evaluation.content_hash,
+            finalization.evaluation_approval.claims_digest,
+            finalization.subject.universe.coverage_from,
+            finalization.subject.universe.coverage_to,
+        )
+        if actual != expected:
+            raise source_refusal("COMPOSITE_ELIGIBILITY_PUBLISHED_DECISION_MISMATCH")
 
 
 def _require_retained_wire_evidence(source: PinnedCompositeSource) -> None:
