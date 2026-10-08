@@ -29,7 +29,7 @@ metrics in each section are updated with each meaningful slice.
 | Largest Python file LOC | 2,399 | 2,503 | 104 | measured | `quality/baseline_report.md`; `quality/refactor_health_report.md` |
 | Largest production file LOC | 1,156 | 1,991 | 835 | measured | `quality/refactor_health_report.md`; `quality/architecture_boundary_inventory.md` |
 | Python test modules | 228 | 378 | 150 | measured | `quality/baseline_report.md`; `quality/refactor_health_report.md` |
-| Collected tests | 2,035 | 6,867 | 4,832 | measured | `quality/baseline_report.md`; `quality/refactor_health_report.md` |
+| Collected tests | 2,035 | 6,869 | 4,834 | measured | `quality/baseline_report.md`; `quality/refactor_health_report.md` |
 | Duplicate code hotspots | 0 | 0 | 0 | enforced | `quality/duplicate_code_inventory.md`; `quality/refactor_health_report.md`; `make quality-duplicate-code-gate` |
 | Tracked local byproduct findings | unknown | 0 | n/a | enforced | `scripts/repository_hygiene_gate.py`; `make repository-hygiene-gate`; `quality/refactor_health_report.md` |
 
@@ -148,8 +148,8 @@ Historical failures above are unchanged.
 
 ## Operator Retention Entrypoint Development Inventory (#604)
 
-Current AST inventory: 378 modules, 4,630 source test functions, 967 integration/API/runtime,
-227 contract/governance, 755 observability/readiness, 349 quality/security, 2,411 analytics-domain
+Current AST inventory: 378 modules, 4,631 source test functions, 967 integration/API/runtime,
+227 contract/governance, 755 observability/readiness, 349 quality/security, 2,412 analytics-domain
 and 558 uncategorized functions. Fresh subprocess contracts cover help, dry-run, scheduled Make
 execution and positive policy boundaries. No gate or financial formula changed. Release acceptance
 requires pinned delivery gates and immutable image proof; native tests alone are not acceptance.
