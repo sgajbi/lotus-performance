@@ -94,10 +94,10 @@ def _global_index_issues(connection: Connection) -> list[str]:
     return []
 
 
-def _constraint_issues(connection: Connection) -> list[str]:
+def _constraint_issues(connection: Connection, *, expected: dict[str | None, str] | None = None) -> list[str]:
     table = CompositeMaterializationModel.__table__
     installed = {item["name"]: item["sqltext"] for item in inspect(connection).get_check_constraints(table.name)}
-    expected = _expected_constraints(connection)
+    expected = _expected_constraints(connection) if expected is None else expected
     return [
         f"missing or incompatible constraint {name}"
         for name, predicate in expected.items()

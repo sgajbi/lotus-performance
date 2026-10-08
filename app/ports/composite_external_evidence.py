@@ -33,6 +33,7 @@ class CompositeApprovalRequest:
     command: CompositeMaterializationCommand
     universe_digest: str
     expected_members: tuple[str, ...]
+    method_evidence_wire: dict[str, Any] | None = None
 
 
 class CompositeApprovalVerificationPort(Protocol):

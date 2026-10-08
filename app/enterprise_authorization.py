@@ -158,6 +158,18 @@ def authorize_write_request(method: str, path: str, headers: dict[str, str]) -> 
     )
 
 
+def authorize_required_capability_request(method: str, path: str, headers: dict[str, str]) -> tuple[bool, str | None]:
+    """Always enforce configured capability rules for a durable authority-input surface."""
+    required = (
+        _required_capability(method, path)
+        if _is_write_method(method)
+        else _required_privileged_read_capability(method, path)
+    )
+    if required is None:
+        return _authorization_denied("missing_governed_capability_rule")
+    return _authorize_with_required_capability(method=method, path=path, headers=headers, required_capability=required)
+
+
 def authorize_privileged_read_request(method: str, path: str, headers: dict[str, str]) -> tuple[bool, str | None]:
     if not _is_privileged_read_method(method) or not _privileged_read_authz_enabled():
         return _authorization_allowed()

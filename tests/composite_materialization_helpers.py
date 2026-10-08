@@ -191,7 +191,7 @@ INVALID_MATERIALIZATION_DATABASE_WRITES = (
     ("tenant_id", "\u00a0tenant-a\u00a0"),
     ("reporting_currency", "usd"),
     ("reporting_currency", "U\u015aD"),
-    ("return_view", "NET_MODEL_FEE"),
+    ("return_view", "NET_UNSUPPORTED"),
     ("restatement_sequence", "0"),
     ("restatement_sequence", "1.5"),
     ("revision", -1),

@@ -62,42 +62,68 @@ def require_progress_transition(
     admitted_fx_source = _require_currency_source(
         source, command=command, tenant_id=tenant_id, outcomes=outcomes, state=state
     )
+    admitted_model_fee_source = _require_model_fee_source(
+        source, command=command, tenant_id=tenant_id, outcomes=outcomes, state=state
+    )
     _require_full_universe(source, outcomes)
     _require_retained_outcomes(prior_outcomes, outcomes)
     for outcome in outcomes:
-        _require_member_outcome(source, command, outcome, admitted_fx_source=admitted_fx_source)
+        _require_member_outcome(
+            source,
+            command,
+            outcome,
+            admitted_fx_source=admitted_fx_source,
+            admitted_model_fee_source=admitted_model_fee_source,
+        )
     _require_release_state(outcomes, state)
 
 
-def _pending_currency_upgrade(command, prior_source, source, prior_state):
+def _pending_source_upgrade(command, prior_source, source, prior_state):
+    bindings = {
+        wire: binding
+        for wire, binding in (
+            ("currency_normalization_wire", "currency_normalization_binding"),
+            ("model_fee_wire", "model_fee_binding"),
+        )
+        if getattr(source, wire) != getattr(prior_source, wire)
+    }
     return (
-        command.currency_normalization_binding is not None
-        and prior_state == CompositeMaterializationState.WAITING
-        and prior_source.currency_normalization_wire is None
-        and source.currency_normalization_wire is not None
+        prior_state == CompositeMaterializationState.WAITING
+        and bool(bindings)
+        and all(_bound_wire_upgrade(command, prior_source, source, wire, binding) for wire, binding in bindings.items())
+        and source.model_dump(exclude=set(bindings)) == prior_source.model_dump(exclude=set(bindings))
+    )
+
+
+def _bound_wire_upgrade(command, prior_source, source, wire, binding):
+    return (
+        getattr(command, binding) is not None
+        and getattr(prior_source, wire) is None
+        and getattr(source, wire) is not None
     )
 
 
 def _require_source_progress(command, prior_source, source, prior_outcomes, prior_state):
     if prior_source is None or source == prior_source:
         return
-    if source is None or not _pending_currency_upgrade(command, prior_source, source, prior_state):
+    if source is None or not _pending_source_upgrade(command, prior_source, source, prior_state):
         _refuse("COMPOSITE_MATERIALIZATION_SOURCE_IMMUTABLE")
-    if source.model_dump(exclude={"currency_normalization_wire"}) != prior_source.model_dump(
-        exclude={"currency_normalization_wire"}
-    ):
-        _refuse("COMPOSITE_MATERIALIZATION_SOURCE_IMMUTABLE")
-    _require_pending_currency_outcomes(prior_outcomes, prior_state)
+    code = (
+        "COMPOSITE_MODEL_FEE_SOURCE_UNAVAILABLE"
+        if source.model_fee_wire != prior_source.model_fee_wire
+        else "COMPOSITE_FX_SOURCE_UNAVAILABLE"
+    )
+    _require_pending_source_outcomes(prior_outcomes, prior_state, code=code)
 
 
-def _require_pending_currency_outcomes(outcomes, state):
+def _require_pending_source_outcomes(outcomes, state, *, code="COMPOSITE_FX_SOURCE_UNAVAILABLE"):
     if state not in {CompositeMaterializationState.WAITING, CompositeMaterializationState.BLOCKED}:
-        _refuse("COMPOSITE_FX_SOURCE_UNAVAILABLE")
+        _refuse(code)
     if any(
         row.fact is not None or row.source_evidence is not None or row.state == CompositeMemberOutcomeState.READY
         for row in outcomes
     ):
-        _refuse("COMPOSITE_FX_SOURCE_UNAVAILABLE")
+        _refuse(code)
 
 
 def _require_currency_source(source, *, command, tenant_id, outcomes, state):
@@ -113,7 +139,7 @@ def _require_currency_source(source, *, command, tenant_id, outcomes, state):
     )
 
     if source.currency_normalization_wire is None:
-        _require_pending_currency_outcomes(outcomes, state)
+        _require_pending_source_outcomes(outcomes, state)
         return
     require_fx_normalization_route(source.definition)
     admitted = admit_composite_fx_source(
@@ -121,6 +147,19 @@ def _require_currency_source(source, *, command, tenant_id, outcomes, state):
     )
     require_composite_native_currency(admitted, source.definition)
     return admitted
+
+
+def _require_model_fee_source(source, *, command, tenant_id, outcomes, state):
+    if command.model_fee_binding is None:
+        if source.model_fee_wire is not None:
+            _refuse("COMPOSITE_MODEL_FEE_BINDING_REQUIRED")
+        return
+    if source.model_fee_wire is None:
+        _require_pending_source_outcomes(outcomes, state, code="COMPOSITE_MODEL_FEE_SOURCE_UNAVAILABLE")
+        return
+    from app.services.composite_materialization.model_fee_source_admission import admit_model_fee_source
+
+    return admit_model_fee_source(source, command, tenant_id=tenant_id, retained_wire=source.model_fee_wire)
 
 
 def require_retained_progress(
@@ -173,6 +212,7 @@ def _require_member_outcome(
     outcome: CompositeMemberMaterializationOutcome,
     *,
     admitted_fx_source=None,
+    admitted_model_fee_source=None,
 ) -> None:
     decision = membership_decision_for_window(source, command=command, portfolio_id=outcome.portfolio_id)
     if decision.status == "EXCLUDED":
@@ -186,10 +226,16 @@ def _require_member_outcome(
     if outcome.state == CompositeMemberOutcomeState.EXCLUDED:
         _refuse("COMPOSITE_MATERIALIZATION_ELIGIBILITY_MISMATCH")
     if outcome.fact is not None:
-        _require_outcome_evidence(source, command, outcome, admitted_fx_source=admitted_fx_source)
+        _require_outcome_evidence(
+            source,
+            command,
+            outcome,
+            admitted_fx_source=admitted_fx_source,
+            admitted_model_fee_source=admitted_model_fee_source,
+        )
 
 
-def _require_outcome_evidence(source, command, outcome, *, admitted_fx_source=None):
+def _require_outcome_evidence(source, command, outcome, *, admitted_fx_source=None, admitted_model_fee_source=None):
     if isinstance(outcome.source_evidence, CompositeProviderMemberEvidence):
         from app.services.composite_materialization.provider_evidence_policy import require_provider_member_evidence
 
@@ -213,6 +259,7 @@ def _require_outcome_evidence(source, command, outcome, *, admitted_fx_source=No
         tenant_id=source.definition.tenant_id,
         currency_normalization_wire=source.currency_normalization_wire,
         admitted_fx_source=admitted_fx_source,
+        admitted_model_fee_source=admitted_model_fee_source,
     )
 
 
@@ -224,6 +271,7 @@ def _require_fact_scope(
     tenant_id: str | None = None,
     currency_normalization_wire: dict | None = None,
     admitted_fx_source=None,
+    admitted_model_fee_source=None,
 ) -> None:
     reference = next((item for item in command.member_calculations if item.portfolio_id == outcome.portfolio_id), None)
     if reference is None:
@@ -260,6 +308,7 @@ def _require_fact_scope(
         tenant_id=tenant_id,
         currency_normalization_wire=currency_normalization_wire,
         admitted_fx_source=admitted_fx_source,
+        admitted_model_fee_source=admitted_model_fee_source,
     )
 
 

@@ -65,9 +65,13 @@ The persisted fact model also enables:
 
 For source-backed fact creation, use the separate
 [governed composite materialization workflow](composite_materialization.md). It pins Manage
-authority and retained stateful TWR evidence before publication. This command supports only
-`GROSS` and `NET_ACTUAL`; the persisted-fact calculation endpoint's existing `NET_MODEL_FEE`
-view does not establish a model-fee producer.
+authority and retained stateful TWR evidence before publication. Gross and actual-net remain
+distinct source bases. A bound `NET_MODEL_FEE` command supports the first explicit complete-period
+management-fee wealth-factor convention on approved internal native receipts. The configured
+Performance local catalog supplies exact immutable profile bytes; resolution defaults to
+`UNAVAILABLE` and independent verification remains unavailable. Read the
+[periodic model-fee methodology](../methodologies/metrics/metric-composite-periodic-model-fee.md)
+for its inputs, exact formula, numerical examples and remaining #609 acceptance.
 
 Route:
 

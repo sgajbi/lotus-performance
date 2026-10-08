@@ -4,6 +4,17 @@ Composite performance calculates asset-weighted group TWR from retained member f
 the source evidence needed for audit and client reporting. Supported calculated replay remains
 separate from official approval, freeze, live-source qualification and institutional compliance.
 
+The first periodic model-fee producer transforms approved internal gross member wealth
+factors before the existing asset weighting. A separate immutable method/schedule/calendar
+binding and v4 receipt preserve original gross custody, source assets and explicit fee
+entries. Actual net is a distinct retained source basis. Performance can retain and retrieve
+exact unapproved method profiles through its configured local catalog. Resolution defaults
+unavailable, and independent production verification remains unavailable; synthetic
+SQLite/PostgreSQL controls do not establish activation. Only complete approved periods with unbundled
+management-fee fractions are supported by this convention; flat/tiered/AUM and specialized
+adjustments remain #609 acceptance. See the [model-fee methodology](https://github.com/sgajbi/lotus-performance/blob/main/docs/methodologies/metrics/metric-composite-periodic-model-fee.md)
+and [caller/migration guide](https://github.com/sgajbi/lotus-performance/blob/main/docs/guides/composite_materialization.md).
+
 The retained internal TWR materialization path can consume a pinned FX normalization
 source to convert original member assets and EOD flows into the reporting currency.
 It preserves original money and each fixing revision; changed fixing evidence requires

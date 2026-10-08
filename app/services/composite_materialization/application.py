@@ -38,6 +38,7 @@ from app.ports.composite_materialization import (
 from app.services.analytics_workflow_types import ANALYTICS_WORKFLOW_COMPOSITE_MATERIALIZATION
 from app.services.async_observability_context import async_observability_request_payload
 from app.services.composite_materialization.source_contract import PinnedCompositeSource, membership_decision_for_window
+from app.services.composite_materialization.source_pinning import pin_currency_source, pin_model_fee_source
 from app.services.core_tenant_authority import (
     admitted_tenant_authority,
     admitted_tenant_authority_from_header_values,
@@ -226,12 +227,13 @@ def run_materialization_attempt(
             reason_code="COMPOSITE_MEMBERS_PENDING",
         )
     if record.state == CompositeMaterializationState.WAITING:
-        record = _pin_currency_source(record, tenant_id=tenant_id, ledger=ledger, fence=fence)
+        record = pin_model_fee_source(record, tenant_id=tenant_id, ledger=ledger, fence=fence)
+        record = pin_currency_source(record, tenant_id=tenant_id, ledger=ledger, fence=fence)
         record = _resolve_members(
             record,
             tenant_id=tenant_id,
             request_headers=job.request_payload["authority"],
-            member_source=member_source or _default_member_source(record.source),
+            member_source=member_source or _default_member_source(record.source, command),
             ledger=ledger,
             fence=fence,
         )
@@ -247,7 +249,12 @@ def run_materialization_attempt(
     return progress(record)
 
 
-def _default_member_source(source):
+def _default_member_source(source, command):
+    # Approved model-fee methods currently admit INTERNAL profiles only. Keep
+    # the native gross/FX receipt beneath the fee wrapper; ledger admission
+    # independently rechecks every v2 internal selection against that receipt.
+    if command.model_fee_binding is not None:
+        return RetainedCompositeMemberResultSource(currency_normalization_wire=source.currency_normalization_wire)
     if source is not None and isinstance(source.definition, ManageCompositeDefinitionV2):
         return AuthorityCompositeMemberResultSource(
             source.definition,
@@ -289,59 +296,6 @@ def _read_membership_source(
             reason_code="COMPOSITE_SOURCE_UNAVAILABLE" if exc.retryable else "COMPOSITE_SOURCE_REFUSED",
         )
         raise
-
-
-def _pin_currency_source(record, *, tenant_id, ledger, fence):
-    from app.services.composite_materialization.currency_source_admission import (
-        admit_composite_fx_source,
-        fx_resolution_for_command,
-        require_composite_native_currency,
-        require_fx_normalization_route,
-    )
-
-    if record.command.currency_normalization_binding is None or record.source.currency_normalization_wire is not None:
-        return record
-    try:
-        require_fx_normalization_route(record.source.definition)
-        admitted = admit_composite_fx_source(fx_resolution_for_command(record.command, tenant_id=tenant_id))
-        require_composite_native_currency(admitted, record.source.definition)
-    except APIError as exc:
-        fence()
-        ledger.save(
-            record.command.materialization_id,
-            tenant_id=tenant_id,
-            expected_revision=record.revision,
-            source=record.source,
-            outcomes=_currency_refusal_outcomes(record.outcomes, exc),
-            state=CompositeMaterializationState.WAITING if exc.retryable else CompositeMaterializationState.BLOCKED,
-            reason_code="COMPOSITE_CURRENCY_SOURCE_UNAVAILABLE"
-            if exc.retryable
-            else "COMPOSITE_CURRENCY_SOURCE_REFUSED",
-        )
-        raise
-    fence()
-    return ledger.save(
-        record.command.materialization_id,
-        tenant_id=tenant_id,
-        expected_revision=record.revision,
-        source=record.source.model_copy(update={"currency_normalization_wire": admitted.source_wire}),
-        outcomes=record.outcomes,
-        state=CompositeMaterializationState.WAITING,
-        reason_code="COMPOSITE_MEMBERS_PENDING",
-    )
-
-
-def _currency_refusal_outcomes(outcomes, error):
-    return [
-        member_outcome(
-            row.portfolio_id,
-            code=error.error_code or "COMPOSITE_FX_SOURCE_REFUSED",
-            retryable=bool(error.retryable),
-        ).model_copy(update={"inspection_attempts": row.inspection_attempts})
-        if row.state == CompositeMemberOutcomeState.WAITING
-        else row
-        for row in outcomes
-    ]
 
 
 def _required_job_tenant(job: ComputeJobRecord) -> str:
@@ -396,6 +350,12 @@ def _resolve_members(
     if record.source is None:
         raise ValueError("Pinned source admission must precede member resolution")
     command = record.command
+    from app.services.composite_materialization.model_fee_member_evidence import (
+        admit_bound_model_fee_source,
+        apply_model_fee_or_refuse,
+    )
+
+    admitted_model_fee_source = admit_bound_model_fee_source(record, tenant_id=tenant_id)
     references = {item.portfolio_id: item for item in command.member_calculations}
     candidates = sorted(
         (
@@ -428,6 +388,7 @@ def _resolve_members(
                 request_headers=request_headers,
             )
         fence()
+        resolved = apply_model_fee_or_refuse(command, resolved, admitted_model_fee_source)
         outcomes = list(record.outcomes)
         outcomes[index] = resolved.model_copy(update={"inspection_attempts": outcome.inspection_attempts + 1})
         record = ledger.save(

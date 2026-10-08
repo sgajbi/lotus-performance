@@ -143,7 +143,7 @@ class CompositeFXNormalizationSource(AuthorityWire):
     period_end: BusinessDate
     composite_native_currency: Currency
     reporting_currency: Currency
-    return_view: Literal["GROSS", "NET_ACTUAL"]
+    return_view: Literal["GROSS", "NET_ACTUAL", "NET_MODEL_FEE"]
     method: CompositeFXMethod
     method_binding: EvidenceBinding
     members: list[CompositeFXMemberSource] = Field(min_length=1, max_length=1000)

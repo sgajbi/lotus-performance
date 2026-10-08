@@ -164,6 +164,7 @@ class PinnedCompositeSource(BaseModel):
     wire_evidence: CompositeSourceWireEvidence
     published_eligibility: evidence_ports.PublishedEligibilityEvidence | None = None
     currency_normalization_wire: dict[str, Any] | None = None
+    model_fee_wire: dict[str, Any] | None = None
 
 
 def admit_pinned_source(

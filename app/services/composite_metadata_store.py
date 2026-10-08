@@ -33,6 +33,13 @@ from sqlalchemy.orm import DeclarativeBase, Mapped, Session, mapped_column, sess
 from app.adapters.composite_external_fact_schema import upgrade_external_fact_columns
 from app.adapters.composite_materialization_records import CompositeMaterializationModel, create_materialization_schema
 from app.adapters.composite_materialization_schema import require_materialization_schema
+from app.adapters.composite_materialization_view_upgrade import upgrade_materialization_return_views
+from app.adapters.composite_model_fee_profile_records import ModelFeeProfileBase
+from app.adapters.composite_model_fee_profile_schema import (
+    create_model_fee_profile_schema,
+    model_fee_profile_guard_statements,
+    require_model_fee_profile_schema,
+)
 from app.adapters.composite_schema_policy import (
     CANONICAL_REPORTING_CURRENCY_CHECK_SQL,
     POSTGRES_STRIP_CHARACTERS_SQL,
@@ -2498,6 +2505,8 @@ class CompositeMetadataStore:
             self._engine,
             Base.metadata,
             schema_preflights=(
+                require_model_fee_profile_schema,
+                upgrade_materialization_return_views,
                 require_materialization_schema,
                 _upgrade_empty_legacy_composite_schema_for_tenant_scope,
                 _require_current_composite_tenant_schema,
@@ -2513,6 +2522,7 @@ class CompositeMetadataStore:
                 _upgrade_postgres_tenant_constraints,
                 _create_composite_fact_database_guards,
                 create_materialization_schema,
+                create_model_fee_profile_schema,
             ),
         )
 
@@ -2523,8 +2533,38 @@ class CompositeMetadataStore:
             self._engine,
             Base.metadata,
             CompositeMaterializationModel.__table__.metadata,
-            managed_guards=composite_fact_guard_statements(self._engine.dialect),
+            ModelFeeProfileBase.metadata,
+            managed_guards=(
+                *composite_fact_guard_statements(self._engine.dialect),
+                *model_fee_profile_guard_statements(self._engine.dialect),
+            ),
         )
+
+    def publish_model_fee_profile(self, profile, *, tenant_id: str, actor_id: str):
+        from app.adapters.composite_model_fee_profile_storage import publish_profile
+
+        tenant_id = _admitted_composite_tenant_id(tenant_id)
+        with self._session() as session:
+            if self._engine.dialect.name == "sqlite":
+                # SAVEPOINT alone can commit its parent under legacy sqlite
+                # transaction control. Fence the actual writer transaction
+                # before retry inspection so every refusal rolls back fully.
+                session.connection().exec_driver_sql("BEGIN IMMEDIATE")
+            return publish_profile(session, profile, tenant_id=tenant_id, actor_id=actor_id)
+
+    def get_model_fee_profile(self, *, tenant_id: str, profile_id: str, revision: str):
+        from app.adapters.composite_model_fee_profile_storage import read_profile
+
+        tenant_id = _admitted_composite_tenant_id(tenant_id)
+        with self._session() as session:
+            return read_profile(session, tenant_id=tenant_id, profile_id=profile_id, revision=revision)
+
+    def resolve_model_fee_profile(self, request):
+        from app.adapters.composite_model_fee_profile_storage import resolve_profile
+
+        _admitted_composite_tenant_id(request.tenant_id)
+        with self._session() as session:
+            return resolve_profile(session, request)
 
     def _upgrade_member_return_fact_schema(self, connection: Connection) -> None:
         existing_columns = {

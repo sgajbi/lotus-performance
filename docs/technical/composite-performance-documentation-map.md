@@ -32,6 +32,13 @@ the current single reporting-currency guard is not supported.
 
 ## Source Flow
 
+The first model-fee convention has a [v3 method/variable/oracle document](../methodologies/metrics/metric-composite-periodic-model-fee.md)
+and [caller/migration instructions](../guides/composite_materialization.md#periodic-model-fee-materialization).
+Its internal native gross producer preserves distinct original/fee custody. The configured
+Performance local catalog publishes and retrieves immutable unapproved input; source resolution
+defaults unavailable and independent production verification remains unavailable. Synthetic
+registered PostgreSQL proof does not establish official activation or close #609.
+
 Annual member dispersion has its own [caller guide](../guides/composite_annual_dispersion.md) and
 [metric methodology](../methodologies/metrics/metric-composite-annual-member-dispersion.md).
 `POST /performance/composites/analytics` selects the annual metric and either equal-weight sample

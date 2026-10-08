@@ -6,17 +6,21 @@ from uuid import UUID
 from fastapi import APIRouter, Header, Query, Request
 
 from app.api.http_response_adapter import to_fastapi_response
+from app.models.composite_authority import Identifier
 from app.models.composite_materialization import (
     CompositeMaterializationAcceptedResponse,
     CompositeMaterializationCommand,
     CompositeMaterializationProgress,
 )
+from app.models.composite_model_fee_profiles import CompositeModelFeeProfileReceipt
+from app.models.composite_model_fees import CompositePeriodicModelFeeProfile
 from app.services.composite_materialization.application import (
     admit_materialization_identity,
     admit_materialization_tenant,
     inspect_materialization,
     submit_materialization,
 )
+from app.services.composite_model_fee_profile_service import publish_profile_input, read_profile_input
 
 router = APIRouter(tags=["Performance"])
 _TENANT_PARAMETER = {
@@ -38,6 +42,39 @@ def _tenant(request: Request) -> str:
 
 def _identity(request: Request, *, header: str) -> str:
     return admit_materialization_identity(request.headers.getlist(header))
+
+
+@router.post(
+    "/composites/model-fee-profiles",
+    response_model=CompositeModelFeeProfileReceipt,
+    summary="Retain an immutable unapproved composite model-fee profile",
+    description="Preserves canonical method input and original publisher custody. Same-content retry is idempotent; conflicting identity refuses. Publication grants no independent method approval or official activation.",
+    openapi_extra=_TENANT_PARAMETER,
+)
+def publish_model_fee_profile(
+    profile: CompositePeriodicModelFeeProfile,
+    request: Request,
+    x_actor_id: Annotated[str, Header(description="Original admitted publishing actor; never defaulted.")],
+    x_role: Annotated[str, Header(description="Admitted role subject to publication capability checks.")],
+):
+    return publish_profile_input(profile, headers=request.headers)
+
+
+@router.get(
+    "/composites/model-fee-profiles/{profile_id}/{revision}",
+    response_model=CompositeModelFeeProfileReceipt,
+    summary="Read an exact retained composite model-fee profile revision",
+    description="Returns original tenant-scoped canonical input and publisher custody by exact identity. Never selects latest or supplies independent approval.",
+    openapi_extra=_TENANT_PARAMETER,
+)
+def read_model_fee_profile(
+    profile_id: Identifier,
+    revision: Identifier,
+    request: Request,
+    x_actor_id: Annotated[str, Header(description="Admitted read actor; never defaulted.")],
+    x_role: Annotated[str, Header(description="Admitted role subject to privileged read capability checks.")],
+):
+    return read_profile_input(profile_id, revision, headers=request.headers)
 
 
 @router.post(

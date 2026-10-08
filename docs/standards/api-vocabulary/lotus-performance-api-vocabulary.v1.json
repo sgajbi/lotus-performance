@@ -8,7 +8,7 @@
       "openApiVersion": "3.1.0"
     }
   ],
-  "generatedAt": "2026-10-08T15:17:20.337474+00:00",
+  "generatedAt": "2026-10-08T22:41:38.687484+00:00",
   "attributeCatalog": [
     {
       "semanticId": "lotus.access_classification",
@@ -466,6 +466,20 @@
       ]
     },
     {
+      "semanticId": "lotus.asset_treatment",
+      "canonicalTerm": "asset_treatment",
+      "preferredName": "asset_treatment",
+      "description": "composite periodic model fee profile input field: asset treatment.",
+      "example": "example_asset_treatment",
+      "type": "string",
+      "locations": [
+        "body"
+      ],
+      "observedTypes": [
+        "string"
+      ]
+    },
+    {
       "semanticId": "lotus.async_result",
       "canonicalTerm": "async_result",
       "preferredName": "async_result",
@@ -877,6 +891,22 @@
       ]
     },
     {
+      "semanticId": "lotus.binding",
+      "canonicalTerm": "binding",
+      "preferredName": "binding",
+      "description": "evidence binding object.",
+      "example": {
+        "key": "value"
+      },
+      "type": "EvidenceBinding",
+      "locations": [
+        "body"
+      ],
+      "observedTypes": [
+        "EvidenceBinding"
+      ]
+    },
+    {
       "semanticId": "lotus.blocked_count",
       "canonicalTerm": "blocked_count",
       "preferredName": "blocked_count",
@@ -940,6 +970,20 @@
       "preferredName": "build_timestamp",
       "description": "UTC build timestamp supplied by CI or the local build command.",
       "example": "2026-07-10T07:45:00Z",
+      "type": "string",
+      "locations": [
+        "body"
+      ],
+      "observedTypes": [
+        "string"
+      ]
+    },
+    {
+      "semanticId": "lotus.bundled_fee_context",
+      "canonicalTerm": "bundled_fee_context",
+      "preferredName": "bundled_fee_context",
+      "description": "composite periodic model fee profile input field: bundled fee context.",
+      "example": "example_bundled_fee_context",
       "type": "string",
       "locations": [
         "body"
@@ -1078,6 +1122,22 @@
       ],
       "observedTypes": [
         "Calendar"
+      ]
+    },
+    {
+      "semanticId": "lotus.calendar_binding",
+      "canonicalTerm": "calendar_binding",
+      "preferredName": "calendar_binding",
+      "description": "evidence binding object.",
+      "example": {
+        "key": "value"
+      },
+      "type": "EvidenceBinding",
+      "locations": [
+        "body"
+      ],
+      "observedTypes": [
+        "EvidenceBinding"
       ]
     },
     {
@@ -2335,6 +2395,20 @@
       ]
     },
     {
+      "semanticId": "lotus.digest",
+      "canonicalTerm": "digest",
+      "preferredName": "digest",
+      "description": "evidence binding field: digest.",
+      "example": "example_digest",
+      "type": "string",
+      "locations": [
+        "body"
+      ],
+      "observedTypes": [
+        "string"
+      ]
+    },
+    {
       "semanticId": "lotus.dispersion_equal_weight",
       "canonicalTerm": "dispersion_equal_weight",
       "preferredName": "dispersion_equal_weight",
@@ -2407,6 +2481,20 @@
       ]
     },
     {
+      "semanticId": "lotus.effective_from",
+      "canonicalTerm": "effective_from",
+      "preferredName": "effective_from",
+      "description": "composite periodic model fee profile input field: effective from.",
+      "example": "example_effective_from",
+      "type": "string",
+      "locations": [
+        "body"
+      ],
+      "observedTypes": [
+        "string"
+      ]
+    },
+    {
       "semanticId": "lotus.effective_period_start",
       "canonicalTerm": "effective_period_start",
       "preferredName": "effective_period_start",
@@ -2426,6 +2514,20 @@
       "preferredName": "effective_start_date",
       "description": "Business date for effective start date.",
       "example": "2026-02-27",
+      "type": "string",
+      "locations": [
+        "body"
+      ],
+      "observedTypes": [
+        "string"
+      ]
+    },
+    {
+      "semanticId": "lotus.effective_to",
+      "canonicalTerm": "effective_to",
+      "preferredName": "effective_to",
+      "description": "composite periodic model fee profile input field: effective to.",
+      "example": "example_effective_to",
       "type": "string",
       "locations": [
         "body"
@@ -2555,6 +2657,20 @@
       ],
       "observedTypes": [
         "array"
+      ]
+    },
+    {
+      "semanticId": "lotus.entry_id",
+      "canonicalTerm": "entry_id",
+      "preferredName": "entry_id",
+      "description": "Immutable approved rate-entry identity, unique across the complete profile.",
+      "example": "ENTRY_001",
+      "type": "string",
+      "locations": [
+        "body"
+      ],
+      "observedTypes": [
+        "string"
       ]
     },
     {
@@ -2957,6 +3073,20 @@
       ]
     },
     {
+      "semanticId": "lotus.fee_component",
+      "canonicalTerm": "fee_component",
+      "preferredName": "fee_component",
+      "description": "composite periodic model fee profile input field: fee component.",
+      "example": "example_fee_component",
+      "type": "string",
+      "locations": [
+        "body"
+      ],
+      "observedTypes": [
+        "string"
+      ]
+    },
+    {
       "semanticId": "lotus.fee_effect",
       "canonicalTerm": "fee_effect",
       "preferredName": "fee_effect",
@@ -3248,6 +3378,20 @@
       "preferredName": "governed_target",
       "description": "Governed action target associated with the reclaimed stale lease.",
       "example": "example_governed_target",
+      "type": "string",
+      "locations": [
+        "body"
+      ],
+      "observedTypes": [
+        "string"
+      ]
+    },
+    {
+      "semanticId": "lotus.gross_source_basis",
+      "canonicalTerm": "gross_source_basis",
+      "preferredName": "gross_source_basis",
+      "description": "composite periodic model fee profile input field: gross source basis.",
+      "example": "example_gross_source_basis",
       "type": "string",
       "locations": [
         "body"
@@ -4487,6 +4631,40 @@
       ]
     },
     {
+      "semanticId": "lotus.member_id",
+      "canonicalTerm": "member_id",
+      "preferredName": "member_id",
+      "description": "Exact attested composite member identity; never a fabricated Core portfolio.",
+      "example": "MEMBER_001",
+      "type": "string",
+      "locations": [
+        "body"
+      ],
+      "observedTypes": [
+        "string"
+      ]
+    },
+    {
+      "semanticId": "lotus.member_rates",
+      "canonicalTerm": "member_rates",
+      "preferredName": "member_rates",
+      "description": "Performance metric value for member rates.",
+      "example": [
+        {
+          "entry_id": "ENTRY_001",
+          "member_id": "MEMBER_001",
+          "period_fee_fraction": "example_period_fee_fraction"
+        }
+      ],
+      "type": "array",
+      "locations": [
+        "body"
+      ],
+      "observedTypes": [
+        "array"
+      ]
+    },
+    {
       "semanticId": "lotus.members",
       "canonicalTerm": "members",
       "preferredName": "members",
@@ -4592,6 +4770,34 @@
       "preferredName": "method",
       "description": "solver field: method.",
       "example": "example_method",
+      "type": "string",
+      "locations": [
+        "body"
+      ],
+      "observedTypes": [
+        "string"
+      ]
+    },
+    {
+      "semanticId": "lotus.method_id",
+      "canonicalTerm": "method_id",
+      "preferredName": "method_id",
+      "description": "Unique method identifier.",
+      "example": "METHOD_001",
+      "type": "string",
+      "locations": [
+        "body"
+      ],
+      "observedTypes": [
+        "string"
+      ]
+    },
+    {
+      "semanticId": "lotus.method_revision",
+      "canonicalTerm": "method_revision",
+      "preferredName": "method_revision",
+      "description": "composite periodic model fee profile input field: method revision.",
+      "example": "example_method_revision",
       "type": "string",
       "locations": [
         "body"
@@ -4790,6 +4996,39 @@
       ],
       "observedTypes": [
         "AttributionModel"
+      ]
+    },
+    {
+      "semanticId": "lotus.model_fee_binding",
+      "canonicalTerm": "model_fee_binding",
+      "preferredName": "model_fee_binding",
+      "description": "Immutable independently resolved periodic model-fee profile; required only for NET_MODEL_FEE.",
+      "example": {
+        "product_name": "example_product_name",
+        "product_version": "example_product_version",
+        "revision": "example_revision",
+        "digest": "example_digest"
+      },
+      "type": "object",
+      "locations": [
+        "body"
+      ],
+      "observedTypes": [
+        "object"
+      ]
+    },
+    {
+      "semanticId": "lotus.monetary_precision",
+      "canonicalTerm": "monetary_precision",
+      "preferredName": "monetary_precision",
+      "description": "composite periodic model fee profile input field: monetary precision.",
+      "example": "example_monetary_precision",
+      "type": "string",
+      "locations": [
+        "body"
+      ],
+      "observedTypes": [
+        "string"
       ]
     },
     {
@@ -5605,6 +5844,20 @@
       ]
     },
     {
+      "semanticId": "lotus.period_fee_fraction",
+      "canonicalTerm": "period_fee_fraction",
+      "preferredName": "period_fee_fraction",
+      "description": "Explicit post-return period wealth fraction; zero is an approved waiver, never an inferred rate.",
+      "example": "example_period_fee_fraction",
+      "type": "string",
+      "locations": [
+        "body"
+      ],
+      "observedTypes": [
+        "string"
+      ]
+    },
+    {
       "semanticId": "lotus.period_name",
       "canonicalTerm": "period_name",
       "preferredName": "period_name",
@@ -5901,6 +6154,20 @@
       ]
     },
     {
+      "semanticId": "lotus.posture",
+      "canonicalTerm": "posture",
+      "preferredName": "posture",
+      "description": "Publication retains input custody; independent method approval is still required.",
+      "example": "example_posture",
+      "type": "string",
+      "locations": [
+        "body"
+      ],
+      "observedTypes": [
+        "string"
+      ]
+    },
+    {
       "semanticId": "lotus.precision_mode",
       "canonicalTerm": "precision_mode",
       "preferredName": "precision_mode",
@@ -5960,8 +6227,8 @@
       "semanticId": "lotus.product_name",
       "canonicalTerm": "product_name",
       "preferredName": "product_name",
-      "description": "Source-owned product emitted by lotus-performance for mandate health performance context.",
-      "example": "STANDARD_VALUE",
+      "description": "composite periodic model fee profile input field: product name.",
+      "example": "example_product_name",
       "type": "string",
       "locations": [
         "body"
@@ -5974,11 +6241,42 @@
       "semanticId": "lotus.product_version",
       "canonicalTerm": "product_version",
       "preferredName": "product_version",
-      "description": "Product contract version.",
-      "example": "STANDARD_VALUE",
+      "description": "composite periodic model fee profile input field: product version.",
+      "example": "example_product_version",
       "type": "string",
       "locations": [
         "body"
+      ],
+      "observedTypes": [
+        "string"
+      ]
+    },
+    {
+      "semanticId": "lotus.profile",
+      "canonicalTerm": "profile",
+      "preferredName": "profile",
+      "description": "composite periodic model fee profile output object.",
+      "example": {
+        "key": "value"
+      },
+      "type": "CompositePeriodicModelFeeProfile-Output",
+      "locations": [
+        "body"
+      ],
+      "observedTypes": [
+        "CompositePeriodicModelFeeProfile-Output"
+      ]
+    },
+    {
+      "semanticId": "lotus.profile_id",
+      "canonicalTerm": "profile_id",
+      "preferredName": "profile_id",
+      "description": "Unique profile identifier.",
+      "example": "PROFILE_001",
+      "type": "string",
+      "locations": [
+        "body",
+        "path"
       ],
       "observedTypes": [
         "string"
@@ -6139,6 +6437,34 @@
       ]
     },
     {
+      "semanticId": "lotus.published_at_utc",
+      "canonicalTerm": "published_at_utc",
+      "preferredName": "published_at_utc",
+      "description": "Original timezone-aware UTC custody recording time; not a business effective date.",
+      "example": "2026-02-27T10:30:00Z",
+      "type": "string",
+      "locations": [
+        "body"
+      ],
+      "observedTypes": [
+        "string"
+      ]
+    },
+    {
+      "semanticId": "lotus.published_by",
+      "canonicalTerm": "published_by",
+      "preferredName": "published_by",
+      "description": "Original admitted publishing actor, preserved on same-content retries.",
+      "example": "example_published_by",
+      "type": "string",
+      "locations": [
+        "body"
+      ],
+      "observedTypes": [
+        "string"
+      ]
+    },
+    {
       "semanticId": "lotus.qualification",
       "canonicalTerm": "qualification",
       "preferredName": "qualification",
@@ -6172,6 +6498,20 @@
       "preferredName": "queue_filter",
       "description": "Requested queue filter applied to runtime work-item inspection.",
       "example": "example_queue_filter",
+      "type": "string",
+      "locations": [
+        "body"
+      ],
+      "observedTypes": [
+        "string"
+      ]
+    },
+    {
+      "semanticId": "lotus.rate_basis",
+      "canonicalTerm": "rate_basis",
+      "preferredName": "rate_basis",
+      "description": "Performance metric value for rate basis.",
+      "example": "example_rate_basis",
       "type": "string",
       "locations": [
         "body"
@@ -7408,13 +7748,15 @@
       "semanticId": "lotus.revision",
       "canonicalTerm": "revision",
       "preferredName": "revision",
-      "description": "Optimistic durable progress revision for restart/concurrent workers.",
-      "example": 1,
-      "type": "integer",
+      "description": "composite periodic model fee profile input field: revision.",
+      "example": "example_revision",
+      "type": "string",
       "locations": [
-        "body"
+        "body",
+        "path"
       ],
       "observedTypes": [
+        "string",
         "integer"
       ]
     },
@@ -7610,6 +7952,34 @@
       ],
       "observedTypes": [
         "object"
+      ]
+    },
+    {
+      "semanticId": "lotus.schedule_id",
+      "canonicalTerm": "schedule_id",
+      "preferredName": "schedule_id",
+      "description": "Unique schedule identifier.",
+      "example": "SCHEDULE_001",
+      "type": "string",
+      "locations": [
+        "body"
+      ],
+      "observedTypes": [
+        "string"
+      ]
+    },
+    {
+      "semanticId": "lotus.schedule_revision",
+      "canonicalTerm": "schedule_revision",
+      "preferredName": "schedule_revision",
+      "description": "composite periodic model fee profile input field: schedule revision.",
+      "example": "example_schedule_revision",
+      "type": "string",
+      "locations": [
+        "body"
+      ],
+      "observedTypes": [
+        "string"
       ]
     },
     {
@@ -8486,6 +8856,20 @@
       ]
     },
     {
+      "semanticId": "lotus.standards_applicability",
+      "canonicalTerm": "standards_applicability",
+      "preferredName": "standards_applicability",
+      "description": "composite periodic model fee profile input field: standards applicability.",
+      "example": "example_standards_applicability",
+      "type": "string",
+      "locations": [
+        "body"
+      ],
+      "observedTypes": [
+        "string"
+      ]
+    },
+    {
       "semanticId": "lotus.start_date",
       "canonicalTerm": "start_date",
       "preferredName": "start_date",
@@ -8849,12 +9233,12 @@
       "semanticId": "lotus.tenant_id",
       "canonicalTerm": "tenant_id",
       "preferredName": "tenant_id",
-      "description": "Canonical tenant id used by lotus-performance APIs.",
-      "example": null,
+      "description": "Unique tenant identifier.",
+      "example": "default",
       "type": "string",
       "locations": [
-        "query",
-        "body"
+        "body",
+        "query"
       ],
       "observedTypes": [
         "string"
@@ -8987,6 +9371,20 @@
       ]
     },
     {
+      "semanticId": "lotus.timing",
+      "canonicalTerm": "timing",
+      "preferredName": "timing",
+      "description": "composite periodic model fee profile input field: timing.",
+      "example": "example_timing",
+      "type": "string",
+      "locations": [
+        "body"
+      ],
+      "observedTypes": [
+        "string"
+      ]
+    },
+    {
       "semanticId": "lotus.to_date",
       "canonicalTerm": "to_date",
       "preferredName": "to_date",
@@ -9076,6 +9474,34 @@
       "preferredName": "trading_calendar",
       "description": "Canonical trading calendar used by lotus-performance APIs.",
       "example": "STANDARD_VALUE",
+      "type": "string",
+      "locations": [
+        "body"
+      ],
+      "observedTypes": [
+        "string"
+      ]
+    },
+    {
+      "semanticId": "lotus.transaction_cost_treatment",
+      "canonicalTerm": "transaction_cost_treatment",
+      "preferredName": "transaction_cost_treatment",
+      "description": "composite periodic model fee profile input field: transaction cost treatment.",
+      "example": "example_transaction_cost_treatment",
+      "type": "string",
+      "locations": [
+        "body"
+      ],
+      "observedTypes": [
+        "string"
+      ]
+    },
+    {
+      "semanticId": "lotus.transformation",
+      "canonicalTerm": "transformation",
+      "preferredName": "transformation",
+      "description": "composite periodic model fee profile input field: transformation.",
+      "example": "example_transformation",
       "type": "string",
       "locations": [
         "body"
@@ -9696,6 +10122,102 @@
       "required": true,
       "type": "string",
       "description": "Required admitted tenant authority for Performance-owned composite state. Surrounding whitespace is trimmed; the service never mints or defaults this value.",
+      "example": "private-bank-sg",
+      "allowedValues": [],
+      "semanticId": "lotus.x_tenant_id",
+      "attributeRef": "#/attributeCatalog/lotus.x_tenant_id"
+    },
+    {
+      "name": "x_actor_id",
+      "kind": "request_option",
+      "location": "header",
+      "required": true,
+      "type": "string",
+      "description": "Original admitted publishing actor; never defaulted.",
+      "example": "ENTITY_001",
+      "allowedValues": [],
+      "semanticId": "lotus.x_actor_id",
+      "attributeRef": "#/attributeCatalog/lotus.x_actor_id"
+    },
+    {
+      "name": "x_role",
+      "kind": "request_option",
+      "location": "header",
+      "required": true,
+      "type": "string",
+      "description": "Admitted role subject to publication capability checks.",
+      "example": "STANDARD_VALUE",
+      "allowedValues": [],
+      "semanticId": "lotus.x_role",
+      "attributeRef": "#/attributeCatalog/lotus.x_role"
+    },
+    {
+      "name": "x_tenant_id",
+      "kind": "request_option",
+      "location": "header",
+      "required": true,
+      "type": "string",
+      "description": "Admitted tenant authority; duplicate or missing authority is refused before durable access.",
+      "example": "private-bank-sg",
+      "allowedValues": [],
+      "semanticId": "lotus.x_tenant_id",
+      "attributeRef": "#/attributeCatalog/lotus.x_tenant_id"
+    },
+    {
+      "name": "profile_id",
+      "kind": "request_option",
+      "location": "path",
+      "required": true,
+      "type": "string",
+      "description": "Canonical profile id used by lotus-performance APIs.",
+      "example": "ENTITY_001",
+      "allowedValues": [],
+      "semanticId": "lotus.profile_id",
+      "attributeRef": "#/attributeCatalog/lotus.profile_id"
+    },
+    {
+      "name": "revision",
+      "kind": "request_option",
+      "location": "path",
+      "required": true,
+      "type": "string",
+      "description": "Canonical revision used by lotus-performance APIs.",
+      "example": "STANDARD_VALUE",
+      "allowedValues": [],
+      "semanticId": "lotus.revision",
+      "attributeRef": "#/attributeCatalog/lotus.revision"
+    },
+    {
+      "name": "x_actor_id",
+      "kind": "request_option",
+      "location": "header",
+      "required": true,
+      "type": "string",
+      "description": "Admitted read actor; never defaulted.",
+      "example": "ENTITY_001",
+      "allowedValues": [],
+      "semanticId": "lotus.x_actor_id",
+      "attributeRef": "#/attributeCatalog/lotus.x_actor_id"
+    },
+    {
+      "name": "x_role",
+      "kind": "request_option",
+      "location": "header",
+      "required": true,
+      "type": "string",
+      "description": "Admitted role subject to privileged read capability checks.",
+      "example": "STANDARD_VALUE",
+      "allowedValues": [],
+      "semanticId": "lotus.x_role",
+      "attributeRef": "#/attributeCatalog/lotus.x_role"
+    },
+    {
+      "name": "x_tenant_id",
+      "kind": "request_option",
+      "location": "header",
+      "required": true,
+      "type": "string",
+      "description": "Admitted tenant authority; duplicate or missing authority is refused before durable access.",
       "example": "private-bank-sg",
       "allowedValues": [],
       "semanticId": "lotus.x_tenant_id",
@@ -14710,6 +15232,1084 @@
     {
       "domain": "performance",
       "method": "POST",
+      "path": "/performance/composites/model-fee-profiles",
+      "operationId": "publish_model_fee_profile_performance_composites_model_fee_profiles_post",
+      "summary": "Retain an immutable unapproved composite model-fee profile",
+      "request": {
+        "fields": [
+          {
+            "name": "x-actor-id",
+            "location": "header",
+            "required": true,
+            "type": "string",
+            "semanticId": "lotus.x_actor_id",
+            "attributeRef": "#/attributeCatalog/lotus.x_actor_id"
+          },
+          {
+            "name": "x-role",
+            "location": "header",
+            "required": true,
+            "type": "string",
+            "semanticId": "lotus.x_role",
+            "attributeRef": "#/attributeCatalog/lotus.x_role"
+          },
+          {
+            "name": "X-Tenant-Id",
+            "location": "header",
+            "required": true,
+            "type": "string",
+            "semanticId": "lotus.x_tenant_id",
+            "attributeRef": "#/attributeCatalog/lotus.x_tenant_id"
+          },
+          {
+            "name": "product_name",
+            "location": "body",
+            "required": true,
+            "type": "string",
+            "semanticId": "lotus.product_name",
+            "attributeRef": "#/attributeCatalog/lotus.product_name"
+          },
+          {
+            "name": "product_version",
+            "location": "body",
+            "required": true,
+            "type": "string",
+            "semanticId": "lotus.product_version",
+            "attributeRef": "#/attributeCatalog/lotus.product_version"
+          },
+          {
+            "name": "profile_id",
+            "location": "body",
+            "required": true,
+            "type": "string",
+            "semanticId": "lotus.profile_id",
+            "attributeRef": "#/attributeCatalog/lotus.profile_id"
+          },
+          {
+            "name": "revision",
+            "location": "body",
+            "required": true,
+            "type": "string",
+            "semanticId": "lotus.revision",
+            "attributeRef": "#/attributeCatalog/lotus.revision"
+          },
+          {
+            "name": "tenant_id",
+            "location": "body",
+            "required": true,
+            "type": "string",
+            "semanticId": "lotus.tenant_id",
+            "attributeRef": "#/attributeCatalog/lotus.tenant_id"
+          },
+          {
+            "name": "composite_id",
+            "location": "body",
+            "required": true,
+            "type": "string",
+            "semanticId": "lotus.composite_id",
+            "attributeRef": "#/attributeCatalog/lotus.composite_id"
+          },
+          {
+            "name": "method_id",
+            "location": "body",
+            "required": true,
+            "type": "string",
+            "semanticId": "lotus.method_id",
+            "attributeRef": "#/attributeCatalog/lotus.method_id"
+          },
+          {
+            "name": "method_revision",
+            "location": "body",
+            "required": true,
+            "type": "string",
+            "semanticId": "lotus.method_revision",
+            "attributeRef": "#/attributeCatalog/lotus.method_revision"
+          },
+          {
+            "name": "schedule_id",
+            "location": "body",
+            "required": true,
+            "type": "string",
+            "semanticId": "lotus.schedule_id",
+            "attributeRef": "#/attributeCatalog/lotus.schedule_id"
+          },
+          {
+            "name": "schedule_revision",
+            "location": "body",
+            "required": true,
+            "type": "string",
+            "semanticId": "lotus.schedule_revision",
+            "attributeRef": "#/attributeCatalog/lotus.schedule_revision"
+          },
+          {
+            "name": "effective_from",
+            "location": "body",
+            "required": true,
+            "type": "string",
+            "semanticId": "lotus.effective_from",
+            "attributeRef": "#/attributeCatalog/lotus.effective_from"
+          },
+          {
+            "name": "effective_to",
+            "location": "body",
+            "required": true,
+            "type": "string",
+            "semanticId": "lotus.effective_to",
+            "attributeRef": "#/attributeCatalog/lotus.effective_to"
+          },
+          {
+            "name": "calendar_binding",
+            "location": "body",
+            "required": true,
+            "type": "EvidenceBinding",
+            "semanticId": "lotus.calendar_binding",
+            "attributeRef": "#/attributeCatalog/lotus.calendar_binding"
+          },
+          {
+            "name": "calendar_binding.product_name",
+            "location": "body",
+            "required": true,
+            "type": "string",
+            "semanticId": "lotus.product_name",
+            "attributeRef": "#/attributeCatalog/lotus.product_name"
+          },
+          {
+            "name": "calendar_binding.product_version",
+            "location": "body",
+            "required": true,
+            "type": "string",
+            "semanticId": "lotus.product_version",
+            "attributeRef": "#/attributeCatalog/lotus.product_version"
+          },
+          {
+            "name": "calendar_binding.revision",
+            "location": "body",
+            "required": true,
+            "type": "string",
+            "semanticId": "lotus.revision",
+            "attributeRef": "#/attributeCatalog/lotus.revision"
+          },
+          {
+            "name": "calendar_binding.digest",
+            "location": "body",
+            "required": true,
+            "type": "string",
+            "semanticId": "lotus.digest",
+            "attributeRef": "#/attributeCatalog/lotus.digest"
+          },
+          {
+            "name": "reporting_currency",
+            "location": "body",
+            "required": true,
+            "type": "string",
+            "semanticId": "lotus.reporting_currency",
+            "attributeRef": "#/attributeCatalog/lotus.reporting_currency"
+          },
+          {
+            "name": "gross_source_basis",
+            "location": "body",
+            "required": true,
+            "type": "string",
+            "semanticId": "lotus.gross_source_basis",
+            "attributeRef": "#/attributeCatalog/lotus.gross_source_basis"
+          },
+          {
+            "name": "fee_component",
+            "location": "body",
+            "required": true,
+            "type": "string",
+            "semanticId": "lotus.fee_component",
+            "attributeRef": "#/attributeCatalog/lotus.fee_component"
+          },
+          {
+            "name": "transaction_cost_treatment",
+            "location": "body",
+            "required": true,
+            "type": "string",
+            "semanticId": "lotus.transaction_cost_treatment",
+            "attributeRef": "#/attributeCatalog/lotus.transaction_cost_treatment"
+          },
+          {
+            "name": "bundled_fee_context",
+            "location": "body",
+            "required": true,
+            "type": "string",
+            "semanticId": "lotus.bundled_fee_context",
+            "attributeRef": "#/attributeCatalog/lotus.bundled_fee_context"
+          },
+          {
+            "name": "rate_basis",
+            "location": "body",
+            "required": true,
+            "type": "string",
+            "semanticId": "lotus.rate_basis",
+            "attributeRef": "#/attributeCatalog/lotus.rate_basis"
+          },
+          {
+            "name": "timing",
+            "location": "body",
+            "required": true,
+            "type": "string",
+            "semanticId": "lotus.timing",
+            "attributeRef": "#/attributeCatalog/lotus.timing"
+          },
+          {
+            "name": "transformation",
+            "location": "body",
+            "required": true,
+            "type": "string",
+            "semanticId": "lotus.transformation",
+            "attributeRef": "#/attributeCatalog/lotus.transformation"
+          },
+          {
+            "name": "asset_treatment",
+            "location": "body",
+            "required": true,
+            "type": "string",
+            "semanticId": "lotus.asset_treatment",
+            "attributeRef": "#/attributeCatalog/lotus.asset_treatment"
+          },
+          {
+            "name": "monetary_precision",
+            "location": "body",
+            "required": true,
+            "type": "string",
+            "semanticId": "lotus.monetary_precision",
+            "attributeRef": "#/attributeCatalog/lotus.monetary_precision"
+          },
+          {
+            "name": "standards_applicability",
+            "location": "body",
+            "required": true,
+            "type": "string",
+            "semanticId": "lotus.standards_applicability",
+            "attributeRef": "#/attributeCatalog/lotus.standards_applicability"
+          },
+          {
+            "name": "periods",
+            "location": "body",
+            "required": true,
+            "type": "array",
+            "semanticId": "lotus.periods",
+            "attributeRef": "#/attributeCatalog/lotus.periods"
+          },
+          {
+            "name": "periods[].period_start",
+            "location": "body",
+            "required": true,
+            "type": "string",
+            "semanticId": "lotus.period_start",
+            "attributeRef": "#/attributeCatalog/lotus.period_start"
+          },
+          {
+            "name": "periods[].period_end",
+            "location": "body",
+            "required": true,
+            "type": "string",
+            "semanticId": "lotus.period_end",
+            "attributeRef": "#/attributeCatalog/lotus.period_end"
+          },
+          {
+            "name": "periods[].member_rates",
+            "location": "body",
+            "required": true,
+            "type": "array",
+            "semanticId": "lotus.member_rates",
+            "attributeRef": "#/attributeCatalog/lotus.member_rates"
+          },
+          {
+            "name": "periods[].member_rates[].entry_id",
+            "location": "body",
+            "required": true,
+            "type": "string",
+            "semanticId": "lotus.entry_id",
+            "attributeRef": "#/attributeCatalog/lotus.entry_id"
+          },
+          {
+            "name": "periods[].member_rates[].member_id",
+            "location": "body",
+            "required": true,
+            "type": "string",
+            "semanticId": "lotus.member_id",
+            "attributeRef": "#/attributeCatalog/lotus.member_id"
+          },
+          {
+            "name": "periods[].member_rates[].period_fee_fraction",
+            "location": "body",
+            "required": true,
+            "type": "string",
+            "semanticId": "lotus.period_fee_fraction",
+            "attributeRef": "#/attributeCatalog/lotus.period_fee_fraction"
+          }
+        ]
+      },
+      "response": {
+        "fields": [
+          {
+            "name": "posture",
+            "location": "body",
+            "required": false,
+            "type": "string",
+            "semanticId": "lotus.posture",
+            "attributeRef": "#/attributeCatalog/lotus.posture"
+          },
+          {
+            "name": "binding",
+            "location": "body",
+            "required": true,
+            "type": "EvidenceBinding",
+            "semanticId": "lotus.binding",
+            "attributeRef": "#/attributeCatalog/lotus.binding"
+          },
+          {
+            "name": "binding.product_name",
+            "location": "body",
+            "required": true,
+            "type": "string",
+            "semanticId": "lotus.product_name",
+            "attributeRef": "#/attributeCatalog/lotus.product_name"
+          },
+          {
+            "name": "binding.product_version",
+            "location": "body",
+            "required": true,
+            "type": "string",
+            "semanticId": "lotus.product_version",
+            "attributeRef": "#/attributeCatalog/lotus.product_version"
+          },
+          {
+            "name": "binding.revision",
+            "location": "body",
+            "required": true,
+            "type": "string",
+            "semanticId": "lotus.revision",
+            "attributeRef": "#/attributeCatalog/lotus.revision"
+          },
+          {
+            "name": "binding.digest",
+            "location": "body",
+            "required": true,
+            "type": "string",
+            "semanticId": "lotus.digest",
+            "attributeRef": "#/attributeCatalog/lotus.digest"
+          },
+          {
+            "name": "profile",
+            "location": "body",
+            "required": true,
+            "type": "CompositePeriodicModelFeeProfile-Output",
+            "semanticId": "lotus.profile",
+            "attributeRef": "#/attributeCatalog/lotus.profile"
+          },
+          {
+            "name": "profile.product_name",
+            "location": "body",
+            "required": true,
+            "type": "string",
+            "semanticId": "lotus.product_name",
+            "attributeRef": "#/attributeCatalog/lotus.product_name"
+          },
+          {
+            "name": "profile.product_version",
+            "location": "body",
+            "required": true,
+            "type": "string",
+            "semanticId": "lotus.product_version",
+            "attributeRef": "#/attributeCatalog/lotus.product_version"
+          },
+          {
+            "name": "profile.profile_id",
+            "location": "body",
+            "required": true,
+            "type": "string",
+            "semanticId": "lotus.profile_id",
+            "attributeRef": "#/attributeCatalog/lotus.profile_id"
+          },
+          {
+            "name": "profile.revision",
+            "location": "body",
+            "required": true,
+            "type": "string",
+            "semanticId": "lotus.revision",
+            "attributeRef": "#/attributeCatalog/lotus.revision"
+          },
+          {
+            "name": "profile.tenant_id",
+            "location": "body",
+            "required": true,
+            "type": "string",
+            "semanticId": "lotus.tenant_id",
+            "attributeRef": "#/attributeCatalog/lotus.tenant_id"
+          },
+          {
+            "name": "profile.composite_id",
+            "location": "body",
+            "required": true,
+            "type": "string",
+            "semanticId": "lotus.composite_id",
+            "attributeRef": "#/attributeCatalog/lotus.composite_id"
+          },
+          {
+            "name": "profile.method_id",
+            "location": "body",
+            "required": true,
+            "type": "string",
+            "semanticId": "lotus.method_id",
+            "attributeRef": "#/attributeCatalog/lotus.method_id"
+          },
+          {
+            "name": "profile.method_revision",
+            "location": "body",
+            "required": true,
+            "type": "string",
+            "semanticId": "lotus.method_revision",
+            "attributeRef": "#/attributeCatalog/lotus.method_revision"
+          },
+          {
+            "name": "profile.schedule_id",
+            "location": "body",
+            "required": true,
+            "type": "string",
+            "semanticId": "lotus.schedule_id",
+            "attributeRef": "#/attributeCatalog/lotus.schedule_id"
+          },
+          {
+            "name": "profile.schedule_revision",
+            "location": "body",
+            "required": true,
+            "type": "string",
+            "semanticId": "lotus.schedule_revision",
+            "attributeRef": "#/attributeCatalog/lotus.schedule_revision"
+          },
+          {
+            "name": "profile.effective_from",
+            "location": "body",
+            "required": true,
+            "type": "string",
+            "semanticId": "lotus.effective_from",
+            "attributeRef": "#/attributeCatalog/lotus.effective_from"
+          },
+          {
+            "name": "profile.effective_to",
+            "location": "body",
+            "required": true,
+            "type": "string",
+            "semanticId": "lotus.effective_to",
+            "attributeRef": "#/attributeCatalog/lotus.effective_to"
+          },
+          {
+            "name": "profile.calendar_binding",
+            "location": "body",
+            "required": true,
+            "type": "EvidenceBinding",
+            "semanticId": "lotus.calendar_binding",
+            "attributeRef": "#/attributeCatalog/lotus.calendar_binding"
+          },
+          {
+            "name": "profile.calendar_binding.product_name",
+            "location": "body",
+            "required": true,
+            "type": "string",
+            "semanticId": "lotus.product_name",
+            "attributeRef": "#/attributeCatalog/lotus.product_name"
+          },
+          {
+            "name": "profile.calendar_binding.product_version",
+            "location": "body",
+            "required": true,
+            "type": "string",
+            "semanticId": "lotus.product_version",
+            "attributeRef": "#/attributeCatalog/lotus.product_version"
+          },
+          {
+            "name": "profile.calendar_binding.revision",
+            "location": "body",
+            "required": true,
+            "type": "string",
+            "semanticId": "lotus.revision",
+            "attributeRef": "#/attributeCatalog/lotus.revision"
+          },
+          {
+            "name": "profile.calendar_binding.digest",
+            "location": "body",
+            "required": true,
+            "type": "string",
+            "semanticId": "lotus.digest",
+            "attributeRef": "#/attributeCatalog/lotus.digest"
+          },
+          {
+            "name": "profile.reporting_currency",
+            "location": "body",
+            "required": true,
+            "type": "string",
+            "semanticId": "lotus.reporting_currency",
+            "attributeRef": "#/attributeCatalog/lotus.reporting_currency"
+          },
+          {
+            "name": "profile.gross_source_basis",
+            "location": "body",
+            "required": true,
+            "type": "string",
+            "semanticId": "lotus.gross_source_basis",
+            "attributeRef": "#/attributeCatalog/lotus.gross_source_basis"
+          },
+          {
+            "name": "profile.fee_component",
+            "location": "body",
+            "required": true,
+            "type": "string",
+            "semanticId": "lotus.fee_component",
+            "attributeRef": "#/attributeCatalog/lotus.fee_component"
+          },
+          {
+            "name": "profile.transaction_cost_treatment",
+            "location": "body",
+            "required": true,
+            "type": "string",
+            "semanticId": "lotus.transaction_cost_treatment",
+            "attributeRef": "#/attributeCatalog/lotus.transaction_cost_treatment"
+          },
+          {
+            "name": "profile.bundled_fee_context",
+            "location": "body",
+            "required": true,
+            "type": "string",
+            "semanticId": "lotus.bundled_fee_context",
+            "attributeRef": "#/attributeCatalog/lotus.bundled_fee_context"
+          },
+          {
+            "name": "profile.rate_basis",
+            "location": "body",
+            "required": true,
+            "type": "string",
+            "semanticId": "lotus.rate_basis",
+            "attributeRef": "#/attributeCatalog/lotus.rate_basis"
+          },
+          {
+            "name": "profile.timing",
+            "location": "body",
+            "required": true,
+            "type": "string",
+            "semanticId": "lotus.timing",
+            "attributeRef": "#/attributeCatalog/lotus.timing"
+          },
+          {
+            "name": "profile.transformation",
+            "location": "body",
+            "required": true,
+            "type": "string",
+            "semanticId": "lotus.transformation",
+            "attributeRef": "#/attributeCatalog/lotus.transformation"
+          },
+          {
+            "name": "profile.asset_treatment",
+            "location": "body",
+            "required": true,
+            "type": "string",
+            "semanticId": "lotus.asset_treatment",
+            "attributeRef": "#/attributeCatalog/lotus.asset_treatment"
+          },
+          {
+            "name": "profile.monetary_precision",
+            "location": "body",
+            "required": true,
+            "type": "string",
+            "semanticId": "lotus.monetary_precision",
+            "attributeRef": "#/attributeCatalog/lotus.monetary_precision"
+          },
+          {
+            "name": "profile.standards_applicability",
+            "location": "body",
+            "required": true,
+            "type": "string",
+            "semanticId": "lotus.standards_applicability",
+            "attributeRef": "#/attributeCatalog/lotus.standards_applicability"
+          },
+          {
+            "name": "profile.periods",
+            "location": "body",
+            "required": true,
+            "type": "array",
+            "semanticId": "lotus.periods",
+            "attributeRef": "#/attributeCatalog/lotus.periods"
+          },
+          {
+            "name": "profile.periods[].period_start",
+            "location": "body",
+            "required": true,
+            "type": "string",
+            "semanticId": "lotus.period_start",
+            "attributeRef": "#/attributeCatalog/lotus.period_start"
+          },
+          {
+            "name": "profile.periods[].period_end",
+            "location": "body",
+            "required": true,
+            "type": "string",
+            "semanticId": "lotus.period_end",
+            "attributeRef": "#/attributeCatalog/lotus.period_end"
+          },
+          {
+            "name": "profile.periods[].member_rates",
+            "location": "body",
+            "required": true,
+            "type": "array",
+            "semanticId": "lotus.member_rates",
+            "attributeRef": "#/attributeCatalog/lotus.member_rates"
+          },
+          {
+            "name": "profile.periods[].member_rates[].entry_id",
+            "location": "body",
+            "required": true,
+            "type": "string",
+            "semanticId": "lotus.entry_id",
+            "attributeRef": "#/attributeCatalog/lotus.entry_id"
+          },
+          {
+            "name": "profile.periods[].member_rates[].member_id",
+            "location": "body",
+            "required": true,
+            "type": "string",
+            "semanticId": "lotus.member_id",
+            "attributeRef": "#/attributeCatalog/lotus.member_id"
+          },
+          {
+            "name": "profile.periods[].member_rates[].period_fee_fraction",
+            "location": "body",
+            "required": true,
+            "type": "string",
+            "semanticId": "lotus.period_fee_fraction",
+            "attributeRef": "#/attributeCatalog/lotus.period_fee_fraction"
+          },
+          {
+            "name": "published_by",
+            "location": "body",
+            "required": true,
+            "type": "string",
+            "semanticId": "lotus.published_by",
+            "attributeRef": "#/attributeCatalog/lotus.published_by"
+          },
+          {
+            "name": "published_at_utc",
+            "location": "body",
+            "required": true,
+            "type": "string",
+            "semanticId": "lotus.published_at_utc",
+            "attributeRef": "#/attributeCatalog/lotus.published_at_utc"
+          }
+        ]
+      }
+    },
+    {
+      "domain": "performance",
+      "method": "GET",
+      "path": "/performance/composites/model-fee-profiles/{profile_id}/{revision}",
+      "operationId": "read_model_fee_profile_performance_composites_model_fee_profiles__profile_id___revision__get",
+      "summary": "Read an exact retained composite model-fee profile revision",
+      "request": {
+        "fields": [
+          {
+            "name": "profile_id",
+            "location": "path",
+            "required": true,
+            "type": "string",
+            "semanticId": "lotus.profile_id",
+            "attributeRef": "#/attributeCatalog/lotus.profile_id"
+          },
+          {
+            "name": "revision",
+            "location": "path",
+            "required": true,
+            "type": "string",
+            "semanticId": "lotus.revision",
+            "attributeRef": "#/attributeCatalog/lotus.revision"
+          },
+          {
+            "name": "x-actor-id",
+            "location": "header",
+            "required": true,
+            "type": "string",
+            "semanticId": "lotus.x_actor_id",
+            "attributeRef": "#/attributeCatalog/lotus.x_actor_id"
+          },
+          {
+            "name": "x-role",
+            "location": "header",
+            "required": true,
+            "type": "string",
+            "semanticId": "lotus.x_role",
+            "attributeRef": "#/attributeCatalog/lotus.x_role"
+          },
+          {
+            "name": "X-Tenant-Id",
+            "location": "header",
+            "required": true,
+            "type": "string",
+            "semanticId": "lotus.x_tenant_id",
+            "attributeRef": "#/attributeCatalog/lotus.x_tenant_id"
+          }
+        ]
+      },
+      "response": {
+        "fields": [
+          {
+            "name": "posture",
+            "location": "body",
+            "required": false,
+            "type": "string",
+            "semanticId": "lotus.posture",
+            "attributeRef": "#/attributeCatalog/lotus.posture"
+          },
+          {
+            "name": "binding",
+            "location": "body",
+            "required": true,
+            "type": "EvidenceBinding",
+            "semanticId": "lotus.binding",
+            "attributeRef": "#/attributeCatalog/lotus.binding"
+          },
+          {
+            "name": "binding.product_name",
+            "location": "body",
+            "required": true,
+            "type": "string",
+            "semanticId": "lotus.product_name",
+            "attributeRef": "#/attributeCatalog/lotus.product_name"
+          },
+          {
+            "name": "binding.product_version",
+            "location": "body",
+            "required": true,
+            "type": "string",
+            "semanticId": "lotus.product_version",
+            "attributeRef": "#/attributeCatalog/lotus.product_version"
+          },
+          {
+            "name": "binding.revision",
+            "location": "body",
+            "required": true,
+            "type": "string",
+            "semanticId": "lotus.revision",
+            "attributeRef": "#/attributeCatalog/lotus.revision"
+          },
+          {
+            "name": "binding.digest",
+            "location": "body",
+            "required": true,
+            "type": "string",
+            "semanticId": "lotus.digest",
+            "attributeRef": "#/attributeCatalog/lotus.digest"
+          },
+          {
+            "name": "profile",
+            "location": "body",
+            "required": true,
+            "type": "CompositePeriodicModelFeeProfile-Output",
+            "semanticId": "lotus.profile",
+            "attributeRef": "#/attributeCatalog/lotus.profile"
+          },
+          {
+            "name": "profile.product_name",
+            "location": "body",
+            "required": true,
+            "type": "string",
+            "semanticId": "lotus.product_name",
+            "attributeRef": "#/attributeCatalog/lotus.product_name"
+          },
+          {
+            "name": "profile.product_version",
+            "location": "body",
+            "required": true,
+            "type": "string",
+            "semanticId": "lotus.product_version",
+            "attributeRef": "#/attributeCatalog/lotus.product_version"
+          },
+          {
+            "name": "profile.profile_id",
+            "location": "body",
+            "required": true,
+            "type": "string",
+            "semanticId": "lotus.profile_id",
+            "attributeRef": "#/attributeCatalog/lotus.profile_id"
+          },
+          {
+            "name": "profile.revision",
+            "location": "body",
+            "required": true,
+            "type": "string",
+            "semanticId": "lotus.revision",
+            "attributeRef": "#/attributeCatalog/lotus.revision"
+          },
+          {
+            "name": "profile.tenant_id",
+            "location": "body",
+            "required": true,
+            "type": "string",
+            "semanticId": "lotus.tenant_id",
+            "attributeRef": "#/attributeCatalog/lotus.tenant_id"
+          },
+          {
+            "name": "profile.composite_id",
+            "location": "body",
+            "required": true,
+            "type": "string",
+            "semanticId": "lotus.composite_id",
+            "attributeRef": "#/attributeCatalog/lotus.composite_id"
+          },
+          {
+            "name": "profile.method_id",
+            "location": "body",
+            "required": true,
+            "type": "string",
+            "semanticId": "lotus.method_id",
+            "attributeRef": "#/attributeCatalog/lotus.method_id"
+          },
+          {
+            "name": "profile.method_revision",
+            "location": "body",
+            "required": true,
+            "type": "string",
+            "semanticId": "lotus.method_revision",
+            "attributeRef": "#/attributeCatalog/lotus.method_revision"
+          },
+          {
+            "name": "profile.schedule_id",
+            "location": "body",
+            "required": true,
+            "type": "string",
+            "semanticId": "lotus.schedule_id",
+            "attributeRef": "#/attributeCatalog/lotus.schedule_id"
+          },
+          {
+            "name": "profile.schedule_revision",
+            "location": "body",
+            "required": true,
+            "type": "string",
+            "semanticId": "lotus.schedule_revision",
+            "attributeRef": "#/attributeCatalog/lotus.schedule_revision"
+          },
+          {
+            "name": "profile.effective_from",
+            "location": "body",
+            "required": true,
+            "type": "string",
+            "semanticId": "lotus.effective_from",
+            "attributeRef": "#/attributeCatalog/lotus.effective_from"
+          },
+          {
+            "name": "profile.effective_to",
+            "location": "body",
+            "required": true,
+            "type": "string",
+            "semanticId": "lotus.effective_to",
+            "attributeRef": "#/attributeCatalog/lotus.effective_to"
+          },
+          {
+            "name": "profile.calendar_binding",
+            "location": "body",
+            "required": true,
+            "type": "EvidenceBinding",
+            "semanticId": "lotus.calendar_binding",
+            "attributeRef": "#/attributeCatalog/lotus.calendar_binding"
+          },
+          {
+            "name": "profile.calendar_binding.product_name",
+            "location": "body",
+            "required": true,
+            "type": "string",
+            "semanticId": "lotus.product_name",
+            "attributeRef": "#/attributeCatalog/lotus.product_name"
+          },
+          {
+            "name": "profile.calendar_binding.product_version",
+            "location": "body",
+            "required": true,
+            "type": "string",
+            "semanticId": "lotus.product_version",
+            "attributeRef": "#/attributeCatalog/lotus.product_version"
+          },
+          {
+            "name": "profile.calendar_binding.revision",
+            "location": "body",
+            "required": true,
+            "type": "string",
+            "semanticId": "lotus.revision",
+            "attributeRef": "#/attributeCatalog/lotus.revision"
+          },
+          {
+            "name": "profile.calendar_binding.digest",
+            "location": "body",
+            "required": true,
+            "type": "string",
+            "semanticId": "lotus.digest",
+            "attributeRef": "#/attributeCatalog/lotus.digest"
+          },
+          {
+            "name": "profile.reporting_currency",
+            "location": "body",
+            "required": true,
+            "type": "string",
+            "semanticId": "lotus.reporting_currency",
+            "attributeRef": "#/attributeCatalog/lotus.reporting_currency"
+          },
+          {
+            "name": "profile.gross_source_basis",
+            "location": "body",
+            "required": true,
+            "type": "string",
+            "semanticId": "lotus.gross_source_basis",
+            "attributeRef": "#/attributeCatalog/lotus.gross_source_basis"
+          },
+          {
+            "name": "profile.fee_component",
+            "location": "body",
+            "required": true,
+            "type": "string",
+            "semanticId": "lotus.fee_component",
+            "attributeRef": "#/attributeCatalog/lotus.fee_component"
+          },
+          {
+            "name": "profile.transaction_cost_treatment",
+            "location": "body",
+            "required": true,
+            "type": "string",
+            "semanticId": "lotus.transaction_cost_treatment",
+            "attributeRef": "#/attributeCatalog/lotus.transaction_cost_treatment"
+          },
+          {
+            "name": "profile.bundled_fee_context",
+            "location": "body",
+            "required": true,
+            "type": "string",
+            "semanticId": "lotus.bundled_fee_context",
+            "attributeRef": "#/attributeCatalog/lotus.bundled_fee_context"
+          },
+          {
+            "name": "profile.rate_basis",
+            "location": "body",
+            "required": true,
+            "type": "string",
+            "semanticId": "lotus.rate_basis",
+            "attributeRef": "#/attributeCatalog/lotus.rate_basis"
+          },
+          {
+            "name": "profile.timing",
+            "location": "body",
+            "required": true,
+            "type": "string",
+            "semanticId": "lotus.timing",
+            "attributeRef": "#/attributeCatalog/lotus.timing"
+          },
+          {
+            "name": "profile.transformation",
+            "location": "body",
+            "required": true,
+            "type": "string",
+            "semanticId": "lotus.transformation",
+            "attributeRef": "#/attributeCatalog/lotus.transformation"
+          },
+          {
+            "name": "profile.asset_treatment",
+            "location": "body",
+            "required": true,
+            "type": "string",
+            "semanticId": "lotus.asset_treatment",
+            "attributeRef": "#/attributeCatalog/lotus.asset_treatment"
+          },
+          {
+            "name": "profile.monetary_precision",
+            "location": "body",
+            "required": true,
+            "type": "string",
+            "semanticId": "lotus.monetary_precision",
+            "attributeRef": "#/attributeCatalog/lotus.monetary_precision"
+          },
+          {
+            "name": "profile.standards_applicability",
+            "location": "body",
+            "required": true,
+            "type": "string",
+            "semanticId": "lotus.standards_applicability",
+            "attributeRef": "#/attributeCatalog/lotus.standards_applicability"
+          },
+          {
+            "name": "profile.periods",
+            "location": "body",
+            "required": true,
+            "type": "array",
+            "semanticId": "lotus.periods",
+            "attributeRef": "#/attributeCatalog/lotus.periods"
+          },
+          {
+            "name": "profile.periods[].period_start",
+            "location": "body",
+            "required": true,
+            "type": "string",
+            "semanticId": "lotus.period_start",
+            "attributeRef": "#/attributeCatalog/lotus.period_start"
+          },
+          {
+            "name": "profile.periods[].period_end",
+            "location": "body",
+            "required": true,
+            "type": "string",
+            "semanticId": "lotus.period_end",
+            "attributeRef": "#/attributeCatalog/lotus.period_end"
+          },
+          {
+            "name": "profile.periods[].member_rates",
+            "location": "body",
+            "required": true,
+            "type": "array",
+            "semanticId": "lotus.member_rates",
+            "attributeRef": "#/attributeCatalog/lotus.member_rates"
+          },
+          {
+            "name": "profile.periods[].member_rates[].entry_id",
+            "location": "body",
+            "required": true,
+            "type": "string",
+            "semanticId": "lotus.entry_id",
+            "attributeRef": "#/attributeCatalog/lotus.entry_id"
+          },
+          {
+            "name": "profile.periods[].member_rates[].member_id",
+            "location": "body",
+            "required": true,
+            "type": "string",
+            "semanticId": "lotus.member_id",
+            "attributeRef": "#/attributeCatalog/lotus.member_id"
+          },
+          {
+            "name": "profile.periods[].member_rates[].period_fee_fraction",
+            "location": "body",
+            "required": true,
+            "type": "string",
+            "semanticId": "lotus.period_fee_fraction",
+            "attributeRef": "#/attributeCatalog/lotus.period_fee_fraction"
+          },
+          {
+            "name": "published_by",
+            "location": "body",
+            "required": true,
+            "type": "string",
+            "semanticId": "lotus.published_by",
+            "attributeRef": "#/attributeCatalog/lotus.published_by"
+          },
+          {
+            "name": "published_at_utc",
+            "location": "body",
+            "required": true,
+            "type": "string",
+            "semanticId": "lotus.published_at_utc",
+            "attributeRef": "#/attributeCatalog/lotus.published_at_utc"
+          }
+        ]
+      }
+    },
+    {
+      "domain": "performance",
+      "method": "POST",
       "path": "/performance/composites/materializations",
       "operationId": "materialize_composite_performance_composites_materializations_post",
       "summary": "Queue governed composite member-fact materialization",
@@ -14914,6 +16514,14 @@
             "type": "object",
             "semanticId": "lotus.currency_normalization_binding",
             "attributeRef": "#/attributeCatalog/lotus.currency_normalization_binding"
+          },
+          {
+            "name": "model_fee_binding",
+            "location": "body",
+            "required": false,
+            "type": "object",
+            "semanticId": "lotus.model_fee_binding",
+            "attributeRef": "#/attributeCatalog/lotus.model_fee_binding"
           }
         ]
       },

@@ -1750,3 +1750,36 @@ Proof:
 Judgment: RFC-049 reaches the expected standard for the approved scope once this post-merge audit
 patch is merged. Remaining advanced composite analytics are deliberate unsupported boundaries, not
 unfinished accepted scope.
+
+## Issue #609 Periodic Model-Fee Extension: Migration Note v1
+
+This later bounded increment adds one explicit periodic management-fee calculated view
+and an immutable method-input catalog to the existing materialization architecture. It
+does not revise the original RFC closure or complete the broader #609 acceptance set.
+Performance owns profile bytes; Manage owns definition/membership and independent
+RETURN_METHOD_CALENDAR approval. Catalog publication grants no approval or activation.
+
+The existing fenced CompositeMetadataStore owner additively creates
+`composite_model_fee_profiles`, retaining canonical input and original publishing actor/time
+separately. Exact tenant/profile/revision identity and exact scoped product/version/revision/digest
+resolution refuse conflicting content and ambiguity. SQL update/delete guards preserve retained
+input. A configured LOCAL_CATALOG source supplies these bytes to the existing resolution port;
+the default is UNAVAILABLE and the independent verifier remains unavailable by default.
+No accounting, financial-result, approval or membership ledger is introduced.
+
+The owner expands only the known materialization return-view predicate to NET_MODEL_FEE,
+preserving every old gross/actual-net command/source/outcome/actor/revision byte. Six-store
+read-only startup verifies the resulting 14-table inventory. Unknown populated schema or
+dependencies refuse; no existing row receives fabricated method input or backfilled approval.
+Explicit empty catalog rollback uses the shared schema fence and PostgreSQL exclusive table
+locking; nonempty rollback refuses retained-content loss. Older binaries are not a safe restore.
+See [migration contract](../standards/migration-contract.md) and
+[caller/recovery guide](../guides/composite_materialization.md).
+
+Registered API/worker and real PostgreSQL controls cover original/corrected retrieval,
+concurrent conflict refusal, SQL immutability, populated migration, transactional rollback,
+and fresh-interpreter original replay without child lookup. Their upstream and independent
+method authority are synthetic. The
+[versioned methodology](../methodologies/metrics/metric-composite-periodic-model-fee.md)
+defines the formula, precision and refusal boundaries. Flat/tiered/AUM schedules, specialized
+adjustments, qualified customer adoption and institutional authority remain separate acceptance.
