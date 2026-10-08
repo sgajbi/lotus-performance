@@ -142,3 +142,82 @@ def test_direct_conversion_requires_every_snapshot_to_have_source_owned_retrieva
         )
         == 2
     )
+
+
+@pytest.mark.parametrize(
+    "fault",
+    [
+        "request-hash",
+        "snapshot-id",
+        "missing-wire",
+        "duplicate-wire",
+        "wrong-pair",
+        "inverted-window",
+        "stale-cut",
+        "duplicate-rate",
+        "outside-window",
+        "nonpositive-rate",
+        "wrong-fixing",
+        "no-wires",
+    ],
+)
+def test_direct_custody_refuses_corrupt_transport_and_observation_evidence(fault):
+    calculation_id = uuid4()
+    first, snapshot = _retrieval(
+        calculation_id, start="2026-01-04", end="2026-01-05", rates=[("2026-01-04", "1.3"), ("2026-01-05", "1.4")]
+    )
+    retrievals = [first]
+    if fault == "wrong-pair":
+        first["response_wire"]["from_currency"] = "GBP"
+    elif fault == "inverted-window":
+        first["request_wire"]["start_date"] = "2026-01-06"
+    elif fault in ("duplicate-rate", "outside-window", "nonpositive-rate", "wrong-fixing"):
+        response = first["response_wire"]
+        if fault == "duplicate-rate":
+            response["rates"].append(deepcopy(response["rates"][0]))
+        elif fault == "outside-window":
+            response["rates"][0]["rate_date"] = "2026-01-03"
+        else:
+            response["rates"][0]["rate"] = "0" if fault == "nonpositive-rate" else "1.31"
+    request_hash, response_hash = _hash(first["request_wire"]), _hash(first["response_wire"])
+    snapshot.update(
+        request_fingerprint=request_hash,
+        response_fingerprint=response_hash,
+        paging_metadata=first["request_wire"],
+        snapshot_id=hashlib.sha256(f"{calculation_id}:fx_rates:EUR/USD:{request_hash}".encode()).hexdigest(),
+    )
+    member = _member(retrievals)
+    if fault == "request-hash":
+        snapshot["request_fingerprint"] = "1" * 64
+    elif fault == "snapshot-id":
+        snapshot["snapshot_id"] = "2" * 64
+    elif fault == "missing-wire":
+        snapshot["response_fingerprint"] = "3" * 64
+    elif fault == "duplicate-wire":
+        member = member.model_copy(update={"retrieval_wires": [*member.retrieval_wires, member.retrieval_wires[0]]})
+    elif fault == "stale-cut":
+        snapshot["as_of_date"] = "2026-01-04"
+    elif fault == "no-wires":
+        member = member.model_copy(update={"retrieval_wires": []})
+        snapshot = None
+    expected = {
+        "request-hash": "Retained FX request identity differs",
+        "snapshot-id": "Retained FX request identity differs",
+        "missing-wire": "no unique matching FX retrieval",
+        "duplicate-wire": "no unique matching FX retrieval",
+        "wrong-pair": "quote pair is reversed or incompatible",
+        "inverted-window": "window differs from custody",
+        "stale-cut": "window differs from custody",
+        "duplicate-rate": "invalid or out-of-window FX observation",
+        "outside-window": "invalid or out-of-window FX observation",
+        "nonpositive-rate": "invalid or out-of-window FX observation",
+        "wrong-fixing": "Admitted fixing differs",
+        "no-wires": "source-owned FX retrieval wires are unavailable",
+    }[fault]
+    with pytest.raises(ValueError, match=expected):
+        require_fx_snapshot_custody(
+            member,
+            reporting_currency="USD",
+            calculation_id=calculation_id,
+            snapshots=[] if snapshot is None else [snapshot],
+        )

@@ -172,3 +172,31 @@ def test_retained_wire_rechecks_independent_verification_without_source_refetch(
     with pytest.raises(APIUnprocessableEntityError) as error:
         admit_composite_fx_source(_request(wire), retained_wire=admitted.source_wire)
     assert error.value.error_code == "COMPOSITE_FX_INDEPENDENT_VERIFICATION_UNAVAILABLE"
+
+
+def test_verifier_receipt_requires_its_own_canonical_content_identity():
+    wire = normalization_wire()
+
+    def corrupt_receipt(request):
+        verified = _verified(request)
+        return replace(
+            verified,
+            verification_receipt=verified.verification_receipt.model_copy(
+                update={"content_hash": "sha256:" + "8" * 64}
+            ),
+        )
+
+    with pytest.raises(APIUnprocessableEntityError) as error:
+        admit_composite_fx_source(_request(wire), **_ports(wire, verify=corrupt_receipt))
+    assert error.value.error_code == "COMPOSITE_FX_VERIFICATION_RECEIPT_REFUSED"
+
+
+def test_verified_fx_cannot_override_the_admitted_native_definition_currency():
+    from app.services.composite_materialization.currency_source_admission import require_composite_native_currency
+
+    wire = normalization_wire()
+    admitted = admit_composite_fx_source(_request(wire), **_ports(wire))
+    require_composite_native_currency(admitted, SimpleNamespace(reporting_currency="USD"))
+    with pytest.raises(APIUnprocessableEntityError) as error:
+        require_composite_native_currency(admitted, SimpleNamespace(reporting_currency="GBP"))
+    assert error.value.error_code == "COMPOSITE_FX_NATIVE_CURRENCY_MISMATCH"
