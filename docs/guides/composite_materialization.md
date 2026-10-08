@@ -37,9 +37,11 @@ refuses before any member facts are released and retains the full admitted popul
 Without an FX binding, the historical native/report equality rule remains in force.
 Registered EUR-native and GBP-native composites can report this example in USD without
 altering membership, definition identity or inception metadata. Two individually
-complete windows with different native regimes refuse with
+complete windows with different composite native regimes or a continuing member's
+source-money currency change refuse with
 `COMPOSITE_VECTOR_CURRENCY_REGIME_UNAVAILABLE`; no approved history treatment is
 inferred from a reporting projection or a definition update.
+Member order and admitted arrivals/departures alone do not constitute currency-regime drift.
 
 The defined method is unhedged, direct pair, complete natural daily observations,
 UTC EOD fixing and exact decimal monetary multiplication without intermediate rounding.
