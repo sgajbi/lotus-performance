@@ -25,6 +25,7 @@ pinned-window requests retain their exact scope; legacy unbound defaults remain 
 Explicit legacy chronology remains readable; latest selection still requires a completed
 covering publication. Direct FX custody refuses every snapshot lacking its exact
 source-owned request/response retrieval wire, including extra otherwise well-formed snapshots.
+The reader validates all execution FX snapshots, including unexpected currency pairs.
 Identity conversions retain no FX snapshots or retrieval wires.
 Native regime changes, including a continuing member's source-money currency change, across a
 window vector require explicit history treatment and currently refuse.

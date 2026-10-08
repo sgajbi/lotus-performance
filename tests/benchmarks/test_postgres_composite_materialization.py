@@ -437,7 +437,10 @@ def test_postgres_registered_fx_normalization_retained_extra_direct_snapshot_ref
     registered_control(monkeypatch, "extra-direct-snapshot")
 
 
-@pytest.mark.parametrize("normalization_fault", ["unconsumed-snapshot", "unconsumed-identity-snapshot"])
+@pytest.mark.parametrize(
+    "normalization_fault",
+    ["unconsumed-snapshot", "unconsumed-identity-snapshot", "unexpected-direct-pair", "unexpected-identity-pair"],
+)
 def test_postgres_registered_fx_normalization_unconsumed_source_snapshot_refusal(
     postgres_materialization_stores, monkeypatch, normalization_fault
 ):

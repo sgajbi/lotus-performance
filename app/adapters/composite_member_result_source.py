@@ -185,12 +185,7 @@ def _member_money_evidence(command, reference, execution, native, tenant_id, cur
         member,
         reporting_currency=command.reporting_currency,
         calculation_id=reference.calculation_id,
-        snapshots=[
-            asdict(row)
-            for row in execution.upstream_snapshots
-            if row.upstream_endpoint == "fx_rates"
-            and row.source_identifier == f"{member.source_money_currency}/{command.reporting_currency}"
-        ],
+        snapshots=[asdict(row) for row in execution.upstream_snapshots if row.upstream_endpoint == "fx_rates"],
     )
     evidence = normalize_member_money(
         command, native, admitted, member_id=reference.portfolio_id, fx_snapshots=snapshots

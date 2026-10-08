@@ -1099,7 +1099,8 @@ manifests own each verified reporting projection's currency; publishing one cann
 explicit legacy-window default truth. Latest selection still requires a completed manifest.
 Require exact consumed/supplied request-response snapshot keys for direct FX custody;
 unmatched snapshots refuse, never silently discard them. Identity custody requires empty
-snapshots and retrieval wires. Resolve omitted
+snapshots and retrieval wires. Pass all execution FX snapshots to custody validation;
+never prefilter unexpected pairs. Resolve omitted
 currency through covering-window publication authority in the existing fact selector; multiple
 tenant/composite/window/view/sequence projections require explicit currency. TWR and
 inspection share that selector, including legacy default and release/completeness checks.
