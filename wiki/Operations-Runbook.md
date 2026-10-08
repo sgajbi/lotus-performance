@@ -4,6 +4,12 @@ This page is the first stop for production-support orientation. It summarizes th
 that operators can use to distinguish application health, durable execution progress, lineage
 availability, recovery posture, and retention posture.
 
+| Operator need | Next action |
+| --- | --- |
+| Diagnose a failing or delayed request | Use the [first-response decision tree](#first-response-decision-tree) and retain request/calculation identity. |
+| Verify deployment evidence | Check [current scope](#current-scope-and-evidence), actual container controls and the source-bound supply-chain decision below. |
+| Plan recovery or retention | Follow the linked runbooks and preserve native exits and owned-resource evidence before claiming success. |
+
 ## Current scope and evidence
 
 This runbook covers the current `lotus-performance` service runtime: health and readiness checks,
@@ -23,11 +29,13 @@ retains its restricted owner role. Verify actual container settings rather than 
 isolated diagnostic's security flags as deployment evidence.
 
 These controls reduce privilege exposure without fixing package advisories. Eight container
-acceptances expired on 2026-10-05; #624 retains fresh scan evidence and the pending decision.
-Do not extend dates or remove findings because a helper/module is currently unreachable. A
-proposed temporary decision requires an accountable reviewed owner and at most seven days from
-approval, with earlier reassessment on published stable fixes, image/package changes or weaker
-controls. Source ownership is not institutional risk approval. Read the
+acceptances that expired on October 5 were re-decided through October 15 under delegated delivery
+authority. The [October 8 disposition and scanner refresh](https://github.com/sgajbi/lotus-performance/issues/624#issuecomment-6058665038)
+bind exact source/image, per-advisory exposure and actual four-role controls. The gate requires
+decision evidence, a nonfuture review and at most seven days; published stable fixes, changed
+packages or weaker controls require earlier reassessment. Hold release and stop affected roles
+until a supported verified image is available when those conditions fail. Repository
+accountability is not independent institutional risk approval. Read the
 [supply-chain report](https://github.com/sgajbi/lotus-performance/blob/main/quality/container_supply_chain_report.md)
 for per-advisory applicability, native commands and refusal boundaries.
 

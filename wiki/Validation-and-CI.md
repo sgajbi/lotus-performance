@@ -1,5 +1,7 @@
 # Validation and CI
 
+## Current scope and decision evidence
+
 Container exceptions are reassessed against an exact image and retained scan. The
 [October 8 technical disposition](https://github.com/sgajbi/lotus-performance/issues/624#issuecomment-6058552287)
 expires October 15 and records per-advisory exposure, actual four-role privilege controls and
