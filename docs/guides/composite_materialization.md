@@ -13,6 +13,92 @@ successful live-source acceptance.
 
 ## API And Authority
 
+### Periodic Model-Fee Materialization
+
+`NET_MODEL_FEE` requires `model_fee_binding`, an immutable
+`CompositePeriodicModelFeeProfile:v1` product/version/revision/digest. Other return views
+forbid that binding; omitting it preserves their historical command identity. The
+binding must match the admitted Manage v2 internal return-method binding. Resolution
+uses the configured Performance catalog and the existing independent return-method/calendar
+approval boundary. Publishing method bytes grants no approval. Resolution defaults to
+`UNAVAILABLE`; setting `COMPOSITE_MODEL_FEE_SOURCE_MODE=LOCAL_CATALOG` enables exact retained
+profile resolution. Independent verification still defaults unavailable. Owning-test authority
+ports are `SYNTHETIC_TEST_ONLY` evidence, not customer activation.
+
+Publish the complete strict profile with `POST /performance/composites/model-fee-profiles`.
+The 200 receipt has `posture: "UNAPPROVED_METHOD_INPUT"`, its canonical `binding`, the
+unchanged `profile`, and original `published_by`/`published_at_utc` custody. Read exactly
+that revision with `GET /performance/composites/model-fee-profiles/{profile_id}/{revision}`.
+Both routes require admitted `X-Tenant-Id`, `X-Actor-Id`, `X-Role`, `X-Correlation-Id`
+and service identity (`X-Service-Identity` or existing Authorization identity). Publication
+requires `X-Capabilities: operations.runtime.manage`; retrieval requires
+`operations.runtime.read`. These capability checks always apply to catalog access.
+An identical retry preserves original custody. Changed content under the same tenant,
+profile id and revision returns 409; a correction needs a distinct immutable revision.
+Missing exact tenant-scoped retrieval returns 404. Profiles admit at most 128 complete
+periods, 1000 rate entries per period and two MiB of canonical UTF-8 method wire.
+
+The worker resolves only the exact tenant/composite/product/version/revision/digest
+binding. It never selects latest or first. Independent Manage method approval, complete
+attested membership, calendar and source pins must still pass before any facts release.
+Published input cannot replace those controls. Retained original materialization replay
+uses its pinned original bytes; a later catalog correction cannot rewrite that evidence.
+
+The first convention requires verified gross member receipts and independently
+declared native beginning/ending assets. Its profile supplies exact complete periods,
+sorted full-universe member rate entries, schedule/method/calendar revisions, currency
+and explicit post-return fee fractions. It applies `(1 + gross) * (1 - fee) - 1` to
+each member before asset weighting. It retains the original gross evidence inside a
+distinct v4 member receipt, without changing assets or emitting a capital withdrawal.
+Actual-net receipts refuse as inputs. Explicit zero waivers are supported; negative
+model fees, rebates, annual-rate conversions, bundled contexts, transaction-cost
+rededuction and rates >= 1 refuse. Read the
+[methodology and variable dictionary](../methodologies/metrics/metric-composite-periodic-model-fee.md).
+
+Register through this page's existing materialization API with
+`return_view: "NET_MODEL_FEE"` and the published exact `model_fee_binding`; every
+definition/membership/universe/source-cut and member-calculation pin remains mandatory.
+Do not manufacture binding digests or use a generated schedule as an approved supplier.
+The returned 202 result path reports WAITING/BLOCKED/COMPLETE; only COMPLETE releases
+the model facts. Query `POST /performance/composites/twr` with that same fee view,
+reporting currency and sequence. `periods[].return_value` remains a decimal ratio.
+
+From the repository root, a neutral registered example is executable with the pinned
+environment after selecting an isolated `LINEAGE_METADATA_DATABASE_URL` for integration
+session bootstrap:
+
+```powershell
+# Working directory: lotus-performance repository root; use an empty owned test DB.
+$exampleDatabase = Join-Path $env:TEMP "composite-model-fee-$([guid]::NewGuid().ToString('N')).db"
+$env:LINEAGE_METADATA_DATABASE_URL = "sqlite:///$($exampleDatabase.Replace('\', '/'))"
+.venv/Scripts/python.exe -m pytest tests/integration/test_composite_model_fee_materialization_api.py -q
+```
+
+```bash
+# Working directory: lotus-performance repository root; use an empty owned test DB.
+LINEAGE_METADATA_DATABASE_URL="sqlite:///${TMPDIR:-/tmp}/composite-model-fee-$(date +%s)-$$.db" \
+  .venv/bin/python -m pytest tests/integration/test_composite_model_fee_materialization_api.py -q
+```
+
+These tests call real registered portfolio and composite APIs and the durable worker,
+with explicitly synthetic upstream/method ports. They bind expected member ratios,
+unchanged aggregation precision, original-method replay, actual-net refusal, tenant
+isolation and changed rate/schedule/calendar refusal. They publish and retrieve actual
+local catalog input. Their upstream authority and independent approval remain synthetic;
+they do not establish customer activation. Flat/tiered/AUM and specialized adjustments
+remain indexed #609 work.
+
+Schema cutover requires the explicit existing owner `make migration-apply` before API
+and worker startup. The forward-only change expands the known materialization view
+constraint while preserving all legacy gross/actual-net row bytes and progress. SQLite
+replacement refuses custom columns/guards/indexes/triggers/views/foreign dependencies;
+PostgreSQL alters the check transactionally and validates retained rows. Runtime
+verification remains read-only. Drain workers, capture database plus lineage/source
+backups, apply the matching revision and require all six verification checks before
+restart. On failure keep workloads stopped; use reviewed forward correction or an
+isolated backup restore under the [migration contract](../standards/migration-contract.md).
+Never reset the ledger, edit original method bytes or erase evidence to repair replay.
+
 ### Retained Member Currency Normalization
 
 An optional `currency_normalization_binding` pins `CompositeFXNormalizationSource:v1`

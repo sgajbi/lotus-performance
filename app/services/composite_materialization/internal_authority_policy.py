@@ -1,11 +1,16 @@
 """Bind v2 selections to the genuine shipped internal member receipt."""
 
-from app.models.composite_materialization import CompositeNormalizedMemberSourceEvidence
+from app.models.composite_materialization import (
+    CompositeModelFeeMemberEvidence,
+    CompositeNormalizedMemberSourceEvidence,
+)
 from app.services.composite_materialization.authority_policy import authority_refusal, selection_for_window
 from app.services.reproducibility_service import generate_value_fingerprint
 
 
 def require_internal_selection_bindings(definition, command, reference, evidence, *, facts):
+    if isinstance(evidence, CompositeModelFeeMemberEvidence):
+        evidence = evidence.gross_evidence
     if isinstance(evidence, CompositeNormalizedMemberSourceEvidence):
         evidence = evidence.native_evidence
     if reference is None or evidence is None:

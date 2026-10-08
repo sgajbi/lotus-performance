@@ -126,6 +126,28 @@ not retained business rows. A same-named stale index or constraint is not accept
 
 ## Durable Upgrade Rules
 
+Issue #609's first model-fee slice expands only the known
+`ck_composite_materialization_view` gross/actual-net predicate to include `NET_MODEL_FEE`.
+The existing fenced transactional schema owner applies it before strict verification;
+ordinary startup does no DDL. Populated legacy rows across WAITING/PUBLISHING/COMPLETE/BLOCKED
+retain their command/source/outcome/actor/revision bytes. SQLite replaces only the exact
+known table without custom columns/guards/indexes/triggers/views/foreign dependencies or
+replacement-name collision; PostgreSQL drops/adds the check in the owner transaction.
+Unknown predicates refuse; later owner failure rolls back the new guard and all rows.
+No new ledger or fee debit table is created. Drain/backup/apply/six-check/restart and isolated
+restore requirements above apply; do not deploy an older enum-restricted binary afterward.
+
+The same CompositeMetadataStore owner additively creates `composite_model_fee_profiles`,
+bringing the existing six-store inventory to 14 durable tables. This subordinate catalog
+retains immutable method-input bytes and original publisher/time custody; it is not a
+financial ledger or approval record. Existing rows need no invented profile backfill.
+Installed identity/product/digest checks and update/delete triggers are verified read-only.
+The explicit `rollback_empty_model_fee_profile_catalog(engine)` owner helper uses the shared
+schema fencing and refuses any nonempty catalog. PostgreSQL also takes an exclusive table
+lock before the count/drop to serialize concurrent publication; SQLite uses BEGIN IMMEDIATE.
+Only a controlled empty catalog can be removed. Preserve populated content for forward
+recovery or an independently proven backup/restore; an older reader is not a safe rollback.
+
 1. Keep **versioned migration** notes in the governing RFC/ADR for every durable schema change.
 2. Prefer deterministic additive upgrades:
    - add nullable columns

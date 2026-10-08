@@ -983,6 +983,26 @@ authority identity; runtime schema verification never performs the migration. Re
 fresh-interpreter replay/recovery proofs. Producer-publication, deployment restart/rollback,
 live qualification and institutional approval remain separate acceptance boundaries.
 
+The #609 periodic model-fee slice reuses the existing materialization ledger, worker,
+source pinning, approval ports and composite engine. `model_fee_binding` is required
+only for NET_MODEL_FEE; absent binding preserves old command identity. Resolve the exact
+immutable strict profile, verify RETURN_METHOD_CALENDAR independently, and transform
+gross member factors before weighting. The first native-receipt profile requires internal
+return/beginning/ending selections and retains v4 gross/fee custody without altering assets.
+Resolution defaults `UNAVAILABLE`; `COMPOSITE_MODEL_FEE_SOURCE_MODE=LOCAL_CATALOG` selects
+Performance's exact immutable method-input catalog under CompositeMetadataStore. Publish/read
+routes always enforce tenant/actor/role/service/correlation and configured capability rules.
+Original publisher/time remain separate from canonical bytes; retries preserve custody,
+conflicting identities refuse and corrections append distinct revisions. Independent approval
+remains unavailable by default. The existing fenced owner adds the catalog and expands the
+known populated view check; all six runtime verifiers remain read-only. Empty catalog rollback
+is an explicit fenced owner operation; populated rollback refuses loss of retained content.
+Preserve all old financial/progress bytes, refuse unknown SQLite dependencies/schema and
+prove rollback plus native PostgreSQL apply/replay. Methodology and caller/recovery truth
+live in `docs/methodologies/metrics/metric-composite-periodic-model-fee.md` and
+`docs/guides/composite_materialization.md`; full #609 alternatives and #610 official freeze
+remain separately open. No supplier or official qualification follows from synthetic ports.
+
 The TWR request's explicit `materialization_ids` path reads 1–120 chronological retained windows
 under PostgreSQL REPEATABLE READ or an explicit SQLite read transaction. Reuse the existing
 materialization reader's source/progress/publication/fact checks; require exact contiguous coverage

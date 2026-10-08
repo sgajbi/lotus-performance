@@ -15,6 +15,7 @@ from app.models.composite_currency_normalization import (
     CompositeFXSnapshot,
     CompositeFXVerificationReceipt,
 )
+from app.models.composite_model_fees import CompositePeriodicMemberFee
 from app.models.composites import CompositeMemberReturnFact, CompositeReturnView, ReportingCurrency
 from app.models.portfolio_asset_evidence import PortfolioSourceAssetEvidence, PortfolioSourceAssetObservation
 from app.models.twr_requests import TWRResolvedExecutionRequest
@@ -22,7 +23,9 @@ from app.models.twr_requests import TWRResolvedExecutionRequest
 SourceReference = Annotated[str, Field(min_length=1, max_length=128, pattern=r"^[A-Za-z0-9_.:-]+$")]
 SourceDigest = Annotated[str, Field(pattern=r"^sha256:[0-9a-f]{64}$")]
 UpstreamDigest = Annotated[str, Field(pattern=r"^[0-9a-f]{64}$")]
-MaterializationReturnView = Literal[CompositeReturnView.GROSS, CompositeReturnView.NET_ACTUAL]
+MaterializationReturnView = Literal[
+    CompositeReturnView.GROSS, CompositeReturnView.NET_ACTUAL, CompositeReturnView.NET_MODEL_FEE
+]
 
 
 class CompositeMemberCalculationReference(BaseModel):
@@ -55,7 +58,7 @@ class CompositeMaterializationCommand(BaseModel):
     reporting_currency: ReportingCurrency = Field(description="Required currency of both returns and member assets.")
     return_view: MaterializationReturnView = Field(
         default=CompositeReturnView.NET_ACTUAL,
-        description="Pinned actual-fee or gross TWR view. Model-fee materialization is not supported.",
+        description="Pinned gross, actual-fee or independently admitted periodic model-fee return view.",
     )
     restatement_sequence: int = Field(ge=1, description="Immutable fact chronology; corrections use a new sequence.")
     member_calculations: list[CompositeMemberCalculationReference] = Field(
@@ -66,9 +69,15 @@ class CompositeMaterializationCommand(BaseModel):
         default=None,
         description="Pinned independently admitted FX source/method evidence. Absence preserves single-currency behavior.",
     )
+    model_fee_binding: EvidenceBinding | None = Field(
+        default=None,
+        description="Immutable independently resolved periodic model-fee profile; required only for NET_MODEL_FEE.",
+    )
 
     @model_validator(mode="after")
     def ordered_unique_members(self) -> CompositeMaterializationCommand:
+        if (self.return_view == CompositeReturnView.NET_MODEL_FEE) != (self.model_fee_binding is not None):
+            raise ValueError("NET_MODEL_FEE requires its own model-fee binding; other views forbid it")
         if self.period_end < self.period_start:
             raise ValueError("period_end cannot be before period_start")
         ids = [item.portfolio_id for item in self.member_calculations]
@@ -81,7 +90,13 @@ class CompositeMaterializationCommand(BaseModel):
         excluded = {"calculation_id"}
         if self.currency_normalization_binding is None:
             excluded.add("currency_normalization_binding")
+        if self.model_fee_binding is None:
+            excluded.add("model_fee_binding")
         return self.model_dump(mode="json", exclude=excluded)
+
+    @property
+    def source_metric_basis(self) -> Literal["GROSS", "NET"]:
+        return "NET" if self.return_view == CompositeReturnView.NET_ACTUAL else "GROSS"
 
 
 class CompositeMemberOutcomeState(StrEnum):
@@ -172,6 +187,29 @@ class CompositeNormalizedMemberSourceEvidence(BaseModel):
     fx_snapshots: list[CompositeFXSnapshot]
 
 
+class CompositeModelFeeMemberEvidence(BaseModel):
+    model_config = ConfigDict(extra="forbid", allow_inf_nan=False)
+    contract_version: Literal["composite-member-source.v4"] = Field(
+        default="composite-member-source.v4",
+        description="Retained original gross evidence and governed model-fee transformation revision.",
+    )
+    gross_evidence: CompositeMemberSourceEvidence | CompositeNormalizedMemberSourceEvidence = Field(
+        description="Unchanged native or FX-normalized gross receipt, including original source-money custody."
+    )
+    gross_receipt_digest: SourceDigest = Field(
+        description="Original gross receipt digest, distinct from this model-fee receipt digest."
+    )
+    gross_return: Decimal = Field(
+        description="Verified retained gross member return as a decimal ratio, preserving its engine precision."
+    )
+    model_fee_binding: EvidenceBinding = Field(
+        description="Exact independently admitted periodic fee-profile product/version/revision/digest."
+    )
+    fee_entry: CompositePeriodicMemberFee = Field(
+        description="Original approved member rate entry for the exact complete period."
+    )
+
+
 class CompositeProviderMemberEvidence(BaseModel):
     model_config = ConfigDict(extra="forbid")
     contract_version: Literal["composite-member-source.v2"] = "composite-member-source.v2"
@@ -200,7 +238,11 @@ class CompositeMemberMaterializationOutcome(BaseModel):
         default=None, description="Verified staged fact; null for missing input."
     )
     source_evidence: (
-        CompositeMemberSourceEvidence | CompositeProviderMemberEvidence | CompositeNormalizedMemberSourceEvidence | None
+        CompositeMemberSourceEvidence
+        | CompositeProviderMemberEvidence
+        | CompositeNormalizedMemberSourceEvidence
+        | CompositeModelFeeMemberEvidence
+        | None
     ) = Field(
         default=None, description="Pinned money, methodology and source provenance; no fabricated missing evidence."
     )

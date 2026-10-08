@@ -12,6 +12,7 @@ from sqlalchemy.orm import Session, sessionmaker
 
 from app.adapters.composite_materialization_records import CompositeMaterializationModel, MaterializationBase
 from app.adapters.composite_materialization_schema import require_materialization_schema
+from app.adapters.composite_materialization_view_upgrade import upgrade_materialization_return_views
 from app.models.composite_materialization import (
     CompositeMaterializationCommand,
     CompositeMaterializationState,
@@ -62,7 +63,9 @@ class CompositeMaterializationStore:
 
     def create_schema(self) -> None:
         create_durable_schema(
-            self._engine, MaterializationBase.metadata, schema_preflights=(require_materialization_schema,)
+            self._engine,
+            MaterializationBase.metadata,
+            schema_preflights=(upgrade_materialization_return_views, require_materialization_schema),
         )
 
     @contextmanager

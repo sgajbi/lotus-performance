@@ -53,7 +53,9 @@ class CompositeMaterializationModel(MaterializationBase):
         CheckConstraint(POSTGRES_ASCII_CURRENCY_CHECK_SQL, name="ck_composite_materialization_currency").ddl_if(
             dialect="postgresql"
         ),
-        CheckConstraint("return_view IN ('GROSS', 'NET_ACTUAL')", name="ck_composite_materialization_view"),
+        CheckConstraint(
+            "return_view IN ('GROSS', 'NET_ACTUAL', 'NET_MODEL_FEE')", name="ck_composite_materialization_view"
+        ),
         CheckConstraint(
             SQLITE_POSITIVE_INTEGER_SEQUENCE_CHECK_SQL, name="ck_composite_materialization_integer_sequence"
         ).ddl_if(dialect="sqlite"),

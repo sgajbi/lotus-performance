@@ -6,6 +6,7 @@ from app.models.composite_materialization import (
     CompositeMaterializationCommand,
     CompositeMemberMaterializationOutcome,
     CompositeMemberSourceEvidence,
+    CompositeModelFeeMemberEvidence,
     CompositeNormalizedMemberSourceEvidence,
 )
 from app.models.composites import CompositeMemberReturnFact, CompositeReturnView
@@ -27,7 +28,34 @@ def require_member_source_evidence(
     tenant_id: str | None = None,
     currency_normalization_wire: dict | None = None,
     admitted_fx_source=None,
+    admitted_model_fee_source=None,
 ) -> None:
+    if command.return_view == CompositeReturnView.NET_MODEL_FEE:
+        from app.services.composite_materialization.model_fee_member_evidence import require_model_fee_member_evidence
+
+        require_model_fee_member_evidence(
+            command,
+            outcome,
+            admitted=admitted_model_fee_source,
+            tenant_id=tenant_id,
+            currency_normalization_wire=currency_normalization_wire,
+            admitted_fx_source=admitted_fx_source,
+        )
+        return
+    if isinstance(outcome.source_evidence, CompositeModelFeeMemberEvidence):
+        _refuse()
+    _require_base_member_source_evidence(
+        command,
+        outcome,
+        tenant_id=tenant_id,
+        currency_normalization_wire=currency_normalization_wire,
+        admitted_fx_source=admitted_fx_source,
+    )
+
+
+def _require_base_member_source_evidence(
+    command, outcome, *, tenant_id=None, currency_normalization_wire=None, admitted_fx_source=None
+):
     fact, evidence = outcome.fact, outcome.source_evidence
     _require_normalization_evidence_version(command, evidence)
     if isinstance(evidence, CompositeNormalizedMemberSourceEvidence):
@@ -133,7 +161,7 @@ def _require_member_request_scope(
     evidence: CompositeMemberSourceEvidence,
 ) -> None:
     request = evidence.calculation_request.portfolio
-    basis = "GROSS" if command.return_view == CompositeReturnView.GROSS else "NET"
+    basis = command.source_metric_basis
     reference = next((item for item in command.member_calculations if item.portfolio_id == portfolio_id), None)
     if reference is None:
         _refuse()

@@ -15,7 +15,7 @@ from app.models.composite_materialization import (
     CompositeMemberSourceEvidence,
     CompositeNormalizedMemberSourceEvidence,
 )
-from app.models.composites import CompositeMemberReturnFact, CompositeReturnView
+from app.models.composites import CompositeMemberReturnFact
 from app.models.portfolio_asset_evidence import PortfolioSourceAssetEvidence
 from app.models.responses import (
     ComparativeAnalyticsBlock,
@@ -121,7 +121,7 @@ def _execution_refusal(
 def _fee_view_refusal(payload: dict, command: CompositeMaterializationCommand) -> str | None:
     resolved = payload.get("resolved_request", payload)
     request = resolved.get("portfolio", resolved)
-    expected_basis = "GROSS" if command.return_view == CompositeReturnView.GROSS else "NET"
+    expected_basis = command.source_metric_basis
     if request.get("metric_basis", "NET") != expected_basis:
         return "MEMBER_RETURN_VIEW_NOT_SUPPORTED"
     return None
