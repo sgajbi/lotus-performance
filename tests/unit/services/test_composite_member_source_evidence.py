@@ -7,6 +7,7 @@ from types import SimpleNamespace
 import pytest
 from pydantic import ValidationError
 
+from app.models.composite_authority import EvidenceBinding
 from app.models.composite_materialization import CompositeMemberMaterializationOutcome
 from app.services.composite_materialization.member_evidence_policy import require_member_source_evidence
 from app.services.reproducibility_service import generate_value_fingerprint
@@ -61,6 +62,31 @@ def test_retained_receipt_accepts_actual_source_and_calculation_identity():
     assert outcome.fact.ending_market_value == 110
     assert outcome.fact.return_value == Decimal("0.10")
     assert outcome.fact.source_snapshot_id != command.membership_content_hash
+
+
+@pytest.mark.parametrize("restored", [False, True], ids=["alternative-adapter", "restored-legacy-wire"])
+def test_fx_bound_member_cannot_downgrade_to_valid_legacy_evidence(restored):
+    command, outcome = member_receipt()
+    if restored:
+        outcome = CompositeMemberMaterializationOutcome.model_validate(outcome.model_dump(mode="json"))
+    # Even an identity member with money already in USD must retain its v3 proof.
+    require_member_source_evidence(command, outcome)
+    assert outcome.fact.reporting_currency == outcome.source_evidence.source_assets.portfolio_currency == "USD"
+    bound = command.model_copy(
+        update={
+            "currency_normalization_binding": EvidenceBinding(
+                product_name="CompositeCurrencyNormalization",
+                product_version="v1",
+                revision="fx-r1",
+                digest="sha256:" + "a" * 64,
+            )
+        }
+    )
+    with pytest.raises(APIConflictError) as refused:
+        require_member_source_evidence(bound, outcome, tenant_id="tenant-a", currency_normalization_wire={})
+    assert refused.value.error_code == "COMPOSITE_MATERIALIZATION_MEMBER_EVIDENCE_REFUSED"
+    # The immutable legacy receipt is still valid for its original unbound command.
+    require_member_source_evidence(command, outcome)
 
 
 @pytest.mark.parametrize(

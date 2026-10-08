@@ -64,6 +64,9 @@ pinned source evidence and a later restatement sequence.
 Shared normalization wire custody lives once in the existing materialization source
 record. Each `composite-member-source.v3` receipt retains its exact binding, original
 native evidence, normalized assets/flows/fees, verifier receipt and genuine FX snapshots.
+Every FX-bound member, including identity conversions already in the report currency,
+must carry v3 evidence on release and reload. Legacy member receipts remain valid only
+for unbound historical commands; alternate adapters cannot downgrade this requirement.
 Reload reapplies independent verification and reconstructs money and returns without
 refetching upstream inputs or relying on unexpired child executions. Missing verification
 causes the existing retained-evidence refusal; it does not turn a stored receipt into

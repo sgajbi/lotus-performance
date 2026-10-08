@@ -28,6 +28,7 @@ def require_member_source_evidence(
     currency_normalization_wire: dict | None = None,
 ) -> None:
     fact, evidence = outcome.fact, outcome.source_evidence
+    _require_normalization_evidence_version(command, evidence)
     if isinstance(evidence, CompositeNormalizedMemberSourceEvidence):
         _require_normalized_member_evidence(
             command, outcome, tenant_id=tenant_id, currency_normalization_wire=currency_normalization_wire
@@ -49,6 +50,13 @@ def require_member_source_evidence(
     _require_member_request_scope(command, outcome.portfolio_id, fact, evidence)
     _require_source_assets_scope(command, fact, evidence)
     _require_core_snapshot_scope(command, outcome.portfolio_id, evidence)
+
+
+def _require_normalization_evidence_version(command, evidence):
+    if command.currency_normalization_binding is not None and not isinstance(
+        evidence, CompositeNormalizedMemberSourceEvidence
+    ):
+        _refuse()
 
 
 def _require_normalized_member_evidence(command, outcome, *, tenant_id, currency_normalization_wire):

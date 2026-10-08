@@ -1098,6 +1098,8 @@ Refuse cross-window native-regime changes without explicit history treatment, ev
 when each window separately completes and reports in the same requested currency.
 Compare source-money currency by continuing member identity across adjacent windows;
 member order and admitted membership changes alone must not trigger that refusal.
+Require v3 normalized evidence for every FX-bound internal member, including identity
+conversion, at the shared retained-evidence boundary; no legacy or alternate-adapter fallback.
 Production FX source/verifier factories remain unavailable; synthetic receipts cannot confer
 official activation. External/hybrid aggregate normalization has no admitted method.
 Registered money/replay controls live in the owning materialization API suite; PostgreSQL
