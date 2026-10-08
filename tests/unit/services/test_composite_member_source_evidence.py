@@ -2,6 +2,7 @@
 
 from copy import deepcopy
 from decimal import Decimal
+from types import SimpleNamespace
 
 import pytest
 from pydantic import ValidationError
@@ -9,8 +10,36 @@ from pydantic import ValidationError
 from app.models.composite_materialization import CompositeMemberMaterializationOutcome
 from app.services.composite_materialization.member_evidence_policy import require_member_source_evidence
 from app.services.reproducibility_service import generate_value_fingerprint
-from core.errors import APIConflictError
+from core.errors import APIConflictError, APIError
 from tests.composite_materialization_helpers import MemberSource, command_for
+
+
+@pytest.mark.parametrize("retryable, state", [(None, "BLOCKED"), (False, "BLOCKED"), (True, "WAITING")])
+def test_member_source_api_refusal_preserves_disposition_without_financial_evidence(monkeypatch, retryable, state):
+    from app.adapters import composite_member_result_source as adapter
+
+    command = command_for()
+    reference = command.member_calculations[0]
+    execution = SimpleNamespace(response_payload={})
+    monkeypatch.setattr(adapter.execution_registry, "get_execution_for_tenant", lambda *args, **kwargs: execution)
+    monkeypatch.setattr(adapter, "authorize_calculation_result_access", lambda **kwargs: None)
+    monkeypatch.setattr(adapter, "_execution_refusal", lambda *args, **kwargs: None)
+
+    def refuse(*args, **kwargs):
+        raise APIError(422, "Controlled evidence refusal", retryable=retryable)
+
+    monkeypatch.setattr(adapter.PerformanceResponse, "model_validate", refuse)
+    outcome = adapter.RetainedCompositeMemberResultSource().read_member(
+        command,
+        reference,
+        tenant_id="tenant-a",
+        membership_snapshot_id=command.membership_content_hash,
+        request_headers={},
+    )
+    assert outcome.state == state
+    assert outcome.retryable is bool(retryable)
+    assert outcome.reason_code == "MEMBER_FINANCIAL_EVIDENCE_REFUSED"
+    assert outcome.fact is None and outcome.source_evidence is None
 
 
 def member_receipt():

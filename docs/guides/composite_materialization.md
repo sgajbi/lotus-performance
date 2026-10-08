@@ -13,6 +13,176 @@ successful live-source acceptance.
 
 ## API And Authority
 
+### Retained Member Currency Normalization
+
+An optional `currency_normalization_binding` pins `CompositeFXNormalizationSource:v1`
+by revision and digest. Omitting it preserves historical command identity and replay.
+Adding or changing it under an existing materialization identity is a content conflict.
+This increment consumes retained internal stateful TWR evidence; external or hybrid
+aggregate conversion refuses with `COMPOSITE_FX_AGGREGATE_METHOD_UNAVAILABLE`.
+
+Portfolio reference currency, source-money currency, composite native currency and
+reporting currency are separate fields. A return already expressed in USD does not
+make retained EUR assets or flows USD. The worker requires independently verified
+source fixings and reuses the existing daily member engine to reconcile the applied
+return before releasing normalized assets. Caller-supplied FX and hashes alone do
+not establish source authority. Production resolver and verifier composition currently
+remain unavailable; test receipts explicitly say `SYNTHETIC_TEST_ONLY` and official
+activation `UNAVAILABLE`.
+
+For a bound internal projection, the requested reporting currency may differ from
+the composite's native currency in its exact admitted Manage definition. The verified
+normalization source must repeat that native currency; a contradictory native label
+refuses before any member facts are released and retains the full admitted population.
+Without an FX binding, the historical native/report equality rule remains in force.
+Registered EUR-native and GBP-native composites can report this example in USD without
+altering membership, definition identity or inception metadata. Two individually
+complete windows with different native regimes refuse with
+`COMPOSITE_VECTOR_CURRENCY_REGIME_UNAVAILABLE`; no approved history treatment is
+inferred from a reporting projection or a definition update.
+
+The defined method is unhedged, direct pair, complete natural daily observations,
+UTC EOD fixing and exact decimal monetary multiplication without intermediate rounding.
+Beginning assets use the prior day's fixing; ending assets, EOD external flows and
+management-fee amounts use the economic day's fixing. Identity conversion is explicit
+and creates no invented FX retrieval. Beginning-of-day or intraday flow fixing,
+triangulation, hedging and other calendars require their own defined method and refuse.
+The engine retains its original return precision and fee-view policy.
+
+Each fixing records direction (reporting units per source unit), date, original
+`observed_at`, provider/product/revision, watermark/content hash and calendar binding.
+The admitted UTC fixing instant and maximum observation age constrain the original
+observation. `revision_available_at` is separate: it may occur later for a correction,
+but cannot exceed `source_as_of_cut`. Retrieval time is neither of those timestamps.
+Actual request/response fingerprints, query windows and retained raw wires must agree.
+Overlapping windows may contain equal observations; conflicting rates for the same
+pair/date refuse without choosing a response by order. A correction uses separately
+pinned source evidence and a later restatement sequence.
+
+Shared normalization wire custody lives once in the existing materialization source
+record. Each `composite-member-source.v3` receipt retains its exact binding, original
+native evidence, normalized assets/flows/fees, verifier receipt and genuine FX snapshots.
+Reload reapplies independent verification and reconstructs money and returns without
+refetching upstream inputs or relying on unexpired child executions. Missing verification
+causes the existing retained-evidence refusal; it does not turn a stored receipt into
+production authority.
+
+For an internal calculation example, A has EUR 100 opening assets and EUR 102 ending
+assets before flows, with USD/EUR 1.30 opening and 1.40 closing fixings. B has USD
+200 to 210; C has USD 300 to 294. Converted opening assets are USD 630 and ending
+assets USD 646.80. The independent composite return is `(646.80 - 630) / 630 = 2/75`.
+An additional EUR 10 EOD external flow converts to USD 14 and makes ending assets
+USD 660.80 while preserving that return. Correcting the closing fixing to 1.42 gives
+USD 648.84 ending assets before flows and return `18.84/630 = 157/5250`; with the
+same EUR 10 flow, its converted amount is USD 14.20 and ending assets USD 663.04.
+Original and corrected receipts retain their own source pins and can be selected explicitly.
+
+Actual management fees follow the existing signed-fee convention. With A's EUR 100
+opening and EUR 102 closing valuation excluding a separately booked EUR -2 fee,
+the closing fixing 1.40 translates that fee to USD -2.80. A's gross return is `32/325`
+and its actual net return is `1/13`; the group's gross and actual net returns are
+`2/75` and `1/45`. The opening USD 630 and closing USD 646.80 asset evidence,
+flows and fee amounts are identical across views. This is actual-fee treatment, not
+a model-fee schedule or an institutional fee policy.
+
+Retained FLOAT64 return evidence keeps the original reporting projection. Six-place
+percentage rounding reports A's gross return as `9.846154%`, or `0.09846154` as a
+fraction. Normalization reuses the shipped engine pipeline at that retained precision;
+it does not compare this published fraction to an unrounded ratio or widen an
+economic mismatch tolerance. Composite weighting uses the actual retained fraction,
+so rounding can affect the reported group return. Exact monetary conversion remains
+separate from return precision, including for DECIMAL_STRICT calculations.
+
+For a client explanation: the group return uses each member's opening value in the
+same reporting currency. Money added at period end is reported as a flow, so it does
+not appear as investment performance. A later fixing correction creates a separate
+reported version; selecting the original version continues to reproduce its figures.
+These examples demonstrate calculated evidence, not approved official publication.
+
+Registered PostgreSQL controls exercise these figures, child-execution expiry, exact
+replay/conflict, a separate writer and reader process, foreign-tenant read refusal and
+unavailable-verifier refusal. Independent positive populations in two tenants reuse the
+same composite and materialization identities while preserving tenant-specific sources,
+member calculations and figures. Source ports and verification are synthetic; live
+producer qualification and institutional approval remain separate obligations.
+
+The existing explicit `materialization_ids` vector can select adjacent normalized
+windows after each generation is COMPLETE. Historical Manage v1 definitions qualify
+for this path only through an independently reverified retained normalization method
+that specifies the existing daily member engine. Unbound v1 definitions still refuse
+vector calculation. Selected windows must share return and normalization method bindings;
+missing required windows and reversed selection refuse without a cumulative return.
+Global restatement chronology still applies: adjacent publications use increasing
+sequences, and explicit identities select each window's actual generation.
+
+For the next day, A moves from EUR 102 to 103 with USD/EUR fixings 1.40 to 1.42;
+B moves from USD 210 to 211 and C from USD 294 to 295. Opening and closing group
+assets are USD 646.80 and 652.26. Its return is `5.46/646.80 = 91/10780`.
+Linking the two daily returns gives `(1 + 2/75) * (1 + 91/10780) - 1 = 53/1500`.
+This is evidence for the explicitly selected two-day window. Retained inception-date
+metadata does not establish complete since-inception history or qualify a currency-regime change.
+
+After Manage admission, FX source refusal retains the entire admitted member universe
+with blocked or unavailable dispositions and no member financial facts. Retryable
+source unavailability may subsequently pin the exact requested normalization source
+while members are still pending. Already pinned sources and published economic evidence
+remain immutable; a source correction requires a separate generation. Inspection exposes
+the same retained dispositions without granting source authority.
+
+For operations, inspect the queued execution and the materialization together. A
+retryable resolver outage leaves `WAITING`, the admitted expected population and each
+member's unavailable disposition; the existing worker retries that same job. Recovery
+pins the requested source once and preserves Manage admission, rather than replacing
+the universe. A malformed, missing-member or reversed fixing source leaves `BLOCKED`
+with no member facts. Correct the producer evidence and submit a separately identified
+generation with truthful pins; changing the original command is an identity conflict.
+An unavailable configured verifier prevents release or retained replay. Restoring
+qualified verification is an operator dependency, not permission to treat hashes as approval.
+
+Executable registered HTTP/worker examples are in
+[`test_composite_materialization_api.py`](../../tests/integration/test_composite_materialization_api.py):
+`test_registered_fx_normalization_converts_actual_fee_without_changing_money_between_views`,
+`test_registered_fx_normalization_preserves_float_return_projection_and_exact_money`,
+`test_registered_fx_normalization_refuses_independently_admitted_incompatible_windows`
+and `test_registered_fx_normalization_recovers_exact_pending_source_after_temporary_outage`.
+They make actual stateful member requests, submit the pinned command, process the existing
+worker, inspect full retained receipts, calculate the report and test replay after child expiry.
+The owning PostgreSQL benchmark wrappers execute those same consumer calls against real
+owned database schemas. Synthetic source/verifier composition is confined to test injection;
+these examples cannot activate a production issuer.
+
+The [complete materialization JSON example](../examples/composite-fx-materialization.v1.json)
+retains one actual original command and its reported period from the registered PostgreSQL
+controls. Its `request` member is the command body; the surrounding qualification and
+expected-result fields are explanatory evidence. It is a historical synthetic example,
+not a command whose child calculations exist in a new deployment. For a new calculation,
+replace every definition, membership, attestation, member calculation and normalization
+pin with the exact admitted producer revision; do not edit only the visible FX rate.
+
+The client sequence is:
+
+1. Submit `request` to `POST /performance/composites/materializations` with admitted
+   `X-Tenant-Id`, `X-Actor-Id` and `X-Role`. HTTP 202 returns `calculation_id`,
+   `materialization_id`, `poll_path` and `result_path`; it does not assert that calculation
+   or source verification has completed.
+2. Poll `result_path`. Require `COMPLETE`, `expected_count=3`, `ready_count=3` and
+   the complete A/B/C population for this example. `WAITING` and `BLOCKED` do not
+   permit reporting a successfully normalized composite return.
+3. Call `POST /performance/composites/twr` with the command's `composite_id`,
+   `period_start`, `period_end`, `reporting_currency`, `return_view` and explicitly
+   selected `restatement_sequence`. This example yields USD 630 opening assets,
+   USD 646.80 closing assets and a reported decimal-fraction return near `2/75`.
+   The JSON retains the actual public output precision.
+4. For an adjacent-window report, supply ordered `materialization_ids` for every
+   required completed window instead of inferring latest or a common sequence.
+   Preserve the returned selection manifest with the report. An original fixing
+   generation remains selectable after a separately pinned correction.
+
+For external or hybrid callers, this increment returns
+`COMPOSITE_FX_AGGREGATE_METHOD_UNAVAILABLE`; it does not normalize an aggregate
+return by revaluing terminal wealth. Use the separately documented external-fact method
+and its native-currency supported contract until an aggregate FX method is defined and admitted.
+
 | Operation | Contract |
 | --- | --- |
 | Submit | `POST /performance/composites/materializations`, HTTP 202 after atomic durable admission. |

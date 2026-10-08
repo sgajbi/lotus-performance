@@ -8,7 +8,7 @@
       "openApiVersion": "3.1.0"
     }
   ],
-  "generatedAt": "2026-10-06T21:46:29.123881+00:00",
+  "generatedAt": "2026-10-08T15:17:20.337474+00:00",
   "attributeCatalog": [
     {
       "semanticId": "lotus.access_classification",
@@ -1971,6 +1971,25 @@
       ],
       "observedTypes": [
         "string"
+      ]
+    },
+    {
+      "semanticId": "lotus.currency_normalization_binding",
+      "canonicalTerm": "currency_normalization_binding",
+      "preferredName": "currency_normalization_binding",
+      "description": "Pinned independently admitted FX source/method evidence. Absence preserves single-currency behavior.",
+      "example": {
+        "product_name": "example_product_name",
+        "product_version": "example_product_version",
+        "revision": "example_revision",
+        "digest": "example_digest"
+      },
+      "type": "object",
+      "locations": [
+        "body"
+      ],
+      "observedTypes": [
+        "object"
       ]
     },
     {
@@ -14887,6 +14906,14 @@
             "type": "string",
             "semanticId": "lotus.calculation_hash",
             "attributeRef": "#/attributeCatalog/lotus.calculation_hash"
+          },
+          {
+            "name": "currency_normalization_binding",
+            "location": "body",
+            "required": false,
+            "type": "object",
+            "semanticId": "lotus.currency_normalization_binding",
+            "attributeRef": "#/attributeCatalog/lotus.currency_normalization_binding"
           }
         ]
       },

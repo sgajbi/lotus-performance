@@ -1076,6 +1076,30 @@ replay. PostgreSQL cases live in the existing concurrency target and use its iso
 helper; no production schema or calculation change is required. The caller guide and wiki
 troubleshooting page describe client and operator behavior.
 
+## Composite FX Custody Practice
+
+Optional materialization `currency_normalization_binding` consumes the retained internal
+TWR normalization path. Preserve legacy immutable command bytes when the binding is absent.
+Keep shared normalization wire custody once in `PinnedCompositeSource`/existing source JSON;
+member v3 receipts retain bindings, native money, converted money and actual FX snapshots.
+Do not substitute retrieval time for original fixing observation, revision availability or
+source cut. Reject conflicts across overlapping response windows rather than selecting by
+order. Reuse the existing member engine reporting pipeline at the retained precision
+and rounding, with exact monetary arithmetic kept separate. FLOAT64 published returns
+must reconcile to the actual rounded projection, rather than an unrounded daily ratio;
+do not widen economic mismatch tolerance to compensate for a different calculation path.
+FX-bound internal admission may project into a different report currency only when
+independently verified source native currency matches the exact Manage definition.
+Retained reads repeat that check; unbound native/report equality remains unchanged.
+Refuse cross-window native-regime changes without explicit history treatment, even
+when each window separately completes and reports in the same requested currency.
+Production FX source/verifier factories remain unavailable; synthetic receipts cannot confer
+official activation. External/hybrid aggregate normalization has no admitted method.
+Registered money/replay controls live in the owning materialization API suite; PostgreSQL
+and separate process proof live in the existing PostgreSQL materialization suite and
+`tests/benchmarks/composite_fx_process_controls.py`. See the materialization guide for method
+limits and worked examples. This is consumer evidence, not live Core fixing qualification.
+
 ## Characterization Evidence Practice
 
 The existing `scripts/run_performance_characterization.py` summary retains exact five-sample

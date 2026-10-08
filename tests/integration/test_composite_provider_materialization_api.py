@@ -441,7 +441,7 @@ def test_registered_internal_and_hybrid_v2_without_ending_selection(monkeypatch,
     )
 
     packet = internal_day_packet()
-    install_source_wire_controls(monkeypatch, source_products(tenant_id="synthetic-tenant-a"))
+    install_source_wire_controls(monkeypatch, source_products(tenant_id="tenant-a"))
 
     # The Core helper asserts the owning tenant; adapt only its HTTP header check through
     # a separately scoped client tenant, then rebind the new synthetic authority profile.

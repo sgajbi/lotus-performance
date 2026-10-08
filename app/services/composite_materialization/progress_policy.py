@@ -53,18 +53,71 @@ def require_progress_transition(
 ) -> None:
     if state not in _TRANSITIONS[prior_state]:
         _refuse("COMPOSITE_MATERIALIZATION_TRANSITION_REFUSED")
-    if prior_source is not None and source != prior_source:
-        _refuse("COMPOSITE_MATERIALIZATION_SOURCE_IMMUTABLE")
+    _require_source_progress(command, prior_source, source, prior_outcomes, prior_state)
     if source is None:
         if outcomes or state not in {CompositeMaterializationState.WAITING, CompositeMaterializationState.BLOCKED}:
             _refuse("COMPOSITE_MATERIALIZATION_SOURCE_REQUIRED")
         return
     require_pinned_source_scope(source, command=command, tenant_id=tenant_id)
+    _require_currency_source(source, command=command, tenant_id=tenant_id, outcomes=outcomes, state=state)
     _require_full_universe(source, outcomes)
     _require_retained_outcomes(prior_outcomes, outcomes)
     for outcome in outcomes:
         _require_member_outcome(source, command, outcome)
     _require_release_state(outcomes, state)
+
+
+def _pending_currency_upgrade(command, prior_source, source, prior_state):
+    return (
+        command.currency_normalization_binding is not None
+        and prior_state == CompositeMaterializationState.WAITING
+        and prior_source.currency_normalization_wire is None
+        and source.currency_normalization_wire is not None
+    )
+
+
+def _require_source_progress(command, prior_source, source, prior_outcomes, prior_state):
+    if prior_source is None or source == prior_source:
+        return
+    if source is None or not _pending_currency_upgrade(command, prior_source, source, prior_state):
+        _refuse("COMPOSITE_MATERIALIZATION_SOURCE_IMMUTABLE")
+    if source.model_dump(exclude={"currency_normalization_wire"}) != prior_source.model_dump(
+        exclude={"currency_normalization_wire"}
+    ):
+        _refuse("COMPOSITE_MATERIALIZATION_SOURCE_IMMUTABLE")
+    _require_pending_currency_outcomes(prior_outcomes, prior_state)
+
+
+def _require_pending_currency_outcomes(outcomes, state):
+    if state not in {CompositeMaterializationState.WAITING, CompositeMaterializationState.BLOCKED}:
+        _refuse("COMPOSITE_FX_SOURCE_UNAVAILABLE")
+    if any(
+        row.fact is not None or row.source_evidence is not None or row.state == CompositeMemberOutcomeState.READY
+        for row in outcomes
+    ):
+        _refuse("COMPOSITE_FX_SOURCE_UNAVAILABLE")
+
+
+def _require_currency_source(source, *, command, tenant_id, outcomes, state):
+    if command.currency_normalization_binding is None:
+        if source.currency_normalization_wire is not None:
+            _refuse("COMPOSITE_FX_SOURCE_BINDING_REQUIRED")
+        return
+    from app.services.composite_materialization.currency_source_admission import (
+        admit_composite_fx_source,
+        fx_resolution_for_command,
+        require_composite_native_currency,
+        require_fx_normalization_route,
+    )
+
+    if source.currency_normalization_wire is None:
+        _require_pending_currency_outcomes(outcomes, state)
+        return
+    require_fx_normalization_route(source.definition)
+    admitted = admit_composite_fx_source(
+        fx_resolution_for_command(command, tenant_id=tenant_id), retained_wire=source.currency_normalization_wire
+    )
+    require_composite_native_currency(admitted, source.definition)
 
 
 def require_retained_progress(
@@ -148,13 +201,22 @@ def _require_outcome_evidence(source, command, outcome):
             outcome.source_evidence,
             facts=["MEMBER_RETURN", "BEGINNING_ASSETS", "ENDING_ASSETS"],
         )
-    _require_fact_scope(command, outcome, outcome.fact)
+    _require_fact_scope(
+        command,
+        outcome,
+        outcome.fact,
+        tenant_id=source.definition.tenant_id,
+        currency_normalization_wire=source.currency_normalization_wire,
+    )
 
 
 def _require_fact_scope(
     command: CompositeMaterializationCommand,
     outcome: CompositeMemberMaterializationOutcome,
     fact: CompositeMemberReturnFact,
+    *,
+    tenant_id: str | None = None,
+    currency_normalization_wire: dict | None = None,
 ) -> None:
     reference = next((item for item in command.member_calculations if item.portfolio_id == outcome.portfolio_id), None)
     if reference is None:
@@ -185,7 +247,9 @@ def _require_fact_scope(
     )
     if actual != expected:
         _refuse("COMPOSITE_MATERIALIZATION_FACT_SCOPE_MISMATCH")
-    require_member_source_evidence(command, outcome)
+    require_member_source_evidence(
+        command, outcome, tenant_id=tenant_id, currency_normalization_wire=currency_normalization_wire
+    )
 
 
 def _require_release_state(

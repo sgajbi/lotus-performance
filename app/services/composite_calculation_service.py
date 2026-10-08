@@ -5,6 +5,7 @@ from uuid import UUID
 
 from app.adapters.composite_materialization_repository import get_composite_materialization_store
 from app.models.composite_authority import ManageCompositeDefinitionV2
+from app.models.composite_currency_normalization import CompositeFXNormalizationSource
 from app.models.composite_materialization import CompositeMaterializationCommand, CompositeMaterializationState
 from app.models.composites import (
     CompositeMemberReturnFact,
@@ -14,6 +15,7 @@ from app.models.composites import (
 )
 from app.observability import tenant_id_var
 from app.services.composite_materialization.records import MaterializationRecord
+from app.services.composite_materialization.source_contract import ManageCompositeDefinition
 from app.services.composite_metadata_store import CompositeMetadataStore, composite_metadata_store
 from app.services.core_tenant_authority import admitted_tenant_authority, require_composite_tenant_authority
 from app.services.durable_store_runtime import RuntimeStoreProxy
@@ -40,12 +42,15 @@ def calculate_composite_twr_from_materializations(
     for record in records:
         definition = _complete_window_definition(record)
         _require_window_scope(record.command, request, currency, cursor)
-        method = definition.source_authority.payload.return_method_binding.model_dump(mode="json")
-        selected_basis = (definition.calculation_method, record.command.policy_version, method)
-        if basis is not None and basis != selected_basis:
-            raise APIUnprocessableEntityError(
-                "Selected window method or policy authority differs.", error_code="COMPOSITE_VECTOR_METHOD_MISMATCH"
-            )
+        method = _retained_return_method(record, definition)
+        selected_basis = (
+            definition.calculation_method,
+            record.command.policy_version,
+            method,
+            _retained_currency_method(record),
+            definition.reporting_currency,
+        )
+        _require_compatible_window_authority(basis, selected_basis)
         basis = selected_basis
         facts.extend(_window_facts(record))
         windows.append(_window_evidence(record, method))
@@ -53,6 +58,20 @@ def calculate_composite_twr_from_materializations(
     if records[-1].command.period_end != request.period_end:
         raise APIConflictError("A required retained window is missing.", error_code="REQUIRED_PERIOD_UNAVAILABLE")
     return calculate_asset_weighted_composite_twr(composite_id=request.composite_id, member_return_facts=facts), windows
+
+
+def _require_compatible_window_authority(previous, selected):
+    if previous is None:
+        return
+    if previous[-1] != selected[-1]:
+        raise APIUnprocessableEntityError(
+            "Selected native-currency regimes require admitted membership and history treatment.",
+            error_code="COMPOSITE_VECTOR_CURRENCY_REGIME_UNAVAILABLE",
+        )
+    if previous != selected:
+        raise APIUnprocessableEntityError(
+            "Selected window method or policy authority differs.", error_code="COMPOSITE_VECTOR_METHOD_MISMATCH"
+        )
 
 
 def _selected_materializations(request: CompositeTWRRequest) -> list[UUID]:
@@ -72,15 +91,36 @@ def _require_vector_order(records: list[MaterializationRecord]) -> None:
         )
 
 
-def _complete_window_definition(record: MaterializationRecord) -> ManageCompositeDefinitionV2:
+def _complete_window_definition(
+    record: MaterializationRecord,
+) -> ManageCompositeDefinition | ManageCompositeDefinitionV2:
     if record.state != CompositeMaterializationState.COMPLETE or record.source is None:
         raise APIConflictError("A required retained window is unavailable.", error_code="REQUIRED_PERIOD_UNAVAILABLE")
     definition = record.source.definition
-    if not isinstance(definition, ManageCompositeDefinitionV2):
+    if not isinstance(definition, ManageCompositeDefinitionV2) and record.source.currency_normalization_wire is None:
         raise APIUnprocessableEntityError(
             "Pinned TWR windows require retained method authority.", error_code="COMPOSITE_VECTOR_METHOD_UNAVAILABLE"
         )
     return definition
+
+
+def _retained_currency_method(record):
+    if record.source.currency_normalization_wire is None:
+        return None
+    # get_many already reverified exact raw source custody and every member receipt.
+    source = CompositeFXNormalizationSource.model_validate(record.source.currency_normalization_wire)
+    return source.method_binding.model_dump(mode="json")
+
+
+def _retained_return_method(record, definition):
+    if isinstance(definition, ManageCompositeDefinitionV2):
+        return definition.source_authority.payload.return_method_binding.model_dump(mode="json")
+    method = _retained_currency_method(record)
+    if method is None:
+        raise APIUnprocessableEntityError(
+            "Pinned TWR windows require retained method authority.", error_code="COMPOSITE_VECTOR_METHOD_UNAVAILABLE"
+        )
+    return method
 
 
 def _require_window_scope(

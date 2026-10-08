@@ -226,6 +226,7 @@ def run_materialization_attempt(
             reason_code="COMPOSITE_MEMBERS_PENDING",
         )
     if record.state == CompositeMaterializationState.WAITING:
+        record = _pin_currency_source(record, tenant_id=tenant_id, ledger=ledger, fence=fence)
         record = _resolve_members(
             record,
             tenant_id=tenant_id,
@@ -248,8 +249,14 @@ def run_materialization_attempt(
 
 def _default_member_source(source):
     if source is not None and isinstance(source.definition, ManageCompositeDefinitionV2):
-        return AuthorityCompositeMemberResultSource(source.definition, admitted_source=source)
-    return RetainedCompositeMemberResultSource()
+        return AuthorityCompositeMemberResultSource(
+            source.definition,
+            admitted_source=source,
+            internal_source=RetainedCompositeMemberResultSource(
+                currency_normalization_wire=source.currency_normalization_wire
+            ),
+        )
+    return RetainedCompositeMemberResultSource(currency_normalization_wire=source.currency_normalization_wire)
 
 
 def _read_membership_source(
@@ -282,6 +289,59 @@ def _read_membership_source(
             reason_code="COMPOSITE_SOURCE_UNAVAILABLE" if exc.retryable else "COMPOSITE_SOURCE_REFUSED",
         )
         raise
+
+
+def _pin_currency_source(record, *, tenant_id, ledger, fence):
+    from app.services.composite_materialization.currency_source_admission import (
+        admit_composite_fx_source,
+        fx_resolution_for_command,
+        require_composite_native_currency,
+        require_fx_normalization_route,
+    )
+
+    if record.command.currency_normalization_binding is None or record.source.currency_normalization_wire is not None:
+        return record
+    try:
+        require_fx_normalization_route(record.source.definition)
+        admitted = admit_composite_fx_source(fx_resolution_for_command(record.command, tenant_id=tenant_id))
+        require_composite_native_currency(admitted, record.source.definition)
+    except APIError as exc:
+        fence()
+        ledger.save(
+            record.command.materialization_id,
+            tenant_id=tenant_id,
+            expected_revision=record.revision,
+            source=record.source,
+            outcomes=_currency_refusal_outcomes(record.outcomes, exc),
+            state=CompositeMaterializationState.WAITING if exc.retryable else CompositeMaterializationState.BLOCKED,
+            reason_code="COMPOSITE_CURRENCY_SOURCE_UNAVAILABLE"
+            if exc.retryable
+            else "COMPOSITE_CURRENCY_SOURCE_REFUSED",
+        )
+        raise
+    fence()
+    return ledger.save(
+        record.command.materialization_id,
+        tenant_id=tenant_id,
+        expected_revision=record.revision,
+        source=record.source.model_copy(update={"currency_normalization_wire": admitted.source_wire}),
+        outcomes=record.outcomes,
+        state=CompositeMaterializationState.WAITING,
+        reason_code="COMPOSITE_MEMBERS_PENDING",
+    )
+
+
+def _currency_refusal_outcomes(outcomes, error):
+    return [
+        member_outcome(
+            row.portfolio_id,
+            code=error.error_code or "COMPOSITE_FX_SOURCE_REFUSED",
+            retryable=bool(error.retryable),
+        ).model_copy(update={"inspection_attempts": row.inspection_attempts})
+        if row.state == CompositeMemberOutcomeState.WAITING
+        else row
+        for row in outcomes
+    ]
 
 
 def _required_job_tenant(job: ComputeJobRecord) -> str:

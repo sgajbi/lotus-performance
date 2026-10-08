@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from collections.abc import Mapping
+from dataclasses import asdict
 from datetime import date
 from decimal import Decimal
 
@@ -12,6 +13,7 @@ from app.models.composite_materialization import (
     CompositeMemberMaterializationOutcome,
     CompositeMemberOutcomeState,
     CompositeMemberSourceEvidence,
+    CompositeNormalizedMemberSourceEvidence,
 )
 from app.models.composites import CompositeMemberReturnFact, CompositeReturnView
 from app.models.portfolio_asset_evidence import PortfolioSourceAssetEvidence
@@ -24,10 +26,17 @@ from app.models.responses import (
 from app.models.twr_requests import TWRInputMode, TWRResolvedExecutionRequest
 from app.services.analytics_workflow_types import ANALYTICS_WORKFLOW_TWR
 from app.services.calculation_result_access import authorize_calculation_result_access
+from app.services.composite_materialization.currency_normalization import normalize_member_money
+from app.services.composite_materialization.currency_snapshot_custody import require_fx_snapshot_custody
+from app.services.composite_materialization.currency_source_admission import (
+    admit_composite_fx_source,
+    fx_resolution_for_command,
+)
 from app.services.core_tenant_authority import admitted_tenant_authority, require_composite_tenant_authority
 from app.services.execution_registry import ExecutionRecord, ExecutionStatus, execution_registry
 from app.services.reproducibility_service import generate_value_fingerprint
 from common.enums import Frequency
+from core.errors import APIError
 from core.monetary_input import validate_calculated_money_model
 
 
@@ -41,6 +50,9 @@ def member_outcome(portfolio_id: str, *, code: str, retryable: bool = False) -> 
 
 
 class RetainedCompositeMemberResultSource:
+    def __init__(self, *, currency_normalization_wire=None):
+        self.currency_normalization_wire = currency_normalization_wire
+
     def read_member(
         self,
         command: CompositeMaterializationCommand,
@@ -67,6 +79,14 @@ class RetainedCompositeMemberResultSource:
                 execution=execution,
                 response=response,
                 membership_snapshot_id=membership_snapshot_id,
+                tenant_id=tenant_id,
+                currency_normalization_wire=self.currency_normalization_wire,
+            )
+        except APIError as error:
+            return member_outcome(
+                reference.portfolio_id,
+                code=error.error_code or "MEMBER_FINANCIAL_EVIDENCE_REFUSED",
+                retryable=bool(error.retryable),
             )
         except (ValidationError, ValueError, KeyError, TypeError):
             return member_outcome(reference.portfolio_id, code="MEMBER_FINANCIAL_EVIDENCE_REFUSED")
@@ -114,7 +134,9 @@ def _verified_member_fact(
     execution: ExecutionRecord,
     response: PerformanceResponse,
     membership_snapshot_id: str,
-) -> tuple[CompositeMemberReturnFact, CompositeMemberSourceEvidence]:
+    tenant_id: str,
+    currency_normalization_wire=None,
+) -> tuple[CompositeMemberReturnFact, CompositeMemberSourceEvidence | CompositeNormalizedMemberSourceEvidence]:
     if membership_snapshot_id != command.membership_content_hash:
         raise ValueError("Pinned Manage membership differs from the admitted command")
     _require_result_provenance(command, reference, execution=execution, response=response)
@@ -124,12 +146,15 @@ def _verified_member_fact(
     source_evidence = _retained_source_evidence(
         command, execution=execution, response=response, period_return=return_value
     )
-    beginning = source_evidence.source_assets.observations[0].beginning_market_value
-    ending = source_evidence.source_assets.observations[-1].ending_market_value
+    _require_reported_asset_projection(source_evidence.source_assets, evidence, dates)
+    source_evidence, output_assets, receipt_version = _member_money_evidence(
+        command, reference, execution, source_evidence, tenant_id, currency_normalization_wire
+    )
+    beginning = output_assets.observations[0].beginning_market_value
+    ending = output_assets.observations[-1].ending_market_value
     if not beginning.is_finite() or not ending.is_finite() or beginning < 0 or ending < 0:
         raise ValueError("Member asset evidence is not finite nonnegative money")
-    _require_reported_asset_projection(source_evidence.source_assets, evidence, dates)
-    receipt_fingerprint, _ = generate_value_fingerprint(source_evidence, "composite-member-source.v1")
+    receipt_fingerprint, _ = generate_value_fingerprint(source_evidence, receipt_version)
     fact = CompositeMemberReturnFact(
         composite_id=command.composite_id,
         portfolio_id=reference.portfolio_id,
@@ -147,6 +172,30 @@ def _verified_member_fact(
         restatement_sequence=command.restatement_sequence,
     )
     return fact, source_evidence
+
+
+def _member_money_evidence(command, reference, execution, native, tenant_id, currency_normalization_wire):
+    if command.currency_normalization_binding is None:
+        return native, native.source_assets, "composite-member-source.v1"
+    admitted = admit_composite_fx_source(
+        fx_resolution_for_command(command, tenant_id=tenant_id), retained_wire=currency_normalization_wire
+    )
+    member = next(row for row in admitted.source.members if row.member_id == reference.portfolio_id)
+    snapshots = require_fx_snapshot_custody(
+        member,
+        reporting_currency=command.reporting_currency,
+        calculation_id=reference.calculation_id,
+        snapshots=[
+            asdict(row)
+            for row in execution.upstream_snapshots
+            if row.upstream_endpoint == "fx_rates"
+            and row.source_identifier == f"{member.source_money_currency}/{command.reporting_currency}"
+        ],
+    )
+    evidence = normalize_member_money(
+        command, native, admitted, member_id=reference.portfolio_id, fx_snapshots=snapshots
+    )
+    return evidence, evidence.normalized_assets, "composite-member-source.v3"
 
 
 def _retained_source_evidence(
@@ -196,7 +245,7 @@ def _retained_source_evidence(
 def _source_asset_window(
     command: CompositeMaterializationCommand, assets: PortfolioSourceAssetEvidence
 ) -> PortfolioSourceAssetEvidence:
-    if assets.portfolio_currency != command.reporting_currency:
+    if assets.portfolio_currency != command.reporting_currency and command.currency_normalization_binding is None:
         raise ValueError("Applied asset conversion is not established")
     selected = [
         item for item in assets.observations if command.period_start <= item.valuation_date <= command.period_end
@@ -215,6 +264,8 @@ def _require_reported_asset_projection(
     if [item.valuation_date for item in assets.observations] != dates:
         raise ValueError("Reported and source asset date grains differ")
     for source, reported in zip(assets.observations, evidence, strict=True):
+        if reported.portfolio_currency != assets.portfolio_currency:
+            raise ValueError("Reported native currency conflicts with source asset evidence")
         _require_projected_money(source.beginning_market_value, reported.begin_mv)
         _require_projected_money(source.ending_market_value, reported.end_mv)
 
@@ -312,7 +363,9 @@ def _admit_daily_evidence(
     if item is None or item.status != "calculated" or item.linkability_status != "linkable":
         raise ValueError("Unsupported daily linkability")
     # Monetary values are native even when returns are restated; no inferred rates.
-    if (item.portfolio_currency, item.reporting_currency) != (command.reporting_currency, command.reporting_currency):
+    if item.reporting_currency != command.reporting_currency or (
+        item.portfolio_currency != command.reporting_currency and command.currency_normalization_binding is None
+    ):
         raise ValueError("Applied member asset conversion evidence is unavailable")
     return item
 

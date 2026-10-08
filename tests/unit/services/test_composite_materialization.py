@@ -735,6 +735,44 @@ def test_member_inspection_count_cannot_rewind_or_skip_progress(stores, invalid_
     assert ledger.get(command.materialization_id, tenant_id="tenant-a") == retained
 
 
+def test_legacy_command_wire_replays_but_new_fx_binding_conflicts(stores):
+    from app.models.composite_authority import EvidenceBinding
+    from app.services.reproducibility_service import generate_value_fingerprint
+
+    ledger, _, _ = stores
+    command = command_for()
+    legacy_wire = command.model_dump(mode="json", exclude={"currency_normalization_binding"})
+    legacy_payload = {key: value for key, value in legacy_wire.items() if key != "calculation_id"}
+    assert generate_value_fingerprint(command.immutable_payload(), "composite-materialization.v1") == (
+        generate_value_fingerprint(legacy_payload, "composite-materialization.v1")
+    )
+    first = ledger.register(command, tenant_id="tenant-a", actor_id="operator")
+    # Simulate the exact persisted pre-FX wire, not merely a new model with None.
+    with ledger._engine.begin() as connection:
+        connection.execute(
+            text("UPDATE composite_materializations SET command_json=:wire WHERE materialization_id=:identity"),
+            {
+                "wire": json.dumps(legacy_payload, sort_keys=True, separators=(",", ":")),
+                "identity": str(command.materialization_id),
+            },
+        )
+    assert ledger.register(command, tenant_id="tenant-a", actor_id="operator") == first
+    bound = command.model_copy(
+        update={
+            "currency_normalization_binding": EvidenceBinding(
+                product_name="CompositeCurrencyNormalization",
+                product_version="v1",
+                revision="fx-r1",
+                digest="sha256:" + "a" * 64,
+            )
+        }
+    )
+    with pytest.raises(APIError) as changed:
+        ledger.register(bound, tenant_id="tenant-a", actor_id="operator")
+    assert changed.value.error_code == "COMPOSITE_MATERIALIZATION_CONTENT_CONFLICT"
+    assert ledger.get(command.materialization_id, tenant_id="tenant-a") == first
+
+
 def test_ledger_scope_replay_conflict_and_cross_tenant_identifier(stores):
     ledger, _, _ = stores
     command = command_for()
