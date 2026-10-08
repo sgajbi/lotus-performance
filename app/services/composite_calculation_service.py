@@ -49,6 +49,7 @@ def calculate_composite_twr_from_materializations(
             method,
             _retained_currency_method(record),
             definition.reporting_currency,
+            _retained_member_money_currencies(record),
         )
         _require_compatible_window_authority(basis, selected_basis)
         basis = selected_basis
@@ -63,15 +64,26 @@ def calculate_composite_twr_from_materializations(
 def _require_compatible_window_authority(previous, selected):
     if previous is None:
         return
-    if previous[-1] != selected[-1]:
+    if previous[-2] != selected[-2] or _continuing_member_currency_changed(previous[-1], selected[-1]):
         raise APIUnprocessableEntityError(
             "Selected native-currency regimes require admitted membership and history treatment.",
             error_code="COMPOSITE_VECTOR_CURRENCY_REGIME_UNAVAILABLE",
         )
-    if previous != selected:
+    if previous[:-2] != selected[:-2]:
         raise APIUnprocessableEntityError(
             "Selected window method or policy authority differs.", error_code="COMPOSITE_VECTOR_METHOD_MISMATCH"
         )
+
+
+def _continuing_member_currency_changed(previous: dict[str, str], selected: dict[str, str]) -> bool:
+    return any(previous[member] != selected[member] for member in previous.keys() & selected.keys())
+
+
+def _retained_member_money_currencies(record: MaterializationRecord) -> dict[str, str]:
+    if record.source is None or record.source.currency_normalization_wire is None:
+        return {}
+    source = CompositeFXNormalizationSource.model_validate(record.source.currency_normalization_wire)
+    return {member.member_id: member.source_money_currency for member in source.members}
 
 
 def _selected_materializations(request: CompositeTWRRequest) -> list[UUID]:

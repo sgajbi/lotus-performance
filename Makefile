@@ -60,15 +60,13 @@ CI_LOCAL_COMPOSE_PROJECT ?= $(shell python scripts/ci_local_compose_project.py)
 CI_LOCAL_GIT_DIR ?= $(shell git rev-parse --git-common-dir)
 CI_LOCAL_GIT_WORKTREE_DIR ?= $(shell git rev-parse --absolute-git-dir)
 
+# Resolve both manifests together so dev transitives cannot replace runtime pins.
 install:
-	pip install -r requirements.txt
-	pip install -r requirements-dev.txt
-	pip install pre-commit
+	pip install -r requirements.txt -r requirements-dev.txt
 	pre-commit install
 
 install-ci:
-	pip install -r requirements.txt
-	pip install -r requirements-dev.txt
+	pip install -r requirements.txt -r requirements-dev.txt
 
 verify-dependencies:
 	python scripts/dependency_health_check.py --skip-audit --skip-outdated --requirement requirements.txt --requirement requirements-dev.txt

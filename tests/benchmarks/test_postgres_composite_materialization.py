@@ -482,7 +482,7 @@ def test_postgres_registered_fx_normalization_temporary_source_recovery(postgres
     registered_control(monkeypatch)
 
 
-@pytest.mark.parametrize("mismatch", ["fx-method", "policy", "native-regime"])
+@pytest.mark.parametrize("mismatch", ["fx-method", "policy", "native-regime", "member-regime"])
 def test_postgres_registered_fx_normalization_incompatible_admitted_windows(
     postgres_materialization_stores, monkeypatch, mismatch
 ):

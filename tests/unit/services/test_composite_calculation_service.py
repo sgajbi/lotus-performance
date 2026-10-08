@@ -12,9 +12,36 @@ from app.models.composites import CompositeDefinition, CompositeMemberReturnFact
 from app.observability import tenant_id_var
 from app.services.composite_calculation_service import (
     CompositeDefinitionNotFoundError,
+    _require_compatible_window_authority,
     calculate_composite_twr_from_persisted_facts,
 )
 from app.services.composite_metadata_store import CompositeMetadataStore
+from core.errors import APIUnprocessableEntityError
+
+
+@pytest.mark.parametrize(
+    "previous,selected,refused",
+    [
+        ({"A": "EUR", "B": "USD"}, {"B": "USD", "A": "EUR"}, False),
+        ({"A": "EUR", "B": "USD"}, {"A": "EUR", "C": "GBP"}, False),
+        ({"A": "EUR"}, {"A": "GBP"}, True),
+        ({"A": "EUR", "B": "USD"}, {"A": "EUR", "B": "GBP", "C": "USD"}, True),
+    ],
+    ids=[
+        "source-order-independent",
+        "admitted-membership-change",
+        "continuing-member-drift",
+        "drift-with-membership-change",
+    ],
+)
+def test_window_authority_compares_only_continuing_member_money_regimes(previous, selected, refused):
+    basis = ("ASSET_WEIGHTED", "policy.v1", {"method": "daily"}, {"fx": "unhedged"}, "USD")
+    if refused:
+        with pytest.raises(APIUnprocessableEntityError) as error:
+            _require_compatible_window_authority((*basis, previous), (*basis, selected))
+        assert error.value.error_code == "COMPOSITE_VECTOR_CURRENCY_REGIME_UNAVAILABLE"
+    else:
+        _require_compatible_window_authority((*basis, previous), (*basis, selected))
 
 
 @pytest.mark.parametrize("optimized", [False, True])

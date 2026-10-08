@@ -16,7 +16,8 @@ Adjacent windows require compatible independently admitted method and policy bin
 temporary FX outages retain the full admitted population for same-job recovery.
 Bound internal projections may report in a currency different from the admitted native
 definition, with independently verified matching native-currency evidence. Native
-regime changes across a window vector require explicit history treatment and currently refuse.
+regime changes, including a continuing member's source-money currency change, across a
+window vector require explicit history treatment and currently refuse.
 See the [money, flow, fee and correction examples](https://github.com/sgajbi/lotus-performance/blob/main/docs/guides/composite_materialization.md#retained-member-currency-normalization)
 for the internal calculation and client explanation. Synthetic registered PostgreSQL
 and fresh-process proof does not establish live source or official publication authority.

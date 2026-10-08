@@ -201,7 +201,10 @@ Current repository posture:
     starve a later probe. Integration modules that exercise durable queues must clear their
     execution, compute-job, and async-result stores per test instead of depending on file order.
 23. `requirements.txt` and `requirements-dev.txt` are governed clean-install inputs and every
-    direct dependency must use an exact `==` version pin. The license-compliance gate validates
+    direct dependency must use an exact `==` version pin. Resolve runtime and development
+    manifests together in `make install` and `make install-ci`; a separate development
+    transaction can upgrade an already installed runtime pin through transitive dependencies.
+    The license-compliance gate validates
     that installed metadata matches those pins before accepting or regenerating the reviewed
     inventory, so local package drift cannot silently rewrite compliance evidence. Overlapping
     Poetry declarations must carry the same exact versions, and `poetry.lock` must remain current,
@@ -1093,6 +1096,8 @@ independently verified source native currency matches the exact Manage definitio
 Retained reads repeat that check; unbound native/report equality remains unchanged.
 Refuse cross-window native-regime changes without explicit history treatment, even
 when each window separately completes and reports in the same requested currency.
+Compare source-money currency by continuing member identity across adjacent windows;
+member order and admitted membership changes alone must not trigger that refusal.
 Production FX source/verifier factories remain unavailable; synthetic receipts cannot confer
 official activation. External/hybrid aggregate normalization has no admitted method.
 Registered money/replay controls live in the owning materialization API suite; PostgreSQL

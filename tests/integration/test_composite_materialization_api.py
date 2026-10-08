@@ -363,6 +363,7 @@ def run_registered_fx_money_control(
     temporary_fx_outage=False,
     precision="DECIMAL_STRICT",
     rounding=12,
+    source_money_currency="EUR",
 ):
     """Reusable registered consumer control; captures immutable evidence for process proof."""
     products = products or source_products(composite_id="COMPOSITE_" + uuid4().hex)
@@ -376,7 +377,7 @@ def run_registered_fx_money_control(
         products,
         figures=figures_with_flow,
         performance_day=performance_day,
-        currencies={"A": "EUR"},
+        currencies={"A": source_money_currency},
         flows={
             "A": [
                 {"amount": eod_flow, "timing": "eod", "cash_flow_type": "external_flow"},
@@ -402,10 +403,10 @@ def run_registered_fx_money_control(
                 "report_ccy": "USD",
                 "fx": {
                     "rates": [
-                        {"date": "2026-01-01", "ccy": "EUR", "rate": beginning_rate},
-                        {"date": "2026-01-02", "ccy": "EUR", "rate": beginning_rate},
-                        {"date": prior_day, "ccy": "EUR", "rate": beginning_rate},
-                        {"date": performance_day, "ccy": "EUR", "rate": ending_rate},
+                        {"date": "2026-01-01", "ccy": source_money_currency, "rate": beginning_rate},
+                        {"date": "2026-01-02", "ccy": source_money_currency, "rate": beginning_rate},
+                        {"date": prior_day, "ccy": source_money_currency, "rate": beginning_rate},
+                        {"date": performance_day, "ccy": source_money_currency, "rate": ending_rate},
                     ]
                 },
                 "analyses": [{"period": "EXPLICIT", "frequencies": ["daily"]}],
@@ -465,6 +466,7 @@ def run_registered_fx_money_control(
                 normalization_fault=normalization_fault,
                 normalization_method_revision=normalization_method_revision,
                 composite_native_currency=products[0]["reporting_currency"],
+                source_money_currency=source_money_currency,
             )
         accepted = client.post("/performance/composites/materializations", json=command.model_dump(mode="json"))
         assert accepted.status_code == 202, accepted.text
@@ -530,7 +532,7 @@ def run_registered_fx_money_control(
             ), receipt
             evidence = receipt["members"][0]["source_evidence"]
             assert evidence["contract_version"] == "composite-member-source.v3"
-            assert evidence["native_evidence"]["source_assets"]["portfolio_currency"] == "EUR"
+            assert evidence["native_evidence"]["source_assets"]["portfolio_currency"] == source_money_currency
             assert Decimal(receipt["members"][0]["fact"]["beginning_market_value"]) == a_reporting_begin
             assert Decimal(receipt["members"][0]["fact"]["ending_market_value"]) == (
                 a_end + Decimal(eod_flow)
@@ -735,12 +737,13 @@ def install_normalization_source_controls(
     normalization_fault=None,
     normalization_method_revision="method1",
     composite_native_currency="USD",
+    source_money_currency="EUR",
 ):
     """Actual snapshot helper + configured synthetic issuer; no institutional source admission."""
     prior_day = command.period_start - timedelta(days=1)
     source_cut_day = (command.period_end + timedelta(days=1)).isoformat()
     response = {
-        "from_currency": "EUR",
+        "from_currency": source_money_currency,
         "to_currency": "USD",
         "rates": [
             {"rate_date": prior_day.isoformat(), "rate": beginning_rate},
@@ -754,7 +757,7 @@ def install_normalization_source_controls(
     service = StatefulInputService(core_service=SimpleNamespace(get_fx_rates=source_fx))
     asyncio.run(
         service.get_fx_rates(
-            from_currency="EUR",
+            from_currency=source_money_currency,
             to_currency="USD",
             start_date=prior_day,
             end_date=command.period_end,
@@ -781,6 +784,7 @@ def install_normalization_source_controls(
         }
     )
     original = wire["members"][0]
+    original["source_money_currency"] = source_money_currency
     for fixing, source_rate in zip(original["fixings"], response["rates"], strict=True):
         day = source_rate["rate_date"]
         fixing.update(
@@ -788,6 +792,7 @@ def install_normalization_source_controls(
             rate=source_rate["rate"],
             observed_at=day + "T21:00:00Z",
             revision_available_at=day + "T21:01:00Z",
+            source_currency=source_money_currency,
         )
         fixing["retrieval_response_fingerprint"] = snapshot.response_fingerprint
         if fixing["fixing_date"] == str(command.period_end):
@@ -808,7 +813,7 @@ def install_normalization_source_controls(
                 "member_id": ref["portfolio_id"],
                 "input_fingerprint": ref["input_fingerprint"],
                 "calculation_hash": ref["calculation_hash"],
-                "portfolio_reference_currency": "EUR" if ref["portfolio_id"] == "A" else "USD",
+                "portfolio_reference_currency": source_money_currency if ref["portfolio_id"] == "A" else "USD",
             }
         )
         if ref["portfolio_id"] != "A":
@@ -904,11 +909,12 @@ def test_registered_fx_normalization_links_adjacent_periods_without_resetting_in
                 native_figures=figures,
                 restatement_sequence=sequence,
                 normalization_method_revision="method2" if mismatch == "fx-method" and sequence == 2 else "method1",
+                source_money_currency="GBP" if mismatch == "member-regime" and sequence == 2 else "EUR",
             )
     for value in captured.values():
         native = value["receipt"]["members"][0]["source_evidence"]["native_evidence"]
         assert native["calculation_request"]["portfolio"]["performance_start_date"] == "2026-01-01"
-        assert native["source_assets"]["portfolio_currency"] == "EUR"
+        assert native["source_assets"]["portfolio_currency"] == value["wire"]["members"][0]["source_money_currency"]
 
     def verify(request):
         assert any(request.source_digest == authority_digest(row["wire"]) for row in captured.values())
@@ -931,7 +937,7 @@ def test_registered_fx_normalization_links_adjacent_periods_without_resetting_in
             assert response.status_code == 422, response.text
             assert response.json()["error_code"] == (
                 "COMPOSITE_VECTOR_CURRENCY_REGIME_UNAVAILABLE"
-                if mismatch == "native-regime"
+                if mismatch in ("native-regime", "member-regime")
                 else "COMPOSITE_VECTOR_METHOD_MISMATCH"
             )
             assert "cumulative_return" not in response.json()
@@ -974,7 +980,7 @@ def test_registered_fx_normalization_links_native_eur_windows_in_usd_without_res
     )
 
 
-@pytest.mark.parametrize("mismatch", ["fx-method", "policy", "native-regime"])
+@pytest.mark.parametrize("mismatch", ["fx-method", "policy", "native-regime", "member-regime"])
 def test_registered_fx_normalization_refuses_independently_admitted_incompatible_windows(monkeypatch, mismatch):
     test_registered_fx_normalization_links_adjacent_periods_without_resetting_inception(monkeypatch, mismatch)
 
