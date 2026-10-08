@@ -166,14 +166,19 @@ def _sod_reset_flags_from_next_open(
     canonical_reset: np.ndarray,
     zero: object,
 ) -> np.ndarray:
-    """Resolve SOD reset flags by walking backward through next-day opening reset state."""
+    """Propagate the nearest later reset only across uninterrupted nonzero openings."""
     sod_reset = np.zeros(len(canonical_reset), dtype=bool)
+    if len(canonical_reset) < 2:
+        return sod_reset
 
-    for position in range(len(canonical_reset) - 2, -1, -1):
-        should_reset_from_next_open = (next_day_bod_cf[position] != zero) and canonical_reset[position + 1]
-        sod_reset[position] = should_reset_from_next_open
-        canonical_reset[position] = canonical_reset[position] or should_reset_from_next_open
-
+    positions = np.arange(len(canonical_reset))
+    sentinel = len(canonical_reset)
+    # A reset at j reaches i < j exactly when every opening edge i..j-1
+    # carries cash. A blocked edge at j does not prevent j's own base reset.
+    next_reset = np.minimum.accumulate(np.where(canonical_reset, positions, sentinel)[::-1])[::-1]
+    next_block = np.minimum.accumulate(np.where(next_day_bod_cf != zero, sentinel, positions)[::-1])[::-1]
+    sod_reset[:-1] = (next_reset[1:] < sentinel) & (next_reset[1:] <= next_block[:-1])
+    canonical_reset |= sod_reset
     return sod_reset
 
 
