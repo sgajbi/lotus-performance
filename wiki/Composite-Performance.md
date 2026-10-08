@@ -8,7 +8,9 @@ The first periodic model-fee producer transforms approved internal gross member 
 factors before the existing asset weighting. A separate immutable method/schedule/calendar
 binding and v4 receipt preserve original gross custody, source assets and explicit fee
 entries. Actual net is a distinct retained source basis. Performance can retain and retrieve
-exact unapproved method profiles through its configured local catalog. Resolution defaults
+exact unapproved method profiles through its configured local catalog. Profiles are bounded
+by one MiB of canonical wire and the default one-MiB HTTP body limit.
+Database guards refuse UPDATE/DELETE and PostgreSQL TRUNCATE of the catalog. Resolution defaults
 unavailable, and independent production verification remains unavailable; synthetic
 SQLite/PostgreSQL controls do not establish activation. Only complete approved periods with unbundled
 management-fee fractions are supported by this convention; flat/tiered/AUM and specialized

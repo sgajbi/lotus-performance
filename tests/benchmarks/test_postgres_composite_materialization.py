@@ -30,7 +30,7 @@ from app.services.execution_registry import ExecutionRegistry
 from core.errors import APIError, APINotFoundError
 from engine.composites import calculate_asset_weighted_composite_twr
 from main import app
-from scripts.durable_schema_apply import apply_durable_schema
+from scripts.durable_schema_apply import OWNED_DURABLE_TABLES, apply_durable_schema
 from tests.benchmarks.postgres_runtime_helpers import get_postgres_database_url, owned_postgres_runtime_stores
 from tests.composite_materialization_helpers import (
     INVALID_MATERIALIZATION_DATABASE_WRITES,
@@ -80,7 +80,7 @@ def _default_annual_pg_client(url, monkeypatch):
     assert store._engine.dialect.name == "postgresql"
     assert store._engine.url == make_url(url)
     with store._engine.connect() as connection:
-        assert len(inspect(connection).get_table_names()) == 13
+        assert set(inspect(connection).get_table_names()) == set(OWNED_DURABLE_TABLES)
     before = _retained_snapshot(store._engine)
     reads = []
 

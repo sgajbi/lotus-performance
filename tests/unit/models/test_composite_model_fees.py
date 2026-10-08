@@ -19,7 +19,7 @@ def test_profile_canonical_utf8_byte_bound_accepts_boundary_and_refuses_excess(m
     monkeypatch.setattr(composite_model_fees, "MODEL_FEE_PROFILE_MAX_BYTES", size)
     assert CompositePeriodicModelFeeProfile.model_validate(wire).model_dump(mode="json") == wire
     monkeypatch.setattr(composite_model_fees, "MODEL_FEE_PROFILE_MAX_BYTES", size - 1)
-    with pytest.raises(ValidationError, match="two-MiB"):
+    with pytest.raises(ValidationError, match="one-MiB"):
         CompositePeriodicModelFeeProfile.model_validate(wire)
 
 

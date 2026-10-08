@@ -125,6 +125,29 @@ def test_postgres_current_function_and_trigger_accept_catalogue_only(postgres_ca
     assert len(postgres_catalog.queries) == 2
 
 
+@pytest.mark.parametrize("fault", [None, "row_level", "wrong_event", "disabled", "missing"])
+def test_postgres_truncate_requires_exact_enabled_statement_guard(postgres_catalog, fault):
+    statement = (
+        "CREATE TRIGGER immutable_update BEFORE TRUNCATE ON facts "
+        "FOR EACH STATEMENT EXECUTE FUNCTION immutable_fact();"
+    )
+    postgres_catalog.triggers[0]["tgtype"] = 34
+    if fault == "row_level":
+        postgres_catalog.triggers[0]["tgtype"] = 35
+    elif fault == "wrong_event":
+        postgres_catalog.triggers[0]["tgtype"] = 18
+    elif fault == "disabled":
+        postgres_catalog.triggers[0]["tgenabled"] = "D"
+    elif fault == "missing":
+        postgres_catalog.triggers.clear()
+    statements = (postgres_catalog.statements[0], statement)
+    if fault is None:
+        require_managed_guards(postgres_catalog.connection, statements)
+    else:
+        with pytest.raises(DurableSchemaMigrationRequiredError, match="trigger:immutable_update"):
+            require_managed_guards(postgres_catalog.connection, statements)
+
+
 @pytest.mark.parametrize(
     "collection, field, value",
     [

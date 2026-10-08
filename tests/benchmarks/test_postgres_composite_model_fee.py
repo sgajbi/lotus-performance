@@ -68,6 +68,7 @@ def test_postgres_catalog_custody_conflict_guards_and_loss_refusal(populated_mod
         for operation in (
             "UPDATE composite_model_fee_profiles SET published_by='replacement'",
             "DELETE FROM composite_model_fee_profiles",
+            "TRUNCATE composite_model_fee_profiles",
         ):
             test_database_mutation_guard_rejects_retained_content(store, operation)
     finally:
