@@ -36,7 +36,12 @@ requires `X-Capabilities: operations.runtime.manage`; retrieval requires
 An identical retry preserves original custody. Changed content under the same tenant,
 profile id and revision returns 409; a correction needs a distinct immutable revision.
 Missing exact tenant-scoped retrieval returns 404. Profiles admit at most 128 complete
-periods, 1000 rate entries per period and two MiB of canonical UTF-8 method wire.
+periods, 1000 rate entries per period and one MiB of canonical UTF-8 method wire.
+The default HTTP write-body limit is also one MiB, measured before decoding; callers
+must keep the complete serialized request, including whitespace, within that limit.
+Database guards refuse UPDATE and DELETE of retained profiles, and PostgreSQL also
+refuses statement-level TRUNCATE. Runtime schema verification checks these installed
+guards without repairing them; schema changes remain an explicit owner operation.
 
 The worker resolves only the exact tenant/composite/product/version/revision/digest
 binding. It never selects latest or first. Independent Manage method approval, complete

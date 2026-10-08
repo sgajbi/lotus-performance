@@ -14,8 +14,8 @@ from app.adapters.durable_schema.errors import DurableSchemaMigrationRequiredErr
 
 _TRIGGER_NAME = re.compile(r"CREATE\s+TRIGGER\s+(\w+)", re.IGNORECASE)
 _PG_TRIGGER = re.compile(
-    r"CREATE\s+TRIGGER\s+(\w+)\s+BEFORE\s+(INSERT|UPDATE|DELETE)\s+ON\s+(\w+)\s+"
-    r"FOR\s+EACH\s+ROW\s+EXECUTE\s+FUNCTION\s+(\w+)\(\)\s*;?\s*$",
+    r"CREATE\s+TRIGGER\s+(\w+)\s+BEFORE\s+(INSERT|UPDATE|DELETE|TRUNCATE)\s+ON\s+(\w+)\s+"
+    r"FOR\s+EACH\s+(ROW|STATEMENT)\s+EXECUTE\s+FUNCTION\s+(\w+)\(\)\s*;?\s*$",
     re.IGNORECASE,
 )
 _PG_FUNCTION = re.compile(
@@ -132,8 +132,12 @@ def _postgres_trigger_matches(statement: str, actual: Any) -> bool:
     match = _PG_TRIGGER.fullmatch(statement.strip())
     if match is None or actual is None:
         return False
-    event = {"INSERT": 4, "DELETE": 8, "UPDATE": 16}[match[2].upper()]
-    expected = (match[3], 1 | 2 | event, "O", 0, None, False, False, match[4], True)
+    operation, level = match[2].upper(), match[4].upper()
+    if operation == "TRUNCATE" and level != "STATEMENT":
+        return False
+    event = {"INSERT": 4, "DELETE": 8, "UPDATE": 16, "TRUNCATE": 32}[operation]
+    row_flag = 1 if level == "ROW" else 0
+    expected = (match[3], row_flag | 2 | event, "O", 0, None, False, False, match[5], True)
     observed = tuple(
         actual[key]
         for key in (

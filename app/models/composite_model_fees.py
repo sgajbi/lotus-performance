@@ -11,13 +11,13 @@ from app.models.composite_authority import AuthorityWire, BusinessDate, Evidence
 from app.models.composite_currency_normalization import Currency
 from app.models.composite_external_facts import DecimalWire
 
-MODEL_FEE_PROFILE_MAX_BYTES = 2 * 1024 * 1024
+MODEL_FEE_PROFILE_MAX_BYTES = 1024 * 1024
 
 
 def model_fee_profile_json(wire: dict) -> str:
     canonical = json.dumps(wire, sort_keys=True, separators=(",", ":"), allow_nan=False)
     if len(canonical.encode("utf-8")) > MODEL_FEE_PROFILE_MAX_BYTES:
-        raise ValueError("Model-fee profile exceeds the bounded two-MiB canonical wire")
+        raise ValueError("Model-fee profile exceeds the bounded one-MiB canonical wire")
     return canonical
 
 

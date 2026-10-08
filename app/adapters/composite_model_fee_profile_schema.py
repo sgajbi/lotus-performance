@@ -72,3 +72,8 @@ def _postgres_guards(writer):
         writer.exec_driver_sql(
             f"CREATE TRIGGER {name} BEFORE {operation} ON {_TABLE} FOR EACH ROW EXECUTE FUNCTION {_FUNCTION}()"
         )
+    name = f"{_TRIGGER}_truncate"
+    writer.exec_driver_sql(f"DROP TRIGGER IF EXISTS {name} ON {_TABLE}")
+    writer.exec_driver_sql(
+        f"CREATE TRIGGER {name} BEFORE TRUNCATE ON {_TABLE} FOR EACH STATEMENT EXECUTE FUNCTION {_FUNCTION}()"
+    )
