@@ -50,10 +50,38 @@ REPO_ROOT = Path(__file__).resolve().parents[1]
 DEFAULT_RECORDS = REPO_ROOT / "quality" / "container_vulnerability_acceptances.v1.json"
 DEFAULT_SCAN = REPO_ROOT / "output" / "container-security" / "lotus-performance-image-vulnerabilities.json"
 
-REQUIRED_FIELDS = ("advisory_id", "severity", "packages", "owner", "expires_on", "remediation_path")
+REQUIRED_FIELDS = (
+    "advisory_id",
+    "severity",
+    "packages",
+    "owner",
+    "expires_on",
+    "remediation_path",
+    "reviewed_on",
+    "decision_ref",
+    "runtime_exposure",
+    "compensating_controls",
+    "removal_trigger",
+)
 # Verified repository owner/maintainer principal, not a repository-name placeholder.
 # Changes require live GitHub accountability evidence and the owning policy review (#506).
 ACCOUNTABLE_OWNERS = frozenset({"sgajbi"})
+MAX_ACCEPTANCE_DAYS = 7
+
+
+def _decision_failures(advisory: str, record: dict, today: dt.date) -> list[str]:
+    """A changed expiry must remain bound to an actual, recent decision."""
+    try:
+        reviewed = dt.date.fromisoformat(record.get("reviewed_on", ""))
+        expires = dt.date.fromisoformat(record.get("expires_on", ""))
+    except (TypeError, ValueError):
+        return [f"{advisory} has malformed decision dates"]
+    failures = []
+    if reviewed > today or not 0 <= (expires - reviewed).days <= MAX_ACCEPTANCE_DAYS:
+        failures.append(f"{advisory} requires a nonfuture review and an acceptance bounded to seven days")
+    if expires < today:
+        failures.append(f"{advisory} acceptance has lapsed and must be re-decided, not extended")
+    return failures
 
 
 def _fail(message: str) -> None:
@@ -103,6 +131,7 @@ def main() -> int:
     by_id = _indexed(json.loads(args.records.read_text(encoding="utf-8"))["acceptances"], args.records)
     findings = _findings(args.scan)
     failures: list[str] = []
+    today = dt.date.today()
 
     present: dict[str, set[tuple[str, str]]] = {}
     severities: dict[str, set[str]] = {}
@@ -129,6 +158,7 @@ def main() -> int:
 
         if record.get("owner") not in ACCOUNTABLE_OWNERS:
             failures.append(f"{advisory} names an unrecognized accountable owner; use a reviewed GitHub principal")
+        failures.extend(_decision_failures(advisory, record, today))
 
         scanned = present.get(advisory)
         if scanned is None:
@@ -159,12 +189,6 @@ def main() -> int:
                 f"Leaving them pre-approves a package that would be covered without review if "
                 f"it returned; remove them from the record or re-review the acceptance."
             )
-
-    today = dt.date.today()
-    if expired := sorted(
-        advisory for advisory, record in by_id.items() if dt.date.fromisoformat(record["expires_on"]) < today
-    ):
-        failures.append(f"these acceptances have lapsed and must be re-decided, not extended: {expired}")
 
     if failures:
         _fail("Container vulnerability gate failed:")

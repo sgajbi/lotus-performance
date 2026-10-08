@@ -16,6 +16,7 @@ that the gate *refuses*, not that it runs.
 
 from __future__ import annotations
 
+import datetime as dt
 import json
 import subprocess
 import sys
@@ -61,7 +62,12 @@ def _record(**overrides) -> dict:
         "packages": [{"name": _PACKAGE, "affected_version": _VERSION}],
         "fixed_version": None,
         "owner": "sgajbi",
-        "expires_on": "2099-01-01",
+        "reviewed_on": dt.date.today().isoformat(),
+        "expires_on": (dt.date.today() + dt.timedelta(days=7)).isoformat(),
+        "decision_ref": "https://example.test/technical-review",
+        "runtime_exposure": "Synthetic exposure assessment.",
+        "compensating_controls": "Synthetic enforced privilege controls.",
+        "removal_trigger": "Synthetic release block on changed exposure or stable fix.",
         "remediation_path": "No fixed version published for the base image; synthetic fixture.",
     }
     record.update(overrides)
@@ -161,7 +167,20 @@ def test_duplicate_advisory_ids_are_refused_before_indexing(tmp_path: Path) -> N
     assert "Duplicate advisory ids" in result.stderr
 
 
-@pytest.mark.parametrize("missing", ["owner", "expires_on", "remediation_path", "severity"])
+@pytest.mark.parametrize(
+    "missing",
+    [
+        "owner",
+        "expires_on",
+        "remediation_path",
+        "severity",
+        "reviewed_on",
+        "decision_ref",
+        "runtime_exposure",
+        "compensating_controls",
+        "removal_trigger",
+    ],
+)
 def test_a_record_missing_a_required_policy_field_is_refused(tmp_path: Path, missing: str) -> None:
     result = _Scenario(
         tmp_path,
@@ -238,6 +257,23 @@ def test_an_expired_acceptance_is_refused(tmp_path: Path) -> None:
 
     assert result.returncode == 1
     assert "lapsed" in result.stderr
+
+
+@pytest.mark.parametrize(
+    "case", ["eight_days", "future_review", "before_review", "malformed_review", "malformed_expiry"]
+)
+def test_a_decision_with_invalid_time_bounds_is_refused(tmp_path: Path, case: str) -> None:
+    today = dt.date.today()
+    overrides = {
+        "eight_days": {"expires_on": (today + dt.timedelta(days=8)).isoformat()},
+        "future_review": {"reviewed_on": (today + dt.timedelta(days=1)).isoformat()},
+        "before_review": {"expires_on": (today - dt.timedelta(days=1)).isoformat()},
+        "malformed_review": {"reviewed_on": "not-a-date"},
+        "malformed_expiry": {"expires_on": "not-a-date"},
+    }
+    result = _Scenario(tmp_path, records=[_record(**overrides[case])], scanned=[_finding()]).run()
+    assert result.returncode == 1
+    assert "seven days" in result.stderr or "malformed decision dates" in result.stderr
 
 
 def test_a_missing_report_is_refused_rather_than_treated_as_nothing_to_answer_for(tmp_path: Path) -> None:
