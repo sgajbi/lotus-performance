@@ -5,7 +5,6 @@ from uuid import UUID
 
 from app.adapters.composite_materialization_repository import get_composite_materialization_store
 from app.models.composite_authority import ManageCompositeDefinitionV2
-from app.models.composite_currency_normalization import CompositeFXNormalizationSource
 from app.models.composite_materialization import CompositeMaterializationCommand, CompositeMaterializationState
 from app.models.composites import (
     CompositeMemberReturnFact,
@@ -16,6 +15,11 @@ from app.models.composites import (
 from app.observability import tenant_id_var
 from app.services.composite_materialization.records import MaterializationRecord
 from app.services.composite_materialization.source_contract import ManageCompositeDefinition
+from app.services.composite_materialization.window_currency_authority import (
+    CurrencyWindowAuthority,
+    require_compatible_currency_authority,
+    retained_currency_authority,
+)
 from app.services.composite_metadata_store import CompositeMetadataStore, composite_metadata_store
 from app.services.core_tenant_authority import admitted_tenant_authority, require_composite_tenant_authority
 from app.services.durable_store_runtime import RuntimeStoreProxy
@@ -42,14 +46,15 @@ def calculate_composite_twr_from_materializations(
     for record in records:
         definition = _complete_window_definition(record)
         _require_window_scope(record.command, request, currency, cursor)
-        method = _retained_return_method(record, definition)
+        currency_authority = retained_currency_authority(record)
+        method = _retained_return_method(definition, currency_authority.normalization_method)
         selected_basis = (
             definition.calculation_method,
             record.command.policy_version,
             method,
-            _retained_currency_method(record),
-            definition.reporting_currency,
-            _retained_member_money_currencies(record),
+            currency_authority.normalization_method,
+            currency_authority.native_currency,
+            currency_authority.member_money_currencies,
         )
         _require_compatible_window_authority(basis, selected_basis)
         basis = selected_basis
@@ -64,26 +69,13 @@ def calculate_composite_twr_from_materializations(
 def _require_compatible_window_authority(previous, selected):
     if previous is None:
         return
-    if previous[-2] != selected[-2] or _continuing_member_currency_changed(previous[-1], selected[-1]):
-        raise APIUnprocessableEntityError(
-            "Selected native-currency regimes require admitted membership and history treatment.",
-            error_code="COMPOSITE_VECTOR_CURRENCY_REGIME_UNAVAILABLE",
-        )
-    if previous[:-2] != selected[:-2]:
+    require_compatible_currency_authority(
+        CurrencyWindowAuthority(*previous[-3:]), CurrencyWindowAuthority(*selected[-3:])
+    )
+    if previous[:-3] != selected[:-3]:
         raise APIUnprocessableEntityError(
             "Selected window method or policy authority differs.", error_code="COMPOSITE_VECTOR_METHOD_MISMATCH"
         )
-
-
-def _continuing_member_currency_changed(previous: dict[str, str], selected: dict[str, str]) -> bool:
-    return any(previous[member] != selected[member] for member in previous.keys() & selected.keys())
-
-
-def _retained_member_money_currencies(record: MaterializationRecord) -> dict[str, str]:
-    if record.source is None or record.source.currency_normalization_wire is None:
-        return {}
-    source = CompositeFXNormalizationSource.model_validate(record.source.currency_normalization_wire)
-    return {member.member_id: member.source_money_currency for member in source.members}
 
 
 def _selected_materializations(request: CompositeTWRRequest) -> list[UUID]:
@@ -116,23 +108,14 @@ def _complete_window_definition(
     return definition
 
 
-def _retained_currency_method(record):
-    if record.source.currency_normalization_wire is None:
-        return None
-    # get_many already reverified exact raw source custody and every member receipt.
-    source = CompositeFXNormalizationSource.model_validate(record.source.currency_normalization_wire)
-    return source.method_binding.model_dump(mode="json")
-
-
-def _retained_return_method(record, definition):
+def _retained_return_method(definition, currency_method):
     if isinstance(definition, ManageCompositeDefinitionV2):
         return definition.source_authority.payload.return_method_binding.model_dump(mode="json")
-    method = _retained_currency_method(record)
-    if method is None:
+    if currency_method is None:
         raise APIUnprocessableEntityError(
             "Pinned TWR windows require retained method authority.", error_code="COMPOSITE_VECTOR_METHOD_UNAVAILABLE"
         )
-    return method
+    return currency_method
 
 
 def _require_window_scope(
@@ -212,14 +195,13 @@ def calculate_composite_twr_from_persisted_facts(
     if definition is None:
         raise CompositeDefinitionNotFoundError(f"Composite definition not found: {composite_id}")
 
-    selected_reporting_currency = reporting_currency or definition.reporting_currency
     facts = store.list_member_return_facts(
         tenant_id=tenant_id,
         composite_id=composite_id,
         period_start=period_start,
         period_end=period_end,
         return_view=return_view,
-        reporting_currency=selected_reporting_currency,
+        reporting_currency=reporting_currency,
         restatement_sequence=restatement_sequence,
     )
     if any(fact.ending_market_value is None for fact in facts):

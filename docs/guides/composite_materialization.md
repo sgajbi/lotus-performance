@@ -33,8 +33,13 @@ activation `UNAVAILABLE`.
 For a bound internal projection, the requested reporting currency may differ from
 the composite's native currency in its exact admitted Manage definition. The verified
 command currency is persisted in Performance's reporting definition when the projection
-is published. An unpinned TWR request omitting `reporting_currency` therefore selects
-that reporting currency, including when older native-currency facts exist. The original
+is published. Unpinned TWR and inspection requests omitting `reporting_currency` select
+the single published currency in their tenant, composite, requested window, fee view and
+optional sequence scope. Multiple currencies in that scope refuse with
+`409 COMPOSITE_FACT_SELECTION_INCOMPLETE`; provide an explicit currency rather than
+letting publication order select a projection. A projection in another period or fee
+view does not change that scope. Without a scoped publication, the legacy definition
+default remains in effect; currency is never inferred from raw fact rows. The original
 Manage definition, content hash, native currency and inception date remain in pinned
 materialization custody. Explicit currency requests continue to select their exact scope;
 an explicitly pinned window defaults to its own retained command currency. The verified
@@ -48,6 +53,11 @@ source-money currency change refuse with
 `COMPOSITE_VECTOR_CURRENCY_REGIME_UNAVAILABLE`; no approved history treatment is
 inferred from a reporting projection or a definition update.
 Member order and admitted arrivals/departures alone do not constitute currency-regime drift.
+The same retained FX method, composite-native and continuing-member money-currency
+checks apply before linking twelve-month annual dispersion and comparison vectors.
+Each month can be individually COMPLETE while the annual vector still refuses; no
+partial annual statistic or comparison payload is released. Source order and supported
+membership changes remain admissible. This does not qualify live or since-inception history.
 
 The defined method is unhedged, direct pair, complete natural daily observations,
 UTC EOD fixing and exact decimal monetary multiplication without intermediate rounding.

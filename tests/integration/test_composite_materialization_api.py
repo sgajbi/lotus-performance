@@ -781,8 +781,12 @@ def test_registered_fx_normalization_reports_independently_admitted_native_compo
         request.pop("reporting_currency")
         with TestClient(app, headers={"X-Tenant-Id": tenant_id}) as client:
             default = client.post("/performance/composites/twr", json=request)
-            assert default.status_code == 200, default.text
-            assert default.json()["periods"] == periods
+            if legacy_native:
+                assert default.status_code == 409, default.text
+                assert default.json()["detail"]["code"] == "COMPOSITE_FACT_SELECTION_INCOMPLETE"
+            else:
+                assert default.status_code == 200, default.text
+                assert default.json()["periods"] == periods
             explicit = client.post("/performance/composites/twr", json={**request, "reporting_currency": "USD"})
             assert explicit.status_code == 200 and explicit.json()["periods"] == periods
             pinned = client.post(

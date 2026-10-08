@@ -345,8 +345,10 @@ class CompositeTWRRequest(BaseModel):
     reporting_currency: ReportingCurrency | None = Field(
         default=None,
         description=(
-            "Reporting-currency identity selected from persisted facts. When omitted, the composite "
-            "definition reporting currency is used; no currency is inferred from fact rows."
+            "Reporting-currency identity selected from persisted facts. When omitted, use the single "
+            "published currency in the tenant/composite/window/view/sequence scope; multiple projections "
+            "require explicit currency. Without a scoped publication, retain the legacy definition default. "
+            "Pinned materialization selection instead defaults to its first retained command currency."
         ),
         examples=["USD"],
     )
@@ -592,7 +594,11 @@ class CompositeInspectionRequest(BaseModel):
     )
     reporting_currency: ReportingCurrency | None = Field(
         default=None,
-        description="Reporting-currency identity selected for inspection; defaults to the composite definition.",
+        description=(
+            "Reporting-currency identity selected for inspection. Omit only when the tenant/composite/"
+            "window/view/sequence has one published currency; multiple projections require explicit "
+            "currency. Without a scoped publication, retain the legacy definition default."
+        ),
         examples=["USD"],
     )
     restatement_sequence: int | None = Field(

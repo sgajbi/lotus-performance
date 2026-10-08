@@ -1094,9 +1094,14 @@ do not widen economic mismatch tolerance to compensate for a different calculati
 FX-bound internal admission may project into a different report currency only when
 independently verified source native currency matches the exact Manage definition.
 Retained reads repeat that check; unbound native/report equality remains unchanged.
-Publish the verified command currency into Performance reporting metadata for default
-unpinned fact selection; preserve the exact native Manage definition/hash/inception in
-retained source custody. Competing native facts must not substitute for the projection.
+Publish the verified command currency into Performance reporting metadata, preserving the
+exact native Manage definition/hash/inception in retained source custody. Resolve omitted
+currency through scoped publication authority in the existing fact selector; multiple
+tenant/composite/window/view/sequence projections require explicit currency. TWR and
+inspection share that selector, including legacy default and release/completeness checks.
+Explicit TWR vectors and annual dispersion/comparison share retained currency-window
+authority checks; individually complete months cannot bypass method/native/continuing-money
+compatibility. Compare continuing identities, allowing source order and supported membership changes.
 Refuse cross-window native-regime changes without explicit history treatment, even
 when each window separately completes and reports in the same requested currency.
 Compare source-money currency by continuing member identity across adjacent windows;

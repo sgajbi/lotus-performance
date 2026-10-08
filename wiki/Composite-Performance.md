@@ -17,11 +17,15 @@ temporary FX outages retain the full admitted population for same-job recovery.
 Bound internal projections may report in a currency different from the admitted native
 definition, with independently verified matching native-currency evidence. The native
 Manage definition custody stays unchanged. Published Performance reporting metadata
-carries the verified command currency: omitted-currency unpinned TWR reads select that
-projection, while explicit currency and pinned-window requests retain their exact scope.
-Older native-currency facts cannot silently substitute for the published reporting projection.
+carries the verified command currency. Omitted-currency TWR and inspection reads select
+the single published currency in the requested tenant/composite/window/fee-view/sequence
+scope; multiple projections require explicit currency and refuse with 409 otherwise.
+Other periods or views cannot silently select a projection. Explicit currency and
+pinned-window requests retain their exact scope; legacy unbound defaults remain supported.
 Native regime changes, including a continuing member's source-money currency change, across a
 window vector require explicit history treatment and currently refuse.
+Annual dispersion and comparison use the same retained FX compatibility checks before
+linking monthly returns, even when each selected month is individually complete.
 FX-bound release and reload require normalized v3 evidence for every member, including
 identity conversions; legacy receipts cannot substitute for that custody proof.
 See the [money, flow, fee and correction examples](https://github.com/sgajbi/lotus-performance/blob/main/docs/guides/composite_materialization.md#retained-member-currency-normalization)

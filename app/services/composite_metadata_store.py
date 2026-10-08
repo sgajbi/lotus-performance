@@ -2204,6 +2204,53 @@ def composite_fact_guard_statements(dialect: Dialect) -> tuple[str, ...]:
     return tuple(writer.statements)
 
 
+def _resolve_member_return_reporting_currency(
+    session: Session,
+    *,
+    tenant_id: str,
+    composite_id: str,
+    period_start: dt_date,
+    period_end: dt_date,
+    return_view: CompositeReturnView,
+    requested_currency: str | None,
+    requested_sequence: int | None,
+) -> str:
+    if requested_currency is not None:
+        return requested_currency
+    publication = CompositeMemberReturnFactPublicationModel
+    statement = (
+        select(publication.reporting_currency)
+        .where(
+            publication.tenant_id == tenant_id,
+            publication.composite_id == composite_id,
+            publication.return_view == return_view.value,
+            publication.period_start <= period_end,
+            publication.period_end >= period_start,
+        )
+        .distinct()
+    )
+    if requested_sequence is not None:
+        statement = statement.where(publication.restatement_sequence == requested_sequence)
+    currencies = session.execute(statement).scalars().all()
+    if len(currencies) > 1:
+        raise CompositeMemberReturnFactSelectionError(
+            "Reporting currency is required when the requested scope has multiple published projections."
+        )
+    if currencies:
+        return currencies[0]
+    # Pre-publication legacy selection retains its definition default. Financial
+    # facts still pass the existing completeness and release checks below.
+    currency = session.execute(
+        select(CompositeDefinitionModel.reporting_currency).where(
+            CompositeDefinitionModel.tenant_id == tenant_id,
+            CompositeDefinitionModel.composite_id == composite_id,
+        )
+    ).scalar_one_or_none()
+    if currency is None:
+        raise CompositeMemberReturnFactSelectionError("Composite reporting definition is unavailable.")
+    return currency
+
+
 def _resolve_member_return_fact_sequence(
     session: Session,
     *,
@@ -2864,11 +2911,21 @@ class CompositeMetadataStore:
         period_start: dt_date,
         period_end: dt_date,
         return_view: CompositeReturnView,
-        reporting_currency: str,
+        reporting_currency: str | None,
         restatement_sequence: int | None = None,
     ) -> list[CompositeMemberReturnFact]:
         tenant_id = _admitted_composite_tenant_id(tenant_id)
         with self._session() as session:
+            reporting_currency = _resolve_member_return_reporting_currency(
+                session,
+                tenant_id=tenant_id,
+                composite_id=composite_id,
+                period_start=period_start,
+                period_end=period_end,
+                return_view=return_view,
+                requested_currency=reporting_currency,
+                requested_sequence=restatement_sequence,
+            )
             publication_identity_filters = (
                 CompositeMemberReturnFactPublicationModel.tenant_id == tenant_id,
                 CompositeMemberReturnFactPublicationModel.composite_id == composite_id,

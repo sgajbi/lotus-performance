@@ -22,18 +22,18 @@ python scripts/python_test_taxonomy_inventory.py --limit 30 --min-api-runtime-te
 
 | Metric | Value |
 | --- | ---: |
-| Test modules inventoried | 378 |
-| Test functions inventoried | 4633 |
-| Integration/API/runtime test functions | 968 |
+| Test modules inventoried | 379 |
+| Test functions inventoried | 4637 |
+| Integration/API/runtime test functions | 970 |
 | Contract/governance test functions | 227 |
 
 ## Test Functions By Suite
 
 | Suite | Modules | Test functions |
 | --- | ---: | ---: |
-| benchmarks | 11 | 85 |
+| benchmarks | 11 | 87 |
 | e2e | 1 | 21 |
-| integration | 38 | 516 |
+| integration | 39 | 518 |
 | unit | 328 | 4011 |
 
 ## Test Functions By Family
@@ -44,8 +44,8 @@ above does sum to it, because a module belongs to exactly one suite.
 
 | Family | Test functions |
 | --- | ---: |
-| analytics_domain | 2414 |
-| api_or_runtime | 968 |
+| analytics_domain | 2418 |
+| api_or_runtime | 970 |
 | contract_or_governance | 227 |
 | observability_or_readiness | 755 |
 | quality_or_security | 349 |
