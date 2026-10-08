@@ -26,6 +26,8 @@ Explicit legacy chronology remains readable; latest selection still requires a c
 covering publication. Direct FX custody refuses every snapshot lacking its exact
 source-owned request/response retrieval wire, including extra otherwise well-formed snapshots.
 The reader validates all execution FX snapshots, including unexpected currency pairs.
+Rates-only native FX responses are valid: matched request metadata and snapshot source identity
+own the pair, while the exact raw response hash owns the rates. Optional currency echoes must agree.
 Identity conversions retain no FX snapshots or retrieval wires.
 Native regime changes, including a continuing member's source-money currency change, across a
 window vector require explicit history treatment and currently refuse.

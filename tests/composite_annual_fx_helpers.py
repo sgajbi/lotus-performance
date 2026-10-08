@@ -131,8 +131,6 @@ def _member_wire(command, native, identity, template):
         "end_date": str(end),
     }
     response = {
-        "from_currency": currency,
-        "to_currency": command.reporting_currency,
         "rates": [{"rate_date": str(day), "rate": "1"} for day in days],
     }
     snapshot = StatefulInputService(core_service=SimpleNamespace())._build_snapshot(
