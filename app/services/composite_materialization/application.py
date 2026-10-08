@@ -476,12 +476,9 @@ def _publish(
         raise ValueError("Publication requires pinned source evidence")
     command = record.command
     fence()
-    # Reporting metadata describes the released projection; the pinned Manage
-    # definition retains its independently admitted native currency and hash.
-    reporting_definition = record.source.definition.performance_definition().model_copy(
-        update={"reporting_currency": command.reporting_currency}
-    )
-    facts.upsert_definition(reporting_definition, tenant_id=tenant_id)
+    # Definition/default truth stays native; scoped publication authority owns
+    # each reporting projection's currency independently of publication order.
+    facts.upsert_definition(record.source.definition.performance_definition(), tenant_id=tenant_id)
     expected_families = set()
     for outcome in record.outcomes:
         if outcome.fact is not None:

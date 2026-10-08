@@ -16,18 +16,19 @@ def _hash(value):
     return hashlib.sha256(json.dumps(value, sort_keys=True).encode()).hexdigest()
 
 
-def _retrieval(calculation_id, *, start, end, rates):
-    request = {"from_currency": "EUR", "to_currency": "USD", "start_date": start, "end_date": end}
+def _retrieval(calculation_id, *, start, end, rates, source_currency="EUR"):
+    pair = f"{source_currency}/USD"
+    request = {"from_currency": source_currency, "to_currency": "USD", "start_date": start, "end_date": end}
     response = {
-        "from_currency": "EUR",
+        "from_currency": source_currency,
         "to_currency": "USD",
         "rates": [{"rate_date": day, "rate": rate} for day, rate in rates],
     }
     request_hash, response_hash = _hash(request), _hash(response)
     snapshot = {
-        "snapshot_id": hashlib.sha256(f"{calculation_id}:fx_rates:EUR/USD:{request_hash}".encode()).hexdigest(),
+        "snapshot_id": hashlib.sha256(f"{calculation_id}:fx_rates:{pair}:{request_hash}".encode()).hexdigest(),
         "upstream_endpoint": "fx_rates",
-        "source_identifier": "EUR/USD",
+        "source_identifier": pair,
         "as_of_date": "2026-01-05",
         "request_fingerprint": request_hash,
         "response_fingerprint": response_hash,
@@ -88,6 +89,55 @@ def test_identical_responses_for_distinct_requests_agree_without_losing_request_
         len(
             require_fx_snapshot_custody(
                 _member([first, second]), reporting_currency="USD", calculation_id=calculation_id, snapshots=[one, two]
+            )
+        )
+        == 2
+    )
+
+
+def test_identity_conversion_cannot_retain_unowned_fx_snapshots():
+    calculation_id = uuid4()
+    wire = deepcopy(normalization_wire()["members"][0])
+    wire.update(
+        member_id="B",
+        portfolio_reference_currency="USD",
+        source_money_currency="USD",
+        conversion_kind="IDENTITY",
+        fixings=[],
+        retrieval_wires=[],
+    )
+    member = CompositeFXMemberSource.model_validate(wire)
+    assert member.conversion_kind == "IDENTITY" and not member.retrieval_wires
+    assert (
+        require_fx_snapshot_custody(member, reporting_currency="USD", calculation_id=calculation_id, snapshots=[]) == []
+    )
+    _, snapshot = _retrieval(
+        calculation_id,
+        start="2026-01-04",
+        end="2026-01-05",
+        source_currency="USD",
+        rates=[("2026-01-04", "1"), ("2026-01-05", "1")],
+    )
+    with pytest.raises(ValueError, match="Identity conversion must not manufacture FX retrieval evidence"):
+        require_fx_snapshot_custody(
+            member, reporting_currency="USD", calculation_id=calculation_id, snapshots=[snapshot]
+        )
+
+
+def test_direct_conversion_requires_every_snapshot_to_have_source_owned_retrieval_wire():
+    calculation_id = uuid4()
+    first, one = _retrieval(
+        calculation_id, start="2026-01-04", end="2026-01-05", rates=[("2026-01-04", "1.3"), ("2026-01-05", "1.4")]
+    )
+    extra, two = _retrieval(calculation_id, start="2026-01-03", end="2026-01-03", rates=[("2026-01-03", "1.2")])
+    with pytest.raises(ValueError, match="Unconsumed FX snapshot"):
+        require_fx_snapshot_custody(
+            _member([first]), reporting_currency="USD", calculation_id=calculation_id, snapshots=[one, two]
+        )
+    assert (
+        len(
+            require_fx_snapshot_custody(
+                _member([first, extra]), reporting_currency="USD", calculation_id=calculation_id, snapshots=[one, two]
             )
         )
         == 2

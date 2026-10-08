@@ -270,13 +270,19 @@ def test_retained_member_adapter_refuses_conflicting_execution_and_financial_evi
         assert execution_registry.get_execution_for_tenant(pinned.calculation_id, tenant_id="tenant-a") == retained
 
 
-def test_registered_fx_normalization_refuses_legacy_retained_identity_member_after_child_expiry(monkeypatch):
+@pytest.mark.parametrize("custody_fault", ["legacy-identity", "extra-direct-snapshot"])
+def test_registered_fx_normalization_refuses_unbound_retained_member_custody_after_child_expiry(
+    monkeypatch, custody_fault
+):
     import json
 
     from sqlalchemy import text
 
     from app.adapters.composite_materialization_repository import CompositeMaterializationStore
-    from app.models.composite_materialization import CompositeMemberSourceEvidence
+    from app.models.composite_materialization import (
+        CompositeMemberSourceEvidence,
+        CompositeNormalizedMemberSourceEvidence,
+    )
     from app.services.reproducibility_service import generate_value_fingerprint
     from core.errors import APIError
 
@@ -310,18 +316,29 @@ def test_registered_fx_normalization_refuses_legacy_retained_identity_member_aft
                 identity,
             ).scalar_one()
         outcomes = json.loads(original)
-        member = next(row for row in outcomes if row["portfolio_id"] == "B")
-        legacy = CompositeMemberSourceEvidence.model_validate(member["source_evidence"]["native_evidence"])
-        assert legacy.source_assets.portfolio_currency == member["fact"]["reporting_currency"] == "USD"
-        member["source_evidence"] = legacy.model_dump(mode="json")
-        member["fact"]["source_snapshot_id"] = generate_value_fingerprint(legacy, "composite-member-source.v1")[0]
+        member = next(
+            row for row in outcomes if row["portfolio_id"] == ("B" if custody_fault == "legacy-identity" else "A")
+        )
+        if custody_fault == "legacy-identity":
+            legacy = CompositeMemberSourceEvidence.model_validate(member["source_evidence"]["native_evidence"])
+            assert legacy.source_assets.portfolio_currency == member["fact"]["reporting_currency"] == "USD"
+            member["source_evidence"] = legacy.model_dump(mode="json")
+            member["fact"]["source_snapshot_id"] = generate_value_fingerprint(legacy, "composite-member-source.v1")[0]
+        else:
+            from tests.unit.services.test_composite_currency_snapshot_custody import _retrieval
+
+            _, extra = _retrieval(
+                member["source_evidence"]["native_evidence"]["calculation_request"]["portfolio"]["calculation_id"],
+                start="2026-01-03",
+                end="2026-01-03",
+                rates=[("2026-01-03", "1.2")],
+            )
+            member["source_evidence"]["fx_snapshots"].append(extra)
+            changed = CompositeNormalizedMemberSourceEvidence.model_validate(member["source_evidence"])
+            member["fact"]["source_snapshot_id"] = generate_value_fingerprint(changed, "composite-member-source.v3")[0]
         with ledger._engine.begin() as connection:
             assert connection.execute(update, {**identity, "wire": json.dumps(outcomes)}).rowcount == 1
         try:
-            with pytest.raises(APIError) as refused:
-                ledger.get(command.materialization_id, tenant_id="tenant-a")
-            assert refused.value.error_code == "COMPOSITE_MATERIALIZATION_RETAINED_EVIDENCE_REFUSED"
-            assert refused.value.__cause__.error_code == "COMPOSITE_MATERIALIZATION_MEMBER_EVIDENCE_REFUSED"
             headers = {"X-Tenant-Id": "tenant-a", "X-Actor-Id": "operator", "X-Role": "DPM_COMPOSITE_CONSUMER"}
             with TestClient(app, headers=headers) as client:
                 inspected = client.get(f"/performance/composites/materializations/{command.materialization_id}")
@@ -332,6 +349,14 @@ def test_registered_fx_normalization_refuses_legacy_retained_identity_member_aft
                     json={**composite_request(command), "materialization_ids": [str(command.materialization_id)]},
                 )
                 assert report.status_code == 503 and "cumulative_return" not in report.json(), report.text
+            with pytest.raises(APIError) as refused:
+                ledger.get(command.materialization_id, tenant_id="tenant-a")
+            assert refused.value.error_code == "COMPOSITE_MATERIALIZATION_RETAINED_EVIDENCE_REFUSED"
+            if custody_fault == "legacy-identity":
+                assert refused.value.__cause__.error_code == "COMPOSITE_MATERIALIZATION_MEMBER_EVIDENCE_REFUSED"
+            else:
+                assert isinstance(refused.value.__cause__, ValueError)
+                assert "Unconsumed FX snapshot" in str(refused.value.__cause__)
         finally:
             with ledger._engine.begin() as connection:
                 assert connection.execute(update, {**identity, "wire": original}).rowcount == 1
@@ -416,6 +441,13 @@ def test_registered_materialization_refuses_translated_return_without_converted_
     monkeypatch, normalize, eod_flow
 ):
     run_registered_fx_money_control(monkeypatch, normalize=normalize, eod_flow=eod_flow)
+
+
+@pytest.mark.parametrize("normalization_fault", ["unconsumed-snapshot", "unconsumed-identity-snapshot"])
+def test_registered_fx_normalization_refuses_unconsumed_source_snapshot_before_release(
+    monkeypatch, normalization_fault
+):
+    run_registered_fx_money_control(monkeypatch, normalize=True, eod_flow="0", normalization_fault=normalization_fault)
 
 
 def run_registered_fx_money_control(
@@ -583,6 +615,23 @@ def run_registered_fx_money_control(
             )
         assert process_pending_jobs(limit=10) == 1
         receipt = client.get(accepted.json()["result_path"]).json()
+        if normalization_fault in ("unconsumed-snapshot", "unconsumed-identity-snapshot"):
+            assert (receipt["state"], receipt["expected_count"], receipt["blocked_count"], receipt["ready_count"]) == (
+                "BLOCKED",
+                3,
+                1,
+                2,
+            ), receipt
+            blocked_member = "B" if normalization_fault == "unconsumed-identity-snapshot" else "A"
+            member = next(row for row in receipt["members"] if row["portfolio_id"] == blocked_member)
+            assert member["reason_code"] == "MEMBER_FINANCIAL_EVIDENCE_REFUSED"
+            assert member["fact"] is None and member["source_evidence"] is None
+            retained = composite_materialization_store.get(command.materialization_id, tenant_id=tenant_id)
+            assert retained.source.currency_normalization_wire is not None
+            assert retained.source.attestation.expected_portfolio_ids == ["A", "B", "C"]
+            assert client.post("/performance/composites/twr", json=composite_request(command)).status_code != 200
+            assert client.get(accepted.json()["result_path"]).json() == receipt
+            return
         if expected_fx_refusal is not None:
             assert (receipt["state"], receipt["expected_count"], receipt["blocked_count"], receipt["ready_count"]) == (
                 "BLOCKED",
@@ -802,7 +851,7 @@ def test_registered_fx_normalization_reports_independently_admitted_native_compo
         assert str(retained.source.definition.inception_date) == "2026-01-01"
         assert (
             composite_metadata_store.get_definition(command.composite_id, tenant_id=tenant_id).reporting_currency
-            == "USD"
+            == native_currency
         )
 
     run_registered_fx_money_control(monkeypatch, normalize=True, eod_flow="10", products=products, capture=capture)
@@ -938,6 +987,28 @@ def install_normalization_source_controls(
     if command.restatement_sequence > 1:
         wire.update(revision="normalization2", source_as_of_cut=source_cut_day + "T02:00:00Z")
     original["retrieval_wires"] = [{"request_wire": snapshot.paging_metadata, "response_wire": response}]
+    if normalization_fault in ("unconsumed-snapshot", "unconsumed-identity-snapshot"):
+        extra_day = prior_day - timedelta(days=1)
+        extra_currency = "USD" if normalization_fault == "unconsumed-identity-snapshot" else source_money_currency
+        extra_reference = command.member_calculations[1 if normalization_fault == "unconsumed-identity-snapshot" else 0]
+
+        async def extra_fx(**kwargs):
+            return 200, {
+                "from_currency": extra_currency,
+                "to_currency": "USD",
+                "rates": [{"rate_date": extra_day.isoformat(), "rate": "1.2"}],
+            }
+
+        extra_service = StatefulInputService(core_service=SimpleNamespace(get_fx_rates=extra_fx))
+        asyncio.run(
+            extra_service.get_fx_rates(
+                from_currency=extra_currency,
+                to_currency="USD",
+                start_date=extra_day,
+                end_date=extra_day,
+                calculation_id=extra_reference.calculation_id,
+            )
+        )
     members = []
     for ref in references:
         row = deepcopy(original)

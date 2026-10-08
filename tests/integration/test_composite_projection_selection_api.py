@@ -126,3 +126,53 @@ def test_registered_projection_defaults_are_scoped_or_require_explicit_currency(
             assert pinned.json()["periods"][0]["reporting_currency"] == record.command.reporting_currency
         foreign = client.post(endpoint, json=request_for(usd), headers={"X-Tenant-Id": "tenant-b"})
         assert foreign.status_code == 404
+
+
+@pytest.mark.parametrize("endpoint", ["/performance/composites/twr", "/performance/composites/inspect"])
+def test_registered_legacy_currency_default_survives_a_later_reporting_projection(
+    monkeypatch, tmp_path, endpoint, database_url=None
+):
+    from types import SimpleNamespace
+
+    from tests.composite_currency_normalization_helpers import synthetic_fx_verification
+
+    monkeypatch.setattr(
+        "app.ports.composite_currency_normalization.composite_fx_receipt_verifier",
+        lambda: SimpleNamespace(verify=synthetic_fx_verification),
+    )
+    url = database_url or "sqlite:///" + (tmp_path / "legacy-projection.db").as_posix()
+    monkeypatch.setattr(get_settings(), "LINEAGE_METADATA_DATABASE_URL", url)
+    assert apply_durable_schema(database_url=url).status == "passed"
+    legacy = month_record(1)
+    store = CompositeMetadataStore(url)
+    try:
+        store.upsert_definition(legacy.source.definition.performance_definition(), tenant_id="tenant-a")
+        for outcome in legacy.outcomes:
+            store.upsert_member_return_fact(outcome.fact, tenant_id="tenant-a")
+        identity_field = "calculation_id" if endpoint.endswith("twr") else "inspection_id"
+        request = {
+            **request_for(legacy),
+            "restatement_sequence": legacy.command.restatement_sequence,
+            identity_field: str(uuid4()),
+        }
+        with TestClient(app, headers={"X-Tenant-Id": "tenant-a"}) as client:
+            before = client.post(endpoint, json=request)
+            assert before.status_code == 200 and response_currency(endpoint, before.json()) == "USD", before.text
+            # Latest still requires a completed publication; explicit legacy chronology
+            # is independently supported without inventing a manifest.
+            assert client.post(endpoint, json=request_for(legacy)).status_code == 409
+            future = month_record(2)
+            projected = normalized_month_record(
+                replace(future, command=future.command.model_copy(update={"reporting_currency": "GBP"}))
+            )
+            publish_projection(url, projected)
+            after = client.post(endpoint, json=request)
+            assert after.status_code == 200 and after.json() == before.json(), after.text
+            assert client.post(endpoint, json=request_for(legacy)).status_code == 409
+            reporting = client.post(endpoint, json=request_for(projected))
+            assert (
+                reporting.status_code == 200 and response_currency(endpoint, reporting.json()) == "GBP"
+            ), reporting.text
+            assert store.get_definition(legacy.command.composite_id, tenant_id="tenant-a").reporting_currency == "USD"
+    finally:
+        store.close()

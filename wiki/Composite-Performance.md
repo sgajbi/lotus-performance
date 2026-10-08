@@ -16,12 +16,16 @@ Adjacent windows require compatible independently admitted method and policy bin
 temporary FX outages retain the full admitted population for same-job recovery.
 Bound internal projections may report in a currency different from the admitted native
 definition, with independently verified matching native-currency evidence. The native
-Manage definition custody stays unchanged. Published Performance reporting metadata
-carries the verified command currency. Omitted-currency TWR and inspection reads select
+Manage definition and legacy default stay native; scoped publication manifests carry
+the verified command currency. Omitted-currency TWR and inspection reads select
 the single published currency covering the whole requested window in the tenant/composite/fee-view/sequence
 scope; multiple projections require explicit currency and refuse with 409 otherwise.
 Other periods or views cannot silently select a projection. Explicit currency and
 pinned-window requests retain their exact scope; legacy unbound defaults remain supported.
+Explicit legacy chronology remains readable; latest selection still requires a completed
+covering publication. Direct FX custody refuses every snapshot lacking its exact
+source-owned request/response retrieval wire, including extra otherwise well-formed snapshots.
+Identity conversions retain no FX snapshots or retrieval wires.
 Native regime changes, including a continuing member's source-money currency change, across a
 window vector require explicit history treatment and currently refuse.
 Annual dispersion and comparison use the same retained FX compatibility checks before
