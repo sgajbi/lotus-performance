@@ -60,7 +60,7 @@ def _record(**overrides) -> dict:
         "severity": "HIGH",
         "packages": [{"name": _PACKAGE, "affected_version": _VERSION}],
         "fixed_version": None,
-        "owner": "lotus-performance",
+        "owner": "sgajbi",
         "expires_on": "2099-01-01",
         "remediation_path": "No fixed version published for the base image; synthetic fixture.",
     }
@@ -113,6 +113,13 @@ def test_an_empty_acceptance_set_passes_for_a_clean_image(tmp_path: Path) -> Non
     result = _Scenario(tmp_path, records=[], scanned=[]).run()
 
     assert result.returncode == 0, result.stderr
+
+
+@pytest.mark.parametrize("owner", ["lotus-performance", "unknown-principal", "SGAJBI", " sgajbi", "sgajbi "])
+def test_an_unrecognized_accountable_owner_blocks(tmp_path: Path, owner: str) -> None:
+    result = _Scenario(tmp_path, records=[_record(owner=owner)], scanned=[_finding()]).run()
+    assert result.returncode == 1
+    assert "unrecognized accountable owner" in result.stderr
 
 
 def test_a_fixable_advisory_may_not_be_accepted(tmp_path: Path) -> None:

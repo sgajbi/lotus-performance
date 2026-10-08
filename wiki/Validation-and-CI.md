@@ -268,6 +268,12 @@ expiry, advisory identity, affected version, and remediation path. The accepted 
 it against the live scan and refuses an acceptance that has gained an upstream fix, lost its
 package match after a base image change, or passed its expiry.
 
+Acceptance owners must belong to the gate's reviewed GitHub-principal vocabulary. The initial
+principal `sgajbi` is the verified repository User owner with maintainer permissions; unknown
+principals and repository-name placeholders fail. Vocabulary changes require current accountability
+evidence and owning [#506](https://github.com/sgajbi/lotus-performance/issues/506) review. This identifies
+release-maintenance responsibility without inventing institutional approval or extending expiry.
+
 ## References
 
 - [docs/operations/development-workflow-and-ci-strategy.md](https://github.com/sgajbi/lotus-performance/blob/main/docs/operations/development-workflow-and-ci-strategy.md)

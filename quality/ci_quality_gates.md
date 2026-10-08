@@ -44,6 +44,12 @@ performing developer-workstation pre-commit hook setup. Local contributors shoul
 
 ## Gate Promotion Model
 
+Container exceptions require an accountable owner from `ACCOUNTABLE_OWNERS` in the existing
+acceptance gate. The initial principal `sgajbi` was verified as the GitHub repository User owner
+with maintainer permissions; a vocabulary change requires fresh accountability evidence and
+issue-backed review. Unknown principals and repository-name placeholders fail. This owner check
+does not replace package, severity, fixability, stale-record or expiry checks, or approve risk.
+
 | Phase | CI posture | Promotion standard |
 | --- | --- | --- |
 | Phase 0 - Inventory | Report-only artifacts track current facts and gaps | Measurement source is documented and reproducible locally. |
@@ -112,11 +118,11 @@ checked by `test_current_inventory_prose_carries_no_stale_totals`, which normali
 compares every total the present-tense paragraph states. Historical baselines elsewhere in this
 document are intentionally outside that check.
 
-Current governed inventory: `quality/test_taxonomy_inventory.md` records 372 test modules, 4,519
+Current governed inventory: `quality/test_taxonomy_inventory.md` records 374 test modules, 4,565
 source test functions, 956 API/runtime test functions, 227 contract/governance test functions, and
-558 uncategorized test functions. The full family summary is 372 modules, 4,519 source test functions, 956 integration/API/runtime test functions, 227 contract/governance test functions, 752 observability/readiness test functions, 345 quality/security test functions, 2,307 analytics-domain test functions, and 558 uncategorized test functions.
+558 uncategorized test functions. The full family summary is 374 modules, 4,565 source test functions, 956 integration/API/runtime test functions, 227 contract/governance test functions, 754 observability/readiness test functions, 347 quality/security test functions, 2,349 analytics-domain test functions, and 558 uncategorized test functions.
 
-`quality/test_taxonomy_inventory.md` records 372 test modules, 4,519 source test functions, 956 API/runtime test functions, 227 contract/governance test functions, and 558 uncategorized test functions.
+`quality/test_taxonomy_inventory.md` records 374 test modules, 4,565 source test functions, 956 API/runtime test functions, 227 contract/governance test functions, and 558 uncategorized test functions.
 
 ## LP-CR-1603 Container Supply-Chain Intake
 

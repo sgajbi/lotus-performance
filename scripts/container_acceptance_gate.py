@@ -51,6 +51,9 @@ DEFAULT_RECORDS = REPO_ROOT / "quality" / "container_vulnerability_acceptances.v
 DEFAULT_SCAN = REPO_ROOT / "output" / "container-security" / "lotus-performance-image-vulnerabilities.json"
 
 REQUIRED_FIELDS = ("advisory_id", "severity", "packages", "owner", "expires_on", "remediation_path")
+# Verified repository owner/maintainer principal, not a repository-name placeholder.
+# Changes require live GitHub accountability evidence and the owning policy review (#506).
+ACCOUNTABLE_OWNERS = frozenset({"sgajbi"})
 
 
 def _fail(message: str) -> None:
@@ -123,6 +126,9 @@ def main() -> int:
     for advisory, record in sorted(by_id.items()):
         if missing := [field for field in REQUIRED_FIELDS if not record.get(field)]:
             failures.append(f"{advisory} is missing required policy fields: {missing}")
+
+        if record.get("owner") not in ACCOUNTABLE_OWNERS:
+            failures.append(f"{advisory} names an unrecognized accountable owner; use a reviewed GitHub principal")
 
         scanned = present.get(advisory)
         if scanned is None:
