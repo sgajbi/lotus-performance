@@ -62,12 +62,12 @@ def _matched_retrieval(retrieval, snapshots, seen):
 
 def _require_retrieval_window(member, reporting_currency, retrieval, snapshot):
     request, response = retrieval.request_wire, retrieval.response_wire
-    if (
-        request.get("from_currency"),
-        request.get("to_currency"),
-        response.get("from_currency"),
-        response.get("to_currency"),
-    ) != (member.source_money_currency, reporting_currency, member.source_money_currency, reporting_currency):
+    pair = {"from_currency": member.source_money_currency, "to_currency": reporting_currency}
+    # The native endpoint returns rates only; the matched request and snapshot own the pair.
+    # Optional response echoes cannot contradict that authenticated identity.
+    if any(request.get(field) != currency for field, currency in pair.items()) or any(
+        response[field] != currency for field, currency in pair.items() if field in response
+    ):
         raise ValueError("FX retrieval quote pair is reversed or incompatible")
     start, end = date.fromisoformat(request["start_date"]), date.fromisoformat(request["end_date"])
     if start > end or snapshot.as_of_date < end.isoformat():

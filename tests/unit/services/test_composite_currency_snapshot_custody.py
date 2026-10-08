@@ -1,14 +1,18 @@
 """True distinct retrieval identities must not hide conflicting pair/date economics."""
 
+import asyncio
 import hashlib
 import json
 from copy import deepcopy
+from datetime import date
+from types import SimpleNamespace
 from uuid import uuid4
 
 import pytest
 
 from app.models.composite_currency_normalization import CompositeFXMemberSource
 from app.services.composite_materialization.currency_snapshot_custody import require_fx_snapshot_custody
+from app.services.stateful_input_service import StatefulInputService
 from tests.composite_currency_normalization_helpers import normalization_wire
 
 
@@ -20,8 +24,6 @@ def _retrieval(calculation_id, *, start, end, rates, source_currency="EUR"):
     pair = f"{source_currency}/USD"
     request = {"from_currency": source_currency, "to_currency": "USD", "start_date": start, "end_date": end}
     response = {
-        "from_currency": source_currency,
-        "to_currency": "USD",
         "rates": [{"rate_date": day, "rate": rate} for day, rate in rates],
     }
     request_hash, response_hash = _hash(request), _hash(response)
@@ -46,6 +48,72 @@ def _member(retrievals):
     for fixing in row["fixings"]:
         fixing["retrieval_response_fingerprint"] = response_hash
     return CompositeFXMemberSource.model_validate(row)
+
+
+@pytest.mark.parametrize("echo", [{}, {"from_currency": "EUR", "to_currency": "USD"}, {"from_currency": "EUR"}])
+def test_native_fx_rates_only_response_retains_request_pair_and_raw_response_custody(echo):
+    calculation_id = uuid4()
+    response = {"rates": [{"rate_date": "2026-01-04", "rate": "1.3"}, {"rate_date": "2026-01-05", "rate": "1.4"}]}
+    response.update(echo)
+    snapshots = []
+
+    async def read_fx(**kwargs):
+        assert (kwargs["from_currency"], kwargs["to_currency"]) == ("EUR", "USD")
+        return 200, response
+
+    service = StatefulInputService(
+        core_service=SimpleNamespace(get_fx_rates=read_fx),
+        execution_store=SimpleNamespace(
+            list_upstream_snapshot_ids=lambda _: set(),
+            record_upstream_snapshots=lambda **kwargs: snapshots.extend(kwargs["snapshots"]),
+        ),
+    )
+    status, payload = asyncio.run(
+        service.get_fx_rates(
+            from_currency="EUR",
+            to_currency="USD",
+            start_date=date(2026, 1, 4),
+            end_date=date(2026, 1, 5),
+            calculation_id=calculation_id,
+        )
+    )
+    assert status == 200 and payload["points"] == [
+        {"series_date": "2026-01-04", "fx_rate": "1.3"},
+        {"series_date": "2026-01-05", "fx_rate": "1.4"},
+    ]
+    assert len(snapshots) == 1
+    snapshot = snapshots[0]
+    assert snapshot["source_identifier"] == "EUR/USD"
+    assert snapshot["response_fingerprint"] == _hash(response)
+    snapshot["created_at_utc"] = "2026-01-06T01:00:00Z"
+    member = _member([{"request_wire": snapshot["paging_metadata"], "response_wire": response}])
+    retained = require_fx_snapshot_custody(
+        member, reporting_currency="USD", calculation_id=calculation_id, snapshots=snapshots
+    )
+    assert len(retained) == 1 and retained[0].response_fingerprint == _hash(response)
+
+
+@pytest.mark.parametrize("fault", ["request-from", "request-to", "response-from", "response-to", "response-null"])
+def test_rates_only_custody_refuses_authenticated_pair_drift_and_optional_echo_contradictions(fault):
+    calculation_id = uuid4()
+    retrieval, snapshot = _retrieval(
+        calculation_id, start="2026-01-04", end="2026-01-05", rates=[("2026-01-04", "1.3"), ("2026-01-05", "1.4")]
+    )
+    target, field = fault.split("-")
+    retrieval[target + "_wire"]["from_currency" if field in ("from", "null") else "to_currency"] = (
+        None if field == "null" else "GBP"
+    )
+    request_hash = _hash(retrieval["request_wire"])
+    snapshot.update(
+        request_fingerprint=request_hash,
+        response_fingerprint=_hash(retrieval["response_wire"]),
+        paging_metadata=retrieval["request_wire"],
+        snapshot_id=hashlib.sha256(f"{calculation_id}:fx_rates:EUR/USD:{request_hash}".encode()).hexdigest(),
+    )
+    with pytest.raises(ValueError, match="quote pair is reversed or incompatible"):
+        require_fx_snapshot_custody(
+            _member([retrieval]), reporting_currency="USD", calculation_id=calculation_id, snapshots=[snapshot]
+        )
 
 
 @pytest.mark.parametrize("overlap", [None, "1.3", "1.31"])

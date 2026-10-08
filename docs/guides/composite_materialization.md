@@ -67,6 +67,9 @@ Every direct-conversion FX snapshot must match an exact source-owned request/res
 retrieval wire. All execution FX snapshots reach custody validation, including unexpected
 currency pairs. Extra snapshots with valid request identity but unauthenticated response
 refuse; agreeing authenticated overlapping retrievals retain their distinct custody.
+The native FX endpoint may return only `rates`. The authenticated request/paging metadata
+and snapshot source identifier own the currency pair; the raw response hash remains exact.
+Optional response currency echoes must agree with that pair when present.
 Identity conversions require no FX snapshots or retrieval wires; they cannot manufacture
 FX custody for a conversion that did not occur.
 Nonfinite or non-JSON source values refuse with `COMPOSITE_FX_SOURCE_WIRE_REFUSED`

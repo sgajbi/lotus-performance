@@ -973,8 +973,6 @@ def install_normalization_source_controls(
     prior_day = command.period_start - timedelta(days=1)
     source_cut_day = (command.period_end + timedelta(days=1)).isoformat()
     response = {
-        "from_currency": source_money_currency,
-        "to_currency": "USD",
         "rates": [
             {"rate_date": prior_day.isoformat(), "rate": beginning_rate},
             {"rate_date": command.period_end.isoformat(), "rate": ending_rate},
@@ -1056,8 +1054,6 @@ def install_normalization_source_controls(
 
         async def extra_fx(**kwargs):
             return 200, {
-                "from_currency": extra_currency,
-                "to_currency": "USD",
                 "rates": [{"rate_date": extra_day.isoformat(), "rate": "1.2"}],
             }
 

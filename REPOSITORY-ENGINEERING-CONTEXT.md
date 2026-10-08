@@ -1100,7 +1100,9 @@ explicit legacy-window default truth. Latest selection still requires a complete
 Require exact consumed/supplied request-response snapshot keys for direct FX custody;
 unmatched snapshots refuse, never silently discard them. Identity custody requires empty
 snapshots and retrieval wires. Pass all execution FX snapshots to custody validation;
-never prefilter unexpected pairs. Resolve omitted
+never prefilter unexpected pairs. Native rates-only FX responses are valid; authenticate the
+pair through matched request/paging metadata and snapshot source identity, retain the raw
+response fingerprint, and reject contradictory optional response currency echoes. Resolve omitted
 currency through covering-window publication authority in the existing fact selector; multiple
 tenant/composite/window/view/sequence projections require explicit currency. TWR and
 inspection share that selector, including legacy default and release/completeness checks.
