@@ -25,11 +25,11 @@ metrics in each section are updated with each meaningful slice.
 | --- | ---: | ---: | ---: | --- | --- |
 | Python files | 480 | 816 | 336 | measured | `quality/baseline_report.md`; `quality/refactor_health_report.md` |
 | Python package markers | 18 | 25 | 7 | measured | `quality/baseline_report.md`; `quality/refactor_health_report.md` |
-| Python LOC | 104,454 | 263,613 | 159,159 | measured | `quality/baseline_report.md`; `quality/refactor_health_report.md` |
+| Python LOC | 104,454 | 263,766 | 159,312 | measured | `quality/baseline_report.md`; `quality/refactor_health_report.md` |
 | Largest Python file LOC | 2,399 | 4,447 | 2,048 | measured | `quality/baseline_report.md`; `quality/refactor_health_report.md` |
 | Largest production file LOC | 1,156 | 3,069 | 1,913 | measured | `quality/refactor_health_report.md`; `quality/architecture_boundary_inventory.md` |
 | Python test modules | 228 | 379 | 151 | measured | `quality/baseline_report.md`; `quality/refactor_health_report.md` |
-| Collected tests | 2,035 | 6,918 | 4,883 | measured | `quality/baseline_report.md`; `quality/refactor_health_report.md` |
+| Collected tests | 2,035 | 6,929 | 4,894 | measured | `quality/baseline_report.md`; `quality/refactor_health_report.md` |
 | Duplicate code hotspots | 0 | 0 | 0 | enforced | `quality/duplicate_code_inventory.md`; `quality/refactor_health_report.md`; `make quality-duplicate-code-gate` |
 | Tracked local byproduct findings | unknown | 0 | n/a | enforced | `scripts/repository_hygiene_gate.py`; `make repository-hygiene-gate`; `quality/refactor_health_report.md` |
 
@@ -70,7 +70,7 @@ metrics in each section are updated with each meaningful slice.
 | --- | ---: | ---: | ---: | --- | --- |
 | Line coverage | unknown | 99.58% | n/a | measured | `quality/coverage_inventory.md`; `quality/refactor_health_report.md` |
 | Branch coverage | unknown | 98.00% | n/a | measured | `quality/coverage_inventory.md`; `quality/refactor_health_report.md`; `make branch-coverage-baseline` |
-| Integration/API/runtime test functions | unknown | 972 | n/a | enforced | `quality/test_taxonomy_inventory.md`; `quality/refactor_health_report.md`; `make quality-test-taxonomy-gate` |
+| Integration/API/runtime test functions | unknown | 973 | n/a | enforced | `quality/test_taxonomy_inventory.md`; `quality/refactor_health_report.md`; `make quality-test-taxonomy-gate` |
 | Contract/governance test functions | unknown | 227 | n/a | enforced | `quality/test_taxonomy_inventory.md`; `quality/refactor_health_report.md`; `make quality-test-taxonomy-gate` |
 | Uncategorized test functions | unknown | 558 | n/a | enforced ceiling | `quality/test_taxonomy_inventory.md`; `make quality-test-taxonomy-gate`; #619 exact adapter classification measures 558 and separately banks policy 558. |
 
@@ -148,8 +148,8 @@ Historical failures above are unchanged.
 
 ## Operator Retention Entrypoint Development Inventory (#604)
 
-Current AST inventory: 379 modules, 4,644 source test functions, 972 integration/API/runtime,
-227 contract/governance, 755 observability/readiness, 349 quality/security, 2,425 analytics-domain
+Current AST inventory: 379 modules, 4,648 source test functions, 973 integration/API/runtime,
+227 contract/governance, 755 observability/readiness, 349 quality/security, 2,429 analytics-domain
 and 558 uncategorized functions. Fresh subprocess contracts cover help, dry-run, scheduled Make
 execution and positive policy boundaries. No gate or financial formula changed. Release acceptance
 requires pinned delivery gates and immutable image proof; native tests alone are not acceptance.

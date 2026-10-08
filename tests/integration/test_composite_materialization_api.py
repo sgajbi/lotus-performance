@@ -453,6 +453,44 @@ def test_registered_fx_normalization_refuses_unconsumed_source_snapshot_before_r
     run_registered_fx_money_control(monkeypatch, normalize=True, eod_flow="0", normalization_fault=normalization_fault)
 
 
+def test_retained_fx_progress_admits_shared_source_once_and_rechecks_each_member(monkeypatch):
+    from app.services.composite_materialization.progress_policy import require_retained_progress
+    from app.services.reproducibility_service import generate_value_fingerprint
+    from core.errors import APIError
+
+    def capture(command, wire, receipt, periods):
+        record = composite_materialization_store.get(command.materialization_id, tenant_id="tenant-a")
+        calls = []
+
+        def verify(request):
+            calls.append(request.source_digest)
+            return synthetic_fx_verification(request)
+
+        monkeypatch.setattr(
+            "app.ports.composite_currency_normalization.composite_fx_receipt_verifier",
+            lambda: SimpleNamespace(verify=verify),
+        )
+        require_retained_progress(
+            command=command, tenant_id="tenant-a", source=record.source, outcomes=record.outcomes, state=record.state
+        )
+        assert calls == [authority_digest(wire)]
+        for member_id in ("A", "B"):
+            calls.clear()
+            outcomes = deepcopy(record.outcomes)
+            member = next(row for row in outcomes if row.portfolio_id == member_id)
+            member.source_evidence.normalized_assets.observations[-1].ending_market_value += Decimal("1")
+            member.fact.source_snapshot_id = generate_value_fingerprint(
+                member.source_evidence, "composite-member-source.v3"
+            )[0]
+            with pytest.raises(APIError):
+                require_retained_progress(
+                    command=command, tenant_id="tenant-a", source=record.source, outcomes=outcomes, state=record.state
+                )
+            assert calls == [authority_digest(wire)]
+
+    run_registered_fx_money_control(monkeypatch, normalize=True, eod_flow="0", capture=capture)
+
+
 def run_registered_fx_money_control(
     monkeypatch,
     *,
@@ -1064,6 +1102,8 @@ def install_normalization_source_controls(
     binding = EvidenceBinding(
         product_name=wire["product_name"], product_version="v1", revision=wire["revision"], digest=digest
     )
+    if normalization_fault == "uncanonicalizable":
+        wire["members"][0]["fixings"][0]["rate"] = float("nan")
 
     def verify(request):
         assert request.source_digest == digest and request.resolution.tenant_id == tenant_id
@@ -1086,6 +1126,7 @@ def install_normalization_source_controls(
         ("missing-member", "COMPOSITE_FX_SOURCE_SCOPE_MISMATCH"),
         ("zero-rate", "COMPOSITE_FX_SOURCE_WIRE_REFUSED"),
         ("reversed-direction", "COMPOSITE_FX_SOURCE_WIRE_REFUSED"),
+        ("uncanonicalizable", "COMPOSITE_FX_SOURCE_WIRE_REFUSED"),
     ],
 )
 def test_registered_fx_source_refusal_retains_admitted_eligible_population(monkeypatch, fault, code):

@@ -587,6 +587,8 @@ def test_postgres_registered_legacy_currency_default(postgres_materialization_st
         ("/performance/composites/analytics", "member-regime"),
         ("/performance/composites/analytics/comparison", "method"),
         ("/performance/composites/analytics/comparison", "member-regime"),
+        ("/performance/composites/analytics", "excluded-member-regime"),
+        ("/performance/composites/analytics/comparison", "excluded-member-regime"),
     ],
 )
 def test_postgres_registered_annual_fx_window_authority(
@@ -599,6 +601,30 @@ def test_postgres_registered_annual_fx_window_authority(
     url, ledger, _, _ = postgres_materialization_stores
     assert ledger._engine.dialect.name == "postgresql"
     registered_control(monkeypatch, tmp_path, endpoint, mismatch, database_url=url)
+
+
+def test_postgres_retained_fx_progress_admits_shared_source_once(postgres_materialization_stores, monkeypatch):
+    from tests.integration.test_composite_materialization_api import (
+        test_retained_fx_progress_admits_shared_source_once_and_rechecks_each_member,
+    )
+
+    url, ledger, _, _ = postgres_materialization_stores
+    assert ledger._engine.dialect.name == "postgresql"
+    monkeypatch.setattr(get_settings(), "LINEAGE_METADATA_DATABASE_URL", url)
+    test_retained_fx_progress_admits_shared_source_once_and_rechecks_each_member(monkeypatch)
+
+
+def test_postgres_registered_fx_uncanonicalizable_source_refusal(postgres_materialization_stores, monkeypatch):
+    from tests.integration.test_composite_materialization_api import (
+        test_registered_fx_source_refusal_retains_admitted_eligible_population,
+    )
+
+    url, ledger, _, _ = postgres_materialization_stores
+    assert ledger._engine.dialect.name == "postgresql"
+    monkeypatch.setattr(get_settings(), "LINEAGE_METADATA_DATABASE_URL", url)
+    test_registered_fx_source_refusal_retains_admitted_eligible_population(
+        monkeypatch, "uncanonicalizable", "COMPOSITE_FX_SOURCE_WIRE_REFUSED"
+    )
 
 
 def test_postgres_registered_fx_normalization_wrong_native_refusal(postgres_materialization_stores, monkeypatch):

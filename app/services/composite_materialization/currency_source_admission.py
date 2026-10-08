@@ -63,6 +63,13 @@ def fx_resolution_for_command(command, *, tenant_id):
     )
 
 
+def _canonical_source_digest(raw):
+    try:
+        return authority_digest(raw)
+    except (ValueError, TypeError):
+        _refuse("COMPOSITE_FX_SOURCE_WIRE_REFUSED")
+
+
 def admit_composite_fx_source(
     request: ports.CompositeFXResolutionRequest, *, resolver=None, verifier=None, retained_wire=None
 ) -> AdmittedCompositeFXSource:
@@ -74,7 +81,7 @@ def admit_composite_fx_source(
     if not isinstance(raw, dict):
         _refuse("COMPOSITE_FX_SOURCE_UNAVAILABLE")
     raw = deepcopy(raw)
-    source_digest = authority_digest(raw)
+    source_digest = _canonical_source_digest(raw)
     if source_digest != request.binding.digest:
         _refuse("COMPOSITE_FX_SOURCE_DIGEST_MISMATCH")
     try:
