@@ -1,5 +1,20 @@
 # Composite Performance
 
+Composite performance calculates asset-weighted group TWR from retained member facts and keeps
+the source evidence needed for audit and client reporting. Supported calculated replay remains
+separate from official approval, freeze, live-source qualification and institutional compliance.
+
+## Current scope and reader paths
+
+| Reader | Start here |
+| --- | --- |
+| Client or business user | [Current functional coverage](#current-functional-coverage) and [worked replay examples](https://github.com/sgajbi/lotus-performance/blob/main/docs/guides/composite_materialization.md#explicit-retained-window-replay) explain supported results and refusals. |
+| Developer | [API and source authority](#what-the-composite-api-does) describes admission, exact retained evidence and unavailable production verifiers. |
+| Operations and support | [Operations runbook](Operations-Runbook) provides health, durable progress, lineage and recovery entrypoints. |
+| Sales and demos | Use the supported scope below; pending source, official publication and compliance acceptance cannot become demo claims. |
+
+## Retained window replay
+
 The existing TWR route supports an explicit chronological `materialization_ids` vector of 1–120
 COMPLETE retained windows, mutually exclusive with `restatement_sequence`. It verifies full contiguous
 coverage, tenant/composite/fee/currency, exact shared method/calendar binding, policy, immutable
@@ -17,15 +32,6 @@ for canonical OR-01/02/18 examples, exact source hash, snapshot and refusal cont
 Composite performance is the private-banking group-return capability introduced by RFC-049. It
 calculates asset-weighted composite TWR from persisted member-return facts and keeps the evidence
 needed for audit, operations, support, downstream consumers, and client-demo preparation.
-
-## Audiences
-
-| Audience | What this page supports |
-| --- | --- |
-| Business users | Explains what composite performance means, what can be trusted, and which advanced structures are not currently supported. |
-| Developers | Identifies the producer-owned endpoints, source authorities, data-product contracts, and integration rules. |
-| Operations and support | Shows the inspection workflow, blocked/degraded interpretation, and evidence artifacts used for triage. |
-| Sales, pre-sales, and demos | Provides implementation-backed language for presenting composite TWR without implying unsupported GIPS, attribution, sleeve, or carve-out capability. |
 
 ## Current Functional Coverage
 
