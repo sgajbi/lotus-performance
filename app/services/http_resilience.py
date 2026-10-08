@@ -275,6 +275,8 @@ def _retry_after_delta_seconds(raw_header: str) -> float | None:
         parsed_seconds = Decimal(raw_header)
     except InvalidOperation:
         return _retry_after_http_date_seconds(raw_header)
+    if not parsed_seconds.is_finite():
+        return None
     parsed_delay = float(parsed_seconds)
     return parsed_delay
 

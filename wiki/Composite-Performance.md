@@ -397,6 +397,8 @@ The joined graph is retained in existing source JSON and rechecked during materi
 Both reads and resolver calls carry the job's existing admitted service identity/capabilities.
 Selected tenant/actor/role are protected; conflicting or duplicate authority refuses before I/O,
 and absent capabilities remain absent.
+Resolver retries use bounded backoff when `Retry-After` is malformed or nonfinite;
+finite numeric and valid HTTP-date delays retain the configured retry limits.
 
 Staged approvals and boolean verification do not authorize this lifecycle. Independent typed purpose
 verification and issuer/artifact configuration remain unavailable in production. Synthetic owning

@@ -8,7 +8,7 @@ import pytest
 from pydantic import ValidationError
 
 from app.adapters.composite_membership_source import ManageCompositeMembershipSource
-from app.adapters.manage_composite_eligibility_evidence import ManageCompositeEligibilityEvidence
+from app.adapters.manage_composite_eligibility_evidence import ManageCompositeEligibilityEvidence, manage_read_headers
 from app.core.config import get_settings
 from app.models.composite_eligibility_evidence import SubjectFinalizationReceipt
 from app.ports import composite_external_evidence as ports
@@ -20,7 +20,7 @@ from app.services.composite_materialization.source_contract import (
     source_digest,
 )
 from core.errors import APIError
-from tests.composite_authority_helpers import command_for_packet
+from tests.composite_authority_helpers import command_for_packet, rehash_definition
 from tests.composite_eligibility_helpers import (
     install_lifecycle_test_verifier,
     producer_fixture,
@@ -59,6 +59,43 @@ async def read_pinned(packet=None):
         actor_id="reader",
         role="DPM_COMPOSITE_CONSUMER",
     )
+
+
+@pytest.mark.asyncio
+async def test_resolver_structurally_invalid_success_has_typed_refusal(monkeypatch):
+    calls = install_http(monkeypatch, wire=json.dumps({"product_name": "SubjectFinalizationReceipt"}))
+    with pytest.raises(APIError) as refused:
+        await read_pinned()
+    assert refused.value.error_code == "COMPOSITE_ELIGIBILITY_SOURCE_SCHEMA_INVALID"
+    assert [kind for kind, _ in calls] == ["GET", "GET", "GET", "POST"]
+
+
+@pytest.mark.asyncio
+async def test_resolver_refuses_non_lifecycle_binding_before_post(monkeypatch):
+    packet = source_packet()
+    packet["definition"]["source_authority"]["payload"]["eligibility_evaluation_binding"]["product_name"] = (
+        "OtherApproval"
+    )
+    rehash_definition(packet["definition"])
+    calls = install_http(monkeypatch, products=packet)
+    with pytest.raises(APIError) as refused:
+        await ManageCompositeEligibilityEvidence().read_published(
+            command_for_packet(packet),
+            tenant_id="synthetic-tenant",
+            actor_id="reader",
+            role="DPM_COMPOSITE_CONSUMER",
+            **{key: packet[key] for key in ("definition", "membership", "attestation")},
+        )
+    assert refused.value.error_code == "COMPOSITE_ELIGIBILITY_RESOLUTION_BINDING_MISMATCH"
+    assert calls == []
+
+
+def test_nonstr_header_name_cannot_enter_upstream_authority():
+    with pytest.raises(APIError) as refused:
+        manage_read_headers(
+            {1: "value"}, tenant_id="synthetic-tenant", actor_id="reader", role="DPM_COMPOSITE_CONSUMER"
+        )
+    assert refused.value.error_code == "COMPOSITE_UPSTREAM_AUTHORITY_CONFLICT"
 
 
 @pytest.mark.asyncio
@@ -383,6 +420,52 @@ def test_rehashed_canonical_products_cannot_disagree_with_approval_publication_g
             receipt=SubjectFinalizationReceipt.model_validate(wire),
         )
     assert error.value.error_code == code
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "mutation,code",
+    [
+        ("unavailable", "COMPOSITE_RECEIPT_VERIFICATION_UNAVAILABLE"),
+        ("request", "COMPOSITE_RECEIPT_VERIFICATION_REQUEST_MISMATCH"),
+        ("artifact", "COMPOSITE_RECEIPT_VERIFICATION_ARTIFACT_MISMATCH"),
+    ],
+)
+async def test_materialization_rechecks_independent_verifier_after_source_read(monkeypatch, mutation, code):
+    from dataclasses import replace
+
+    from app.services.composite_materialization.authority_policy import admit_authority_profile
+
+    install_http(monkeypatch)
+    install_lifecycle_test_verifier(monkeypatch)
+    source = await read_pinned()
+    original = ports.composite_receipt_verifier()
+
+    class ChangedVerifier:
+        def verify(self, request):
+            result = original.verify(request)
+            if mutation == "unavailable":
+                return ports.UnavailableCompositeEvidence()
+            expectation = result.expectation
+            if mutation == "request":
+                expectation = replace(expectation, request=request.model_copy(update={"tenant_id": "foreign-tenant"}))
+            else:
+                expectation = replace(expectation, artifact_revision="unrecognized-revision")
+            return replace(result, expectation=expectation)
+
+    monkeypatch.setattr(ports, "composite_receipt_verifier", ChangedVerifier)
+    with pytest.raises(APIError) as refused:
+        admit_authority_profile(
+            source.definition,
+            command=command_for_packet(source_packet()),
+            tenant_id="synthetic-tenant",
+            expected_members=source.attestation.expected_portfolio_ids,
+            universe_digest=source.attestation.content_hash,
+            published_eligibility=source.published_eligibility,
+        )
+    assert refused.value.error_code == code
+    if mutation == "artifact":
+        assert isinstance(refused.value.__cause__, ValueError)
 
 
 @pytest.mark.asyncio

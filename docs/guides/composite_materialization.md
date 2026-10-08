@@ -265,6 +265,8 @@ binding. For this product, Performance calls the configured read-only
 with that exact product/version/revision/digest and admitted tenant headers. It does not infer a
 subject revision from a correlation ID or select the latest approval. Missing or staged-only
 publication refuses admission; transient resolver failures remain retryable.
+Resolver retries accept finite numeric or valid HTTP-date `Retry-After` values. Malformed
+and nonfinite values use the configured bounded backoff; they cannot become a nonfinite sleep.
 The default worker carries the job's retained service identity and capability headers to both
 canonical reads and the resolver, preserving its original correlation. Header names are normalized
 by case; duplicate/conflicting authority refuses before I/O. The selected tenant, actor and role

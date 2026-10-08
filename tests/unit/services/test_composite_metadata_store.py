@@ -960,6 +960,57 @@ def _definition(composite_id: str = "PB_GLOBAL_BALANCED_USD") -> CompositeDefini
     )
 
 
+@pytest.mark.parametrize(
+    "manifest,fingerprint",
+    [
+        ("[]", "x" * 257),
+        ("not-json", "sha256:restored"),
+        ('[{"portfolio_id":"P1","period_start":"2025-12-31","period_end":"2026-01-31"}]', "sha256:restored"),
+        ('[{"portfolio_id":"P1","period_start":"2026-01-01","period_end":"2026-01-31"}]', "sha256:restored"),
+    ],
+    ids=["oversized-lineage", "malformed-manifest", "outside-publication-period", "missing-durable-family"],
+)
+def test_bootstrap_refuses_corrupt_restored_tenant_publication_without_repairing_it(tmp_path, manifest, fingerprint):
+    store = _store(tmp_path)
+    store.complete_member_return_fact_publication(
+        composite_id="PB_GLOBAL_BALANCED_USD",
+        return_view=CompositeReturnView.NET_ACTUAL,
+        reporting_currency="USD",
+        restatement_sequence=1,
+        period_start=date(2026, 1, 1),
+        period_end=date(2026, 1, 31),
+        expected_families=set(),
+        source_fingerprint="sha256:empty-publication",
+    )
+    # Simulate a restored backup with a corrupted immutable publication. Production
+    # mutation remains fenced; bootstrap must refuse rather than invent authority.
+    _drop_sqlite_guard_for_restore_fixture(store, PUBLICATION_IMMUTABLE_UPDATE_TRIGGER)
+    with store._engine.begin() as connection:
+        connection.execute(
+            text(
+                "UPDATE composite_member_return_fact_publications "
+                "SET expected_families_json=:manifest, source_fingerprint=:fingerprint"
+            ),
+            {"manifest": manifest, "fingerprint": fingerprint},
+        )
+    with store._engine.connect() as connection:
+        before_rows = connection.exec_driver_sql("SELECT * FROM composite_member_return_fact_publications").all()
+        before_catalog = connection.exec_driver_sql("SELECT name, sql FROM sqlite_master ORDER BY name").all()
+    try:
+        with pytest.raises(RuntimeError, match="invalid publication lineage"):
+            store.create_schema()
+        with store._engine.connect() as connection:
+            assert (
+                connection.exec_driver_sql("SELECT * FROM composite_member_return_fact_publications").all()
+                == before_rows
+            )
+            assert (
+                connection.exec_driver_sql("SELECT name, sql FROM sqlite_master ORDER BY name").all() == before_catalog
+            )
+    finally:
+        store.close()
+
+
 def test_completed_sqlite_fact_payload_is_immutable_to_direct_writers(tmp_path):
     store = _store(tmp_path)
     store.upsert_definition(_definition("IMMUTABLE_COMPLETED_FACT"))
@@ -2200,6 +2251,73 @@ def test_completed_publication_only_supersedes_the_window_it_covers(tmp_path):
         )
         == []
     )
+
+
+@pytest.mark.parametrize("conflicting_payload", [False, True])
+def test_concurrent_fact_identity_collision_preserves_the_durable_winner(tmp_path, conflicting_payload):
+    store = _store(tmp_path)
+    losing_store = CompositeMetadataStore(f"sqlite:///{tmp_path / 'composite_metadata.db'}")
+    release_writers = Event()
+
+    def write(candidate_store, candidate):
+        assert release_writers.wait(timeout=5)
+        candidate_store.upsert_member_return_fact(candidate, tenant_id="test-tenant")
+
+    fact = CompositeMemberReturnFact.model_validate(
+        {
+            "composite_id": "PB_GLOBAL_BALANCED_USD",
+            "portfolio_id": "P1",
+            "period_start": "2026-01-01",
+            "period_end": "2026-01-31",
+            "return_value": "0.01",
+            "beginning_market_value": "100",
+            "ending_market_value": "101",
+            "reporting_currency": "USD",
+            "calculation_id": "concurrent-p1",
+            "source_snapshot_id": "concurrent-p1",
+            "source_fingerprint": "sha256:concurrent-p1",
+        }
+    )
+    contender = fact.model_copy(update={"return_value": fact.return_value * 2}) if conflicting_payload else fact
+    try:
+        with ThreadPoolExecutor(max_workers=2) as executor:
+            writers = [
+                (executor.submit(write, store, fact), fact),
+                (executor.submit(write, losing_store, contender), contender),
+            ]
+            release_writers.set()
+            winners = []
+            conflicts = []
+            for future, candidate in writers:
+                try:
+                    future.result(timeout=5)
+                    winners.append(candidate)
+                except CompositeMemberReturnFactConflictError as conflict:
+                    conflicts.append(conflict)
+            assert len(winners) == (1 if conflicting_payload else 2)
+            assert len(conflicts) == (1 if conflicting_payload else 0)
+            winner = winners[0]
+        _complete_publication(store, winner)
+    finally:
+        release_writers.set()
+        losing_store.close()
+        store.close()
+
+    reopened = CompositeMetadataStore(f"sqlite:///{tmp_path / 'composite_metadata.db'}")
+    try:
+        selection = {
+            "composite_id": fact.composite_id,
+            "period_start": fact.period_start,
+            "period_end": fact.period_end,
+            "return_view": fact.return_view,
+            "reporting_currency": fact.reporting_currency,
+        }
+        assert reopened.list_member_return_facts(**selection) == [winner]
+        assert reopened.list_member_return_facts(**selection, tenant_id="other-tenant") == []
+        reopened.upsert_member_return_fact(winner)
+        assert reopened.list_member_return_facts(**selection) == [winner]
+    finally:
+        reopened.close()
 
 
 def test_sqlite_completion_atomically_fences_a_late_fact_writer(tmp_path, monkeypatch):
