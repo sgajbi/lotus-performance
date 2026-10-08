@@ -1100,6 +1100,9 @@ Compare source-money currency by continuing member identity across adjacent wind
 member order and admitted membership changes alone must not trigger that refusal.
 Require v3 normalized evidence for every FX-bound internal member, including identity
 conversion, at the shared retained-evidence boundary; no legacy or alternate-adapter fallback.
+Patch owning store classes or adapter factories in tests, rather than a method exposed
+through `RuntimeStoreProxy.__getattr__`. Pytest restoration can otherwise shadow the
+dynamic resolver with a method bound to an earlier database, contaminating later tests.
 Production FX source/verifier factories remain unavailable; synthetic receipts cannot confer
 official activation. External/hybrid aggregate normalization has no admitted method.
 Registered money/replay controls live in the owning materialization API suite; PostgreSQL

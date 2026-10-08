@@ -291,7 +291,9 @@ def test_registered_fx_normalization_refuses_legacy_retained_identity_member_aft
     def refuse_refetch(*args, **kwargs):
         raise AssertionError("Retained custody validation cannot consult expired child executions")
 
-    monkeypatch.setattr(execution_registry, "get_execution_for_tenant", refuse_refetch)
+    # Patch the owning class: restoring a dynamic proxy attribute would retain an
+    # old store-bound method and bypass database resolution in subsequent tests.
+    monkeypatch.setattr(ExecutionRegistry, "get_execution_for_tenant", refuse_refetch)
     ledger = CompositeMaterializationStore(get_settings().LINEAGE_METADATA_DATABASE_URL)
     identity = {"identity": str(command.materialization_id), "tenant": "tenant-a"}
     update = text(
