@@ -936,6 +936,25 @@ the v1 recursive digest convention remains unchanged. Independent server-compose
 authority, eligibility and method verification ports default unavailable. Institutional attestation
 references remain refused until qualified verification exists; test injection is synthetic only.
 
+For Manage's `CompositeSubjectEvaluationApproval:v1` eligibility binding, source reads use the exact
+read-only POST resolver at `/rebalance/composites/{composite_id}/definitions/{definition_version}/eligibility-evidence/resolve`
+under the configured Manage `/api/v1` base and admitted tenant headers. The existing binding is the
+entire body. Strict consumer projections preserve raw decimal/timestamp strings and nested hashes.
+Both Manage adapters carry existing service identity/capability authority from the retained job,
+with the original correlation through the existing propagation helper. Selected tenant, actor and
+role remain protected; case-insensitive duplicate or conflicting authority refuses before I/O.
+No service identity or capability is supplied when the admitted context lacks it.
+The producer resolver joins published custody; Performance also digest-checks the separately read
+canonical definition, membership and universe, binds the final definition/member map/source cut,
+and retains the resolved graph in existing source JSON evidence. Staged approvals and booleans do
+not prove this lifecycle. Independent typed receipt verification defaults unavailable; issuer and
+artifact expectations come from verifier configuration. Synthetic test records remain non-certifying.
+No financial decoder, institutional trust configuration or durable lifecycle ledger is added.
+
+From this repository root with the pinned `.venv`, the focused source/transport proof is
+`python -m pytest tests/unit/models/test_composite_eligibility_evidence.py tests/unit/adapters/test_manage_composite_eligibility_evidence.py tests/unit/services/test_http_resilience.py -q`.
+This is in-process source admission proof; deployed cross-service and PostgreSQL acceptance are separate.
+
 Use the existing source-contract, materialization worker, ledger and fact-publication path for
 internal/external/hybrid authority. Retained v2 receipts preserve independent per-fact selections,
 provider observation cuts and genuine internal receipts. A provider cut is not the Manage universe

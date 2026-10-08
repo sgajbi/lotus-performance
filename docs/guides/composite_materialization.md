@@ -257,6 +257,39 @@ approved maintenance procedure rather than removing facts underneath retained pr
 
 ## Verification
 
+### Published Eligibility Evidence
+
+Manage's staged lifecycle uses `CompositeSubjectEvaluationApproval:v1` as the existing eligibility
+binding. For this product, Performance calls the configured read-only
+`POST /api/v1/rebalance/composites/{composite_id}/definitions/{definition_version}/eligibility-evidence/resolve`
+with that exact product/version/revision/digest and admitted tenant headers. It does not infer a
+subject revision from a correlation ID or select the latest approval. Missing or staged-only
+publication refuses admission; transient resolver failures remain retryable.
+The default worker carries the job's retained service identity and capability headers to both
+canonical reads and the resolver, preserving its original correlation. Header names are normalized
+by case; duplicate/conflicting authority refuses before I/O. The selected tenant, actor and role
+cannot be overwritten, unrelated headers are discarded, and absent capabilities are not invented.
+
+The producer resolver joins its retained published graph before returning
+`CompositeEligibilityFinalizationReceipt:v1`. Performance also reads and digest-checks the canonical
+definition, membership and universe. It requires the same final definition, exact approval binding,
+full member identity map, membership/universe revisions and hashes, source cut, source products and
+evaluation decisions. The receipt and joined pins remain in existing retained source JSON; replay
+reapplies the guards without rewriting raw decimal/timestamp strings or nested hashes. Definition
+HP/HB/HC exclusions and the older membership/universe recursive hash convention remain unchanged.
+
+Publication lookup does not verify an issuer. A separately composed verifier must return typed
+purpose receipts and independently configured issuer/artifact expectations. Boolean results, staged
+approvals, and receipt bodies without that configuration refuse. Production verification remains
+unavailable; owning test verification is explicitly synthetic and non-certifying. Nested approval
+`NOT_PUBLISHED`, receipt `UNVERIFIED` and official activation `UNAVAILABLE` labels remain intact.
+The staged fixture's `SyntheticAssets` and `SyntheticReturns` are not supported financial inputs.
+
+From this repository root with its pinned Python environment, run
+`python -m pytest tests/unit/models/test_composite_eligibility_evidence.py tests/unit/adapters/test_manage_composite_eligibility_evidence.py tests/unit/services/test_http_resilience.py -q`.
+This source/transport proof does not establish deployed cross-service custody, qualified production
+approval or PostgreSQL acceptance of the new joined path.
+
 From the repository root, run `make postgres-concurrency-contracts-gate` against the documented
 live proof database, followed by the required delivery gates in the [CI guide](../../quality/ci_quality_gates.md).
 Registered HTTP proof and independent three-member/large-decimal examples live in

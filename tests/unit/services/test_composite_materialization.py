@@ -58,6 +58,79 @@ def stores(tmp_path):
         ledger.close()
 
 
+@pytest.mark.parametrize("conflicting", [False, True])
+def test_default_manage_adapter_carries_persisted_job_authority_and_protects_tenant(stores, monkeypatch, conflicting):
+    from app.core.config import get_settings
+    from app.services.analytics_workflow_types import ANALYTICS_WORKFLOW_COMPOSITE_MATERIALIZATION
+
+    ledger, facts, jobs = stores
+    command = command_for()
+    products = iter(source_products())
+    calls = []
+
+    async def actual_read(**kwargs):
+        calls.append(kwargs)
+        return 200, next(products)
+
+    monkeypatch.setattr(get_settings(), "MANAGE_BASE_URL", "http://manage/api/v1")
+    monkeypatch.setattr("app.adapters.composite_membership_source.get_with_retry", actual_read)
+    retained_authority = {
+        "x-tenant-id": "other-tenant" if conflicting else "tenant-a",
+        "x-actor-id": "operator",
+        "x-role": "DPM_COMPOSITE_CONSUMER",
+        "x-service-identity": "local-network-proof",
+        "x-capabilities": "manage.write",
+        "x-correlation-id": "original-retained-correlation",
+        "cookie": "never-forward",
+    }
+    jobs.register_job(
+        calculation_id=command.calculation_id,
+        analytics_type=ANALYTICS_WORKFLOW_COMPOSITE_MATERIALIZATION,
+        tenant_id="tenant-a",
+        request_payload={
+            "command": command.model_dump(mode="json"),
+            "actor_id": "operator",
+            "role": "DPM_COMPOSITE_CONSUMER",
+            "authority": retained_authority,
+        },
+    )
+    retained_authority["x-capabilities"] = "changed-after-save"
+    jobs.lease_pending_jobs(worker_id="worker-a", lease_seconds=60, limit=1)
+    jobs.mark_running(command.calculation_id, worker_id="worker-a", lease_seconds=60)
+    # Reload persisted JSON through a separate store instance, rather than pass the registration input.
+    fresh_jobs = ComputeJobStore(str(jobs._engine.url))
+    try:
+        job = fresh_jobs.get_job_for_tenant(command.calculation_id, tenant_id="tenant-a")
+        assert job.request_payload["authority"]["x-capabilities"] == "manage.write"
+        members = MemberSource()
+        if conflicting:
+            with pytest.raises(APIError) as error:
+                run_materialization_attempt(
+                    job, job_store=fresh_jobs, ledger=ledger, facts=facts, member_source=members
+                )
+            assert error.value.error_code == "COMPOSITE_UPSTREAM_AUTHORITY_CONFLICT"
+            assert calls == [] and members.reads == []
+            assert facts.count_records(tenant_id="tenant-a").member_return_facts == 0
+        else:
+            result = run_materialization_attempt(
+                job, job_store=fresh_jobs, ledger=ledger, facts=facts, member_source=members
+            )
+            assert result.state == "COMPLETE"
+            assert len(calls) == 3
+            for call in calls:
+                assert call["headers"]["X-Tenant-Id"] == "tenant-a"
+                assert call["headers"]["X-Service-Identity"] == "local-network-proof"
+                assert call["headers"]["X-Capabilities"] == "manage.write"
+                assert call["headers"]["X-Correlation-Id"] == "original-retained-correlation"
+                assert "cookie" not in {name.lower() for name in call["headers"]}
+            replay = run_materialization_attempt(
+                job, job_store=fresh_jobs, ledger=ledger, facts=facts, member_source=members
+            )
+            assert replay == result and len(calls) == 3
+    finally:
+        fresh_jobs._engine.dispose()
+
+
 def test_manage_wire_products_admitted_without_changing_owner_hashes():
     command = command_for()
     source = admitted(command)

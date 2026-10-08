@@ -381,6 +381,25 @@ authority, fingerprints, read-only snapshots and pinned replay after store close
 reopen is not a process restart or live-ingestion proof. The caller guide documents the focused
 native gate; institutional decisions and the complete consumer chain remain separate acceptance.
 
+## Published Eligibility Source Admission
+
+For Manage's `CompositeSubjectEvaluationApproval:v1` binding, Performance reads the exact tenant-scoped
+published resolver and separately validates canonical definition, membership and universe wires.
+The strict finalization receipt preserves decimal/timestamp strings and nested hashes. Full member
+identity, revisions, source cuts, source products and approved decisions must agree before admission.
+The joined graph is retained in existing source JSON and rechecked during materialization replay.
+Both reads and resolver calls carry the job's existing admitted service identity/capabilities.
+Selected tenant/actor/role are protected; conflicting or duplicate authority refuses before I/O,
+and absent capabilities remain absent.
+
+Staged approvals and boolean verification do not authorize this lifecycle. Independent typed purpose
+verification and issuer/artifact configuration remain unavailable in production. Synthetic owning
+tests are non-certifying; `NOT_PUBLISHED`, `UNVERIFIED` and official `UNAVAILABLE` labels remain.
+The fixture's assets/returns do not become supported financial products. Deployed cross-service and
+PostgreSQL acceptance remain separate. The
+[materialization guide](https://github.com/sgajbi/lotus-performance/blob/main/docs/guides/composite_materialization.md)
+describes the resolver and focused proof.
+
 ## References
 
 - [Composite performance guide](https://github.com/sgajbi/lotus-performance/blob/main/docs/guides/composite_performance.md)

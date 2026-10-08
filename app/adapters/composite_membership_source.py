@@ -1,15 +1,16 @@
 from __future__ import annotations
 
 import json
+from collections.abc import Mapping
 from typing import Any
 from urllib.parse import quote
 
 from pydantic import ValidationError
 
+from app.adapters.manage_composite_eligibility_evidence import ManageCompositeEligibilityEvidence, manage_read_headers
 from app.core.config import get_settings
-from app.models.composite_authority import decode_authority_json
+from app.models.composite_authority import ManageCompositeDefinitionV2, decode_authority_json
 from app.models.composite_materialization import CompositeMaterializationCommand
-from app.observability import propagation_headers
 from app.services.composite_materialization.source_contract import (
     PinnedCompositeSource,
     admit_pinned_source,
@@ -40,7 +41,19 @@ def composite_response_payload(response):
     return payload
 
 
+def strict_composite_response_payload(response):
+    if response.status_code != 200:
+        return response_payload(response)
+    try:
+        return decode_authority_json(response.text)
+    except ValueError as exc:
+        raise source_refusal("COMPOSITE_SOURCE_SCHEMA_INVALID") from exc
+
+
 class ManageCompositeMembershipSource:
+    def __init__(self, *, request_headers: Mapping[str, str] | None = None):
+        self.request_headers = dict(request_headers or {})
+
     async def read_pinned(
         self,
         command: CompositeMaterializationCommand,
@@ -58,7 +71,7 @@ class ManageCompositeMembershipSource:
                 error_code="COMPOSITE_MEMBERSHIP_SOURCE_UNAVAILABLE",
                 retryable=True,
             )
-        headers = {**propagation_headers(), **authority.headers(), "X-Actor-Id": actor_id, "X-Role": role}
+        headers = manage_read_headers(self.request_headers, tenant_id=authority.tenant_id, actor_id=actor_id, role=role)
         prefix = (
             "/rebalance/composites/"
             + quote(command.composite_id, safe="")
@@ -66,7 +79,7 @@ class ManageCompositeMembershipSource:
             + quote(command.definition_version, safe="")
         )
 
-        async def read(path: str) -> dict[str, Any]:
+        async def read(path: str, *, strict_wire: bool = False) -> dict[str, Any]:
             status_code, payload = await get_with_retry(
                 url=settings.MANAGE_BASE_URL.rstrip("/") + path,
                 timeout_seconds=settings.MANAGE_TIMEOUT_SECONDS,
@@ -74,7 +87,7 @@ class ManageCompositeMembershipSource:
                 headers=headers,
                 max_retries=settings.CORE_MAX_RETRIES,
                 backoff_seconds=settings.CORE_RETRY_BACKOFF_SECONDS,
-                response_decoder=composite_response_payload,
+                response_decoder=strict_composite_response_payload if strict_wire else composite_response_payload,
             )
             if status_code != 200:
                 raise APIError(
@@ -88,21 +101,44 @@ class ManageCompositeMembershipSource:
             return payload
 
         definition = await read(prefix)
-        membership = await read(prefix + "/membership/" + quote(command.membership_revision, safe=""))
+        strict_wire = definition.get("product_version") == "v2"
+        membership = await read(
+            prefix + "/membership/" + quote(command.membership_revision, safe=""), strict_wire=strict_wire
+        )
         attestation = await read(
             prefix
             + "/membership/"
             + quote(command.membership_revision, safe="")
             + "/universe-attestations/"
-            + quote(command.attestation_version, safe="")
+            + quote(command.attestation_version, safe=""),
+            strict_wire=strict_wire,
         )
         try:
+            published_eligibility = None
+            if definition.get("product_version") == "v2":
+                typed = ManageCompositeDefinitionV2.model_validate(definition)
+                if (
+                    typed.source_authority.payload.eligibility_evaluation_binding.product_name
+                    == "CompositeSubjectEvaluationApproval"
+                ):
+                    published_eligibility = await ManageCompositeEligibilityEvidence(
+                        request_headers=self.request_headers
+                    ).read_published(
+                        command,
+                        tenant_id=tenant_id,
+                        actor_id=actor_id,
+                        role=role,
+                        definition=definition,
+                        membership=membership,
+                        attestation=attestation,
+                    )
             return admit_pinned_source(
                 command=command,
                 tenant_id=tenant_id,
                 definition=definition,
                 membership=membership,
                 attestation=attestation,
+                published_eligibility=published_eligibility,
             )
         except APIError:
             raise
