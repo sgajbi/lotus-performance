@@ -5,6 +5,7 @@ from types import SimpleNamespace
 import pytest
 from sqlalchemy import create_engine, event
 
+from app.adapters.composite_model_fee_profile_schema import model_fee_profile_guard_statements
 from app.adapters.durable_schema.errors import DurableSchemaMigrationRequiredError
 from app.adapters.durable_schema.guards import require_managed_guards
 from app.services.composite_metadata_store import composite_fact_guard_statements
@@ -122,6 +123,42 @@ def postgres_catalog():
 
 def test_postgres_current_function_and_trigger_accept_catalogue_only(postgres_catalog):
     require_managed_guards(postgres_catalog.connection, postgres_catalog.statements)
+    assert len(postgres_catalog.queries) == 2
+
+
+@pytest.mark.parametrize("fault", [None, "missing_truncate", "row_truncate", "weakened_function"])
+def test_model_fee_postgres_guard_contract_refuses_custody_drift(postgres_catalog, fault):
+    from sqlalchemy.dialects import postgresql
+
+    statements = model_fee_profile_guard_statements(postgresql.dialect())
+    # Independently specified installed PostgreSQL catalogue, including the
+    # statement-level TRUNCATE event. No DDL is allowed during verification.
+    postgres_catalog.functions[0].update(
+        proname="reject_model_fee_profile_mutation",
+        prosrc="BEGIN RAISE EXCEPTION USING ERRCODE = '23514', MESSAGE = 'model fee profile content is immutable'; END;",
+    )
+    template = postgres_catalog.triggers[0].copy()
+    postgres_catalog.triggers[:] = [
+        {
+            **template,
+            "tgname": f"trg_model_fee_profiles_immutable_{operation}",
+            "relname": "composite_model_fee_profiles",
+            "tgtype": event_type,
+            "proname": "reject_model_fee_profile_mutation",
+        }
+        for operation, event_type in [("update", 19), ("delete", 11), ("truncate", 34)]
+    ]
+    if fault == "missing_truncate":
+        postgres_catalog.triggers.pop()
+    elif fault == "row_truncate":
+        postgres_catalog.triggers[-1]["tgtype"] = 35
+    elif fault == "weakened_function":
+        postgres_catalog.functions[0]["prosrc"] = "BEGIN RETURN OLD; END;"
+    if fault is None:
+        require_managed_guards(postgres_catalog.connection, statements)
+    else:
+        with pytest.raises(DurableSchemaMigrationRequiredError):
+            require_managed_guards(postgres_catalog.connection, statements)
     assert len(postgres_catalog.queries) == 2
 
 

@@ -57,6 +57,9 @@ def test_profile_catalog_requires_authority_and_preserves_original_receipt(monke
         assert client.get(exact, headers=refused_headers).status_code == expected
         published = client.post(path, json=wire, headers=headers)
         assert published.status_code == 200, published.text
+        missing_profile = client.get(f"{path}/{wire['profile_id']}/unknown-revision", headers=headers)
+        assert missing_profile.status_code == 404, missing_profile.text
+        assert "profile" not in missing_profile.json()
         assert client.get(exact, headers=headers).json() == published.json()
         retry_headers = {**headers, "X-Actor-Id": "different-retry-publisher"}
         assert client.post(path, json=wire, headers=retry_headers).json() == published.json()

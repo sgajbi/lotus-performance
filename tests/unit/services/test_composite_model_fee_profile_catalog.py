@@ -1,14 +1,19 @@
 """Real catalog custody, conflicting publication and owner rollback controls."""
 
 from concurrent.futures import ThreadPoolExecutor
+from contextlib import nullcontext
 from copy import deepcopy
 from dataclasses import replace
+from unittest.mock import Mock
 
 import pytest
 from sqlalchemy import inspect
-from sqlalchemy.exc import DBAPIError
+from sqlalchemy.exc import DBAPIError, IntegrityError
+from sqlalchemy.orm.exc import MultipleResultsFound
 
+from app.adapters.composite_model_fee_profile_records import CompositeModelFeeProfileModel
 from app.adapters.composite_model_fee_profile_schema import rollback_empty_model_fee_profile_catalog
+from app.adapters.composite_model_fee_profile_storage import publish_profile, resolve_profile
 from app.models.composite_model_fees import CompositePeriodicModelFeeProfile
 from app.ports.composite_model_fees import CompositeModelFeeResolutionRequest
 from app.services.composite_metadata_store import CompositeMetadataStore
@@ -70,6 +75,12 @@ def test_original_custody_retry_correction_and_exact_binding(catalog):
     )
     assert original.published_by == "original-publisher"
     assert original.posture == "UNAPPROVED_METHOD_INPUT"
+    from app.adapters.composite_model_fee_profile_source import RetainedCompositeModelFeeSource
+    from app.ports.composite_external_evidence import UnavailableCompositeEvidence
+
+    source = RetainedCompositeModelFeeSource(catalog)
+    assert source.resolve(request(original)) == original.profile.model_dump(mode="json")
+    assert isinstance(source.resolve(replace(request(original), tenant_id="TENANT_B")), UnavailableCompositeEvidence)
 
 
 def test_concurrent_conflicting_identity_preserves_one_original(catalog):
@@ -159,4 +170,93 @@ def test_retained_hash_check_refuses_storage_corruption(catalog):
         connection.exec_driver_sql("UPDATE composite_model_fee_profiles SET profile_json='{}'")
     with pytest.raises(APIError) as refused:
         catalog.resolve_model_fee_profile(request(original))
+    assert refused.value.error_code == "COMPOSITE_MODEL_FEE_PROFILE_RETAINED_EVIDENCE_REFUSED"
+
+
+@pytest.mark.parametrize("actor", ["", " actor ", "a" * 129])
+def test_storage_publication_refuses_bad_original_actor_without_database_calls(actor):
+    session = Mock()
+    with pytest.raises(APIError) as refused:
+        publish_profile(
+            session,
+            CompositePeriodicModelFeeProfile.model_validate(profile_wire()),
+            tenant_id="TENANT_A",
+            actor_id=actor,
+        )
+    assert refused.value.error_code == "COMPOSITE_MODEL_FEE_PROFILE_ACTOR_REQUIRED"
+    assert session.mock_calls == []
+
+
+def test_storage_publication_refuses_cross_tenant_profile_without_database_calls():
+    session = Mock()
+    with pytest.raises(APIConflictError) as refused:
+        publish_profile(
+            session,
+            CompositePeriodicModelFeeProfile.model_validate(profile_wire()),
+            tenant_id="TENANT_B",
+            actor_id="publisher",
+        )
+    assert refused.value.error_code == "COMPOSITE_MODEL_FEE_PROFILE_TENANT_MISMATCH"
+    assert session.mock_calls == []
+
+
+@pytest.mark.parametrize("winner", ["same", "conflicting", "absent"])
+def test_failed_insert_rechecks_exact_committed_winner(catalog, winner):
+    original = publish(catalog)
+    with catalog._session() as retained:
+        row = retained.get(
+            CompositeModelFeeProfileModel, ("TENANT_A", original.profile.profile_id, original.profile.revision)
+        )
+        retained.expunge(row)
+    session = Mock()
+    session.get.side_effect = [None, row if winner != "absent" else None]
+    session.begin_nested.return_value = nullcontext()
+    session.flush.side_effect = IntegrityError("controlled unique collision", {}, Exception("collision"))
+    wire = deepcopy(profile_wire())
+    if winner == "conflicting":
+        wire["periods"][0]["member_rates"][0]["period_fee_fraction"] = "0.004"
+    profile = CompositePeriodicModelFeeProfile.model_validate(wire)
+    if winner == "same":
+        assert publish_profile(session, profile, tenant_id="TENANT_A", actor_id="retry") == original
+    else:
+        with pytest.raises(APIError) as refused:
+            publish_profile(session, profile, tenant_id="TENANT_A", actor_id="retry")
+        assert refused.value.error_code == (
+            "COMPOSITE_MODEL_FEE_PROFILE_CONTENT_CONFLICT"
+            if winner == "conflicting"
+            else "COMPOSITE_MODEL_FEE_PROFILE_RETAINED_EVIDENCE_REFUSED"
+        )
+    assert session.get.call_args.kwargs == {"populate_existing": True}
+    assert catalog.resolve_model_fee_profile(request(original)) == original
+
+
+def test_ambiguous_binding_refuses_instead_of_selecting_an_arbitrary_profile(catalog):
+    original = publish(catalog)
+    session = Mock()
+    session.scalars.return_value.one_or_none.side_effect = MultipleResultsFound("controlled corrupt binding")
+    with pytest.raises(APIError) as refused:
+        resolve_profile(session, request(original))
+    assert refused.value.error_code == "COMPOSITE_MODEL_FEE_PROFILE_RETAINED_EVIDENCE_REFUSED"
+    assert catalog.resolve_model_fee_profile(request(original)) == original
+
+
+@pytest.mark.parametrize("corruption", ["canonical_layout", "digest", "actor", "naive_time"])
+def test_valid_json_with_corrupt_identity_or_custody_refuses_on_read(catalog, corruption):
+    from sqlalchemy import text
+
+    original = publish(catalog)
+    statements = {
+        "canonical_layout": ("profile_json", " " + original.profile.model_dump_json()),
+        "digest": ("content_digest", "sha256:" + "0" * 64),
+        "actor": ("published_by", " actor "),
+        "naive_time": ("published_at_utc", "2026-01-01T00:00:00"),
+    }
+    column, value = statements[corruption]
+    with catalog._engine.begin() as connection:
+        connection.exec_driver_sql("DROP TRIGGER trg_model_fee_profiles_immutable_update")
+        connection.execute(text(f"UPDATE composite_model_fee_profiles SET {column}=:value"), {"value": value})
+    with pytest.raises(APIError) as refused:
+        catalog.get_model_fee_profile(
+            tenant_id="TENANT_A", profile_id=original.profile.profile_id, revision=original.profile.revision
+        )
     assert refused.value.error_code == "COMPOSITE_MODEL_FEE_PROFILE_RETAINED_EVIDENCE_REFUSED"

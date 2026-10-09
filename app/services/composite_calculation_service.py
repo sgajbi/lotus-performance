@@ -157,8 +157,15 @@ def _window_evidence(record: MaterializationRecord, method: dict[str, str]) -> C
         raise APIConflictError("A required retained window is unavailable.", error_code="REQUIRED_PERIOD_UNAVAILABLE")
     receipt_fingerprint = generate_value_fingerprint(
         {
-            "command": command.model_dump(mode="json"),
-            "source": source.model_dump(mode="json"),
+            # Preserve the pre-model-fee v1 receipt shape, including all its
+            # existing nulls and executor/FX pins. Bound fee custody remains
+            # part of the hash; absent new optional fields must not change it.
+            "command": command.model_dump(
+                mode="json", exclude={"model_fee_binding"} if command.model_fee_binding is None else set()
+            ),
+            "source": source.model_dump(
+                mode="json", exclude={"model_fee_wire"} if source.model_fee_wire is None else set()
+            ),
             "outcomes": [outcome.model_dump(mode="json") for outcome in record.outcomes],
         },
         "composite-retained-window.v1",

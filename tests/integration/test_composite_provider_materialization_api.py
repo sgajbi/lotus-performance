@@ -1,11 +1,14 @@
 from copy import deepcopy
 from decimal import Decimal
+from uuid import UUID
 
 import pytest
 from fastapi.testclient import TestClient
 
 from app.adapters import composite_provider_member_source as provider_adapter
+from app.adapters.composite_materialization_repository import get_composite_materialization_store
 from app.core.config import get_settings
+from app.services.reproducibility_service import generate_value_fingerprint
 from app.workers.compute_executor_worker import process_pending_jobs
 from main import app
 from scripts.durable_schema_apply import apply_durable_schema
@@ -287,6 +290,19 @@ def test_registered_external_two_month_chain_matches_independent_or02(monkeypatc
         windows = result.json()["selection_manifest"]["windows"]
         assert [window["materialization_id"] for window in windows] == identities
         assert [window["restatement_sequence"] for window in windows] == [1, 2]
+        for window in windows:
+            record = get_composite_materialization_store().get(
+                UUID(window["materialization_id"]), tenant_id=HEADERS["X-Tenant-Id"]
+            )
+            # Pre-fee command/source serialization, retaining the actual
+            # persisted provider outcomes and every original null/FX pin.
+            historical_receipt = {
+                "command": record.command.model_dump(mode="json", exclude={"model_fee_binding"}),
+                "source": record.source.model_dump(mode="json", exclude={"model_fee_wire"}),
+                "outcomes": [outcome.model_dump(mode="json") for outcome in record.outcomes],
+            }
+            expected_fingerprint = generate_value_fingerprint(historical_receipt, "composite-retained-window.v1")[0]
+            assert window["retained_receipt_fingerprint"] == expected_fingerprint
         correction = command_for_packet(
             corrected_packet, period_start="2026-01-01", period_end="2026-01-31", restatement_sequence=3
         )

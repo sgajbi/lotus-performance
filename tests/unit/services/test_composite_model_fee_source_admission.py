@@ -101,6 +101,24 @@ def test_unrehashed_schedule_drift_refused_before_independent_approval(monkeypat
     assert refused.value.error_code == "COMPOSITE_MODEL_FEE_SOURCE_DIGEST_MISMATCH"
 
 
+@pytest.mark.parametrize("malformed", [{}, {"periods": None}, {"periods": ["not-a-period"]}])
+def test_malformed_profile_wire_refuses_before_approval(monkeypatch, malformed):
+    from unittest.mock import Mock
+
+    _, wire, command, source = model_fee_source_inputs()
+    verifier = Mock()
+    monkeypatch.setattr(approvals, "method_approval_verifier", lambda: verifier)
+    changed = deepcopy(wire)
+    if malformed:
+        changed.update(malformed)
+    else:
+        changed = malformed
+    with pytest.raises(APIUnprocessableEntityError) as refused:
+        admit(changed, command, source)
+    assert refused.value.error_code == "COMPOSITE_MODEL_FEE_SOURCE_WIRE_REFUSED"
+    assert verifier.mock_calls == []
+
+
 @pytest.mark.parametrize(
     "field,value",
     [

@@ -80,6 +80,10 @@ result. This is calculated replay, not a stored result, official selection, appr
 unchanged. See [the executable window-replay guide](https://github.com/sgajbi/lotus-performance/blob/main/docs/guides/composite_materialization.md#explicit-retained-window-replay)
 for canonical OR-01/02/18 examples, exact source hash, snapshot and refusal contracts.
 
+Adding model-fee support preserves existing gross and actual-net retained-window fingerprints,
+including windows with pinned FX evidence. Absent fee fields do not enter the legacy receipt
+shape; a bound fee profile and its command binding both participate in the retained-window hash.
+
 Composite performance is the private-banking group-return capability introduced by RFC-049. It
 calculates asset-weighted composite TWR from persisted member-return facts and keeps the evidence
 needed for audit, operations, support, downstream consumers, and client-demo preparation.
