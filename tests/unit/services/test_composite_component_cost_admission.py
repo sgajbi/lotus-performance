@@ -99,6 +99,23 @@ def test_whole_financial_custody_participates_in_retained_window_fingerprint(cas
     assert _window_evidence(record, {}).retained_receipt_fingerprint == fingerprint
 
 
+def test_original_source_serialization_omits_only_absent_new_financial_wire(case):
+    import json
+
+    source = case[0]
+    original = source.model_dump(mode="json")
+    assert "gross_component_wire" not in original
+    assert "model_fee_wire" in original and original["model_fee_wire"] is None
+    assert source.model_dump()["model_fee_wire"] is None
+    assert json.loads(source.model_dump_json()) == original
+    assert PinnedCompositeSource.model_validate(original) == source
+    retained = admit(case).model_dump(mode="json")
+    bound = source.model_copy(update={"gross_component_wire": retained})
+    assert bound.model_dump(mode="json")["gross_component_wire"] == retained
+    assert json.loads(bound.model_dump_json())["gross_component_wire"] == retained
+    assert PinnedCompositeSource.model_validate(bound.model_dump(mode="json")) == bound
+
+
 @pytest.mark.parametrize(
     "fault",
     [

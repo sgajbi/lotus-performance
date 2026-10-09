@@ -182,10 +182,7 @@ def _window_evidence(record: MaterializationRecord, method: dict[str, str]) -> C
                 mode="json", exclude={"model_fee_binding"} if command.model_fee_binding is None else set()
             ),
             "source": source.model_dump(
-                mode="json",
-                exclude={
-                    field for field in ("model_fee_wire", "gross_component_wire") if getattr(source, field) is None
-                },
+                mode="json", exclude={"model_fee_wire"} if source.model_fee_wire is None else set()
             ),
             "outcomes": [outcome.model_dump(mode="json") for outcome in record.outcomes],
         },
