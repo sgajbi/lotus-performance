@@ -2,20 +2,192 @@ from datetime import datetime, timezone
 from uuid import uuid4
 
 import pytest
-from sqlalchemy import event, inspect, text
+from sqlalchemy import create_engine, event, inspect, text
+from sqlalchemy.exc import DBAPIError
 
+from app.adapters.composite_pooled_mwr_repository import CompositePooledMWRInputStore
+from app.adapters.composite_result_custody_schema import COMPOSITE_POOLED_ANALYTICS_TYPE
+from app.models.composite_pooled_mwr import PooledSourceBundle
 from app.services.async_result_store import (
     INVALID_ASYNC_RESULT_PAYLOAD_ERROR_TYPE,
     INVALID_ASYNC_RESULT_PAYLOAD_MESSAGE,
+    AsyncResultCaptureAdmissionRequiredError,
     AsyncResultModel,
+    AsyncResultOriginalConflictError,
     AsyncResultStatus,
     AsyncResultStore,
     AsyncResultTenantConflictError,
     _async_result_record_payload_state,
     _has_invalid_response_payload,
 )
+from app.services.composite_pooled_mwr.admission import admit_pooled_observation
 from app.services.durable_failure_classification import classify_durable_failure
 from core.errors import APIUnprocessableEntityError
+from tests.unit.services.test_composite_pooled_mwr_admission import controlled_request, controlled_source_payload
+
+
+@pytest.fixture
+def pooled_result_custody(tmp_path):
+    url = f"sqlite:///{tmp_path / 'pooled-results.db'}"
+    inputs = CompositePooledMWRInputStore(url)
+    inputs.create_schema()
+    results = AsyncResultStore(url)
+    results.create_schema()
+    engine = create_engine(url)
+    request = controlled_request()
+    observation = admit_pooled_observation(
+        request, PooledSourceBundle.model_validate(controlled_source_payload()), tenant_id="controlled-tenant"
+    )
+    with engine.begin() as connection:
+        inputs.bind(connection, tenant_id="controlled-tenant", request=request, observation=observation)
+    payload = {
+        "calculation_id": str(request.calculation_id),
+        "input_manifest_digest": observation.input_manifest_digest,
+        "controlled_result": "0.10",
+    }
+    yield results, engine, request, observation, payload
+    engine.dispose()
+    inputs.close()
+    results._engine.dispose()
+
+
+def _publish_pooled(results, connection, request, observation, payload, **change):
+    results.record_pooled_success_in_transaction(
+        connection,
+        **{
+            "calculation_id": request.calculation_id,
+            "tenant_id": "controlled-tenant",
+            "input_manifest_digest": observation.input_manifest_digest,
+            "response_payload": payload,
+            **change,
+        },
+    )
+
+
+def test_pooled_original_retry_replays_without_update(pooled_result_custody):
+    results, engine, request, observation, payload = pooled_result_custody
+    statements = []
+    event.listen(engine, "before_cursor_execute", lambda _, __, sql, *args: statements.append(sql))
+    with engine.begin() as connection:
+        _publish_pooled(results, connection, request, observation, payload)
+    original = results.get_result(request.calculation_id)
+    with engine.begin() as connection:
+        _publish_pooled(results, connection, request, observation, dict(reversed(list(payload.items()))))
+    assert results.get_result(request.calculation_id) == original
+    assert original.response_payload == payload
+    assert not any(sql.lstrip().upper().startswith("UPDATE") for sql in statements)
+
+
+@pytest.mark.parametrize("change", ["payload", "tenant", "digest", "calculation"])
+def test_pooled_original_conflicts_preserve_original(pooled_result_custody, change):
+    results, engine, request, observation, payload = pooled_result_custody
+    with engine.begin() as connection:
+        _publish_pooled(results, connection, request, observation, payload)
+    original = results.get_result(request.calculation_id)
+    override = {
+        "payload": {"response_payload": {**payload, "controlled_result": "0.20"}},
+        "tenant": {"tenant_id": "foreign"},
+        "digest": {"input_manifest_digest": "wrong"},
+        "calculation": {"calculation_id": uuid4()},
+    }[change]
+    with pytest.raises(AsyncResultOriginalConflictError):
+        with engine.begin() as connection:
+            _publish_pooled(results, connection, request, observation, payload, **override)
+    assert results.get_result(request.calculation_id) == original
+
+
+def test_pooled_original_transaction_rollback_and_retry(pooled_result_custody):
+    results, engine, request, observation, payload = pooled_result_custody
+    with pytest.raises(RuntimeError, match="interrupted"):
+        with engine.begin() as connection:
+            _publish_pooled(results, connection, request, observation, payload)
+            raise RuntimeError("interrupted publication")
+    assert results.get_result(request.calculation_id) is None
+    with engine.begin() as connection:
+        _publish_pooled(results, connection, request, observation, payload)
+    assert results.get_result(request.calculation_id).response_payload == payload
+
+
+def test_pooled_original_cannot_repurpose_existing_ordinary_result(pooled_result_custody):
+    results, engine, request, observation, payload = pooled_result_custody
+    results.record_success(
+        calculation_id=request.calculation_id,
+        tenant_id="controlled-tenant",
+        analytics_type="TWR",
+        response_payload=payload,
+    )
+    original = results.get_result(request.calculation_id)
+    with pytest.raises(AsyncResultOriginalConflictError):
+        with engine.begin() as connection:
+            _publish_pooled(results, connection, request, observation, payload)
+    assert results.get_result(request.calculation_id) == original
+
+
+@pytest.mark.parametrize("operation", ["success", "failure"])
+def test_pooled_generic_writes_refuse_including_operational_failure(pooled_result_custody, operation):
+    results, _, request, _, payload = pooled_result_custody
+    with pytest.raises(AsyncResultCaptureAdmissionRequiredError):
+        if operation == "success":
+            results.record_success(
+                calculation_id=request.calculation_id,
+                tenant_id="controlled-tenant",
+                analytics_type=COMPOSITE_POOLED_ANALYTICS_TYPE,
+                response_payload=payload,
+            )
+        else:
+            results.record_failure(
+                calculation_id=request.calculation_id,
+                tenant_id="controlled-tenant",
+                analytics_type=COMPOSITE_POOLED_ANALYTICS_TYPE,
+                error_message="retryable failure",
+            )
+    assert results.get_result(request.calculation_id) is None
+
+
+@pytest.mark.parametrize(
+    "statement",
+    [
+        "UPDATE analytics_async_result SET response_json='{}'",
+        "UPDATE analytics_async_result SET analytics_type='TWR'",
+        "UPDATE analytics_async_result SET tenant_id='foreign'",
+        "DELETE FROM analytics_async_result",
+    ],
+)
+def test_pooled_original_sql_guard_refuses_mutation(pooled_result_custody, statement):
+    results, engine, request, observation, payload = pooled_result_custody
+    with engine.begin() as connection:
+        _publish_pooled(results, connection, request, observation, payload)
+    original = results.get_result(request.calculation_id)
+    with pytest.raises(DBAPIError, match="immutable"):
+        with engine.begin() as connection:
+            connection.execute(text(statement))
+    assert results.get_result(request.calculation_id) == original
+    results.verify_schema()
+
+
+def test_pooled_original_retention_excludes_financial_original_but_prunes_ordinary(pooled_result_custody):
+    from datetime import timedelta
+
+    results, engine, request, observation, payload = pooled_result_custody
+    with engine.begin() as connection:
+        _publish_pooled(results, connection, request, observation, payload)
+    ordinary = uuid4()
+    results.record_success(calculation_id=ordinary, analytics_type="TWR", response_payload={"ok": True})
+    cutoff = datetime.now(timezone.utc) + timedelta(days=1)
+    assert results.list_result_ids_older_than(cutoff) == [str(ordinary)]
+    assert results.prune_results_older_than(cutoff, dry_run=True) == 1
+    assert results.prune_results_older_than(cutoff) == 1
+    assert results.get_result(request.calculation_id).response_payload == payload
+
+
+def test_pooled_sql_cannot_repurpose_ordinary_result(pooled_result_custody):
+    results, engine, request, _, payload = pooled_result_custody
+    results.record_success(calculation_id=request.calculation_id, analytics_type="TWR", response_payload=payload)
+    original = results.get_result(request.calculation_id)
+    with pytest.raises(DBAPIError, match="immutable"):
+        with engine.begin() as connection:
+            connection.execute(text("UPDATE analytics_async_result SET analytics_type='COMPOSITE_POOLED_MWR'"))
+    assert results.get_result(request.calculation_id) == original
 
 
 def test_async_result_store_records_success_and_failure(tmp_path):

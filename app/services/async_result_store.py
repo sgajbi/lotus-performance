@@ -10,14 +10,20 @@ from typing import Any, Iterator
 from uuid import UUID
 
 from sqlalchemy import DateTime, Index, String, Text, delete, func, inspect, select, text
+from sqlalchemy.dialects.postgresql import insert as postgres_insert
+from sqlalchemy.dialects.sqlite import insert as sqlite_insert
 from sqlalchemy.engine import Connection
 from sqlalchemy.orm import DeclarativeBase, Mapped, Session, mapped_column, sessionmaker
 
 from app.adapters.composite_result_custody_schema import (
     COMPOSITE_CAPTURE_ANALYTICS_TYPE,
+    COMPOSITE_POOLED_ANALYTICS_TYPE,
+    COMPOSITE_PROTECTED_RESULT_TYPES,
     composite_result_custody_guard_statements,
     create_composite_result_custody_guards,
 )
+from app.services.composite_pooled_mwr.schema import pooled_inputs
+from app.services.core_tenant_authority import admitted_tenant_authority, require_composite_tenant_authority
 from app.services.durable_database_engine import create_durable_database_engine
 from app.services.durable_failure_classification import DurableFailureClassification, load_durable_failure
 from app.services.durable_schema_creation import create_durable_schema
@@ -39,7 +45,15 @@ class AsyncResultCaptureAdmissionRequiredError(RuntimeError):
     """Protected originals require the owning atomic candidate admission."""
 
 
+class AsyncResultOriginalConflictError(ValueError):
+    """A pooled original differs from its retained input or existing result identity."""
+
+
 def _require_generic_result_purpose(analytics_type):
+    if analytics_type == COMPOSITE_POOLED_ANALYTICS_TYPE:
+        raise AsyncResultCaptureAdmissionRequiredError(
+            "Pooled originals require active-claim transactional publication; operational failures remain in the job registry."
+        )
     if analytics_type == COMPOSITE_CAPTURE_ANALYTICS_TYPE:
         raise AsyncResultCaptureAdmissionRequiredError(
             "Composite originals require atomic candidate capture admission."
@@ -143,7 +157,7 @@ class AsyncResultStore:
             statement = (
                 select(AsyncResultModel.calculation_id)
                 .where(AsyncResultModel.updated_at_utc <= cutoff)
-                .where(AsyncResultModel.analytics_type != COMPOSITE_CAPTURE_ANALYTICS_TYPE)
+                .where(AsyncResultModel.analytics_type.not_in(COMPOSITE_PROTECTED_RESULT_TYPES))
                 .order_by(AsyncResultModel.updated_at_utc.asc(), AsyncResultModel.created_at_utc.asc())
             )
             return [row[0] for row in session.execute(statement).all()]
@@ -159,7 +173,7 @@ class AsyncResultStore:
             dialect_name = session.bind.dialect.name if session.bind is not None else ""
             cutoff = normalize_filter_datetime(older_than, dialect_name=dialect_name)
             retention_filter = (AsyncResultModel.updated_at_utc <= cutoff) & (
-                AsyncResultModel.analytics_type != COMPOSITE_CAPTURE_ANALYTICS_TYPE
+                AsyncResultModel.analytics_type.not_in(COMPOSITE_PROTECTED_RESULT_TYPES)
             )
             if exclude_calculation_ids:
                 retention_filter &= AsyncResultModel.calculation_id.not_in(exclude_calculation_ids)
@@ -168,6 +182,70 @@ class AsyncResultStore:
                 return int(session.execute(statement).scalar_one())
             result = session.execute(delete(AsyncResultModel).where(retention_filter))
             return int(result.rowcount or 0)
+
+    def record_pooled_success_in_transaction(
+        self,
+        connection: Connection,
+        *,
+        calculation_id: UUID,
+        tenant_id: str,
+        input_manifest_digest: str,
+        response_payload: dict[str, Any],
+    ) -> None:
+        """Publish once using the existing active-claim transaction's Connection.
+
+        No independent transaction, merge or UPDATE is permitted. A conflicting
+        first writer waits on the database unique key, then compares the committed
+        original. Operational failures belong to job/execution records, never to
+        an immutable financial original under this purpose.
+        """
+        tenant_id = require_composite_tenant_authority(admitted_tenant_authority(tenant_id)).tenant_id
+        snapshot = connection.execute(
+            select(pooled_inputs.c.input_manifest_digest).where(
+                pooled_inputs.c.tenant_id == tenant_id, pooled_inputs.c.calculation_id == str(calculation_id)
+            )
+        ).scalar_one_or_none()
+        if (
+            snapshot != input_manifest_digest
+            or response_payload.get("calculation_id") != str(calculation_id)
+            or response_payload.get("input_manifest_digest") != input_manifest_digest
+        ):
+            raise AsyncResultOriginalConflictError("Pooled result does not bind the retained tenant/calculation input.")
+        response_json = json.dumps(response_payload, sort_keys=True)
+        now = datetime.now(timezone.utc)
+        insert_factory = {"postgresql": postgres_insert, "sqlite": sqlite_insert}.get(connection.dialect.name)
+        if insert_factory is None:
+            raise ValueError("Pooled result custody requires PostgreSQL or SQLite.")
+        connection.execute(
+            insert_factory(AsyncResultModel.__table__)
+            .values(
+                calculation_id=str(calculation_id),
+                tenant_id=tenant_id,
+                analytics_type=COMPOSITE_POOLED_ANALYTICS_TYPE,
+                result_status=AsyncResultStatus.COMPLETE.value,
+                response_json=response_json,
+                error_message=None,
+                error_type=None,
+                failure_json=None,
+                created_at_utc=now,
+                updated_at_utc=now,
+            )
+            .on_conflict_do_nothing(index_elements=["calculation_id"])
+        )
+        original = (
+            connection.execute(
+                select(AsyncResultModel.__table__).where(AsyncResultModel.calculation_id == str(calculation_id))
+            )
+            .mappings()
+            .one()
+        )
+        if (
+            original["tenant_id"] != tenant_id
+            or original["analytics_type"] != COMPOSITE_POOLED_ANALYTICS_TYPE
+            or original["result_status"] != AsyncResultStatus.COMPLETE.value
+            or original["response_json"] != response_json
+        ):
+            raise AsyncResultOriginalConflictError("Calculation already retains a different original result.")
 
     def record_success(
         self,
