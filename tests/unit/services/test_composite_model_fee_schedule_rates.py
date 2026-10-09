@@ -96,7 +96,7 @@ def test_derived_ratio_replays_identically_under_different_caller_decimal_contex
         assert scheduled_period_fee_fraction(entry, period).as_tuple() == reference.as_tuple()
         assert context.prec == ambient_precision and context.rounding == rounding
         assert context.Emin == -9 and context.Emax == 9
-        assert context.traps[Inexact] and context.traps[Rounded] and context.flags == original_flags
+        assert context.traps[Inexact] and context.traps[Rounded] and dict(context.flags) == original_flags
 
 
 @pytest.mark.parametrize("first,last,days", [("2028-02-01", "2028-02-29", 29), ("2028-01-01", "2028-12-31", 366)])
