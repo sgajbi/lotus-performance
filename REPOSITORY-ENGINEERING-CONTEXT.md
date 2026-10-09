@@ -1292,8 +1292,13 @@ The complete packaged HTTP fixture fixes synthetic execution IDs and upstream re
 before storage. Compare its entire registered response; do not normalize financial or receipt hashes.
 Configured receipt verification supports synthetic method/calendar purpose only. The registered
 worker must remain blocked with zero ready members when policy verification is unavailable.
-The component-periodic arithmetic convention is a pure engineering helper: no registered component
-catalog/source/worker contract authenticates whole gross-cost evidence yet.
+The component-periodic product uses the existing model-fee catalog, durable worker, TWR and
+fee-drag consumers. Its separate financial port defaults unavailable; controlled synthetic tests
+do not qualify production suppliers. Retain the complete gross-cost wire and independent financial
+verification separately from unapproved method publication. Validate the complete selected gross/
+cost population before the first READY write and replay original receipts without current source
+reads. Do not overload authority selection facts or infer gross inclusion from Core cost rows.
+The component source guide is `docs/guides/composite_component_model_fee.md`.
 
 Caller and methodology sources are `docs/guides/composite_model_fee_drag.md` and
 `docs/methodologies/metrics/metric-composite-model-fee-drag.md`; verifier operations live in

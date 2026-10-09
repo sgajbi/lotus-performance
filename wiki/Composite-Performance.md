@@ -568,7 +568,12 @@ not live institutional qualification.
 See the [caller guide and full HTTP example](https://github.com/sgajbi/lotus-performance/blob/main/docs/guides/composite_model_fee_drag.md),
 [methodology](https://github.com/sgajbi/lotus-performance/blob/main/docs/methodologies/metrics/metric-composite-model-fee-drag.md)
 and [receipt verification boundaries](Composite-Receipt-Verification).
-Whole-cost component supplier admission, actual fees and institutional authority remain unresolved.
+The component-periodic profile is registered through the same model-fee catalog, durable worker,
+TWR and fee-drag consumers with additive member receipts v6. It requires the complete original
+financial gross-cost payload and independent producer verification, separate from method publication.
+Default financial supplier composition remains unavailable; positive registered consumer controls
+are synthetic. Production supplier qualification, actual fees and institutional authority remain unresolved.
+See the [component source guide](https://github.com/sgajbi/lotus-performance/blob/main/docs/guides/composite_component_model_fee.md).
 
 ## References
 

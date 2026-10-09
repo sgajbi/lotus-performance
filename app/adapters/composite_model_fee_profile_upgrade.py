@@ -20,6 +20,7 @@ from app.adapters.durable_schema.predicates import predicate_identity
 _TABLE = CompositeModelFeeProfileModel.__tablename__
 _GUARD = "ck_model_fee_profile_product"
 _LEGACY = "product_name = 'CompositePeriodicModelFeeProfile' AND product_version = 'v1'"
+_SCHEDULED_LEGACY = "product_name IN ('CompositePeriodicModelFeeProfile', 'CompositeScheduledModelFeeProfile') AND product_version = 'v1'"
 _REPLACEMENT = "_lotus_model_fee_catalog_upgrade"
 
 
@@ -28,15 +29,11 @@ def upgrade_model_fee_profile_products(connection):
     if not inspector.has_table(_TABLE):
         return
     guards = {row["name"]: row["sqltext"] for row in inspector.get_check_constraints(_TABLE)}
-    context = {"text_columns": {"product_name", "product_version"}}
-    try:
-        legacy = predicate_identity(guards.get(_GUARD, ""), **context) == predicate_identity(_LEGACY, **context)
-    except ValueError:
-        legacy = False
+    legacy = _legacy_product_guard(guards)
     if not legacy:
         require_model_fee_profile_schema(connection)
         return
-    _require_known_legacy(connection, guards)
+    _require_known_legacy(connection, guards, legacy)
     if connection.dialect.name == "postgresql":
         _expand_postgres(connection)
     elif connection.dialect.name == "sqlite":
@@ -45,6 +42,21 @@ def upgrade_model_fee_profile_products(connection):
         _refuse("unsupported dialect")
     require_model_fee_profile_schema(connection)
     require_managed_guards(connection, model_fee_profile_guard_statements(connection.dialect))
+
+
+def _legacy_product_guard(guards):
+    context = {"text_columns": {"product_name", "product_version"}}
+    try:
+        return next(
+            (
+                candidate
+                for candidate in (_LEGACY, _SCHEDULED_LEGACY)
+                if predicate_identity(guards.get(_GUARD, ""), **context) == predicate_identity(candidate, **context)
+            ),
+            None,
+        )
+    except ValueError:
+        return None
 
 
 def _metadata_with_product_guard(predicate, dialect):
@@ -71,9 +83,9 @@ def _remove_other_dialect_checks(table, dialect):
                     table.constraints.remove(copied)
 
 
-def _require_known_legacy(connection, guards):
+def _require_known_legacy(connection, guards, legacy):
     inspector = inspect(connection)
-    require_metadata_schema(connection, _metadata_with_product_guard(_LEGACY, connection.dialect.name))
+    require_metadata_schema(connection, _metadata_with_product_guard(legacy, connection.dialect.name))
     require_managed_guards(connection, model_fee_profile_guard_statements(connection.dialect))
     expected_checks = {"ck_model_fee_profile_tenant", _GUARD, "ck_model_fee_profile_digest"}
     expected_columns = set(CompositeModelFeeProfileModel.__table__.columns.keys())

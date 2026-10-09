@@ -38,7 +38,11 @@ from app.ports.composite_materialization import (
 from app.services.analytics_workflow_types import ANALYTICS_WORKFLOW_COMPOSITE_MATERIALIZATION
 from app.services.async_observability_context import async_observability_request_payload
 from app.services.composite_materialization.source_contract import PinnedCompositeSource, membership_decision_for_window
-from app.services.composite_materialization.source_pinning import pin_currency_source, pin_model_fee_source
+from app.services.composite_materialization.source_pinning import (
+    pin_component_cost_source,
+    pin_currency_source,
+    pin_model_fee_source,
+)
 from app.services.core_tenant_authority import (
     admitted_tenant_authority,
     admitted_tenant_authority_from_header_values,
@@ -228,6 +232,7 @@ def run_materialization_attempt(
         )
     if record.state == CompositeMaterializationState.WAITING:
         record = pin_model_fee_source(record, tenant_id=tenant_id, ledger=ledger, fence=fence)
+        record = pin_component_cost_source(record, tenant_id=tenant_id, ledger=ledger, fence=fence)
         record = pin_currency_source(record, tenant_id=tenant_id, ledger=ledger, fence=fence)
         record = _resolve_members(
             record,
@@ -356,6 +361,17 @@ def _resolve_members(
     )
 
     admitted_model_fee_source = admit_bound_model_fee_source(record, tenant_id=tenant_id)
+    from app.services.composite_materialization.component_model_fee_evidence import prepare_component_outcomes
+    from app.services.composite_materialization.member_source_read import read_member_evidence
+
+    prepared_components = prepare_component_outcomes(
+        record,
+        admitted_model_fee_source,
+        member_source,
+        tenant_id=tenant_id,
+        request_headers=request_headers,
+        fence=fence,
+    )
     references = {item.portfolio_id: item for item in command.member_calculations}
     candidates = sorted(
         (
@@ -368,27 +384,20 @@ def _resolve_members(
     for index, outcome in candidates[:_MAX_MEMBERS_PER_ATTEMPT]:
         fence()
         reference = references.get(outcome.portfolio_id)
-        if isinstance(member_source, AuthorityCompositeMemberResultSource):
-            resolved = member_source.read_member(
-                command,
-                reference,
-                tenant_id=tenant_id,
-                membership_snapshot_id=command.membership_content_hash,
-                request_headers=request_headers,
-                member_id=outcome.portfolio_id,
-            )
-        elif reference is None:
-            resolved = member_outcome(outcome.portfolio_id, code="MEMBER_CALCULATION_REFERENCE_REQUIRED")
+        if prepared_components is not None:
+            resolved = prepared_components[outcome.portfolio_id]
         else:
-            resolved = member_source.read_member(
+            resolved = read_member_evidence(
                 command,
                 reference,
+                outcome.portfolio_id,
+                member_source,
                 tenant_id=tenant_id,
-                membership_snapshot_id=command.membership_content_hash,
                 request_headers=request_headers,
             )
         fence()
-        resolved = apply_model_fee_or_refuse(command, resolved, admitted_model_fee_source)
+        if prepared_components is None:
+            resolved = apply_model_fee_or_refuse(command, resolved, admitted_model_fee_source)
         outcomes = list(record.outcomes)
         outcomes[index] = resolved.model_copy(update={"inspection_attempts": outcome.inspection_attempts + 1})
         record = ledger.save(

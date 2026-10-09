@@ -11,10 +11,13 @@ from uuid import UUID, uuid4
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 from app.models.composite_authority import EvidenceBinding
+from app.models.composite_component_costs import CompositeGrossCostMember
+from app.models.composite_component_model_fees import CompositeComponentMemberFee
 from app.models.composite_currency_normalization import (
     CompositeFXSnapshot,
     CompositeFXVerificationReceipt,
 )
+from app.models.composite_external_facts import DecimalWire
 from app.models.composite_model_fees import CompositePeriodicMemberFee
 from app.models.composite_scheduled_model_fees import CompositeScheduledMemberFee
 from app.models.composites import CompositeMemberReturnFact, CompositeReturnView, ReportingCurrency
@@ -231,6 +234,16 @@ class CompositeScheduledModelFeeMemberEvidence(CompositeModelFeeGrossEvidence):
         return self
 
 
+class CompositeComponentModelFeeMemberEvidence(CompositeModelFeeGrossEvidence):
+    contract_version: Literal["composite-member-source.v6"] = "composite-member-source.v6"
+    fee_entry: CompositeComponentMemberFee
+    gross_component_member: CompositeGrossCostMember
+    financial_source_binding: EvidenceBinding
+    total_component_fee_fraction: DecimalWire
+    already_included_fee_fraction: DecimalWire
+    deducted_fee_fraction: DecimalWire
+
+
 class CompositeProviderMemberEvidence(BaseModel):
     model_config = ConfigDict(extra="forbid")
     contract_version: Literal["composite-member-source.v2"] = "composite-member-source.v2"
@@ -264,6 +277,7 @@ class CompositeMemberMaterializationOutcome(BaseModel):
         | CompositeNormalizedMemberSourceEvidence
         | CompositeModelFeeMemberEvidence
         | CompositeScheduledModelFeeMemberEvidence
+        | CompositeComponentModelFeeMemberEvidence
         | None
     ) = Field(
         default=None, description="Pinned money, methodology and source provenance; no fabricated missing evidence."

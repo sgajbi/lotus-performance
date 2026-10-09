@@ -15,8 +15,8 @@ from app.models.composites import (
 from app.observability import tenant_id_var
 from app.services.composite_materialization.model_fee_calculation import (
     calculate_with_model_fee_context,
-    is_scheduled_model_fee,
-    selected_facts_use_scheduled_model_fee,
+    requires_scoped_model_arithmetic,
+    selected_facts_require_scoped_model_arithmetic,
 )
 from app.services.composite_materialization.records import MaterializationRecord
 from app.services.composite_materialization.source_contract import ManageCompositeDefinition
@@ -42,7 +42,7 @@ def calculate_composite_twr_from_materializations(
 ) -> tuple[CompositeCalculationResult, list[CompositeTWRWindowEvidence]]:
     """Explicit historical selection; never infer latest or official authority."""
     facts, windows = select_composite_materialization_facts(tenant_id=tenant_id, request=request)
-    scheduled = request.return_view == CompositeReturnView.NET_MODEL_FEE and is_scheduled_model_fee(
+    scheduled = request.return_view == CompositeReturnView.NET_MODEL_FEE and requires_scoped_model_arithmetic(
         windows[0].method_binding
     )
     return calculate_with_model_fee_context(
@@ -237,5 +237,5 @@ def calculate_composite_twr_from_persisted_facts(
     scheduled = False
     if return_view == CompositeReturnView.NET_MODEL_FEE and facts:
         records = store.get_member_return_fact_materializations(facts, tenant_id=tenant_id)
-        scheduled = selected_facts_use_scheduled_model_fee(facts, records)
+        scheduled = selected_facts_require_scoped_model_arithmetic(facts, records)
     return calculate_with_model_fee_context(composite_id=composite_id, facts=facts, scheduled=scheduled)

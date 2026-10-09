@@ -11,10 +11,14 @@ method approval or standards applicability.
 
 ## Endpoint and Mode Coverage
 
-Current coverage is a strict typed profile and pure `component_model_net_return` helper. The new
-product is not yet registered in the existing catalog discriminator, worker receipts or analytics
-API. Standalone tests do not establish registered API delivery. Existing periodic and scheduled v1
-wires, hashes and transforms remain unchanged.
+The existing model-fee profile POST/GET registers this strict product as unapproved method input.
+The existing materialization worker requires a separately admitted complete `CompositeGrossCostSource:v1`,
+retains its original wire and independent verification, and emits additive member receipts v6.
+Existing TWR and `MODEL_FEE_DRAG` consume those retained facts and original gross pins. Default
+financial supplier composition is unavailable. Positive integration controls are synthetic; software
+delivery does not establish a production financial supplier. Periodic and scheduled v1 wires,
+hashes, original decoders and transforms remain unchanged. See the
+[component source guide](../../guides/composite_component_model_fee.md).
 
 `UNBUNDLED`, `BUNDLED` and `WRAP` are presentation context. They do not select a specialized GIPS
 correction or prospective-client methodology. The official
@@ -45,8 +49,10 @@ The intended upstream inputs are independently admitted immutable method/allocat
 the selected retained gross receipt with authoritative component-inclusion evidence. The pure
 helper consumes typed evidence; it does not retrieve, authenticate or approve that evidence.
 Caller-supplied binding strings or digests alone cannot establish authority. Source/worker/custody
-integration must retain and verify the exact original evidence before this method becomes a
-registered producer.
+integration retains and verifies the exact original evidence before any financial fact becomes
+READY. The complete selected population is checked before the first READY write. Independent
+financial verification binds the whole source payload and producer, separately from method/calendar
+approval. Retained replay never fetches a current replacement financial source.
 
 An offset pins both the aggregate gross-component evidence binding and the component's original
 source-evidence binding. Matching a transaction-cost category, a historical non-wrap cost or an

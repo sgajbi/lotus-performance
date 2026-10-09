@@ -1,6 +1,7 @@
 """Bind v2 selections to the genuine shipped internal member receipt."""
 
 from app.models.composite_materialization import (
+    CompositeComponentModelFeeMemberEvidence,
     CompositeModelFeeMemberEvidence,
     CompositeNormalizedMemberSourceEvidence,
     CompositeScheduledModelFeeMemberEvidence,
@@ -10,7 +11,14 @@ from app.services.reproducibility_service import generate_value_fingerprint
 
 
 def require_internal_selection_bindings(definition, command, reference, evidence, *, facts):
-    if isinstance(evidence, (CompositeModelFeeMemberEvidence, CompositeScheduledModelFeeMemberEvidence)):
+    if isinstance(
+        evidence,
+        (
+            CompositeModelFeeMemberEvidence,
+            CompositeScheduledModelFeeMemberEvidence,
+            CompositeComponentModelFeeMemberEvidence,
+        ),
+    ):
         evidence = evidence.gross_evidence
     if isinstance(evidence, CompositeNormalizedMemberSourceEvidence):
         evidence = evidence.native_evidence

@@ -262,10 +262,12 @@ or qualify live sources. DEC-10/12/13 and the wider #610 programme remain open d
 
 `MODEL_FEE_DRAG` on the existing composite analytics route compares paired original gross/model
 facts for an exact complete retained vector. It supports existing periodic and scheduled model
-receipts, returns decimal return differences and preserves source pins, full method binding and
+receipts and additive component receipts v6, returns decimal return differences and preserves source pins, full method binding and
 selection provenance. The complete synthetic HTTP example is checked against registered execution.
-This does not deliver monetary fee posting, actual-net reconstruction, whole-cost component
-supplier admission or institutional qualification. The method-only configured synthetic verifier
+Component profiles use the existing catalog and durable worker with separately verified complete
+gross-cost payloads. The financial port defaults unavailable; positive consumer proof remains synthetic.
+This does not deliver monetary fee posting, actual-net reconstruction, production whole-cost
+supplier qualification or institutional qualification. The method-only configured synthetic verifier
 still refuses missing policy and financial-source peers; see [Composite Receipt Verification](Composite-Receipt-Verification).
 
 ## References
