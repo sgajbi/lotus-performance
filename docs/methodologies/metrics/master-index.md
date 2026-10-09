@@ -10,6 +10,7 @@ This index maps implemented lotus-performance metrics to detailed methodology do
 | MWR (XIRR) | POST /performance/mwr | Stateless + Stateful | [metric-mwr-xirr.md](./metric-mwr-xirr.md) |
 | MWR (Modified Dietz fallback / Dietz explicit) | POST /performance/mwr | Stateless + Stateful | [metric-mwr-dietz.md](./metric-mwr-dietz.md) |
 | Position Total Contribution | POST /performance/contribution | Stateless + Stateful | [metric-contribution-total.md](./metric-contribution-total.md) |
+| Composite Linked Member Contribution | POST /performance/composites/analytics | Explicit retained vector, CARINO:v1 | [metric-composite-linked-member-contribution.md](./metric-composite-linked-member-contribution.md) |
 | Position Local Contribution | POST /performance/contribution | Stateless + Stateful | [metric-contribution-local.md](./metric-contribution-local.md) |
 | Position FX Contribution | POST /performance/contribution | Stateless + Stateful | [metric-contribution-fx.md](./metric-contribution-fx.md) |
 | Attribution Allocation Effect | POST /performance/attribution | Stateless + Stateful | [metric-attribution-allocation.md](./metric-attribution-allocation.md) |
@@ -47,7 +48,8 @@ This index maps implemented lotus-performance metrics to detailed methodology do
   buckets so downstream consumers do not reconstruct portfolio-level FX attribution locally.
 - `POST /performance/composites/twr` calculates composite TWR from persisted member-return facts
   only. It does not accept ad hoc member returns and does not perform hidden request-time portfolio
-  TWR fan-out. Composite contribution, attribution, MWR, sleeves, carve-outs, and multi-currency
+  TWR fan-out. Linked member contribution is available through the explicit retained analytics
+  operation described above. Composite attribution, MWR, sleeves, carve-outs, and multi-currency
   aggregation beyond the current single reporting-currency guard remain unsupported.
 - In current engine behavior, `mwr_method=MODIFIED_DIETZ` uses dated cash-flow weights and
   `mwr_method=DIETZ` keeps the midpoint Simple Dietz path.

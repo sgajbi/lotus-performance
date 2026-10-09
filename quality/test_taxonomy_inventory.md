@@ -48,7 +48,7 @@ above does sum to it, because a module belongs to exactly one suite.
 | api_or_runtime | 983 |
 | contract_or_governance | 227 |
 | observability_or_readiness | 758 |
-| quality_or_security | 349 |
+| quality_or_security | 352 |
 | uncategorized | 558 |
 
 The #619 source-refusal slice classifies the exact existing stateful upstream error adapter
