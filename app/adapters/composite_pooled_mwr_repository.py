@@ -110,15 +110,15 @@ class CompositePooledMWRInputStore:
     def get_member_scope(self, calculation_id: UUID, *, tenant_id: str) -> tuple[str, ...] | None:
         """Project identity metadata before an HTTP caller can access financial rows."""
         with self._engine.connect() as connection:
-            projection = (
-                "payload_json::jsonb #>> '{observation,source_bundle,expected_portfolio_ids}'"
+            query = (
+                "SELECT payload_json::jsonb #>> '{observation,source_bundle,expected_portfolio_ids}' "
+                "FROM composite_pooled_mwr_inputs WHERE tenant_id=:tenant AND calculation_id=:id"
                 if connection.dialect.name == "postgresql"
-                else "json_extract(payload_json, '$.observation.source_bundle.expected_portfolio_ids')"
+                else "SELECT json_extract(payload_json, '$.observation.source_bundle.expected_portfolio_ids') "
+                "FROM composite_pooled_mwr_inputs WHERE tenant_id=:tenant AND calculation_id=:id"
             )
             raw = connection.execute(
-                text(
-                    f"SELECT {projection} FROM composite_pooled_mwr_inputs WHERE tenant_id=:tenant AND calculation_id=:id"
-                ),
+                text(query),
                 {"tenant": _tenant(tenant_id), "id": str(calculation_id)},
             ).scalar_one_or_none()
         if raw is None:

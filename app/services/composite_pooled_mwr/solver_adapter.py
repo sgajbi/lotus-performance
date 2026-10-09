@@ -111,7 +111,8 @@ def _percentage_to_ratio(value):
     if not percentage.is_finite():
         raise NumericalDomainError("MWR percentage output is not finite.")
     sign, digits, exponent = percentage.as_tuple()
-    assert isinstance(exponent, int)
+    if not isinstance(exponent, int):
+        raise NumericalDomainError("MWR percentage output has no finite decimal exponent.")
     # Adjust the decimal exponent exactly once, without caller-context rounding.
     return Decimal((sign, digits, exponent - 2))
 
