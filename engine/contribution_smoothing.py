@@ -14,6 +14,16 @@ class ContributionSmoothingLike(Protocol):
     method: str
 
 
+def _strict_decimal_carino_factor(portfolio_return: Decimal) -> Decimal:
+    if not portfolio_return.is_finite() or portfolio_return <= -1:
+        raise ValueError("Carino requires a finite return strictly above -100%")
+    if abs(portfolio_return) <= DECIMAL_CARINO_ZERO_RETURN_TOLERANCE:
+        # log1p(r)/r's continuous series avoids losing 1+r at tiny r.
+        # Six terms leave absolute error below 1e-72 in this interval.
+        return Decimal(1) + sum(((-portfolio_return) ** n / Decimal(n + 1) for n in range(1, 6)), Decimal(0))
+    return (1 + portfolio_return).ln() / portfolio_return
+
+
 def _calculate_carino_factor_for_return(
     portfolio_return: Decimal | float,  # monetary-float-allow: dimensionless return
     *,
@@ -29,13 +39,7 @@ def _calculate_carino_factor_for_return(
     if isinstance(portfolio_return, Decimal):
         one = Decimal(1)
         if strict_decimal:
-            if not portfolio_return.is_finite() or portfolio_return <= -one:
-                raise ValueError("Carino requires a finite return strictly above -100%")
-            if abs(portfolio_return) <= DECIMAL_CARINO_ZERO_RETURN_TOLERANCE:
-                # log1p(r)/r's continuous series avoids losing 1+r at tiny r.
-                # Six terms leave absolute error below 1e-72 in this interval.
-                return one + sum(((-portfolio_return) ** n / Decimal(n + 1) for n in range(1, 6)), Decimal(0))
-            return (one + portfolio_return).ln() / portfolio_return
+            return _strict_decimal_carino_factor(portfolio_return)
         if one + portfolio_return <= 0:
             return one
         if abs(portfolio_return) <= DECIMAL_CARINO_ZERO_RETURN_TOLERANCE:

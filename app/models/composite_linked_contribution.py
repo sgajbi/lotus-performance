@@ -1,4 +1,4 @@
-"""Pinned calculated member dataset; all financial values use decimal-return units."""
+"""Pinned member dataset: decimal returns/contributions and reporting-currency assets."""
 
 from datetime import date
 from decimal import Decimal
@@ -7,7 +7,12 @@ from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, Field
 
-from app.models.composites import CompositeReturnView, CompositeTWRRequest, CompositeTWRSelectionManifest
+from app.models.composites import (
+    CompositeFactSourceIdentity,
+    CompositeReturnView,
+    CompositeTWRRequest,
+    CompositeTWRSelectionManifest,
+)
 
 
 class CompositeLinkedContributionRequest(CompositeTWRRequest):
@@ -38,6 +43,7 @@ class LinkedMemberPeriod(BaseModel):
     calculation_id: str | None
     restatement_version: str
     restatement_sequence: int
+    source_authority_identity: CompositeFactSourceIdentity | None
 
 
 class LinkedMemberTotal(BaseModel):

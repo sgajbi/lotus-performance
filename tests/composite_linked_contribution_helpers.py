@@ -1,6 +1,7 @@
 """Independent OR13 input/reference and bounded synthetic authority controls."""
 
 from decimal import Decimal, localcontext
+from uuid import NAMESPACE_URL, uuid5
 
 from app.models.composite_authority import authority_digest
 from tests.composite_authority_helpers import (
@@ -83,7 +84,18 @@ def publish_pairs(client, pairs, *, sequence_start=1):
     commands = []
     for sequence, (packet, wire) in enumerate(pairs, sequence_start):
         command = command_for_packet(
-            packet, period_start=wire["period_start"], period_end=wire["period_end"], restatement_sequence=sequence
+            packet,
+            period_start=wire["period_start"],
+            period_end=wire["period_end"],
+            restatement_sequence=sequence,
+            materialization_id=uuid5(
+                NAMESPACE_URL,
+                f"linked-example:{packet['definition']['composite_id']}:{packet['definition']['definition_version']}:{sequence}",
+            ),
+            calculation_id=uuid5(
+                NAMESPACE_URL,
+                f"linked-executor:{packet['definition']['composite_id']}:{packet['definition']['definition_version']}:{sequence}",
+            ),
         )
         accepted = client.post("/performance/composites/materializations", json=command.model_dump(mode="json"))
         assert accepted.status_code == 202, accepted.text
@@ -105,6 +117,7 @@ def linked_request(commands):
         "materialization_ids": [str(command.materialization_id) for command in commands],
         "method": "CARINO:v1",
         "metric_id": "LINKED_MEMBER_CONTRIBUTION",
+        "restatement_sequence": None,
     }
 
 

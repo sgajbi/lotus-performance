@@ -8,7 +8,7 @@
       "openApiVersion": "3.1.0"
     }
   ],
-  "generatedAt": "2026-10-09T03:38:24.355245+00:00",
+  "generatedAt": "2026-10-09T06:55:59.335884+00:00",
   "attributeCatalog": [
     {
       "semanticId": "lotus.access_classification",
@@ -1051,6 +1051,20 @@
       ]
     },
     {
+      "semanticId": "lotus.calculation_fingerprint",
+      "canonicalTerm": "calculation_fingerprint",
+      "preferredName": "calculation_fingerprint",
+      "description": "composite twrselection manifest field: calculation fingerprint.",
+      "example": "example_calculation_fingerprint",
+      "type": "string",
+      "locations": [
+        "body"
+      ],
+      "observedTypes": [
+        "string"
+      ]
+    },
+    {
       "semanticId": "lotus.calculation_hash",
       "canonicalTerm": "calculation_hash",
       "preferredName": "calculation_hash",
@@ -1663,6 +1677,20 @@
       ],
       "observedTypes": [
         "array"
+      ]
+    },
+    {
+      "semanticId": "lotus.constituent_decomposition",
+      "canonicalTerm": "constituent_decomposition",
+      "preferredName": "constituent_decomposition",
+      "description": "composite linked contribution response field: constituent decomposition.",
+      "example": "example_constituent_decomposition",
+      "type": "string",
+      "locations": [
+        "body"
+      ],
+      "observedTypes": [
+        "string"
       ]
     },
     {
@@ -2515,6 +2543,20 @@
       "preferredName": "dispersion_equal_weight",
       "description": "Canonical dispersion equal weight used by lotus-performance APIs.",
       "example": "STANDARD_VALUE",
+      "type": "string",
+      "locations": [
+        "body"
+      ],
+      "observedTypes": [
+        "string"
+      ]
+    },
+    {
+      "semanticId": "lotus.display_rounding_difference",
+      "canonicalTerm": "display_rounding_difference",
+      "preferredName": "display_rounding_difference",
+      "description": "composite linked contribution response field: display rounding difference.",
+      "example": "example_display_rounding_difference",
       "type": "string",
       "locations": [
         "body"
@@ -4498,6 +4540,20 @@
       ]
     },
     {
+      "semanticId": "lotus.linked_contribution",
+      "canonicalTerm": "linked_contribution",
+      "preferredName": "linked_contribution",
+      "description": "linked member total field: linked contribution.",
+      "example": "example_linked_contribution",
+      "type": "string",
+      "locations": [
+        "body"
+      ],
+      "observedTypes": [
+        "string"
+      ]
+    },
+    {
       "semanticId": "lotus.linking",
       "canonicalTerm": "linking",
       "preferredName": "linking",
@@ -4509,6 +4565,20 @@
       ],
       "observedTypes": [
         "LinkingMethod"
+      ]
+    },
+    {
+      "semanticId": "lotus.linking_factor",
+      "canonicalTerm": "linking_factor",
+      "preferredName": "linking_factor",
+      "description": "linked member period field: linking factor.",
+      "example": "example_linking_factor",
+      "type": "string",
+      "locations": [
+        "body"
+      ],
+      "observedTypes": [
+        "string"
       ]
     },
     {
@@ -4877,6 +4947,22 @@
       ],
       "observedTypes": [
         "string"
+      ]
+    },
+    {
+      "semanticId": "lotus.method_binding",
+      "canonicalTerm": "method_binding",
+      "preferredName": "method_binding",
+      "description": "composite twrwindow evidence field: method binding.",
+      "example": {
+        "key": "value"
+      },
+      "type": "object",
+      "locations": [
+        "body"
+      ],
+      "observedTypes": [
+        "object"
       ]
     },
     {
@@ -5842,6 +5928,20 @@
       ],
       "observedTypes": [
         "object"
+      ]
+    },
+    {
+      "semanticId": "lotus.participating_period_count",
+      "canonicalTerm": "participating_period_count",
+      "preferredName": "participating_period_count",
+      "description": "linked member total field: participating period count.",
+      "example": 1,
+      "type": "integer",
+      "locations": [
+        "body"
+      ],
+      "observedTypes": [
+        "integer"
       ]
     },
     {
@@ -6895,6 +6995,20 @@
       ]
     },
     {
+      "semanticId": "lotus.reconciliation_difference",
+      "canonicalTerm": "reconciliation_difference",
+      "preferredName": "reconciliation_difference",
+      "description": "composite linked contribution response field: reconciliation difference.",
+      "example": "example_reconciliation_difference",
+      "type": "string",
+      "locations": [
+        "body"
+      ],
+      "observedTypes": [
+        "string"
+      ]
+    },
+    {
       "semanticId": "lotus.reconciliation_tolerance",
       "canonicalTerm": "reconciliation_tolerance",
       "preferredName": "reconciliation_tolerance",
@@ -7604,6 +7718,20 @@
       ]
     },
     {
+      "semanticId": "lotus.retained_receipt_fingerprint",
+      "canonicalTerm": "retained_receipt_fingerprint",
+      "preferredName": "retained_receipt_fingerprint",
+      "description": "composite twrwindow evidence field: retained receipt fingerprint.",
+      "example": "example_retained_receipt_fingerprint",
+      "type": "string",
+      "locations": [
+        "body"
+      ],
+      "observedTypes": [
+        "string"
+      ]
+    },
+    {
       "semanticId": "lotus.retention_days",
       "canonicalTerm": "retention_days",
       "preferredName": "retention_days",
@@ -8143,7 +8271,8 @@
         "body"
       ],
       "observedTypes": [
-        "object"
+        "object",
+        "CompositeTWRSelectionManifest"
       ]
     },
     {
@@ -9599,6 +9728,20 @@
       ]
     },
     {
+      "semanticId": "lotus.total_linked_contribution",
+      "canonicalTerm": "total_linked_contribution",
+      "preferredName": "total_linked_contribution",
+      "description": "composite linked contribution response field: total linked contribution.",
+      "example": "example_total_linked_contribution",
+      "type": "string",
+      "locations": [
+        "body"
+      ],
+      "observedTypes": [
+        "string"
+      ]
+    },
+    {
       "semanticId": "lotus.trading_calendar",
       "canonicalTerm": "trading_calendar",
       "preferredName": "trading_calendar",
@@ -9675,6 +9818,20 @@
       "preferredName": "unit",
       "description": "Decimal return ratio, not percent.",
       "example": "example_unit",
+      "type": "string",
+      "locations": [
+        "body"
+      ],
+      "observedTypes": [
+        "string"
+      ]
+    },
+    {
+      "semanticId": "lotus.units",
+      "canonicalTerm": "units",
+      "preferredName": "units",
+      "description": "composite linked contribution response field: units.",
+      "example": "example_units",
       "type": "string",
       "locations": [
         "body"
@@ -9867,8 +10024,8 @@
       "semanticId": "lotus.weight",
       "canonicalTerm": "weight",
       "preferredName": "weight",
-      "description": "Benchmark exposure weight as a decimal fraction. Example: 0.60 means 60%.",
-      "example": "STANDARD_VALUE",
+      "description": "linked member period field: weight.",
+      "example": "example_weight",
       "type": "string",
       "locations": [
         "body"
@@ -9949,6 +10106,35 @@
         "ReturnsWindow",
         "BenchmarkExposureWindow",
         "GroupReturnEvidenceWindow"
+      ]
+    },
+    {
+      "semanticId": "lotus.windows",
+      "canonicalTerm": "windows",
+      "preferredName": "windows",
+      "description": "composite twrselection manifest field: windows.",
+      "example": [
+        {
+          "materialization_id": "MATERIALIZATION_001",
+          "period_start": "2026-02-27",
+          "period_end": "2026-02-27",
+          "restatement_sequence": 1,
+          "definition_content_hash": "example_definition_content_hash",
+          "membership_content_hash": "example_membership_content_hash",
+          "attestation_content_hash": "example_attestation_content_hash",
+          "source_cut_id": "SOURCE_CUT_001",
+          "method_binding": {
+            "key": "value"
+          },
+          "retained_receipt_fingerprint": "example_retained_receipt_fingerprint"
+        }
+      ],
+      "type": "array",
+      "locations": [
+        "body"
+      ],
+      "observedTypes": [
+        "array"
       ]
     },
     {
@@ -15112,7 +15298,7 @@
       "method": "POST",
       "path": "/performance/composites/analytics",
       "operationId": "evaluate_composite_analytics_performance_composites_analytics_post",
-      "summary": "Evaluate annual member dispersion from exact retained composite evidence",
+      "summary": "Evaluate named Composite analytics from exact retained evidence",
       "request": {
         "fields": [
           {
@@ -15129,7 +15315,8 @@
             "required": false,
             "type": "string",
             "semanticId": "lotus.metric_id",
-            "attributeRef": "#/attributeCatalog/lotus.metric_id"
+            "attributeRef": "#/attributeCatalog/lotus.metric_id",
+            "schemaVariant": "CompositeAnnualDispersionRequest"
           },
           {
             "name": "composite_id",
@@ -15137,7 +15324,8 @@
             "required": true,
             "type": "string",
             "semanticId": "lotus.composite_id",
-            "attributeRef": "#/attributeCatalog/lotus.composite_id"
+            "attributeRef": "#/attributeCatalog/lotus.composite_id",
+            "schemaVariant": "CompositeAnnualDispersionRequest"
           },
           {
             "name": "year",
@@ -15145,7 +15333,8 @@
             "required": true,
             "type": "integer",
             "semanticId": "lotus.year",
-            "attributeRef": "#/attributeCatalog/lotus.year"
+            "attributeRef": "#/attributeCatalog/lotus.year",
+            "schemaVariant": "CompositeAnnualDispersionRequest"
           },
           {
             "name": "return_view",
@@ -15153,7 +15342,8 @@
             "required": true,
             "type": "string",
             "semanticId": "lotus.return_view",
-            "attributeRef": "#/attributeCatalog/lotus.return_view"
+            "attributeRef": "#/attributeCatalog/lotus.return_view",
+            "schemaVariant": "CompositeAnnualDispersionRequest"
           },
           {
             "name": "reporting_currency",
@@ -15161,7 +15351,8 @@
             "required": true,
             "type": "string",
             "semanticId": "lotus.reporting_currency",
-            "attributeRef": "#/attributeCatalog/lotus.reporting_currency"
+            "attributeRef": "#/attributeCatalog/lotus.reporting_currency",
+            "schemaVariant": "CompositeAnnualDispersionRequest"
           },
           {
             "name": "method",
@@ -15169,7 +15360,8 @@
             "required": false,
             "type": "string",
             "semanticId": "lotus.method",
-            "attributeRef": "#/attributeCatalog/lotus.method"
+            "attributeRef": "#/attributeCatalog/lotus.method",
+            "schemaVariant": "CompositeAnnualDispersionRequest"
           },
           {
             "name": "materialization_ids",
@@ -15177,7 +15369,98 @@
             "required": true,
             "type": "array",
             "semanticId": "lotus.materialization_ids",
-            "attributeRef": "#/attributeCatalog/lotus.materialization_ids"
+            "attributeRef": "#/attributeCatalog/lotus.materialization_ids",
+            "schemaVariant": "CompositeAnnualDispersionRequest"
+          },
+          {
+            "name": "calculation_id",
+            "location": "body",
+            "required": false,
+            "type": "string",
+            "semanticId": "lotus.calculation_id",
+            "attributeRef": "#/attributeCatalog/lotus.calculation_id",
+            "schemaVariant": "CompositeLinkedContributionRequest"
+          },
+          {
+            "name": "composite_id",
+            "location": "body",
+            "required": true,
+            "type": "string",
+            "semanticId": "lotus.composite_id",
+            "attributeRef": "#/attributeCatalog/lotus.composite_id",
+            "schemaVariant": "CompositeLinkedContributionRequest"
+          },
+          {
+            "name": "period_start",
+            "location": "body",
+            "required": true,
+            "type": "string",
+            "semanticId": "lotus.period_start",
+            "attributeRef": "#/attributeCatalog/lotus.period_start",
+            "schemaVariant": "CompositeLinkedContributionRequest"
+          },
+          {
+            "name": "period_end",
+            "location": "body",
+            "required": true,
+            "type": "string",
+            "semanticId": "lotus.period_end",
+            "attributeRef": "#/attributeCatalog/lotus.period_end",
+            "schemaVariant": "CompositeLinkedContributionRequest"
+          },
+          {
+            "name": "return_view",
+            "location": "body",
+            "required": false,
+            "type": "CompositeReturnView",
+            "semanticId": "lotus.return_view",
+            "attributeRef": "#/attributeCatalog/lotus.return_view",
+            "schemaVariant": "CompositeLinkedContributionRequest"
+          },
+          {
+            "name": "reporting_currency",
+            "location": "body",
+            "required": false,
+            "type": "string",
+            "semanticId": "lotus.reporting_currency",
+            "attributeRef": "#/attributeCatalog/lotus.reporting_currency",
+            "schemaVariant": "CompositeLinkedContributionRequest"
+          },
+          {
+            "name": "restatement_sequence",
+            "location": "body",
+            "required": false,
+            "type": "integer",
+            "semanticId": "lotus.restatement_sequence",
+            "attributeRef": "#/attributeCatalog/lotus.restatement_sequence",
+            "schemaVariant": "CompositeLinkedContributionRequest"
+          },
+          {
+            "name": "materialization_ids",
+            "location": "body",
+            "required": true,
+            "type": "array",
+            "semanticId": "lotus.materialization_ids",
+            "attributeRef": "#/attributeCatalog/lotus.materialization_ids",
+            "schemaVariant": "CompositeLinkedContributionRequest"
+          },
+          {
+            "name": "metric_id",
+            "location": "body",
+            "required": true,
+            "type": "string",
+            "semanticId": "lotus.metric_id",
+            "attributeRef": "#/attributeCatalog/lotus.metric_id",
+            "schemaVariant": "CompositeLinkedContributionRequest"
+          },
+          {
+            "name": "method",
+            "location": "body",
+            "required": false,
+            "type": "string",
+            "semanticId": "lotus.method",
+            "attributeRef": "#/attributeCatalog/lotus.method",
+            "schemaVariant": "CompositeLinkedContributionRequest"
           }
         ]
       },
@@ -15189,7 +15472,8 @@
             "required": false,
             "type": "string",
             "semanticId": "lotus.metric_id",
-            "attributeRef": "#/attributeCatalog/lotus.metric_id"
+            "attributeRef": "#/attributeCatalog/lotus.metric_id",
+            "schemaVariant": "CompositeAnnualDispersionResponse"
           },
           {
             "name": "method",
@@ -15197,7 +15481,8 @@
             "required": true,
             "type": "string",
             "semanticId": "lotus.method",
-            "attributeRef": "#/attributeCatalog/lotus.method"
+            "attributeRef": "#/attributeCatalog/lotus.method",
+            "schemaVariant": "CompositeAnnualDispersionResponse"
           },
           {
             "name": "method_version",
@@ -15205,7 +15490,8 @@
             "required": false,
             "type": "string",
             "semanticId": "lotus.method_version",
-            "attributeRef": "#/attributeCatalog/lotus.method_version"
+            "attributeRef": "#/attributeCatalog/lotus.method_version",
+            "schemaVariant": "CompositeAnnualDispersionResponse"
           },
           {
             "name": "composite_id",
@@ -15213,7 +15499,8 @@
             "required": true,
             "type": "string",
             "semanticId": "lotus.composite_id",
-            "attributeRef": "#/attributeCatalog/lotus.composite_id"
+            "attributeRef": "#/attributeCatalog/lotus.composite_id",
+            "schemaVariant": "CompositeAnnualDispersionResponse"
           },
           {
             "name": "period_start",
@@ -15221,7 +15508,8 @@
             "required": true,
             "type": "string",
             "semanticId": "lotus.period_start",
-            "attributeRef": "#/attributeCatalog/lotus.period_start"
+            "attributeRef": "#/attributeCatalog/lotus.period_start",
+            "schemaVariant": "CompositeAnnualDispersionResponse"
           },
           {
             "name": "period_end",
@@ -15229,7 +15517,8 @@
             "required": true,
             "type": "string",
             "semanticId": "lotus.period_end",
-            "attributeRef": "#/attributeCatalog/lotus.period_end"
+            "attributeRef": "#/attributeCatalog/lotus.period_end",
+            "schemaVariant": "CompositeAnnualDispersionResponse"
           },
           {
             "name": "return_view",
@@ -15237,7 +15526,8 @@
             "required": true,
             "type": "CompositeReturnView",
             "semanticId": "lotus.return_view",
-            "attributeRef": "#/attributeCatalog/lotus.return_view"
+            "attributeRef": "#/attributeCatalog/lotus.return_view",
+            "schemaVariant": "CompositeAnnualDispersionResponse"
           },
           {
             "name": "reporting_currency",
@@ -15245,7 +15535,8 @@
             "required": true,
             "type": "string",
             "semanticId": "lotus.reporting_currency",
-            "attributeRef": "#/attributeCatalog/lotus.reporting_currency"
+            "attributeRef": "#/attributeCatalog/lotus.reporting_currency",
+            "schemaVariant": "CompositeAnnualDispersionResponse"
           },
           {
             "name": "unit",
@@ -15253,7 +15544,8 @@
             "required": false,
             "type": "string",
             "semanticId": "lotus.unit",
-            "attributeRef": "#/attributeCatalog/lotus.unit"
+            "attributeRef": "#/attributeCatalog/lotus.unit",
+            "schemaVariant": "CompositeAnnualDispersionResponse"
           },
           {
             "name": "value",
@@ -15261,7 +15553,8 @@
             "required": true,
             "type": "string",
             "semanticId": "lotus.value",
-            "attributeRef": "#/attributeCatalog/lotus.value"
+            "attributeRef": "#/attributeCatalog/lotus.value",
+            "schemaVariant": "CompositeAnnualDispersionResponse"
           },
           {
             "name": "status",
@@ -15269,7 +15562,8 @@
             "required": true,
             "type": "string",
             "semanticId": "lotus.status",
-            "attributeRef": "#/attributeCatalog/lotus.status"
+            "attributeRef": "#/attributeCatalog/lotus.status",
+            "schemaVariant": "CompositeAnnualDispersionResponse"
           },
           {
             "name": "reason_codes",
@@ -15277,7 +15571,8 @@
             "required": true,
             "type": "array",
             "semanticId": "lotus.reason_codes",
-            "attributeRef": "#/attributeCatalog/lotus.reason_codes"
+            "attributeRef": "#/attributeCatalog/lotus.reason_codes",
+            "schemaVariant": "CompositeAnnualDispersionResponse"
           },
           {
             "name": "year_end_member_count",
@@ -15285,7 +15580,8 @@
             "required": true,
             "type": "integer",
             "semanticId": "lotus.year_end_member_count",
-            "attributeRef": "#/attributeCatalog/lotus.year_end_member_count"
+            "attributeRef": "#/attributeCatalog/lotus.year_end_member_count",
+            "schemaVariant": "CompositeAnnualDispersionResponse"
           },
           {
             "name": "full_year_member_count",
@@ -15293,7 +15589,8 @@
             "required": true,
             "type": "integer",
             "semanticId": "lotus.full_year_member_count",
-            "attributeRef": "#/attributeCatalog/lotus.full_year_member_count"
+            "attributeRef": "#/attributeCatalog/lotus.full_year_member_count",
+            "schemaVariant": "CompositeAnnualDispersionResponse"
           },
           {
             "name": "reporting_applicability",
@@ -15301,7 +15598,8 @@
             "required": true,
             "type": "string",
             "semanticId": "lotus.reporting_applicability",
-            "attributeRef": "#/attributeCatalog/lotus.reporting_applicability"
+            "attributeRef": "#/attributeCatalog/lotus.reporting_applicability",
+            "schemaVariant": "CompositeAnnualDispersionResponse"
           },
           {
             "name": "publication_state",
@@ -15309,7 +15607,8 @@
             "required": false,
             "type": "string",
             "semanticId": "lotus.publication_state",
-            "attributeRef": "#/attributeCatalog/lotus.publication_state"
+            "attributeRef": "#/attributeCatalog/lotus.publication_state",
+            "schemaVariant": "CompositeAnnualDispersionResponse"
           },
           {
             "name": "qualification",
@@ -15317,7 +15616,8 @@
             "required": false,
             "type": "string",
             "semanticId": "lotus.qualification",
-            "attributeRef": "#/attributeCatalog/lotus.qualification"
+            "attributeRef": "#/attributeCatalog/lotus.qualification",
+            "schemaVariant": "CompositeAnnualDispersionResponse"
           },
           {
             "name": "result_fingerprint",
@@ -15325,7 +15625,8 @@
             "required": true,
             "type": "string",
             "semanticId": "lotus.result_fingerprint",
-            "attributeRef": "#/attributeCatalog/lotus.result_fingerprint"
+            "attributeRef": "#/attributeCatalog/lotus.result_fingerprint",
+            "schemaVariant": "CompositeAnnualDispersionResponse"
           },
           {
             "name": "months",
@@ -15333,7 +15634,8 @@
             "required": true,
             "type": "array",
             "semanticId": "lotus.months",
-            "attributeRef": "#/attributeCatalog/lotus.months"
+            "attributeRef": "#/attributeCatalog/lotus.months",
+            "schemaVariant": "CompositeAnnualDispersionResponse"
           },
           {
             "name": "months[].materialization_id",
@@ -15341,7 +15643,8 @@
             "required": true,
             "type": "string",
             "semanticId": "lotus.materialization_id",
-            "attributeRef": "#/attributeCatalog/lotus.materialization_id"
+            "attributeRef": "#/attributeCatalog/lotus.materialization_id",
+            "schemaVariant": "CompositeAnnualDispersionResponse"
           },
           {
             "name": "months[].period_start",
@@ -15349,7 +15652,8 @@
             "required": true,
             "type": "string",
             "semanticId": "lotus.period_start",
-            "attributeRef": "#/attributeCatalog/lotus.period_start"
+            "attributeRef": "#/attributeCatalog/lotus.period_start",
+            "schemaVariant": "CompositeAnnualDispersionResponse"
           },
           {
             "name": "months[].period_end",
@@ -15357,7 +15661,8 @@
             "required": true,
             "type": "string",
             "semanticId": "lotus.period_end",
-            "attributeRef": "#/attributeCatalog/lotus.period_end"
+            "attributeRef": "#/attributeCatalog/lotus.period_end",
+            "schemaVariant": "CompositeAnnualDispersionResponse"
           },
           {
             "name": "months[].definition_version",
@@ -15365,7 +15670,8 @@
             "required": true,
             "type": "string",
             "semanticId": "lotus.definition_version",
-            "attributeRef": "#/attributeCatalog/lotus.definition_version"
+            "attributeRef": "#/attributeCatalog/lotus.definition_version",
+            "schemaVariant": "CompositeAnnualDispersionResponse"
           },
           {
             "name": "months[].definition_content_hash",
@@ -15373,7 +15679,8 @@
             "required": true,
             "type": "string",
             "semanticId": "lotus.definition_content_hash",
-            "attributeRef": "#/attributeCatalog/lotus.definition_content_hash"
+            "attributeRef": "#/attributeCatalog/lotus.definition_content_hash",
+            "schemaVariant": "CompositeAnnualDispersionResponse"
           },
           {
             "name": "months[].membership_revision",
@@ -15381,7 +15688,8 @@
             "required": true,
             "type": "string",
             "semanticId": "lotus.membership_revision",
-            "attributeRef": "#/attributeCatalog/lotus.membership_revision"
+            "attributeRef": "#/attributeCatalog/lotus.membership_revision",
+            "schemaVariant": "CompositeAnnualDispersionResponse"
           },
           {
             "name": "months[].membership_content_hash",
@@ -15389,7 +15697,8 @@
             "required": true,
             "type": "string",
             "semanticId": "lotus.membership_content_hash",
-            "attributeRef": "#/attributeCatalog/lotus.membership_content_hash"
+            "attributeRef": "#/attributeCatalog/lotus.membership_content_hash",
+            "schemaVariant": "CompositeAnnualDispersionResponse"
           },
           {
             "name": "months[].attestation_version",
@@ -15397,7 +15706,8 @@
             "required": true,
             "type": "string",
             "semanticId": "lotus.attestation_version",
-            "attributeRef": "#/attributeCatalog/lotus.attestation_version"
+            "attributeRef": "#/attributeCatalog/lotus.attestation_version",
+            "schemaVariant": "CompositeAnnualDispersionResponse"
           },
           {
             "name": "months[].attestation_content_hash",
@@ -15405,7 +15715,8 @@
             "required": true,
             "type": "string",
             "semanticId": "lotus.attestation_content_hash",
-            "attributeRef": "#/attributeCatalog/lotus.attestation_content_hash"
+            "attributeRef": "#/attributeCatalog/lotus.attestation_content_hash",
+            "schemaVariant": "CompositeAnnualDispersionResponse"
           },
           {
             "name": "months[].policy_version",
@@ -15413,7 +15724,8 @@
             "required": true,
             "type": "string",
             "semanticId": "lotus.policy_version",
-            "attributeRef": "#/attributeCatalog/lotus.policy_version"
+            "attributeRef": "#/attributeCatalog/lotus.policy_version",
+            "schemaVariant": "CompositeAnnualDispersionResponse"
           },
           {
             "name": "months[].source_cut_id",
@@ -15421,7 +15733,8 @@
             "required": true,
             "type": "string",
             "semanticId": "lotus.source_cut_id",
-            "attributeRef": "#/attributeCatalog/lotus.source_cut_id"
+            "attributeRef": "#/attributeCatalog/lotus.source_cut_id",
+            "schemaVariant": "CompositeAnnualDispersionResponse"
           },
           {
             "name": "months[].restatement_sequence",
@@ -15429,7 +15742,8 @@
             "required": true,
             "type": "integer",
             "semanticId": "lotus.restatement_sequence",
-            "attributeRef": "#/attributeCatalog/lotus.restatement_sequence"
+            "attributeRef": "#/attributeCatalog/lotus.restatement_sequence",
+            "schemaVariant": "CompositeAnnualDispersionResponse"
           },
           {
             "name": "members",
@@ -15437,7 +15751,8 @@
             "required": true,
             "type": "array",
             "semanticId": "lotus.members",
-            "attributeRef": "#/attributeCatalog/lotus.members"
+            "attributeRef": "#/attributeCatalog/lotus.members",
+            "schemaVariant": "CompositeAnnualDispersionResponse"
           },
           {
             "name": "members[].portfolio_id",
@@ -15445,7 +15760,8 @@
             "required": true,
             "type": "string",
             "semanticId": "lotus.portfolio_id",
-            "attributeRef": "#/attributeCatalog/lotus.portfolio_id"
+            "attributeRef": "#/attributeCatalog/lotus.portfolio_id",
+            "schemaVariant": "CompositeAnnualDispersionResponse"
           },
           {
             "name": "members[].annual_return",
@@ -15453,7 +15769,8 @@
             "required": true,
             "type": "string",
             "semanticId": "lotus.annual_return",
-            "attributeRef": "#/attributeCatalog/lotus.annual_return"
+            "attributeRef": "#/attributeCatalog/lotus.annual_return",
+            "schemaVariant": "CompositeAnnualDispersionResponse"
           },
           {
             "name": "members[].year_begin_assets",
@@ -15461,7 +15778,8 @@
             "required": true,
             "type": "string",
             "semanticId": "lotus.year_begin_assets",
-            "attributeRef": "#/attributeCatalog/lotus.year_begin_assets"
+            "attributeRef": "#/attributeCatalog/lotus.year_begin_assets",
+            "schemaVariant": "CompositeAnnualDispersionResponse"
           },
           {
             "name": "members[].source_snapshot_ids",
@@ -15469,7 +15787,8 @@
             "required": true,
             "type": "array",
             "semanticId": "lotus.source_snapshot_ids",
-            "attributeRef": "#/attributeCatalog/lotus.source_snapshot_ids"
+            "attributeRef": "#/attributeCatalog/lotus.source_snapshot_ids",
+            "schemaVariant": "CompositeAnnualDispersionResponse"
           },
           {
             "name": "members[].source_fingerprints",
@@ -15477,7 +15796,467 @@
             "required": true,
             "type": "array",
             "semanticId": "lotus.source_fingerprints",
-            "attributeRef": "#/attributeCatalog/lotus.source_fingerprints"
+            "attributeRef": "#/attributeCatalog/lotus.source_fingerprints",
+            "schemaVariant": "CompositeAnnualDispersionResponse"
+          },
+          {
+            "name": "metric_id",
+            "location": "body",
+            "required": false,
+            "type": "string",
+            "semanticId": "lotus.metric_id",
+            "attributeRef": "#/attributeCatalog/lotus.metric_id",
+            "schemaVariant": "CompositeLinkedContributionResponse"
+          },
+          {
+            "name": "calculation_id",
+            "location": "body",
+            "required": true,
+            "type": "string",
+            "semanticId": "lotus.calculation_id",
+            "attributeRef": "#/attributeCatalog/lotus.calculation_id",
+            "schemaVariant": "CompositeLinkedContributionResponse"
+          },
+          {
+            "name": "composite_id",
+            "location": "body",
+            "required": true,
+            "type": "string",
+            "semanticId": "lotus.composite_id",
+            "attributeRef": "#/attributeCatalog/lotus.composite_id",
+            "schemaVariant": "CompositeLinkedContributionResponse"
+          },
+          {
+            "name": "period_start",
+            "location": "body",
+            "required": true,
+            "type": "string",
+            "semanticId": "lotus.period_start",
+            "attributeRef": "#/attributeCatalog/lotus.period_start",
+            "schemaVariant": "CompositeLinkedContributionResponse"
+          },
+          {
+            "name": "period_end",
+            "location": "body",
+            "required": true,
+            "type": "string",
+            "semanticId": "lotus.period_end",
+            "attributeRef": "#/attributeCatalog/lotus.period_end",
+            "schemaVariant": "CompositeLinkedContributionResponse"
+          },
+          {
+            "name": "return_view",
+            "location": "body",
+            "required": true,
+            "type": "CompositeReturnView",
+            "semanticId": "lotus.return_view",
+            "attributeRef": "#/attributeCatalog/lotus.return_view",
+            "schemaVariant": "CompositeLinkedContributionResponse"
+          },
+          {
+            "name": "reporting_currency",
+            "location": "body",
+            "required": true,
+            "type": "string",
+            "semanticId": "lotus.reporting_currency",
+            "attributeRef": "#/attributeCatalog/lotus.reporting_currency",
+            "schemaVariant": "CompositeLinkedContributionResponse"
+          },
+          {
+            "name": "method",
+            "location": "body",
+            "required": false,
+            "type": "string",
+            "semanticId": "lotus.method",
+            "attributeRef": "#/attributeCatalog/lotus.method",
+            "schemaVariant": "CompositeLinkedContributionResponse"
+          },
+          {
+            "name": "status",
+            "location": "body",
+            "required": false,
+            "type": "string",
+            "semanticId": "lotus.status",
+            "attributeRef": "#/attributeCatalog/lotus.status",
+            "schemaVariant": "CompositeLinkedContributionResponse"
+          },
+          {
+            "name": "qualification",
+            "location": "body",
+            "required": false,
+            "type": "string",
+            "semanticId": "lotus.qualification",
+            "attributeRef": "#/attributeCatalog/lotus.qualification",
+            "schemaVariant": "CompositeLinkedContributionResponse"
+          },
+          {
+            "name": "units",
+            "location": "body",
+            "required": false,
+            "type": "string",
+            "semanticId": "lotus.units",
+            "attributeRef": "#/attributeCatalog/lotus.units",
+            "schemaVariant": "CompositeLinkedContributionResponse"
+          },
+          {
+            "name": "constituent_decomposition",
+            "location": "body",
+            "required": false,
+            "type": "string",
+            "semanticId": "lotus.constituent_decomposition",
+            "attributeRef": "#/attributeCatalog/lotus.constituent_decomposition",
+            "schemaVariant": "CompositeLinkedContributionResponse"
+          },
+          {
+            "name": "cumulative_return",
+            "location": "body",
+            "required": true,
+            "type": "string",
+            "semanticId": "lotus.cumulative_return",
+            "attributeRef": "#/attributeCatalog/lotus.cumulative_return",
+            "schemaVariant": "CompositeLinkedContributionResponse"
+          },
+          {
+            "name": "total_linked_contribution",
+            "location": "body",
+            "required": true,
+            "type": "string",
+            "semanticId": "lotus.total_linked_contribution",
+            "attributeRef": "#/attributeCatalog/lotus.total_linked_contribution",
+            "schemaVariant": "CompositeLinkedContributionResponse"
+          },
+          {
+            "name": "reconciliation_difference",
+            "location": "body",
+            "required": true,
+            "type": "string",
+            "semanticId": "lotus.reconciliation_difference",
+            "attributeRef": "#/attributeCatalog/lotus.reconciliation_difference",
+            "schemaVariant": "CompositeLinkedContributionResponse"
+          },
+          {
+            "name": "display_rounding_difference",
+            "location": "body",
+            "required": true,
+            "type": "string",
+            "semanticId": "lotus.display_rounding_difference",
+            "attributeRef": "#/attributeCatalog/lotus.display_rounding_difference",
+            "schemaVariant": "CompositeLinkedContributionResponse"
+          },
+          {
+            "name": "members",
+            "location": "body",
+            "required": true,
+            "type": "array",
+            "semanticId": "lotus.members",
+            "attributeRef": "#/attributeCatalog/lotus.members",
+            "schemaVariant": "CompositeLinkedContributionResponse"
+          },
+          {
+            "name": "members[].portfolio_id",
+            "location": "body",
+            "required": true,
+            "type": "string",
+            "semanticId": "lotus.portfolio_id",
+            "attributeRef": "#/attributeCatalog/lotus.portfolio_id",
+            "schemaVariant": "CompositeLinkedContributionResponse"
+          },
+          {
+            "name": "members[].linked_contribution",
+            "location": "body",
+            "required": true,
+            "type": "string",
+            "semanticId": "lotus.linked_contribution",
+            "attributeRef": "#/attributeCatalog/lotus.linked_contribution",
+            "schemaVariant": "CompositeLinkedContributionResponse"
+          },
+          {
+            "name": "members[].participating_period_count",
+            "location": "body",
+            "required": true,
+            "type": "integer",
+            "semanticId": "lotus.participating_period_count",
+            "attributeRef": "#/attributeCatalog/lotus.participating_period_count",
+            "schemaVariant": "CompositeLinkedContributionResponse"
+          },
+          {
+            "name": "periods",
+            "location": "body",
+            "required": true,
+            "type": "array",
+            "semanticId": "lotus.periods",
+            "attributeRef": "#/attributeCatalog/lotus.periods",
+            "schemaVariant": "CompositeLinkedContributionResponse"
+          },
+          {
+            "name": "periods[].portfolio_id",
+            "location": "body",
+            "required": true,
+            "type": "string",
+            "semanticId": "lotus.portfolio_id",
+            "attributeRef": "#/attributeCatalog/lotus.portfolio_id",
+            "schemaVariant": "CompositeLinkedContributionResponse"
+          },
+          {
+            "name": "periods[].period_start",
+            "location": "body",
+            "required": true,
+            "type": "string",
+            "semanticId": "lotus.period_start",
+            "attributeRef": "#/attributeCatalog/lotus.period_start",
+            "schemaVariant": "CompositeLinkedContributionResponse"
+          },
+          {
+            "name": "periods[].period_end",
+            "location": "body",
+            "required": true,
+            "type": "string",
+            "semanticId": "lotus.period_end",
+            "attributeRef": "#/attributeCatalog/lotus.period_end",
+            "schemaVariant": "CompositeLinkedContributionResponse"
+          },
+          {
+            "name": "periods[].return_value",
+            "location": "body",
+            "required": true,
+            "type": "string",
+            "semanticId": "lotus.return_value",
+            "attributeRef": "#/attributeCatalog/lotus.return_value",
+            "schemaVariant": "CompositeLinkedContributionResponse"
+          },
+          {
+            "name": "periods[].beginning_market_value",
+            "location": "body",
+            "required": true,
+            "type": "string",
+            "semanticId": "lotus.beginning_market_value",
+            "attributeRef": "#/attributeCatalog/lotus.beginning_market_value",
+            "schemaVariant": "CompositeLinkedContributionResponse"
+          },
+          {
+            "name": "periods[].weight",
+            "location": "body",
+            "required": true,
+            "type": "string",
+            "semanticId": "lotus.weight",
+            "attributeRef": "#/attributeCatalog/lotus.weight",
+            "schemaVariant": "CompositeLinkedContributionResponse"
+          },
+          {
+            "name": "periods[].contribution",
+            "location": "body",
+            "required": true,
+            "type": "string",
+            "semanticId": "lotus.contribution",
+            "attributeRef": "#/attributeCatalog/lotus.contribution",
+            "schemaVariant": "CompositeLinkedContributionResponse"
+          },
+          {
+            "name": "periods[].linking_factor",
+            "location": "body",
+            "required": true,
+            "type": "string",
+            "semanticId": "lotus.linking_factor",
+            "attributeRef": "#/attributeCatalog/lotus.linking_factor",
+            "schemaVariant": "CompositeLinkedContributionResponse"
+          },
+          {
+            "name": "periods[].linked_contribution",
+            "location": "body",
+            "required": true,
+            "type": "string",
+            "semanticId": "lotus.linked_contribution",
+            "attributeRef": "#/attributeCatalog/lotus.linked_contribution",
+            "schemaVariant": "CompositeLinkedContributionResponse"
+          },
+          {
+            "name": "periods[].source_snapshot_id",
+            "location": "body",
+            "required": true,
+            "type": "string",
+            "semanticId": "lotus.source_snapshot_id",
+            "attributeRef": "#/attributeCatalog/lotus.source_snapshot_id",
+            "schemaVariant": "CompositeLinkedContributionResponse"
+          },
+          {
+            "name": "periods[].source_fingerprint",
+            "location": "body",
+            "required": true,
+            "type": "string",
+            "semanticId": "lotus.source_fingerprint",
+            "attributeRef": "#/attributeCatalog/lotus.source_fingerprint",
+            "schemaVariant": "CompositeLinkedContributionResponse"
+          },
+          {
+            "name": "periods[].calculation_id",
+            "location": "body",
+            "required": true,
+            "type": "string",
+            "semanticId": "lotus.calculation_id",
+            "attributeRef": "#/attributeCatalog/lotus.calculation_id",
+            "schemaVariant": "CompositeLinkedContributionResponse"
+          },
+          {
+            "name": "periods[].restatement_version",
+            "location": "body",
+            "required": true,
+            "type": "string",
+            "semanticId": "lotus.restatement_version",
+            "attributeRef": "#/attributeCatalog/lotus.restatement_version",
+            "schemaVariant": "CompositeLinkedContributionResponse"
+          },
+          {
+            "name": "periods[].restatement_sequence",
+            "location": "body",
+            "required": true,
+            "type": "integer",
+            "semanticId": "lotus.restatement_sequence",
+            "attributeRef": "#/attributeCatalog/lotus.restatement_sequence",
+            "schemaVariant": "CompositeLinkedContributionResponse"
+          },
+          {
+            "name": "periods[].source_authority_identity",
+            "location": "body",
+            "required": true,
+            "type": "object",
+            "semanticId": "lotus.source_authority_identity",
+            "attributeRef": "#/attributeCatalog/lotus.source_authority_identity",
+            "schemaVariant": "CompositeLinkedContributionResponse"
+          },
+          {
+            "name": "selection_manifest",
+            "location": "body",
+            "required": true,
+            "type": "CompositeTWRSelectionManifest",
+            "semanticId": "lotus.selection_manifest",
+            "attributeRef": "#/attributeCatalog/lotus.selection_manifest",
+            "schemaVariant": "CompositeLinkedContributionResponse"
+          },
+          {
+            "name": "selection_manifest.qualification",
+            "location": "body",
+            "required": false,
+            "type": "string",
+            "semanticId": "lotus.qualification",
+            "attributeRef": "#/attributeCatalog/lotus.qualification",
+            "schemaVariant": "CompositeLinkedContributionResponse"
+          },
+          {
+            "name": "selection_manifest.windows",
+            "location": "body",
+            "required": true,
+            "type": "array",
+            "semanticId": "lotus.windows",
+            "attributeRef": "#/attributeCatalog/lotus.windows",
+            "schemaVariant": "CompositeLinkedContributionResponse"
+          },
+          {
+            "name": "selection_manifest.windows[].materialization_id",
+            "location": "body",
+            "required": true,
+            "type": "string",
+            "semanticId": "lotus.materialization_id",
+            "attributeRef": "#/attributeCatalog/lotus.materialization_id",
+            "schemaVariant": "CompositeLinkedContributionResponse"
+          },
+          {
+            "name": "selection_manifest.windows[].period_start",
+            "location": "body",
+            "required": true,
+            "type": "string",
+            "semanticId": "lotus.period_start",
+            "attributeRef": "#/attributeCatalog/lotus.period_start",
+            "schemaVariant": "CompositeLinkedContributionResponse"
+          },
+          {
+            "name": "selection_manifest.windows[].period_end",
+            "location": "body",
+            "required": true,
+            "type": "string",
+            "semanticId": "lotus.period_end",
+            "attributeRef": "#/attributeCatalog/lotus.period_end",
+            "schemaVariant": "CompositeLinkedContributionResponse"
+          },
+          {
+            "name": "selection_manifest.windows[].restatement_sequence",
+            "location": "body",
+            "required": true,
+            "type": "integer",
+            "semanticId": "lotus.restatement_sequence",
+            "attributeRef": "#/attributeCatalog/lotus.restatement_sequence",
+            "schemaVariant": "CompositeLinkedContributionResponse"
+          },
+          {
+            "name": "selection_manifest.windows[].definition_content_hash",
+            "location": "body",
+            "required": true,
+            "type": "string",
+            "semanticId": "lotus.definition_content_hash",
+            "attributeRef": "#/attributeCatalog/lotus.definition_content_hash",
+            "schemaVariant": "CompositeLinkedContributionResponse"
+          },
+          {
+            "name": "selection_manifest.windows[].membership_content_hash",
+            "location": "body",
+            "required": true,
+            "type": "string",
+            "semanticId": "lotus.membership_content_hash",
+            "attributeRef": "#/attributeCatalog/lotus.membership_content_hash",
+            "schemaVariant": "CompositeLinkedContributionResponse"
+          },
+          {
+            "name": "selection_manifest.windows[].attestation_content_hash",
+            "location": "body",
+            "required": true,
+            "type": "string",
+            "semanticId": "lotus.attestation_content_hash",
+            "attributeRef": "#/attributeCatalog/lotus.attestation_content_hash",
+            "schemaVariant": "CompositeLinkedContributionResponse"
+          },
+          {
+            "name": "selection_manifest.windows[].source_cut_id",
+            "location": "body",
+            "required": true,
+            "type": "string",
+            "semanticId": "lotus.source_cut_id",
+            "attributeRef": "#/attributeCatalog/lotus.source_cut_id",
+            "schemaVariant": "CompositeLinkedContributionResponse"
+          },
+          {
+            "name": "selection_manifest.windows[].method_binding",
+            "location": "body",
+            "required": true,
+            "type": "object",
+            "semanticId": "lotus.method_binding",
+            "attributeRef": "#/attributeCatalog/lotus.method_binding",
+            "schemaVariant": "CompositeLinkedContributionResponse"
+          },
+          {
+            "name": "selection_manifest.windows[].retained_receipt_fingerprint",
+            "location": "body",
+            "required": true,
+            "type": "string",
+            "semanticId": "lotus.retained_receipt_fingerprint",
+            "attributeRef": "#/attributeCatalog/lotus.retained_receipt_fingerprint",
+            "schemaVariant": "CompositeLinkedContributionResponse"
+          },
+          {
+            "name": "selection_manifest.engine_version",
+            "location": "body",
+            "required": true,
+            "type": "string",
+            "semanticId": "lotus.engine_version",
+            "attributeRef": "#/attributeCatalog/lotus.engine_version",
+            "schemaVariant": "CompositeLinkedContributionResponse"
+          },
+          {
+            "name": "selection_manifest.calculation_fingerprint",
+            "location": "body",
+            "required": true,
+            "type": "string",
+            "semanticId": "lotus.calculation_fingerprint",
+            "attributeRef": "#/attributeCatalog/lotus.calculation_fingerprint",
+            "schemaVariant": "CompositeLinkedContributionResponse"
           }
         ]
       }
