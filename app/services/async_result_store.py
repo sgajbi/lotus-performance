@@ -239,12 +239,16 @@ class AsyncResultStore:
             .mappings()
             .one()
         )
-        if (
-            original["tenant_id"] != tenant_id
-            or original["analytics_type"] != COMPOSITE_POOLED_ANALYTICS_TYPE
-            or original["result_status"] != AsyncResultStatus.COMPLETE.value
-            or original["response_json"] != response_json
-        ):
+        retained_identity = tuple(
+            original[name] for name in ("tenant_id", "analytics_type", "result_status", "response_json")
+        )
+        expected_identity = (
+            tenant_id,
+            COMPOSITE_POOLED_ANALYTICS_TYPE,
+            AsyncResultStatus.COMPLETE.value,
+            response_json,
+        )
+        if retained_identity != expected_identity:
             raise AsyncResultOriginalConflictError("Calculation already retains a different original result.")
 
     def record_success(

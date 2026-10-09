@@ -1,0 +1,14 @@
+{
+  "calculation_id": "63200000-0000-4000-8000-000000000001",
+  "composite_id": "CONTROLLED_POOL",
+  "metric_id": "POOLED_MONEY_WEIGHTED_RETURN",
+  "method": "XIRR:v1",
+  "period_start": "2025-01-01",
+  "period_end": "2027-01-01",
+  "reporting_currency": "USD",
+  "return_view": "GROSS",
+  "source_manifest_id": "controlled-dated-oracle-v1",
+  "policy_binding_id": "controlled-xirr-policy-v1",
+  "annualization": {"enabled": true, "basis": "ACT/365"},
+  "fallback_policy": "REQUIRE_XIRR"
+}

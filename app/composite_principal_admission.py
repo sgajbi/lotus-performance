@@ -91,6 +91,19 @@ async def _pooled_dispatch_body(request: Request, receive: Receive) -> tuple[boo
     bound = _max_write_payload_bytes()
     if _write_payload_too_large(method=request.method, headers=request.headers, max_write_payload_bytes=bound):
         raise PayloadTooLargeError
+    body, disconnected = await _bounded_dispatch_bytes(receive, bound)
+    replay = _replay_body(receive, body, disconnected=disconnected)
+    if disconnected:
+        return False, replay
+    try:
+        payload = json.loads(body)
+    except (ValueError, RecursionError):
+        return False, replay
+    # Match Request.json()'s last-key-wins semantics and replay exact body bytes.
+    return isinstance(payload, dict) and payload.get("metric_id") == "POOLED_MONEY_WEIGHTED_RETURN", replay
+
+
+async def _bounded_dispatch_bytes(receive: Receive, bound: int) -> tuple[bytes, bool]:
     limited_receive = _write_payload_limited_receive(receive, max_write_payload_bytes=bound)
     # Retain bounded bytes, not a potentially unbounded list of empty chunks.
     body = bytearray()
@@ -104,15 +117,18 @@ async def _pooled_dispatch_body(request: Request, receive: Receive) -> tuple[boo
             body.extend(message.get("body", b""))
             if not message.get("more_body", False):
                 break
-    replay = _replay_body(receive, bytes(body), disconnected=disconnected)
-    if disconnected:
-        return False, replay
-    try:
-        payload = json.loads(body)
-    except (ValueError, RecursionError):
-        return False, replay
-    # Match Request.json()'s last-key-wins semantics and replay exact body bytes.
-    return isinstance(payload, dict) and payload.get("metric_id") == "POOLED_MONEY_WEIGHTED_RETURN", replay
+    return bytes(body), disconnected
+
+
+async def _classify_surface(request: Request, receive: Receive):
+    scope = request.scope
+    candidate = is_candidate_path(scope["path"])
+    pooled = _is_pooled_result_route(scope)
+    if scope["method"] == "POST" and scope["path"] == POOLED_ANALYTICS_PATH and _json_body_request(request):
+        scope.setdefault("state", {})[VERIFIED_SURFACE_STATE_KEY] = "composite_pooled_dispatch"
+        pooled, receive = await _pooled_dispatch_body(request, receive)
+        scope["state"].pop(VERIFIED_SURFACE_STATE_KEY, None)
+    return candidate, pooled, receive
 
 
 @dataclass(frozen=True)
@@ -198,15 +214,10 @@ class CompositePrincipalAdmissionMiddleware:
         if scope["type"] != "http" or scope["method"] == "OPTIONS":
             return await self.app(scope, receive, send)
         request = Request(scope)
-        candidate = is_candidate_path(scope["path"])
-        pooled = _is_pooled_result_route(scope)
-        if scope["method"] == "POST" and scope["path"] == POOLED_ANALYTICS_PATH and _json_body_request(request):
-            scope.setdefault("state", {})[VERIFIED_SURFACE_STATE_KEY] = "composite_pooled_dispatch"
-            try:
-                pooled, receive = await _pooled_dispatch_body(request, receive)
-            except PayloadTooLargeError:
-                return await _payload_too_large_response()(scope, receive, send)
-            scope["state"].pop(VERIFIED_SURFACE_STATE_KEY, None)
+        try:
+            candidate, pooled, receive = await _classify_surface(request, receive)
+        except PayloadTooLargeError:
+            return await _payload_too_large_response()(scope, receive, send)
         if not candidate and not pooled:
             return await self.app(scope, receive, send)
         scope.setdefault("state", {})[VERIFIED_SURFACE_STATE_KEY] = (

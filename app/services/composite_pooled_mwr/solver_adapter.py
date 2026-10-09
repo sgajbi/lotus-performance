@@ -56,8 +56,24 @@ def calculate_pooled_xirr(
             },
             original_solver_result={"error_type": type(exc).__name__, "message": str(exc)},
         )
+    unique_xirr = _qualified_xirr(result)
+    allowed_fallback = _admitted_fallback(request, result)
+    available = unique_xirr or allowed_fallback
+    return PooledSolverOutcome(
+        availability=_outcome_availability(unique_xirr, allowed_fallback),
+        actual_method=result.method,
+        return_value=_percentage_to_ratio(result.mwr) if available else None,
+        annualized_return=_percentage_to_ratio(result.mwr_annualized) if available else None,
+        holding_period_return=_percentage_to_ratio(result.holding_period_return) if available else None,
+        reason_codes=_outcome_reasons(result, available),
+        diagnostics=_diagnostics(request, observation, result),
+        original_solver_result=asdict(result),
+    )
+
+
+def _qualified_xirr(result):
     convergence = result.convergence
-    unique_xirr = (
+    return (
         result.method == "XIRR"
         and result.status == "CALCULATED"
         and convergence is not None
@@ -66,24 +82,26 @@ def calculate_pooled_xirr(
         and convergence.uniqueness_supported is True
         and not convergence.non_simple_root_detected
     )
-    allowed_fallback = (
+
+
+def _admitted_fallback(request, result):
+    return (
         request.fallback_policy == "ALLOW_MODIFIED_DIETZ"
         and result.method == "MODIFIED_DIETZ"
         and result.status == "FALLBACK_USED"
     )
-    available = unique_xirr or allowed_fallback
-    return PooledSolverOutcome(
-        availability="AVAILABLE" if unique_xirr else "FALLBACK_ANALYSIS" if allowed_fallback else "NOT_CALCULABLE",
-        actual_method=result.method,
-        return_value=_percentage_to_ratio(result.mwr) if available else None,
-        annualized_return=_percentage_to_ratio(result.mwr_annualized) if available else None,
-        holding_period_return=_percentage_to_ratio(result.holding_period_return) if available else None,
-        reason_codes=tuple(result.reason_codes)
-        if result.reason_codes
-        else (() if available else ("XIRR_NOT_CALCULABLE",)),
-        diagnostics=_diagnostics(request, observation, result),
-        original_solver_result=asdict(result),
-    )
+
+
+def _outcome_reasons(result, available):
+    if result.reason_codes:
+        return tuple(result.reason_codes)
+    return () if available else ("XIRR_NOT_CALCULABLE",)
+
+
+def _outcome_availability(unique_xirr, allowed_fallback):
+    if unique_xirr:
+        return "AVAILABLE"
+    return "FALLBACK_ANALYSIS" if allowed_fallback else "NOT_CALCULABLE"
 
 
 def _percentage_to_ratio(value):
