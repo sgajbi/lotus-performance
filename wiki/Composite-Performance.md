@@ -4,6 +4,27 @@ Composite performance calculates asset-weighted group TWR from retained member f
 the source evidence needed for audit and client reporting. Supported calculated replay remains
 separate from official approval, freeze, live-source qualification and institutional compliance.
 
+## Reader Tasks
+
+| Reader task | Start here |
+| --- | --- |
+| Calculate or inspect retained performance | [Caller and migration guide](https://github.com/sgajbi/lotus-performance/blob/main/docs/guides/composite_materialization.md) |
+| Preserve and retrieve an original calculated result | [Result candidate capture](https://github.com/sgajbi/lotus-performance/blob/main/docs/guides/composite_result_candidates.md) |
+| Interpret the supported model-fee calculation | [Model-fee methodology](https://github.com/sgajbi/lotus-performance/blob/main/docs/methodologies/metrics/metric-composite-periodic-model-fee.md) |
+| Operate or recover the service | [Operations runbook](Operations-Runbook) |
+
+## Result Capture and Evidence Posture
+
+Explicit [result candidate capture](https://github.com/sgajbi/lotus-performance/blob/main/docs/guides/composite_result_candidates.md)
+can preserve a complete READY response and its original calculation identity beyond
+ordinary execution retention. It requires a deployment-verified bearer principal,
+current portfolio grants and known server release provenance; trust defaults unavailable.
+The original response and nonfinancial descriptor commit together in one owning database.
+Historical reads never recalculate the original. This bounded #610 increment does not
+approve source makers, select official results or freeze a period.
+
+## Model Fees and Currency Normalization
+
 The first periodic model-fee producer transforms approved internal gross member wealth
 factors before the existing asset weighting. A separate immutable method/schedule/calendar
 binding and v4 receipt preserve original gross custody, source assets and explicit fee
@@ -26,7 +47,7 @@ or hybrid aggregate normalization refuses. Actual signed fees translate at the e
 fixing; gross and actual net views preserve the same source money. Retained FLOAT64 returns
 keep the shipped reporting precision while asset and flow translation stays exact.
 Adjacent windows require compatible independently admitted method and policy bindings;
-temporary FX outages retain the full admitted population for same-job recovery.
+Recoverable FX outages retain the full admitted population for same-job recovery.
 Bound internal projections may report in a currency different from the admitted native
 definition, with independently verified matching native-currency evidence. The native
 Manage definition and legacy default stay native; scoped publication manifests carry

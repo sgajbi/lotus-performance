@@ -1,0 +1,17 @@
+{
+  "$schema": "https://lotus.dev/schemas/principal-credential-vector.v1",
+  "vector_id": "denial.revoked_principal",
+  "expected_outcome": "revoked_principal",
+  "why": "Signature and window are good; the credential id is on the revocation list.",
+  "verification_inputs": {
+    "expected_issuer": "https://identity.lotus.test/realms/lotus",
+    "expected_audience": "lotus-workbench-bff",
+    "jwks": "jwks.json",
+    "evaluate_at": "2026-09-07T12:00:00Z",
+    "revoked_credential_ids": [
+      "cred-revoked"
+    ],
+    "revoked_subjects": []
+  },
+  "credential": "eyJhbGciOiJFZERTQSIsImtpZCI6ImxvdHVzLXRlc3QtaXNzdWVyLTIwMjYtMDkiLCJ0eXAiOiJKV1QifQ.eyJhdWQiOiJsb3R1cy13b3JrYmVuY2gtYmZmIiwiZXhwIjoxNzg4Nzg2MDAwLCJpc3MiOiJodHRwczovL2lkZW50aXR5LmxvdHVzLnRlc3QvcmVhbG1zL2xvdHVzIiwianRpIjoiY3JlZC1yZXZva2VkIiwibmJmIjoxNzg4Nzc4ODAwLCJwcmluY2lwYWxfa2luZCI6InVzZXIiLCJzdWIiOiJ1c2VyOmFkdmlzZXIuc2cuMDAxIiwidGVuYW50IjoidGVuYW50LXNnIn0.wS4UaMrThlLSN2sSTExZzh8b0ij_8_FJ2prHjhfZnKAS6Wu986JfGrT0Qzprxmqk354qp4XtyXqIi46HVKNnDA"
+}

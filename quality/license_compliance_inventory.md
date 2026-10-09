@@ -12,8 +12,8 @@ Mode: generated first-party and third-party dependency license evidence.
 
 | Metric | Value |
 | --- | ---: |
-| Packages inventoried | 51 |
-| Allowed packages | 49 |
+| Packages inventoried | 54 |
+| Allowed packages | 52 |
 | Review-required packages with active exception | 2 |
 | Blocked packages | 0 |
 | Review-required packages missing exception | 0 |
@@ -26,9 +26,11 @@ Mode: generated first-party and third-party dependency license evidence.
 | `anyio` | runtime | `anyio==4.14.2` | `4.14.2` | MIT | License-Expression | allowed | - | - |
 | `bandit` | development | `bandit==1.9.4` | `1.9.4` | Apache-2.0 | License | allowed | - | - |
 | `certifi` | runtime | `certifi==2026.2.25` | `2026.2.25` | MPL-2.0 | License | review_required_exception | platform-security | 2027-01-31 |
+| `cffi` | runtime | `cffi==2.0.0` | `2.0.0` | MIT | License-Expression | allowed | - | - |
 | `click` | runtime | `click==8.3.3` | `8.3.3` | BSD-3-Clause | License-Expression | allowed | - | - |
 | `colorama` | runtime | `colorama==0.4.6` | `0.4.6` | BSD License | Classifier | allowed | - | - |
 | `coverage` | development | `coverage==7.10.6` | `7.10.6` | Apache-2.0 | License | allowed | - | - |
+| `cryptography` | runtime | `cryptography==50.0.2` | `50.0.2` | Apache-2.0 OR BSD-3-Clause | License-Expression | allowed | - | - |
 | `deptry` | development | `deptry==0.25.1` | `0.25.1` | MIT | License-Expression | allowed | - | - |
 | `exchange-calendars` | runtime | `exchange-calendars==4.13.2` | `4.13.2` | Apache-2.0 | License-Expression | allowed | - | - |
 | `fastapi` | runtime | `fastapi==0.136.3` | `0.136.3` | MIT | License-Expression | allowed | - | - |
@@ -47,6 +49,7 @@ Mode: generated first-party and third-party dependency license evidence.
 | `prometheus-client` | runtime | `prometheus-client==0.25.0` | `0.25.0` | Apache-2.0 AND BSD-2-Clause | License-Expression | allowed | - | - |
 | `prometheus-fastapi-instrumentator` | runtime | `prometheus-fastapi-instrumentator==8.0.0` | `8.0.0` | ISC | License | allowed | - | - |
 | `psycopg` | development, runtime | `psycopg[binary]==3.2.6` | `3.2.6` | GNU Lesser General Public License v3 (LGPLv3) | License | review_required_exception | platform-security | 2027-01-31 |
+| `pycparser` | runtime | `pycparser==3.1` | `3.1` | BSD-3-Clause | License-Expression | allowed | - | - |
 | `pydantic` | runtime | `pydantic==2.11.7` | `2.11.7` | MIT | License-Expression | allowed | - | - |
 | `pydantic_core` | runtime | `pydantic_core==2.33.2` | `2.33.2` | MIT | License | allowed | - | - |
 | `pydantic-settings` | runtime | `pydantic-settings==2.10.1` | `2.10.1` | MIT | License-Expression | allowed | - | - |

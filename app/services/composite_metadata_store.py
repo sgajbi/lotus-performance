@@ -73,6 +73,7 @@ MEMBER_RETURN_FACT_SEQUENCE_CHECK = "ck_composite_member_return_facts_restatemen
 MEMBER_RETURN_FACT_SQLITE_SEQUENCE_TYPE_CHECK = "ck_composite_member_return_facts_restatement_sequence_sqlite_integer"
 MEMBER_RETURN_FACT_VERSION_CHECK = "ck_composite_member_return_facts_restatement_version_nonblank"
 MEMBER_RETURN_FACT_IMMUTABLE_UPDATE_TRIGGER = "trg_composite_member_return_facts_immutable_update"
+MEMBER_RETURN_FACT_IMMUTABLE_TRUNCATE_TRIGGER = "trg_composite_member_return_facts_immutable_truncate"
 MEMBER_RETURN_FACT_COMPLETED_INSERT_TRIGGER = "trg_composite_member_return_facts_completed_insert"
 MEMBER_RETURN_FACT_COMPLETED_DELETE_TRIGGER = "trg_composite_member_return_facts_completed_delete"
 POSTGRES_MEMBER_RETURN_FACT_VERSION_CHECK_SQL = (
@@ -94,6 +95,7 @@ PUBLICATION_PERIOD_CHECK_SQL = (
 PUBLICATION_SQLITE_DATE_CHECK = "ck_composite_fact_publications_period_sqlite_dates"
 PUBLICATION_IMMUTABLE_UPDATE_TRIGGER = "trg_composite_fact_publications_immutable_update"
 PUBLICATION_IMMUTABLE_DELETE_TRIGGER = "trg_composite_fact_publications_immutable_delete"
+PUBLICATION_IMMUTABLE_TRUNCATE_TRIGGER = "trg_composite_fact_publications_immutable_truncate"
 POSTGRES_CANONICAL_REPORTING_CURRENCY_CHECK_SQL = (
     "length(reporting_currency) = 3 "
     "AND reporting_currency = upper(reporting_currency) "
@@ -1600,8 +1602,10 @@ def _drop_composite_fact_database_guards(connection: Connection) -> None:
             (MEMBER_RETURN_FACT_IMMUTABLE_UPDATE_TRIGGER, "composite_member_return_facts"),
             (MEMBER_RETURN_FACT_COMPLETED_INSERT_TRIGGER, "composite_member_return_facts"),
             (MEMBER_RETURN_FACT_COMPLETED_DELETE_TRIGGER, "composite_member_return_facts"),
+            (MEMBER_RETURN_FACT_IMMUTABLE_TRUNCATE_TRIGGER, "composite_member_return_facts"),
             (PUBLICATION_IMMUTABLE_UPDATE_TRIGGER, "composite_member_return_fact_publications"),
             (PUBLICATION_IMMUTABLE_DELETE_TRIGGER, "composite_member_return_fact_publications"),
+            (PUBLICATION_IMMUTABLE_TRUNCATE_TRIGGER, "composite_member_return_fact_publications"),
             ("trg_composite_fact_publications_validate_insert", "composite_member_return_fact_publications"),
         ):
             connection.exec_driver_sql(f"DROP TRIGGER IF EXISTS {trigger_name} ON {table_name}")
@@ -1949,7 +1953,7 @@ def _create_postgres_member_return_fact_immutability_guards(connection: SchemaSt
         LANGUAGE plpgsql
         AS $$
         BEGIN
-            IF TG_OP = 'UPDATE' THEN
+            IF TG_OP IN ('UPDATE', 'TRUNCATE') THEN
                 RAISE EXCEPTION USING
                     ERRCODE = '23514',
                     MESSAGE = 'composite member-return facts are immutable; write a new restatement sequence';
@@ -1994,6 +1998,18 @@ def _create_postgres_member_return_fact_immutability_guards(connection: SchemaSt
         CREATE TRIGGER trg_composite_member_return_facts_immutable_update
         BEFORE UPDATE ON composite_member_return_facts
         FOR EACH ROW
+        EXECUTE FUNCTION reject_composite_member_return_fact_mutation()
+        """
+    )
+
+    connection.exec_driver_sql(
+        f"DROP TRIGGER IF EXISTS {MEMBER_RETURN_FACT_IMMUTABLE_TRUNCATE_TRIGGER} ON composite_member_return_facts"
+    )
+    connection.exec_driver_sql(
+        f"""
+        CREATE TRIGGER {MEMBER_RETURN_FACT_IMMUTABLE_TRUNCATE_TRIGGER}
+        BEFORE TRUNCATE ON composite_member_return_facts
+        FOR EACH STATEMENT
         EXECUTE FUNCTION reject_composite_member_return_fact_mutation()
         """
     )
@@ -2178,15 +2194,19 @@ def _create_postgres_publication_immutability_guard(connection: SchemaStatementW
     connection.exec_driver_sql(
         f"DROP TRIGGER IF EXISTS {PUBLICATION_IMMUTABLE_DELETE_TRIGGER} ON composite_member_return_fact_publications"
     )
-    for trigger_name, operation in (
-        (PUBLICATION_IMMUTABLE_UPDATE_TRIGGER, "UPDATE"),
-        (PUBLICATION_IMMUTABLE_DELETE_TRIGGER, "DELETE"),
+    connection.exec_driver_sql(
+        f"DROP TRIGGER IF EXISTS {PUBLICATION_IMMUTABLE_TRUNCATE_TRIGGER} ON composite_member_return_fact_publications"
+    )
+    for trigger_name, operation, level in (
+        (PUBLICATION_IMMUTABLE_UPDATE_TRIGGER, "UPDATE", "ROW"),
+        (PUBLICATION_IMMUTABLE_DELETE_TRIGGER, "DELETE", "ROW"),
+        (PUBLICATION_IMMUTABLE_TRUNCATE_TRIGGER, "TRUNCATE", "STATEMENT"),
     ):
         connection.exec_driver_sql(
             f"""
             CREATE TRIGGER {trigger_name}
             BEFORE {operation} ON composite_member_return_fact_publications
-            FOR EACH ROW
+            FOR EACH {level}
             EXECUTE FUNCTION reject_composite_fact_publication_mutation()
             """
         )
@@ -2500,11 +2520,38 @@ class CompositeMetadataStore:
     def close(self) -> None:
         self._engine.dispose()
 
+    def capture_result_candidate(self, *, candidate_id, request, response, principal, result_store):
+        from app.adapters.composite_result_candidate_storage import capture_candidate, require_same_result_database
+
+        require_same_result_database(self, result_store)
+        with self._session() as session:
+            if self._engine.dialect.name == "sqlite":
+                session.connection().exec_driver_sql("BEGIN IMMEDIATE")
+            return capture_candidate(
+                session, candidate_id=candidate_id, request=request, response=response, principal=principal
+            )
+
+    def get_result_candidate(self, *, candidate_id, tenant_id, result_store, principal=None):
+        from app.adapters.composite_result_candidate_storage import (
+            _require_installed,
+            read_candidate,
+            require_same_result_database,
+        )
+
+        tenant_id = _admitted_composite_tenant_id(tenant_id)
+        require_same_result_database(self, result_store)
+        with self._session() as session:
+            _require_installed(session.connection())
+            return read_candidate(session, tenant_id=tenant_id, candidate_id=candidate_id, principal=principal)
+
     def create_schema(self) -> None:
+        from app.adapters.composite_result_candidate_schema import create_candidate_schema, require_candidate_schema
+
         create_durable_schema(
             self._engine,
             Base.metadata,
             schema_preflights=(
+                require_candidate_schema,
                 require_model_fee_profile_schema,
                 upgrade_materialization_return_views,
                 require_materialization_schema,
@@ -2523,10 +2570,13 @@ class CompositeMetadataStore:
                 _create_composite_fact_database_guards,
                 create_materialization_schema,
                 create_model_fee_profile_schema,
+                create_candidate_schema,
             ),
         )
 
     def verify_schema(self) -> None:
+        from app.adapters.composite_result_candidate_records import CandidateBase
+        from app.adapters.composite_result_candidate_schema import candidate_guard_statements
         from app.adapters.durable_schema.catalog import verify_durable_schema
 
         verify_durable_schema(
@@ -2534,9 +2584,11 @@ class CompositeMetadataStore:
             Base.metadata,
             CompositeMaterializationModel.__table__.metadata,
             ModelFeeProfileBase.metadata,
+            CandidateBase.metadata,
             managed_guards=(
                 *composite_fact_guard_statements(self._engine.dialect),
                 *model_fee_profile_guard_statements(self._engine.dialect),
+                *candidate_guard_statements(self._engine.dialect),
             ),
         )
 

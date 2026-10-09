@@ -1,0 +1,15 @@
+{
+  "$schema": "https://lotus.dev/schemas/principal-credential-vector.v1",
+  "vector_id": "denial.wrong_audience",
+  "expected_outcome": "wrong_audience",
+  "why": "Minted for another service; a leaked credential must not be a general-purpose key.",
+  "verification_inputs": {
+    "expected_issuer": "https://identity.lotus.test/realms/lotus",
+    "expected_audience": "lotus-workbench-bff",
+    "jwks": "jwks.json",
+    "evaluate_at": "2026-09-07T12:00:00Z",
+    "revoked_credential_ids": [],
+    "revoked_subjects": []
+  },
+  "credential": "eyJhbGciOiJFZERTQSIsImtpZCI6ImxvdHVzLXRlc3QtaXNzdWVyLTIwMjYtMDkiLCJ0eXAiOiJKV1QifQ.eyJhdWQiOiJsb3R1cy1tYW5hZ2UiLCJleHAiOjE3ODg3ODYwMDAsImlzcyI6Imh0dHBzOi8vaWRlbnRpdHkubG90dXMudGVzdC9yZWFsbXMvbG90dXMiLCJqdGkiOiJjcmVkLTAwMDEiLCJuYmYiOjE3ODg3Nzg4MDAsInByaW5jaXBhbF9raW5kIjoidXNlciIsInN1YiI6InVzZXI6YWR2aXNlci5zZy4wMDEiLCJ0ZW5hbnQiOiJ0ZW5hbnQtc2cifQ.kcacNGCUyP22qfyGsEP7xSyqDuSE0QehTuRxefAKvAyINfMA-Qdb8yVDBWVjSp68-8kl3PmG5DbKrnna8eHeCw"
+}

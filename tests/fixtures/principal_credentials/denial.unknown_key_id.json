@@ -1,0 +1,15 @@
+{
+  "$schema": "https://lotus.dev/schemas/principal-credential-vector.v1",
+  "vector_id": "denial.unknown_key_id",
+  "expected_outcome": "unknown_key_id",
+  "why": "Signed by the trusted key but naming a key id this deployment does not publish.",
+  "verification_inputs": {
+    "expected_issuer": "https://identity.lotus.test/realms/lotus",
+    "expected_audience": "lotus-workbench-bff",
+    "jwks": "jwks.json",
+    "evaluate_at": "2026-09-07T12:00:00Z",
+    "revoked_credential_ids": [],
+    "revoked_subjects": []
+  },
+  "credential": "eyJhbGciOiJFZERTQSIsImtpZCI6ImxvdHVzLXRlc3QtaXNzdWVyLXJldGlyZWQiLCJ0eXAiOiJKV1QifQ.eyJhdWQiOiJsb3R1cy13b3JrYmVuY2gtYmZmIiwiZXhwIjoxNzg4Nzg2MDAwLCJpc3MiOiJodHRwczovL2lkZW50aXR5LmxvdHVzLnRlc3QvcmVhbG1zL2xvdHVzIiwianRpIjoiY3JlZC0wMDAxIiwibmJmIjoxNzg4Nzc4ODAwLCJwcmluY2lwYWxfa2luZCI6InVzZXIiLCJzdWIiOiJ1c2VyOmFkdmlzZXIuc2cuMDAxIiwidGVuYW50IjoidGVuYW50LXNnIn0.jONcv6dr1gASHvbr1_gXOAb4tZKHP0Z_T7jYIKAOqZLY8ZQ29ZgQ39atqxvPx6tP7NEpgCy93ObJbtvd2nvFDw"
+}

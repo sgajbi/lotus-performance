@@ -32,6 +32,7 @@ OWNED_DURABLE_TABLES = (
     "composite_member_return_fact_publications",
     "composite_materializations",
     "composite_model_fee_profiles",
+    "composite_result_candidates",
 )
 ADDITIVE_COLUMN_CHECKS = {
     "lineage_payloads": (

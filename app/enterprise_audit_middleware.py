@@ -3,6 +3,7 @@ from typing import Any, Awaitable, Callable, Protocol
 from fastapi import Request, Response
 from fastapi.responses import JSONResponse
 
+from app.composite_principal_admission import is_candidate_path, trusted_request_principal
 from app.enterprise_audit_events import _apply_enterprise_policy_header
 from app.enterprise_authorization import (
     _allowed_audit_metadata,
@@ -66,12 +67,31 @@ def _emit_allowed_audit_event(
     )
 
 
+def _candidate_audit_metadata(request: Request, status_code: int) -> dict[str, Any]:
+    principal = trusted_request_principal(request)
+    read = request.method in ("GET", "HEAD")
+    return {
+        "status_code": status_code,
+        "access_mode": "privileged_read" if read else "write",
+        "required_capability": "operations.runtime.read" if read else "operations.runtime.manage",
+        "governed_surface": "composite_result_candidates",
+        "delegated_actor": principal.delegated_actor if principal else None,
+    }
+
+
+def _request_audit_metadata(request: Request, status_code: int) -> dict[str, Any] | None:
+    if is_candidate_path(request.url.path):
+        return _candidate_audit_metadata(request, status_code)
+    return _allowed_audit_metadata(method=request.method, path=request.url.path, status_code=status_code)
+
+
 def build_enterprise_audit_middleware(
     *,
     emit_audit_event: AuditEventEmitter,
 ) -> Callable[[Request, Callable[[Request], Awaitable[Response]]], Awaitable[Response]]:
     # Enforce enterprise audit and authorization policy on governed surfaces.
     async def middleware(request: Request, call_next: Callable[[Request], Awaitable[Response]]) -> Response:
+        reason: str | None
         max_write_payload_bytes = _max_write_payload_bytes()
         if _write_payload_too_large(
             method=request.method,
@@ -80,12 +100,22 @@ def build_enterprise_audit_middleware(
         ):
             return _payload_too_large_response()
 
-        audit_identity = _audit_identity_from_headers(request.headers)
-        authorized, reason = _authorize_enterprise_request(
-            method=request.method,
-            path=request.url.path,
-            headers=dict(request.headers),
-        )
+        if is_candidate_path(request.url.path):
+            principal = trusted_request_principal(request)
+            authorized, reason = principal is not None, "verified_principal_required"
+            audit_identity = {
+                "actor_id": principal.subject if principal else "unresolved",
+                "tenant_id": principal.tenant_id if principal else "unresolved",
+                "role": principal.principal_kind if principal else "unresolved",
+                "correlation_id": request.headers.get("x-correlation-id", ""),
+            }
+        else:
+            audit_identity = _audit_identity_from_headers(request.headers)
+            authorized, reason = _authorize_enterprise_request(
+                method=request.method,
+                path=request.url.path,
+                headers=dict(request.headers),
+            )
         if not authorized:
             return _authorization_denied_response(
                 method=request.method,
@@ -104,11 +134,7 @@ def build_enterprise_audit_middleware(
         except PayloadTooLargeError:
             return _payload_too_large_response()
         _apply_enterprise_policy_header(response)
-        allowed_audit_metadata = _allowed_audit_metadata(
-            method=request.method,
-            path=request.url.path,
-            status_code=response.status_code,
-        )
+        allowed_audit_metadata = _request_audit_metadata(request, response.status_code)
         if allowed_audit_metadata is not None:
             _emit_allowed_audit_event(
                 method=request.method,

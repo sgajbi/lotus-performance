@@ -1,0 +1,15 @@
+{
+  "$schema": "https://lotus.dev/schemas/principal-credential-vector.v1",
+  "vector_id": "valid.service",
+  "expected_outcome": "verified",
+  "why": "A service principal resolves to the same shape as a user principal.",
+  "verification_inputs": {
+    "expected_issuer": "https://identity.lotus.test/realms/lotus",
+    "expected_audience": "lotus-workbench-bff",
+    "jwks": "jwks.json",
+    "evaluate_at": "2026-09-07T12:00:00Z",
+    "revoked_credential_ids": [],
+    "revoked_subjects": []
+  },
+  "credential": "eyJhbGciOiJFZERTQSIsImtpZCI6ImxvdHVzLXRlc3QtaXNzdWVyLTIwMjYtMDkiLCJ0eXAiOiJKV1QifQ.eyJhdWQiOiJsb3R1cy13b3JrYmVuY2gtYmZmIiwiZXhwIjoxNzg4Nzg2MDAwLCJpc3MiOiJodHRwczovL2lkZW50aXR5LmxvdHVzLnRlc3QvcmVhbG1zL2xvdHVzIiwianRpIjoiY3JlZC0wMDAyIiwibmJmIjoxNzg4Nzc4ODAwLCJwcmluY2lwYWxfa2luZCI6InNlcnZpY2UiLCJzdWIiOiJzZXJ2aWNlOmxvdHVzLXdvcmtiZW5jaCIsInRlbmFudCI6InRlbmFudC1zZyJ9.GJj1IvUojSB7eXuClg-Z6B1rl5eC15q4tkwDhLtJBJcHFKj9ct9PGQj888bcEM86zi_PjJhY5BdNY8nZDIwaBQ"
+}

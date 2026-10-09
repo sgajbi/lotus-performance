@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from typing import Annotated
+from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Request, status
 
@@ -10,8 +11,10 @@ from app.api.dependencies.composite_annual_dispersion import (
     get_annual_dispersion_receipt_reader,
 )
 from app.api.http_status import HTTP_422_UNPROCESSABLE
+from app.composite_principal_admission import trusted_request_principal
 from app.models.composite_annual_comparison import CompositeAnnualComparisonRequest, CompositeAnnualComparisonResponse
 from app.models.composite_annual_dispersion import CompositeAnnualDispersionRequest, CompositeAnnualDispersionResponse
+from app.models.composite_result_candidates import CompositeResultCandidateResponse, CompositeResultCaptureRequest
 from app.models.composites import (
     CompositeErrorResponse,
     CompositeInspectionRequest,
@@ -34,6 +37,11 @@ from app.services.composite_calculation_service import (
 )
 from app.services.composite_inspection_service import inspect_composite_twr_from_persisted_facts
 from app.services.composite_metadata_store import CompositeMemberReturnFactSelectionError
+from app.services.composite_result_candidate_admission import (
+    admit_candidate_calculation,
+    read_result_candidate,
+    require_verified_candidate_principal,
+)
 from app.services.core_tenant_authority import (
     COMPOSITE_TENANT_AUTHORITY_REQUIRED_DETAIL,
     MALFORMED_TENANT_AUTHORITY_DETAIL,
@@ -320,6 +328,64 @@ def calculate_composite_twr(
             windows=windows, engine_version=version, calculation_fingerprint=fingerprint
         )
     return response
+
+
+def _verified_candidate_principal(request: Request):
+    return require_verified_candidate_principal(trusted_request_principal(request))
+
+
+@router.post(
+    "/composites/result-candidates",
+    response_model=CompositeResultCandidateResponse,
+    summary="Capture an immutable calculated composite result candidate",
+    description=(
+        "Calculates from an explicit complete retained vector, then atomically captures the original response "
+        "in the existing analytics result store and an immutable descriptor in the same owning database. "
+        "Requires a deployment-verified Ed25519 bearer principal, current tenant membership and operations.runtime.manage "
+        "grant with every retained universe member in scope. Asserted actor, tenant, role and capability headers supply no authority. "
+        "Unconfigured trust, missing release provenance and cross-database custody refuse. Ordinary calculation does not capture. "
+        "Same-content retries preserve the first response and calculation identity. This candidate is calculated analysis; "
+        "it does not approve financial source makers, select an official result, freeze a period or attest an institution."
+    ),
+    responses={
+        401: {"description": "Credential missing or unverified."},
+        403: {"description": "Current trusted grants or portfolio scope refused."},
+        409: {"description": "Original identity conflict or incomplete retained evidence."},
+        503: {"description": "Original result custody or build provenance unavailable."},
+    },
+)
+def capture_composite_result_candidate(request: CompositeResultCaptureRequest, http_request: Request):
+    principal = _verified_candidate_principal(http_request)
+    store, results = admit_candidate_calculation(request.calculation, principal)
+    response = calculate_composite_twr(request.calculation, principal.tenant_id)
+    return store.capture_result_candidate(
+        candidate_id=request.candidate_id,
+        request=request.calculation,
+        response=response,
+        principal=principal,
+        result_store=results,
+    )
+
+
+@router.get(
+    "/composites/result-candidates/{candidate_id}",
+    response_model=CompositeResultCandidateResponse,
+    summary="Read the original captured composite response",
+    description=(
+        "Reads the original response, calculation identity and captured build/method provenance without recalculation. "
+        "Requires a deployment-verified bearer principal and operations.runtime.read grant in its tenant, with every included "
+        "portfolio still in scope. Missing or inconsistent original custody refuses; current engine/build versions never rewrite history."
+    ),
+    responses={
+        401: {"description": "Credential missing or unverified."},
+        403: {"description": "Current grants or scope refused."},
+        404: {"description": "Candidate absent in the verified tenant."},
+        503: {"description": "Original custody unavailable."},
+    },
+)
+def get_composite_result_candidate(candidate_id: UUID, http_request: Request):
+    principal = _verified_candidate_principal(http_request)
+    return read_result_candidate(candidate_id, principal)
 
 
 @router.post(

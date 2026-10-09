@@ -28,6 +28,7 @@ from app.api.endpoints import (
     runtime_work_items,
     source_corrections,
 )
+from app.composite_principal_admission import CompositePrincipalAdmissionMiddleware
 from app.core.config import get_settings
 from app.core.exceptions import PerformanceCalculatorError
 from app.core.handlers import (
@@ -113,6 +114,7 @@ setup_observability(app, log_level=settings.LOG_LEVEL)
 configure_http_security(app, settings=settings)
 validate_enterprise_runtime_config(settings=settings)
 app.middleware("http")(build_enterprise_audit_middleware())
+app.add_middleware(CompositePrincipalAdmissionMiddleware)
 
 app.add_exception_handler(PerformanceCalculatorError, performance_calculator_exception_handler)
 app.add_exception_handler(APIError, core_api_error_exception_handler)
