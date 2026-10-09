@@ -94,6 +94,65 @@ def pooled_api_database_url(custody_database_url):
     return custody_database_url
 
 
+def test_postgres_pooled_original_correction_readonly_fresh_process(custody_database_url, tmp_path):
+    import json
+    import os
+    import subprocess
+    import sys
+    from pathlib import Path
+
+    from scripts.durable_schema_apply import apply_durable_schema
+
+    url = custody_database_url
+    assert apply_durable_schema(database_url=url).status == "passed"
+    state = tmp_path / "pooled-state.json"
+    outputs = {}
+    for phase in ("write", "read", "retry"):
+        active_url = make_url(url)
+        if phase == "read":
+            # Enforced by PostgreSQL, independently of the SQL observer. This
+            # explicit proof configuration does not change runtime defaults.
+            options = active_url.query["options"] + (
+                " -cdefault_transaction_read_only=on -cdefault_transaction_isolation=repeatable\\ read"
+            )
+            active_url = active_url.update_query_dict({"options": options})
+        completed = subprocess.run(
+            [
+                sys.executable,
+                "-m",
+                "tests.benchmarks.composite_pooled_mwr_process_controls",
+                "--state",
+                str(state),
+                "--phase",
+                phase,
+            ],
+            cwd=Path(__file__).resolve().parents[2],
+            env={
+                **os.environ,
+                "LINEAGE_METADATA_DATABASE_URL": active_url.render_as_string(hide_password=False),
+                "LINEAGE_STORAGE_PATH": str(tmp_path / "lineage"),
+            },
+            capture_output=True,
+            text=True,
+            timeout=60,
+            check=False,
+        )
+        (tmp_path / f"{phase}.stdout.log").write_text(completed.stdout, encoding="utf-8")
+        (tmp_path / f"{phase}.stderr.log").write_text(completed.stderr, encoding="utf-8")
+        assert completed.returncode == 0, completed.stdout + completed.stderr
+        outputs[phase] = json.loads(completed.stdout.splitlines()[-1])
+    assert len({value["pid"] for value in outputs.values()}) == 3
+    assert outputs["write"]["result"]["results"] == outputs["read"]["result"]["results"]
+    assert outputs["write"]["result"]["results"] == outputs["retry"]["result"]["results"]
+    proof = {
+        "phases": outputs,
+        "qualification": "CONTROLLED_SYNTHETIC_ONLY",
+        "institutional_attestation": "NOT_ATTESTED",
+        "database_schema": make_url(url).query["options"],
+    }
+    (tmp_path / "pooled-process-proof.json").write_text(json.dumps(proof, sort_keys=True), encoding="utf-8")
+
+
 def test_postgres_registered_pooled_original_worker_and_replay(pooled_api_runtime):
     _assert_registered_original(pooled_api_runtime)
 
