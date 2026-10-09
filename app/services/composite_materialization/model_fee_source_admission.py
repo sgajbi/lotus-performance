@@ -7,6 +7,7 @@ from typing import Any, NoReturn
 from pydantic import ValidationError
 
 from app.models.composite_authority import ManageCompositeDefinitionV2, authority_digest
+from app.models.composite_eligibility_evidence import SubjectFinalizationReceipt
 from app.models.composite_model_fees import CompositeModelFeePeriod, CompositePeriodicModelFeeProfile
 from app.ports import composite_external_evidence as approvals
 from app.ports import composite_model_fees as sources
@@ -141,7 +142,9 @@ def _require_profile_scope(request, profile):
 
 
 def _require_method_approval(source, command, request, raw):
-    if source.published_eligibility is not None:
+    if source.published_eligibility is not None and isinstance(
+        source.published_eligibility.receipt, SubjectFinalizationReceipt
+    ):
         _require_published_method_approval(source, request)
         return
     definition = source.definition
@@ -164,13 +167,19 @@ def _require_method_approval(source, command, request, raw):
         universe_digest,
         request.expected_members,
         method_evidence_wire=deepcopy(raw),
+        eligibility_evidence_wire=(
+            source.published_eligibility.receipt.model_dump() if source.published_eligibility is not None else None
+        ),
     )
     if approvals.method_approval_verifier().verify(approval_request) is not True:
         _refuse("COMPOSITE_MODEL_FEE_METHOD_APPROVAL_UNAVAILABLE")
 
 
 def _require_published_method_approval(source, request):
-    finalization = source.published_eligibility.receipt.finalization
+    receipt = source.published_eligibility.receipt
+    if not isinstance(receipt, SubjectFinalizationReceipt):
+        _refuse("COMPOSITE_MODEL_FEE_METHOD_APPROVAL_UNAVAILABLE")
+    finalization = receipt.finalization
     receipts = [row for row in finalization.verifications if row.request.purpose == "RETURN_METHOD_CALENDAR"]
     if len(receipts) != 1 or (receipts[0].request.binding, receipts[0].request.claims_digest) != (
         request.binding,

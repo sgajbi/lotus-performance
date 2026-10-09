@@ -197,6 +197,13 @@ def _verify_independent_approvals(
     definition, command, universe_digest, expected_members, published_eligibility=None
 ) -> None:
     payload = definition.source_authority.payload
+    from app.models.composite_monthly_eligibility_evidence import CompositeMonthlyEligibilityPublicationReceipt
+
+    if isinstance(published_eligibility, approval_ports.PublishedEligibilityEvidence) and isinstance(
+        published_eligibility.receipt, CompositeMonthlyEligibilityPublicationReceipt
+    ):
+        _verify_monthly_approvals(definition, command, universe_digest, expected_members, published_eligibility.receipt)
+        return
     if payload.eligibility_evaluation_binding.product_name == "CompositeSubjectEvaluationApproval":
         _verify_lifecycle_approvals(published_eligibility)
         return
@@ -248,12 +255,98 @@ def _verify_lifecycle_approvals(published_eligibility) -> None:
         finalization.evaluation_approval.verification,
         *finalization.verifications,
     ]
+    if proposal.source_assembly_evidence is not None:
+        receipts.append(proposal.source_assembly_evidence.verification)
     verifier = approval_ports.composite_receipt_verifier()
     for receipt in receipts:
         result = verifier.verify(receipt.request.model_copy(deep=True))
         if not isinstance(result, approval_ports.VerifiedCompositeEvidence) or result.expectation is None:
             raise authority_refusal("COMPOSITE_RECEIPT_VERIFICATION_UNAVAILABLE")
         _admit_lifecycle_verification(receipt, result)
+
+
+def _verify_monthly_approvals(definition, command, universe_digest, expected_members, receipt) -> None:
+    """Each month's policy/checker/source cut needs its own independent admission."""
+    from app.models.composite_authority import EvidenceBinding, authority_digest
+    from app.models.composite_eligibility_evidence import _month_window
+
+    proposal = receipt.approval.proposal
+    assembly = proposal.source_assembly_evidence
+    if assembly is None:
+        raise authority_refusal("COMPOSITE_MONTHLY_SOURCE_ASSEMBLY_UNAVAILABLE")
+    result = approval_ports.composite_receipt_verifier().verify(assembly.verification.request.model_copy(deep=True))
+    if not isinstance(result, approval_ports.VerifiedCompositeEvidence) or result.expectation is None:
+        raise authority_refusal("COMPOSITE_RECEIPT_VERIFICATION_UNAVAILABLE")
+    _admit_lifecycle_verification(assembly.verification, result)
+    payload = definition.source_authority.payload
+    first, last = _month_window(proposal.observations.month)
+    policy = proposal.policy_approval
+    checks = (
+        (
+            "COMPOSITE_ECONOMIC_AUTHORITY_PROFILE",
+            None,
+            approval_ports.authority_approval_verifier,
+            payload.effective_from,
+            payload.effective_to,
+            "COMPOSITE_AUTHORITY_APPROVAL_UNAVAILABLE",
+        ),
+        (
+            "RETURN_METHOD_CALENDAR",
+            payload.return_method_binding,
+            approval_ports.method_approval_verifier,
+            payload.effective_from,
+            payload.effective_to,
+            "COMPOSITE_METHOD_APPROVAL_UNAVAILABLE",
+        ),
+        (
+            "ELIGIBILITY_POLICY",
+            EvidenceBinding(
+                product_name=policy.product_name,
+                product_version=policy.product_version,
+                revision=policy.proposal.proposal_revision,
+                digest=policy.content_hash,
+            ),
+            approval_ports.eligibility_approval_verifier,
+            first,
+            last,
+            "COMPOSITE_ELIGIBILITY_APPROVAL_UNAVAILABLE",
+        ),
+        (
+            "COMPOSITE_MONTHLY_MEMBERSHIP_APPROVAL",
+            EvidenceBinding(
+                product_name=receipt.approval.product_name,
+                product_version=receipt.approval.product_version,
+                revision=proposal.evaluation_revision,
+                digest=receipt.approval.content_hash,
+            ),
+            approval_ports.eligibility_approval_verifier,
+            first,
+            last,
+            "COMPOSITE_ELIGIBILITY_APPROVAL_UNAVAILABLE",
+        ),
+    )
+    for purpose, binding, factory, effective_from, effective_to, code in checks:
+        request = approval_ports.CompositeApprovalRequest(
+            purpose=purpose,
+            tenant_id=definition.tenant_id,
+            composite_id=definition.composite_id,
+            definition_version=definition.definition_version,
+            binding=binding,
+            effective_from=effective_from,
+            effective_to=effective_to,
+            definition=definition,
+            command=command,
+            universe_digest=universe_digest,
+            expected_members=tuple(sorted(expected_members)),
+            eligibility_evidence_wire=receipt.model_dump(),
+            authority_claims_digest=(
+                authority_digest(definition.authority_approval.claims.model_dump())
+                if purpose == "COMPOSITE_ECONOMIC_AUTHORITY_PROFILE"
+                else None
+            ),
+        )
+        if factory().verify(request) is not True:
+            raise authority_refusal(code)
 
 
 def _admit_lifecycle_verification(receipt, result) -> None:

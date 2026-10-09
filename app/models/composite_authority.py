@@ -24,6 +24,23 @@ def authority_digest(payload: dict[str, Any]) -> str:
     return "sha256:" + hashlib.sha256(wire.encode("utf-8")).hexdigest()
 
 
+def legacy_composite_product_digest(payload: dict[str, Any]) -> str:
+    """Preserve Manage v1 membership/universe hashing, including nested omissions.
+
+    Nested source-product digests must also be compared independently at admission.
+    This historical algorithm is not the full-envelope approval/receipt algorithm.
+    """
+
+    def strip(value: Any) -> Any:
+        if isinstance(value, dict):
+            return {key: strip(item) for key, item in value.items() if key != "content_hash"}
+        if isinstance(value, list):
+            return [strip(item) for item in value]
+        return value
+
+    return authority_digest(strip(payload))
+
+
 def decode_authority_json(wire: str) -> dict[str, Any]:
     def pairs(items):
         result = {}

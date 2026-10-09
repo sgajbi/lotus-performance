@@ -18,6 +18,7 @@ from app.models.composite_eligibility_evidence import (
     decode_eligibility_receipt,
 )
 from app.models.composite_materialization import CompositeMaterializationCommand
+from app.models.composite_monthly_eligibility_evidence import CompositeMonthlyEligibilityPublicationReceipt
 
 
 @dataclass(frozen=True)
@@ -26,7 +27,7 @@ class CompositeApprovalRequest:
     tenant_id: str
     composite_id: str
     definition_version: str
-    binding: EvidenceBinding
+    binding: EvidenceBinding | None
     effective_from: str
     effective_to: str
     definition: ManageCompositeDefinitionV2
@@ -34,6 +35,8 @@ class CompositeApprovalRequest:
     universe_digest: str
     expected_members: tuple[str, ...]
     method_evidence_wire: dict[str, Any] | None = None
+    eligibility_evidence_wire: dict[str, Any] | None = None
+    authority_claims_digest: str | None = None
 
 
 class CompositeApprovalVerificationPort(Protocol):
@@ -92,7 +95,7 @@ class PublishedEligibilityEvidence:
     This port result is not an additional persisted lifecycle product.
     """
 
-    receipt: SubjectFinalizationReceipt
+    receipt: SubjectFinalizationReceipt | CompositeMonthlyEligibilityPublicationReceipt
     membership_binding: EvidenceBinding
     universe_binding: EvidenceBinding
     source_cut_id: str
@@ -155,11 +158,14 @@ def _evidence_require(condition: bool, code: str) -> None:
 def admit_resolved_eligibility(
     request: EligibilityResolutionRequest,
     result: PublishedEligibilityEvidence | UnavailableCompositeEvidence,
-) -> SubjectFinalizationReceipt:
+) -> SubjectFinalizationReceipt | CompositeMonthlyEligibilityPublicationReceipt:
     """Validate a typed resolver result against consumer-owned immutable pins."""
     if not isinstance(result, PublishedEligibilityEvidence):
         raise ValueError("COMPOSITE_ELIGIBILITY_PUBLISHED_CUSTODY_UNAVAILABLE")
     receipt = decode_eligibility_receipt(result.receipt.model_dump_json())
+    if isinstance(receipt, CompositeMonthlyEligibilityPublicationReceipt):
+        _admit_monthly_resolution(request, result, receipt)
+        return receipt
     subject = receipt.finalization.subject
     _evidence_require(
         (subject.tenant_id, subject.composite_id, subject.definition_version)
@@ -178,6 +184,53 @@ def admit_resolved_eligibility(
     )
     _published_pins(request, result, receipt)
     return receipt
+
+
+def _admit_monthly_resolution(request, result, receipt: CompositeMonthlyEligibilityPublicationReceipt) -> None:
+    definition = receipt.definition
+    approval = receipt.approval
+    proposal = approval.proposal
+    from app.models.composite_eligibility_evidence import _month_window
+
+    _evidence_require(
+        (definition.tenant_id, definition.composite_id, definition.definition_version)
+        == (request.tenant_id, request.composite_id, request.definition_version),
+        "COMPOSITE_ELIGIBILITY_RESOLUTION_SCOPE_MISMATCH",
+    )
+    _evidence_require(
+        _month_window(proposal.observations.month) == (request.effective_from, request.effective_to),
+        "COMPOSITE_ELIGIBILITY_RESOLUTION_WINDOW_MISMATCH",
+    )
+    _evidence_require(
+        request.evaluation_binding
+        == EvidenceBinding(
+            product_name=approval.product_name,
+            product_version=approval.product_version,
+            revision=proposal.evaluation_revision,
+            digest=approval.content_hash,
+        ),
+        "COMPOSITE_ELIGIBILITY_RESOLUTION_BINDING_MISMATCH",
+    )
+    _evidence_require(
+        (result.membership_binding, result.universe_binding)
+        == (request.membership_binding, request.universe_binding)
+        == (receipt.membership_binding, receipt.universe_binding),
+        "COMPOSITE_ELIGIBILITY_PUBLICATION_BINDING_MISMATCH",
+    )
+    _evidence_require(
+        result.source_cut_id == request.source_cut_id == receipt.source_cut_id,
+        "COMPOSITE_ELIGIBILITY_PUBLICATION_CUT_MISMATCH",
+    )
+    _evidence_require(
+        result.member_identities
+        == request.member_identities
+        == tuple(definition.source_authority.payload.member_identities),
+        "COMPOSITE_ELIGIBILITY_PUBLICATION_MEMBER_MISMATCH",
+    )
+    _evidence_require(
+        type(result.publication_sequence) is int and result.publication_sequence == receipt.publication_sequence,
+        "COMPOSITE_ELIGIBILITY_PUBLICATION_SEQUENCE_MISMATCH",
+    )
 
 
 def _published_pins(
