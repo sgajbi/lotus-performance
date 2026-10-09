@@ -8,7 +8,7 @@
       "openApiVersion": "3.1.0"
     }
   ],
-  "generatedAt": "2026-10-09T11:27:34.031085+00:00",
+  "generatedAt": "2026-10-09T15:28:03.194917+00:00",
   "attributeCatalog": [
     {
       "semanticId": "lotus.access_classification",
@@ -2306,6 +2306,48 @@
       ]
     },
     {
+      "semanticId": "lotus.cumulative_fee_drag",
+      "canonicalTerm": "cumulative_fee_drag",
+      "preferredName": "cumulative_fee_drag",
+      "description": "Difference of geometrically linked gross/model returns; not the sum of period differences.",
+      "example": "example_cumulative_fee_drag",
+      "type": "string",
+      "locations": [
+        "body"
+      ],
+      "observedTypes": [
+        "string"
+      ]
+    },
+    {
+      "semanticId": "lotus.cumulative_gross_return",
+      "canonicalTerm": "cumulative_gross_return",
+      "preferredName": "cumulative_gross_return",
+      "description": "Performance metric value for cumulative gross return.",
+      "example": "example_cumulative_gross_return",
+      "type": "string",
+      "locations": [
+        "body"
+      ],
+      "observedTypes": [
+        "string"
+      ]
+    },
+    {
+      "semanticId": "lotus.cumulative_model_net_return",
+      "canonicalTerm": "cumulative_model_net_return",
+      "preferredName": "cumulative_model_net_return",
+      "description": "Performance metric value for cumulative model net return.",
+      "example": "example_cumulative_model_net_return",
+      "type": "string",
+      "locations": [
+        "body"
+      ],
+      "observedTypes": [
+        "string"
+      ]
+    },
+    {
       "semanticId": "lotus.cumulative_return",
       "canonicalTerm": "cumulative_return",
       "preferredName": "cumulative_return",
@@ -3773,6 +3815,20 @@
       ]
     },
     {
+      "semanticId": "lotus.fee_drag",
+      "canonicalTerm": "fee_drag",
+      "preferredName": "fee_drag",
+      "description": "Gross minus model-net return; a decimal return difference, not money.",
+      "example": "example_fee_drag",
+      "type": "string",
+      "locations": [
+        "body"
+      ],
+      "observedTypes": [
+        "string"
+      ]
+    },
+    {
       "semanticId": "lotus.fee_effect",
       "canonicalTerm": "fee_effect",
       "preferredName": "fee_effect",
@@ -4156,6 +4212,48 @@
       "preferredName": "governed_target",
       "description": "Governed action target associated with the reclaimed stale lease.",
       "example": "example_governed_target",
+      "type": "string",
+      "locations": [
+        "body"
+      ],
+      "observedTypes": [
+        "string"
+      ]
+    },
+    {
+      "semanticId": "lotus.gross_baseline",
+      "canonicalTerm": "gross_baseline",
+      "preferredName": "gross_baseline",
+      "description": "composite fee drag response field: gross baseline.",
+      "example": "example_gross_baseline",
+      "type": "string",
+      "locations": [
+        "body"
+      ],
+      "observedTypes": [
+        "string"
+      ]
+    },
+    {
+      "semanticId": "lotus.gross_receipt_digest",
+      "canonicalTerm": "gross_receipt_digest",
+      "preferredName": "gross_receipt_digest",
+      "description": "composite fee drag member source field: gross receipt digest.",
+      "example": "example_gross_receipt_digest",
+      "type": "string",
+      "locations": [
+        "body"
+      ],
+      "observedTypes": [
+        "string"
+      ]
+    },
+    {
+      "semanticId": "lotus.gross_return",
+      "canonicalTerm": "gross_return",
+      "preferredName": "gross_return",
+      "description": "Performance metric value for gross return.",
+      "example": "example_gross_return",
       "type": "string",
       "locations": [
         "body"
@@ -5578,6 +5676,28 @@
       ]
     },
     {
+      "semanticId": "lotus.member_sources",
+      "canonicalTerm": "member_sources",
+      "preferredName": "member_sources",
+      "description": "composite fee drag response field: member sources.",
+      "example": [
+        {
+          "portfolio_id": "DEMO_DPM_EUR_001",
+          "period_start": "2026-02-27",
+          "period_end": "2026-02-27",
+          "gross_receipt_digest": "example_gross_receipt_digest",
+          "model_receipt_digest": "example_model_receipt_digest"
+        }
+      ],
+      "type": "array",
+      "locations": [
+        "body"
+      ],
+      "observedTypes": [
+        "array"
+      ]
+    },
+    {
       "semanticId": "lotus.members",
       "canonicalTerm": "members",
       "preferredName": "members",
@@ -5968,19 +6088,45 @@
       "semanticId": "lotus.model_fee_binding",
       "canonicalTerm": "model_fee_binding",
       "preferredName": "model_fee_binding",
-      "description": "Immutable independently resolved periodic model-fee profile; required only for NET_MODEL_FEE.",
+      "description": "evidence binding object.",
       "example": {
-        "product_name": "example_product_name",
-        "product_version": "example_product_version",
-        "revision": "example_revision",
-        "digest": "example_digest"
+        "key": "value"
       },
-      "type": "object",
+      "type": "EvidenceBinding",
       "locations": [
         "body"
       ],
       "observedTypes": [
+        "EvidenceBinding",
         "object"
+      ]
+    },
+    {
+      "semanticId": "lotus.model_net_return",
+      "canonicalTerm": "model_net_return",
+      "preferredName": "model_net_return",
+      "description": "Performance metric value for model net return.",
+      "example": "example_model_net_return",
+      "type": "string",
+      "locations": [
+        "body"
+      ],
+      "observedTypes": [
+        "string"
+      ]
+    },
+    {
+      "semanticId": "lotus.model_receipt_digest",
+      "canonicalTerm": "model_receipt_digest",
+      "preferredName": "model_receipt_digest",
+      "description": "composite fee drag member source field: model receipt digest.",
+      "example": "example_model_receipt_digest",
+      "type": "string",
+      "locations": [
+        "body"
+      ],
+      "observedTypes": [
+        "string"
       ]
     },
     {
@@ -17143,6 +17289,96 @@
             "semanticId": "lotus.correction_of_calculation_id",
             "attributeRef": "#/attributeCatalog/lotus.correction_of_calculation_id",
             "schemaVariant": "CompositePooledMWRRequest"
+          },
+          {
+            "name": "calculation_id",
+            "location": "body",
+            "required": false,
+            "type": "string",
+            "semanticId": "lotus.calculation_id",
+            "attributeRef": "#/attributeCatalog/lotus.calculation_id",
+            "schemaVariant": "CompositeFeeDragRequest"
+          },
+          {
+            "name": "composite_id",
+            "location": "body",
+            "required": true,
+            "type": "string",
+            "semanticId": "lotus.composite_id",
+            "attributeRef": "#/attributeCatalog/lotus.composite_id",
+            "schemaVariant": "CompositeFeeDragRequest"
+          },
+          {
+            "name": "period_start",
+            "location": "body",
+            "required": true,
+            "type": "string",
+            "semanticId": "lotus.period_start",
+            "attributeRef": "#/attributeCatalog/lotus.period_start",
+            "schemaVariant": "CompositeFeeDragRequest"
+          },
+          {
+            "name": "period_end",
+            "location": "body",
+            "required": true,
+            "type": "string",
+            "semanticId": "lotus.period_end",
+            "attributeRef": "#/attributeCatalog/lotus.period_end",
+            "schemaVariant": "CompositeFeeDragRequest"
+          },
+          {
+            "name": "return_view",
+            "location": "body",
+            "required": false,
+            "type": "string",
+            "semanticId": "lotus.return_view",
+            "attributeRef": "#/attributeCatalog/lotus.return_view",
+            "schemaVariant": "CompositeFeeDragRequest"
+          },
+          {
+            "name": "reporting_currency",
+            "location": "body",
+            "required": false,
+            "type": "string",
+            "semanticId": "lotus.reporting_currency",
+            "attributeRef": "#/attributeCatalog/lotus.reporting_currency",
+            "schemaVariant": "CompositeFeeDragRequest"
+          },
+          {
+            "name": "restatement_sequence",
+            "location": "body",
+            "required": false,
+            "type": "integer",
+            "semanticId": "lotus.restatement_sequence",
+            "attributeRef": "#/attributeCatalog/lotus.restatement_sequence",
+            "schemaVariant": "CompositeFeeDragRequest"
+          },
+          {
+            "name": "materialization_ids",
+            "location": "body",
+            "required": true,
+            "type": "array",
+            "semanticId": "lotus.materialization_ids",
+            "attributeRef": "#/attributeCatalog/lotus.materialization_ids",
+            "schemaVariant": "CompositeFeeDragRequest"
+          },
+          {
+            "name": "metric_id",
+            "location": "body",
+            "required": true,
+            "type": "string",
+            "semanticId": "lotus.metric_id",
+            "attributeRef": "#/attributeCatalog/lotus.metric_id",
+            "schemaVariant": "CompositeFeeDragRequest"
+          },
+          {
+            "name": "method",
+            "location": "body",
+            "required": false,
+            "type": "string",
+            "semanticId": "lotus.method",
+            "attributeRef": "#/attributeCatalog/lotus.method",
+            "schemaVariant": "CompositeFeeDragRequest"
           }
         ]
       },
@@ -19226,6 +19462,438 @@
             "semanticId": "lotus.original_solver_result",
             "attributeRef": "#/attributeCatalog/lotus.original_solver_result",
             "schemaVariant": "CompositePooledMWRResponse"
+          },
+          {
+            "name": "metric_id",
+            "location": "body",
+            "required": false,
+            "type": "string",
+            "semanticId": "lotus.metric_id",
+            "attributeRef": "#/attributeCatalog/lotus.metric_id",
+            "schemaVariant": "CompositeFeeDragResponse"
+          },
+          {
+            "name": "calculation_id",
+            "location": "body",
+            "required": true,
+            "type": "string",
+            "semanticId": "lotus.calculation_id",
+            "attributeRef": "#/attributeCatalog/lotus.calculation_id",
+            "schemaVariant": "CompositeFeeDragResponse"
+          },
+          {
+            "name": "composite_id",
+            "location": "body",
+            "required": true,
+            "type": "string",
+            "semanticId": "lotus.composite_id",
+            "attributeRef": "#/attributeCatalog/lotus.composite_id",
+            "schemaVariant": "CompositeFeeDragResponse"
+          },
+          {
+            "name": "period_start",
+            "location": "body",
+            "required": true,
+            "type": "string",
+            "semanticId": "lotus.period_start",
+            "attributeRef": "#/attributeCatalog/lotus.period_start",
+            "schemaVariant": "CompositeFeeDragResponse"
+          },
+          {
+            "name": "period_end",
+            "location": "body",
+            "required": true,
+            "type": "string",
+            "semanticId": "lotus.period_end",
+            "attributeRef": "#/attributeCatalog/lotus.period_end",
+            "schemaVariant": "CompositeFeeDragResponse"
+          },
+          {
+            "name": "reporting_currency",
+            "location": "body",
+            "required": true,
+            "type": "string",
+            "semanticId": "lotus.reporting_currency",
+            "attributeRef": "#/attributeCatalog/lotus.reporting_currency",
+            "schemaVariant": "CompositeFeeDragResponse"
+          },
+          {
+            "name": "method",
+            "location": "body",
+            "required": false,
+            "type": "string",
+            "semanticId": "lotus.method",
+            "attributeRef": "#/attributeCatalog/lotus.method",
+            "schemaVariant": "CompositeFeeDragResponse"
+          },
+          {
+            "name": "units",
+            "location": "body",
+            "required": false,
+            "type": "string",
+            "semanticId": "lotus.units",
+            "attributeRef": "#/attributeCatalog/lotus.units",
+            "schemaVariant": "CompositeFeeDragResponse"
+          },
+          {
+            "name": "status",
+            "location": "body",
+            "required": false,
+            "type": "string",
+            "semanticId": "lotus.status",
+            "attributeRef": "#/attributeCatalog/lotus.status",
+            "schemaVariant": "CompositeFeeDragResponse"
+          },
+          {
+            "name": "qualification",
+            "location": "body",
+            "required": false,
+            "type": "string",
+            "semanticId": "lotus.qualification",
+            "attributeRef": "#/attributeCatalog/lotus.qualification",
+            "schemaVariant": "CompositeFeeDragResponse"
+          },
+          {
+            "name": "gross_baseline",
+            "location": "body",
+            "required": false,
+            "type": "string",
+            "semanticId": "lotus.gross_baseline",
+            "attributeRef": "#/attributeCatalog/lotus.gross_baseline",
+            "schemaVariant": "CompositeFeeDragResponse"
+          },
+          {
+            "name": "model_fee_binding",
+            "location": "body",
+            "required": true,
+            "type": "EvidenceBinding",
+            "semanticId": "lotus.model_fee_binding",
+            "attributeRef": "#/attributeCatalog/lotus.model_fee_binding",
+            "schemaVariant": "CompositeFeeDragResponse"
+          },
+          {
+            "name": "model_fee_binding.product_name",
+            "location": "body",
+            "required": true,
+            "type": "string",
+            "semanticId": "lotus.product_name",
+            "attributeRef": "#/attributeCatalog/lotus.product_name",
+            "schemaVariant": "CompositeFeeDragResponse"
+          },
+          {
+            "name": "model_fee_binding.product_version",
+            "location": "body",
+            "required": true,
+            "type": "string",
+            "semanticId": "lotus.product_version",
+            "attributeRef": "#/attributeCatalog/lotus.product_version",
+            "schemaVariant": "CompositeFeeDragResponse"
+          },
+          {
+            "name": "model_fee_binding.revision",
+            "location": "body",
+            "required": true,
+            "type": "string",
+            "semanticId": "lotus.revision",
+            "attributeRef": "#/attributeCatalog/lotus.revision",
+            "schemaVariant": "CompositeFeeDragResponse"
+          },
+          {
+            "name": "model_fee_binding.digest",
+            "location": "body",
+            "required": true,
+            "type": "string",
+            "semanticId": "lotus.digest",
+            "attributeRef": "#/attributeCatalog/lotus.digest",
+            "schemaVariant": "CompositeFeeDragResponse"
+          },
+          {
+            "name": "cumulative_gross_return",
+            "location": "body",
+            "required": true,
+            "type": "string",
+            "semanticId": "lotus.cumulative_gross_return",
+            "attributeRef": "#/attributeCatalog/lotus.cumulative_gross_return",
+            "schemaVariant": "CompositeFeeDragResponse"
+          },
+          {
+            "name": "cumulative_model_net_return",
+            "location": "body",
+            "required": true,
+            "type": "string",
+            "semanticId": "lotus.cumulative_model_net_return",
+            "attributeRef": "#/attributeCatalog/lotus.cumulative_model_net_return",
+            "schemaVariant": "CompositeFeeDragResponse"
+          },
+          {
+            "name": "cumulative_fee_drag",
+            "location": "body",
+            "required": true,
+            "type": "string",
+            "semanticId": "lotus.cumulative_fee_drag",
+            "attributeRef": "#/attributeCatalog/lotus.cumulative_fee_drag",
+            "schemaVariant": "CompositeFeeDragResponse"
+          },
+          {
+            "name": "periods",
+            "location": "body",
+            "required": true,
+            "type": "array",
+            "semanticId": "lotus.periods",
+            "attributeRef": "#/attributeCatalog/lotus.periods",
+            "schemaVariant": "CompositeFeeDragResponse"
+          },
+          {
+            "name": "periods[].period_start",
+            "location": "body",
+            "required": true,
+            "type": "string",
+            "semanticId": "lotus.period_start",
+            "attributeRef": "#/attributeCatalog/lotus.period_start",
+            "schemaVariant": "CompositeFeeDragResponse"
+          },
+          {
+            "name": "periods[].period_end",
+            "location": "body",
+            "required": true,
+            "type": "string",
+            "semanticId": "lotus.period_end",
+            "attributeRef": "#/attributeCatalog/lotus.period_end",
+            "schemaVariant": "CompositeFeeDragResponse"
+          },
+          {
+            "name": "periods[].gross_return",
+            "location": "body",
+            "required": true,
+            "type": "string",
+            "semanticId": "lotus.gross_return",
+            "attributeRef": "#/attributeCatalog/lotus.gross_return",
+            "schemaVariant": "CompositeFeeDragResponse"
+          },
+          {
+            "name": "periods[].model_net_return",
+            "location": "body",
+            "required": true,
+            "type": "string",
+            "semanticId": "lotus.model_net_return",
+            "attributeRef": "#/attributeCatalog/lotus.model_net_return",
+            "schemaVariant": "CompositeFeeDragResponse"
+          },
+          {
+            "name": "periods[].fee_drag",
+            "location": "body",
+            "required": true,
+            "type": "string",
+            "semanticId": "lotus.fee_drag",
+            "attributeRef": "#/attributeCatalog/lotus.fee_drag",
+            "schemaVariant": "CompositeFeeDragResponse"
+          },
+          {
+            "name": "periods[].member_count",
+            "location": "body",
+            "required": true,
+            "type": "integer",
+            "semanticId": "lotus.member_count",
+            "attributeRef": "#/attributeCatalog/lotus.member_count",
+            "schemaVariant": "CompositeFeeDragResponse"
+          },
+          {
+            "name": "periods[].excluded_member_count",
+            "location": "body",
+            "required": true,
+            "type": "integer",
+            "semanticId": "lotus.excluded_member_count",
+            "attributeRef": "#/attributeCatalog/lotus.excluded_member_count",
+            "schemaVariant": "CompositeFeeDragResponse"
+          },
+          {
+            "name": "member_sources",
+            "location": "body",
+            "required": true,
+            "type": "array",
+            "semanticId": "lotus.member_sources",
+            "attributeRef": "#/attributeCatalog/lotus.member_sources",
+            "schemaVariant": "CompositeFeeDragResponse"
+          },
+          {
+            "name": "member_sources[].portfolio_id",
+            "location": "body",
+            "required": true,
+            "type": "string",
+            "semanticId": "lotus.portfolio_id",
+            "attributeRef": "#/attributeCatalog/lotus.portfolio_id",
+            "schemaVariant": "CompositeFeeDragResponse"
+          },
+          {
+            "name": "member_sources[].period_start",
+            "location": "body",
+            "required": true,
+            "type": "string",
+            "semanticId": "lotus.period_start",
+            "attributeRef": "#/attributeCatalog/lotus.period_start",
+            "schemaVariant": "CompositeFeeDragResponse"
+          },
+          {
+            "name": "member_sources[].period_end",
+            "location": "body",
+            "required": true,
+            "type": "string",
+            "semanticId": "lotus.period_end",
+            "attributeRef": "#/attributeCatalog/lotus.period_end",
+            "schemaVariant": "CompositeFeeDragResponse"
+          },
+          {
+            "name": "member_sources[].gross_receipt_digest",
+            "location": "body",
+            "required": true,
+            "type": "string",
+            "semanticId": "lotus.gross_receipt_digest",
+            "attributeRef": "#/attributeCatalog/lotus.gross_receipt_digest",
+            "schemaVariant": "CompositeFeeDragResponse"
+          },
+          {
+            "name": "member_sources[].model_receipt_digest",
+            "location": "body",
+            "required": true,
+            "type": "string",
+            "semanticId": "lotus.model_receipt_digest",
+            "attributeRef": "#/attributeCatalog/lotus.model_receipt_digest",
+            "schemaVariant": "CompositeFeeDragResponse"
+          },
+          {
+            "name": "selection_manifest",
+            "location": "body",
+            "required": true,
+            "type": "CompositeTWRSelectionManifest",
+            "semanticId": "lotus.selection_manifest",
+            "attributeRef": "#/attributeCatalog/lotus.selection_manifest",
+            "schemaVariant": "CompositeFeeDragResponse"
+          },
+          {
+            "name": "selection_manifest.qualification",
+            "location": "body",
+            "required": false,
+            "type": "string",
+            "semanticId": "lotus.qualification",
+            "attributeRef": "#/attributeCatalog/lotus.qualification",
+            "schemaVariant": "CompositeFeeDragResponse"
+          },
+          {
+            "name": "selection_manifest.windows",
+            "location": "body",
+            "required": true,
+            "type": "array",
+            "semanticId": "lotus.windows",
+            "attributeRef": "#/attributeCatalog/lotus.windows",
+            "schemaVariant": "CompositeFeeDragResponse"
+          },
+          {
+            "name": "selection_manifest.windows[].materialization_id",
+            "location": "body",
+            "required": true,
+            "type": "string",
+            "semanticId": "lotus.materialization_id",
+            "attributeRef": "#/attributeCatalog/lotus.materialization_id",
+            "schemaVariant": "CompositeFeeDragResponse"
+          },
+          {
+            "name": "selection_manifest.windows[].period_start",
+            "location": "body",
+            "required": true,
+            "type": "string",
+            "semanticId": "lotus.period_start",
+            "attributeRef": "#/attributeCatalog/lotus.period_start",
+            "schemaVariant": "CompositeFeeDragResponse"
+          },
+          {
+            "name": "selection_manifest.windows[].period_end",
+            "location": "body",
+            "required": true,
+            "type": "string",
+            "semanticId": "lotus.period_end",
+            "attributeRef": "#/attributeCatalog/lotus.period_end",
+            "schemaVariant": "CompositeFeeDragResponse"
+          },
+          {
+            "name": "selection_manifest.windows[].restatement_sequence",
+            "location": "body",
+            "required": true,
+            "type": "integer",
+            "semanticId": "lotus.restatement_sequence",
+            "attributeRef": "#/attributeCatalog/lotus.restatement_sequence",
+            "schemaVariant": "CompositeFeeDragResponse"
+          },
+          {
+            "name": "selection_manifest.windows[].definition_content_hash",
+            "location": "body",
+            "required": true,
+            "type": "string",
+            "semanticId": "lotus.definition_content_hash",
+            "attributeRef": "#/attributeCatalog/lotus.definition_content_hash",
+            "schemaVariant": "CompositeFeeDragResponse"
+          },
+          {
+            "name": "selection_manifest.windows[].membership_content_hash",
+            "location": "body",
+            "required": true,
+            "type": "string",
+            "semanticId": "lotus.membership_content_hash",
+            "attributeRef": "#/attributeCatalog/lotus.membership_content_hash",
+            "schemaVariant": "CompositeFeeDragResponse"
+          },
+          {
+            "name": "selection_manifest.windows[].attestation_content_hash",
+            "location": "body",
+            "required": true,
+            "type": "string",
+            "semanticId": "lotus.attestation_content_hash",
+            "attributeRef": "#/attributeCatalog/lotus.attestation_content_hash",
+            "schemaVariant": "CompositeFeeDragResponse"
+          },
+          {
+            "name": "selection_manifest.windows[].source_cut_id",
+            "location": "body",
+            "required": true,
+            "type": "string",
+            "semanticId": "lotus.source_cut_id",
+            "attributeRef": "#/attributeCatalog/lotus.source_cut_id",
+            "schemaVariant": "CompositeFeeDragResponse"
+          },
+          {
+            "name": "selection_manifest.windows[].method_binding",
+            "location": "body",
+            "required": true,
+            "type": "object",
+            "semanticId": "lotus.method_binding",
+            "attributeRef": "#/attributeCatalog/lotus.method_binding",
+            "schemaVariant": "CompositeFeeDragResponse"
+          },
+          {
+            "name": "selection_manifest.windows[].retained_receipt_fingerprint",
+            "location": "body",
+            "required": true,
+            "type": "string",
+            "semanticId": "lotus.retained_receipt_fingerprint",
+            "attributeRef": "#/attributeCatalog/lotus.retained_receipt_fingerprint",
+            "schemaVariant": "CompositeFeeDragResponse"
+          },
+          {
+            "name": "selection_manifest.engine_version",
+            "location": "body",
+            "required": true,
+            "type": "string",
+            "semanticId": "lotus.engine_version",
+            "attributeRef": "#/attributeCatalog/lotus.engine_version",
+            "schemaVariant": "CompositeFeeDragResponse"
+          },
+          {
+            "name": "selection_manifest.calculation_fingerprint",
+            "location": "body",
+            "required": true,
+            "type": "string",
+            "semanticId": "lotus.calculation_fingerprint",
+            "attributeRef": "#/attributeCatalog/lotus.calculation_fingerprint",
+            "schemaVariant": "CompositeFeeDragResponse"
           }
         ]
       }

@@ -147,6 +147,17 @@ def composite_eligibility_resolver() -> CompositeEligibilityResolutionPort:
 
 
 def composite_receipt_verifier() -> CompositeReceiptVerificationPort:
+    from app.core.config import get_settings
+
+    wire = get_settings().COMPOSITE_RECEIPT_VERIFIER_CONFIG_JSON
+    if wire:
+        from app.adapters.composite_receipt_verification.configuration import decode_receipt_verifier_configuration
+        from app.adapters.composite_receipt_verification.transport import ConfiguredCompositeReceiptVerifier
+
+        try:
+            return ConfiguredCompositeReceiptVerifier(decode_receipt_verifier_configuration(wire))
+        except (ValueError, TypeError):
+            return UnavailableReceiptVerification()
     return UnavailableReceiptVerification()
 
 

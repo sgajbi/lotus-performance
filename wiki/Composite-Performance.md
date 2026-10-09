@@ -556,6 +556,20 @@ resolver receipts with separately fetched canonical membership and universe resp
 products, changed current locators and fully rehashed decision tampering are refused. The inputs
 remain synthetic and unqualified; publication alone does not satisfy independent financial trust.
 
+## Retained model-fee drag
+
+The existing analytics operation accepts `MODEL_FEE_DRAG` with an exact complete model-fee
+materialization vector. It compares original gross receipts with the same model financial
+population and original assets. Period differences and independently linked horizon differences
+are decimal returns, not monetary charges. The response carries full method binding, original
+gross/model receipt pairs and selection provenance. It is calculated retained-source analysis,
+not live institutional qualification.
+
+See the [caller guide and full HTTP example](https://github.com/sgajbi/lotus-performance/blob/main/docs/guides/composite_model_fee_drag.md),
+[methodology](https://github.com/sgajbi/lotus-performance/blob/main/docs/methodologies/metrics/metric-composite-model-fee-drag.md)
+and [receipt verification boundaries](Composite-Receipt-Verification).
+Whole-cost component supplier admission, actual fees and institutional authority remain unresolved.
+
 ## References
 
 - [Composite performance guide](https://github.com/sgajbi/lotus-performance/blob/main/docs/guides/composite_performance.md)

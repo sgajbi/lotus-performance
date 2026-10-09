@@ -1,0 +1,165 @@
+{
+  "request": {
+    "composite_id": "SYNTHETIC_EXTERNAL_MONTHLY_USD",
+    "period_start": "2026-01-05",
+    "period_end": "2026-01-06",
+    "return_view": "NET_MODEL_FEE",
+    "reporting_currency": "USD",
+    "calculation_id": "06310000-0000-4000-8000-000000000001",
+    "materialization_ids": [
+      "d190ae64-d0fe-5f59-8235-cc013708b95d",
+      "4d131864-90d0-577f-9a79-6c4999b02f8b"
+    ],
+    "metric_id": "MODEL_FEE_DRAG",
+    "restatement_sequence": null
+  },
+  "response": {
+    "metric_id": "MODEL_FEE_DRAG",
+    "calculation_id": "06310000-0000-4000-8000-000000000001",
+    "composite_id": "SYNTHETIC_EXTERNAL_MONTHLY_USD",
+    "period_start": "2026-01-05",
+    "period_end": "2026-01-06",
+    "reporting_currency": "USD",
+    "method": "ADDITIVE_GROSS_MINUS_MODEL:v1",
+    "units": "DECIMAL_RETURN_DIFFERENCE",
+    "status": "CALCULATED_ANALYSIS",
+    "qualification": "RETAINED_SOURCE_ATTESTATION_NOT_LIVE_QUALIFIED",
+    "gross_baseline": "ORIGINAL_GROSS_RECEIPTS_SAME_MODEL_POPULATION",
+    "model_fee_binding": {
+      "product_name": "CompositeScheduledModelFeeProfile",
+      "product_version": "v1",
+      "revision": "profile.1",
+      "digest": "sha256:54573ecb82d82f2dc6d60e356387b1839e088659319a94e86087842ab060708b"
+    },
+    "cumulative_gross_return": "0.047211111111",
+    "cumulative_model_net_return": "0.047163262644",
+    "cumulative_fee_drag": "0.000047848467",
+    "periods": [
+      {
+        "period_start": "2026-01-05",
+        "period_end": "2026-01-05",
+        "gross_return": "0.023333333333",
+        "model_net_return": "0.023311579909",
+        "fee_drag": "0.000021753424",
+        "member_count": 3,
+        "excluded_member_count": 0
+      },
+      {
+        "period_start": "2026-01-06",
+        "period_end": "2026-01-06",
+        "gross_return": "0.023333333333",
+        "model_net_return": "0.023308328767",
+        "fee_drag": "0.000025004566",
+        "member_count": 3,
+        "excluded_member_count": 0
+      }
+    ],
+    "member_sources": [
+      {
+        "portfolio_id": "A",
+        "period_start": "2026-01-05",
+        "period_end": "2026-01-05",
+        "gross_receipt_digest": "sha256:905e846c869943fd40f2fac89e0e815cc0cb5ae86534ec9bcfa71148d3c18a53",
+        "model_receipt_digest": "sha256:f274685c7e049d36e190ed858a4ebf5b43d35d72abc5ad4465c0c220f2475bed"
+      },
+      {
+        "portfolio_id": "B",
+        "period_start": "2026-01-05",
+        "period_end": "2026-01-05",
+        "gross_receipt_digest": "sha256:e6240b7af118e32c93eab6e8b19e6fa18ecbd7b5cc546a552a0007576f6ef6e3",
+        "model_receipt_digest": "sha256:b3a8f9180c7b77bf64a93606efa5d8cc59707864c71ca5062d14e51f2124b7ed"
+      },
+      {
+        "portfolio_id": "C",
+        "period_start": "2026-01-05",
+        "period_end": "2026-01-05",
+        "gross_receipt_digest": "sha256:c4fa71092238a0a27f53b2c126628d43a956aa5cf513d284f86b669d84f08d66",
+        "model_receipt_digest": "sha256:22109db2b2729bc6c40b816cebac5f82f8fe979132a4453ec1d073ff244fa57c"
+      },
+      {
+        "portfolio_id": "A",
+        "period_start": "2026-01-06",
+        "period_end": "2026-01-06",
+        "gross_receipt_digest": "sha256:1ac07b430bc9104639d615b4e637b0a36cd37d25070c23668c317987c8d277dd",
+        "model_receipt_digest": "sha256:a5850c2158c203a04d08395d208a992b55ceae37898ef32f6dba0710e9d931cf"
+      },
+      {
+        "portfolio_id": "B",
+        "period_start": "2026-01-06",
+        "period_end": "2026-01-06",
+        "gross_receipt_digest": "sha256:8fc20a9deef50e8dc2c24ba591aeb4b09101e23c6521aa8b67bed932cd531780",
+        "model_receipt_digest": "sha256:e4c47451494da8f42076e9b3d770ffa371eef5ee366c086e6b844a4c42f001dd"
+      },
+      {
+        "portfolio_id": "C",
+        "period_start": "2026-01-06",
+        "period_end": "2026-01-06",
+        "gross_receipt_digest": "sha256:6fcfa46da19446356fe60fa47c0ab0a151beedd97f60ca9d00e48d1e0ce909cb",
+        "model_receipt_digest": "sha256:ff3815a6232a4b8298901ab5ddf30e3652f2ceeb347f3ad508b2c28a107f4694"
+      }
+    ],
+    "selection_manifest": {
+      "qualification": "EXPLICIT_RETAINED_CALCULATED_REPLAY",
+      "windows": [
+        {
+          "materialization_id": "d190ae64-d0fe-5f59-8235-cc013708b95d",
+          "period_start": "2026-01-05",
+          "period_end": "2026-01-05",
+          "restatement_sequence": 1,
+          "definition_content_hash": "sha256:824b137e8531955c977770e3650d9ce2cc17b4ec96a6b4c7f3a9adeca56a328c",
+          "membership_content_hash": "sha256:41d8db4f9107a834b9256e6547ffd721003d64fd303e0ec19ca049a0f0a92a5e",
+          "attestation_content_hash": "sha256:babc14df37030982ecb8a1500badf97b1167c057408a16bea24aba626bb28ca3",
+          "source_cut_id": "synthetic-cut-original",
+          "method_binding": {
+            "product_name": "CompositeScheduledModelFeeProfile",
+            "product_version": "v1",
+            "revision": "profile.1",
+            "digest": "sha256:54573ecb82d82f2dc6d60e356387b1839e088659319a94e86087842ab060708b"
+          },
+          "retained_receipt_fingerprint": "sha256:dd44a7fd20882efe8be1b9065c661110e1b7e5c4ae4baf2e16540e41e6d6a2d2"
+        },
+        {
+          "materialization_id": "4d131864-90d0-577f-9a79-6c4999b02f8b",
+          "period_start": "2026-01-06",
+          "period_end": "2026-01-06",
+          "restatement_sequence": 2,
+          "definition_content_hash": "sha256:0434cdc1872cacbb4bea89814051f00a586f19bfc237b6dfe4378d27e6b0906c",
+          "membership_content_hash": "sha256:c6c63d89db5a08753de0bb8e76ff4a7b6dcb1a831b532abc1de69d0450af98a0",
+          "attestation_content_hash": "sha256:01ff85f2c4611d2563d44ec043038d0d106df110f64c277f10a638466f452481",
+          "source_cut_id": "synthetic-cut-original",
+          "method_binding": {
+            "product_name": "CompositeScheduledModelFeeProfile",
+            "product_version": "v1",
+            "revision": "profile.1",
+            "digest": "sha256:54573ecb82d82f2dc6d60e356387b1839e088659319a94e86087842ab060708b"
+          },
+          "retained_receipt_fingerprint": "sha256:73fe153af85c5f60bdde2b7592da254463ff78f335501ec76c3b918e86a8c0fc"
+        }
+      ],
+      "engine_version": "lotus-performance-calculation-engine.v16",
+      "calculation_fingerprint": "sha256:663f0d54094dddcf1a74dbd415d22d53ac7ae80aaa07e008da483facea189746"
+    }
+  },
+  "missing_request": {
+    "composite_id": "SYNTHETIC_EXTERNAL_MONTHLY_USD",
+    "period_start": "2026-01-05",
+    "period_end": "2026-01-06",
+    "return_view": "NET_MODEL_FEE",
+    "reporting_currency": "USD",
+    "calculation_id": "06310000-0000-4000-8000-000000000001",
+    "materialization_ids": [
+      "00000000-0000-4000-8000-000000000609"
+    ],
+    "metric_id": "MODEL_FEE_DRAG",
+    "restatement_sequence": null
+  },
+  "missing_response": {
+    "detail": "Composite materialization was not found.",
+    "error_code": "RESOURCE_NOT_FOUND",
+    "message": "Composite materialization was not found.",
+    "correlation_id": "fee-drag-example",
+    "request_id": "fee-drag-example-request",
+    "source": "lotus-performance",
+    "retryable": false
+  }
+}

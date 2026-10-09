@@ -1,5 +1,10 @@
 # Composite Performance Guide
 
+For paired retained gross/model comparisons, use the [model-fee drag guide](composite_model_fee_drag.md)
+and [methodology](../methodologies/metrics/metric-composite-model-fee-drag.md). `MODEL_FEE_DRAG`
+shares the existing analytics operation and returns decimal return differences with original
+source pins; it does not supply actual monetary fees or institutional qualification.
+
 This guide describes the RFC-049 composite performance implementation in `lotus-performance`.
 It is grounded in the shipped composite models, engine, API routes, inspector service, tests, and
 data-product contracts.

@@ -5,6 +5,7 @@ from pydantic import TypeAdapter, ValidationError
 
 from app.models.composite_analytics import CompositeAnalyticsRequest
 from app.models.composite_annual_dispersion import CompositeAnnualDispersionRequest
+from app.models.composite_fee_drag import CompositeFeeDragRequest
 
 
 def _annual():
@@ -39,3 +40,17 @@ def test_annual_validation_errors_preserve_original_locations(change):
 def test_invalid_dispatch_is_validation_refusal(value):
     with pytest.raises(ValidationError):
         TypeAdapter(CompositeAnalyticsRequest).validate_python(value)
+
+
+def test_fee_drag_joins_existing_metric_dispatch_with_exact_model_request():
+    payload = {
+        "metric_id": "MODEL_FEE_DRAG",
+        "calculation_id": str(UUID(int=2)),
+        "composite_id": "COMPOSITE",
+        "period_start": "2026-01-01",
+        "period_end": "2026-01-31",
+        "materialization_ids": [str(UUID(int=1))],
+    }
+    actual = TypeAdapter(CompositeAnalyticsRequest).validate_python(payload)
+    assert isinstance(actual, CompositeFeeDragRequest)
+    assert actual.model_dump(mode="json") == CompositeFeeDragRequest.model_validate(payload).model_dump(mode="json")

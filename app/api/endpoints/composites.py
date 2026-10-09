@@ -11,6 +11,7 @@ from app.api.dependencies.composite_annual_dispersion import (
     annual_dispersion_openapi_examples,
     get_annual_dispersion_receipt_reader,
 )
+from app.api.dependencies.composite_fee_drag import fee_drag_openapi_examples
 from app.api.dependencies.composite_linked_contribution import linked_contribution_openapi_examples
 from app.api.dependencies.composite_pooled_mwr import require_pooled_principal
 from app.api.http_response_adapter import to_fastapi_response
@@ -19,6 +20,7 @@ from app.composite_principal_admission import trusted_request_principal
 from app.models.composite_analytics import CompositeAnalyticsRequest, CompositeAnalyticsResponse
 from app.models.composite_annual_comparison import CompositeAnnualComparisonRequest, CompositeAnnualComparisonResponse
 from app.models.composite_annual_dispersion import CompositeAnnualDispersionResponse
+from app.models.composite_fee_drag import CompositeFeeDragRequest, CompositeFeeDragResponse
 from app.models.composite_linked_contribution import (
     CompositeLinkedContributionRequest,
     CompositeLinkedContributionResponse,
@@ -53,6 +55,7 @@ from app.services.composite_calculation_service import (
     calculate_composite_twr_from_materializations,
     calculate_composite_twr_from_persisted_facts,
 )
+from app.services.composite_fee_drag.application import calculate_model_fee_drag
 from app.services.composite_inspection_service import inspect_composite_twr_from_persisted_facts
 from app.services.composite_linked_contribution.application import calculate_linked_member_contribution
 from app.services.composite_metadata_store import CompositeMemberReturnFactSelectionError
@@ -509,6 +512,7 @@ def inspect_composite_twr(
 
 ANNUAL_DISPERSION_OPENAPI_EXAMPLES = annual_dispersion_openapi_examples()
 LINKED_CONTRIBUTION_OPENAPI_EXAMPLES = linked_contribution_openapi_examples()
+FEE_DRAG_OPENAPI_EXAMPLES = fee_drag_openapi_examples()
 
 
 @router.post(
@@ -523,6 +527,8 @@ LINKED_CONTRIBUTION_OPENAPI_EXAMPLES = linked_contribution_openapi_examples()
         "pooled monetary calculation using qualified source ports and verified principal/member scope. "
         "Original monetary inputs and results are retained immutably; corrections use new calculation IDs. "
         "Member IRRs are never averaged. Missing supplier authority refuses; controlled examples remain synthetic. "
+        "MODEL_FEE_DRAG compares original gross and model-net returns from the same complete retained model-fee "
+        "receipt vector. Period and independently linked horizon differences are decimal return differences, not cash fees. "
         "The linked metric uses "
         "Decimal beginning-asset economics, never quantized public weights. Decimal-return units; "
         "multiply by 100 for percentage points or 10000 for basis points. Continuous zero/near-zero "
@@ -539,12 +545,13 @@ LINKED_CONTRIBUTION_OPENAPI_EXAMPLES = linked_contribution_openapi_examples()
             "description": "Pooled XIRR accepted for the existing compute worker; follow result_path.",
         },
         200: {
-            "description": "Named annual dispersion or pinned linked member contribution calculated dataset.",
+            "description": "Named annual dispersion, linked member contribution or same-population model fee drag.",
             "content": {
                 "application/json": {
                     "examples": {
                         "annual_member_dispersion": {"value": ANNUAL_DISPERSION_OPENAPI_EXAMPLES["response"]},
                         "linked_member_contribution": {"value": LINKED_CONTRIBUTION_OPENAPI_EXAMPLES["response"]},
+                        "model_fee_drag": {"value": FEE_DRAG_OPENAPI_EXAMPLES["response"]},
                     }
                 }
             },
@@ -590,6 +597,7 @@ LINKED_CONTRIBUTION_OPENAPI_EXAMPLES = linked_contribution_openapi_examples()
                     "examples": {
                         "annual_member_dispersion": {"value": ANNUAL_DISPERSION_OPENAPI_EXAMPLES["request"]},
                         "linked_member_contribution": {"value": LINKED_CONTRIBUTION_OPENAPI_EXAMPLES["request"]},
+                        "model_fee_drag": {"value": FEE_DRAG_OPENAPI_EXAMPLES["request"]},
                     }
                 }
             }
@@ -601,10 +609,12 @@ def evaluate_composite_analytics(
     http_request: Request,
     tenant_id: Annotated[str, Depends(_required_composite_tenant)],
     reader: Annotated[AnnualDispersionReceiptReader, Depends(get_annual_dispersion_receipt_reader)],
-) -> CompositeAnnualDispersionResponse | CompositeLinkedContributionResponse | JSONResponse:
+) -> CompositeAnnualDispersionResponse | CompositeLinkedContributionResponse | CompositeFeeDragResponse | JSONResponse:
     if isinstance(request, CompositePooledMWRRequest):
         principal = require_pooled_principal(http_request, tenant_id=tenant_id)
         return to_fastapi_response(submit_pooled_mwr(request, principal=principal))
+    if isinstance(request, CompositeFeeDragRequest):
+        return calculate_model_fee_drag(request, tenant_id=tenant_id)
     if isinstance(request, CompositeLinkedContributionRequest):
         return calculate_linked_member_contribution(request, tenant_id=tenant_id)
     return calculate_annual_member_dispersion(request, tenant_id=tenant_id, reader=reader)
