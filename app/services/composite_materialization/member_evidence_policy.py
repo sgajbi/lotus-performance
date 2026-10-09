@@ -3,6 +3,7 @@
 from typing import NoReturn
 
 from app.models.composite_materialization import (
+    CompositeComponentModelFeeMemberEvidence,
     CompositeMaterializationCommand,
     CompositeMemberMaterializationOutcome,
     CompositeMemberSourceEvidence,
@@ -43,7 +44,14 @@ def require_member_source_evidence(
             admitted_fx_source=admitted_fx_source,
         )
         return
-    if isinstance(outcome.source_evidence, (CompositeModelFeeMemberEvidence, CompositeScheduledModelFeeMemberEvidence)):
+    if isinstance(
+        outcome.source_evidence,
+        (
+            CompositeModelFeeMemberEvidence,
+            CompositeScheduledModelFeeMemberEvidence,
+            CompositeComponentModelFeeMemberEvidence,
+        ),
+    ):
         _refuse()
     _require_base_member_source_evidence(
         command,

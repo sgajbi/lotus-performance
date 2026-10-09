@@ -4,8 +4,7 @@ from dataclasses import dataclass
 from typing import Any, Protocol
 
 from app.models.composite_authority import EvidenceBinding
-from app.models.composite_model_fee_contract import CompositeModelFeeProfile
-from app.models.composite_model_fee_profiles import CompositeModelFeeProfileReceipt
+from app.models.composite_model_fee_profiles import CompositeModelFeeProfileReceipt, PublishedCompositeModelFeeProfile
 from app.ports.composite_external_evidence import UnavailableCompositeEvidence
 
 
@@ -30,7 +29,7 @@ class CompositeModelFeeResolutionPort(Protocol):
 
 class CompositeModelFeeProfileRepository(Protocol):
     def publish_model_fee_profile(
-        self, profile: CompositeModelFeeProfile, *, tenant_id: str, actor_id: str
+        self, profile: PublishedCompositeModelFeeProfile, *, tenant_id: str, actor_id: str
     ) -> CompositeModelFeeProfileReceipt: ...
 
     def get_model_fee_profile(
@@ -51,6 +50,17 @@ def model_fee_profile_repository() -> CompositeModelFeeProfileRepository:
 class UnavailableCompositeModelFeeSource:
     def resolve(self, request: CompositeModelFeeResolutionRequest) -> UnavailableCompositeEvidence:
         return UnavailableCompositeEvidence()
+
+
+class CompositeGrossCostResolutionPort(Protocol):
+    """Financial supplier, separate from publication of unapproved method inputs."""
+
+    def resolve(self, request: CompositeModelFeeResolutionRequest) -> dict[str, Any] | UnavailableCompositeEvidence: ...
+
+
+def composite_gross_cost_resolver() -> CompositeGrossCostResolutionPort:
+    # No whole-cost producer is admitted by Core cost rows or the method catalog.
+    return UnavailableCompositeModelFeeSource()
 
 
 def composite_model_fee_resolver() -> CompositeModelFeeResolutionPort:

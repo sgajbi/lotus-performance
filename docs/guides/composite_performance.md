@@ -5,6 +5,12 @@ and [methodology](../methodologies/metrics/metric-composite-model-fee-drag.md). 
 shares the existing analytics operation and returns decimal return differences with original
 source pins; it does not supply actual monetary fees or institutional qualification.
 
+Component-periodic model fees use the existing catalog and materialization worker with a
+separately verified complete gross-cost source. See the
+[component caller guide](composite_component_model_fee.md) for complete-zero declarations,
+original gross/base bindings and retained replay. The default financial supplier is unavailable;
+controlled synthetic integration establishes software behavior only.
+
 This guide describes the RFC-049 composite performance implementation in `lotus-performance`.
 It is grounded in the shipped composite models, engine, API routes, inspector service, tests, and
 data-product contracts.

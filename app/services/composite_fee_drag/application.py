@@ -11,6 +11,7 @@ from app.models.composite_fee_drag import (
     CompositeFeeDragResponse,
 )
 from app.models.composite_materialization import (
+    CompositeComponentModelFeeMemberEvidence,
     CompositeModelFeeMemberEvidence,
     CompositeScheduledModelFeeMemberEvidence,
 )
@@ -19,7 +20,7 @@ from app.services.calculation_engine_version import calculation_engine_version
 from app.services.composite_calculation_service import select_composite_materialization_facts
 from app.services.composite_materialization.model_fee_calculation import (
     calculate_with_model_fee_context,
-    selected_facts_use_scheduled_model_fee,
+    selected_facts_require_scoped_model_arithmetic,
 )
 from app.services.composite_materialization.model_fee_schedule_rates import scheduled_model_fee_context
 from app.services.reproducibility_service import generate_value_fingerprint
@@ -38,7 +39,14 @@ def _original_gross_facts(records):
             if fact is None:
                 continue
             evidence = outcome.source_evidence
-            if not isinstance(evidence, (CompositeModelFeeMemberEvidence, CompositeScheduledModelFeeMemberEvidence)):
+            if not isinstance(
+                evidence,
+                (
+                    CompositeModelFeeMemberEvidence,
+                    CompositeScheduledModelFeeMemberEvidence,
+                    CompositeComponentModelFeeMemberEvidence,
+                ),
+            ):
                 _refuse("COMPOSITE_FEE_DRAG_GROSS_RECEIPT_REQUIRED")
             facts.append(
                 fact.model_copy(
@@ -109,7 +117,7 @@ def calculate_model_fee_drag(request: CompositeFeeDragRequest, *, tenant_id: str
         with localcontext(scheduled_model_fee_context()):
             facts, windows = select_composite_materialization_facts(tenant_id=tenant_id, request=request)
             records = get_composite_materialization_store().get_many(request.materialization_ids, tenant_id=tenant_id)
-            scheduled = selected_facts_use_scheduled_model_fee(facts, records)
+            scheduled = selected_facts_require_scoped_model_arithmetic(facts, records)
             binding = _exact_method_binding(records)
             gross_facts, sources = _original_gross_facts(records)
             model = calculate_with_model_fee_context(

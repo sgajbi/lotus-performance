@@ -9,7 +9,7 @@ import pytest
 from fastapi.testclient import TestClient
 
 from app.adapters.composite_materialization_repository import CompositeMaterializationStore
-from app.services.composite_materialization.model_fee_calculation import selected_facts_use_scheduled_model_fee
+from app.services.composite_materialization.model_fee_calculation import selected_facts_require_scoped_model_arithmetic
 from core.errors import APIUnprocessableEntityError
 from main import app
 from tests.composite_linked_contribution_helpers import LINKED_PATH, independent_reference, linked_request
@@ -55,10 +55,10 @@ def test_registered_scheduled_history_unequal_rates_and_full_binding(monkeypatch
             selected = store.get_for_member_return_facts(facts, tenant_id=wire["tenant_id"])
             if changed_binding:
                 with pytest.raises(APIUnprocessableEntityError) as error:
-                    selected_facts_use_scheduled_model_fee(facts, selected)
+                    selected_facts_require_scoped_model_arithmetic(facts, selected)
                 assert error.value.error_code == "COMPOSITE_VECTOR_METHOD_MISMATCH"
             else:
-                assert selected_facts_use_scheduled_model_fee(facts, selected)
+                assert selected_facts_require_scoped_model_arithmetic(facts, selected)
         finally:
             store.close()
         linked_payload = {**linked_request([first_command, second_command]), "return_view": "NET_MODEL_FEE"}
@@ -132,9 +132,9 @@ def test_selected_model_fee_method_requires_exact_tenant_scope_and_retained_outc
         record = store.get(captured["command"].materialization_id, tenant_id=captured["tenant"])
         facts = [outcome.fact for outcome in record.outcomes if outcome.fact is not None]
         selected = store.get_for_member_return_facts(facts, tenant_id=captured["tenant"])
-        assert selected_facts_use_scheduled_model_fee(facts, selected)
+        assert selected_facts_require_scoped_model_arithmetic(facts, selected)
         with pytest.raises(APIUnprocessableEntityError) as error:
-            selected_facts_use_scheduled_model_fee(facts, [replace(record, state="PUBLISHING")])
+            selected_facts_require_scoped_model_arithmetic(facts, [replace(record, state="PUBLISHING")])
         assert error.value.error_code == "COMPOSITE_MODEL_FEE_METHOD_CONTEXT_UNAVAILABLE"
         for tenant, selected_facts in (
             ("different-tenant", facts),
@@ -149,7 +149,7 @@ def test_selected_model_fee_method_requires_exact_tenant_scope_and_retained_outc
             [facts[0].model_copy(update={"return_value": Decimal("0.01")}), *facts[1:]],
         ):
             with pytest.raises(APIUnprocessableEntityError) as error:
-                selected_facts_use_scheduled_model_fee(selected_facts, selected)
+                selected_facts_require_scoped_model_arithmetic(selected_facts, selected)
             assert error.value.error_code == "COMPOSITE_MODEL_FEE_METHOD_CONTEXT_UNAVAILABLE"
     finally:
         store.close()

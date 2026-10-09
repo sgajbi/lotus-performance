@@ -23,15 +23,18 @@ from tests.composite_model_fee_helpers import profile_wire
 from tests.composite_scheduled_model_fee_helpers import scheduled_profile_wire
 
 
-@pytest.fixture
-def legacy_catalog(tmp_path):
+@pytest.fixture(
+    params=[
+        "product_name = 'CompositePeriodicModelFeeProfile' AND product_version = 'v1'",
+        "product_name IN ('CompositePeriodicModelFeeProfile', 'CompositeScheduledModelFeeProfile') AND product_version = 'v1'",
+    ]
+)
+def legacy_catalog(tmp_path, request):
     url = "sqlite:///" + (tmp_path / "legacy-catalog.db").as_posix()
     evidence = apply_durable_schema(database_url=url)
     assert evidence.status == "passed", evidence
     store = CompositeMetadataStore(url)
-    legacy = _metadata_with_product_guard(
-        "product_name = 'CompositePeriodicModelFeeProfile' AND product_version = 'v1'", "sqlite"
-    )
+    legacy = _metadata_with_product_guard(request.param, "sqlite")
     with store._engine.begin() as connection:
         CompositeModelFeeProfileModel.__table__.drop(connection)
         connection.execute(CreateTable(legacy.tables["composite_model_fee_profiles"]))
@@ -45,6 +48,12 @@ def legacy_catalog(tmp_path):
             store.publish_model_fee_profile(
                 CompositePeriodicModelFeeProfile.model_validate(wire), tenant_id=tenant, actor_id="original-publisher"
             )
+        )
+    if "CompositeScheduledModelFeeProfile" in request.param:
+        store.publish_model_fee_profile(
+            CompositeScheduledModelFeeProfile.model_validate(scheduled_profile_wire()),
+            tenant_id="TENANT_A",
+            actor_id="original-scheduled-publisher",
         )
     try:
         yield store, receipts

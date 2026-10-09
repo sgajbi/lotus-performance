@@ -92,8 +92,8 @@ Restore original immutable evidence through governed recovery; do not rewrite hi
 
 ## Configuration Options
 
-There are no metric-specific runtime switches or caller fee overrides. Original periodic or
-scheduled method evidence determines calculation context. Configured receipt verification remains
+There are no metric-specific runtime switches or caller fee overrides. Original periodic,
+scheduled or component-periodic method evidence determines calculation context. Configured receipt verification remains
 independent and defaults to unavailable; a method-only verifier cannot admit missing policy,
 evaluation, finalization or financial-source evidence.
 
@@ -102,8 +102,11 @@ evaluation, finalization or financial-source evidence.
 The response includes cumulative gross return, model-net return and drag; paired period rows;
 six source pins in the worked example; full `model_fee_binding`; and a selection manifest with
 engine version, original windows and calculation fingerprint. An explicit zero model fee produces
-zero drag. Negative rebates, performance-fee crystallization, actual fees and whole-cost component
-source admission are not supplied by this metric.
+zero drag. Component-periodic v6 evidence retains the independently verified complete gross-cost
+source admitted by the existing materialization worker; see the
+[component guide](../../guides/composite_component_model_fee.md). Its default financial supplier
+is unavailable, and synthetic integration does not qualify a production issuer. Negative rebates,
+performance-fee crystallization and actual fees are not supplied by this metric.
 
 ## Worked Example
 

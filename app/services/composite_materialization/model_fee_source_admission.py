@@ -7,8 +7,13 @@ from typing import Any, NoReturn
 from pydantic import ValidationError
 
 from app.models.composite_authority import ManageCompositeDefinitionV2, authority_digest
+from app.models.composite_component_costs import CompositeGrossCostReceipt
+from app.models.composite_component_model_fees import CompositeComponentFeePeriod, CompositeComponentModelFeeProfile
 from app.models.composite_eligibility_evidence import SubjectFinalizationReceipt
-from app.models.composite_model_fee_contract import CompositeModelFeeProfile, decode_model_fee_profile
+from app.models.composite_model_fee_profiles import (
+    PublishedCompositeModelFeeProfile,
+    decode_published_model_fee_profile,
+)
 from app.models.composite_model_fees import CompositeModelFeePeriod
 from app.models.composite_scheduled_model_fees import (
     CompositeScheduledModelFeePeriod,
@@ -23,9 +28,10 @@ from core.errors import APIError, APIUnprocessableEntityError
 
 @dataclass(frozen=True)
 class AdmittedCompositeModelFee:
-    profile: CompositeModelFeeProfile
-    period: CompositeModelFeePeriod | CompositeScheduledModelFeePeriod
+    profile: PublishedCompositeModelFeeProfile
+    period: CompositeModelFeePeriod | CompositeScheduledModelFeePeriod | CompositeComponentFeePeriod
     source_wire: dict[str, Any]
+    gross_cost_source: CompositeGrossCostReceipt | None = None
 
 
 def _refuse(code: str) -> NoReturn:
@@ -107,7 +113,7 @@ def admit_model_fee_source(source, command, *, tenant_id, retained_wire=None, re
     raw = deepcopy(raw)
     try:
         digest = authority_digest(raw)
-        profile = decode_model_fee_profile(raw)
+        profile = decode_published_model_fee_profile(raw)
     except (ValidationError, ValueError, TypeError):
         _refuse("COMPOSITE_MODEL_FEE_SOURCE_WIRE_REFUSED")
     if digest != request.binding.digest:
@@ -115,7 +121,16 @@ def admit_model_fee_source(source, command, *, tenant_id, retained_wire=None, re
     period = _require_profile_scope(request, profile)
     _require_scheduled_method_scope(source, profile, period)
     _require_method_approval(source, command, request, raw)
-    return AdmittedCompositeModelFee(profile, period, raw)
+    financial = None
+    if source.gross_component_wire is not None:
+        if not isinstance(profile, CompositeComponentModelFeeProfile):
+            _refuse("COMPOSITE_GROSS_COST_SOURCE_REFUSED")
+        from app.services.composite_materialization.component_cost_admission import admit_component_cost_source
+
+        financial = admit_component_cost_source(
+            source, command, profile, tenant_id=tenant_id, retained_wire=source.gross_component_wire
+        )
+    return AdmittedCompositeModelFee(profile, period, raw, financial)
 
 
 def _require_scheduled_method_scope(source, profile, period):

@@ -16,7 +16,7 @@ class CompositeModelFeeProfileModel(ModelFeeProfileBase):
         CheckConstraint(SQLITE_TENANT_ID_CHECK_SQL, name="ck_model_fee_profile_tenant").ddl_if(dialect="sqlite"),
         CheckConstraint(POSTGRES_TENANT_ID_CHECK_SQL, name="ck_model_fee_profile_tenant").ddl_if(dialect="postgresql"),
         CheckConstraint(
-            "product_name IN ('CompositePeriodicModelFeeProfile', 'CompositeScheduledModelFeeProfile') AND product_version = 'v1'",
+            "product_name IN ('CompositePeriodicModelFeeProfile', 'CompositeScheduledModelFeeProfile', 'CompositeComponentPeriodicModelFeeProfile') AND product_version = 'v1'",
             name="ck_model_fee_profile_product",
         ),
         CheckConstraint(

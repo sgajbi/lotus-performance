@@ -3,7 +3,9 @@
 from decimal import Decimal, localcontext
 from typing import NoReturn
 
+from app.models.composite_component_model_fees import CompositeComponentModelFeeProfile
 from app.models.composite_materialization import (
+    CompositeComponentModelFeeMemberEvidence,
     CompositeMemberOutcomeState,
     CompositeMemberSourceEvidence,
     CompositeModelFeeMemberEvidence,
@@ -45,6 +47,22 @@ def apply_model_fee_to_outcome(command, outcome, admitted):
     gross_return, gross_digest = _gross_receipt(outcome.source_evidence)
     if outcome.fact.return_value != gross_return or outcome.fact.source_snapshot_id != gross_digest:
         _refuse()
+    if isinstance(admitted.profile, CompositeComponentModelFeeProfile):
+        from app.services.composite_materialization.component_model_fee_evidence import component_member_evidence
+
+        evidence, value = component_member_evidence(
+            gross_evidence=outcome.source_evidence,
+            gross_return=gross_return,
+            gross_digest=gross_digest,
+            beginning_assets=outcome.fact.beginning_market_value,
+            member_id=outcome.portfolio_id,
+            admitted=admitted,
+        )
+        return _transformed_outcome(outcome, evidence, value)
+    return _legacy_fee_outcome(command, outcome, admitted, gross_return, gross_digest)
+
+
+def _legacy_fee_outcome(command, outcome, admitted, gross_return, gross_digest):
     entry = next((row for row in admitted.period.member_rates if row.member_id == outcome.portfolio_id), None)
     if entry is None:
         _refuse()
@@ -63,6 +81,10 @@ def apply_model_fee_to_outcome(command, outcome, admitted):
         else CompositeModelFeeMemberEvidence(**common, fee_entry=entry.model_copy(deep=True))
     )
     value = _model_return(gross_return, fraction, entry)
+    return _transformed_outcome(outcome, evidence, value)
+
+
+def _transformed_outcome(outcome, evidence, value):
     fact = outcome.fact.model_copy(
         update={
             "return_value": value,
@@ -87,7 +109,14 @@ def require_model_fee_member_evidence(
     if (
         admitted is None
         or fact is None
-        or not isinstance(evidence, (CompositeModelFeeMemberEvidence, CompositeScheduledModelFeeMemberEvidence))
+        or not isinstance(
+            evidence,
+            (
+                CompositeModelFeeMemberEvidence,
+                CompositeScheduledModelFeeMemberEvidence,
+                CompositeComponentModelFeeMemberEvidence,
+            ),
+        )
     ):
         _refuse()
     gross_return, gross_digest = _require_approved_gross_receipt(command, outcome, admitted)
@@ -100,7 +129,31 @@ def require_model_fee_member_evidence(
         currency_normalization_wire=currency_normalization_wire,
         admitted_fx_source=admitted_fx_source,
     )
-    _require_model_fact(fact, evidence, gross_return, admitted.period)
+    if isinstance(evidence, CompositeComponentModelFeeMemberEvidence):
+        _require_component_fact(outcome, admitted, gross_return, gross_digest)
+    else:
+        _require_model_fact(fact, evidence, gross_return, admitted.period)
+
+
+def _require_component_fact(outcome, admitted, gross_return, gross_digest):
+    from app.services.composite_materialization.component_model_fee_evidence import component_member_evidence
+
+    try:
+        expected, value = component_member_evidence(
+            gross_evidence=outcome.source_evidence.gross_evidence,
+            gross_return=gross_return,
+            gross_digest=gross_digest,
+            member_id=outcome.portfolio_id,
+            admitted=admitted,
+            beginning_assets=outcome.fact.beginning_market_value,
+        )
+    except (ValueError, TypeError):
+        _refuse()
+    if outcome.source_evidence != expected or (outcome.fact.return_value, outcome.fact.source_snapshot_id) != (
+        value,
+        generate_value_fingerprint(expected, expected.contract_version)[0],
+    ):
+        _refuse()
 
 
 def _require_approved_gross_receipt(command, outcome, admitted):

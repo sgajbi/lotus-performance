@@ -84,6 +84,7 @@ def _pending_source_upgrade(command, prior_source, source, prior_state):
         for wire, binding in (
             ("currency_normalization_wire", "currency_normalization_binding"),
             ("model_fee_wire", "model_fee_binding"),
+            ("gross_component_wire", "model_fee_binding"),
         )
         if getattr(source, wire) != getattr(prior_source, wire)
     }
@@ -151,7 +152,7 @@ def _require_currency_source(source, *, command, tenant_id, outcomes, state):
 
 def _require_model_fee_source(source, *, command, tenant_id, outcomes, state):
     if command.model_fee_binding is None:
-        if source.model_fee_wire is not None:
+        if source.model_fee_wire is not None or source.gross_component_wire is not None:
             _refuse("COMPOSITE_MODEL_FEE_BINDING_REQUIRED")
         return
     if source.model_fee_wire is None:
@@ -159,7 +160,12 @@ def _require_model_fee_source(source, *, command, tenant_id, outcomes, state):
         return
     from app.services.composite_materialization.model_fee_source_admission import admit_model_fee_source
 
-    return admit_model_fee_source(source, command, tenant_id=tenant_id, retained_wire=source.model_fee_wire)
+    admitted = admit_model_fee_source(source, command, tenant_id=tenant_id, retained_wire=source.model_fee_wire)
+    from app.models.composite_component_model_fees import CompositeComponentModelFeeProfile
+
+    if isinstance(admitted.profile, CompositeComponentModelFeeProfile) and admitted.gross_cost_source is None:
+        _require_pending_source_outcomes(outcomes, state, code="COMPOSITE_GROSS_COST_SOURCE_UNAVAILABLE")
+    return admitted
 
 
 def require_retained_progress(

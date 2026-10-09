@@ -48,6 +48,36 @@ def pin_model_fee_source(record, *, tenant_id, ledger, fence):
     )
 
 
+def pin_component_cost_source(record, *, tenant_id, ledger, fence):
+    if (
+        record.source.model_fee_wire is None
+        or record.source.model_fee_wire.get("product_name") != "CompositeComponentPeriodicModelFeeProfile"
+    ):
+        return record
+    from app.services.composite_materialization.component_cost_admission import admit_component_cost_source
+    from app.services.composite_materialization.model_fee_source_admission import admit_model_fee_source
+
+    def resolve():
+        admitted = admit_model_fee_source(
+            record.source, record.command, tenant_id=tenant_id, retained_wire=record.source.model_fee_wire
+        )
+        return admit_component_cost_source(
+            record.source, record.command, admitted.profile, tenant_id=tenant_id
+        ).model_dump(mode="json")
+
+    return _pin_source_wire(
+        record,
+        binding="model_fee_binding",
+        wire="gross_component_wire",
+        code="COMPOSITE_GROSS_COST_SOURCE",
+        refusal_code="COMPOSITE_GROSS_COST_SOURCE_REFUSED",
+        resolve=resolve,
+        tenant_id=tenant_id,
+        ledger=ledger,
+        fence=fence,
+    )
+
+
 def _pin_source_wire(record, *, binding, wire, code, refusal_code, resolve, tenant_id, ledger, fence):
     if getattr(record.command, binding) is None or getattr(record.source, wire) is not None:
         return record

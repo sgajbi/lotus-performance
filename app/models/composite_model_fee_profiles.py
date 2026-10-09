@@ -1,12 +1,23 @@
 """Publication records retain method bytes and publisher custody without granting approval."""
 
 from datetime import datetime, timedelta
-from typing import Literal
+from typing import Annotated, Literal
 
 from pydantic import Field, model_validator
 
 from app.models.composite_authority import AuthorityWire, EvidenceBinding
-from app.models.composite_model_fee_contract import CompositeModelFeeProfile
+from app.models.composite_component_model_fees import CompositeComponentModelFeeProfile
+from app.models.composite_model_fee_contract import CompositeModelFeeProfile, decode_model_fee_profile
+
+PublishedCompositeModelFeeProfile = Annotated[
+    CompositeModelFeeProfile | CompositeComponentModelFeeProfile, Field(discriminator="product_name")
+]
+
+
+def decode_published_model_fee_profile(wire):
+    if wire.get("product_name") == "CompositeComponentPeriodicModelFeeProfile":
+        return CompositeComponentModelFeeProfile.model_validate(wire)
+    return decode_model_fee_profile(wire)
 
 
 class CompositeModelFeeProfileReceipt(AuthorityWire):
@@ -15,7 +26,7 @@ class CompositeModelFeeProfileReceipt(AuthorityWire):
         description="Publication retains input custody; independent method approval is still required.",
     )
     binding: EvidenceBinding = Field(description="Exact immutable canonical method-profile identity and digest.")
-    profile: CompositeModelFeeProfile = Field(
+    profile: PublishedCompositeModelFeeProfile = Field(
         description="Original complete strict method wire; publisher custody does not alter these bytes."
     )
     published_by: str = Field(
