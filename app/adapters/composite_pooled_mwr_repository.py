@@ -9,7 +9,7 @@ import json
 from dataclasses import dataclass
 from uuid import UUID
 
-from sqlalchemy import insert, select
+from sqlalchemy import insert, select, text
 from sqlalchemy.engine import Connection
 
 from app.adapters.durable_schema.catalog import verify_durable_schema
@@ -100,6 +100,38 @@ class CompositePooledMWRInputStore:
     def get(self, calculation_id: UUID, *, tenant_id: str) -> PooledInputSnapshot | None:
         with self._engine.connect() as connection:
             return self._read(connection, _tenant(tenant_id), calculation_id)
+
+    def read_in_transaction(
+        self, connection: Connection, calculation_id: UUID, *, tenant_id: str
+    ) -> PooledInputSnapshot | None:
+        """Replay inputs inside the same public active-claim transaction."""
+        return self._read(connection, _tenant(tenant_id), calculation_id)
+
+    def get_member_scope(self, calculation_id: UUID, *, tenant_id: str) -> tuple[str, ...] | None:
+        """Project identity metadata before an HTTP caller can access financial rows."""
+        with self._engine.connect() as connection:
+            projection = (
+                "payload_json::jsonb #>> '{observation,source_bundle,expected_portfolio_ids}'"
+                if connection.dialect.name == "postgresql"
+                else "json_extract(payload_json, '$.observation.source_bundle.expected_portfolio_ids')"
+            )
+            raw = connection.execute(
+                text(
+                    f"SELECT {projection} FROM composite_pooled_mwr_inputs WHERE tenant_id=:tenant AND calculation_id=:id"
+                ),
+                {"tenant": _tenant(tenant_id), "id": str(calculation_id)},
+            ).scalar_one_or_none()
+        if raw is None:
+            return None
+        members = json.loads(raw)
+        if (
+            not isinstance(members, list)
+            or not members
+            or any(not isinstance(member, str) or not member for member in members)
+            or len(set(members)) != len(members)
+        ):
+            raise PooledSourceAdmissionError("INPUT_CUSTODY_CORRUPT", "Retained population metadata is invalid.")
+        return tuple(members)
 
     @staticmethod
     def _read(connection: Connection, tenant_id: str, calculation_id: UUID) -> PooledInputSnapshot | None:

@@ -230,3 +230,37 @@ class PooledSolverOutcome(PooledContract):
     reason_codes: tuple[str, ...]
     diagnostics: dict[str, Any]
     original_solver_result: dict[str, Any]
+
+
+class CompositePooledMWRAcceptedResponse(PooledContract):
+    calculation_id: UUID
+    status: Literal["accepted"] = "accepted"
+    metric_id: Literal["POOLED_MONEY_WEIGHTED_RETURN"] = "POOLED_MONEY_WEIGHTED_RETURN"
+    poll_path: str
+    result_path: str
+    recommended_poll_after_seconds: int = 1
+
+
+class CompositePooledMWRResponse(PooledContract):
+    schema_version: Literal["composite-pooled-mwr.v1"] = "composite-pooled-mwr.v1"
+    calculation_id: UUID
+    metric_id: Literal["POOLED_MONEY_WEIGHTED_RETURN"] = "POOLED_MONEY_WEIGHTED_RETURN"
+    method: Literal["XIRR:v1"] = "XIRR:v1"
+    composite_id: Identifier
+    input_manifest_digest: Identifier
+    calculation_engine_version: Identifier
+    correction_of_calculation_id: UUID | None
+    result_classification: Literal["NON_OFFICIAL_CALCULATED_ANALYSIS"] = "NON_OFFICIAL_CALCULATED_ANALYSIS"
+    observation: PooledMonetaryObservation
+    outcome: PooledSolverOutcome
+
+    @model_validator(mode="after")
+    def require_bound_observation(self):
+        if (
+            self.composite_id != self.observation.composite_id
+            or self.input_manifest_digest != self.observation.input_manifest_digest
+        ):
+            raise ValueError("Result identity must match its retained monetary observation.")
+        if self.correction_of_calculation_id == self.calculation_id:
+            raise ValueError("A correction must use a new calculation identity.")
+        return self

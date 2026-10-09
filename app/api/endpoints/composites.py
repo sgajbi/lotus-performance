@@ -4,6 +4,7 @@ from typing import Annotated
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Request, status
+from fastapi.responses import JSONResponse
 
 from app.api.dependencies.composite_annual_dispersion import (
     annual_comparison_openapi_examples,
@@ -11,6 +12,8 @@ from app.api.dependencies.composite_annual_dispersion import (
     get_annual_dispersion_receipt_reader,
 )
 from app.api.dependencies.composite_linked_contribution import linked_contribution_openapi_examples
+from app.api.dependencies.composite_pooled_mwr import require_pooled_principal
+from app.api.http_response_adapter import to_fastapi_response
 from app.api.http_status import HTTP_422_UNPROCESSABLE
 from app.composite_principal_admission import trusted_request_principal
 from app.models.composite_analytics import CompositeAnalyticsRequest, CompositeAnalyticsResponse
@@ -19,6 +22,11 @@ from app.models.composite_annual_dispersion import CompositeAnnualDispersionResp
 from app.models.composite_linked_contribution import (
     CompositeLinkedContributionRequest,
     CompositeLinkedContributionResponse,
+)
+from app.models.composite_pooled_mwr import (
+    CompositePooledMWRAcceptedResponse,
+    CompositePooledMWRRequest,
+    CompositePooledMWRResponse,
 )
 from app.models.composite_result_candidates import (
     CompositeResultCandidateErrorResponse,
@@ -48,6 +56,7 @@ from app.services.composite_calculation_service import (
 from app.services.composite_inspection_service import inspect_composite_twr_from_persisted_facts
 from app.services.composite_linked_contribution.application import calculate_linked_member_contribution
 from app.services.composite_metadata_store import CompositeMemberReturnFactSelectionError
+from app.services.composite_pooled_mwr.application import read_pooled_mwr_result, submit_pooled_mwr
 from app.services.composite_result_candidate_admission import (
     admit_candidate_calculation,
     read_result_candidate,
@@ -510,6 +519,11 @@ LINKED_CONTRIBUTION_OPENAPI_EXAMPLES = linked_contribution_openapi_examples()
         "One bounded composite analytics operation with explicit metric and method selection. "
         "ANNUAL_MEMBER_DISPERSION uses twelve exact COMPLETE calendar-month receipts. "
         "LINKED_MEMBER_CONTRIBUTION with CARINO:v1 uses 1–120 chronological COMPLETE receipts and original "
+        "source economics. POOLED_MONEY_WEIGHTED_RETURN with XIRR:v1 registers an asynchronous ACT/365 "
+        "pooled monetary calculation using qualified source ports and verified principal/member scope. "
+        "Original monetary inputs and results are retained immutably; corrections use new calculation IDs. "
+        "Member IRRs are never averaged. Missing supplier authority refuses; controlled examples remain synthetic. "
+        "The linked metric uses "
         "Decimal beginning-asset economics, never quantized public weights. Decimal-return units; "
         "multiply by 100 for percentage points or 10000 for basis points. Continuous zero/near-zero "
         "factors are supported; nonpositive growth refuses. No residual allocation or composite-only override. "
@@ -520,6 +534,10 @@ LINKED_CONTRIBUTION_OPENAPI_EXAMPLES = linked_contribution_openapi_examples()
         "Documentation examples are synthetic; a real call requires its tenant's retained receipts."
     ),
     responses={
+        202: {
+            "model": CompositePooledMWRAcceptedResponse,
+            "description": "Pooled XIRR accepted for the existing compute worker; follow result_path.",
+        },
         200: {
             "description": "Named annual dispersion or pinned linked member contribution calculated dataset.",
             "content": {
@@ -580,12 +598,32 @@ LINKED_CONTRIBUTION_OPENAPI_EXAMPLES = linked_contribution_openapi_examples()
 )
 def evaluate_composite_analytics(
     request: CompositeAnalyticsRequest,
+    http_request: Request,
     tenant_id: Annotated[str, Depends(_required_composite_tenant)],
     reader: Annotated[AnnualDispersionReceiptReader, Depends(get_annual_dispersion_receipt_reader)],
-) -> CompositeAnnualDispersionResponse | CompositeLinkedContributionResponse:
+) -> CompositeAnnualDispersionResponse | CompositeLinkedContributionResponse | JSONResponse:
+    if isinstance(request, CompositePooledMWRRequest):
+        principal = require_pooled_principal(http_request, tenant_id=tenant_id)
+        return to_fastapi_response(submit_pooled_mwr(request, principal=principal))
     if isinstance(request, CompositeLinkedContributionRequest):
         return calculate_linked_member_contribution(request, tenant_id=tenant_id)
     return calculate_annual_member_dispersion(request, tenant_id=tenant_id, reader=reader)
+
+
+@router.get(
+    "/composites/analytics/results/{calculation_id}",
+    response_model=CompositePooledMWRResponse,
+    summary="Read a retained pooled Composite XIRR result",
+    responses={202: {"model": CompositePooledMWRAcceptedResponse}, **COMPOSITE_TENANT_AUTHORITY_RESPONSES},
+    openapi_extra=COMPOSITE_TENANT_OPENAPI_EXTRA,
+)
+def get_pooled_composite_analytics_result(
+    calculation_id: UUID,
+    http_request: Request,
+    tenant_id: Annotated[str, Depends(_required_composite_tenant)],
+):
+    principal = require_pooled_principal(http_request, tenant_id=tenant_id)
+    return to_fastapi_response(read_pooled_mwr_result(calculation_id, principal=principal))
 
 
 ANNUAL_COMPARISON_OPENAPI_EXAMPLES = annual_comparison_openapi_examples()

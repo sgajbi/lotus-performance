@@ -9,6 +9,7 @@ from app.models.composite_linked_contribution import (
     CompositeLinkedContributionRequest,
     CompositeLinkedContributionResponse,
 )
+from app.models.composite_pooled_mwr import CompositePooledMWRRequest, CompositePooledMWRResponse
 
 
 def _analytics_metric(value):
@@ -34,7 +35,8 @@ def _preserve_annual_errors(value, handler):
 
 CompositeAnalyticsRequest = Annotated[
     Annotated[CompositeAnnualDispersionRequest, Tag("ANNUAL_MEMBER_DISPERSION")]
-    | Annotated[CompositeLinkedContributionRequest, Tag("LINKED_MEMBER_CONTRIBUTION")],
+    | Annotated[CompositeLinkedContributionRequest, Tag("LINKED_MEMBER_CONTRIBUTION")]
+    | Annotated[CompositePooledMWRRequest, Tag("POOLED_MONEY_WEIGHTED_RETURN")],
     Discriminator(_analytics_metric),
     WrapValidator(_preserve_annual_errors),
     Field(
@@ -44,6 +46,7 @@ CompositeAnalyticsRequest = Annotated[
                 "mapping": {
                     "ANNUAL_MEMBER_DISPERSION": "#/components/schemas/CompositeAnnualDispersionRequest",
                     "LINKED_MEMBER_CONTRIBUTION": "#/components/schemas/CompositeLinkedContributionRequest",
+                    "POOLED_MONEY_WEIGHTED_RETURN": "#/components/schemas/CompositePooledMWRRequest",
                 },
             }
         }
@@ -51,6 +54,6 @@ CompositeAnalyticsRequest = Annotated[
 ]
 
 CompositeAnalyticsResponse = Annotated[
-    CompositeAnnualDispersionResponse | CompositeLinkedContributionResponse,
+    CompositeAnnualDispersionResponse | CompositeLinkedContributionResponse | CompositePooledMWRResponse,
     Field(discriminator="metric_id"),
 ]
