@@ -5,6 +5,7 @@ import pytest
 from pydantic import BaseModel
 from sqlalchemy import event, inspect
 
+from app.adapters.composite_pooled_mwr_repository import CompositePooledMWRInputStore
 from app.adapters.durable_schema.catalog import require_metadata_schema
 from app.adapters.durable_schema.errors import DurableSchemaMigrationRequiredError
 from app.services.async_result_store import AsyncResultStore
@@ -17,6 +18,12 @@ from app.services.lineage_metadata_store import LineageMetadataStore
 from app.services.lineage_service import LineageService
 from app.services.source_correction_store import SourceCorrectionStore
 from app.workers import lineage_worker
+from tests.durable_schema_startup_helpers import (
+    record_statements,
+    require_catalogue_only,
+    resolved_runtime_stores,
+    start,
+)
 
 
 class _Model(BaseModel):
@@ -32,6 +39,7 @@ class _Model(BaseModel):
         LineageMetadataStore,
         CompositeMetadataStore,
         SourceCorrectionStore,
+        CompositePooledMWRInputStore,
     ],
 )
 def test_each_store_read_only_verification_refuses_empty_database(store_type, tmp_path):
@@ -53,6 +61,7 @@ def test_each_store_read_only_verification_refuses_empty_database(store_type, tm
         LineageMetadataStore,
         CompositeMetadataStore,
         SourceCorrectionStore,
+        CompositePooledMWRInputStore,
     ],
 )
 def test_each_store_owner_applied_schema_verifies_without_mutation(store_type, tmp_path):
@@ -78,6 +87,7 @@ def test_bootstrap_durable_metadata_stores_calls_all_store_bootstraps(mocker):
     lineage_store = mocker.Mock()
     composite_store = mocker.Mock()
     correction_store = mocker.Mock()
+    pooled_input_store = mocker.Mock()
 
     bootstrap_durable_metadata_stores(
         execution_store=execution_store,
@@ -86,6 +96,7 @@ def test_bootstrap_durable_metadata_stores_calls_all_store_bootstraps(mocker):
         lineage_store=lineage_store,
         composite_store=composite_store,
         correction_store=correction_store,
+        pooled_input_store=pooled_input_store,
     )
 
     execution_store.create_schema.assert_called_once_with()
@@ -94,6 +105,7 @@ def test_bootstrap_durable_metadata_stores_calls_all_store_bootstraps(mocker):
     lineage_store.create_schema.assert_called_once_with()
     composite_store.create_schema.assert_called_once_with()
     correction_store.create_schema.assert_called_once_with()
+    pooled_input_store.create_schema.assert_called_once_with()
 
 
 def test_bootstrap_durable_metadata_stores_supports_recovery_drill_on_legacy_lineage_schema(monkeypatch, tmp_path):
@@ -104,6 +116,7 @@ def test_bootstrap_durable_metadata_stores_supports_recovery_drill_on_legacy_lin
     lineage_store = LineageMetadataStore(f"sqlite:///{database_path}")
     composite_store = CompositeMetadataStore(f"sqlite:///{database_path}")
     correction_store = SourceCorrectionStore(f"sqlite:///{database_path}")
+    pooled_input_store = CompositePooledMWRInputStore(f"sqlite:///{database_path}")
 
     with lineage_store._engine.begin() as connection:
         connection.exec_driver_sql(
@@ -139,6 +152,7 @@ def test_bootstrap_durable_metadata_stores_supports_recovery_drill_on_legacy_lin
         lineage_store=lineage_store,
         composite_store=composite_store,
         correction_store=correction_store,
+        pooled_input_store=pooled_input_store,
     )
 
     with lineage_store._engine.connect() as connection:
@@ -162,3 +176,34 @@ def test_bootstrap_durable_metadata_stores_supports_recovery_drill_on_legacy_lin
     assert processed == 1
     assert (tmp_path / str(calculation_id) / "details.csv").exists()
     assert lineage_store.get_payload(calculation_id) is None
+
+
+@pytest.mark.parametrize("entrypoint", ["api", "compute"])
+@pytest.mark.parametrize("shape", ["missing", "drift", "valid"])
+def test_pooled_custody_schema_controls_real_startup_without_ddl(entrypoint, shape, monkeypatch, tmp_path):
+    from sqlalchemy import text
+
+    from app.services import durable_metadata_bootstrap as schema_service
+
+    url = f"sqlite:///{tmp_path / 'pooled-startup.db'}"
+    pooled = CompositePooledMWRInputStore(url)
+    monkeypatch.setattr(schema_service.composite_pooled_mwr_input_store, "_resolver", lambda: pooled)
+    try:
+        with resolved_runtime_stores(url, monkeypatch) as stores:
+            schema_service.bootstrap_durable_metadata_stores()
+            if shape != "valid":
+                with pooled._engine.begin() as connection:
+                    if shape == "missing":
+                        connection.execute(text("DROP TABLE composite_pooled_mwr_inputs"))
+                    else:
+                        connection.execute(text("DROP TRIGGER composite_pooled_mwr_inputs_update"))
+            statements = record_statements({**stores, "pooled": pooled})
+            if shape == "valid":
+                start(entrypoint)
+            else:
+                with pytest.raises(DurableSchemaMigrationRequiredError) as failure:
+                    start(entrypoint)
+                assert any("composite_pooled_mwr_inputs" in issue for issue in failure.value.issues)
+            require_catalogue_only(statements)
+    finally:
+        pooled.close()
