@@ -13,6 +13,11 @@ from app.models.composites import (
     CompositeTWRWindowEvidence,
 )
 from app.observability import tenant_id_var
+from app.services.composite_materialization.model_fee_calculation import (
+    calculate_with_model_fee_context,
+    is_scheduled_model_fee,
+    selected_facts_use_scheduled_model_fee,
+)
 from app.services.composite_materialization.records import MaterializationRecord
 from app.services.composite_materialization.source_contract import ManageCompositeDefinition
 from app.services.composite_materialization.window_currency_authority import (
@@ -25,7 +30,7 @@ from app.services.core_tenant_authority import admitted_tenant_authority, requir
 from app.services.durable_store_runtime import RuntimeStoreProxy
 from app.services.reproducibility_service import generate_value_fingerprint
 from core.errors import APIConflictError, APIUnprocessableEntityError
-from engine.composites import CompositeCalculationResult, calculate_asset_weighted_composite_twr
+from engine.composites import CompositeCalculationResult
 
 
 class CompositeDefinitionNotFoundError(ValueError):
@@ -37,7 +42,12 @@ def calculate_composite_twr_from_materializations(
 ) -> tuple[CompositeCalculationResult, list[CompositeTWRWindowEvidence]]:
     """Explicit historical selection; never infer latest or official authority."""
     facts, windows = select_composite_materialization_facts(tenant_id=tenant_id, request=request)
-    return calculate_asset_weighted_composite_twr(composite_id=request.composite_id, member_return_facts=facts), windows
+    scheduled = request.return_view == CompositeReturnView.NET_MODEL_FEE and is_scheduled_model_fee(
+        windows[0].method_binding
+    )
+    return calculate_with_model_fee_context(
+        composite_id=request.composite_id, facts=facts, scheduled=scheduled
+    ), windows
 
 
 def select_composite_materialization_facts(
@@ -224,4 +234,8 @@ def calculate_composite_twr_from_persisted_facts(
             detail="This composite calculation includes asset reporting and requires authoritative ending assets.",
             error_code="COMPOSITE_ENDING_ASSETS_UNAVAILABLE",
         )
-    return calculate_asset_weighted_composite_twr(composite_id=composite_id, member_return_facts=facts)
+    scheduled = False
+    if return_view == CompositeReturnView.NET_MODEL_FEE and facts:
+        records = store.get_member_return_fact_materializations(facts, tenant_id=tenant_id)
+        scheduled = selected_facts_use_scheduled_model_fee(facts, records)
+    return calculate_with_model_fee_context(composite_id=composite_id, facts=facts, scheduled=scheduled)
