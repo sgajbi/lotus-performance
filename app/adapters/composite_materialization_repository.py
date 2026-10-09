@@ -258,26 +258,31 @@ class CompositeMaterializationStore:
         return self.get(materialization_id, tenant_id=tenant_id)
 
     def _record(self, row: CompositeMaterializationModel, *, session: Session) -> MaterializationRecord:
-        try:
-            record = _materialization_record(row)
-            _require_record_scope(row, record)
-            require_retained_progress(
-                command=record.command,
-                tenant_id=row.tenant_id,
-                source=record.source,
-                outcomes=record.outcomes,
-                state=record.state,
-            )
-            if record.state == CompositeMaterializationState.COMPLETE:
-                _require_completed_publication(session, record.command, record.outcomes, tenant_id=row.tenant_id)
-            return record
-        except (ValueError, KeyError, TypeError) as exc:
-            raise APIError(
-                status_code=503,
-                detail="Retained materialization evidence failed validation; reviewed recovery is required.",
-                error_code="COMPOSITE_MATERIALIZATION_RETAINED_EVIDENCE_REFUSED",
-                retryable=False,
-            ) from exc
+        return read_retained_record(row, session=session)
+
+
+def read_retained_record(row: CompositeMaterializationModel, *, session: Session) -> MaterializationRecord:
+    """Rehydrate exact custody on a caller-owned transaction, without new I/O owners."""
+    try:
+        record = _materialization_record(row)
+        _require_record_scope(row, record)
+        require_retained_progress(
+            command=record.command,
+            tenant_id=row.tenant_id,
+            source=record.source,
+            outcomes=record.outcomes,
+            state=record.state,
+        )
+        if record.state == CompositeMaterializationState.COMPLETE:
+            _require_completed_publication(session, record.command, record.outcomes, tenant_id=row.tenant_id)
+        return record
+    except (ValueError, KeyError, TypeError) as exc:
+        raise APIError(
+            status_code=503,
+            detail="Retained materialization evidence failed validation; reviewed recovery is required.",
+            error_code="COMPOSITE_MATERIALIZATION_RETAINED_EVIDENCE_REFUSED",
+            retryable=False,
+        ) from exc
 
 
 def _materialization_record(row: CompositeMaterializationModel) -> MaterializationRecord:

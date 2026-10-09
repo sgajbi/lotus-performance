@@ -21,7 +21,7 @@ REPO_ROOT = Path(__file__).resolve().parents[3]
 GATE = "scripts/postgres_concurrency_contracts_gate.py"
 
 
-def test_default_invocation_executes_fee_and_pooled_custody_targets(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_default_invocation_executes_fee_pooled_and_result_authority_targets(monkeypatch: pytest.MonkeyPatch) -> None:
     selected: list[str] = []
 
     def run_target(
@@ -40,6 +40,8 @@ def test_default_invocation_executes_fee_and_pooled_custody_targets(monkeypatch:
         "tests/benchmarks/test_postgres_composite_component_model_fee.py",
         "tests/integration/test_composite_component_model_fee_api.py",
         "tests/benchmarks/test_postgres_composite_pooled_mwr.py",
+        "tests/benchmarks/test_postgres_composite_authority.py",
+        "tests/benchmarks/test_postgres_composite_authority_extended.py",
     } <= set(selected)
 
 

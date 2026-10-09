@@ -12,6 +12,7 @@
 - [Attribution Analytics](Attribution-Analytics)
 - [Group-Return Evidence](Group-Return-Evidence)
 - [Composite Performance](Composite-Performance)
+- [Composite Result Authority](Composite-Result-Authority)
 - [Mesh Data Products](Mesh-Data-Products)
 
 ## Engineering

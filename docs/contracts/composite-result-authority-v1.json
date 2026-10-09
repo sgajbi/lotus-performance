@@ -1,0 +1,32 @@
+{
+  "contract": "CompositeResultAuthority",
+  "version": "v1",
+  "owner": "lotus-performance",
+  "owning_issues": ["sgajbi/lotus-performance#610", "sgajbi/lotus-platform#923"],
+  "scope": "Nonfinancial authority metadata references immutable captured TWR originals and complete retained source vectors. No calculation occurs on authority read.",
+  "operations": [
+    {"method": "POST", "path": "/performance/composites/result-authorities/proposals", "effect": "Retain an immutable action proposal and local impact preview against an exact revision set."},
+    {"method": "POST", "path": "/performance/composites/result-authorities/proposals/{proposal_id}/approvals", "effect": "Retain independently verified exact-content financial-purpose approval; no selection change."},
+    {"method": "POST", "path": "/performance/composites/result-authorities/proposals/{proposal_id}/apply", "effect": "Atomically apply the approved action through revision CAS and durable idempotency."},
+    {"method": "GET", "path": "/performance/composites/result-authorities/{scope_id}", "effect": "Read selected approved authority, exact/as-reported decision or committed snapshot token, preserving original custody."}
+  ],
+  "actions": ["SELECT_INITIAL", "REPLACE", "FREEZE", "REOPEN", "RESTORE_PRIOR", "WITHDRAW_CURRENT_USE"],
+  "scope_identity": ["trusted tenant", "composite", "inclusive window", "return view", "reporting currency", "economic TWR method family"],
+  "vector_identity": "Captured original digest/build/engine plus every exact retained command/source/outcome/publication dependency. Corrected source, definition, fee, calendar, FX and engine revisions remain vector changes, not new lock scopes.",
+  "overlap": "An intersecting frozen dependency cannot change through another window. A wider window needs its own captured original. Alternate overlapping partitions refuse. Changed dependencies atomically stale ordinary dependent projections; an atomic bundle must supply every complete replacement.",
+  "idempotency": "Trusted tenant + operation + logical UUID; identical content returns the first retained receipt, conflicting content returns409. Transport lineage is excluded. Apply retries preserve original decision after subsequent transitions.",
+  "temporal": "COMMITTED_TOKEN identifies one retained complete decision snapshot. No arbitrary wall-clock as-known reconstruction or backfilled approval history. Exact/as-reported responses preserve historical original; current-use restrictions are explicit.",
+  "authority": "Verified bearer principal and current trusted grants are required. A separate exact-content financial-purpose verification boundary defaults unavailable. Configured signed synthetic conformance is always SYNTHETIC_NON_CERTIFYING and cannot establish institutional activation. Membership/method/source receipts are not financial approval.",
+  "errors": {
+    "401": "PRINCIPAL_ADMISSION_DENIED",
+    "403": "COMPOSITE_FINANCIAL_ACTION_DENIED",
+    "404": "COMPOSITE_AUTHORITY_NOT_FOUND",
+    "409": "COMPOSITE_AUTHORITY_CONFLICT",
+    "422": "COMPOSITE_AUTHORITY_UNSUPPORTED",
+    "503": "COMPOSITE_FINANCIAL_AUTHORITY_UNAVAILABLE or COMPOSITE_RESULT_CUSTODY_REFUSED"
+  },
+  "impact": "The digest-bound local graph identifies retained result dependencies. Report versions, recipients and institutional materiality remain UNAVAILABLE when no qualified input exists, never inferred zero.",
+  "compatibility": "Existing calculated latest-corrected/greatest-sequence behavior and incomplete-newest refusal are unchanged. Existing explicit TWR and candidate originals keep their serializers/digests. New authority read defaults LATEST_APPROVED selected decision; it never falls back to calculated candidates.",
+  "unsupported": ["composite-only imported history", "manual financial overrides", "arbitrary UTC knowledge time", "institutional/GIPS activation", "complete external report-recipient impact graph"],
+  "closure": "This calculated-original increment cannot close full610. Source/institution/identity/import/downstream qualification remain under existing owning issues. Executable models, registered OpenAPI/examples, database controls and exact-main/wiki evidence must accompany delivery."
+}

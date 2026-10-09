@@ -10,6 +10,7 @@ from app.api.endpoints import (
     benchmark,
     benchmark_exposure_context,
     composite_materialization,
+    composite_result_authority,
     composites,
     contribution,
     executions,
@@ -126,6 +127,7 @@ app.include_router(performance.router, prefix="/performance")
 app.include_router(benchmark.router, prefix="/performance")
 app.include_router(composites.router, prefix="/performance")
 app.include_router(composite_materialization.router, prefix="/performance")
+app.include_router(composite_result_authority.router, prefix="/performance")
 app.include_router(contribution.router, prefix="/performance")
 app.include_router(executions.router, prefix="/performance")
 app.include_router(source_corrections.router, prefix="/performance")

@@ -52,7 +52,7 @@ from dataclasses import replace
 from app.models.composites import CompositeTWRRequest
 from app.models.composite_materialization import CompositeMaterializationState
 from app.services.composite_calculation_service import (
-    calculate_composite_twr_from_materializations, _selected_materializations, _window_evidence
+    calculate_composite_twr_from_materializations, _selected_materializations, retained_window_evidence
 )
 from app.services.composite_materialization.records import MaterializationRecord
 from core.errors import APIError
@@ -66,7 +66,7 @@ record = MaterializationRecord(command=command, actor_id='operator', source=None
 result = {}
 for name, operation in (
     ('missing_selection', lambda: calculate_composite_twr_from_materializations(tenant_id='tenant-a', request=request)),
-    ('missing_source', lambda: _window_evidence(record, {})),
+    ('missing_source', lambda: retained_window_evidence(record, {})),
 ):
     try:
         operation()
@@ -77,7 +77,7 @@ for name, operation in (
 selected = _selected_materializations(request.model_copy(update={'materialization_ids': [command.materialization_id]}))
 if selected != [command.materialization_id]:
     raise RuntimeError('Explicit selection changed')
-evidence = _window_evidence(replace(record, source=admitted(command)), {})
+evidence = retained_window_evidence(replace(record, source=admitted(command)), {})
 if evidence.materialization_id != command.materialization_id or not evidence.retained_receipt_fingerprint.startswith('sha256:'):
     raise RuntimeError('Valid retained evidence changed')
 result['valid_selection_and_evidence'] = True

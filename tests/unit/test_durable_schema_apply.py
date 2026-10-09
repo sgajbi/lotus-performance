@@ -5,7 +5,13 @@ from pathlib import Path
 
 from sqlalchemy import create_engine, inspect
 
-from scripts.durable_schema_apply import BOOTSTRAP_STORES, apply_durable_schema, main
+from scripts.durable_schema_apply import (
+    BOOTSTRAP_STORES,
+    OWNED_DURABLE_TABLES,
+    _build_evidence,
+    apply_durable_schema,
+    main,
+)
 
 
 def _create_legacy_lineage_schema(database_url: str) -> None:
@@ -175,6 +181,31 @@ def test_durable_schema_apply_main_writes_operator_evidence(tmp_path: Path) -> N
     assert all(
         check["status"] == "passed" and check["issues"] == [] for check in latest_payload["schema_verification_checks"]
     )
+    evidence = apply_durable_schema(database_url=database_url)
+    engine = create_engine(database_url)
+    try:
+        assert set(inspect(engine).get_table_names()) == set(OWNED_DURABLE_TABLES)
+        authority_tables = {
+            "composite_authority_proposals",
+            "composite_authority_approvals",
+            "composite_authority_decisions",
+            "composite_authority_revisions",
+            "composite_authority_proposal_scopes",
+            "composite_authority_scopes",
+        }
+        assert authority_tables <= set(evidence.owned_tables_present)
+        missing = set()
+        for table in sorted(authority_tables):
+            with engine.begin() as connection:
+                connection.exec_driver_sql(f"DROP TABLE {table}")
+            missing.add(table)
+            refused = _build_evidence(
+                database_url=database_url, engine=engine, verification_checks=evidence.schema_verification_checks
+            )
+            assert refused.status == "failed"
+            assert set(refused.missing_owned_tables) == missing
+    finally:
+        engine.dispose()
 
 
 def test_owner_evidence_refuses_existing_same_named_incompatible_index(tmp_path):

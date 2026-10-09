@@ -65,7 +65,7 @@ def select_composite_materialization_facts(
         definition = _complete_window_definition(record)
         _require_window_scope(record.command, request, currency, cursor)
         currency_authority = retained_currency_authority(record)
-        method = _retained_return_method(definition, currency_authority.normalization_method)
+        method = retained_return_method(definition, currency_authority.normalization_method)
         selected_basis = (
             definition.calculation_method,
             record.command.policy_version,
@@ -77,7 +77,7 @@ def select_composite_materialization_facts(
         _require_compatible_window_authority(basis, selected_basis)
         basis = selected_basis
         facts.extend(_window_facts(record))
-        windows.append(_window_evidence(record, method))
+        windows.append(retained_window_evidence(record, method))
         cursor = record.command.period_end.toordinal() + 1
     if records[-1].command.period_end != request.period_end:
         raise APIConflictError("A required retained window is missing.", error_code="REQUIRED_PERIOD_UNAVAILABLE")
@@ -126,7 +126,7 @@ def _complete_window_definition(
     return definition
 
 
-def _retained_return_method(definition, currency_method):
+def retained_return_method(definition, currency_method):
     if isinstance(definition, ManageCompositeDefinitionV2):
         return definition.source_authority.payload.return_method_binding.model_dump(mode="json")
     if currency_method is None:
@@ -169,7 +169,7 @@ def _window_facts(record: MaterializationRecord) -> list[CompositeMemberReturnFa
     return facts
 
 
-def _window_evidence(record: MaterializationRecord, method: dict[str, str]) -> CompositeTWRWindowEvidence:
+def retained_window_evidence(record: MaterializationRecord, method: dict[str, str]) -> CompositeTWRWindowEvidence:
     command, source = record.command, record.source
     if source is None:
         raise APIConflictError("A required retained window is unavailable.", error_code="REQUIRED_PERIOD_UNAVAILABLE")
