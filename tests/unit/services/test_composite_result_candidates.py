@@ -1,5 +1,7 @@
 """Atomicity, original identity and replay custody; no new financial calculator."""
 
+import hashlib
+import json
 import os
 import subprocess
 import sys
@@ -13,13 +15,16 @@ import pytest
 from sqlalchemy import event, text
 from sqlalchemy.exc import IntegrityError
 
+from app.adapters import composite_result_candidate_storage as candidate_storage
 from app.adapters.composite_principal_credentials import VerifiedCompositePrincipal
 from app.adapters.composite_result_candidate_storage import CAPTURE_CAPABILITY
 from app.core.config import get_settings
+from app.models.composite_result_candidates import CompositeResultCaptureRequest
 from app.models.composites import CompositeTWRRequest, CompositeTWRResponse
 from app.observability import tenant_id_var
 from app.services.async_result_store import AsyncResultStore
 from app.services.composite_metadata_store import CompositeMetadataStore
+from app.services.composite_result_candidate_admission import require_verified_candidate_principal
 from core.errors import APIConflictError, APIError
 
 
@@ -336,3 +341,121 @@ def test_candidate_default_and_incomplete_admission_refuse_without_writes(candid
     with pytest.raises(APIError):
         _capture((store, results, request, response, principal))
     assert _counts(store) == (0, 0)
+
+
+@pytest.mark.parametrize("members", ["{", "null", "[]", "[1]", '[""]', '["z","a"]', '["a","a"]'])
+def test_corrupt_retained_member_scope_refuses_before_original_read(candidate_inputs, members):
+    store, results, _, _, principal = candidate_inputs
+    original = _capture(candidate_inputs)
+    with store._engine.begin() as connection:
+        connection.exec_driver_sql("DROP TRIGGER trg_composite_result_candidate_immutable_update")
+        connection.execute(
+            text("UPDATE composite_result_candidates SET member_scope_json = :members"), {"members": members}
+        )
+    store.create_schema()
+    statements = []
+
+    def observe(connection, cursor, statement, parameters, context, executemany):
+        statements.append(statement)
+
+    event.listen(store._engine, "before_cursor_execute", observe)
+    token = tenant_id_var.set("tenant-a")
+    try:
+        with pytest.raises(APIError, match="custody|provenance"):
+            store.get_result_candidate(
+                candidate_id=original["candidate_id"], tenant_id="tenant-a", result_store=results, principal=principal
+            )
+        assert not any("FROM ANALYTICS_ASYNC_RESULT" in statement.upper() for statement in statements)
+    finally:
+        tenant_id_var.reset(token)
+        event.remove(store._engine, "before_cursor_execute", observe)
+
+
+@pytest.mark.parametrize("corruption", ["malformed_json", "invalid_model", "missing_manifest"])
+def test_corrupt_original_with_matching_transport_digest_still_refuses(candidate_inputs, corruption):
+    store, results, _, response, principal = candidate_inputs
+    original = _capture(candidate_inputs)
+    payload = response.model_dump(mode="json")
+    payload["selection_manifest"] = None
+    wire = {
+        "malformed_json": "{",
+        "invalid_model": "{}",
+        "missing_manifest": json.dumps(payload, sort_keys=True, separators=(",", ":")),
+    }[corruption]
+    digest = "sha256:" + hashlib.sha256(wire.encode()).hexdigest()
+    with store._engine.begin() as connection:
+        connection.exec_driver_sql("DROP TRIGGER trg_composite_result_custody_update")
+        connection.exec_driver_sql("DROP TRIGGER trg_composite_result_candidate_immutable_update")
+        connection.execute(text("UPDATE analytics_async_result SET response_json = :wire"), {"wire": wire})
+        connection.execute(
+            text("UPDATE composite_result_candidates SET original_response_digest = :digest"), {"digest": digest}
+        )
+    results.create_schema()
+    store.create_schema()
+    token = tenant_id_var.set("tenant-a")
+    try:
+        with pytest.raises(APIError, match="custody|provenance"):
+            store.get_result_candidate(
+                candidate_id=original["candidate_id"], tenant_id="tenant-a", result_store=results, principal=principal
+            )
+    finally:
+        tenant_id_var.reset(token)
+
+
+@pytest.mark.parametrize("same_content", [True, False])
+def test_actual_unique_collision_rolls_back_losing_original_and_resolves_only_matching_winner(
+    candidate_inputs, monkeypatch, same_content
+):
+    store, results, request, response, principal = candidate_inputs
+    original = _capture(candidate_inputs)
+    retry_request, retry_response = request.model_copy(deep=True), response.model_copy(deep=True)
+    retry_request.calculation_id = retry_response.calculation_id = uuid4()
+    if not same_content:
+        retry_request.materialization_ids = [uuid4(), uuid4()]
+        for window, identity in zip(retry_response.selection_manifest.windows, retry_request.materialization_ids):
+            window.materialization_id = identity
+    # Model a stale absence read, then use the real SQLite uniqueness constraint.
+    # This is collision recovery proof; actual concurrent PostgreSQL has its own test.
+    monkeypatch.setattr(candidate_storage, "_existing_candidate", lambda *arguments: None)
+    inputs = (store, results, retry_request, retry_response, principal)
+    if same_content:
+        assert _capture(inputs, original["candidate_id"]) == original
+    else:
+        with pytest.raises(APIConflictError, match="different retained content"):
+            _capture(inputs, original["candidate_id"])
+    assert _counts(store) == (1, 1)
+    with store._engine.connect() as connection:
+        assert (
+            connection.scalar(
+                text("SELECT count(*) FROM analytics_async_result WHERE calculation_id = :identity"),
+                {"identity": str(retry_request.calculation_id)},
+            )
+            == 0
+        )
+        assert (
+            json.loads(connection.scalar(text("SELECT response_json FROM analytics_async_result")))
+            == original["response"]
+        )
+
+
+@pytest.mark.parametrize("mismatch", ["incomplete_period", "calculation_identity", "materialization_identity"])
+def test_candidate_response_binding_refuses_without_writes(candidate_inputs, mismatch):
+    store, _, request, response, _ = candidate_inputs
+    if mismatch == "incomplete_period":
+        response.periods[0].status = "BLOCKED"
+    elif mismatch == "calculation_identity":
+        response.calculation_id = uuid4()
+    else:
+        response.selection_manifest.windows[0].materialization_id = uuid4()
+    with pytest.raises(APIConflictError):
+        _capture(candidate_inputs)
+    assert _counts(store) == (0, 0)
+
+
+def test_capture_body_and_application_boundary_cannot_bypass_explicit_vector_or_principal(candidate_inputs):
+    _, _, request, _, _ = candidate_inputs
+    request.materialization_ids = None
+    with pytest.raises(ValueError, match="explicit complete retained"):
+        CompositeResultCaptureRequest(candidate_id=uuid4(), calculation=request)
+    with pytest.raises(APIError, match="Verified principal"):
+        require_verified_candidate_principal({"tenant": "forged", "capabilities": [CAPTURE_CAPABILITY]})

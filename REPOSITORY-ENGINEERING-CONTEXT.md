@@ -1023,7 +1023,10 @@ an immutable nonfinancial `composite_result_candidates` descriptor in one verifi
 database transaction. No async result table is created by the Composite owner. Runtime
 catalog verification must include both owners' exact enabled guards, and normal retention
 excludes captured originals. In-memory/cross-database capture and unknown release commit
-refuse. Reads preserve original numerical response/calculation/build/method and never
+refuse. Candidate PostgreSQL custody requires explicit TCP host/database URLs, no
+destination query overrides and non-null installed database/schema/server address/port;
+Unix-socket identity is unsupported. SQLite uses actual durable file identity.
+Reads preserve original numerical response/calculation/build/method and never
 recalculate. Source makers remain separately qualified; approval/freeze/reopen are not
 implemented by this candidate. See `docs/guides/composite_result_candidates.md`.
 

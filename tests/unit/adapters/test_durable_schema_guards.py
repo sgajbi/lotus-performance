@@ -186,6 +186,79 @@ def test_postgres_truncate_requires_exact_enabled_statement_guard(postgres_catal
 
 
 @pytest.mark.parametrize(
+    "fault",
+    [None, "missing_truncate", "row_truncate", "disabled", "missing_original", "foreign_tenant", "failed_result"],
+)
+def test_candidate_postgres_catalog_requires_original_custody_and_statement_truncate(postgres_catalog, fault):
+    from sqlalchemy.dialects import postgresql
+
+    from app.adapters.composite_result_candidate_schema import candidate_guard_statements
+
+    # Installed catalog evidence is independent of the generated DDL. Runtime
+    # admission must reject a weakened original-result predicate or mutation
+    # event without installing or repairing any database objects.
+    original_body = (
+        "BEGIN IF NOT EXISTS (SELECT 1 FROM analytics_async_result r "
+        "WHERE r.calculation_id = NEW.calculation_id AND r.tenant_id = NEW.tenant_id "
+        "AND r.analytics_type = 'COMPOSITE_TWR_CANDIDATE' AND r.result_status = 'complete' "
+        "AND r.response_json IS NOT NULL AND r.error_message IS NULL "
+        "AND r.error_type IS NULL AND r.failure_json IS NULL) THEN "
+        "RAISE EXCEPTION USING ERRCODE = '23514', MESSAGE = 'composite candidate original result is unavailable'; "
+        "END IF; RETURN NEW; END;"
+    )
+    template_function = postgres_catalog.functions[0].copy()
+    postgres_catalog.functions[:] = [
+        dict(template_function, proname="require_composite_result_candidate_original", prosrc=original_body),
+        dict(
+            template_function,
+            proname="reject_composite_result_candidate_mutation",
+            prosrc="BEGIN RAISE EXCEPTION USING ERRCODE = '23514', MESSAGE = 'composite result candidate is immutable'; END;",
+        ),
+    ]
+    template_trigger = postgres_catalog.triggers[0].copy()
+    postgres_catalog.triggers[:] = [
+        dict(
+            template_trigger,
+            tgname="trg_composite_result_candidate_original",
+            relname="composite_result_candidates",
+            tgtype=7,
+            proname="require_composite_result_candidate_original",
+        ),
+        *[
+            dict(
+                template_trigger,
+                tgname=f"trg_composite_result_candidate_immutable_{operation}",
+                relname="composite_result_candidates",
+                tgtype=event_type,
+                proname="reject_composite_result_candidate_mutation",
+            )
+            for operation, event_type in [("update", 19), ("delete", 11), ("truncate", 34)]
+        ],
+    ]
+    if fault == "missing_truncate":
+        postgres_catalog.triggers.pop()
+    elif fault == "row_truncate":
+        postgres_catalog.triggers[-1]["tgtype"] = 35
+    elif fault == "disabled":
+        postgres_catalog.triggers[-1]["tgenabled"] = "D"
+    elif fault == "missing_original":
+        postgres_catalog.triggers.pop(0)
+    elif fault == "foreign_tenant":
+        postgres_catalog.functions[0]["prosrc"] = original_body.replace("AND r.tenant_id = NEW.tenant_id ", "")
+    elif fault == "failed_result":
+        postgres_catalog.functions[0]["prosrc"] = original_body.replace("AND r.failure_json IS NULL", "")
+    before = ([row.copy() for row in postgres_catalog.functions], [row.copy() for row in postgres_catalog.triggers])
+    statements = candidate_guard_statements(postgresql.dialect())
+    if fault is None:
+        require_managed_guards(postgres_catalog.connection, statements)
+    else:
+        with pytest.raises(DurableSchemaMigrationRequiredError):
+            require_managed_guards(postgres_catalog.connection, statements)
+    assert (postgres_catalog.functions, postgres_catalog.triggers) == before
+    assert len(postgres_catalog.queries) == 2
+
+
+@pytest.mark.parametrize(
     "collection, field, value",
     [
         ("functions", "arguments", "tenant text"),
