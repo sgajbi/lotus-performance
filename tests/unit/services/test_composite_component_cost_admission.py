@@ -69,6 +69,36 @@ def test_complete_original_financial_payload_retained_and_source_not_refetched(c
     assert case[3].calls == 1
 
 
+def test_whole_financial_custody_participates_in_retained_window_fingerprint(case):
+    from dataclasses import replace
+
+    from app.models.composite_materialization import CompositeMaterializationState
+    from app.services.composite_calculation_service import _window_evidence
+    from app.services.composite_materialization.records import MaterializationRecord
+
+    source, command, profile, _, _ = case
+    original = admit(case).model_dump(mode="json")
+    source = source.model_copy(
+        update={"model_fee_wire": profile.model_dump(mode="json"), "gross_component_wire": original}
+    )
+    # This unit hashes the receipt projection; it neither admits nor stores member facts.
+    record = MaterializationRecord(
+        command=command,
+        actor_id="operator",
+        source=source,
+        outcomes=[],
+        state=CompositeMaterializationState.COMPLETE,
+        reason_code=None,
+        revision=1,
+    )
+    fingerprint = _window_evidence(record, {}).retained_receipt_fingerprint
+    changed = deepcopy(original)
+    changed["source"]["source_watermark"] = "other.original.cut"
+    altered = replace(record, source=source.model_copy(update={"gross_component_wire": changed}))
+    assert _window_evidence(altered, {}).retained_receipt_fingerprint != fingerprint
+    assert _window_evidence(record, {}).retained_receipt_fingerprint == fingerprint
+
+
 @pytest.mark.parametrize(
     "fault",
     [
