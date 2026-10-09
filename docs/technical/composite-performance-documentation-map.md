@@ -23,7 +23,8 @@ the current single reporting-currency guard is not supported.
 
 | Artifact | Purpose | Boundary |
 | --- | --- | --- |
-| `docs/methodologies/metrics/metric-composite-twr.md` | Audit-grade methodology for persisted-fact asset-weighted composite TWR. | Does not document unsupported composite contribution, attribution, MWR, or advanced structures as implemented. |
+| `docs/methodologies/metrics/metric-composite-twr.md` | Audit-grade methodology for persisted-fact asset-weighted composite TWR. | TWR scope; linked composite contribution has its own method below. Attribution, MWR and advanced structures remain separate. |
+| `docs/methodologies/metrics/metric-composite-linked-member-contribution.md` and `docs/guides/composite_linked_contribution.md` | Pinned multi-period member contribution through the existing analytics operation. | `CARINO:v1`, original retained Decimal facts, source/replay evidence and consumer units; calculated analysis, not official selection or live qualification. |
 | `docs/guides/composite_performance.md` | API guide, source-authority explanation, operational workflow, and support boundaries. | Human guide only; OpenAPI remains field-level contract. |
 | `docs/guides/composite_materialization.md` | Governed command, pinned source/member evidence, atomic admission and bounded recovery. | Does not inherit older persisted-fact endpoint certification or imply live upstream acceptance. |
 | `docs/technical/composite-twr-endpoint-certification.md` | Endpoint invariants, error behavior, inspector certification, live proof, and test-pyramid evidence. | Certification covers the RFC-049 supported composite TWR boundary only. |
