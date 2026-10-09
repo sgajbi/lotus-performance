@@ -865,6 +865,10 @@ Important validation expectations:
     Integration shards apply the complete explicit owner in `tests/integration/conftest.py`
     before module-scoped clients start. Prove shards against fresh storage: running unit tests
     first can mask incomplete HTTP fixture setup. Startup-refusal cases use separate databases.
+    HTTP artifact assertions must materialize their exact calculation with the existing
+    `process_pending_calculation` worker operation. A successful bounded queue drain can process
+    only older jobs and does not prove that the asserted calculation has reached terminal lineage.
+    Exact MWR retention controls exercise a queue of 101 older payloads in isolated storage.
 
 45. Operator retention uses `python -m scripts.runtime_retention_cleanup` from the repository root
     or `/app` in the shipped image, after explicit schema ownership. Do not require inherited
