@@ -1,8 +1,34 @@
 """Fresh reader of an owning test's frozen configuration, never production trust."""
 
 import json
+import os
+import subprocess
 import sys
 from pathlib import Path
+
+
+def assert_fresh_model_fee_replay(captured, tmp_path):
+    """Execute retained financial replay in a separate interpreter, preserving logs."""
+    case = tmp_path / "original-profile.json"
+    case.write_text(json.dumps(captured), encoding="utf-8")
+    root = Path(__file__).resolve().parents[2]
+    environment = {**os.environ, "LINEAGE_METADATA_DATABASE_URL": captured["database_url"]}
+    result = subprocess.run(
+        [sys.executable, "-m", "tests.benchmarks.composite_model_fee_process_controls", str(case)],
+        cwd=root,
+        env=environment,
+        text=True,
+        encoding="utf-8",
+        capture_output=True,
+        timeout=60,
+    )
+    (tmp_path / "fresh-reader.stdout").write_text(result.stdout, encoding="utf-8")
+    (tmp_path / "fresh-reader.stderr").write_text(result.stderr, encoding="utf-8")
+    assert result.returncode == 0, result.stderr
+    proof = json.loads(result.stdout.strip().splitlines()[-1])
+    assert proof["retained_equal"] and proof["periods_equal"]
+    assert proof["latest_resolution"] == "NOT_USED"
+    assert proof["child_execution_lookup"] == "REFUSED_IF_ATTEMPTED"
 
 
 def main():

@@ -4,8 +4,8 @@ from dataclasses import dataclass
 from typing import Any, Protocol
 
 from app.models.composite_authority import EvidenceBinding
+from app.models.composite_model_fee_contract import CompositeModelFeeProfile
 from app.models.composite_model_fee_profiles import CompositeModelFeeProfileReceipt
-from app.models.composite_model_fees import CompositePeriodicModelFeeProfile
 from app.ports.composite_external_evidence import UnavailableCompositeEvidence
 
 
@@ -30,7 +30,7 @@ class CompositeModelFeeResolutionPort(Protocol):
 
 class CompositeModelFeeProfileRepository(Protocol):
     def publish_model_fee_profile(
-        self, profile: CompositePeriodicModelFeeProfile, *, tenant_id: str, actor_id: str
+        self, profile: CompositeModelFeeProfile, *, tenant_id: str, actor_id: str
     ) -> CompositeModelFeeProfileReceipt: ...
 
     def get_model_fee_profile(

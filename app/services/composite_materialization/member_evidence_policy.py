@@ -8,6 +8,7 @@ from app.models.composite_materialization import (
     CompositeMemberSourceEvidence,
     CompositeModelFeeMemberEvidence,
     CompositeNormalizedMemberSourceEvidence,
+    CompositeScheduledModelFeeMemberEvidence,
 )
 from app.models.composites import CompositeMemberReturnFact, CompositeReturnView
 from app.services.reproducibility_service import generate_value_fingerprint
@@ -42,7 +43,7 @@ def require_member_source_evidence(
             admitted_fx_source=admitted_fx_source,
         )
         return
-    if isinstance(outcome.source_evidence, CompositeModelFeeMemberEvidence):
+    if isinstance(outcome.source_evidence, (CompositeModelFeeMemberEvidence, CompositeScheduledModelFeeMemberEvidence)):
         _refuse()
     _require_base_member_source_evidence(
         command,

@@ -1,6 +1,6 @@
 """Preserve and recheck the original gross receipt beneath every model-fee fact."""
 
-from decimal import Decimal
+from decimal import Decimal, localcontext
 from typing import NoReturn
 
 from app.models.composite_materialization import (
@@ -8,8 +8,14 @@ from app.models.composite_materialization import (
     CompositeMemberSourceEvidence,
     CompositeModelFeeMemberEvidence,
     CompositeNormalizedMemberSourceEvidence,
+    CompositeScheduledModelFeeMemberEvidence,
 )
+from app.models.composite_scheduled_model_fees import CompositeScheduledMemberFee, CompositeScheduledModelFeePeriod
 from app.services.composite_materialization.model_fee_returns import periodic_model_net_return
+from app.services.composite_materialization.model_fee_schedule_rates import (
+    scheduled_model_fee_context,
+    scheduled_period_fee_fraction,
+)
 from app.services.reproducibility_service import generate_value_fingerprint
 from core.errors import APIConflictError, APIError
 
@@ -42,18 +48,25 @@ def apply_model_fee_to_outcome(command, outcome, admitted):
     entry = next((row for row in admitted.period.member_rates if row.member_id == outcome.portfolio_id), None)
     if entry is None:
         _refuse()
-    evidence = CompositeModelFeeMemberEvidence(
+    fraction = _approved_fee_fraction(entry, admitted.period, outcome.fact)
+    common = dict(
         gross_evidence=outcome.source_evidence,
         gross_receipt_digest=gross_digest,
         gross_return=gross_return,
         model_fee_binding=command.model_fee_binding,
-        fee_entry=entry.model_copy(deep=True),
     )
-    value = periodic_model_net_return(gross_return, Decimal(entry.period_fee_fraction))
+    evidence = (
+        CompositeScheduledModelFeeMemberEvidence(
+            **common, fee_entry=entry.model_copy(deep=True), derived_period_fee_fraction=format(fraction, "f")
+        )
+        if isinstance(entry, CompositeScheduledMemberFee)
+        else CompositeModelFeeMemberEvidence(**common, fee_entry=entry.model_copy(deep=True))
+    )
+    value = _model_return(gross_return, fraction, entry)
     fact = outcome.fact.model_copy(
         update={
             "return_value": value,
-            "source_snapshot_id": generate_value_fingerprint(evidence, "composite-member-source.v4")[0],
+            "source_snapshot_id": generate_value_fingerprint(evidence, evidence.contract_version)[0],
         }
     )
     return outcome.model_copy(
@@ -71,7 +84,11 @@ def require_model_fee_member_evidence(
     from app.services.composite_materialization.member_evidence_policy import _require_base_member_source_evidence
 
     evidence, fact = outcome.source_evidence, outcome.fact
-    if admitted is None or fact is None or not isinstance(evidence, CompositeModelFeeMemberEvidence):
+    if (
+        admitted is None
+        or fact is None
+        or not isinstance(evidence, (CompositeModelFeeMemberEvidence, CompositeScheduledModelFeeMemberEvidence))
+    ):
         _refuse()
     gross_return, gross_digest = _require_approved_gross_receipt(command, outcome, admitted)
     gross_fact = fact.model_copy(update={"return_value": gross_return, "source_snapshot_id": gross_digest})
@@ -83,7 +100,7 @@ def require_model_fee_member_evidence(
         currency_normalization_wire=currency_normalization_wire,
         admitted_fx_source=admitted_fx_source,
     )
-    _require_model_fact(fact, evidence, gross_return)
+    _require_model_fact(fact, evidence, gross_return, admitted.period)
 
 
 def _require_approved_gross_receipt(command, outcome, admitted):
@@ -100,16 +117,41 @@ def _require_approved_gross_receipt(command, outcome, admitted):
     return gross_return, gross_digest
 
 
-def _require_model_fact(fact, evidence, gross_return):
+def _require_model_fact(fact, evidence, gross_return, period):
     try:
-        expected_return = periodic_model_net_return(gross_return, Decimal(evidence.fee_entry.period_fee_fraction))
+        if isinstance(evidence, CompositeScheduledModelFeeMemberEvidence):
+            CompositeScheduledModelFeeMemberEvidence.model_validate(evidence.model_dump(mode="json"))
+        fraction = _approved_fee_fraction(evidence.fee_entry, period, fact)
+        if isinstance(
+            evidence, CompositeScheduledModelFeeMemberEvidence
+        ) and evidence.derived_period_fee_fraction != format(fraction, "f"):
+            _refuse()
+        expected_return = _model_return(gross_return, fraction, evidence.fee_entry)
     except ValueError:
         _refuse()
     if (fact.return_value, fact.source_snapshot_id) != (
         expected_return,
-        generate_value_fingerprint(evidence, "composite-member-source.v4")[0],
+        generate_value_fingerprint(evidence, evidence.contract_version)[0],
     ):
         _refuse()
+
+
+def _approved_fee_fraction(entry, period, fact):
+    if isinstance(entry, CompositeScheduledMemberFee):
+        if (
+            not isinstance(period, CompositeScheduledModelFeePeriod)
+            or Decimal(entry.fee_base_amount) != fact.beginning_market_value
+        ):
+            _refuse()
+        return scheduled_period_fee_fraction(entry, period)
+    return Decimal(entry.period_fee_fraction)
+
+
+def _model_return(gross_return, fraction, entry):
+    if isinstance(entry, CompositeScheduledMemberFee):
+        with localcontext(scheduled_model_fee_context()):
+            return periodic_model_net_return(gross_return, fraction)
+    return periodic_model_net_return(gross_return, fraction)
 
 
 def apply_model_fee_or_refuse(command, outcome, admitted):

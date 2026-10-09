@@ -12,8 +12,8 @@ from app.models.composite_materialization import (
     CompositeMaterializationCommand,
     CompositeMaterializationProgress,
 )
+from app.models.composite_model_fee_contract import CompositeModelFeeProfile
 from app.models.composite_model_fee_profiles import CompositeModelFeeProfileReceipt
-from app.models.composite_model_fees import CompositePeriodicModelFeeProfile
 from app.services.composite_materialization.application import (
     admit_materialization_identity,
     admit_materialization_tenant,
@@ -52,7 +52,7 @@ def _identity(request: Request, *, header: str) -> str:
     openapi_extra=_TENANT_PARAMETER,
 )
 def publish_model_fee_profile(
-    profile: CompositePeriodicModelFeeProfile,
+    profile: CompositeModelFeeProfile,
     request: Request,
     x_actor_id: Annotated[str, Header(description="Original admitted publishing actor; never defaulted.")],
     x_role: Annotated[str, Header(description="Admitted role subject to publication capability checks.")],

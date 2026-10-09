@@ -6,7 +6,7 @@ from typing import Literal
 from pydantic import Field, model_validator
 
 from app.models.composite_authority import AuthorityWire, EvidenceBinding
-from app.models.composite_model_fees import CompositePeriodicModelFeeProfile
+from app.models.composite_model_fee_contract import CompositeModelFeeProfile
 
 
 class CompositeModelFeeProfileReceipt(AuthorityWire):
@@ -15,7 +15,7 @@ class CompositeModelFeeProfileReceipt(AuthorityWire):
         description="Publication retains input custody; independent method approval is still required.",
     )
     binding: EvidenceBinding = Field(description="Exact immutable canonical method-profile identity and digest.")
-    profile: CompositePeriodicModelFeeProfile = Field(
+    profile: CompositeModelFeeProfile = Field(
         description="Original complete strict method wire; publisher custody does not alter these bytes."
     )
     published_by: str = Field(

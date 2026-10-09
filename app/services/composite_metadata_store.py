@@ -38,7 +38,6 @@ from app.adapters.composite_model_fee_profile_records import ModelFeeProfileBase
 from app.adapters.composite_model_fee_profile_schema import (
     create_model_fee_profile_schema,
     model_fee_profile_guard_statements,
-    require_model_fee_profile_schema,
 )
 from app.adapters.composite_schema_policy import (
     CANONICAL_REPORTING_CURRENCY_CHECK_SQL,
@@ -2545,6 +2544,7 @@ class CompositeMetadataStore:
             return read_candidate(session, tenant_id=tenant_id, candidate_id=candidate_id, principal=principal)
 
     def create_schema(self) -> None:
+        from app.adapters.composite_model_fee_profile_upgrade import upgrade_model_fee_profile_products
         from app.adapters.composite_result_candidate_schema import create_candidate_schema, require_candidate_schema
 
         create_durable_schema(
@@ -2552,7 +2552,7 @@ class CompositeMetadataStore:
             Base.metadata,
             schema_preflights=(
                 require_candidate_schema,
-                require_model_fee_profile_schema,
+                upgrade_model_fee_profile_products,
                 upgrade_materialization_return_views,
                 require_materialization_schema,
                 _upgrade_empty_legacy_composite_schema_for_tenant_scope,
