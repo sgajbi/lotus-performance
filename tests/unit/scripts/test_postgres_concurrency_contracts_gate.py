@@ -37,6 +37,8 @@ def test_default_invocation_executes_fee_and_pooled_custody_targets(monkeypatch:
     assert {
         "tests/benchmarks/test_postgres_composite_model_fee.py",
         "tests/benchmarks/test_postgres_composite_scheduled_model_fee.py",
+        "tests/benchmarks/test_postgres_composite_component_model_fee.py",
+        "tests/integration/test_composite_component_model_fee_api.py",
         "tests/benchmarks/test_postgres_composite_pooled_mwr.py",
     } <= set(selected)
 

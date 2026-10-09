@@ -50,7 +50,17 @@ def component_database(monkeypatch, tmp_path, request):
     return url
 
 
-def prepare(client, monkeypatch, headers, *, distinct=False, zero=False, false_base=False):
+def prepare(
+    client,
+    monkeypatch,
+    headers,
+    *,
+    distinct=False,
+    zero=False,
+    false_base=False,
+    signed_foreign=False,
+    false_gross=False,
+):
     packet, _, command, _ = model_fee_source_inputs()
     install_source_wire_controls(monkeypatch, tuple(packet[key] for key in ("definition", "membership", "attestation")))
     references = {
@@ -72,7 +82,15 @@ def prepare(client, monkeypatch, headers, *, distinct=False, zero=False, false_b
         for reference in command.member_calculations
     ]
     assert all(row.state == "READY" for row in outcomes), outcomes
-    profile, members = component_source_inputs(packet, outcomes, distinct=distinct, zero=zero, false_base=false_base)
+    profile, members = component_source_inputs(
+        packet,
+        outcomes,
+        distinct=distinct,
+        zero=zero,
+        false_base=false_base,
+        signed_foreign=signed_foreign,
+        false_gross=false_gross,
+    )
     packet, profile, command, _ = model_fee_source_inputs(profile)
     install_source_wire_controls(monkeypatch, tuple(packet[key] for key in ("definition", "membership", "attestation")))
     monkeypatch.setattr(periodic, "create_stateful_member", lambda client, member, **kwargs: references[member])
@@ -181,6 +199,17 @@ def test_registered_component_worker_retains_full_financial_source_and_replays(
             reopened.close()
         assert client.get(accepted.json()["result_path"]).json() == retained
         assert client.post("/performance/composites/twr", json=selection).json() == twr.json()
+        published = client.get(
+            f"/performance/composites/model-fee-profiles/{profile['profile_id']}/{profile['revision']}",
+            headers={
+                "X-Service-Identity": "lotus-performance",
+                "X-Correlation-Id": "synthetic-profile-read",
+                "X-Capabilities": "operations.runtime.read",
+            },
+        )
+        assert published.status_code == 200, published.text
+        assert published.json()["profile"] == profile
+        assert published.json()["posture"] == "UNAPPROVED_METHOD_INPUT"
         capture_path = os.environ.get("LOTUS_COMPONENT_WIRE_CAPTURE")
         if capture_path and not distinct and not zero:
             from pathlib import Path
@@ -190,13 +219,7 @@ def test_registered_component_worker_retains_full_financial_source_and_replays(
                     dict(
                         qualification="SYNTHETIC_REGISTERED_CONSUMER_ONLY",
                         profile_request=profile,
-                        profile_response=client.get(
-                            f"/performance/composites/model-fee-profiles/{profile['profile_id']}/{profile['revision']}",
-                            headers={
-                                "X-Service-Identity": "lotus-performance",
-                                "X-Capabilities": "operations.runtime.read",
-                            },
-                        ).json(),
+                        profile_response=published.json(),
                         materialization_request=command.model_dump(mode="json"),
                         materialization_accepted=accepted.json(),
                         retained_response=retained,
@@ -250,13 +273,20 @@ def test_registered_component_worker_retains_full_financial_source_and_replays(
         "false-base",
         "incomplete-zero",
         "signed-false-base",
+        "signed-foreign",
+        "signed-false-gross",
     ],
 )
 def test_component_financial_refusal_has_zero_ready_facts(monkeypatch, component_database, fault):
     authority = headers()
     with TestClient(app, headers=authority) as client:
         _, command, financial, supplier, verifier, _ = prepare(
-            client, monkeypatch, authority, false_base=fault == "signed-false-base"
+            client,
+            monkeypatch,
+            authority,
+            false_base=fault == "signed-false-base",
+            signed_foreign=fault == "signed-foreign",
+            false_gross=fault == "signed-false-gross",
         )
         if fault != "missing":
             changed = deepcopy(financial)
