@@ -84,6 +84,8 @@ def test_postgres_current_managed_guards_verify_without_mutation():
     from app.adapters.durable_schema.catalog import require_metadata_schema
     from app.services.async_result_store import Base as ResultBase
     from app.services.composite_metadata_store import Base as CompositeBase
+    from app.services.composite_pooled_mwr.schema import immutable_guards
+    from app.services.composite_pooled_mwr.schema import metadata as pooled_metadata
     from app.services.compute_job_store import Base as ComputeBase
     from app.services.execution_registry import Base as ExecutionBase
     from app.services.lineage_metadata_store import Base as LineageBase
@@ -92,7 +94,7 @@ def test_postgres_current_managed_guards_verify_without_mutation():
 
     database_url = get_postgres_database_url()
     # Race complete owner invocations, not ordinary workload starters. Each
-    # owner must finish all six store checks against the initially empty schema.
+    # owner must finish every named store check against the initially empty schema.
     start = Barrier(4)
     with ThreadPoolExecutor(max_workers=4) as owners:
         evidence = list(
@@ -103,7 +105,20 @@ def test_postgres_current_managed_guards_verify_without_mutation():
             )
         )
     assert all(item.status == "passed" for item in evidence)
-    assert all(len(item.schema_verification_checks) == 6 for item in evidence)
+    expected_stores = {
+        "ExecutionRegistry",
+        "ComputeJobStore",
+        "AsyncResultStore",
+        "LineageMetadataStore",
+        "CompositeMetadataStore",
+        "SourceCorrectionStore",
+        "CompositePooledMWRInputStore",
+    }
+    for item in evidence:
+        checks = item.schema_verification_checks
+        assert len(checks) == len(expected_stores)
+        assert {check.store_name for check in checks} == expected_stores
+        assert all(check.status == "passed" and not check.issues for check in checks)
     lineage = LineageMetadataStore(database_url)
     try:
         calculation_id = uuid4()
@@ -130,7 +145,9 @@ def test_postgres_current_managed_guards_verify_without_mutation():
                 MaterializationBase,
             ):
                 require_metadata_schema(connection, base.metadata)
+            require_metadata_schema(connection, pooled_metadata)
             require_managed_guards(connection, composite_fact_guard_statements(connection.dialect))
+            require_managed_guards(connection, immutable_guards(connection.dialect.name))
         assert statements and all(sql.lstrip().upper().startswith("SELECT") for sql in statements)
     finally:
         store.close()

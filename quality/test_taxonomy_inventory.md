@@ -1,7 +1,7 @@
 # Lotus Performance Test Taxonomy Inventory
 
 Report date: 2026-10-09
-Branch: `feature/composite-scheduled-model-fees-609`
+Branch: `feature/composite-pooled-xirr-632`
 Mode: regression-blocking test taxonomy inventory; `make quality-test-taxonomy-gate` enforces
 minimum API/runtime and contract/governance breadth plus the current uncategorized-test ceiling.
 
@@ -22,19 +22,19 @@ python scripts/python_test_taxonomy_inventory.py --limit 30 --min-api-runtime-te
 
 | Metric | Value |
 | --- | ---: |
-| Test modules inventoried | 413 |
-| Test functions inventoried | 4886 |
-| Integration/API/runtime test functions | 998 |
+| Test modules inventoried | 419 |
+| Test functions inventoried | 4998 |
+| Integration/API/runtime test functions | 1028 |
 | Contract/governance test functions | 231 |
 
 ## Test Functions By Suite
 
 | Suite | Modules | Test functions |
 | --- | ---: | ---: |
-| benchmarks | 14 | 119 |
+| benchmarks | 15 | 146 |
 | e2e | 1 | 21 |
-| integration | 46 | 543 |
-| unit | 352 | 4203 |
+| integration | 48 | 565 |
+| unit | 355 | 4266 |
 
 ## Test Functions By Family
 
@@ -44,10 +44,10 @@ above does sum to it, because a module belongs to exactly one suite.
 
 | Family | Test functions |
 | --- | ---: |
-| analytics_domain | 2660 |
-| api_or_runtime | 998 |
+| analytics_domain | 2747 |
+| api_or_runtime | 1028 |
 | contract_or_governance | 231 |
-| observability_or_readiness | 759 |
+| observability_or_readiness | 776 |
 | quality_or_security | 353 |
 | uncategorized | 558 |
 
@@ -65,9 +65,9 @@ acceptance or calculation/source readiness certification.
 | 1 | `tests/unit/services/test_returns_series_service.py` | unit | 96 | analytics_domain |
 | 2 | `tests/unit/app/test_enterprise_readiness_additional.py` | unit | 88 | observability_or_readiness |
 | 3 | `tests/integration/test_contribution_api.py` | integration | 78 | analytics_domain, api_or_runtime |
-| 4 | `tests/unit/docs/test_public_docs_contract.py` | unit | 72 | contract_or_governance |
-| 5 | `tests/unit/services/test_stateful_attribution_input_service.py` | unit | 71 | analytics_domain |
-| 6 | `tests/unit/services/test_compute_job_store.py` | unit | 70 | observability_or_readiness |
+| 4 | `tests/unit/services/test_compute_job_store.py` | unit | 77 | observability_or_readiness |
+| 5 | `tests/unit/docs/test_public_docs_contract.py` | unit | 72 | contract_or_governance |
+| 6 | `tests/unit/services/test_stateful_attribution_input_service.py` | unit | 71 | analytics_domain |
 | 7 | `tests/integration/test_performance_api.py` | integration | 67 | api_or_runtime |
 | 8 | `tests/unit/engine/test_attribution.py` | unit | 62 | analytics_domain |
 | 9 | `tests/unit/services/test_lineage_metadata_store.py` | unit | 62 | observability_or_readiness |
@@ -81,17 +81,17 @@ acceptance or calculation/source readiness certification.
 | 17 | `tests/unit/services/test_twr_inspection_calculation_consistency.py` | unit | 53 | analytics_domain |
 | 18 | `tests/unit/services/test_twr_mode_service.py` | unit | 49 | analytics_domain |
 | 19 | `tests/unit/services/test_composite_metadata_store.py` | unit | 46 | analytics_domain |
-| 20 | `tests/unit/services/test_stateful_benchmark_input_service.py` | unit | 44 | analytics_domain |
-| 21 | `tests/unit/engine/test_contribution.py` | unit | 43 | analytics_domain |
-| 22 | `tests/unit/services/test_benchmark_exposure_context_service.py` | unit | 41 | analytics_domain |
-| 23 | `tests/unit/services/test_stateful_contribution_input_service.py` | unit | 41 | analytics_domain |
-| 24 | `tests/unit/services/test_operator_action_lease_service.py` | unit | 40 | uncategorized |
-| 25 | `tests/integration/test_attribution_api.py` | integration | 39 | analytics_domain, api_or_runtime |
-| 26 | `tests/unit/models/test_twr_requests.py` | unit | 38 | analytics_domain |
-| 27 | `tests/unit/engine/test_ror.py` | unit | 37 | analytics_domain |
-| 28 | `tests/unit/test_observability.py` | unit | 37 | observability_or_readiness |
-| 29 | `tests/unit/models/test_workspace_summary_models.py` | unit | 36 | analytics_domain |
-| 30 | `tests/unit/services/test_twr_inspection_reconciliation.py` | unit | 32 | analytics_domain |
+| 20 | `tests/unit/test_observability.py` | unit | 46 | observability_or_readiness |
+| 21 | `tests/unit/services/test_stateful_benchmark_input_service.py` | unit | 44 | analytics_domain |
+| 22 | `tests/unit/engine/test_contribution.py` | unit | 43 | analytics_domain |
+| 23 | `tests/unit/services/test_benchmark_exposure_context_service.py` | unit | 41 | analytics_domain |
+| 24 | `tests/unit/services/test_stateful_contribution_input_service.py` | unit | 41 | analytics_domain |
+| 25 | `tests/unit/services/test_operator_action_lease_service.py` | unit | 40 | uncategorized |
+| 26 | `tests/integration/test_attribution_api.py` | integration | 39 | analytics_domain, api_or_runtime |
+| 27 | `tests/unit/models/test_twr_requests.py` | unit | 38 | analytics_domain |
+| 28 | `tests/unit/engine/test_ror.py` | unit | 37 | analytics_domain |
+| 29 | `tests/benchmarks/test_postgres_composite_materialization.py` | benchmarks | 36 | analytics_domain |
+| 30 | `tests/unit/models/test_workspace_summary_models.py` | unit | 36 | analytics_domain |
 
 The #502 request-path proof added a module driving the real application over HTTP for tenant admission - admitted, absent, blank and concurrent two-tenant requests, each asserting the outbound Core call - raising inventoried modules to `317`, source test functions to `3634`, and API/runtime tests to `699`. Later review fixes in the same PR added the padded-tenant refusals and the returns-series authority regression, which are counted in those figures. Uncategorized tests are unchanged at `876`: every added module classifies as api_or_runtime, so the ceiling this gate governs was neither approached nor raised.
 
