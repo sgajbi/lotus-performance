@@ -9,6 +9,8 @@ from sqlalchemy.engine.interfaces import Dialect
 from app.adapters.durable_schema.statements import SchemaStatements
 
 COMPOSITE_CAPTURE_ANALYTICS_TYPE = "COMPOSITE_TWR_CANDIDATE"
+COMPOSITE_POOLED_ANALYTICS_TYPE = "COMPOSITE_POOLED_MWR"
+COMPOSITE_PROTECTED_RESULT_TYPES = (COMPOSITE_CAPTURE_ANALYTICS_TYPE, COMPOSITE_POOLED_ANALYTICS_TYPE)
 _TABLE = "analytics_async_result"
 _TRIGGER = "trg_composite_result_custody"
 _FUNCTION = "reject_composite_result_custody_mutation"
@@ -21,7 +23,8 @@ def create_composite_result_custody_guards(connection):
 
 def composite_result_custody_guard_statements(dialect: Dialect) -> tuple[str, ...]:
     writer = SchemaStatements(dialect)
-    protected = f"analytics_type = '{COMPOSITE_CAPTURE_ANALYTICS_TYPE}'"
+    protected_types = ", ".join(f"'{purpose}'" for purpose in COMPOSITE_PROTECTED_RESULT_TYPES)
+    protected = f"analytics_type IN ({protected_types})"
     if dialect.name == "sqlite":
         for operation in ("UPDATE", "DELETE"):
             name = f"{_TRIGGER}_{operation.lower()}"
@@ -35,19 +38,19 @@ def composite_result_custody_guard_statements(dialect: Dialect) -> tuple[str, ..
             )
     elif dialect.name == "postgresql":
         # TRUNCATE has no OLD/NEW row. Test it before accessing either record.
-        writer.exec_driver_sql("""CREATE OR REPLACE FUNCTION reject_composite_result_custody_mutation() RETURNS trigger LANGUAGE plpgsql AS $$
+        writer.exec_driver_sql(f"""CREATE OR REPLACE FUNCTION reject_composite_result_custody_mutation() RETURNS trigger LANGUAGE plpgsql AS $$
             BEGIN
                 IF TG_OP = 'TRUNCATE' THEN
-                    IF EXISTS (SELECT 1 FROM analytics_async_result WHERE analytics_type = 'COMPOSITE_TWR_CANDIDATE') THEN
+                    IF EXISTS (SELECT 1 FROM analytics_async_result WHERE analytics_type IN ({protected_types})) THEN
                         RAISE EXCEPTION USING ERRCODE = '23514', MESSAGE = 'composite captured result is immutable';
                     END IF;
                     RETURN NULL;
                 END IF;
-                IF OLD.analytics_type = 'COMPOSITE_TWR_CANDIDATE' THEN
+                IF OLD.analytics_type IN ({protected_types}) THEN
                     RAISE EXCEPTION USING ERRCODE = '23514', MESSAGE = 'composite captured result is immutable';
                 END IF;
                 IF TG_OP = 'UPDATE' THEN
-                    IF NEW.analytics_type = 'COMPOSITE_TWR_CANDIDATE' THEN
+                    IF NEW.analytics_type IN ({protected_types}) THEN
                         RAISE EXCEPTION USING ERRCODE = '23514', MESSAGE = 'composite captured result is immutable';
                     END IF;
                     RETURN NEW;
