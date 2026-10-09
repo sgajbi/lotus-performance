@@ -36,6 +36,14 @@ def calculate_composite_twr_from_materializations(
     *, tenant_id: str, request: CompositeTWRRequest
 ) -> tuple[CompositeCalculationResult, list[CompositeTWRWindowEvidence]]:
     """Explicit historical selection; never infer latest or official authority."""
+    facts, windows = select_composite_materialization_facts(tenant_id=tenant_id, request=request)
+    return calculate_asset_weighted_composite_twr(composite_id=request.composite_id, member_return_facts=facts), windows
+
+
+def select_composite_materialization_facts(
+    *, tenant_id: str, request: CompositeTWRRequest
+) -> tuple[list[CompositeMemberReturnFact], list[CompositeTWRWindowEvidence]]:
+    """Admit the same retained vector once and expose original Decimal financial facts."""
     materialization_ids = _selected_materializations(request)
     records = get_composite_materialization_store().get_many(materialization_ids, tenant_id=tenant_id)
     _require_vector_order(records)
@@ -63,7 +71,7 @@ def calculate_composite_twr_from_materializations(
         cursor = record.command.period_end.toordinal() + 1
     if records[-1].command.period_end != request.period_end:
         raise APIConflictError("A required retained window is missing.", error_code="REQUIRED_PERIOD_UNAVAILABLE")
-    return calculate_asset_weighted_composite_twr(composite_id=request.composite_id, member_return_facts=facts), windows
+    return facts, windows
 
 
 def _require_compatible_window_authority(previous, selected):

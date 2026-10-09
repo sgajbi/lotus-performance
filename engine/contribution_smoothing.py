@@ -16,6 +16,8 @@ class ContributionSmoothingLike(Protocol):
 
 def _calculate_carino_factor_for_return(
     portfolio_return: Decimal | float,  # monetary-float-allow: dimensionless return
+    *,
+    strict_decimal: bool = False,
 ) -> Decimal | float:  # monetary-float-allow: dimensionless Carino factor
     """Returns the Carino linking factor for a single return when the log domain is valid.
 
@@ -26,6 +28,14 @@ def _calculate_carino_factor_for_return(
     """
     if isinstance(portfolio_return, Decimal):
         one = Decimal(1)
+        if strict_decimal:
+            if not portfolio_return.is_finite() or portfolio_return <= -one:
+                raise ValueError("Carino requires a finite return strictly above -100%")
+            if abs(portfolio_return) <= DECIMAL_CARINO_ZERO_RETURN_TOLERANCE:
+                # log1p(r)/r's continuous series avoids losing 1+r at tiny r.
+                # Six terms leave absolute error below 1e-72 in this interval.
+                return one + sum(((-portfolio_return) ** n / Decimal(n + 1) for n in range(1, 6)), Decimal(0))
+            return (one + portfolio_return).ln() / portfolio_return
         if one + portfolio_return <= 0:
             return one
         if abs(portfolio_return) <= DECIMAL_CARINO_ZERO_RETURN_TOLERANCE:

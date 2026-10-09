@@ -12,8 +12,13 @@ from app.api.dependencies.composite_annual_dispersion import (
 )
 from app.api.http_status import HTTP_422_UNPROCESSABLE
 from app.composite_principal_admission import trusted_request_principal
+from app.models.composite_analytics import CompositeAnalyticsRequest
 from app.models.composite_annual_comparison import CompositeAnnualComparisonRequest, CompositeAnnualComparisonResponse
-from app.models.composite_annual_dispersion import CompositeAnnualDispersionRequest, CompositeAnnualDispersionResponse
+from app.models.composite_annual_dispersion import CompositeAnnualDispersionResponse
+from app.models.composite_linked_contribution import (
+    CompositeLinkedContributionRequest,
+    CompositeLinkedContributionResponse,
+)
 from app.models.composite_result_candidates import (
     CompositeResultCandidateErrorResponse,
     CompositeResultCandidateResponse,
@@ -40,6 +45,7 @@ from app.services.composite_calculation_service import (
     calculate_composite_twr_from_persisted_facts,
 )
 from app.services.composite_inspection_service import inspect_composite_twr_from_persisted_facts
+from app.services.composite_linked_contribution.application import calculate_linked_member_contribution
 from app.services.composite_metadata_store import CompositeMemberReturnFactSelectionError
 from app.services.composite_result_candidate_admission import (
     admit_candidate_calculation,
@@ -496,11 +502,15 @@ ANNUAL_DISPERSION_OPENAPI_EXAMPLES = annual_dispersion_openapi_examples()
 
 @router.post(
     "/composites/analytics",
-    response_model=CompositeAnnualDispersionResponse,
-    summary="Evaluate annual member dispersion from exact retained composite evidence",
+    response_model=CompositeAnnualDispersionResponse | CompositeLinkedContributionResponse,
+    summary="Evaluate named Composite analytics from exact retained evidence",
     description=(
         "One bounded composite analytics operation with explicit metric and method selection. "
-        "Currently evaluates ANNUAL_MEMBER_DISPERSION over twelve exact COMPLETE calendar-month receipts. "
+        "ANNUAL_MEMBER_DISPERSION uses twelve exact COMPLETE calendar-month receipts. "
+        "LINKED_MEMBER_CONTRIBUTION with CARINO:v1 uses 1–120 chronological COMPLETE receipts and original "
+        "Decimal beginning-asset economics, never quantized public weights. Decimal-return units; "
+        "multiply by 100 for percentage points or 10000 for basis points. Continuous zero/near-zero "
+        "factors are supported; nonpositive growth refuses. No residual allocation or composite-only override. "
         "Consumes historical Manage membership and verified member returns without source fan-out. "
         "Financial computability, small-population reporting applicability and source qualification are separate. "
         "Results are non-official calculated analysis; no external-return import, official approval or risk engine is implied. "
@@ -551,10 +561,12 @@ ANNUAL_DISPERSION_OPENAPI_EXAMPLES = annual_dispersion_openapi_examples()
     },
 )
 def evaluate_composite_analytics(
-    request: CompositeAnnualDispersionRequest,
+    request: CompositeAnalyticsRequest,
     tenant_id: Annotated[str, Depends(_required_composite_tenant)],
     reader: Annotated[AnnualDispersionReceiptReader, Depends(get_annual_dispersion_receipt_reader)],
-) -> CompositeAnnualDispersionResponse:
+) -> CompositeAnnualDispersionResponse | CompositeLinkedContributionResponse:
+    if isinstance(request, CompositeLinkedContributionRequest):
+        return calculate_linked_member_contribution(request, tenant_id=tenant_id)
     return calculate_annual_member_dispersion(request, tenant_id=tenant_id, reader=reader)
 
 

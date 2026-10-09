@@ -1,0 +1,33 @@
+"""Additive metric dispatch preserving the original annual validation envelope."""
+
+from typing import Annotated
+
+from pydantic import Discriminator, Tag, ValidationError, WrapValidator
+
+from app.models.composite_annual_dispersion import CompositeAnnualDispersionRequest
+from app.models.composite_linked_contribution import CompositeLinkedContributionRequest
+
+
+def _analytics_metric(value):
+    return value.get("metric_id", "ANNUAL_MEMBER_DISPERSION") if isinstance(value, dict) else value.metric_id
+
+
+def _preserve_annual_errors(value, handler):
+    try:
+        return handler(value)
+    except ValidationError as error:
+        if _analytics_metric(value) != "ANNUAL_MEMBER_DISPERSION":
+            raise
+        errors = error.errors(include_url=False)
+        for item in errors:
+            if item["loc"] and item["loc"][0] == "ANNUAL_MEMBER_DISPERSION":
+                item["loc"] = item["loc"][1:]
+        raise ValidationError.from_exception_data(error.title, errors) from error
+
+
+CompositeAnalyticsRequest = Annotated[
+    Annotated[CompositeAnnualDispersionRequest, Tag("ANNUAL_MEMBER_DISPERSION")]
+    | Annotated[CompositeLinkedContributionRequest, Tag("LINKED_MEMBER_CONTRIBUTION")],
+    Discriminator(_analytics_metric),
+    WrapValidator(_preserve_annual_errors),
+]
