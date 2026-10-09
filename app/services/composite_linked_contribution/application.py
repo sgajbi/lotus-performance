@@ -1,5 +1,14 @@
 from collections import defaultdict
-from decimal import Decimal, DecimalException, localcontext
+from decimal import (
+    ROUND_HALF_EVEN,
+    Context,
+    Decimal,
+    DecimalException,
+    DivisionByZero,
+    InvalidOperation,
+    Overflow,
+    localcontext,
+)
 from typing import NoReturn, cast
 
 from app.models.composite_linked_contribution import (
@@ -19,6 +28,19 @@ from engine.contribution_smoothing import _calculate_carino_factor_for_return
 
 def _refuse(code: str) -> NoReturn:
     raise APIUnprocessableEntityError("Retained Composite linked contribution is unavailable.", error_code=code)
+
+
+def _arithmetic_context() -> Context:
+    return Context(
+        prec=80,
+        rounding=ROUND_HALF_EVEN,
+        Emin=-999999,
+        Emax=999999,
+        capitals=1,
+        clamp=0,
+        flags=[],
+        traps=[InvalidOperation, DivisionByZero, Overflow],
+    )
 
 
 def _ready_window_members(facts, window):
@@ -93,8 +115,7 @@ def _link(rows: list[LinkedMemberPeriod], cumulative_return: Decimal) -> list[Li
 
 
 def _linked_economics(facts, windows):
-    with localcontext() as context:
-        context.prec = 80
+    with localcontext(_arithmetic_context()):
         rows, cumulative = _period_rows(facts, windows)
         members = _link(rows, cumulative)
         total = sum((member.linked_contribution for member in members), Decimal(0))
@@ -110,12 +131,15 @@ def _linked_economics(facts, windows):
 def calculate_linked_member_contribution(
     request: CompositeLinkedContributionRequest, *, tenant_id: str
 ) -> CompositeLinkedContributionResponse:
-    facts, windows = select_composite_materialization_facts(tenant_id=tenant_id, request=request)
     try:
-        admitted = calculate_asset_weighted_composite_twr(composite_id=request.composite_id, member_return_facts=facts)
-        if admitted.status != "READY":
-            _refuse("COMPOSITE_CONSTITUENT_DECOMPOSITION_UNAVAILABLE")
-        cumulative, total, difference, display_difference, members, rows = _linked_economics(facts, windows)
+        with localcontext(_arithmetic_context()):
+            facts, windows = select_composite_materialization_facts(tenant_id=tenant_id, request=request)
+            admitted = calculate_asset_weighted_composite_twr(
+                composite_id=request.composite_id, member_return_facts=facts
+            )
+            if admitted.status != "READY":
+                _refuse("COMPOSITE_CONSTITUENT_DECOMPOSITION_UNAVAILABLE")
+            cumulative, total, difference, display_difference, members, rows = _linked_economics(facts, windows)
     except DecimalException:
         _refuse("COMPOSITE_CARINO_PRECISION_REFUSED")
     version = calculation_engine_version()

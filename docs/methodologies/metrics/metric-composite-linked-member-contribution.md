@@ -85,7 +85,7 @@ Only admitted participating periods enter a member's sum; absence is not represe
 
 The Carino identity gives `sum_t r_t*k(r_t)=sum_t ln(1+r_t)=ln(1+R)` and hence `L=R` within the calculation precision. No residual is allocated to any member to force this equality.
 
-Calculation uses a local Decimal context with 80 significant digits. For `abs(r)<=1e-12`, the strict Decimal helper evaluates the continuous expansion:
+Calculation uses a fresh local Decimal context with 80 significant digits, half-even rounding, exponent bounds `[-999999, 999999]`, and traps for invalid operation, division by zero and overflow. Caller precision, rounding, flags and traps do not alter the returned dataset or fingerprint. For `abs(r)<=1e-12`, the strict Decimal helper evaluates the continuous expansion:
 
 ```text
 k(r) = 1 - r/2 + r^2/3 - r^3/4 + r^4/5 - r^5/6

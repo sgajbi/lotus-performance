@@ -1,5 +1,5 @@
 from copy import deepcopy
-from decimal import Decimal
+from decimal import ROUND_DOWN, ROUND_UP, Decimal, Inexact, localcontext
 
 import pytest
 from fastapi.testclient import TestClient
@@ -44,6 +44,13 @@ def test_registered_linked_or13_correction_pins_and_twr_compatibility(monkeypatc
         result = client.post(LINKED_PATH, json=payload)
         assert result.status_code == 200, result.text
         assert_or13(result.json())
+        for rounding in (ROUND_DOWN, ROUND_UP):
+            with localcontext() as caller:
+                caller.prec, caller.rounding = 9, rounding
+                caller.traps[Inexact] = True
+                caller.Emin, caller.Emax = -9, 9
+                replay = client.post(LINKED_PATH, json=payload)
+                assert replay.status_code == 200 and replay.json() == result.json(), replay.text
         periods = result.json()["periods"]
         for offset in (0, 2):
             assert sum((Decimal(row["weight"]) for row in periods[offset : offset + 2]), Decimal(0)) == 1

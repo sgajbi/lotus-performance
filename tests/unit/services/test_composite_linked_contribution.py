@@ -1,5 +1,5 @@
 from datetime import date
-from decimal import Decimal, localcontext
+from decimal import ROUND_DOWN, ROUND_UP, Decimal, Inexact, localcontext
 from uuid import UUID
 
 import pytest
@@ -105,3 +105,18 @@ def test_large_growth_cancellation_fails_absolute_reconciliation_budget(monkeypa
     with pytest.raises(APIUnprocessableEntityError) as error:
         _calculate(monkeypatch, ("1e20", "2e20", "3e20"))
     assert error.value.error_code == "COMPOSITE_CARINO_PRECISION_REFUSED"
+
+
+def test_caller_decimal_state_cannot_change_dataset_or_fingerprint(monkeypatch):
+    facts, windows, request = _inputs(("0.01", "0.02"))
+    monkeypatch.setattr(application, "select_composite_materialization_facts", lambda **kwargs: (facts, windows))
+    baseline = application.calculate_linked_member_contribution(request, tenant_id="tenant-a")
+    for rounding in (ROUND_DOWN, ROUND_UP):
+        with localcontext() as caller:
+            caller.prec = 9
+            caller.rounding = rounding
+            caller.traps[Inexact] = True
+            caller.Emin, caller.Emax = -9, 9
+            actual = application.calculate_linked_member_contribution(request, tenant_id="tenant-a")
+            assert actual == baseline
+            assert caller.prec == 9 and caller.rounding == rounding and caller.traps[Inexact]
