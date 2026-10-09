@@ -39,6 +39,151 @@ from app.services.durable_failure_classification import DurableFailureClassifica
 from app.services.durable_store_inspection import build_inspection_query_context
 
 
+@pytest.fixture
+def fenced_claim(tmp_path):
+    store = ComputeJobStore(f"sqlite:///{tmp_path / 'fenced-input.db'}")
+    store.create_schema()
+    calculation_id = uuid4()
+    store.register_job(
+        calculation_id=calculation_id, analytics_type="CompositePooledMWR", tenant_id="tenant-a", request_payload={}
+    )
+    store.lease_pending_jobs(worker_id="queue-worker", limit=1, lease_seconds=60)
+    store.mark_running_acquired(
+        calculation_id, current_worker_id="queue-worker", acquisition_worker_id="claim-original", lease_seconds=60
+    )
+    with store._engine.begin() as connection:
+        connection.execute(text("CREATE TABLE retained_test_input (id INTEGER PRIMARY KEY, payload TEXT NOT NULL)"))
+    return store, {
+        "calculation_id": calculation_id,
+        "tenant_id": "tenant-a",
+        "analytics_type": "CompositePooledMWR",
+        "worker_id": "claim-original",
+        "expected_attempt_count": 1,
+    }
+
+
+def _fenced_input_rows(store):
+    with store._engine.connect() as connection:
+        return connection.execute(text("SELECT payload FROM retained_test_input")).scalars().all()
+
+
+def test_active_claim_transaction_commits_custody_and_closes_callback_connection(fenced_claim):
+    store, claim = fenced_claim
+    observed = []
+
+    def insert(connection):
+        observed.append(connection)
+        connection.execute(text("INSERT INTO retained_test_input VALUES (1, 'original')"))
+        return "bound"
+
+    assert store.run_with_active_lease_transaction(**claim, operation=insert) == "bound"
+    assert _fenced_input_rows(store) == ["original"]
+    assert observed[0].closed
+
+
+@pytest.mark.parametrize(
+    "change",
+    [
+        {"tenant_id": "foreign"},
+        {"analytics_type": "TWR"},
+        {"worker_id": ""},
+        {"worker_id": None},
+        {"worker_id": "claim-replaced"},
+        {"expected_attempt_count": 0},
+    ],
+)
+def test_active_claim_transaction_refuses_wrong_authority_before_callback(fenced_claim, change):
+    store, claim = fenced_claim
+    called = []
+    with pytest.raises(ComputeJobLeaseOwnershipError):
+        store.run_with_active_lease_transaction(**{**claim, **change}, operation=lambda connection: called.append(True))
+    assert not called and not _fenced_input_rows(store)
+
+
+def test_active_claim_transaction_rolls_back_callback_failure(fenced_claim):
+    store, claim = fenced_claim
+
+    def failing(connection):
+        connection.execute(text("INSERT INTO retained_test_input VALUES (1, 'unpublished')"))
+        raise RuntimeError("collector failed")
+
+    with pytest.raises(RuntimeError, match="collector failed"):
+        store.run_with_active_lease_transaction(**claim, operation=failing)
+    assert not _fenced_input_rows(store)
+
+
+@pytest.mark.parametrize("escape", ["commit", "rollback", "sql_commit", "sql_rollback"])
+def test_active_claim_callback_cannot_end_owning_transaction(fenced_claim, escape):
+    store, claim = fenced_claim
+
+    def escaping(connection):
+        connection.execute(text("INSERT INTO retained_test_input VALUES (1, 'must-rollback')"))
+        if escape.startswith("sql_"):
+            connection.exec_driver_sql(escape.removeprefix("sql_").upper())
+        else:
+            getattr(connection, escape)()
+
+    with pytest.raises(ComputeJobLeaseOwnershipError):
+        store.run_with_active_lease_transaction(**claim, operation=escaping)
+    assert not _fenced_input_rows(store)
+
+
+def test_active_claim_reused_worker_id_does_not_admit_old_attempt(fenced_claim):
+    store, claim = fenced_claim
+    with store._engine.begin() as connection:
+        connection.execute(
+            text("UPDATE analytics_compute_job SET attempt_count = 2 WHERE calculation_id = :id"),
+            {"id": str(claim["calculation_id"])},
+        )
+    with pytest.raises(ComputeJobLeaseOwnershipError):
+        store.run_with_active_lease_transaction(
+            **claim,
+            operation=lambda connection: connection.execute(
+                text("INSERT INTO retained_test_input VALUES (1, 'stale')")
+            ),
+        )
+    assert not _fenced_input_rows(store)
+    store.run_with_active_lease_transaction(
+        **{**claim, "expected_attempt_count": 2},
+        operation=lambda connection: connection.execute(text("INSERT INTO retained_test_input VALUES (1, 'current')")),
+    )
+    assert _fenced_input_rows(store) == ["current"]
+
+
+def test_active_claim_expiry_during_callback_rolls_back_input(fenced_claim, monkeypatch):
+    store, claim = fenced_claim
+
+    class Clock(datetime):
+        current = datetime.now(timezone.utc)
+
+        @classmethod
+        def now(cls, tz=None):
+            return cls.current
+
+    monkeypatch.setattr(compute_job_store_module, "datetime", Clock)
+
+    def expires_during_bind(connection):
+        connection.execute(text("INSERT INTO retained_test_input VALUES (1, 'expired')"))
+        Clock.current += timedelta(minutes=5)
+
+    with pytest.raises(ComputeJobLeaseOwnershipError, match="expiry"):
+        store.run_with_active_lease_transaction(**claim, operation=expires_during_bind)
+    assert not _fenced_input_rows(store)
+
+
+def test_active_claim_expired_before_callback_does_not_execute(fenced_claim):
+    store, claim = fenced_claim
+    with store._engine.begin() as connection:
+        connection.execute(
+            text("UPDATE analytics_compute_job SET lease_expires_at_utc = :expiry WHERE calculation_id = :id"),
+            {"expiry": datetime.now(timezone.utc) - timedelta(seconds=1), "id": str(claim["calculation_id"])},
+        )
+    called = []
+    with pytest.raises(ComputeJobLeaseOwnershipError, match="expiry"):
+        store.run_with_active_lease_transaction(**claim, operation=lambda connection: called.append(True))
+    assert not called
+
+
 def _compute_job_model_for_inspection(
     *,
     job_status: ComputeJobStatus,
