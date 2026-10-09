@@ -11,6 +11,7 @@ separate from official approval, freeze, live-source qualification and instituti
 | Calculate or inspect retained performance | [Caller and migration guide](https://github.com/sgajbi/lotus-performance/blob/main/docs/guides/composite_materialization.md) |
 | Preserve and retrieve an original calculated result | [Result candidate capture](https://github.com/sgajbi/lotus-performance/blob/main/docs/guides/composite_result_candidates.md) |
 | Interpret the supported model-fee calculation | [Model-fee methodology](https://github.com/sgajbi/lotus-performance/blob/main/docs/methodologies/metrics/metric-composite-periodic-model-fee.md) |
+| Use annual flat, marginal-tiered or whole-AUM model wealth rates | [Scheduled caller guide](https://github.com/sgajbi/lotus-performance/blob/main/docs/guides/composite_scheduled_model_fee.md) |
 | Operate or recover the service | [Operations runbook](Operations-Runbook) |
 
 ## Result Capture and Evidence Posture
@@ -37,9 +38,20 @@ by one MiB of canonical wire and the default one-MiB HTTP body limit.
 Database guards refuse UPDATE/DELETE and PostgreSQL TRUNCATE of the catalog. Resolution defaults
 unavailable, and independent production verification remains unavailable; synthetic
 SQLite/PostgreSQL controls do not establish activation. Only complete approved periods with unbundled
-management-fee fractions are supported by this convention; flat/tiered/AUM and specialized
-adjustments remain #609 acceptance. See the [model-fee methodology](https://github.com/sgajbi/lotus-performance/blob/main/docs/methodologies/metrics/metric-composite-periodic-model-fee.md)
+management-fee fractions are supported by this convention. See the [model-fee methodology](https://github.com/sgajbi/lotus-performance/blob/main/docs/methodologies/metrics/metric-composite-periodic-model-fee.md)
 and [caller/migration guide](https://github.com/sgajbi/lotus-performance/blob/main/docs/guides/composite_materialization.md).
+
+The separate `CompositeScheduledModelFeeProfile:v1` product adds flat annual, marginal-tiered
+and whole-AUM band selection using verified original beginning reporting assets. It derives a
+nominal annual model wealth fraction over actual inclusive days on a fixed 365-day basis and
+retains v5 schedule/gross custody. Its implied modeled charge applies to post-gross wealth;
+it is not a fixed beginning-assets cash fee. Source assets remain unchanged. Fresh scheduled
+arithmetic is selected from exact retained receipts, preserving historical periodic behavior
+when current definitions change. Full immutable profile bindings must agree across selected
+windows; unequal member/period rates inside one profile are permitted. Native-only scope,
+independent approval and complete periods remain mandatory. FX composition, intraperiod
+interpolation, rebates, performance/wrap/tax fees and official activation remain unavailable.
+Read the [scheduled methodology](https://github.com/sgajbi/lotus-performance/blob/main/docs/methodologies/metrics/metric-composite-scheduled-model-fee.md).
 
 The retained internal TWR materialization path can consume a pinned FX normalization
 source to convert original member assets and EOD flows into the reporting currency.

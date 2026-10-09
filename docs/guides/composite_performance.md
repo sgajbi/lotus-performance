@@ -80,6 +80,12 @@ Performance local catalog supplies exact immutable profile bytes; resolution def
 [periodic model-fee methodology](../methodologies/metrics/metric-composite-periodic-model-fee.md)
 for its inputs, exact formula, numerical examples and remaining #609 acceptance.
 
+The separately named [scheduled model-fee method](composite_scheduled_model_fee.md) supports
+annual flat, marginal-tiered and whole-AUM model wealth-rate selection on original native beginning
+assets, with nominal fixed ACT/365 accrual. Its v5 receipt and fresh arithmetic are bound to exact
+historical custody; the periodic contract remains unchanged. Model wealth deductions do not create
+actual cash-fee postings or change source assets. Independent approval still defaults unavailable.
+
 Route:
 
 `POST /performance/composites/twr`

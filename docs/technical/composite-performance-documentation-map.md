@@ -29,6 +29,7 @@ the current single reporting-currency guard is not supported.
 | `docs/guides/composite_materialization.md` | Governed command, pinned source/member evidence, atomic admission and bounded recovery. | Does not inherit older persisted-fact endpoint certification or imply live upstream acceptance. |
 | `docs/technical/composite-twr-endpoint-certification.md` | Endpoint invariants, error behavior, inspector certification, live proof, and test-pyramid evidence. | Certification covers the RFC-049 supported composite TWR boundary only. |
 | `wiki/Composite-Performance.md` | Product-facing wiki page for demos, operators, business users, and engineers. | Summarizes and links; it is not the full methodology source. |
+| `docs/methodologies/metrics/metric-composite-scheduled-model-fee.md` and `docs/guides/composite_scheduled_model_fee.md` | Explicit annual flat, marginal-tiered and whole-AUM model wealth rates. | Native original assets, nominal ACT/365 complete periods, v5 gross/schedule custody and immutable receipt-bound arithmetic; synthetic proof does not establish institutional approval. |
 | `wiki/Supported-Features.md` | Implementation-backed feature ledger and unsupported-scope boundary. | Promotes only the persisted-fact composite TWR and inspector capability proven by RFC-049. |
 
 ## Source Flow
@@ -39,6 +40,12 @@ Its internal native gross producer preserves distinct original/fee custody. The 
 Performance local catalog publishes and retrieves immutable unapproved input; source resolution
 defaults unavailable and independent production verification remains unavailable. Synthetic
 registered PostgreSQL proof does not establish official activation or close #609.
+
+The separate [scheduled method](../methodologies/metrics/metric-composite-scheduled-model-fee.md)
+adds explicitly governed annual-rate selection with its own [caller guide](../guides/composite_scheduled_model_fee.md).
+It keeps post-gross wealth fractions distinct from fixed monetary fees and preserves the original
+periodic contract. Receipt-bound method selection prevents later definition changes from altering
+historical arithmetic. Specialized adjustments and production independent authority remain separate.
 
 Annual member dispersion has its own [caller guide](../guides/composite_annual_dispersion.md) and
 [metric methodology](../methodologies/metrics/metric-composite-annual-member-dispersion.md).
