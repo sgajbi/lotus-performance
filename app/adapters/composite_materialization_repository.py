@@ -5,7 +5,7 @@ from collections.abc import Iterator
 from contextlib import contextmanager
 from uuid import UUID
 
-from sqlalchemy import func, select, update
+from sqlalchemy import func, select, tuple_, update
 from sqlalchemy.engine import Connection
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session, sessionmaker
@@ -18,6 +18,7 @@ from app.models.composite_materialization import (
     CompositeMaterializationState,
     CompositeMemberMaterializationOutcome,
 )
+from app.models.composites import CompositeMemberReturnFact
 from app.services.composite_materialization.progress_policy import (
     require_progress_transition,
     require_retained_progress,
@@ -35,7 +36,7 @@ from app.services.core_tenant_authority import admitted_tenant_authority, requir
 from app.services.durable_database_engine import create_durable_database_engine
 from app.services.durable_schema_creation import create_durable_schema
 from app.services.durable_store_runtime import RuntimeStoreProxy, resolve_runtime_store
-from core.errors import APIConflictError, APIError, APINotFoundError
+from core.errors import APIConflictError, APIError, APINotFoundError, APIUnprocessableEntityError
 from core.monetary_input import validate_calculated_money_model
 
 
@@ -163,6 +164,43 @@ class CompositeMaterializationStore:
                 records.append(self._record(row, session=session))
             return records
 
+    def get_for_member_return_facts(
+        self, facts: list[CompositeMemberReturnFact], *, tenant_id: str
+    ) -> list[MaterializationRecord]:
+        """Recover exact immutable method custody, never the current definition.
+
+        Facts are selected by the metadata owner. This owner revalidates the
+        matching receipts and publication invariants in one read snapshot.
+        """
+        scopes = list(dict.fromkeys(_financial_scope(fact) for fact in facts))
+        dimensions = tuple_(
+            CompositeMaterializationModel.composite_id,
+            CompositeMaterializationModel.return_view,
+            CompositeMaterializationModel.reporting_currency,
+            CompositeMaterializationModel.restatement_sequence,
+            CompositeMaterializationModel.period_start,
+            CompositeMaterializationModel.period_end,
+        )
+        with self._session_factory() as session:
+            _begin_read_snapshot(session, self._engine.dialect.name)
+            records = {}
+            for offset in range(0, len(scopes), 100):
+                rows = session.scalars(
+                    select(CompositeMaterializationModel).where(
+                        CompositeMaterializationModel.tenant_id == _tenant(tenant_id),
+                        dimensions.in_(scopes[offset : offset + 100]),
+                    )
+                )
+                for row in rows:
+                    record = self._record(row, session=session)
+                    records[_financial_scope(record.command)] = record
+            if set(records) != set(scopes):
+                raise APIUnprocessableEntityError(
+                    "Selected model-fee facts require their exact retained method receipts.",
+                    error_code="COMPOSITE_MODEL_FEE_METHOD_CONTEXT_UNAVAILABLE",
+                )
+            return [records[scope] for scope in scopes]
+
     def save(
         self,
         materialization_id: UUID,
@@ -259,6 +297,24 @@ def _materialization_record(row: CompositeMaterializationModel) -> Materializati
         state=CompositeMaterializationState(row.state),
         reason_code=row.reason_code,
         revision=row.revision,
+    )
+
+
+def _begin_read_snapshot(session: Session, dialect: str) -> None:
+    if dialect == "postgresql":
+        session.connection(execution_options={"isolation_level": "REPEATABLE READ"})
+    else:
+        session.connection().exec_driver_sql("BEGIN")
+
+
+def _financial_scope(value):
+    return (
+        value.composite_id,
+        value.return_view.value,
+        value.reporting_currency,
+        value.restatement_sequence,
+        value.period_start,
+        value.period_end,
     )
 
 

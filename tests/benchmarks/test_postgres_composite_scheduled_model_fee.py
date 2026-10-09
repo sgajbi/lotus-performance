@@ -161,3 +161,17 @@ def test_postgres_scheduled_fresh_process_replay_without_latest_or_child_lookup(
 
     registered_control(monkeypatch, url, capture=capture)
     assert_fresh_model_fee_replay(captured, tmp_path)
+
+
+@pytest.mark.parametrize("changed_binding", [False, True])
+def test_postgres_scheduled_multiwindow_method_and_financial_history(
+    populated_model_fee_postgres, monkeypatch, changed_binding
+):
+    from tests.integration.test_composite_scheduled_model_fee_history_api import (
+        test_registered_scheduled_history_unequal_rates_and_full_binding as registered_history,
+    )
+
+    _, url = populated_model_fee_postgres
+    monkeypatch.setattr(get_settings(), "LINEAGE_METADATA_DATABASE_URL", url)
+    assert apply_durable_schema(database_url=url).status == "passed"
+    registered_history(monkeypatch, url, changed_binding)

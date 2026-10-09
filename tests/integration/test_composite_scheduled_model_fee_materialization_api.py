@@ -142,6 +142,7 @@ def test_scheduled_twr_full_response_isolates_ambient_decimal_state(
         for pinned in (False, True):
             payload = {**request, "calculation_id": str(uuid4())}
             if pinned:
+                payload.pop("restatement_sequence")
                 payload["materialization_ids"] = [str(command.materialization_id)]
             baseline = client.post("/performance/composites/twr", json=payload)
             assert baseline.status_code == 200, baseline.text

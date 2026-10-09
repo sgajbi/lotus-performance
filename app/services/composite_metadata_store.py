@@ -3100,6 +3100,16 @@ class CompositeMetadataStore:
             )
             return [_member_return_fact_from_row(row) for row in rows]
 
+    def get_member_return_fact_materializations(self, facts, *, tenant_id: str):
+        """Delegate receipt custody to its owner on this fact store's database."""
+        from app.adapters.composite_materialization_repository import CompositeMaterializationStore
+
+        with self._engine.connect() as connection:
+            ledger = CompositeMaterializationStore(
+                self._engine.url.render_as_string(hide_password=False), connection=connection
+            )
+            return ledger.get_for_member_return_facts(facts, tenant_id=tenant_id)
+
     def count_records(self, *, tenant_id: str | None = None) -> CompositeMetadataCounts:
         tenant_id = _admitted_composite_tenant_id(tenant_id)
         with self._session() as session:
