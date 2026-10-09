@@ -131,7 +131,7 @@ fan out into hidden request-time member portfolio TWR calculations, infer member
 return views, or perform cross-currency aggregation at request time.
 
 Contribution rankings, classified rollups, annualized contribution transforms, composite attribution,
-composite MWR, carve-outs, sleeves, model portfolios,
+institutionally qualified composite MWR, carve-outs, sleeves, model portfolios,
 wrap programs, pooled fund composites, private-market composites, portability records,
 tax-aware composites, leveraged composites, long/short special composite structures, and
 multi-currency composite aggregation beyond the current single reporting-currency guard are not
@@ -208,6 +208,16 @@ telemetry at `contracts/trust-telemetry/money-weighted-return-analytics.telemetr
 `contracts/trust-telemetry/benchmark-exposure-context.telemetry.v1.json`. Every active product in
 `contracts/domain-data-products/lotus-performance-products.v1.json` must have a matching
 repo-owned trust telemetry snapshot or a machine-readable exception policy.
+
+## Pooled Composite Monetary Analysis
+
+`POOLED_MONEY_WEIGHTED_RETURN` / `XIRR:v1` registers asynchronous ACT/365
+calculation through the existing worker and solver. Original source inputs and
+results are immutable; source-independent retries and original/correction replay
+are covered by registered API and actual PostgreSQL tests. The default supplier
+reader is unavailable. This implementation has controlled synthetic qualification,
+no institutional attestation, and open purge/legal-hold policy acceptance. See the
+[pooled caller guide](https://github.com/sgajbi/lotus-performance/blob/main/docs/guides/composite_pooled_mwr.md).
 
 ## Pinned Composite Linked Contribution
 

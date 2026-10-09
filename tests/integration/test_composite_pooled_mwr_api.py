@@ -375,3 +375,47 @@ def test_registered_pooled_dated_flow_matches_independent_quadratic_oracle(poole
     flows = result["observation"]["investor_cash_flows"]
     assert [flow["economic_date"] for flow in flows] == ["2025-01-01", "2026-01-01", "2027-01-01"]
     assert [Decimal(flow["amount"]) for flow in flows] == [Decimal("-200"), Decimal("-100"), Decimal("341")]
+
+
+@pytest.mark.parametrize("case", ["ambiguous", "elected_fallback", "zero", "one_sided", "work_limit"])
+def test_registered_pooled_solver_dispositions_preserve_actual_evidence(pooled_api_runtime, case):
+    from tests.unit.services.test_composite_pooled_mwr_solver_adapter import ambiguous_fixture
+
+    _, reader, _, _, _ = pooled_api_runtime
+    if case in {"ambiguous", "elected_fallback"}:
+        fallback = "ALLOW_MODIFIED_DIETZ" if case == "elected_fallback" else "REQUIRE_XIRR"
+        request, payload = ambiguous_fixture(fallback=fallback)
+    else:
+        request = controlled_request()
+        payload = controlled_source_payload()
+        if case in {"zero", "one_sided"}:
+            for row in payload["valuations"]:
+                if case == "zero" or row["role"] == "TERMINAL":
+                    row["amount"] = "0"
+        else:
+            request = request.model_copy(
+                update={"solver": request.solver.model_copy(update={"max_iter": 1, "tolerance": 1e-30})}
+            )
+    payload["raw_source_bodies"]["population"].update(
+        {
+            name: deepcopy(payload[name])
+            for name in ("membership", "expected_portfolio_ids", "expected_population_count", "policy")
+        }
+    )
+    reader.rebind(payload)
+    reader.payloads[request.source_manifest_id] = payload
+    _, _, result = _run_request(pooled_api_runtime, request)
+    outcome = result["outcome"]
+    assert outcome["root_precision"] == "FLOAT64"
+    assert outcome["reason_codes"]
+    assert outcome["original_solver_result"]
+    if case == "elected_fallback":
+        assert outcome["availability"] == "FALLBACK_ANALYSIS"
+        assert outcome["actual_method"] == "MODIFIED_DIETZ"
+        assert outcome["return_value"] is not None
+        assert outcome["diagnostics"]["fallback_from"] == "XIRR"
+    else:
+        assert outcome["availability"] == "NOT_CALCULABLE"
+        assert outcome["return_value"] is outcome["annualized_return"] is outcome["holding_period_return"] is None
+    assert get_async_result_store().get_result(request.calculation_id).response_payload == result
+    assert get_compute_job_store().get_job(request.calculation_id).job_status == ComputeJobStatus.COMPLETE

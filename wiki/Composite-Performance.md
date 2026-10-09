@@ -12,6 +12,7 @@ separate from official approval, freeze, live-source qualification and instituti
 | Preserve and retrieve an original calculated result | [Result candidate capture](https://github.com/sgajbi/lotus-performance/blob/main/docs/guides/composite_result_candidates.md) |
 | Interpret the supported model-fee calculation | [Model-fee methodology](https://github.com/sgajbi/lotus-performance/blob/main/docs/methodologies/metrics/metric-composite-periodic-model-fee.md) |
 | Use annual flat, marginal-tiered or whole-AUM model wealth rates | [Scheduled caller guide](https://github.com/sgajbi/lotus-performance/blob/main/docs/guides/composite_scheduled_model_fee.md) |
+| Interpret pooled dated monetary analysis | [Pooled XIRR caller guide](https://github.com/sgajbi/lotus-performance/blob/main/docs/guides/composite_pooled_mwr.md) |
 | Operate or recover the service | [Operations runbook](Operations-Runbook) |
 
 ## Result Capture and Evidence Posture
@@ -456,7 +457,7 @@ Demo-safe claims:
 Do not claim:
 
 - GIPS compliance or independent verification;
-- contribution rankings, classified rollups, annualized contribution transforms, attribution, or MWR;
+- contribution rankings, classified rollups, annualized contribution transforms, attribution, or institutionally qualified pooled MWR;
 - sleeve, carve-out, model-portfolio, wrap-program, private-market, portability, tax-aware,
   leveraged, or long/short special-structure support;
 - multi-currency composite aggregation beyond the single reporting-currency guard;
@@ -464,11 +465,24 @@ Do not claim:
 
 ## Current Boundaries
 
+Pooled monetary analysis uses the existing analytics operation and compute worker
+with `POOLED_MONEY_WEIGHTED_RETURN` / `XIRR:v1`. It pools exact dated money,
+invokes the existing FLOAT64 solver once and retains immutable original/correction
+inputs and results. Signed principal, tenant, capability and complete historical
+member scope are verified before financial source access. Only ACT/365 is admitted.
+Explicit fallback is labeled `FALLBACK_ANALYSIS`; unqualified roots publish null returns.
+
+This is controlled synthetic qualification. The default supplier reader refuses,
+actual source applicability remains separate, and institutional attestation is
+absent. Indefinite fail-safe custody does not close purge/legal-hold policy work.
+See the [caller guide](https://github.com/sgajbi/lotus-performance/blob/main/docs/guides/composite_pooled_mwr.md)
+and [methodology](https://github.com/sgajbi/lotus-performance/blob/main/docs/methodologies/metrics/metric-composite-pooled-mwr.md).
+
 The current implementation does not support:
 
 - contribution rankings, classified rollups and annualized contribution transforms;
 - composite attribution;
-- composite MWR;
+- institutionally qualified composite MWR (bounded synthetic analysis is described above);
 - sleeves and carve-outs;
 - model portfolios and wrap programs;
 - pooled fund or private-market composites;
