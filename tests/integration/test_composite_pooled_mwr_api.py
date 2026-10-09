@@ -117,6 +117,17 @@ def test_registered_pooled_original_worker_and_source_independent_replay(pooled_
     assert abs(Decimal(result["outcome"]["return_value"]) - Decimal("0.10")) < Decimal("1e-9")
     assert result["outcome"]["units"] == "DECIMAL_FRACTION"
     assert result["outcome"]["root_precision"] == "FLOAT64"
+    flows = result["observation"]["investor_cash_flows"]
+    assert [(row["economic_date"], Decimal(row["amount"])) for row in flows] == [
+        ("2025-01-01", Decimal("-100")),
+        ("2026-01-01", Decimal("110")),
+    ]
+    diagnostics = result["outcome"]["diagnostics"]
+    assert [row["year_fraction"] for row in diagnostics["time_axis"]] == [0, 1]
+    assert diagnostics["convergence"]["converged"]
+    assert diagnostics["convergence"]["root_count_detected"] == 1
+    assert abs(diagnostics["convergence"]["residual_npv"]) < 1e-7
+    assert result["observation"]["source_bundle"]["policy"]["fee_basis"] == "GROSS_BEFORE_FEES"
     assert result["observation"]["source_bundle"]["qualification"] == "CONTROLLED_SYNTHETIC_ONLY"
     assert result["observation"]["source_bundle"]["institutional_attestation"] == "NOT_ATTESTED"
     job = get_compute_job_store().get_job(request.calculation_id)
