@@ -20,6 +20,9 @@ can preserve a complete READY response and its original calculation identity bey
 ordinary execution retention. It requires a deployment-verified bearer principal,
 current portfolio grants and known server release provenance; trust defaults unavailable.
 The original response and nonfinancial descriptor commit together in one owning database.
+PostgreSQL capture requires explicit TCP database URLs and complete installed server
+identity; Unix sockets and destination query overrides refuse. SQLite uses actual
+durable file identity. These custody restrictions do not change ordinary calculations.
 Historical reads never recalculate the original. This bounded #610 increment does not
 approve source makers, select official results or freeze a period.
 

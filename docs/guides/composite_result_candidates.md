@@ -48,6 +48,12 @@ The existing `CompositeMetadataStore` transaction inserts the original response 
 in `composite_result_candidates`. Both configured and actual installed database
 identities must match. In-memory and cross-database capture refuse. There is no
 second financial ledger, distributed transaction or financial history JSON copy.
+PostgreSQL capture requires an explicit TCP host and database in both configured
+URLs, plus non-null installed database, schema, server address and port. Unix sockets,
+implicit destinations and `host`, `hostaddr`, `port`, `dbname`, `service` or
+`servicefile` query overrides refuse with 503: matching database names alone cannot
+qualify one installed database. SQLite capture compares actual durable file identity.
+These restrictions apply to candidate custody admission, not ordinary calculations.
 The response digest binds canonical UTF-8 JSON, preserving every response field and
 value; it is not an assertion about HTTP whitespace or transport framing.
 

@@ -13,6 +13,7 @@ from app.adapters.composite_principal_credentials import (
     PrincipalGrants,
     VerifiedCompositePrincipal,
     resolve_composite_principal,
+    verify_composite_credential,
 )
 from app.adapters.composite_result_candidate_storage import CAPTURE_CAPABILITY
 
@@ -202,6 +203,7 @@ def test_registered_performance_audience_and_delegated_intersection(signed_crede
         ({"exp": True}, "expired_credential"),
         ({"exp": int(NOW.timestamp())}, "expired_credential"),
         ({"nbf": "tomorrow"}, "expired_credential"),
+        ({"aud": {"audience": "lotus-performance"}}, "wrong_audience"),
         ({"sub": " user:a"}, "malformed_credential"),
         ({"tenant": ""}, "malformed_credential"),
         ({"jti": None}, "malformed_credential"),
@@ -213,6 +215,36 @@ def test_signed_invalid_claims_do_not_become_authority(signed_credential, change
     authority = Authority()
     assert _resolve(mint(**changes), trust, authority).denial_class == denial
     assert authority.calls == []
+
+
+@pytest.mark.parametrize("encoding", ["unused_bits", "padding"])
+def test_noncanonical_signature_encoding_refuses_before_current_authority(signed_credential, encoding):
+    trust, mint = signed_credential
+    wire = mint()
+    alphabet = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_"
+    altered = wire + "=" if encoding == "padding" else wire[:-1] + alphabet[alphabet.index(wire[-1]) + 1]
+    original_signature, altered_signature = wire.rsplit(".", 1)[1], altered.rsplit(".", 1)[1]
+    assert base64.urlsafe_b64decode(original_signature + "==") == base64.urlsafe_b64decode(altered_signature + "==")
+    authority = Authority()
+    assert _resolve(altered, trust, authority) == PrincipalDenial("malformed_credential", True)
+    assert not authority.calls
+
+
+@pytest.mark.parametrize("header", ['{"alg":"EdDSA","kid":"isolated-test","kid":"other"}', "[]"])
+def test_nonobject_and_duplicate_signed_json_refuse_before_authority(signed_credential, header):
+    trust, mint = signed_credential
+    _, payload, signature = mint().split(".")
+    authority = Authority()
+    assert _resolve(_encode(header.encode()) + "." + payload + "." + signature, trust, authority) == PrincipalDenial(
+        "malformed_credential", True
+    )
+    assert not authority.calls
+
+
+@pytest.mark.parametrize("credential", [None, "", " "])
+def test_public_signature_verifier_missing_input_is_a_typed_denial(signed_credential, credential):
+    trust, _ = signed_credential
+    assert verify_composite_credential(credential, trust=trust, now=NOW) == PrincipalDenial("missing_credential", True)
 
 
 @pytest.mark.parametrize(

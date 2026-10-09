@@ -54,6 +54,9 @@
   this purpose; ordinary analytic results retain their existing behavior. Runtime verifies exact
   enabled guards without DDL. Capture shares the Composite descriptor transaction after proving
   both stores use the same installed database; no second response table is created.
+  PostgreSQL candidate custody requires explicit TCP destinations without query overrides
+  and complete installed database/schema/server identity; socket or ambiguous identity refuses.
+  SQLite custody compares actual durable file identity.
 
 ### `composite_result_candidates`
 

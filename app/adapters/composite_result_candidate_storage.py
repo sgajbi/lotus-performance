@@ -58,6 +58,20 @@ def _semantic_response(payload):
     return authority_digest(result)
 
 
+def _postgres_identity(connection, url):
+    destination_overrides = {"host", "hostaddr", "port", "dbname", "service", "servicefile"}
+    if not url.host or not url.database or "/" in url.host or destination_overrides.intersection(url.query):
+        _refuse("Capture requires an explicit TCP PostgreSQL host/database without destination query overrides.")
+    actual = tuple(
+        connection.execute(
+            text("SELECT current_database(), current_schema(), inet_server_addr()::text, inet_server_port()")
+        ).one()
+    )
+    if any(value is None for value in actual):
+        _refuse("Installed PostgreSQL database, schema and TCP server identity must be available.")
+    return ("postgresql", (url.host, url.port or 5432, url.database), actual)
+
+
 def _physical_identity(engine):
     with engine.connect() as connection:
         if connection.dialect.name == "sqlite":
@@ -70,14 +84,7 @@ def _physical_identity(engine):
                 _refuse("Installed SQLite file identity cannot be qualified.")
             return ("sqlite", installed.st_dev, installed.st_ino)
         if connection.dialect.name == "postgresql":
-            url = engine.url
-            deployed = (url.host, url.port or 5432, url.database)
-            actual = tuple(
-                connection.execute(
-                    text("SELECT current_database(), current_schema(), inet_server_addr()::text, inet_server_port()")
-                ).one()
-            )
-            return ("postgresql", deployed, actual)
+            return _postgres_identity(connection, engine.url)
     _refuse("Capture database dialect is unsupported.")
 
 
@@ -194,7 +201,11 @@ def _admit(request, response, principal):
 def _retained_member_scope(row):
     try:
         members = json.loads(row.member_scope_json)
-        if not isinstance(members, list) or not members or not all(isinstance(value, str) for value in members):
+        if (
+            not isinstance(members, list)
+            or not members
+            or not all(isinstance(value, str) and value for value in members)
+        ):
             _refuse()
         if members != sorted(set(members)):
             _refuse()
