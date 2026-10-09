@@ -40,8 +40,10 @@
   TWR inspection and supportability contract
 - RFC-049
   implemented composite-performance RFC; persisted-fact composite TWR and inspection are promoted
-  through supported-feature material, while composite contribution, attribution, MWR, sleeves,
-  carve-outs, and advanced composite structures remain unsupported
+  through supported-feature material. Pinned linked contribution is a subsequent bounded capability;
+  see [Composite Performance](Composite-Performance#pinned-linked-member-contribution).
+  Contribution rankings, rollups, annualized transforms, attribution, MWR, sleeves,
+  carve-outs, and advanced composite structures remain separate scope
 
 ## Full local RFC estate
 
