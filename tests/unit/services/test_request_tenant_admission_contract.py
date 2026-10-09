@@ -21,6 +21,7 @@ from __future__ import annotations
 
 import pytest
 from starlette.datastructures import Headers
+from starlette.requests import Request
 
 from app.observability import resolve_tenant_id, tenant_id_var
 from app.services.core_tenant_authority import TENANT_HEADER, MissingTenantAuthorityError
@@ -63,6 +64,22 @@ class TestResolvingTheTenantFromTheRequest:
                 (b"x-tenant-id", b"tenant-b"),
             ]
         )
+        assert resolve_tenant_id(request) == ""
+
+    @pytest.mark.parametrize("principal", [None, {"tenant_id": "forged-tenant"}])
+    def test_recognized_pooled_state_without_verified_principal_refuses_header_fallback(self, principal) -> None:
+        from app.composite_principal_admission import PRINCIPAL_STATE_KEY, VERIFIED_SURFACE_STATE_KEY
+
+        request = Request(
+            {
+                "type": "http",
+                "method": "POST",
+                "path": "/performance/composites/analytics",
+                "headers": [(b"x-tenant-id", b"forged-tenant")],
+            }
+        )
+        setattr(request.state, VERIFIED_SURFACE_STATE_KEY, "composite_pooled_mwr")
+        setattr(request.state, PRINCIPAL_STATE_KEY, principal)
         assert resolve_tenant_id(request) == ""
 
 

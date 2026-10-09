@@ -27,7 +27,19 @@ def catalog(tmp_path):
     url = "sqlite:///" + (tmp_path / "catalog.db").as_posix()
     evidence = apply_durable_schema(database_url=url)
     assert evidence.status == "passed", evidence
-    assert len(evidence.schema_verification_checks) == 6
+    expected_owners = {
+        "ExecutionRegistry",
+        "ComputeJobStore",
+        "AsyncResultStore",
+        "LineageMetadataStore",
+        "CompositeMetadataStore",
+        "SourceCorrectionStore",
+        "CompositePooledMWRInputStore",
+    }
+    checks = evidence.schema_verification_checks
+    assert len(checks) == len(expected_owners)
+    assert {check.store_name for check in checks} == expected_owners
+    assert all(check.status == "passed" and not check.issues for check in checks)
     store = CompositeMetadataStore(url)
     try:
         yield store
