@@ -1,7 +1,9 @@
 """Frozen synthetic whole-cost supplier; no real producer or institutional qualification."""
 
+import json
 from copy import deepcopy
 from decimal import Decimal
+from pathlib import Path
 
 from app.models.composite_authority import authority_digest
 from app.models.composite_component_costs import CompositeGrossCostSource
@@ -11,6 +13,13 @@ from app.services.composite_materialization.component_cost_admission import fina
 from engine.numerical_boundary import monetary_arithmetic_context
 from tests.composite_eligibility_helpers import verification_expectation
 from tests.unit.models.test_composite_component_model_fees import component_case
+
+
+def write_component_capture(path, payload):
+    """A published evidence path is immutable, including an earlier refusal capture."""
+    content = json.dumps(payload, indent=2) + "\n"
+    with Path(path).open("x", encoding="utf-8") as stream:
+        stream.write(content)
 
 
 def component_source_inputs(

@@ -184,3 +184,18 @@ def test_component_catalog_concurrent_retry_preserves_original_publisher_and_wir
         )
     finally:
         store.close()
+
+
+def test_component_external_capture_requires_a_new_evidence_path(tmp_path):
+    import json
+
+    from tests.composite_component_source_helpers import write_component_capture
+
+    path = tmp_path / "captured-wire.json"
+    original = {"qualification": "SYNTHETIC_TEST_ONLY", "profile_response": {"status": "REFUSED"}}
+    write_component_capture(path, original)
+    before = path.read_bytes()
+    assert json.loads(before) == original
+    with pytest.raises(FileExistsError):
+        write_component_capture(path, {"profile_response": {"status": "SUCCESS"}})
+    assert path.read_bytes() == before
