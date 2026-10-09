@@ -22,10 +22,10 @@ python scripts/python_test_taxonomy_inventory.py --limit 30 --min-api-runtime-te
 
 | Metric | Value |
 | --- | ---: |
-| Test modules inventoried | 419 |
-| Test functions inventoried | 4999 |
-| Integration/API/runtime test functions | 1028 |
-| Contract/governance test functions | 232 |
+| Test modules inventoried | 421 |
+| Test functions inventoried | 5025 |
+| Integration/API/runtime test functions | 1030 |
+| Contract/governance test functions | 234 |
 
 ## Test Functions By Suite
 
@@ -33,8 +33,8 @@ python scripts/python_test_taxonomy_inventory.py --limit 30 --min-api-runtime-te
 | --- | ---: | ---: |
 | benchmarks | 15 | 146 |
 | e2e | 1 | 21 |
-| integration | 48 | 565 |
-| unit | 355 | 4267 |
+| integration | 48 | 567 |
+| unit | 357 | 4291 |
 
 ## Test Functions By Family
 
@@ -44,11 +44,11 @@ above does sum to it, because a module belongs to exactly one suite.
 
 | Family | Test functions |
 | --- | ---: |
-| analytics_domain | 2747 |
-| api_or_runtime | 1028 |
-| contract_or_governance | 232 |
-| observability_or_readiness | 776 |
-| quality_or_security | 353 |
+| analytics_domain | 2771 |
+| api_or_runtime | 1030 |
+| contract_or_governance | 234 |
+| observability_or_readiness | 778 |
+| quality_or_security | 355 |
 | uncategorized | 558 |
 
 The #619 source-refusal slice classifies the exact existing stateful upstream error adapter

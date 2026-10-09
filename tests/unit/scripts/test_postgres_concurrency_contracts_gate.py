@@ -13,6 +13,7 @@ import sys
 from pathlib import Path
 
 import pytest
+from coverage import CoverageData
 
 from scripts import postgres_concurrency_contracts_gate
 
@@ -23,7 +24,9 @@ GATE = "scripts/postgres_concurrency_contracts_gate.py"
 def test_default_invocation_executes_fee_and_pooled_custody_targets(monkeypatch: pytest.MonkeyPatch) -> None:
     selected: list[str] = []
 
-    def run_target(target: str, *, scratch: Path, environment: dict[str, str]) -> tuple[dict[str, int], list[str]]:
+    def run_target(
+        target: str, *, scratch: Path, environment: dict[str, str], collect_coverage: bool = False
+    ) -> tuple[dict[str, int], list[str]]:
         selected.append(target)
         return {"tests": 1, "skipped": 0, "failures": 0, "errors": 0}, []
 
@@ -41,10 +44,14 @@ def test_default_invocation_executes_fee_and_pooled_custody_targets(monkeypatch:
 def _run_gate(
     target: Path | tuple[Path, ...],
     environment_overrides: dict[str, str] | None = None,
+    *,
+    coverage_file: Path | None = None,
 ) -> subprocess.CompletedProcess[str]:
     environment = {**os.environ, **(environment_overrides or {})}
     targets = target if isinstance(target, tuple) else (target,)
     target_arguments = [argument for selected in targets for argument in ("--target", str(selected))]
+    if coverage_file is not None:
+        target_arguments.extend(["--coverage-file", str(coverage_file)])
     return subprocess.run(
         [sys.executable, GATE, *target_arguments],
         cwd=REPO_ROOT,
@@ -178,3 +185,73 @@ def test_an_inherited_selector_cannot_shrink_what_the_gate_proves(tmp_path: Path
         "an inherited -k selected one contract and the gate called the run complete: " + result.stdout + result.stderr
     )
     assert "failure(s)" in result.stdout
+
+
+def _coverage_lines(path: Path) -> dict[str, set[int]]:
+    data = CoverageData(basename=str(path))
+    data.read()
+    return {filename: set(data.lines(filename) or []) for filename in data.measured_files()}
+
+
+def test_coverage_appends_both_target_processes_and_preserves_prior_shard(tmp_path: Path) -> None:
+    seed = tmp_path / "test_prior_integration.py"
+    first = tmp_path / "test_business_calendar.py"
+    second = tmp_path / "test_actual_calendar.py"
+    seed.write_text(
+        "from core.annualize import annualize_return\n"
+        "def test_prior():\n"
+        "    assert abs(annualize_return(.1, 365, 365, 'ACT/365') - .1) < 1e-12\n",
+        encoding="utf-8",
+    )
+    for path, basis, divisor in ((first, "BUS/252", 252), (second, "ACT/ACT", 365.25)):
+        path.write_text(
+            "from core.annualize import periods_per_year_for_basis\n"
+            "def test_basis():\n"
+            f"    assert periods_per_year_for_basis(basis='{basis}') == {divisor}\n",
+            encoding="utf-8",
+        )
+    combined = tmp_path / ".coverage.integration"
+    first_file, second_file = tmp_path / ".coverage.first", tmp_path / ".coverage.second"
+    for target, destination in ((seed, combined), (first, first_file), (second, second_file)):
+        result = _run_gate(target, coverage_file=destination)
+        assert result.returncode == 0, result.stdout + result.stderr
+    prior, first_lines, second_lines = map(_coverage_lines, (combined, first_file, second_file))
+    source = next(filename for filename in prior if filename.replace("\\", "/").endswith("/core/annualize.py"))
+    assert first_lines[source] != second_lines[source]
+    assert prior[source] - (first_lines[source] | second_lines[source])
+
+    result = _run_gate((first, second), coverage_file=combined)
+    assert result.returncode == 0, result.stdout + result.stderr
+    assert "2 contract(s) across 2 target(s)" in result.stdout
+    appended = _coverage_lines(combined)
+    for filename in prior.keys() | first_lines.keys() | second_lines.keys():
+        expected = prior.get(filename, set()) | first_lines.get(filename, set()) | second_lines.get(filename, set())
+        assert expected <= appended.get(filename, set()), filename
+
+
+@pytest.mark.parametrize("case", ["skipped", "failed", "empty", "nonzero", "selector"])
+def test_coverage_collection_cannot_turn_incomplete_or_failed_contracts_green(tmp_path: Path, case: str) -> None:
+    sources = {
+        "skipped": "import pytest\ndef test_contract():\n    pytest.skip('no database')\n",
+        "failed": "def test_contract():\n    assert False\n",
+        "empty": "# no contracts\n",
+        "nonzero": "def test_contract():\n    assert True\n",
+        "selector": TARGET_SOURCE,
+    }
+    expected = {
+        "skipped": "skipped",
+        "failed": "failure(s)",
+        "empty": "no PostgreSQL contracts",
+        "nonzero": "pytest exited 2",
+        "selector": "failure(s)",
+    }
+    target = tmp_path / "test_contracts.py"
+    target.write_text(sources[case], encoding="utf-8")
+    if case == "nonzero":
+        (tmp_path / "conftest.py").write_text(
+            "def pytest_sessionfinish(session, exitstatus):\n    session.exitstatus = 2\n", encoding="utf-8"
+        )
+    environment = {"PYTEST_ADDOPTS": "-k test_contract_that_passes"} if case == "selector" else None
+    result = _run_gate(target, environment, coverage_file=tmp_path / ".coverage.integration")
+    assert result.returncode == 1, result.stdout + result.stderr
+    assert expected[case] in result.stdout

@@ -221,7 +221,7 @@ quality-observability-readiness-gate:
 	python scripts/python_observability_readiness_inventory.py --limit 30 --max-missing 0
 
 postgres-concurrency-contracts-gate:
-	python scripts/postgres_concurrency_contracts_gate.py
+	python scripts/postgres_concurrency_contracts_gate.py --coverage-file .coverage.integration
 
 # The developer-facing form: provisions the database first, so the gate can be
 # reproduced before pushing rather than discovered in a required lane. Mirrors

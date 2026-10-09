@@ -58,8 +58,14 @@ def _run_target(
     *,
     scratch: Path,
     environment: dict[str, str],
+    collect_coverage: bool = False,
 ) -> tuple[dict[str, int], list[str]]:
     report = scratch / f"postgres-contracts-{sha256(target.encode()).hexdigest()[:12]}.xml"
+    coverage_arguments = (
+        ["--cov=app", "--cov=engine", "--cov=core", "--cov=adapters", "--cov-append", "--cov-report="]
+        if collect_coverage
+        else []
+    )
     completed = subprocess.run(
         [
             sys.executable,
@@ -71,6 +77,7 @@ def _run_target(
             "-o",
             "addopts=",
             f"--junitxml={report}",
+            *coverage_arguments,
         ],
         cwd=REPO_ROOT,
         env=environment,
@@ -105,6 +112,9 @@ def _run_target(
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--target", action="append", dest="targets")
+    parser.add_argument(
+        "--coverage-file", type=Path, help="Append all target coverage to this existing or new integration shard."
+    )
     args = parser.parse_args()
     targets = args.targets or list(DEFAULT_TARGETS)
 
@@ -117,7 +127,17 @@ def main() -> int:
         # PYTEST_ADDOPTS is dropped from the child environment because `-o` does not
         # override it. Raised in review of #489.
         environment = {k: v for k, v in os.environ.items() if k != "PYTEST_ADDOPTS"}
-        results = [_run_target(target, scratch=Path(scratch), environment=environment) for target in targets]
+        if args.coverage_file is not None:
+            # The explicit output owns these measurements; a parent's pytest-cov
+            # subprocess settings must not redirect them to a different shard.
+            environment = {key: value for key, value in environment.items() if not key.startswith("COV_CORE_")}
+            environment["COVERAGE_FILE"] = str(args.coverage_file.resolve())
+        results = [
+            _run_target(
+                target, scratch=Path(scratch), environment=environment, collect_coverage=args.coverage_file is not None
+            )
+            for target in targets
+        ]
 
     totals = {
         field: sum(target_totals.get(field, 0) for target_totals, _ in results)
