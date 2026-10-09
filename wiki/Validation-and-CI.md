@@ -78,6 +78,13 @@ branch `main` at the exact merged SHA, while manual dispatch retains its selecte
   report-only branch coverage baseline. It runs unit, integration, and e2e suites with
   `pytest --cov-branch`, writes raw JSON under `output/branch-coverage/`, and refreshes
   `quality/coverage_inventory.md` without enforcing a branch threshold
+- `make postgres-concurrency-contracts-gate`
+  required PR integration proof over all seven PostgreSQL targets. It appends the
+  existing four-source coverage measurement to `.coverage.integration` before that
+  shard is uploaded, preserving ordinary integration and every PostgreSQL process.
+  Each target independently requires nonempty, passed, skip-free JUnit evidence.
+  Main Releasability retains its separate ordinary unit/integration/e2e coverage gate;
+  the PR's PostgreSQL supplement does not qualify main coverage by inheritance.
 - `make quality-baseline`
   report-only baseline refresh that writes raw scanner snapshots under `output/quality-baseline/`
   and refreshes the baseline report used by the enterprise refactor evidence trail

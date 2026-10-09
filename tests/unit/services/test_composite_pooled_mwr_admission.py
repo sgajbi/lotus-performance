@@ -524,3 +524,86 @@ def test_empty_economic_content_remains_explicit_admitted_zero_not_invented_miss
     assert result.opening_value == result.terminal_value == 0
     assert all(row.amount == 0 for row in result.investor_cash_flows)
     assert all(row.explicitly_empty for row in result.source_bundle.flow_coverage)
+
+
+@pytest.mark.parametrize("conflict", ["duplicate-pin", "missing-original-body"])
+def test_source_vector_cannot_duplicate_identity_or_omit_retained_body(conflict):
+    payload = controlled_source_payload()
+    if conflict == "duplicate-pin":
+        payload["source_pins"].append(deepcopy(payload["source_pins"][0]))
+    else:
+        del payload["raw_source_bodies"]["money"]
+    with pytest.raises(PooledSourceAdmissionError) as error:
+        require_source_bindings(
+            controlled_request(), PooledSourceBundle.model_validate(payload), tenant_id="controlled-tenant"
+        )
+    assert error.value.code == (
+        "SOURCE_IDENTITY_UNAVAILABLE" if conflict == "duplicate-pin" else "SOURCE_CUT_UNAVAILABLE"
+    )
+
+
+@pytest.mark.parametrize(
+    "collection,index,field,value,code",
+    [
+        ("membership", 1, "source_row_id", "member-a-membership", "MEMBERSHIP_IDENTITY_CONFLICT"),
+        ("membership", 0, "effective_to", "2024-12-31", "MEMBERSHIP_IDENTITY_CONFLICT"),
+        ("flow_coverage", 0, "portfolio_id", "unselected-member", "MISSING_FLOW_COVERAGE"),
+        ("flow_coverage", 0, "source_pin_id", "unretained-pin", "MISSING_FLOW_COVERAGE"),
+        ("flow_coverage", 0, "active_event_ids", ["unretained-event"], "MISSING_FLOW_COVERAGE"),
+        ("valuations", 0, "portfolio_id", "unselected-member", "SOURCE_IDENTITY_UNAVAILABLE"),
+        ("valuations", 0, "source_pin_id", "unretained-pin", "SOURCE_IDENTITY_UNAVAILABLE"),
+    ],
+)
+def test_source_identity_and_population_controls_refuse_unbound_economics(collection, index, field, value, code):
+    payload = controlled_source_payload()
+    payload[collection][index][field] = value
+    with pytest.raises(PooledSourceAdmissionError) as error:
+        _admit(payload)
+    assert error.value.code == code
+
+
+def test_boundary_values_cannot_duplicate_even_identical_source_economics():
+    payload = controlled_source_payload()
+    payload["valuations"].append(deepcopy(payload["valuations"][0]))
+    with pytest.raises(PooledSourceAdmissionError) as error:
+        _admit(payload)
+    assert error.value.code == "BOUNDARY_VALUATION_CONFLICT"
+
+
+def test_one_namespace_cannot_change_between_portfolio_and_source_event_identity():
+    payload = _with_flows(controlled_source_payload(), [_flow(), _flow(member="member-b", identity_scope="SOURCE")])
+    with pytest.raises(PooledSourceAdmissionError) as error:
+        _admit(payload)
+    assert error.value.code == "SOURCE_IDENTITY_CONFLICT"
+
+
+def test_flow_population_cannot_use_another_pin_than_its_coverage_control():
+    payload = _with_flows(controlled_source_payload(), [_flow(source_pin_id="population")])
+    with pytest.raises(PooledSourceAdmissionError) as error:
+        _admit(payload)
+    assert error.value.code == "SOURCE_CUT_CONFLICT"
+
+
+def test_transfer_pair_is_not_eliminated_without_elected_consolidation_policy():
+    payload = _transfer_payload()
+    payload["policy"]["transfer_policy"] = "NO_INTERNAL_TRANSFERS"
+    with pytest.raises(PooledSourceAdmissionError) as error:
+        _admit(payload)
+    assert error.value.code == "TRANSFER_POLICY_UNAVAILABLE"
+
+
+def test_adjacent_included_history_does_not_invent_entry_or_exit_capital():
+    payload = controlled_source_payload()
+    original = payload["membership"].pop(0)
+    payload["membership"].extend(
+        [
+            {**original, "effective_to": "2025-06-30", "source_row_id": "member-a-first-decision"},
+            {**original, "effective_from": "2025-07-01", "source_row_id": "member-a-next-decision"},
+        ]
+    )
+    result = _admit(payload)
+    assert (result.opening_value, result.terminal_value) == (Decimal(100), Decimal(110))
+    assert not result.portfolio_cash_flows
+    assert result.per_member_controls["member-a"]["entry_capital"] == "0"
+    assert result.per_member_controls["member-a"]["exit_capital"] == "0"
+    assert len(result.source_bundle.membership) == 3

@@ -18,6 +18,22 @@ developers or GitHub Actions.
 
 ## Current Blocking CI Lanes
 
+The required PR integration leg runs the seven PostgreSQL contract targets after the
+ordinary integration suite. Its repo-native gate appends coverage for `app`, `engine`,
+`core`, and `adapters` to `.coverage.integration`, preserving the earlier suite and all
+seven subprocess measurements before the existing artifact upload and combiner.
+JUnit counts still independently require every target to be nonempty, passed, and
+skip-free; coverage cannot turn an incomplete proof green. The unchanged main lane
+collects ordinary unit/integration/e2e coverage and must pass its own 99-percent gate;
+it does not run this PostgreSQL supplement.
+
+From the `lotus-performance` repository root with `LOTUS_POSTGRES_PLAN_DATABASE_URL`
+already pointing to the owned test database, use `make postgres-concurrency-contracts-gate`
+in Bash, or `python scripts/postgres_concurrency_contracts_gate.py --coverage-file .coverage.integration`
+in PowerShell. Direct runner calls without `--coverage-file` retain the non-coverage
+behavior. The optional mode appends to the explicitly selected file and does not
+inherit a parent's pytest-cov destination.
+
 | Lane | Trigger | Current blocking checks |
 | --- | --- | --- |
 | Remote Feature Lane | Pushes to non-`main` branches and manual dispatch | workflow lint, static quality gates, contract/security gates, domain-product validation, deterministic API evaluation, test taxonomy breadth, unit tests |
@@ -122,11 +138,11 @@ checked by `test_current_inventory_prose_carries_no_stale_totals`, which normali
 compares every total the present-tense paragraph states. Historical baselines elsewhere in this
 document are intentionally outside that check.
 
-Current governed inventory: `quality/test_taxonomy_inventory.md` records 419 test modules, 4,999
-source test functions, 1028 API/runtime test functions, 232 contract/governance test functions, and
-558 uncategorized test functions. The full family summary is 419 modules, 4,999 source test functions, 1028 integration/API/runtime test functions, 232 contract/governance test functions, 776 observability/readiness test functions, 353 quality/security test functions, 2,747 analytics-domain test functions, and 558 uncategorized test functions.
+Current governed inventory: `quality/test_taxonomy_inventory.md` records 421 test modules, 5,025
+source test functions, 1030 API/runtime test functions, 234 contract/governance test functions, and
+558 uncategorized test functions. The full family summary is 421 modules, 5,025 source test functions, 1030 integration/API/runtime test functions, 234 contract/governance test functions, 778 observability/readiness test functions, 355 quality/security test functions, 2,771 analytics-domain test functions, and 558 uncategorized test functions.
 
-`quality/test_taxonomy_inventory.md` records 419 test modules, 4,999 source test functions, 1028 API/runtime test functions, 232 contract/governance test functions, and 558 uncategorized test functions.
+`quality/test_taxonomy_inventory.md` records 421 test modules, 5,025 source test functions, 1030 API/runtime test functions, 234 contract/governance test functions, and 558 uncategorized test functions.
 
 ## LP-CR-1603 Container Supply-Chain Intake
 

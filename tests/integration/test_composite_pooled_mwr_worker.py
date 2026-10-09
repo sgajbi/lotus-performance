@@ -1,6 +1,8 @@
 """Controlled local custody integration; PostgreSQL and registered worker proof follow separately."""
 
+import json
 from decimal import Decimal
+from uuid import uuid4
 
 import pytest
 from sqlalchemy import create_engine, text
@@ -8,6 +10,7 @@ from sqlalchemy.exc import DBAPIError
 
 from app.adapters.composite_pooled_mwr_repository import CompositePooledMWRInputStore
 from app.adapters.durable_schema.errors import DurableSchemaMigrationRequiredError
+from app.models.composite_authority import authority_digest
 from app.models.composite_pooled_mwr import PooledSourceBundle
 from app.ports.composite_pooled_mwr import PooledSourceAdmissionError
 from app.services.composite_pooled_mwr.admission import admit_pooled_observation
@@ -163,3 +166,66 @@ def test_retained_input_survives_interrupted_execution_cleanup(custody):
     with engine.begin() as connection:
         connection.execute(text("DELETE FROM analytics_compute_job"))
     assert inputs.get(request.calculation_id, tenant_id="controlled-tenant").observation == observation
+
+
+def _corrupt_owned_fixture(engine, change):
+    """Model administrative/storage corruption, then restore the required SQL guard."""
+    with engine.begin() as connection:
+        guard = connection.exec_driver_sql(
+            "SELECT sql FROM sqlite_master WHERE name='composite_pooled_mwr_inputs_update'"
+        ).scalar_one()
+        row = dict(connection.execute(text("SELECT * FROM composite_pooled_mwr_inputs")).mappings().one())
+        change(row)
+        connection.exec_driver_sql("DROP TRIGGER composite_pooled_mwr_inputs_update")
+        connection.execute(
+            text(
+                "UPDATE composite_pooled_mwr_inputs SET payload_json=:payload_json, "
+                "payload_digest=:payload_digest, input_manifest_digest=:input_manifest_digest"
+            ),
+            row,
+        )
+        connection.exec_driver_sql(guard)
+    return row
+
+
+@pytest.mark.parametrize("corruption", ["payload-digest", "calculation-identity", "manifest-identity"])
+def test_corrupt_retained_original_refuses_read_without_repairing_storage(custody, corruption):
+    inputs, _, request, _, _, engine, _ = custody
+    _bind(custody)
+
+    def corrupt(row):
+        payload = json.loads(row["payload_json"])
+        if corruption == "payload-digest":
+            payload["observation"]["terminal_value"] = "999"
+        elif corruption == "calculation-identity":
+            payload["request"]["calculation_id"] = str(uuid4())
+            row["payload_digest"] = authority_digest(payload)
+        else:
+            row["input_manifest_digest"] = "different-manifest"
+        row["payload_json"] = json.dumps(payload, sort_keys=True, separators=(",", ":"))
+
+    before = _corrupt_owned_fixture(engine, corrupt)
+    inputs.verify_schema()
+    with pytest.raises(PooledSourceAdmissionError) as error:
+        inputs.get(request.calculation_id, tenant_id="controlled-tenant")
+    assert error.value.code == "INPUT_CUSTODY_CORRUPT"
+    with engine.connect() as connection:
+        assert dict(connection.execute(text("SELECT * FROM composite_pooled_mwr_inputs")).mappings().one()) == before
+
+
+@pytest.mark.parametrize("members", [[], ["member-a", "member-a"], [1], [""]])
+def test_corrupt_retained_population_refuses_metadata_lookup(custody, members):
+    inputs, _, request, _, _, engine, _ = custody
+    _bind(custody)
+
+    def corrupt(row):
+        payload = json.loads(row["payload_json"])
+        payload["observation"]["source_bundle"]["expected_portfolio_ids"] = members
+        row["payload_digest"] = authority_digest(payload)
+        row["payload_json"] = json.dumps(payload, sort_keys=True, separators=(",", ":"))
+
+    _corrupt_owned_fixture(engine, corrupt)
+    inputs.verify_schema()
+    with pytest.raises(PooledSourceAdmissionError) as error:
+        inputs.get_member_scope(request.calculation_id, tenant_id="controlled-tenant")
+    assert error.value.code == "INPUT_CUSTODY_CORRUPT"

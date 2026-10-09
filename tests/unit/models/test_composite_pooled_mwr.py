@@ -11,6 +11,7 @@ from app.models.composite_pooled_mwr import (
     PooledCashFlow,
     PooledValuation,
 )
+from tests.unit.services.test_composite_pooled_mwr_admission import _flow
 
 
 def request_payload():
@@ -114,4 +115,25 @@ def test_named_day_basis_cannot_be_silently_overridden_without_policy(divisor):
     with pytest.raises(ValidationError, match="custom divisors"):
         CompositePooledMWRRequest.model_validate(
             {**request_payload(), "annualization": {"basis": "ACT/365", "periods_per_year": divisor}}
+        )
+
+
+@pytest.mark.parametrize(
+    "change",
+    [
+        {"predecessor_event_id": "previous-event"},
+        {"predecessor_revision": "previous-revision"},
+        {"predecessor_event_id": "flow-a", "predecessor_revision": "v1"},
+    ],
+)
+def test_flow_predecessor_cannot_be_partial_or_self_referential(change):
+    with pytest.raises(ValidationError, match="predecessor"):
+        PooledCashFlow.model_validate(_flow(**change))
+
+
+def test_correction_requires_distinct_calculation_identity():
+    calculation_id = "74e8d4d9-7ee8-4cb8-aa31-4d92b186b840"
+    with pytest.raises(ValidationError, match="new calculation identity"):
+        CompositePooledMWRRequest.model_validate(
+            {**request_payload(), "calculation_id": calculation_id, "correction_of_calculation_id": calculation_id}
         )

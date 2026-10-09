@@ -408,6 +408,12 @@ Important validation expectations:
 14. PR Merge Gate and Main Releasability route matrix test coverage through
     `make test-coverage-shard` and combined coverage enforcement through `make coverage-combine-gate`
     so workflow YAML does not become a second source of truth for pytest or coverage behavior.
+    The PR PostgreSQL target passes the runner's explicit `--coverage-file .coverage.integration`
+    option. Each of its seven pytest processes appends the existing `app`/`engine`/`core`/`adapters`
+    coverage sources to the earlier integration shard before the unchanged upload. Direct runner
+    calls without this option remain non-coverage proofs. Do not inherit another pytest-cov
+    destination or overwrite the ordinary suite's measurements. Main Releasability has no
+    PostgreSQL supplement and independently enforces its ordinary three-suite coverage floor.
     `make postgres-concurrency-contracts-gate` runs inside the required `PR Merge Gate / Tests (integration)` leg rather than as its own context: matrix legs become distinct required-context names, so a new leg would have created a context nobody requires. The gate runs concurrency/locking, composite immutable-fact migration/selection, materialization, monthly eligibility, periodic model-fee, scheduled model-fee custody, and pooled MWR custody as seven separate PostgreSQL targets and requires nonempty, skip-free success from each; aggregate success cannot conceal an empty target. The proofs previously ran only in `Performance Characterization / Benchmarks`, which provisions PostgreSQL and is not required, so a merge never waited for them.
 
     Composite member-return fact identity includes return view, reporting currency, source version
