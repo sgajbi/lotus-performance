@@ -25,11 +25,18 @@ Supported now:
 - classified inspection artifacts for audit and support;
 - `CompositePerformanceAnalytics:v1` data-product declaration and trust telemetry.
 
+Pinned multi-period composite contribution is also available through
+`POST /performance/composites/analytics` with `metric_id=LINKED_MEMBER_CONTRIBUTION`
+and `method=CARINO:v1`. It consumes original retained Decimal member facts and an
+explicit COMPLETE window vector. See the [linked contribution client guide](composite_linked_contribution.md)
+and [methodology](../methodologies/metrics/metric-composite-linked-member-contribution.md).
+This is calculated analysis with retained source attestation, not official selection or live qualification.
+
 Not supported by this endpoint:
 
 - ad hoc request-time member return arrays;
 - hidden on-the-fly portfolio TWR fan-out;
-- composite contribution, composite attribution, or composite MWR;
+- linked composite contribution (use the separate analytics operation above), composite attribution, or composite MWR;
 - sleeves, carve-outs, wrap programs, model portfolios, pooled funds, private-market composites,
   portability records, tax-aware composites, leveraged composites, or long/short special structures;
 - multi-currency composite aggregation beyond the current fail-closed single reporting-currency
@@ -280,7 +287,7 @@ downstream product material until implemented and proven.
 
 Current unsupported scopes:
 
-- composite contribution;
+- contribution rankings, classified rollups and annualized contribution transforms;
 - composite attribution;
 - composite MWR;
 - sleeves and carve-outs;
