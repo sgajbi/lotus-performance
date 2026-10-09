@@ -34,6 +34,52 @@ displaying a return. Ratios use `DECIMAL_FRACTION`: 0.10 means 10%.
 
 ## Source and Calculation Requirements
 
+### Executable Controlled Examples
+
+The original OR-15 example uses opening member values 50 + 50 on 2025-01-01,
+terminal values 60 + 50 on 2026-01-01, and source-confirmed empty external flows.
+Investor cash flows are therefore -100 and +110 exactly 365 days apart:
+`-100 + 110 / (1 + r) = 0`, giving `r = 0.10`. Submit the following request
+only with the explicitly installed controlled source and signing fixtures:
+
+```json
+{
+  "composite_id": "CONTROLLED_POOL",
+  "metric_id": "POOLED_MONEY_WEIGHTED_RETURN",
+  "method": "XIRR:v1",
+  "period_start": "2025-01-01",
+  "period_end": "2026-01-01",
+  "reporting_currency": "USD",
+  "return_view": "GROSS",
+  "source_manifest_id": "controlled-original-v1",
+  "policy_binding_id": "controlled-xirr-policy-v1",
+  "annualization": {"enabled": true, "basis": "ACT/365"},
+  "fallback_policy": "REQUIRE_XIRR"
+}
+```
+
+The original/replay registered test executes this request and asserts dated amounts,
+fee basis, unique convergence and residual. The missing-terminal example removes
+member-b's terminal source valuation: submission is accepted, the worker records
+operational failure, no financial original is created, and retained GET returns 409.
+The ambiguous example has investor amounts -100, +230, -132 at years 0, 1, 2;
+both 10% and 20% solve the equation. With `REQUIRE_XIRR`, the retained outcome
+is `NOT_CALCULABLE` with a null return and the actual multiple-root diagnostics.
+Only explicit `ALLOW_MODIFIED_DIETZ` election permits `FALLBACK_ANALYSIS`.
+These source variations belong to trusted fixture ports; the HTTP request cannot
+provide or authorize financial source rows.
+
+From the `lotus-performance` repository root, run all three registered examples
+and their related controls with the repository's installed Python environment:
+
+```powershell
+python -m pytest tests/integration/test_composite_pooled_mwr_api.py -q
+```
+
+```bash
+python -m pytest tests/integration/test_composite_pooled_mwr_api.py -q
+```
+
 The supplier resolves complete historical population metadata before any financial
 source read. It independently verifies owner/policy authority. Performance then
 checks the retained per-source cut/revision/digest vector, complete source pages,
