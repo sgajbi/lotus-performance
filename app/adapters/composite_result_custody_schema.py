@@ -7,9 +7,10 @@ Ordinary analytic results retain their existing mutation and retention behavior.
 from sqlalchemy.engine.interfaces import Dialect
 
 from app.adapters.durable_schema.statements import SchemaStatements
+from app.services.analytics_workflow_types import ANALYTICS_WORKFLOW_COMPOSITE_POOLED_MWR
 
 COMPOSITE_CAPTURE_ANALYTICS_TYPE = "COMPOSITE_TWR_CANDIDATE"
-COMPOSITE_POOLED_ANALYTICS_TYPE = "COMPOSITE_POOLED_MWR"
+COMPOSITE_POOLED_ANALYTICS_TYPE = ANALYTICS_WORKFLOW_COMPOSITE_POOLED_MWR
 COMPOSITE_PROTECTED_RESULT_TYPES = (COMPOSITE_CAPTURE_ANALYTICS_TYPE, COMPOSITE_POOLED_ANALYTICS_TYPE)
 _TABLE = "analytics_async_result"
 _TRIGGER = "trg_composite_result_custody"

@@ -3,7 +3,7 @@ from typing import Any, Awaitable, Callable, Protocol
 from fastapi import Request, Response
 from fastapi.responses import JSONResponse
 
-from app.composite_principal_admission import is_candidate_path, trusted_request_principal
+from app.composite_principal_admission import trusted_request_principal, verified_composite_surface
 from app.enterprise_audit_events import _apply_enterprise_policy_header
 from app.enterprise_authorization import (
     _allowed_audit_metadata,
@@ -74,13 +74,13 @@ def _candidate_audit_metadata(request: Request, status_code: int) -> dict[str, A
         "status_code": status_code,
         "access_mode": "privileged_read" if read else "write",
         "required_capability": "operations.runtime.read" if read else "operations.runtime.manage",
-        "governed_surface": "composite_result_candidates",
+        "governed_surface": verified_composite_surface(request),
         "delegated_actor": principal.delegated_actor if principal else None,
     }
 
 
 def _request_audit_metadata(request: Request, status_code: int) -> dict[str, Any] | None:
-    if is_candidate_path(request.url.path):
+    if verified_composite_surface(request) is not None:
         return _candidate_audit_metadata(request, status_code)
     return _allowed_audit_metadata(method=request.method, path=request.url.path, status_code=status_code)
 
@@ -100,7 +100,7 @@ def build_enterprise_audit_middleware(
         ):
             return _payload_too_large_response()
 
-        if is_candidate_path(request.url.path):
+        if verified_composite_surface(request) is not None:
             principal = trusted_request_principal(request)
             authorized, reason = principal is not None, "verified_principal_required"
             audit_identity = {

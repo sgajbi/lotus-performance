@@ -12,6 +12,36 @@ from app.adapters.durable_schema.errors import DurableSchemaMigrationRequiredErr
 from app.services.async_result_store import AsyncResultOriginalConflictError, AsyncResultStore
 from app.services.compute_job_store import ComputeJobLeaseOwnershipError
 from tests.benchmarks.postgres_runtime_helpers import get_postgres_database_url
+from tests.integration.test_composite_pooled_mwr_api import (
+    pooled_api_runtime as _api_runtime_fixture,
+)
+from tests.integration.test_composite_pooled_mwr_api import (
+    test_registered_pooled_audit_uses_verified_principal_and_ignores_header_grants as _assert_registered_audit,
+)
+from tests.integration.test_composite_pooled_mwr_api import (
+    test_registered_pooled_authority_refuses_before_financial_source_read as _assert_registered_authority,
+)
+from tests.integration.test_composite_pooled_mwr_api import (
+    test_registered_pooled_correction_preserves_both_originals as _assert_registered_correction,
+)
+from tests.integration.test_composite_pooled_mwr_api import (
+    test_registered_pooled_cors_preflight_precedes_principal as _assert_preflight,
+)
+from tests.integration.test_composite_pooled_mwr_api import (
+    test_registered_pooled_duplicate_authorization_refuses_before_source as _assert_duplicate_authorization,
+)
+from tests.integration.test_composite_pooled_mwr_api import (
+    test_registered_pooled_missing_terminal_records_operational_failure_only as _assert_registered_missing_terminal,
+)
+from tests.integration.test_composite_pooled_mwr_api import (
+    test_registered_pooled_original_worker_and_source_independent_replay as _assert_registered_original,
+)
+from tests.integration.test_composite_pooled_mwr_api import (
+    test_registered_pooled_retry_reuses_snapshot_after_transient_solver_failure as _assert_registered_retry,
+)
+from tests.integration.test_composite_pooled_mwr_api import (
+    test_registered_pooled_streamed_size_limit_preserves_security_headers as _assert_streamed_size,
+)
 from tests.integration.test_composite_pooled_mwr_worker import (
     _bind,
 )
@@ -56,6 +86,54 @@ from tests.unit.services.test_async_result_store import (
 )
 
 custody = _custody_fixture
+pooled_api_runtime = _api_runtime_fixture
+
+
+@pytest.fixture
+def pooled_api_database_url(custody_database_url):
+    return custody_database_url
+
+
+def test_postgres_registered_pooled_original_worker_and_replay(pooled_api_runtime):
+    _assert_registered_original(pooled_api_runtime)
+
+
+def test_postgres_registered_pooled_correction_preserves_both_originals(pooled_api_runtime):
+    _assert_registered_correction(pooled_api_runtime)
+
+
+@pytest.mark.parametrize("denial", ["missing", "wrong_audience", "capability", "scope", "tenant"])
+def test_postgres_registered_pooled_authority_refuses_before_money_read(pooled_api_runtime, denial):
+    _assert_registered_authority(pooled_api_runtime, denial)
+
+
+def test_postgres_registered_pooled_missing_terminal_records_no_financial_original(pooled_api_runtime):
+    _assert_registered_missing_terminal(pooled_api_runtime)
+
+
+def test_postgres_registered_pooled_retry_reuses_snapshot(pooled_api_runtime, monkeypatch):
+    _assert_registered_retry(pooled_api_runtime, monkeypatch)
+
+
+@pytest.mark.parametrize("forged_tenant", [False, True])
+def test_postgres_registered_pooled_audit_uses_verified_authority(
+    pooled_api_runtime, monkeypatch, caplog, forged_tenant
+):
+    _assert_registered_audit(pooled_api_runtime, monkeypatch, caplog, forged_tenant)
+
+
+def test_postgres_registered_pooled_duplicate_authorization_refuses(pooled_api_runtime):
+    _assert_duplicate_authorization(pooled_api_runtime)
+
+
+@pytest.mark.parametrize("length", [None, "1", "99999"])
+def test_postgres_registered_pooled_streamed_body_bound(pooled_api_runtime, monkeypatch, length):
+    _assert_streamed_size(pooled_api_runtime, monkeypatch, length)
+
+
+@pytest.mark.parametrize("origin,expected", [("http://localhost:3000", 200), ("https://untrusted.test", 400)])
+def test_postgres_registered_pooled_cors_preserved(pooled_api_runtime, origin, expected):
+    _assert_preflight(pooled_api_runtime, origin, expected)
 
 
 @pytest.fixture

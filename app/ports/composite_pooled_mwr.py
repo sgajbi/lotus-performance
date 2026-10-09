@@ -20,4 +20,8 @@ class PooledMonetarySourceReader(Protocol):
     controlled readers must explicitly preserve synthetic qualification.
     """
 
+    def read_population_scope(self, request: CompositePooledMWRRequest, *, tenant_id: str) -> tuple[str, ...]:
+        """Read owner-verified population metadata before any financial source rows."""
+        ...
+
     def read_pinned(self, request: CompositePooledMWRRequest, *, tenant_id: str) -> PooledSourceBundle: ...

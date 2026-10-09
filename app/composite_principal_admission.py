@@ -1,7 +1,9 @@
-"""Outer verified admission for the bounded result-candidate route family."""
+"""Outer verified admission for candidate routes and the explicit pooled metric."""
 
+import json
 from dataclasses import dataclass
 from datetime import UTC, datetime
+from email.message import Message
 
 from fastapi import Request
 from starlette.responses import JSONResponse
@@ -15,14 +17,102 @@ from app.adapters.composite_principal_credentials import (
     resolve_composite_principal,
 )
 from app.enterprise_capability_rules import _CAPABILITY_OPERATIONS_RUNTIME_MANAGE, _CAPABILITY_OPERATIONS_RUNTIME_READ
+from app.enterprise_payload_limits import (
+    PayloadTooLargeError,
+    _payload_too_large_response,
+    _write_payload_limited_receive,
+    _write_payload_too_large,
+)
+from app.enterprise_runtime_config import _max_write_payload_bytes
 from app.observability import tenant_id_var
 
 RESULT_CANDIDATE_PATH = "/performance/composites/result-candidates"
 PRINCIPAL_STATE_KEY = "verified_composite_principal"
+VERIFIED_SURFACE_STATE_KEY = "verified_composite_surface"
+POOLED_ANALYTICS_PATH = "/performance/composites/analytics"
+POOLED_RESULTS_PATH = POOLED_ANALYTICS_PATH + "/results/"
 
 
 def is_candidate_path(path):
     return path == RESULT_CANDIDATE_PATH or path.startswith(RESULT_CANDIDATE_PATH + "/")
+
+
+def _is_pooled_result_route(scope):
+    path = scope["path"]
+    suffix = path.removeprefix(POOLED_RESULTS_PATH)
+    return (
+        scope["method"] in ("GET", "HEAD")
+        and path.startswith(POOLED_RESULTS_PATH)
+        and bool(suffix)
+        and "/" not in suffix
+    )
+
+
+def verified_composite_surface(request: Request) -> str | None:
+    if is_candidate_path(getattr(getattr(request, "url", None), "path", "")):
+        return "composite_result_candidates"
+    # Only outer server middleware establishes this marker. Pending dispatch
+    # fails closed in terminal logs if oversized bytes prevent classification.
+    marker = getattr(request.state, VERIFIED_SURFACE_STATE_KEY, None)
+    if marker in ("composite_pooled_mwr", "composite_pooled_dispatch"):
+        return "composite_pooled_mwr"
+    return None
+
+
+def _json_body_request(request: Request) -> bool:
+    content_type = request.headers.get("content-type")
+    if not content_type:
+        return True
+    message = Message()
+    message["content-type"] = content_type
+    return message.get_content_maintype() == "application" and (
+        message.get_content_subtype() == "json" or message.get_content_subtype().endswith("+json")
+    )
+
+
+def _replay_body(receive: Receive, body: bytes, *, disconnected: bool) -> Receive:
+    body_pending = True
+    disconnect_pending = disconnected
+
+    async def replay():
+        nonlocal body_pending, disconnect_pending
+        if body_pending:
+            body_pending = False
+            return {"type": "http.request", "body": body, "more_body": disconnected}
+        if disconnect_pending:
+            disconnect_pending = False
+            return {"type": "http.disconnect"}
+        return await receive()
+
+    return replay
+
+
+async def _pooled_dispatch_body(request: Request, receive: Receive) -> tuple[bool, Receive]:
+    bound = _max_write_payload_bytes()
+    if _write_payload_too_large(method=request.method, headers=request.headers, max_write_payload_bytes=bound):
+        raise PayloadTooLargeError
+    limited_receive = _write_payload_limited_receive(receive, max_write_payload_bytes=bound)
+    # Retain bounded bytes, not a potentially unbounded list of empty chunks.
+    body = bytearray()
+    disconnected = False
+    while True:
+        message = await limited_receive()
+        if message["type"] == "http.disconnect":
+            disconnected = True
+            break
+        if message["type"] == "http.request":
+            body.extend(message.get("body", b""))
+            if not message.get("more_body", False):
+                break
+    replay = _replay_body(receive, bytes(body), disconnected=disconnected)
+    if disconnected:
+        return False, replay
+    try:
+        payload = json.loads(body)
+    except (ValueError, RecursionError):
+        return False, replay
+    # Match Request.json()'s last-key-wins semantics and replay exact body bytes.
+    return isinstance(payload, dict) and payload.get("metric_id") == "POOLED_MONEY_WEIGHTED_RETURN", replay
 
 
 @dataclass(frozen=True)
@@ -105,9 +195,23 @@ class CompositePrincipalAdmissionMiddleware:
         self.app = app
 
     async def __call__(self, scope: Scope, receive: Receive, send: Send):
-        if scope["type"] != "http" or scope["method"] == "OPTIONS" or not is_candidate_path(scope["path"]):
+        if scope["type"] != "http" or scope["method"] == "OPTIONS":
             return await self.app(scope, receive, send)
         request = Request(scope)
+        candidate = is_candidate_path(scope["path"])
+        pooled = _is_pooled_result_route(scope)
+        if scope["method"] == "POST" and scope["path"] == POOLED_ANALYTICS_PATH and _json_body_request(request):
+            scope.setdefault("state", {})[VERIFIED_SURFACE_STATE_KEY] = "composite_pooled_dispatch"
+            try:
+                pooled, receive = await _pooled_dispatch_body(request, receive)
+            except PayloadTooLargeError:
+                return await _payload_too_large_response()(scope, receive, send)
+            scope["state"].pop(VERIFIED_SURFACE_STATE_KEY, None)
+        if not candidate and not pooled:
+            return await self.app(scope, receive, send)
+        scope.setdefault("state", {})[VERIFIED_SURFACE_STATE_KEY] = (
+            "composite_result_candidates" if candidate else "composite_pooled_mwr"
+        )
         outcome = _admitted_principal(request)
         if isinstance(outcome, PrincipalDenial):
             response = _denied_response(request, outcome)

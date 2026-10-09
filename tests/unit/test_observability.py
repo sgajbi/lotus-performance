@@ -1,6 +1,8 @@
+import asyncio
 import json
 import logging
 
+import pytest
 from fastapi import APIRouter, FastAPI, Request
 from fastapi.testclient import TestClient
 from prometheus_client import REGISTRY, generate_latest
@@ -668,3 +670,186 @@ def test_record_idempotent_submission_uses_bounded_labels():
         'lotus_performance_idempotent_submission_total{analytics_type="Attribution",outcome="replay"}' in metrics_text
     )
     assert 'lotus_performance_idempotent_submission_total{analytics_type="other",outcome="other"}' in metrics_text
+
+
+def _pooled_outer_exchange(
+    monkeypatch,
+    body,
+    *,
+    chunks=None,
+    headers=(),
+    credential=True,
+    method="POST",
+    path="/performance/composites/analytics",
+    disconnect=False,
+):
+    from starlette.requests import ClientDisconnect
+
+    from app.composite_principal_admission import CompositePrincipalAdmissionMiddleware, trusted_request_principal
+    from app.observability import tenant_id_var
+    from tests.composite_principal_helpers import install_principal_deployment
+
+    application = FastAPI()
+    _, mint = install_principal_deployment(monkeypatch, application, tenant="trusted-tenant", portfolios=["member-a"])
+    supplied = list(headers)
+    if not any(name.lower() == b"content-type" for name, _ in supplied):
+        supplied.append((b"content-type", b"application/json"))
+    if credential:
+        supplied.append((b"authorization", ("Bearer " + mint()).encode()))
+    scope = {
+        "type": "http",
+        "method": method,
+        "path": path,
+        "raw_path": path.encode(),
+        "query_string": b"",
+        "scheme": "http",
+        "server": ("test", 80),
+        "client": ("local", 123),
+        "headers": supplied,
+        "app": application,
+        "state": {},
+    }
+    chunks = chunks if chunks is not None else [body]
+    messages = [
+        {"type": "http.request", "body": chunk, "more_body": index < len(chunks) - 1 or disconnect}
+        for index, chunk in enumerate(chunks)
+    ]
+    if disconnect:
+        messages.append({"type": "http.disconnect"})
+    received, sent = [], []
+
+    async def receive():
+        return messages.pop(0) if messages else {"type": "http.disconnect"}
+
+    async def send(message):
+        sent.append(message)
+
+    async def target(scope, receive, send):
+        request = Request(scope, receive=receive)
+        principal = trusted_request_principal(request)
+        observed = {"principal": principal, "tenant_context": tenant_id_var.get()}
+        try:
+            observed["body"] = await request.body()
+            status = 200
+        except ClientDisconnect:
+            observed["disconnected"] = True
+            status = 400
+        received.append(observed)
+        await send({"type": "http.response.start", "status": status, "headers": []})
+        await send({"type": "http.response.body", "body": b"", "more_body": False})
+
+    asyncio.run(CompositePrincipalAdmissionMiddleware(target)(scope, receive, send))
+    return received, sent, Request(scope)
+
+
+def test_pooled_outer_chunk_replay_uses_verified_identity_and_audit(monkeypatch):
+    from app.enterprise_audit_middleware import _request_audit_metadata
+
+    body = b' {"metric_id":"POOLED_MONEY_WEIGHTED_RETURN", "literal":"a\\nb"} '
+    received, sent, request = _pooled_outer_exchange(
+        monkeypatch,
+        body,
+        chunks=[body[:3], b"", body[3:17], body[17:]],
+        headers=[
+            (b"x-actor-id", b"forged"),
+            (b"x-tenant-id", b"forged"),
+            (b"x-role", b"admin"),
+            (b"x-capabilities", b"*"),
+        ],
+    )
+    assert sent[0]["status"] == 200
+    assert received[0]["body"] == body
+    assert received[0]["principal"].subject == "verified-test-maker"
+    assert received[0]["tenant_context"] == "trusted-tenant"
+    assert observability.resolve_tenant_id(request) == "trusted-tenant"
+    assert _request_audit_metadata(request, 200)["governed_surface"] == "composite_pooled_mwr"
+
+
+@pytest.mark.parametrize("length", [None, b"1", b"99999"])
+def test_pooled_outer_actual_streamed_payload_bound_refuses_before_target(monkeypatch, length):
+    monkeypatch.setenv("ENTERPRISE_MAX_WRITE_PAYLOAD_BYTES", "64")
+    body = b'{"metric_id":"POOLED_MONEY_WEIGHTED_RETURN"}' + b" " * 50
+    headers = [(b"content-length", length)] if length is not None else []
+    received, sent, request = _pooled_outer_exchange(monkeypatch, body, chunks=[body[:50], body[50:]], headers=headers)
+    assert not received
+    assert sent[0]["status"] == 413
+    assert observability.resolve_tenant_id(request) == ""
+
+
+def test_pooled_outer_missing_credential_refuses_without_header_authority(monkeypatch):
+    body = b'{"metric_id":"POOLED_MONEY_WEIGHTED_RETURN"}'
+    received, sent, request = _pooled_outer_exchange(
+        monkeypatch,
+        body,
+        credential=False,
+        headers=[
+            (b"x-actor-id", b"forged"),
+            (b"x-tenant-id", b"forged"),
+            (b"x-role", b"admin"),
+            (b"x-capabilities", b"operations.runtime.manage"),
+        ],
+    )
+    assert not received and sent[0]["status"] == 401
+    assert observability.resolve_tenant_id(request) == ""
+
+
+@pytest.mark.parametrize(
+    "body,pooled",
+    [
+        (b'{"metric_id":"ANNUAL_MEMBER_DISPERSION","metric_id":"POOLED_MONEY_WEIGHTED_RETURN"}', True),
+        (b'{"metric_id":"POOLED_MONEY_WEIGHTED_RETURN","metric_id":"ANNUAL_MEMBER_DISPERSION"}', False),
+        (b'{"metric_id":"LINKED_MEMBER_CONTRIBUTION"}', False),
+        (b"", False),
+        (b"{", False),
+        (b"[]", False),
+        (b"null", False),
+    ],
+)
+def test_pooled_outer_dispatch_matches_downstream_json_semantics(monkeypatch, body, pooled):
+    received, sent, _ = _pooled_outer_exchange(monkeypatch, body)
+    assert sent[0]["status"] == 200 and received[0]["body"] == body
+    assert (received[0]["principal"] is not None) is pooled
+
+
+def test_pooled_outer_disconnect_replays_partial_body_and_disconnect(monkeypatch):
+    received, sent, _ = _pooled_outer_exchange(monkeypatch, b'{"metric_id":', disconnect=True)
+    assert received[0]["disconnected"] and sent[0]["status"] == 400
+
+
+@pytest.mark.parametrize("method", ["GET", "HEAD"])
+def test_pooled_outer_result_family_requires_verified_principal(monkeypatch, method):
+    path = "/performance/composites/analytics/results/00000000-0000-0000-0000-000000000001"
+    received, sent, _ = _pooled_outer_exchange(monkeypatch, b"", method=method, path=path, credential=False)
+    assert not received and sent[0]["status"] == 401
+
+
+@pytest.mark.parametrize(
+    "path,method",
+    [
+        ("/performance/composites/analytics/results/", "GET"),
+        ("/performance/composites/analytics/results/id/extra", "GET"),
+        ("/performance/composites/analytics/results/id", "POST"),
+        ("/performance/composites/analytics/results-other/id", "GET"),
+    ],
+)
+def test_pooled_outer_does_not_expand_unrelated_route_authorization(monkeypatch, path, method):
+    received, sent, _ = _pooled_outer_exchange(monkeypatch, b"", path=path, method=method, credential=False)
+    assert received and received[0]["principal"] is None and sent[0]["status"] == 200
+
+
+@pytest.mark.parametrize(
+    "content_type,pooled", [(b"application/json", True), (b"application/vnd.lotus+json", True), (b"text/plain", False)]
+)
+def test_pooled_outer_content_type_matches_json_body_semantics(monkeypatch, content_type, pooled):
+    body = b'{"metric_id":"POOLED_MONEY_WEIGHTED_RETURN"}'
+    received, _, _ = _pooled_outer_exchange(monkeypatch, body, headers=[(b"content-type", content_type)])
+    assert received[0]["body"] == body
+    assert (received[0]["principal"] is not None) is pooled
+
+
+def test_pooled_outer_accepts_exact_streamed_byte_bound(monkeypatch):
+    monkeypatch.setenv("ENTERPRISE_MAX_WRITE_PAYLOAD_BYTES", "64")
+    body = b'{"metric_id":"POOLED_MONEY_WEIGHTED_RETURN"}'.ljust(64, b" ")
+    received, sent, _ = _pooled_outer_exchange(monkeypatch, body, chunks=[body[:32], body[32:]])
+    assert sent[0]["status"] == 200 and received[0]["body"] == body
+    assert received[0]["principal"] is not None
