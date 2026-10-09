@@ -30,6 +30,7 @@ from tests.composite_component_source_helpers import (
     FrozenFinancialVerifier,
     component_source_inputs,
     financial_source,
+    write_component_capture,
 )
 from tests.composite_model_fee_helpers import model_fee_source_inputs
 from tests.integration import test_composite_model_fee_materialization_api as periodic
@@ -212,28 +213,22 @@ def test_registered_component_worker_retains_full_financial_source_and_replays(
         assert published.json()["posture"] == "UNAPPROVED_METHOD_INPUT"
         capture_path = os.environ.get("LOTUS_COMPONENT_WIRE_CAPTURE")
         if capture_path and not distinct and not zero:
-            from pathlib import Path
-
-            Path(capture_path).write_text(
-                json.dumps(
-                    dict(
-                        qualification="SYNTHETIC_REGISTERED_CONSUMER_ONLY",
-                        profile_request=profile,
-                        profile_response=published.json(),
-                        materialization_request=command.model_dump(mode="json"),
-                        materialization_accepted=accepted.json(),
-                        retained_response=retained,
-                        financial_source=financial,
-                        financial_verification=verifier.receipt.model_dump(mode="json"),
-                        twr_request=selection,
-                        twr_response=twr.json(),
-                        analytics_request=analysis_request,
-                        analytics_response=drag.json(),
-                    ),
-                    indent=2,
-                )
-                + "\n",
-                encoding="utf-8",
+            write_component_capture(
+                capture_path,
+                dict(
+                    qualification="SYNTHETIC_REGISTERED_CONSUMER_ONLY",
+                    profile_request=profile,
+                    profile_response=published.json(),
+                    materialization_request=command.model_dump(mode="json"),
+                    materialization_accepted=accepted.json(),
+                    retained_response=retained,
+                    financial_source=financial,
+                    financial_verification=verifier.receipt.model_dump(mode="json"),
+                    twr_request=selection,
+                    twr_response=twr.json(),
+                    analytics_request=analysis_request,
+                    analytics_response=drag.json(),
+                ),
             )
         probe_input = tmp_path / "retained-component-probe.json"
         probe_input.write_text(
