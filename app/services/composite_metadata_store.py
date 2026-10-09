@@ -2545,12 +2545,14 @@ class CompositeMetadataStore:
 
     def create_schema(self) -> None:
         from app.adapters.composite_model_fee_profile_upgrade import upgrade_model_fee_profile_products
+        from app.adapters.composite_result_authority.schema import create_authority_schema, require_authority_schema
         from app.adapters.composite_result_candidate_schema import create_candidate_schema, require_candidate_schema
 
         create_durable_schema(
             self._engine,
             Base.metadata,
             schema_preflights=(
+                require_authority_schema,
                 require_candidate_schema,
                 upgrade_model_fee_profile_products,
                 upgrade_materialization_return_views,
@@ -2571,10 +2573,13 @@ class CompositeMetadataStore:
                 create_materialization_schema,
                 create_model_fee_profile_schema,
                 create_candidate_schema,
+                create_authority_schema,
             ),
         )
 
     def verify_schema(self) -> None:
+        from app.adapters.composite_result_authority.records import AuthorityBase
+        from app.adapters.composite_result_authority.schema import authority_guard_statements
         from app.adapters.composite_result_candidate_records import CandidateBase
         from app.adapters.composite_result_candidate_schema import candidate_guard_statements
         from app.adapters.durable_schema.catalog import verify_durable_schema
@@ -2585,10 +2590,12 @@ class CompositeMetadataStore:
             CompositeMaterializationModel.__table__.metadata,
             ModelFeeProfileBase.metadata,
             CandidateBase.metadata,
+            AuthorityBase.metadata,
             managed_guards=(
                 *composite_fact_guard_statements(self._engine.dialect),
                 *model_fee_profile_guard_statements(self._engine.dialect),
                 *candidate_guard_statements(self._engine.dialect),
+                *authority_guard_statements(self._engine.dialect),
             ),
         )
 

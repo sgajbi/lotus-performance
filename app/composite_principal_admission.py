@@ -31,10 +31,15 @@ PRINCIPAL_STATE_KEY = "verified_composite_principal"
 VERIFIED_SURFACE_STATE_KEY = "verified_composite_surface"
 POOLED_ANALYTICS_PATH = "/performance/composites/analytics"
 POOLED_RESULTS_PATH = POOLED_ANALYTICS_PATH + "/results/"
+RESULT_AUTHORITY_PATH = "/performance/composites/result-authorities"
 
 
 def is_candidate_path(path):
     return path == RESULT_CANDIDATE_PATH or path.startswith(RESULT_CANDIDATE_PATH + "/")
+
+
+def is_authority_path(path):
+    return path == RESULT_AUTHORITY_PATH or path.startswith(RESULT_AUTHORITY_PATH + "/")
 
 
 def _is_pooled_result_route(scope):
@@ -49,6 +54,8 @@ def _is_pooled_result_route(scope):
 
 
 def verified_composite_surface(request: Request) -> str | None:
+    if is_authority_path(getattr(getattr(request, "url", None), "path", "")):
+        return "composite_result_authority"
     if is_candidate_path(getattr(getattr(request, "url", None), "path", "")):
         return "composite_result_candidates"
     # Only outer server middleware establishes this marker. Pending dispatch
@@ -122,7 +129,7 @@ async def _bounded_dispatch_bytes(receive: Receive, bound: int) -> tuple[bytes, 
 
 async def _classify_surface(request: Request, receive: Receive):
     scope = request.scope
-    candidate = is_candidate_path(scope["path"])
+    candidate = is_candidate_path(scope["path"]) or is_authority_path(scope["path"])
     pooled = _is_pooled_result_route(scope)
     if scope["method"] == "POST" and scope["path"] == POOLED_ANALYTICS_PATH and _json_body_request(request):
         scope.setdefault("state", {})[VERIFIED_SURFACE_STATE_KEY] = "composite_pooled_dispatch"
@@ -220,9 +227,7 @@ class CompositePrincipalAdmissionMiddleware:
             return await _payload_too_large_response()(scope, receive, send)
         if not candidate and not pooled:
             return await self.app(scope, receive, send)
-        scope.setdefault("state", {})[VERIFIED_SURFACE_STATE_KEY] = (
-            "composite_result_candidates" if candidate else "composite_pooled_mwr"
-        )
+        scope.setdefault("state", {})[VERIFIED_SURFACE_STATE_KEY] = _surface_name(scope["path"], candidate)
         outcome = _admitted_principal(request)
         if isinstance(outcome, PrincipalDenial):
             response = _denied_response(request, outcome)
@@ -233,3 +238,9 @@ class CompositePrincipalAdmissionMiddleware:
             await self.app(scope, receive, send)
         finally:
             tenant_id_var.reset(token)
+
+
+def _surface_name(path, candidate):
+    if is_authority_path(path):
+        return "composite_result_authority"
+    return "composite_result_candidates" if candidate else "composite_pooled_mwr"

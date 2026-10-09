@@ -1330,6 +1330,29 @@ Caller and methodology sources are `docs/guides/composite_model_fee_drag.md` and
 `docs/methodologies/metrics/metric-composite-model-fee-drag.md`; verifier operations live in
 `docs/guides/composite_receipt_verification.md`.
 
+## Repository Practice: Captured Composite Result Authority
+
+The result-authority route family selects and protects existing captured originals through
+proposal, independent financial-purpose approval and atomic apply. Technical runtime capability
+does not grant financial approval. The financial verification port defaults unavailable; synthetic
+signed conformance is not production issuer or institutional certification.
+
+Keep the six subordinate authority tables under `CompositeMetadataStore` and its existing explicit
+schema owner. Normal reads verify schema and guards without repair. Preserve the complete retained
+vector, revision, bundle and wider dependency closure in the same owner transaction; verify external
+financial evidence before taking its write fence. Historical reads replay the stored original and
+show current-use restrictions separately. Never recalculate an original to repair custody.
+
+The caller guide is `docs/guides/composite_result_authority.md`; operator wiki source is
+`wiki/Composite-Result-Authority.md`. Acceptance includes SQLite and PostgreSQL parity, exact
+proposal/apply races, populated predecessor migration, missing-guard refusal, abrupt death at actual
+inserts/commit and registered ASGI credential/audit checks. PostgreSQL proofs live in benchmarks
+and use `tests/benchmarks/postgres_runtime_helpers.py` for isolated schemas. Preserve failed runs
+alongside passing evidence. The existing `make postgres-concurrency-contracts-gate` includes both
+authority suites; each must independently execute nonempty and without skips/failures/errors.
+Imported history, external recipients and institutional/materiality
+activation remain unsupported under #610 and Platform #923.
+
 ## Cross-Links
 
 1. `../lotus-platform/context/LOTUS-QUICKSTART-CONTEXT.md`

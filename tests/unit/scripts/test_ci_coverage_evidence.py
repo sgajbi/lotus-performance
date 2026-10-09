@@ -106,7 +106,7 @@ def test_shipped_required_aggregate_command_fails_closed(state: str, dependency:
     assert release["needs"] == ["coverage-gate", "python-admission", "trivy-admission"] and "if" not in release
 
 
-def test_pg_and_matrix_are_independent_jobs_with_unchanged_nine_target_proof() -> None:
+def test_pg_and_matrix_are_independent_jobs_preserving_baseline_and_authority_proof() -> None:
     jobs = yaml.safe_load((ROOT / ".github/workflows/pr-merge-gate.yml").read_text())["jobs"]
     assert set(jobs["postgres-contracts"]["needs"]) == set(jobs["test-suites"]["needs"]) | {"postgres16-admission"}
     assert "services" not in jobs["test-suites"]
@@ -118,10 +118,14 @@ def test_pg_and_matrix_are_independent_jobs_with_unchanged_nine_target_proof() -
         "integration",
         "e2e",
     }
-    assert len(DEFAULT_TARGETS) == 9 and len(set(DEFAULT_TARGETS)) == 9
+    assert len(DEFAULT_TARGETS) == 11 and len(set(DEFAULT_TARGETS)) == 11
     # Immutable baseline target-manifest digest from main e67ef6db. Works in the
     # shallow CI checkout, without creating a second editable selection list.
-    assert sha256(json.dumps(DEFAULT_TARGETS).encode()).hexdigest() == (
+    assert sha256(json.dumps(DEFAULT_TARGETS[:9]).encode()).hexdigest() == (
         "395731955c4c369b5ad644c6d6567a8715be9d647f23c3c9ea66e66381ad76e9"
+    )
+    assert DEFAULT_TARGETS[9:] == (
+        "tests/benchmarks/test_postgres_composite_authority.py",
+        "tests/benchmarks/test_postgres_composite_authority_extended.py",
     )
     assert "postgres-concurrency-contracts-gate" not in (ROOT / ".github/workflows/main-releasability.yml").read_text()

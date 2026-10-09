@@ -18,9 +18,9 @@ developers or GitHub Actions.
 
 ## Current Blocking CI Lanes
 
-The PR PostgreSQL contracts job runs the unchanged nine default targets alongside the
+The PR PostgreSQL contracts job runs eleven default targets alongside the
 ordinary unit/integration/e2e matrix, using its own PostgreSQL 16 service and database.
-The repo-native gate appends all nine subprocess measurements for `app`, `engine`,
+The repo-native gate appends all eleven subprocess measurements for `app`, `engine`,
 `core`, and `adapters` to its separate `.coverage.postgres` file. Dynamic JUnit counts
 still independently require every target to be nonempty, passed, and skip-free.
 The existing required `PR Merge Gate / Coverage Gate (Combined)` context runs with
@@ -66,6 +66,15 @@ performing developer-workstation pre-commit hook setup. Local contributors shoul
 `make install` when they need the hook installation side effect.
 
 ## Gate Promotion Model
+
+The #610 result-authority suites join the existing PostgreSQL gate without changing its verdict
+rules or thresholds. The measured baseline is 34 passing native authority cases (22 initial and
+12 extended), preserved with the complete 62-case synthetic conformance result on issue #610.
+This prevents skipped PostgreSQL authority/concurrency/crash checks from appearing as passing
+SQLite or ordinary integration coverage. The PR lane retains per-target nonempty, skip-free,
+zero-error/zero-failure JUnit and process-exit checks before merge. Existing gate tests exercise
+valid, skipped, empty, failed, interrupted and deselected targets, with and without coverage;
+default-target selection also requires both authority modules. There is no new exception policy.
 
 Container exceptions require an accountable owner from `ACCOUNTABLE_OWNERS` in the existing
 acceptance gate. The initial principal `sgajbi` was verified as the GitHub repository User owner
@@ -145,8 +154,8 @@ checked by `test_current_inventory_prose_carries_no_stale_totals`, which normali
 compares every total the present-tense paragraph states. Historical baselines elsewhere in this
 document are intentionally outside that check.
 
-Current governed inventory: `quality/test_taxonomy_inventory.md` records 432 test modules, 5,111 source test functions, 1041 API/runtime test functions, 235 contract/governance test functions, and 558 uncategorized test functions.
-The full family summary is 432 modules, 5,111 source test functions, 1041 integration/API/runtime test functions, 235 contract/governance test functions, 779 observability/readiness test functions, 369 quality/security test functions, 2,843 analytics-domain test functions, and 558 uncategorized test functions.
+Current governed inventory: `quality/test_taxonomy_inventory.md` records 439 test modules, 5,158 source test functions, 1044 API/runtime test functions, 235 contract/governance test functions, and 558 uncategorized test functions.
+The full family summary is 439 modules, 5,158 source test functions, 1044 integration/API/runtime test functions, 235 contract/governance test functions, 779 observability/readiness test functions, 369 quality/security test functions, 2,890 analytics-domain test functions, and 558 uncategorized test functions.
 
 ## LP-CR-1603 Container Supply-Chain Intake
 

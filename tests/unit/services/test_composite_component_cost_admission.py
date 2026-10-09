@@ -73,7 +73,7 @@ def test_whole_financial_custody_participates_in_retained_window_fingerprint(cas
     from dataclasses import replace
 
     from app.models.composite_materialization import CompositeMaterializationState
-    from app.services.composite_calculation_service import _window_evidence
+    from app.services.composite_calculation_service import retained_window_evidence
     from app.services.composite_materialization.records import MaterializationRecord
 
     source, command, profile, _, _ = case
@@ -91,12 +91,12 @@ def test_whole_financial_custody_participates_in_retained_window_fingerprint(cas
         reason_code=None,
         revision=1,
     )
-    fingerprint = _window_evidence(record, {}).retained_receipt_fingerprint
+    fingerprint = retained_window_evidence(record, {}).retained_receipt_fingerprint
     changed = deepcopy(original)
     changed["source"]["source_watermark"] = "other.original.cut"
     altered = replace(record, source=source.model_copy(update={"gross_component_wire": changed}))
-    assert _window_evidence(altered, {}).retained_receipt_fingerprint != fingerprint
-    assert _window_evidence(record, {}).retained_receipt_fingerprint == fingerprint
+    assert retained_window_evidence(altered, {}).retained_receipt_fingerprint != fingerprint
+    assert retained_window_evidence(record, {}).retained_receipt_fingerprint == fingerprint
 
 
 def test_original_source_serialization_omits_only_absent_new_financial_wire(case):

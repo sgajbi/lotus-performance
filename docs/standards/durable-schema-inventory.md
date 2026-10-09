@@ -73,6 +73,36 @@
   never reconstructs a missing original; inconsistent custody refuses. Do not drop a populated
   descriptor/result table as a rollback. Candidate capture grants no official approval or freeze.
 
+### Captured Composite Authority Metadata
+
+- Owner: existing `app/services/composite_metadata_store.py`, with subordinate schema and guards
+  in `app/adapters/composite_result_authority/`. These tables share the installed candidate and
+  original-result database; they contain authority metadata and references, not recalculated results.
+
+| Table | Retained purpose |
+| --- | --- |
+| `composite_authority_proposals` | Exact action, original vector, maker, expected revisions, bundle and local impact preview. |
+| `composite_authority_approvals` | Exact-content financial-purpose evidence, checker snapshot and approval receipt. |
+| `composite_authority_decisions` | Original committed apply request and decision receipt for durable idempotency. |
+| `composite_authority_revisions` | Append-only scope selection history linked to original candidates and decisions. |
+| `composite_authority_proposal_scopes` | Immutable links from a proposal to its complete reviewed scope closure. |
+| `composite_authority_scopes` | Current scope pointers; updates require the exact next revision and matching retained history. |
+
+- Custody: the first five tables reject UPDATE/DELETE and PostgreSQL TRUNCATE. Scope pointers
+  reject deletion/truncation and require matching original/decision/approval history. Each identity
+  and lookup is tenant-scoped. All decision, revision, propagated stale-state and pointer writes
+  commit or roll back in one owner transaction. Financial verification precedes its write fence.
+- Upgrade: `make migration-apply` additively installs the six tables and exact dialect guards.
+  Repeated apply preserves populated candidates/originals and existing authority history. Runtime
+  verifies exact schema and guard state without DDL; a missing guard refuses service instead of repair.
+  Migration evidence includes all six authority tables in `owned_tables_present`; any missing table
+  appears in `missing_owned_tables` and prevents a passed apply result.
+- Recovery: back up and restore these tables with the owning candidate/materialization metadata
+  and protected original results. Do not drop history or regenerate an original to repair custody.
+  A retry replays the committed decision even after approval expiry; an interrupted uncommitted
+  transaction leaves no partial decision. Imported or backfilled approval history is unsupported.
+  See `docs/guides/composite_result_authority.md` for read selectors and current-use restrictions.
+
 ### `analytics_source_correction`
 
 - Owner: `app/services/source_correction_store.py`

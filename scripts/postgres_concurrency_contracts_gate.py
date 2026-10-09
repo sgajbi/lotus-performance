@@ -40,6 +40,8 @@ DEFAULT_TARGETS = (
     "tests/benchmarks/test_postgres_composite_component_model_fee.py",
     "tests/integration/test_composite_component_model_fee_api.py",
     "tests/benchmarks/test_postgres_composite_pooled_mwr.py",
+    "tests/benchmarks/test_postgres_composite_authority.py",
+    "tests/benchmarks/test_postgres_composite_authority_extended.py",
 )
 
 

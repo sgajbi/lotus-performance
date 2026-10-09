@@ -8,7 +8,7 @@ import pytest
 
 from app.models.composite_authority import EvidenceBinding, authority_digest
 from app.models.composite_materialization import CompositeMaterializationState
-from app.services.composite_calculation_service import _window_evidence
+from app.services.composite_calculation_service import retained_window_evidence
 from app.services.composite_materialization.records import MaterializationRecord
 from tests.composite_currency_normalization_helpers import normalization_wire
 from tests.composite_materialization_helpers import admitted, command_for
@@ -25,7 +25,7 @@ from tests.composite_model_fee_helpers import model_fee_source_inputs
     ],
 )
 def test_pre_model_fee_retained_window_fingerprint_matches_committed_baseline(view, fx, expected):
-    # Frozen using the actual command/source models and _window_evidence at
+    # Frozen using the actual command/source models and retained_window_evidence at
     # 5fad773ac0d99ab7587e48f226fe01c99d165a21. Preserve its prior nulls,
     # executor identity and FX authority; exclude only absent new fee fields.
     command = command_for(
@@ -54,7 +54,7 @@ def test_pre_model_fee_retained_window_fingerprint_matches_committed_baseline(vi
         reason_code=None,
         revision=1,
     )
-    assert _window_evidence(record, {}).retained_receipt_fingerprint == expected
+    assert retained_window_evidence(record, {}).retained_receipt_fingerprint == expected
 
 
 @pytest.mark.parametrize("component", ["binding", "profile"])
@@ -70,7 +70,7 @@ def test_bound_model_fee_retained_window_fingerprint_detects_changed_custody(com
         reason_code=None,
         revision=1,
     )
-    original = _window_evidence(record, {}).retained_receipt_fingerprint
+    original = retained_window_evidence(record, {}).retained_receipt_fingerprint
     if component == "binding":
         changed_binding = command.model_fee_binding.model_copy(update={"revision": "profile.changed"})
         changed = replace(record, command=command.model_copy(update={"model_fee_binding": changed_binding}))
@@ -78,5 +78,5 @@ def test_bound_model_fee_retained_window_fingerprint_detects_changed_custody(com
         changed_wire = deepcopy(wire)
         changed_wire["periods"][0]["member_rates"][0]["period_fee_fraction"] = "0.003"
         changed = replace(record, source=source.model_copy(update={"model_fee_wire": changed_wire}))
-    assert _window_evidence(changed, {}).retained_receipt_fingerprint != original
-    assert _window_evidence(record, {}).retained_receipt_fingerprint == original
+    assert retained_window_evidence(changed, {}).retained_receipt_fingerprint != original
+    assert retained_window_evidence(record, {}).retained_receipt_fingerprint == original
