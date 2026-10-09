@@ -244,7 +244,7 @@ def resolve_tenant_id(request: Request) -> str:
 
     from app.composite_principal_admission import trusted_request_principal, verified_composite_surface
 
-    if verified_composite_surface(request) is not None:
+    if getattr(request, "state", None) is not None and verified_composite_surface(request) is not None:
         principal = trusted_request_principal(request)
         return principal.tenant_id if principal else ""
     getlist = getattr(request.headers, "getlist", None)
