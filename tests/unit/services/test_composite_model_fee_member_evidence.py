@@ -142,3 +142,20 @@ def test_model_wrapper_cannot_be_used_as_actual_net_evidence(gross_case):
     actual = command.model_copy(update={"return_view": "NET_ACTUAL", "model_fee_binding": None})
     with pytest.raises(APIConflictError):
         require_member_source_evidence(actual, wrapped)
+
+
+@pytest.mark.parametrize("fault", ["gross_fact", "missing_member_rate", "invalid_period_fraction"])
+def test_unusable_gross_or_period_input_blocks_without_model_fact(gross_case, fault):
+    command, gross, admitted = deepcopy(gross_case)
+    if fault == "gross_fact":
+        gross.fact.return_value += Decimal("0.01")
+    elif fault == "missing_member_rate":
+        admitted.period.member_rates[:] = [entry for entry in admitted.period.member_rates if entry.member_id != "A"]
+    else:
+        # Fault injection beneath model validation proves the worker's refusal
+        # boundary if an admitted port supplies a non-executable period rate.
+        admitted.period.member_rates[0].period_fee_fraction = "1"
+    result = apply_model_fee_or_refuse(command, gross, admitted)
+    assert result.state == "BLOCKED"
+    assert result.reason_code == "COMPOSITE_MODEL_FEE_MEMBER_EVIDENCE_REFUSED"
+    assert result.fact is None and result.source_evidence is None

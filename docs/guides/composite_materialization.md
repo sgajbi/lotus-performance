@@ -482,6 +482,12 @@ and result using the existing reproducibility helper. No singular sequence is cl
 generations. This returned manifest is not a durably captured calculation result; the owned durable
 result/official-vector/approval/freeze obligations under #610 remain open.
 
+Existing gross and actual-net `composite-retained-window.v1` fingerprints remain stable after
+model-fee support, including pinned FX windows. Only absent new `model_fee_binding` and
+`model_fee_wire` fields are omitted from their historical receipt shape; prior nulls, executor
+identity, FX pins and outcomes remain unchanged. Bound fee bindings and retained profile bytes
+both enter the hash, so changes to either alter the retained-window fingerprint.
+
 The executable examples are `test_registered_external_month_matches_independent_or01`,
 `test_registered_external_two_month_chain_matches_independent_or02`, and
 `test_registered_external_missing_eligible_member_month_cannot_publish_survivor_chain` in

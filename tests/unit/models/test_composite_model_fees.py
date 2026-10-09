@@ -43,7 +43,18 @@ def test_complete_profile_preserves_explicit_method_schedule_calendar():
 
 
 @pytest.mark.parametrize(
-    "fault", ["gap", "overlap", "inverted", "missing", "end", "duplicate_member", "duplicate_entry", "date"]
+    "fault",
+    [
+        "gap",
+        "overlap",
+        "inverted",
+        "inverted_effective",
+        "missing",
+        "end",
+        "duplicate_member",
+        "duplicate_entry",
+        "date",
+    ],
 )
 def test_incomplete_or_ambiguous_profile_refused(fault):
     wire = profile_wire()
@@ -54,6 +65,8 @@ def test_incomplete_or_ambiguous_profile_refused(fault):
         last["period_start"] = "2026-01-31"
     elif fault == "inverted":
         last["period_end"] = "2026-01-30"
+    elif fault == "inverted_effective":
+        wire["effective_to"] = "2025-12-31"
     elif fault == "missing":
         wire["periods"].pop(0)
     elif fault == "end":

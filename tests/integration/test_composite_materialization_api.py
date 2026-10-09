@@ -18,6 +18,7 @@ from app.models.composite_authority import EvidenceBinding, authority_digest
 from app.services.composite_materialization.source_contract import source_digest
 from app.services.compute_job_store import ComputeJobStore, compute_job_store
 from app.services.execution_registry import ExecutionRegistry, ExecutionStatus, execution_registry
+from app.services.reproducibility_service import generate_value_fingerprint
 from app.services.stateful_input_service import StatefulInputService
 from app.workers.compute_executor_worker import process_pending_jobs
 from app.workers.lineage_worker import process_pending_jobs as process_lineage
@@ -1226,6 +1227,17 @@ def test_registered_fx_normalization_links_adjacent_periods_without_resetting_in
         assert Decimal(str(result["periods"][1]["beginning_market_value"])) == Decimal("646.8")
         assert Decimal(str(result["periods"][1]["ending_market_value"])) == Decimal("652.26")
         assert [window["materialization_id"] for window in result["selection_manifest"]["windows"]] == identities
+        for value, window in zip(captured.values(), result["selection_manifest"]["windows"], strict=True):
+            record = composite_materialization_store.get(value["command"].materialization_id, tenant_id="tenant-a")
+            historical_receipt = {
+                "command": record.command.model_dump(mode="json", exclude={"model_fee_binding"}),
+                "source": record.source.model_dump(mode="json", exclude={"model_fee_wire"}),
+                "outcomes": [outcome.model_dump(mode="json") for outcome in record.outcomes],
+            }
+            assert (
+                window["retained_receipt_fingerprint"]
+                == generate_value_fingerprint(historical_receipt, "composite-retained-window.v1")[0]
+            )
         missing = client.post("/performance/composites/twr", json={**payload, "materialization_ids": identities[:1]})
         assert missing.status_code == 409 and "REQUIRED_PERIOD_UNAVAILABLE" in missing.text, missing.text
         assert "cumulative_return" not in missing.json()
