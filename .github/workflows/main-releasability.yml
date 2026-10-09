@@ -29,6 +29,111 @@ env:
   COVERAGE_FAIL_UNDER: "99"
 
 jobs:
+  python-admission:
+    needs: [exact-revision-assertion]
+    name: Image Admission / python
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    outputs:
+      image: ${{ steps.admission.outputs.image }}
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          repository: sgajbi/lotus-platform
+          ref: 386b40e13e76e60e761c6c4068fbe7a11256ca29
+          persist-credentials: false
+          path: .image-policy
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.11"
+      - name: Verify exact distribution before acquisition
+        id: admission
+        env:
+          SOURCE_IMAGE: docker.io/library/python@sha256:e529028263dbe6910a2d96f7d2b8f5266385e917fd45d286ef166977c094a51e
+          DISTRIBUTION_IMAGE: public.ecr.aws/docker/library/python@sha256:e529028263dbe6910a2d96f7d2b8f5266385e917fd45d286ef166977c094a51e
+        run: >-
+          python .image-policy/automation/validate_technology_governance_policy.py
+          --source-image "$SOURCE_IMAGE" --distribution-image "$DISTRIBUTION_IMAGE"
+          --platform linux/amd64 --verify-distribution --github-output "$GITHUB_OUTPUT"
+          --acquisition-evidence "$RUNNER_TEMP/image-acquisition-evidence"
+      - name: Preserve failed public manifest responses
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: image-acquisition-failures-python
+          path: ${{ runner.temp }}/image-acquisition-evidence
+          if-no-files-found: ignore
+          retention-days: 14
+  postgres17-admission:
+    needs: [exact-revision-assertion]
+    name: Image Admission / postgres17
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    outputs:
+      image: ${{ steps.admission.outputs.image }}
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          repository: sgajbi/lotus-platform
+          ref: 386b40e13e76e60e761c6c4068fbe7a11256ca29
+          persist-credentials: false
+          path: .image-policy
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.11"
+      - name: Verify exact distribution before acquisition
+        id: admission
+        env:
+          SOURCE_IMAGE: docker.io/library/postgres@sha256:2d2b8998d31037bf721cfdf764d76ba74171b4fab3431b7f72c27c56ddbdf9e3
+          DISTRIBUTION_IMAGE: public.ecr.aws/docker/library/postgres@sha256:2d2b8998d31037bf721cfdf764d76ba74171b4fab3431b7f72c27c56ddbdf9e3
+        run: >-
+          python .image-policy/automation/validate_technology_governance_policy.py
+          --source-image "$SOURCE_IMAGE" --distribution-image "$DISTRIBUTION_IMAGE"
+          --platform linux/amd64 --verify-distribution --github-output "$GITHUB_OUTPUT"
+          --acquisition-evidence "$RUNNER_TEMP/image-acquisition-evidence"
+      - name: Preserve failed public manifest responses
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: image-acquisition-failures-postgres17
+          path: ${{ runner.temp }}/image-acquisition-evidence
+          if-no-files-found: ignore
+          retention-days: 14
+  trivy-admission:
+    needs: [exact-revision-assertion]
+    name: Image Admission / trivy
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    outputs:
+      image: ${{ steps.admission.outputs.image }}
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          repository: sgajbi/lotus-platform
+          ref: 386b40e13e76e60e761c6c4068fbe7a11256ca29
+          persist-credentials: false
+          path: .image-policy
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.11"
+      - name: Verify exact distribution before acquisition
+        id: admission
+        env:
+          SOURCE_IMAGE: docker.io/aquasec/trivy@sha256:f5d0e600ecda7449e2a9b272805aef698631d3bb3f3a739a750de2c6819acdc9
+          DISTRIBUTION_IMAGE: ghcr.io/aquasecurity/trivy@sha256:f5d0e600ecda7449e2a9b272805aef698631d3bb3f3a739a750de2c6819acdc9
+        run: >-
+          python .image-policy/automation/validate_technology_governance_policy.py
+          --source-image "$SOURCE_IMAGE" --distribution-image "$DISTRIBUTION_IMAGE"
+          --platform linux/amd64 --verify-distribution --github-output "$GITHUB_OUTPUT"
+          --acquisition-evidence "$RUNNER_TEMP/image-acquisition-evidence"
+      - name: Preserve failed public manifest responses
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: image-acquisition-failures-trivy
+          path: ${{ runner.temp }}/image-acquisition-evidence
+          if-no-files-found: ignore
+          retention-days: 14
   exact-revision-assertion:
     name: Main Releasability / Exact Revision Assertion
     runs-on: ubuntu-latest
@@ -140,13 +245,18 @@ jobs:
 
   lineage-volume-recovery:
     name: Main Releasability / Lineage Volume Recovery
-    needs: [exact-revision-assertion]
+    needs: [exact-revision-assertion, python-admission, postgres17-admission]
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
       - name: Configure Git Default Branch
         run: git config --global init.defaultBranch main
       - uses: actions/checkout@v6
+      - name: Bind admitted images to the recovery files
+        env:
+          RUNTIME_IMAGE: ${{ needs.python-admission.outputs.image }}
+          POSTGRES_IMAGE: ${{ needs.postgres17-admission.outputs.image }}
+        run: python scripts/ci_image_bindings_gate.py --runtime-image "$RUNTIME_IMAGE" --postgres-image "$POSTGRES_IMAGE"
       - name: Prove non-root restart recovery
         run: make lineage-volume-recovery-smoke
 
@@ -220,7 +330,7 @@ jobs:
 
   container-supply-chain-evidence:
     name: Main Releasability / Container Supply Chain Evidence
-    needs: [coverage-gate]
+    needs: [coverage-gate, python-admission, trivy-admission]
     runs-on: ubuntu-latest
     timeout-minutes: 35
     permissions:
@@ -232,12 +342,17 @@ jobs:
       - name: Configure Git Default Branch
         run: git config --global init.defaultBranch main
       - uses: actions/checkout@v6
+      - name: Bind admitted image to the fixed Dockerfile
+        env:
+          RUNTIME_IMAGE: ${{ needs.python-admission.outputs.image }}
+        run: python scripts/ci_image_bindings_gate.py --runtime-image "$RUNTIME_IMAGE"
       - name: Build image and generate container evidence
         env:
           CONTAINER_GIT_SHA: ${{ github.sha }}
           CONTAINER_GIT_BRANCH: ${{ inputs.expected_sha && 'main' || github.ref_name }}
           CONTAINER_REPOSITORY_URL: ${{ github.server_url }}/${{ github.repository }}
           CONTAINER_CI_PIPELINE_RUN_ID: ${{ github.run_id }}
+          TRIVY_IMAGE: ${{ needs.trivy-admission.outputs.image }}
         run: |
           CONTAINER_BUILD_TIMESTAMP="$(date -u +'%Y-%m-%dT%H:%M:%SZ')" make container-supply-chain-evidence
       - name: Upload container supply-chain evidence

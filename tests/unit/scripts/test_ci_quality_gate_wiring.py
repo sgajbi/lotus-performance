@@ -79,7 +79,10 @@ def test_performance_characterization_evidence_workflow_is_repo_native() -> None
     )
     assert "LOTUS_POSTGRES_PLAN_DATABASE_URL" in workflow
     assert "services:" in workflow
-    assert "postgres:16" in workflow
+    assert (
+        "docker.io/library/postgres@sha256:ca0bd484cb98bf4b24eb1010e73fb3fcbd6714d240fbc1a10eea5b7dbecb641d" in workflow
+    )
+    assert "needs.postgres16-admission.outputs.image" in workflow
     assert "run: make performance-characterization" in workflow
     assert "run: python scripts/run_performance_characterization.py --mode postgres --require-non-skipped" in workflow
     assert "uses: actions/upload-artifact@v7" in workflow
@@ -178,7 +181,10 @@ def test_container_supply_chain_evidence_is_repo_native_and_published() -> None:
     # produces both artifacts.
     assert "container-sbom" in evidence_target
     assert "container-vulnerability-report" in evidence_target
-    assert "aquasec/trivy:0.71.2" in (ROOT / "Makefile").read_text(encoding="utf-8")
+    assert "ghcr.io/aquasecurity/trivy@sha256:f5d0e600ecda7449e2a9b272805aef698631d3bb3f3a739a750de2c6819acdc9" in (
+        ROOT / "Makefile"
+    ).read_text(encoding="utf-8")
+    assert "--platform linux/amd64" in docker_build_target
     assert "--format cyclonedx" in sbom_target
     assert "lotus-performance-image-sbom.cdx.json" in sbom_target
     assert "--format json" in vulnerability_report_target

@@ -116,6 +116,45 @@ compute executor; optional `ops` retention is outside this scope. A separately a
 extension must use consistent profiles for bring-up, restart, and teardown. PR Merge Gate feeds this job
 into the required compatibility aggregate; Main Releasability repeats it on the merged SHA.
 
+The required PR PostgreSQL contracts proof runs concurrently with the ordinary unit/integration/e2e
+matrix in its own PostgreSQL 16 job/database. All nine default targets and their JUnit no-skip,
+nonempty, zero-failure/error rules are unchanged. `make postgres-concurrency-contracts-gate`
+records a separate `.coverage.postgres` shard; the existing required combined-coverage job uses
+`always()` and `make ci-proof-results-gate` to refuse any missing or non-success dependency.
+`make coverage-shard-evidence` stamps each shard, and `make coverage-evidence-gate` verifies
+exact four-shard inventory, readable nonempty data, revision/run-attempt identity and hashes
+before `make coverage-combine-gate` enforces the unchanged 99% policy. Run these Make targets
+from the repository root in Bash with Make/Python installed; the equivalent PowerShell commands
+are `python scripts/ci_coverage_evidence.py stamp --shard <suite>`,
+`python scripts/ci_coverage_evidence.py verify --directory coverage-data`, and
+`python scripts/ci_coverage_evidence.py results`. CI supplies `CI_EVIDENCE_SHA`,
+`CI_EVIDENCE_RUN` and `CI_PROOF_RESULTS`; local evidence must explicitly provide the same
+revision/run identity and complete dependency-results JSON. These commands check proof transport,
+not financial methodology. Main's three-suite coverage and per-revision dispatcher are unchanged;
+main does not repeat this PG supplement. Full workflow reruns are required when attempts differ.
+
+Image consumers first run separate no-service admission prerequisites in their owning workflow.
+Each checks out the qualified Platform governance revision
+`386b40e13e76e60e761c6c4068fbe7a11256ca29` and runs its existing technology-policy validator
+with exact source/distribution digests, `linux/amd64`, live manifest verification and bounded
+429 recovery. Failed public responses are retained as distinct artifacts. A failed admission
+emits no usable image output and cannot initialize its dependent service/build/scan.
+PostgreSQL 16 services consume the validated output directly. Recovery and container jobs run
+`scripts/ci_image_bindings_gate.py` before Make to bind the admitted Python image to the fixed
+Dockerfile; recovery also checks the resolved fixed Compose files and PostgreSQL 17 platform.
+The scanner command consumes only its admitted Trivy output. No credentials or mutable fallback
+are needed. Main adds admission only for its existing Python/PG17/scanner consumers.
+
+The PG16 and Trivy digests preserve the retained successful baseline content. PostgreSQL 17 is
+a newly pinned, admitted selection replacing a mutable tag; its historical recovery binary was
+not recoverable. A final successful cohort must qualify that selection. Keep original failed
+cohorts and earlier functional timing separate; admission metadata alone is not hosted build proof.
+
+Issue #641 retains the observed PR640 integration baseline of 2692 seconds (44m52s) against
+the unchanged 45-minute budget: full tests 1388 seconds, then PG proof 1245 seconds. Compare
+actual after-run job/step timing and total runner minutes with that baseline; parallel placement
+alone is not an observed speedup. Issue #617 operating-envelope qualification remains separate.
+
 Performance characterization evidence is produced by the dedicated Performance Characterization
 Evidence workflow on pull requests to `main`, pushes to `main`, weekly schedule, and manual
 dispatch. The workflow provisions PostgreSQL, runs `make performance-characterization`, reruns the

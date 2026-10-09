@@ -18,18 +18,25 @@ developers or GitHub Actions.
 
 ## Current Blocking CI Lanes
 
-The required PR integration leg runs the seven PostgreSQL contract targets after the
-ordinary integration suite. Its repo-native gate appends coverage for `app`, `engine`,
-`core`, and `adapters` to `.coverage.integration`, preserving the earlier suite and all
-seven subprocess measurements before the existing artifact upload and combiner.
-JUnit counts still independently require every target to be nonempty, passed, and
-skip-free; coverage cannot turn an incomplete proof green. The unchanged main lane
+The PR PostgreSQL contracts job runs the unchanged nine default targets alongside the
+ordinary unit/integration/e2e matrix, using its own PostgreSQL 16 service and database.
+The repo-native gate appends all nine subprocess measurements for `app`, `engine`,
+`core`, and `adapters` to its separate `.coverage.postgres` file. Dynamic JUnit counts
+still independently require every target to be nonempty, passed, and skip-free.
+The existing required `PR Merge Gate / Coverage Gate (Combined)` context runs with
+`always()` and explicitly requires successful matrix and PostgreSQL job results before
+accepting artifacts. Missing, skipped, cancelled, timed-out or failed proof refuses
+the aggregate; container publication remains downstream of its success. No new branch
+protection context is needed. Exact four-shard inventory, nonempty readable coverage,
+revision/run-attempt identity and SHA-256 manifests are checked before combining. A
+partial rerun carrying earlier-attempt artifacts refuses; rerun the complete workflow.
+The unchanged main lane
 collects ordinary unit/integration/e2e coverage and must pass its own 99-percent gate;
 it does not run this PostgreSQL supplement.
 
 From the `lotus-performance` repository root with `LOTUS_POSTGRES_PLAN_DATABASE_URL`
 already pointing to the owned test database, use `make postgres-concurrency-contracts-gate`
-in Bash, or `python scripts/postgres_concurrency_contracts_gate.py --coverage-file .coverage.integration`
+in Bash, or `python scripts/postgres_concurrency_contracts_gate.py --coverage-file .coverage.postgres`
 in PowerShell. Direct runner calls without `--coverage-file` retain the non-coverage
 behavior. The optional mode appends to the explicitly selected file and does not
 inherit a parent's pytest-cov destination.
@@ -100,7 +107,7 @@ No gate should move from one phase to the next until it has:
 | Unit tests | Blocking in feature, PR, and main lanes | Keep blocking; add focused tests when refactoring hotspots. |
 | Integration and e2e tests | Blocking in PR and main lanes | Keep blocking at merge/release lanes; use targeted local subsets during slices. |
 | Test taxonomy | `make quality-test-taxonomy-gate` blocks loss of API/runtime and contract/governance breadth or growth above the declared 558 uncategorized ceiling. Current AST inventory: 402 modules, 4,824 source test functions, 983 API/runtime, 227 contract/governance, 2,602 analytics-domain, and 558 uncategorized. | #619 precisely classifies the existing source/error adapter. Observed count and declared policy are separately sourced; the banked ratchet requires equality. Breadth floors remain unchanged. |
-| PostgreSQL behavioral contracts | Blocking inside `PR Merge Gate / Tests (integration)` through the compatibility target `make postgres-concurrency-contracts-gate`, which runs `scripts/postgres_concurrency_contracts_gate.py` separately for advisory-lock/disjoint-claim, immutable composite-fact migration/selection, materialization, recurring monthly eligibility, periodic model-fee, and scheduled model-fee custody/reopen: six default targets. Each target must collect at least one contract and independently finish without skips, failures, or errors; aggregate counts cannot conceal an empty target. It decides from JUnit XML counts rather than pytest's printed summary, checks the pytest exit, and neutralizes inherited pytest selection (`-o addopts=` plus dropping `PYTEST_ADDOPTS`) because a deselected contract is absent from the report rather than counted as skipped. Local command: **`make postgres-concurrency-contracts-local`**, which provisions the `performance-lineage-db` compose service first; the local target builds the DSN from `PA_LINEAGE_DB_PORT`, and an explicit DSN still wins. Override with `LOTUS_POSTGRES_PLAN_DATABASE_URL` to point at another database. | Keep blocking. The proofs `pytest.skip` when no database answers, so a skip and a pass are the same colour to a lane. The immutable-fact test proves additive legacy-row backfill, gross/net/version coexistence, numeric latest and pinned selection, restart durability, idempotency/conflict, partial-publication refusal, and concurrent identity fencing on real PostgreSQL. Remediation for a refusal: start the database (`make postgres-concurrency-contracts-local`) rather than relaxing the gate. |
+| PostgreSQL behavioral contracts | Blocking through the existing required combined-coverage context, which always requires successful matrix and isolated PostgreSQL job results. The native PostgreSQL gate runs all nine DEFAULT_TARGETS unchanged with dynamic nonempty/no-skip/no-failure/error JUnit proof and neutralized inherited pytest selectors. Its separate coverage shard joins the ordinary three only after exact inventory, identity and hash verification. Local proof: `make postgres-concurrency-contracts-local` from the repository root provisions the owned test database; an explicit LOTUS_POSTGRES_PLAN_DATABASE_URL still wins. | Keep blocking. A skipped or missing proof cannot produce green aggregate evidence or downstream container publication. Main's ordinary three-suite coverage and per-revision dispatcher are unchanged; this PR-only PG supplement is not repeated on main. |
 | License compliance | Blocking through `make license-compliance-gate`, which validates `contracts/license-compliance-policy.v1.json` against `quality/license_compliance_inventory.md`; current inventory covers 51 runtime, development and image packages, with 49 allowed packages, 2 review-required packages covered by active exceptions, 0 blocked packages, and 0 missing-exception findings. The image source is `requirements-image.txt`, a single governed manifest the Dockerfile and the development environment both install from, so a package the image ships cannot be absent from the inventory | Keep blocking. Regenerate with `python scripts/license_compliance_inventory.py --write` after dependency changes, and keep exceptions owner-bound and time-bound before release. |
 | Combined line coverage | Blocking at 99 percent in PR and main lanes; local full coverage runs use `make test-coverage`, split CI test jobs use `make test-coverage-shard`, and artifact aggregation uses `make coverage-combine-gate`; branch coverage is preserved separately by `make branch-coverage-baseline` evidence | Keep blocking and preserve the local coverage inventory as scorecard evidence. Do not embed raw pytest or coverage commands in workflow YAML for governed test lanes. |
 | Branch coverage | Measured report-only in `quality/coverage_inventory.md` through `make branch-coverage-baseline`; current baseline is 98.00 percent across 4,406 branches, with 88 missing and 88 partial branches | Keep report-only until repeated runs, exception policy, remediation guidance, and CI lane placement are agreed. Review the top branch gaps before proposing any threshold. |
@@ -138,8 +145,8 @@ checked by `test_current_inventory_prose_carries_no_stale_totals`, which normali
 compares every total the present-tense paragraph states. Historical baselines elsewhere in this
 document are intentionally outside that check.
 
-Current governed inventory: `quality/test_taxonomy_inventory.md` records 430 test modules, 5,097 source test functions, 1041 API/runtime test functions, 234 contract/governance test functions, and 558 uncategorized test functions.
-The full family summary is 430 modules, 5,097 source test functions, 1041 integration/API/runtime test functions, 234 contract/governance test functions, 778 observability/readiness test functions, 355 quality/security test functions, 2,843 analytics-domain test functions, and 558 uncategorized test functions.
+Current governed inventory: `quality/test_taxonomy_inventory.md` records 432 test modules, 5,111 source test functions, 1041 API/runtime test functions, 235 contract/governance test functions, and 558 uncategorized test functions.
+The full family summary is 432 modules, 5,111 source test functions, 1041 integration/API/runtime test functions, 235 contract/governance test functions, 779 observability/readiness test functions, 369 quality/security test functions, 2,843 analytics-domain test functions, and 558 uncategorized test functions.
 
 ## LP-CR-1603 Container Supply-Chain Intake
 

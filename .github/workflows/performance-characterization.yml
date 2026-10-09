@@ -25,13 +25,48 @@ env:
   LOTUS_POSTGRES_PLAN_DATABASE_URL: postgresql+psycopg://lotus:lotus@127.0.0.1:5432/lotus_performance
 
 jobs:
+  postgres16-admission:
+    name: Image Admission / postgres16
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    outputs:
+      image: ${{ steps.admission.outputs.image }}
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          repository: sgajbi/lotus-platform
+          ref: 386b40e13e76e60e761c6c4068fbe7a11256ca29
+          persist-credentials: false
+          path: .image-policy
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.11"
+      - name: Verify exact distribution before acquisition
+        id: admission
+        env:
+          SOURCE_IMAGE: docker.io/library/postgres@sha256:ca0bd484cb98bf4b24eb1010e73fb3fcbd6714d240fbc1a10eea5b7dbecb641d
+          DISTRIBUTION_IMAGE: public.ecr.aws/docker/library/postgres@sha256:ca0bd484cb98bf4b24eb1010e73fb3fcbd6714d240fbc1a10eea5b7dbecb641d
+        run: >-
+          python .image-policy/automation/validate_technology_governance_policy.py
+          --source-image "$SOURCE_IMAGE" --distribution-image "$DISTRIBUTION_IMAGE"
+          --platform linux/amd64 --verify-distribution --github-output "$GITHUB_OUTPUT"
+          --acquisition-evidence "$RUNNER_TEMP/image-acquisition-evidence"
+      - name: Preserve failed public manifest responses
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: image-acquisition-failures-characterization-postgres16
+          path: ${{ runner.temp }}/image-acquisition-evidence
+          if-no-files-found: ignore
+          retention-days: 14
   characterization:
     name: Performance Characterization / Benchmarks
+    needs: [postgres16-admission]
     runs-on: ubuntu-latest
     timeout-minutes: 75
     services:
       postgres:
-        image: postgres:16
+        image: ${{ needs.postgres16-admission.outputs.image }}
         env:
           POSTGRES_DB: lotus_performance
           POSTGRES_PASSWORD: lotus
@@ -39,6 +74,7 @@ jobs:
         ports:
           - 5432:5432
         options: >-
+          --platform linux/amd64
           --health-cmd "pg_isready -U lotus -d lotus_performance"
           --health-interval 10s
           --health-timeout 5s

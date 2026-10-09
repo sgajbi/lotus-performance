@@ -1,4 +1,4 @@
-FROM docker.io/library/python@sha256:e529028263dbe6910a2d96f7d2b8f5266385e917fd45d286ef166977c094a51e AS runtime
+FROM public.ecr.aws/docker/library/python@sha256:e529028263dbe6910a2d96f7d2b8f5266385e917fd45d286ef166977c094a51e AS runtime
 
 ARG APP_VERSION=0.1.0
 ARG APP_GIT_COMMIT_SHA=local
@@ -70,6 +70,9 @@ LABEL org.opencontainers.image.title="lotus-performance" \
       org.opencontainers.image.ref.name="${APP_GIT_BRANCH}" \
       org.opencontainers.image.version="${APP_VERSION}" \
       org.opencontainers.image.created="${APP_BUILD_TIMESTAMP}" \
+      org.opencontainers.image.base.name="docker.io/library/python" \
+      org.opencontainers.image.base.digest="sha256:e529028263dbe6910a2d96f7d2b8f5266385e917fd45d286ef166977c094a51e" \
+      lotus.image.base.distribution="public.ecr.aws/docker/library/python@sha256:e529028263dbe6910a2d96f7d2b8f5266385e917fd45d286ef166977c094a51e" \
       lotus.image.digest="${APP_IMAGE_DIGEST}" \
       lotus.ci.pipeline_run_id="${APP_CI_PIPELINE_RUN_ID}"
 

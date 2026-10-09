@@ -41,6 +41,32 @@ Supplier provenance binds docker-library/python commit
 linux/amd64 child above. A future multi-architecture build needs separately reviewed platform
 manifests; it must not silently replace this pin with the supplier index or a floating tag.
 
+Platform [#945](https://github.com/sgajbi/lotus-platform/issues/945) authorizes acquisition of
+that same immutable child through `public.ecr.aws/docker/library/python`. Docker Hub and ECR
+Public manifest bytes match SHA256 `e529028263dbe6910a2d96f7d2b8f5266385e917fd45d286ef166977c094a51e`,
+including identical config and layer descriptors. This changes the distribution prefix only;
+the official supplier, Python version and linux/amd64 content remain fixed. Manifest equivalence
+is not a hosted build qualification. Unavailable acquisition fails closed; no mutable fallback
+or vulnerability acceptance change is authorized by the mapping.
+
+The complete admitted acquisition set is enforced by the existing Platform validator at qualified
+revision `386b40e13e76e60e761c6c4068fbe7a11256ca29`, before service initialization or build/scan:
+
+| Consumer | Original supplier reference | Distribution reference |
+| --- | --- | --- |
+| PR/characterization PostgreSQL16 | `docker.io/library/postgres@sha256:ca0bd484cb98bf4b24eb1010e73fb3fcbd6714d240fbc1a10eea5b7dbecb641d` | `public.ecr.aws/docker/library/postgres` at that same index digest |
+| Recovery PostgreSQL17 | `docker.io/library/postgres@sha256:2d2b8998d31037bf721cfdf764d76ba74171b4fab3431b7f72c27c56ddbdf9e3` | `public.ecr.aws/docker/library/postgres` at that same index digest |
+| Trivy0.71.2 scanner | `docker.io/aquasec/trivy@sha256:f5d0e600ecda7449e2a9b272805aef698631d3bb3f3a739a750de2c6819acdc9` | `ghcr.io/aquasecurity/trivy` at that same index digest |
+
+All consumers select linux/amd64. PG16 and Trivy preserve retained baseline digest content.
+PG17 is explicitly a newly pinned selection replacing mutable `postgres:17`; the historical
+recovery binary digest was not recoverable, so historical equivalence is unproven. The
+[published admission](https://github.com/sgajbi/lotus-platform/issues/945#issuecomment-6089758654)
+binds the actual child/config digests. Final hosted acquisition, recovery and release-image
+checks must qualify the new cohort; prior failed cohorts remain failed. The base supplier name
+and digest use OCI provenance labels separately from `lotus.image.base.distribution`.
+The existing Trivy vulnerability-database acquisition and acceptance behavior are preserved.
+
 The retained bounded application evidence in
 [#624](https://github.com/sgajbi/lotus-performance/issues/624#issuecomment-6041708068) covers committed
 application `8292151fce69fd3b289492d8f1698561b32e3b53` plus an external FROM-only change, producing

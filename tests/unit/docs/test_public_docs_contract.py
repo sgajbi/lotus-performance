@@ -2312,7 +2312,10 @@ def test_performance_characterization_ci_evidence_is_governed():
         assert "output/performance-characterization" in document
 
     assert "Performance Characterization Evidence" in workflow
-    assert "postgres:16" in workflow
+    assert (
+        "docker.io/library/postgres@sha256:ca0bd484cb98bf4b24eb1010e73fb3fcbd6714d240fbc1a10eea5b7dbecb641d" in workflow
+    )
+    assert "needs.postgres16-admission.outputs.image" in workflow
     assert "LOTUS_POSTGRES_PLAN_DATABASE_URL" in workflow
     assert "run: make performance-characterization" in workflow
     assert "run: python scripts/run_performance_characterization.py --mode postgres --require-non-skipped" in workflow

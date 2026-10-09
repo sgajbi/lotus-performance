@@ -408,13 +408,24 @@ Important validation expectations:
 14. PR Merge Gate and Main Releasability route matrix test coverage through
     `make test-coverage-shard` and combined coverage enforcement through `make coverage-combine-gate`
     so workflow YAML does not become a second source of truth for pytest or coverage behavior.
-    The PR PostgreSQL target passes the runner's explicit `--coverage-file .coverage.integration`
-    option. Each of its seven pytest processes appends the existing `app`/`engine`/`core`/`adapters`
-    coverage sources to the earlier integration shard before the unchanged upload. Direct runner
+    The PR PostgreSQL target passes the runner's explicit `--coverage-file .coverage.postgres`
+    option in a separate isolated PostgreSQL job, alongside the ordinary three-suite matrix.
+    Each of its nine pytest processes appends the existing `app`/`engine`/`core`/`adapters`
+    coverage sources to that separate shard. Direct runner
     calls without this option remain non-coverage proofs. Do not inherit another pytest-cov
     destination or overwrite the ordinary suite's measurements. Main Releasability has no
     PostgreSQL supplement and independently enforces its ordinary three-suite coverage floor.
-    `make postgres-concurrency-contracts-gate` runs inside the required `PR Merge Gate / Tests (integration)` leg rather than as its own context: matrix legs become distinct required-context names, so a new leg would have created a context nobody requires. The gate runs concurrency/locking, composite immutable-fact migration/selection, materialization, monthly eligibility, periodic model-fee, scheduled model-fee custody, and pooled MWR custody as seven separate PostgreSQL targets and requires nonempty, skip-free success from each; aggregate success cannot conceal an empty target. The proofs previously ran only in `Performance Characterization / Benchmarks`, which provisions PostgreSQL and is not required, so a merge never waited for them.
+    `make postgres-concurrency-contracts-gate` retains all nine targets from the runner's
+    `DEFAULT_TARGETS`, including both component-model-fee proof targets and pooled MWR.
+    The existing required combined-coverage context has `always()` plus explicit success
+    checks for both the full matrix and the isolated PostgreSQL job; it refuses absent or
+    non-success proof before artifact processing. `make coverage-shard-evidence` binds each
+    shard to the revision/run attempt and data digest; `make coverage-evidence-gate` accepts
+    exactly unit/integration/e2e/postgres inputs before the unchanged combiner and 99% policy.
+    Rerun the complete PR workflow when prior-attempt artifacts are present. Main workflow
+    and per-revision dispatcher remain unchanged; main does not repeat this PG supplement.
+    Synthetic coverage-combine tests must pin an owned temporary COVERAGE_FILE and discard
+    inherited COV_CORE_ settings, so native suite coverage cannot redirect their evidence.
 
     Composite member-return fact identity includes return view, reporting currency, source version
     label, and positive numeric restatement sequence. Writes are append-only and idempotent only
@@ -491,6 +502,17 @@ Important validation expectations:
     evidenced by #613. Evaluate the acceptance script against the single retained scan.
     The supported runtime base is official Python `3.11.17-slim-trixie`, pinned to linux/amd64
     child `docker.io/library/python@sha256:e529028263dbe6910a2d96f7d2b8f5266385e917fd45d286ef166977c094a51e`.
+    Dockerfile acquires that exact child through `public.ecr.aws/docker/library/python` under
+    Platform #945. Original supplier identity, digest and linux/amd64 platform are unchanged;
+    byte-identical public manifests bind the distribution mapping. There is no mutable or
+    alternate-content fallback. Hosted build/SBOM/vulnerability proof is still required.
+    Image admission uses the existing Platform technology-policy validator pinned to qualified
+    revision `386b40e13e76e60e761c6c4068fbe7a11256ca29` in a no-service prerequisite.
+    PR and characterization PG16 services consume its exact image output before initialization;
+    recovery/build jobs verify fixed Dockerfile/Compose bindings before Make, and the scanner
+    receives its admitted GHCR image output. Native build/scanner and recovery database select
+    linux/amd64. Compose PG17 is a newly pinned selection, not claimed equivalent to the unknown
+    historical mutable-tag binary. Original supplier and distribution labels remain separate.
     This pin selects one architecture, not the supplier multi-architecture index. Retain the
     existing apt refresh and dependency resolution; they make final builds time-dependent even
     with an immutable base. Bind actual source/image/config/inventory evidence for each build.
