@@ -244,7 +244,7 @@ def resolve_tenant_id(request: Request) -> str:
 
     from app.composite_principal_admission import is_candidate_path, trusted_request_principal
 
-    if is_candidate_path(request.url.path):
+    if is_candidate_path(getattr(getattr(request, "url", None), "path", "")):
         principal = trusted_request_principal(request)
         return principal.tenant_id if principal else ""
     getlist = getattr(request.headers, "getlist", None)
@@ -389,6 +389,9 @@ def setup_observability(app: FastAPI, *, log_level: str = "INFO") -> None:
             response = await call_next(request)
         finally:
             duration_ms = round((time.perf_counter() - started) * 1000, 2)
+            # Candidate admission runs inside response instrumentation. Recover
+            # only its verified state for the terminal log, never an actor header.
+            tenant_id_var.set(resolve_tenant_id(request))
             logger.info(
                 "request.completed",
                 extra={"extra_fields": build_access_log_fields(request=request, duration_ms=duration_ms)},

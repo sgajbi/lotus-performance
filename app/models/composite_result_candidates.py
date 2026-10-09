@@ -34,3 +34,15 @@ class CompositeResultCandidateResponse(BaseModel):
     credential_id: str
     captured_at_utc: datetime
     response: CompositeTWRResponse
+
+
+class CompositeResultCandidateErrorResponse(BaseModel):
+    detail: str | dict
+    error_code: str
+    message: str
+    source: Literal["lotus-performance"]
+    retryable: bool
+    correlation_id: str | None = None
+    request_id: str | None = None
+    retry_after_seconds: int | None = None
+    remediation_hint: str | None = None

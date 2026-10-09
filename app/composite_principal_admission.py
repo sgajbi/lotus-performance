@@ -15,6 +15,7 @@ from app.adapters.composite_principal_credentials import (
     resolve_composite_principal,
 )
 from app.enterprise_capability_rules import _CAPABILITY_OPERATIONS_RUNTIME_MANAGE, _CAPABILITY_OPERATIONS_RUNTIME_READ
+from app.observability import tenant_id_var
 
 RESULT_CANDIDATE_PATH = "/performance/composites/result-candidates"
 PRINCIPAL_STATE_KEY = "verified_composite_principal"
@@ -73,6 +74,7 @@ def _admitted_principal(request):
 
 def _denied_response(request, denial):
     from app.enterprise_readiness import emit_audit_event
+    from app.services.error_details import safe_error_envelope
 
     status = 401 if denial.unauthenticated else 403
     emit_audit_event(
@@ -85,7 +87,16 @@ def _denied_response(request, denial):
     )
     return JSONResponse(
         status_code=status,
-        content={"detail": {"code": "PRINCIPAL_ADMISSION_DENIED", "denial_class": denial.denial_class}},
+        content=safe_error_envelope(
+            status_code=status,
+            detail={
+                "code": "PRINCIPAL_ADMISSION_DENIED",
+                "message": "Principal admission refused.",
+                "denial_class": denial.denial_class,
+            },
+            error_code="PRINCIPAL_ADMISSION_DENIED",
+            retryable=False,
+        ),
     )
 
 
@@ -94,7 +105,7 @@ class CompositePrincipalAdmissionMiddleware:
         self.app = app
 
     async def __call__(self, scope: Scope, receive: Receive, send: Send):
-        if scope["type"] != "http" or not is_candidate_path(scope["path"]):
+        if scope["type"] != "http" or scope["method"] == "OPTIONS" or not is_candidate_path(scope["path"]):
             return await self.app(scope, receive, send)
         request = Request(scope)
         outcome = _admitted_principal(request)
@@ -102,4 +113,8 @@ class CompositePrincipalAdmissionMiddleware:
             response = _denied_response(request, outcome)
             return await response(scope, receive, send)
         scope.setdefault("state", {})[PRINCIPAL_STATE_KEY] = outcome
-        await self.app(scope, receive, send)
+        token = tenant_id_var.set(outcome.tenant_id)
+        try:
+            await self.app(scope, receive, send)
+        finally:
+            tenant_id_var.reset(token)
