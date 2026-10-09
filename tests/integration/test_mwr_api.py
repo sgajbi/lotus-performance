@@ -1,5 +1,5 @@
 # tests/integration/test_mwr_api.py
-from uuid import uuid4
+from uuid import UUID, uuid4
 
 import pytest
 from fastapi.testclient import TestClient
@@ -8,8 +8,11 @@ from app.core.config import get_settings
 from app.models.mwr_requests import MoneyWeightedReturnRequest
 from app.observability_contracts import PERFORMANCE_CALCULATION_SUPPORTABILITY_METRIC_LABELS
 from app.services.calculation_engine_version import calculation_engine_version
+from app.services.durable_metadata_bootstrap import bootstrap_durable_metadata_stores
+from app.services.lineage_metadata_store import LineageStatus, lineage_metadata_store
 from app.services.mwr_calculation_service import calculate_mwr_result
 from app.services.mwr_cash_flow_window_validation import MWR_CASH_FLOW_OUT_OF_WINDOW
+from app.workers.lineage_worker import process_pending_calculation
 from core.repro import generate_canonical_hash
 from main import app
 from tests.conftest import drain_lineage_queue
@@ -24,7 +27,20 @@ def client():
 
 
 @pytest.mark.parametrize("nested", [False, True])
-def test_mwr_http_retains_exact_cashflow_and_small_profit(client, nested):
+def test_mwr_http_retains_exact_cashflow_and_small_profit(client, nested, monkeypatch, tmp_path):
+    # A shared worker batch can finish older jobs without reaching this request.
+    monkeypatch.setattr(get_settings(), "LINEAGE_METADATA_DATABASE_URL", f"sqlite:///{tmp_path / 'mwr.db'}")
+    monkeypatch.setattr(get_settings(), "LINEAGE_STORAGE_PATH", str(tmp_path / "lineage"))
+    bootstrap_durable_metadata_stores()
+    older_ids = [uuid4() for _ in range(101)]
+    for calculation_id in older_ids:
+        lineage_metadata_store.enqueue_lineage_payload(
+            calculation_id=calculation_id,
+            calculation_type="MWR",
+            request_json="{}",
+            response_json="{}",
+            details={},
+        )
     monetary_input = {
         "begin_mv": "100.00",
         "end_mv": "9007199254741093.02",
@@ -47,7 +63,11 @@ def test_mwr_http_retains_exact_cashflow_and_small_profit(client, nested):
     duplicate = client.post("/performance/mwr", json=payload)
     # Synchronous commands retain their existing duplicate-ID refusal contract.
     assert duplicate.status_code == 409, duplicate.text
-    assert drain_lineage_queue() >= 1
+    assert drain_lineage_queue() == 100
+    target_id = UUID(payload["calculation_id"])
+    assert lineage_metadata_store.get_record(target_id).status == LineageStatus.PENDING
+    assert process_pending_calculation(target_id, wait_seconds=0)
+    assert lineage_metadata_store.get_record(older_ids[-1]).status == LineageStatus.PENDING
     retained = client.get(f"/performance/lineage/{payload['calculation_id']}/artifacts/response.json")
     assert retained.status_code == 200, retained.text
     assert retained.json() == body
@@ -264,7 +284,7 @@ def test_calculate_mwr_endpoint_does_not_publish_budget_exhausted_midpoint(clien
     assert execution.status_code == 200
     stages = {stage["stage_name"]: stage for stage in execution.json()["stages"]}
     assert stages["execution"]["status"] == "complete"
-    assert drain_lineage_queue() >= 1
+    assert process_pending_calculation(UUID(calculation_id), wait_seconds=0)
     persisted_response = client.get(f"/performance/lineage/{calculation_id}/artifacts/response.json")
     assert persisted_response.status_code == 200
     persisted_body = persisted_response.json()
@@ -1052,7 +1072,7 @@ def test_mwr_lineage_flow(client):
     mwr_response = client.post("/performance/mwr", json=payload)
     assert mwr_response.status_code == 200
     calculation_id = mwr_response.json()["calculation_id"]
-    assert drain_lineage_queue() >= 1
+    assert process_pending_calculation(UUID(calculation_id), wait_seconds=0)
 
     lineage_response = client.get(f"/performance/lineage/{calculation_id}")
     assert lineage_response.status_code == 200
