@@ -47,6 +47,8 @@ fee entry, selected financial payload, whole financial-source binding and rederi
 included and deducted fractions. Beginning assets and financial source identities stay intact.
 
 Ledger reopen rechecks the retained original method, financial wire, verification and member math.
+The source model omits only an absent new financial wire during serialization, preserving every
+historical null field and retained-window fingerprint. Present financial custody remains fully hashed.
 A fresh-process integration probe reproduces the complete fee-drag response without current
 method/financial source reads. Existing database transactions, revision fencing, immutable catalog
 identity and publication behavior remain the transaction boundary; there is no distributed commit.

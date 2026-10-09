@@ -9,7 +9,7 @@ from __future__ import annotations
 from datetime import date, datetime
 from typing import Any, Literal
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, model_serializer
 
 from app.models.composite_authority import (
     EvidenceBinding,
@@ -164,6 +164,14 @@ class PinnedCompositeSource(BaseModel):
     currency_normalization_wire: dict[str, Any] | None = None
     model_fee_wire: dict[str, Any] | None = None
     gross_component_wire: dict[str, Any] | None = None
+
+    @model_serializer(mode="wrap")
+    def preserve_original_source_shape(self, handler):
+        """Omit only absent additive custody; preserve all historical null fields."""
+        payload = handler(self)
+        if self.gross_component_wire is None:
+            payload.pop("gross_component_wire", None)
+        return payload
 
 
 def admit_pinned_source(

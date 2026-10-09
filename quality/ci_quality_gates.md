@@ -138,8 +138,8 @@ checked by `test_current_inventory_prose_carries_no_stale_totals`, which normali
 compares every total the present-tense paragraph states. Historical baselines elsewhere in this
 document are intentionally outside that check.
 
-Current governed inventory: `quality/test_taxonomy_inventory.md` records 430 test modules, 5,096 source test functions, 1041 API/runtime test functions, 234 contract/governance test functions, and 558 uncategorized test functions.
-The full family summary is 430 modules, 5,096 source test functions, 1041 integration/API/runtime test functions, 234 contract/governance test functions, 778 observability/readiness test functions, 355 quality/security test functions, 2,842 analytics-domain test functions, and 558 uncategorized test functions.
+Current governed inventory: `quality/test_taxonomy_inventory.md` records 430 test modules, 5,097 source test functions, 1041 API/runtime test functions, 234 contract/governance test functions, and 558 uncategorized test functions.
+The full family summary is 430 modules, 5,097 source test functions, 1041 integration/API/runtime test functions, 234 contract/governance test functions, 778 observability/readiness test functions, 355 quality/security test functions, 2,843 analytics-domain test functions, and 558 uncategorized test functions.
 
 ## LP-CR-1603 Container Supply-Chain Intake
 
