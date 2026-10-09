@@ -39,19 +39,22 @@ def composite_result_custody_guard_statements(dialect: Dialect) -> tuple[str, ..
             )
     elif dialect.name == "postgresql":
         # TRUNCATE has no OLD/NEW row. Test it before accessing either record.
-        writer.exec_driver_sql(f"""CREATE OR REPLACE FUNCTION reject_composite_result_custody_mutation() RETURNS trigger LANGUAGE plpgsql AS $$
+        # Keep the function literal so SQL construction accepts no runtime data;
+        # custody tests exercise both purposes against this catalog contract.
+        writer.exec_driver_sql("""CREATE OR REPLACE FUNCTION reject_composite_result_custody_mutation() RETURNS trigger LANGUAGE plpgsql AS $$
+            DECLARE protected_types CONSTANT text[] := ARRAY['COMPOSITE_TWR_CANDIDATE', 'COMPOSITE_POOLED_MWR'];
             BEGIN
                 IF TG_OP = 'TRUNCATE' THEN
-                    IF EXISTS (SELECT 1 FROM analytics_async_result WHERE analytics_type IN ({protected_types})) THEN
+                    IF EXISTS (SELECT 1 FROM analytics_async_result WHERE analytics_type = ANY(protected_types)) THEN
                         RAISE EXCEPTION USING ERRCODE = '23514', MESSAGE = 'composite captured result is immutable';
                     END IF;
                     RETURN NULL;
                 END IF;
-                IF OLD.analytics_type IN ({protected_types}) THEN
+                IF OLD.analytics_type = ANY(protected_types) THEN
                     RAISE EXCEPTION USING ERRCODE = '23514', MESSAGE = 'composite captured result is immutable';
                 END IF;
                 IF TG_OP = 'UPDATE' THEN
-                    IF NEW.analytics_type IN ({protected_types}) THEN
+                    IF NEW.analytics_type = ANY(protected_types) THEN
                         RAISE EXCEPTION USING ERRCODE = '23514', MESSAGE = 'composite captured result is immutable';
                     END IF;
                     RETURN NEW;
