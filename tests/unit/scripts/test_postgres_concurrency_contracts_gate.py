@@ -12,8 +12,29 @@ import subprocess
 import sys
 from pathlib import Path
 
+import pytest
+
+from scripts import postgres_concurrency_contracts_gate
+
 REPO_ROOT = Path(__file__).resolve().parents[3]
 GATE = "scripts/postgres_concurrency_contracts_gate.py"
+
+
+def test_default_invocation_executes_both_fee_custody_targets(monkeypatch: pytest.MonkeyPatch) -> None:
+    selected: list[str] = []
+
+    def run_target(target: str, *, scratch: Path, environment: dict[str, str]) -> tuple[dict[str, int], list[str]]:
+        selected.append(target)
+        return {"tests": 1, "skipped": 0, "failures": 0, "errors": 0}, []
+
+    monkeypatch.setattr(sys, "argv", [GATE])
+    monkeypatch.setattr(postgres_concurrency_contracts_gate, "_run_target", run_target)
+
+    assert postgres_concurrency_contracts_gate.main() == 0
+    assert {
+        "tests/benchmarks/test_postgres_composite_model_fee.py",
+        "tests/benchmarks/test_postgres_composite_scheduled_model_fee.py",
+    } <= set(selected)
 
 
 def _run_gate(

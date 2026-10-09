@@ -113,7 +113,7 @@ def test_scheduled_actual_member_boundary_numbers_and_pins_ignore_ambient_contex
         assert result.model_dump(mode="json") == reference.model_dump(mode="json")
         assert context.prec == precision and context.rounding == rounding
         assert context.Emin == -9 and context.Emax == 9
-        assert context.flags == flags and context.traps[Inexact] and context.traps[Rounded]
+        assert dict(context.flags) == flags and context.traps[Inexact] and context.traps[Rounded]
 
 
 @pytest.mark.parametrize("fault", ["rate", "base", "derived_fraction", "version", "fact_base"])

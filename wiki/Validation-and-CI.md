@@ -201,6 +201,16 @@ evidence, false-positive policy, remediation guidance, and lane placement are ag
 
 ## Performance characterization evidence
 
+From the `lotus-performance` repository root, `make postgres-concurrency-contracts-gate`
+runs inside required `PR Merge Gate / Tests (integration)`. Its six default PostgreSQL
+targets cover concurrency/locking, immutable facts, materialization, monthly eligibility,
+periodic model fees and scheduled model fees. Every target must collect and pass without
+skips; characterization discovery alone does not satisfy this required custody proof.
+For a local database bring-up, run `make postgres-concurrency-contracts-local` from that
+same root in Bash or PowerShell with Make installed, or supply
+`LOTUS_POSTGRES_PLAN_DATABASE_URL` and run
+`python scripts/postgres_concurrency_contracts_gate.py` from the repository root.
+
 For benchmark characterization evidence, run:
 
 ```bash
