@@ -258,6 +258,16 @@ changes. It supports exact replay after later retention; unavailable sides yield
 It does not select, approve or freeze official generations, establish causal/materiality impact,
 or qualify live sources. DEC-10/12/13 and the wider #610 programme remain open dependencies.
 
+## Composite model-fee analysis
+
+`MODEL_FEE_DRAG` on the existing composite analytics route compares paired original gross/model
+facts for an exact complete retained vector. It supports existing periodic and scheduled model
+receipts, returns decimal return differences and preserves source pins, full method binding and
+selection provenance. The complete synthetic HTTP example is checked against registered execution.
+This does not deliver monetary fee posting, actual-net reconstruction, whole-cost component
+supplier admission or institutional qualification. The method-only configured synthetic verifier
+still refuses missing policy and financial-source peers; see [Composite Receipt Verification](Composite-Receipt-Verification).
+
 ## References
 
 - [Time-Weighted Return](Time-Weighted-Return)

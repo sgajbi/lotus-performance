@@ -5,6 +5,7 @@ from typing import Annotated
 from pydantic import Discriminator, Field, Tag, ValidationError, WrapValidator
 
 from app.models.composite_annual_dispersion import CompositeAnnualDispersionRequest, CompositeAnnualDispersionResponse
+from app.models.composite_fee_drag import CompositeFeeDragRequest, CompositeFeeDragResponse
 from app.models.composite_linked_contribution import (
     CompositeLinkedContributionRequest,
     CompositeLinkedContributionResponse,
@@ -36,7 +37,8 @@ def _preserve_annual_errors(value, handler):
 CompositeAnalyticsRequest = Annotated[
     Annotated[CompositeAnnualDispersionRequest, Tag("ANNUAL_MEMBER_DISPERSION")]
     | Annotated[CompositeLinkedContributionRequest, Tag("LINKED_MEMBER_CONTRIBUTION")]
-    | Annotated[CompositePooledMWRRequest, Tag("POOLED_MONEY_WEIGHTED_RETURN")],
+    | Annotated[CompositePooledMWRRequest, Tag("POOLED_MONEY_WEIGHTED_RETURN")]
+    | Annotated[CompositeFeeDragRequest, Tag("MODEL_FEE_DRAG")],
     Discriminator(_analytics_metric),
     WrapValidator(_preserve_annual_errors),
     Field(
@@ -47,6 +49,7 @@ CompositeAnalyticsRequest = Annotated[
                     "ANNUAL_MEMBER_DISPERSION": "#/components/schemas/CompositeAnnualDispersionRequest",
                     "LINKED_MEMBER_CONTRIBUTION": "#/components/schemas/CompositeLinkedContributionRequest",
                     "POOLED_MONEY_WEIGHTED_RETURN": "#/components/schemas/CompositePooledMWRRequest",
+                    "MODEL_FEE_DRAG": "#/components/schemas/CompositeFeeDragRequest",
                 },
             }
         }
@@ -54,6 +57,9 @@ CompositeAnalyticsRequest = Annotated[
 ]
 
 CompositeAnalyticsResponse = Annotated[
-    CompositeAnnualDispersionResponse | CompositeLinkedContributionResponse | CompositePooledMWRResponse,
+    CompositeAnnualDispersionResponse
+    | CompositeLinkedContributionResponse
+    | CompositePooledMWRResponse
+    | CompositeFeeDragResponse,
     Field(discriminator="metric_id"),
 ]

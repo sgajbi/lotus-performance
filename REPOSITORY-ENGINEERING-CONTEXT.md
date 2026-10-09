@@ -1280,6 +1280,25 @@ actual PostgreSQL proofs include `test_composite_pooled_mwr_api.py` and
 `test_postgres_composite_pooled_mwr.py`; the fresh-interpreter helper explicitly
 configures read-only repeatable-read for its proof without changing runtime defaults.
 
+## Repository Practice: Retained Model-Fee Analysis
+
+`MODEL_FEE_DRAG` uses the existing composite analytics union and dispatcher. Keep original gross
+and model facts paired, preserve beginning assets, and subtract separately linked horizon returns.
+Use the existing strict materialization read and engine; do not create another approval ledger,
+financial calculation track or current-schedule lookup. Counts refer to selected financial facts,
+not the entire upstream eligibility universe. Missing original receipts or complete binding refuse.
+
+The complete packaged HTTP fixture fixes synthetic execution IDs and upstream recording time
+before storage. Compare its entire registered response; do not normalize financial or receipt hashes.
+Configured receipt verification supports synthetic method/calendar purpose only. The registered
+worker must remain blocked with zero ready members when policy verification is unavailable.
+The component-periodic arithmetic convention is a pure engineering helper: no registered component
+catalog/source/worker contract authenticates whole gross-cost evidence yet.
+
+Caller and methodology sources are `docs/guides/composite_model_fee_drag.md` and
+`docs/methodologies/metrics/metric-composite-model-fee-drag.md`; verifier operations live in
+`docs/guides/composite_receipt_verification.md`.
+
 ## Cross-Links
 
 1. `../lotus-platform/context/LOTUS-QUICKSTART-CONTEXT.md`

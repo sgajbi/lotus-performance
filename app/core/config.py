@@ -38,6 +38,7 @@ class Settings(BaseSettings):
     RECOVERY_DRILL_ARTIFACT_PATH: Path = Path("artifacts/durable-recovery-drill")
     LINEAGE_METADATA_DATABASE_URL: str = "sqlite:///./lineage_metadata.db"
     COMPOSITE_MODEL_FEE_SOURCE_MODE: Literal["UNAVAILABLE", "LOCAL_CATALOG"] = "UNAVAILABLE"
+    COMPOSITE_RECEIPT_VERIFIER_CONFIG_JSON: str | None = None
     DURABLE_DB_CONNECT_TIMEOUT_SECONDS: int = Field(default=5, ge=1)
     DURABLE_DB_POOL_PRE_PING: bool = True
     DURABLE_DB_POOL_SIZE: int = Field(default=5, ge=1)

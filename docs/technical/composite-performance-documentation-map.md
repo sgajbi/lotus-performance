@@ -35,6 +35,13 @@ the current single reporting-currency guard is not supported.
 
 ## Source Flow
 
+The [model-fee drag guide](../guides/composite_model_fee_drag.md) and
+[v3 methodology](../methodologies/metrics/metric-composite-model-fee-drag.md) cover registered
+paired retained-source analysis. The packaged full HTTP example proves synthetic route behavior,
+not the older TWR endpoint certification or institutional qualification. The
+[receipt verifier guide](../guides/composite_receipt_verification.md) describes bounded configured
+method/calendar admission and refusal when independently required verifier peers are missing.
+
 The first model-fee convention has a [v3 method/variable/oracle document](../methodologies/metrics/metric-composite-periodic-model-fee.md)
 and [caller/migration instructions](../guides/composite_materialization.md#periodic-model-fee-materialization).
 Its internal native gross producer preserves distinct original/fee custody. The configured

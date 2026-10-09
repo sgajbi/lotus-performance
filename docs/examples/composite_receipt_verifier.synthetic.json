@@ -1,0 +1,40 @@
+{
+  "registrations": [
+    {
+      "tenant_id": "tenant-a",
+      "composite_id": "synthetic.composite",
+      "definition_version": "definition.1",
+      "subject_content_hash": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+      "purpose": "RETURN_METHOD_CALENDAR",
+      "method_binding": {
+        "product_name": "CompositeScheduledModelFeeProfile",
+        "product_version": "v1",
+        "revision": "method.1",
+        "digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+      },
+      "effective_from": "2026-01-01",
+      "effective_to": "2026-12-31",
+      "verifier_id": "synthetic.method-verifier",
+      "issuer_id": "synthetic.receipt-issuer",
+      "artifact_revision": "approved-artifact.1",
+      "artifact_digest": "sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+      "owner_service": "synthetic-verifier",
+      "endpoint": "https://verifier.test/verify",
+      "issuer_uri": "https://issuer.test",
+      "principal_id": "synthetic-verifier",
+      "credential_env": "LOTUS_TEST_RECEIPT_CREDENTIAL",
+      "jwks": {
+        "keys": [
+          {
+            "kty": "OKP",
+            "crv": "Ed25519",
+            "kid": "synthetic.key",
+            "alg": "EdDSA",
+            "x": "iojj3XQJ8ZX9UtstPLpdcspnCb8dlBIb83SIAbQPb1w"
+          }
+        ]
+      }
+    }
+  ],
+  "timeout_seconds": 5
+}
