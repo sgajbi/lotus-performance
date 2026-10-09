@@ -409,6 +409,26 @@ Official selection (#610), imported history (#543), external input admission (#6
 producer qualification remain separate. This operation does not establish GIPS compliance,
 institutional approval, live runtime acceptance, or production scale acceptance.
 
+## Pinned Linked Member Contribution
+
+For pinned composite contribution, `POST /performance/composites/analytics` supports `metric_id=LINKED_MEMBER_CONTRIBUTION`
+with `method=CARINO:v1`. An explicit chronological COMPLETE retained vector supplies original
+Decimal member economics and historical membership/source pins. Linking reconciles without
+residual allocation. Results carry `CALCULATED_ANALYSIS` and
+`RETAINED_SOURCE_ATTESTATION_NOT_LIVE_QUALIFIED`; synthetic calculation/replay evidence does
+not establish live source qualification or official selection.
+
+Compatible `GROSS`, `NET_ACTUAL` and admitted `NET_MODEL_FEE` vectors are supported.
+Model-net windows require the same complete immutable profile binding; unequal member/period
+rates within that profile are supported. Changed revision/digest refuses, and no cross-profile
+compatibility is inferred. Rankings, classified rollups, annualized transforms, attribution,
+MWR and #610 official selection remain separate.
+
+See the [linked caller guide](https://github.com/sgajbi/lotus-performance/blob/main/docs/guides/composite_linked_contribution.md)
+for requests, replay and downstream consumption, and the
+[methodology](https://github.com/sgajbi/lotus-performance/blob/main/docs/methodologies/metrics/metric-composite-linked-member-contribution.md)
+for formulas and financial controls.
+
 ## Business And Demo Readiness
 
 Demo-safe claims:
@@ -424,7 +444,7 @@ Demo-safe claims:
 Do not claim:
 
 - GIPS compliance or independent verification;
-- composite contribution, attribution, or MWR;
+- contribution rankings, classified rollups, annualized contribution transforms, attribution, or MWR;
 - sleeve, carve-out, model-portfolio, wrap-program, private-market, portability, tax-aware,
   leveraged, or long/short special-structure support;
 - multi-currency composite aggregation beyond the single reporting-currency guard;
@@ -434,7 +454,7 @@ Do not claim:
 
 The current implementation does not support:
 
-- composite contribution;
+- contribution rankings, classified rollups and annualized contribution transforms;
 - composite attribution;
 - composite MWR;
 - sleeves and carve-outs;

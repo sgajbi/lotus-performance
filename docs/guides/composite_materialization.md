@@ -104,6 +104,24 @@ restart. On failure keep workloads stopped; use reviewed forward correction or a
 isolated backup restore under the [migration contract](../standards/migration-contract.md).
 Never reset the ledger, edit original method bytes or erase evidence to repair replay.
 
+### Pinned Linked Member Contribution
+
+After retaining a complete chronological materialization vector, call
+`POST /performance/composites/analytics` with `metric_id=LINKED_MEMBER_CONTRIBUTION` and
+`method=CARINO:v1`. The operation uses original Decimal member economics and historical
+membership/source pins, reconciles contributions without residual allocation, and returns
+`CALCULATED_ANALYSIS` / `RETAINED_SOURCE_ATTESTATION_NOT_LIVE_QUALIFIED`.
+The [linked caller guide](composite_linked_contribution.md) includes complete request/response,
+correction replay, refusal, report and Excel consumption examples; the
+[methodology](../methodologies/metrics/metric-composite-linked-member-contribution.md) defines
+the financial and precision controls.
+
+`GROSS`, `NET_ACTUAL` and admitted `NET_MODEL_FEE` require compatible retained authority.
+Model-net windows must share one complete immutable profile binding, even when that profile
+contains unequal member/period rates. A changed revision/digest refuses; cross-profile history
+needs separate governance. Rankings, classified rollups, annualized transforms, attribution,
+MWR and #610 official selection are separate scope.
+
 ### Retained Member Currency Normalization
 
 An optional `currency_normalization_binding` pins `CompositeFXNormalizationSource:v1`
