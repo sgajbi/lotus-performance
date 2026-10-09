@@ -8,17 +8,23 @@ from pydantic import ValidationError
 
 from app.models.composite_authority import ManageCompositeDefinitionV2, authority_digest
 from app.models.composite_eligibility_evidence import SubjectFinalizationReceipt
-from app.models.composite_model_fees import CompositeModelFeePeriod, CompositePeriodicModelFeeProfile
+from app.models.composite_model_fee_contract import CompositeModelFeeProfile, decode_model_fee_profile
+from app.models.composite_model_fees import CompositeModelFeePeriod
+from app.models.composite_scheduled_model_fees import (
+    CompositeScheduledModelFeePeriod,
+    CompositeScheduledModelFeeProfile,
+)
 from app.ports import composite_external_evidence as approvals
 from app.ports import composite_model_fees as sources
 from app.services.composite_materialization.authority_policy import _admit_lifecycle_verification, selection_for_window
+from app.services.composite_materialization.model_fee_schedule_rates import scheduled_period_fee_fraction
 from core.errors import APIError, APIUnprocessableEntityError
 
 
 @dataclass(frozen=True)
 class AdmittedCompositeModelFee:
-    profile: CompositePeriodicModelFeeProfile
-    period: CompositeModelFeePeriod
+    profile: CompositeModelFeeProfile
+    period: CompositeModelFeePeriod | CompositeScheduledModelFeePeriod
     source_wire: dict[str, Any]
 
 
@@ -101,14 +107,27 @@ def admit_model_fee_source(source, command, *, tenant_id, retained_wire=None, re
     raw = deepcopy(raw)
     try:
         digest = authority_digest(raw)
-        profile = CompositePeriodicModelFeeProfile.model_validate(raw)
+        profile = decode_model_fee_profile(raw)
     except (ValidationError, ValueError, TypeError):
         _refuse("COMPOSITE_MODEL_FEE_SOURCE_WIRE_REFUSED")
     if digest != request.binding.digest:
         _refuse("COMPOSITE_MODEL_FEE_SOURCE_DIGEST_MISMATCH")
     period = _require_profile_scope(request, profile)
+    _require_scheduled_method_scope(source, profile, period)
     _require_method_approval(source, command, request, raw)
     return AdmittedCompositeModelFee(profile, period, raw)
+
+
+def _require_scheduled_method_scope(source, profile, period):
+    if not isinstance(profile, CompositeScheduledModelFeeProfile):
+        return
+    if source.currency_normalization_wire is not None:
+        _refuse("COMPOSITE_SCHEDULED_MODEL_FEE_NATIVE_ASSETS_REQUIRED")
+    try:
+        for entry in period.member_rates:
+            scheduled_period_fee_fraction(entry, period)
+    except (ValueError, TypeError):
+        _refuse("COMPOSITE_SCHEDULED_MODEL_FEE_RATE_NOT_EXECUTABLE")
 
 
 def _require_profile_scope(request, profile):

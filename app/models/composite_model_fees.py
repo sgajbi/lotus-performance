@@ -55,9 +55,9 @@ class CompositeModelFeePeriod(AuthorityWire):
         return self
 
 
-class CompositePeriodicModelFeeProfile(AuthorityWire):
-    product_name: Literal["CompositePeriodicModelFeeProfile"]
-    product_version: Literal["v1"]
+class CompositeModelFeeProfileBasis(AuthorityWire):
+    """Shared immutable scope and cost taxonomy; each method declares its own rates."""
+
     profile_id: Identifier
     revision: Identifier
     tenant_id: Identifier
@@ -74,34 +74,42 @@ class CompositePeriodicModelFeeProfile(AuthorityWire):
     fee_component: Literal["MANAGEMENT_FEE_ONLY"]
     transaction_cost_treatment: Literal["ALREADY_INCLUDED_IN_GROSS"]
     bundled_fee_context: Literal["UNBUNDLED"]
-    rate_basis: Literal["EXPLICIT_PERIOD_WEALTH_FRACTION"]
     timing: Literal["END_OF_COMPLETE_PERIOD_AFTER_GROSS_RETURN"]
     transformation: Literal["MULTIPLICATIVE_WEALTH_HAIRCUT"]
     asset_treatment: Literal["UNCHANGED_SOURCE_ASSETS_BEGINNING_ASSET_WEIGHTING"]
-    monetary_precision: Literal["DECIMAL_STRICT_NO_INTERMEDIATE_ROUNDING"]
     standards_applicability: Literal["NOT_ASSESSED_ENGINEERING_METHOD_ONLY"]
+
+
+class CompositePeriodicModelFeeProfile(CompositeModelFeeProfileBasis):
+    product_name: Literal["CompositePeriodicModelFeeProfile"]
+    product_version: Literal["v1"]
+    rate_basis: Literal["EXPLICIT_PERIOD_WEALTH_FRACTION"]
+    monetary_precision: Literal["DECIMAL_STRICT_NO_INTERMEDIATE_ROUNDING"]
     periods: list[CompositeModelFeePeriod] = Field(min_length=1, max_length=128)
 
     @model_validator(mode="after")
     def complete_calendar(self):
-        _require_calendar_coverage(self)
-        _require_unique_profile_entries(self.periods)
+        require_model_fee_calendar_coverage(
+            self.effective_from, self.effective_to, [(row.period_start, row.period_end) for row in self.periods]
+        )
+        require_unique_model_fee_entries([entry.entry_id for period in self.periods for entry in period.member_rates])
         model_fee_profile_json(self.model_dump(mode="json"))
         return self
 
 
-def _require_calendar_coverage(profile: CompositePeriodicModelFeeProfile) -> None:
-    start, end = date.fromisoformat(profile.effective_from), date.fromisoformat(profile.effective_to)
+def require_model_fee_calendar_coverage(
+    effective_from: str, effective_to: str, period_windows: list[tuple[str, str]]
+) -> None:
+    start, end = date.fromisoformat(effective_from), date.fromisoformat(effective_to)
     if end < start:
         raise ValueError("Model fee profile interval is inverted")
-    windows = [(date.fromisoformat(row.period_start), date.fromisoformat(row.period_end)) for row in profile.periods]
+    windows = [(date.fromisoformat(first), date.fromisoformat(last)) for first, last in period_windows]
     if windows[0][0] != start or windows[-1][1] != end:
         raise ValueError("Approved fee calendar must cover the exact profile interval")
     if any(current[0] != previous[1] + timedelta(days=1) for previous, current in zip(windows, windows[1:])):
         raise ValueError("Approved fee periods must be ordered, adjacent and nonoverlapping")
 
 
-def _require_unique_profile_entries(periods: list[CompositeModelFeePeriod]) -> None:
-    entries = [entry.entry_id for period in periods for entry in period.member_rates]
+def require_unique_model_fee_entries(entries: list[str]) -> None:
     if len(entries) != len(set(entries)):
         raise ValueError("Model fee rate-entry identities must be unique across the profile")

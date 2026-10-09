@@ -8,8 +8,9 @@ from sqlalchemy.orm.exc import MultipleResultsFound
 
 from app.adapters.composite_model_fee_profile_records import CompositeModelFeeProfileModel
 from app.models.composite_authority import EvidenceBinding, authority_digest
+from app.models.composite_model_fee_contract import decode_model_fee_profile
 from app.models.composite_model_fee_profiles import CompositeModelFeeProfileReceipt
-from app.models.composite_model_fees import CompositePeriodicModelFeeProfile, model_fee_profile_json
+from app.models.composite_model_fees import model_fee_profile_json
 from core.errors import APIConflictError, APIError
 
 
@@ -24,7 +25,7 @@ def _refuse_retained():
 
 def profile_record_receipt(row):
     try:
-        profile = CompositePeriodicModelFeeProfile.model_validate_json(row.profile_json)
+        profile = decode_model_fee_profile(json.loads(row.profile_json))
         digest = authority_digest(json.loads(row.profile_json))
         actual = (
             row.tenant_id,
@@ -68,7 +69,7 @@ def publish_profile(session, profile, *, tenant_id, actor_id):
             detail="Profile publication requires an admitted nonblank original actor.",
             error_code="COMPOSITE_MODEL_FEE_PROFILE_ACTOR_REQUIRED",
         )
-    profile = CompositePeriodicModelFeeProfile.model_validate(profile.model_dump(mode="json"))
+    profile = decode_model_fee_profile(profile.model_dump(mode="json"))
     if profile.tenant_id != tenant_id:
         raise APIConflictError(
             "Method-profile tenant contradicts admitted authority.",

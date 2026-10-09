@@ -1,0 +1,752 @@
+{
+  "qualification": "SYNTHETIC_TEST_ONLY_NOT_APPROVED_CUSTOMER_METHOD",
+  "receipt_ids_apply_only_to_executed_fixture_database": true,
+  "profile_publication_request": {
+    "product_name": "CompositeScheduledModelFeeProfile",
+    "product_version": "v1",
+    "profile_id": "synthetic.scheduled.model.wealth",
+    "revision": "profile.1",
+    "tenant_id": "synthetic-tenant-a",
+    "composite_id": "SYNTHETIC_EXTERNAL_MONTHLY_USD",
+    "method_id": "periodic.wealth.haircut",
+    "method_revision": "method.1",
+    "schedule_id": "management.periodic",
+    "schedule_revision": "schedule.1",
+    "effective_from": "2026-01-05",
+    "effective_to": "2026-01-05",
+    "calendar_binding": {
+      "product_name": "CompositeReturnCalendar",
+      "product_version": "v1",
+      "revision": "calendar.1",
+      "digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+    },
+    "reporting_currency": "USD",
+    "gross_source_basis": "GROSS",
+    "fee_component": "MANAGEMENT_FEE_ONLY",
+    "transaction_cost_treatment": "ALREADY_INCLUDED_IN_GROSS",
+    "bundled_fee_context": "UNBUNDLED",
+    "rate_basis": "AUM_SELECTED_NOMINAL_ANNUAL_MODEL_WEALTH_RATE",
+    "timing": "END_OF_COMPLETE_PERIOD_AFTER_GROSS_RETURN",
+    "transformation": "MULTIPLICATIVE_WEALTH_HAIRCUT",
+    "asset_treatment": "UNCHANGED_SOURCE_ASSETS_BEGINNING_ASSET_WEIGHTING",
+    "monetary_precision": "DECIMAL_MIN_80_DERIVED_RATIO_NO_MONETARY_QUANTIZATION",
+    "standards_applicability": "NOT_ASSESSED_ENGINEERING_METHOD_ONLY",
+    "periods": [
+      {
+        "period_start": "2026-01-05",
+        "period_end": "2026-01-05",
+        "member_rates": [
+          {
+            "entry_id": "day.A",
+            "member_id": "A",
+            "fee_base_amount": "100",
+            "schedule_rule": {
+              "algorithm": "FLAT_ANNUAL",
+              "annual_model_wealth_rate": "0.012"
+            }
+          },
+          {
+            "entry_id": "day.B",
+            "member_id": "B",
+            "fee_base_amount": "200",
+            "schedule_rule": {
+              "algorithm": "MARGINAL_TIERED",
+              "bands": [
+                {
+                  "lower_bound": "0",
+                  "upper_bound": "100",
+                  "annual_model_wealth_rate": "0.01"
+                },
+                {
+                  "lower_bound": "100",
+                  "upper_bound": null,
+                  "annual_model_wealth_rate": "0.006"
+                }
+              ]
+            }
+          },
+          {
+            "entry_id": "day.C",
+            "member_id": "C",
+            "fee_base_amount": "300",
+            "schedule_rule": {
+              "algorithm": "WHOLE_AUM_BAND",
+              "bands": [
+                {
+                  "lower_bound": "0",
+                  "upper_bound": "300",
+                  "annual_model_wealth_rate": "0.01"
+                },
+                {
+                  "lower_bound": "300",
+                  "upper_bound": null,
+                  "annual_model_wealth_rate": "0.006"
+                }
+              ]
+            }
+          }
+        ]
+      }
+    ],
+    "day_count": "ACT_365_FIXED_INCLUSIVE",
+    "accrual_frequency": "COMPLETE_RETURN_PERIOD",
+    "fee_base_basis": "VERIFIED_BEGINNING_REPORTING_ASSETS_RATE_SELECTION_ONLY",
+    "monetary_charge_interpretation": "POST_GROSS_WEALTH_FRACTION_NOT_FIXED_CASH_FEE"
+  },
+  "materialization_request": {
+    "calculation_id": "ed9da99b-4d5a-448f-ba35-656a7ac5f52f",
+    "materialization_id": "b93a147f-ff01-43c5-91fd-f5a19e747f87",
+    "composite_id": "SYNTHETIC_EXTERNAL_MONTHLY_USD",
+    "definition_version": "synthetic.definition.original",
+    "definition_content_hash": "sha256:88bb52f5f615d65f759b044757a791883f061db523b0fcb702975f6ba9fcd9b5",
+    "membership_revision": "synthetic.original",
+    "membership_content_hash": "sha256:a1413724cab29c31843cfcf1e8d0b4bb4b291a16c6d2a4fe6cd3006bdfecbe4a",
+    "attestation_version": "synthetic.original",
+    "attestation_content_hash": "sha256:50a539352758db9fe1768255cabef6350d1a85dfeb40c819296b5cf918d2e8ec",
+    "source_cut_id": "synthetic-cut-original",
+    "policy_version": "synthetic-monthly-eligibility.v1",
+    "period_start": "2026-01-05",
+    "period_end": "2026-01-05",
+    "reporting_currency": "USD",
+    "return_view": "NET_MODEL_FEE",
+    "restatement_sequence": 1,
+    "member_calculations": [
+      {
+        "portfolio_id": "A",
+        "calculation_id": "9e8c871a-d467-432a-9b7e-00c2fec33461",
+        "input_fingerprint": "sha256:a5b896cd1142863d01e5190d2e38a3e24bd77017b66ed0f97fbed93de06dd4c5",
+        "calculation_hash": "sha256:8a7d3ff2577b7a3a3c96cba9b0cc1ddcce56311d16b598684744619fe280544e"
+      },
+      {
+        "portfolio_id": "B",
+        "calculation_id": "8f160c32-c5e9-412c-9898-0b0dcb0bb0d7",
+        "input_fingerprint": "sha256:f289f710ef5a5b7c21919e48ec01d27c2bf1464f6b37d94c41cbe124a7245d18",
+        "calculation_hash": "sha256:b2585c12100b71954ee16b9dd6196b7f0ef4f9b3f29efe8807b1ad3fd2604c4c"
+      },
+      {
+        "portfolio_id": "C",
+        "calculation_id": "746f7a46-a5ea-4f91-978d-de8bb34662f3",
+        "input_fingerprint": "sha256:881d96f1efe0fd0ba9c883bb0c3df8c5e9a553403e971d752b2e1ea9fca3019c",
+        "calculation_hash": "sha256:c83cf6f3044c0a312f50e2678323bd1d2321da2caa38c31d5ba0151cb95f2210"
+      }
+    ],
+    "currency_normalization_binding": null,
+    "model_fee_binding": {
+      "product_name": "CompositeScheduledModelFeeProfile",
+      "product_version": "v1",
+      "revision": "profile.1",
+      "digest": "sha256:6bee3737ac710875cb1fe363b0de9549e49c23398c1c75ce96fdccd93084ec7a"
+    }
+  },
+  "materialization_response": {
+    "materialization_id": "b93a147f-ff01-43c5-91fd-f5a19e747f87",
+    "composite_id": "SYNTHETIC_EXTERNAL_MONTHLY_USD",
+    "state": "COMPLETE",
+    "revision": 7,
+    "source_cut_id": "synthetic-cut-original",
+    "expected_count": 3,
+    "ready_count": 3,
+    "excluded_count": 0,
+    "blocked_count": 0,
+    "waiting_count": 0,
+    "retryable": false,
+    "reason_code": null,
+    "restatement_sequence": 1,
+    "reporting_currency": "USD",
+    "returned_count": 3,
+    "next_offset": null,
+    "members": [
+      {
+        "portfolio_id": "A",
+        "state": "READY",
+        "reason_code": "MEMBER_MODEL_FEE_FACT_VERIFIED",
+        "retryable": false,
+        "inspection_attempts": 1,
+        "fact": {
+          "composite_id": "SYNTHETIC_EXTERNAL_MONTHLY_USD",
+          "portfolio_id": "A",
+          "period_start": "2026-01-05",
+          "period_end": "2026-01-05",
+          "return_value": "0.09996383561643844616142465753424657534246575342465753424657534246575342465753424657570410958904109592",
+          "return_view": "NET_MODEL_FEE",
+          "beginning_market_value": "100",
+          "ending_market_value": "110",
+          "reporting_currency": "USD",
+          "calculation_id": "9e8c871a-d467-432a-9b7e-00c2fec33461",
+          "source_snapshot_id": "sha256:bfa374600e3229adef6306da44fdb94e5e81a5001145f5e2129399eb6f8e26d9",
+          "source_fingerprint": "sha256:8a7d3ff2577b7a3a3c96cba9b0cc1ddcce56311d16b598684744619fe280544e",
+          "restatement_version": "b93a147f-ff01-43c5-91fd-f5a19e747f87",
+          "restatement_sequence": 1,
+          "status": "READY",
+          "reason_codes": []
+        },
+        "source_evidence": {
+          "gross_evidence": {
+            "contract_version": "composite-member-source.v1",
+            "methodology": "TWR",
+            "engine_version": "lotus-performance-calculation-engine.v16",
+            "precision_mode": "DECIMAL_STRICT",
+            "input_fingerprint": "sha256:a5b896cd1142863d01e5190d2e38a3e24bd77017b66ed0f97fbed93de06dd4c5",
+            "calculation_hash": "sha256:8a7d3ff2577b7a3a3c96cba9b0cc1ddcce56311d16b598684744619fe280544e",
+            "calculation_request": {
+              "portfolio": {
+                "calculation_id": "9e8c871a-d467-432a-9b7e-00c2fec33461",
+                "portfolio_id": "A",
+                "performance_start_date": "2026-01-01",
+                "metric_basis": "GROSS",
+                "report_start_date": "2026-01-05",
+                "report_end_date": "2026-01-05",
+                "analyses": [
+                  {
+                    "period": "EXPLICIT",
+                    "frequencies": [
+                      "daily"
+                    ]
+                  }
+                ],
+                "valuation_points": [
+                  {
+                    "perf_date": "2026-01-02",
+                    "begin_mv": "100",
+                    "bod_cf": "0",
+                    "eod_cf": "0",
+                    "mgmt_fees": "0",
+                    "end_mv": "100"
+                  },
+                  {
+                    "perf_date": "2026-01-05",
+                    "begin_mv": "100",
+                    "bod_cf": "0",
+                    "eod_cf": "0",
+                    "mgmt_fees": "0",
+                    "end_mv": "110"
+                  }
+                ],
+                "currency": "USD",
+                "precision_mode": "DECIMAL_STRICT",
+                "rounding_precision": 6,
+                "calendar": {
+                  "type": "BUSINESS",
+                  "trading_calendar": "NYSE"
+                },
+                "annualization": {
+                  "enabled": false,
+                  "basis": "BUS/252",
+                  "periods_per_year": null
+                },
+                "output": {
+                  "include_timeseries": false,
+                  "include_cumulative": false,
+                  "top_n": 20
+                },
+                "flags": {
+                  "fail_fast": false
+                },
+                "fee_effect": {
+                  "enabled": false
+                },
+                "reset_policy": {
+                  "emit": false
+                },
+                "data_policy": null,
+                "source_quality_evidence": {
+                  "source_product": "PortfolioTimeseriesInput",
+                  "source_owner": "lotus-core",
+                  "input_mode": "stateful",
+                  "quality_state": "clean",
+                  "observation_count": 2,
+                  "valid_valuation_point_count": 2,
+                  "skipped_observation_count": 0,
+                  "unsupported_cashflow_count": 0,
+                  "source_conflict_count": 0,
+                  "latest_observation_date": "2026-01-05",
+                  "report_end_date": "2026-01-05",
+                  "warnings": [],
+                  "source_classification_counts": {
+                    "official": 2
+                  }
+                },
+                "currency_mode": null,
+                "report_ccy": null,
+                "fx": null,
+                "hedging": null
+              },
+              "benchmark": null
+            },
+            "membership_snapshot_id": "sha256:a1413724cab29c31843cfcf1e8d0b4bb4b291a16c6d2a4fe6cd3006bdfecbe4a",
+            "asset_evidence_fingerprint": "sha256:1f798c67cb23a484cfa4a89d4b0a497c4a652de80e7cd70a9b041d81f163ad6a",
+            "period_return": "0.10000000000000009",
+            "source_assets": {
+              "contract_version": "portfolio-source-assets.v1",
+              "source_owner": "lotus-core",
+              "source_product": "PortfolioTimeseriesInput",
+              "portfolio_currency": "USD",
+              "observations": [
+                {
+                  "valuation_date": "2026-01-05",
+                  "beginning_market_value": "100",
+                  "ending_market_value": "110"
+                }
+              ]
+            },
+            "core_snapshots": [
+              {
+                "snapshot_id": "243afbd06732562e944ed6b1c325ad4bde16356b8c7335573ea44e03c30feec9",
+                "source_identifier": "A",
+                "request_as_of_date": "2026-01-05",
+                "request_fingerprint": "fcd15662d06991bbc941b753433fd3616b57d32825939679c84e384da63ee423",
+                "response_fingerprint": "7db37e46217eb466842ddeffcfc8d8f02ee0fcb7bdfb56b365eafc610d81ee87",
+                "retrieved_at_utc": "2026-10-09T08:01:06.498608Z"
+              }
+            ]
+          },
+          "gross_receipt_digest": "sha256:f6bbc4bb5ea5c2ebf137353b8fb01fc0a32d87ab5bf5042616cfacdad464f39e",
+          "gross_return": "0.10000000000000009",
+          "model_fee_binding": {
+            "product_name": "CompositeScheduledModelFeeProfile",
+            "product_version": "v1",
+            "revision": "profile.1",
+            "digest": "sha256:6bee3737ac710875cb1fe363b0de9549e49c23398c1c75ce96fdccd93084ec7a"
+          },
+          "contract_version": "composite-member-source.v5",
+          "fee_entry": {
+            "entry_id": "day.A",
+            "member_id": "A",
+            "fee_base_amount": "100",
+            "schedule_rule": {
+              "algorithm": "FLAT_ANNUAL",
+              "annual_model_wealth_rate": "0.012"
+            }
+          },
+          "derived_period_fee_fraction": "0.000032876712328767123287671232876712328767123287671232876712328767123287671232876712"
+        }
+      },
+      {
+        "portfolio_id": "B",
+        "state": "READY",
+        "reason_code": "MEMBER_MODEL_FEE_FACT_VERIFIED",
+        "retryable": false,
+        "inspection_attempts": 1,
+        "fact": {
+          "composite_id": "SYNTHETIC_EXTERNAL_MONTHLY_USD",
+          "portfolio_id": "B",
+          "period_start": "2026-01-05",
+          "period_end": "2026-01-05",
+          "return_value": "0.04997698630136990301282191780821917808219178082191780821917808219178082191780821917831232876712328768",
+          "return_view": "NET_MODEL_FEE",
+          "beginning_market_value": "200",
+          "ending_market_value": "210",
+          "reporting_currency": "USD",
+          "calculation_id": "8f160c32-c5e9-412c-9898-0b0dcb0bb0d7",
+          "source_snapshot_id": "sha256:32e5637025653ad95e11c0d079fb7cf063995d9a3d8de72ec25cdf579473bb08",
+          "source_fingerprint": "sha256:b2585c12100b71954ee16b9dd6196b7f0ef4f9b3f29efe8807b1ad3fd2604c4c",
+          "restatement_version": "b93a147f-ff01-43c5-91fd-f5a19e747f87",
+          "restatement_sequence": 1,
+          "status": "READY",
+          "reason_codes": []
+        },
+        "source_evidence": {
+          "gross_evidence": {
+            "contract_version": "composite-member-source.v1",
+            "methodology": "TWR",
+            "engine_version": "lotus-performance-calculation-engine.v16",
+            "precision_mode": "DECIMAL_STRICT",
+            "input_fingerprint": "sha256:f289f710ef5a5b7c21919e48ec01d27c2bf1464f6b37d94c41cbe124a7245d18",
+            "calculation_hash": "sha256:b2585c12100b71954ee16b9dd6196b7f0ef4f9b3f29efe8807b1ad3fd2604c4c",
+            "calculation_request": {
+              "portfolio": {
+                "calculation_id": "8f160c32-c5e9-412c-9898-0b0dcb0bb0d7",
+                "portfolio_id": "B",
+                "performance_start_date": "2026-01-01",
+                "metric_basis": "GROSS",
+                "report_start_date": "2026-01-05",
+                "report_end_date": "2026-01-05",
+                "analyses": [
+                  {
+                    "period": "EXPLICIT",
+                    "frequencies": [
+                      "daily"
+                    ]
+                  }
+                ],
+                "valuation_points": [
+                  {
+                    "perf_date": "2026-01-02",
+                    "begin_mv": "200",
+                    "bod_cf": "0",
+                    "eod_cf": "0",
+                    "mgmt_fees": "0",
+                    "end_mv": "200"
+                  },
+                  {
+                    "perf_date": "2026-01-05",
+                    "begin_mv": "200",
+                    "bod_cf": "0",
+                    "eod_cf": "0",
+                    "mgmt_fees": "0",
+                    "end_mv": "210"
+                  }
+                ],
+                "currency": "USD",
+                "precision_mode": "DECIMAL_STRICT",
+                "rounding_precision": 6,
+                "calendar": {
+                  "type": "BUSINESS",
+                  "trading_calendar": "NYSE"
+                },
+                "annualization": {
+                  "enabled": false,
+                  "basis": "BUS/252",
+                  "periods_per_year": null
+                },
+                "output": {
+                  "include_timeseries": false,
+                  "include_cumulative": false,
+                  "top_n": 20
+                },
+                "flags": {
+                  "fail_fast": false
+                },
+                "fee_effect": {
+                  "enabled": false
+                },
+                "reset_policy": {
+                  "emit": false
+                },
+                "data_policy": null,
+                "source_quality_evidence": {
+                  "source_product": "PortfolioTimeseriesInput",
+                  "source_owner": "lotus-core",
+                  "input_mode": "stateful",
+                  "quality_state": "clean",
+                  "observation_count": 2,
+                  "valid_valuation_point_count": 2,
+                  "skipped_observation_count": 0,
+                  "unsupported_cashflow_count": 0,
+                  "source_conflict_count": 0,
+                  "latest_observation_date": "2026-01-05",
+                  "report_end_date": "2026-01-05",
+                  "warnings": [],
+                  "source_classification_counts": {
+                    "official": 2
+                  }
+                },
+                "currency_mode": null,
+                "report_ccy": null,
+                "fx": null,
+                "hedging": null
+              },
+              "benchmark": null
+            },
+            "membership_snapshot_id": "sha256:a1413724cab29c31843cfcf1e8d0b4bb4b291a16c6d2a4fe6cd3006bdfecbe4a",
+            "asset_evidence_fingerprint": "sha256:e11da818ede5f33e4f75f15a006f5a5f20df797dfe2827d423277a0c142a7775",
+            "period_return": "0.05000000000000004",
+            "source_assets": {
+              "contract_version": "portfolio-source-assets.v1",
+              "source_owner": "lotus-core",
+              "source_product": "PortfolioTimeseriesInput",
+              "portfolio_currency": "USD",
+              "observations": [
+                {
+                  "valuation_date": "2026-01-05",
+                  "beginning_market_value": "200",
+                  "ending_market_value": "210"
+                }
+              ]
+            },
+            "core_snapshots": [
+              {
+                "snapshot_id": "4d36301857fe7e074d899053420c397c992c8356a5eeb4e46c904370cbf3d307",
+                "source_identifier": "B",
+                "request_as_of_date": "2026-01-05",
+                "request_fingerprint": "a4c0780186463712e2113baff0322a7e5d748e23aaf64e268f7dac15120fd3c8",
+                "response_fingerprint": "53e055c0d0555dfebd2b39fdc54d8c056069539b305101ee84487b5e6f1e3aec",
+                "retrieved_at_utc": "2026-10-09T08:01:06.738099Z"
+              }
+            ]
+          },
+          "gross_receipt_digest": "sha256:72159131c933a6092fc043f2f7e36faac5014368c4eeeb24a02b7f6b775513ee",
+          "gross_return": "0.05000000000000004",
+          "model_fee_binding": {
+            "product_name": "CompositeScheduledModelFeeProfile",
+            "product_version": "v1",
+            "revision": "profile.1",
+            "digest": "sha256:6bee3737ac710875cb1fe363b0de9549e49c23398c1c75ce96fdccd93084ec7a"
+          },
+          "contract_version": "composite-member-source.v5",
+          "fee_entry": {
+            "entry_id": "day.B",
+            "member_id": "B",
+            "fee_base_amount": "200",
+            "schedule_rule": {
+              "algorithm": "MARGINAL_TIERED",
+              "bands": [
+                {
+                  "lower_bound": "0",
+                  "upper_bound": "100",
+                  "annual_model_wealth_rate": "0.01"
+                },
+                {
+                  "lower_bound": "100",
+                  "upper_bound": null,
+                  "annual_model_wealth_rate": "0.006"
+                }
+              ]
+            }
+          },
+          "derived_period_fee_fraction": "0.000021917808219178082191780821917808219178082191780821917808219178082191780821917808"
+        }
+      },
+      {
+        "portfolio_id": "C",
+        "state": "READY",
+        "reason_code": "MEMBER_MODEL_FEE_FACT_VERIFIED",
+        "retryable": false,
+        "inspection_attempts": 1,
+        "fact": {
+          "composite_id": "SYNTHETIC_EXTERNAL_MONTHLY_USD",
+          "portfolio_id": "C",
+          "period_start": "2026-01-05",
+          "period_end": "2026-01-05",
+          "return_value": "-0.020016109589041113890115068493150684931506849315068493150684931506849315068493150684770410958904109592",
+          "return_view": "NET_MODEL_FEE",
+          "beginning_market_value": "300",
+          "ending_market_value": "294",
+          "reporting_currency": "USD",
+          "calculation_id": "746f7a46-a5ea-4f91-978d-de8bb34662f3",
+          "source_snapshot_id": "sha256:95464fc43496e3e84612ceab65e59b3ea87ff0593e902bcee6a65a8747500bb7",
+          "source_fingerprint": "sha256:c83cf6f3044c0a312f50e2678323bd1d2321da2caa38c31d5ba0151cb95f2210",
+          "restatement_version": "b93a147f-ff01-43c5-91fd-f5a19e747f87",
+          "restatement_sequence": 1,
+          "status": "READY",
+          "reason_codes": []
+        },
+        "source_evidence": {
+          "gross_evidence": {
+            "contract_version": "composite-member-source.v1",
+            "methodology": "TWR",
+            "engine_version": "lotus-performance-calculation-engine.v16",
+            "precision_mode": "DECIMAL_STRICT",
+            "input_fingerprint": "sha256:881d96f1efe0fd0ba9c883bb0c3df8c5e9a553403e971d752b2e1ea9fca3019c",
+            "calculation_hash": "sha256:c83cf6f3044c0a312f50e2678323bd1d2321da2caa38c31d5ba0151cb95f2210",
+            "calculation_request": {
+              "portfolio": {
+                "calculation_id": "746f7a46-a5ea-4f91-978d-de8bb34662f3",
+                "portfolio_id": "C",
+                "performance_start_date": "2026-01-01",
+                "metric_basis": "GROSS",
+                "report_start_date": "2026-01-05",
+                "report_end_date": "2026-01-05",
+                "analyses": [
+                  {
+                    "period": "EXPLICIT",
+                    "frequencies": [
+                      "daily"
+                    ]
+                  }
+                ],
+                "valuation_points": [
+                  {
+                    "perf_date": "2026-01-02",
+                    "begin_mv": "300",
+                    "bod_cf": "0",
+                    "eod_cf": "0",
+                    "mgmt_fees": "0",
+                    "end_mv": "300"
+                  },
+                  {
+                    "perf_date": "2026-01-05",
+                    "begin_mv": "300",
+                    "bod_cf": "0",
+                    "eod_cf": "0",
+                    "mgmt_fees": "0",
+                    "end_mv": "294"
+                  }
+                ],
+                "currency": "USD",
+                "precision_mode": "DECIMAL_STRICT",
+                "rounding_precision": 6,
+                "calendar": {
+                  "type": "BUSINESS",
+                  "trading_calendar": "NYSE"
+                },
+                "annualization": {
+                  "enabled": false,
+                  "basis": "BUS/252",
+                  "periods_per_year": null
+                },
+                "output": {
+                  "include_timeseries": false,
+                  "include_cumulative": false,
+                  "top_n": 20
+                },
+                "flags": {
+                  "fail_fast": false
+                },
+                "fee_effect": {
+                  "enabled": false
+                },
+                "reset_policy": {
+                  "emit": false
+                },
+                "data_policy": null,
+                "source_quality_evidence": {
+                  "source_product": "PortfolioTimeseriesInput",
+                  "source_owner": "lotus-core",
+                  "input_mode": "stateful",
+                  "quality_state": "clean",
+                  "observation_count": 2,
+                  "valid_valuation_point_count": 2,
+                  "skipped_observation_count": 0,
+                  "unsupported_cashflow_count": 0,
+                  "source_conflict_count": 0,
+                  "latest_observation_date": "2026-01-05",
+                  "report_end_date": "2026-01-05",
+                  "warnings": [],
+                  "source_classification_counts": {
+                    "official": 2
+                  }
+                },
+                "currency_mode": null,
+                "report_ccy": null,
+                "fx": null,
+                "hedging": null
+              },
+              "benchmark": null
+            },
+            "membership_snapshot_id": "sha256:a1413724cab29c31843cfcf1e8d0b4bb4b291a16c6d2a4fe6cd3006bdfecbe4a",
+            "asset_evidence_fingerprint": "sha256:ce8e451fcdcb70351457dd409d13b9f97d9a488059edf66e6d66f31f6c2d48d7",
+            "period_return": "-0.020000000000000018",
+            "source_assets": {
+              "contract_version": "portfolio-source-assets.v1",
+              "source_owner": "lotus-core",
+              "source_product": "PortfolioTimeseriesInput",
+              "portfolio_currency": "USD",
+              "observations": [
+                {
+                  "valuation_date": "2026-01-05",
+                  "beginning_market_value": "300",
+                  "ending_market_value": "294"
+                }
+              ]
+            },
+            "core_snapshots": [
+              {
+                "snapshot_id": "b0052bb84ea72c2d1815f0d5fe058786877c14ed886fb896129dfe8166dcd80f",
+                "source_identifier": "C",
+                "request_as_of_date": "2026-01-05",
+                "request_fingerprint": "daee2fde58c8fb14a3b08d53199df2d1e8e22803cf3440b3f0902b0aee49307b",
+                "response_fingerprint": "2fc6ac62be419d0b412c591b417325d5a4c854081a2fa7a2943e13ffe7b4030a",
+                "retrieved_at_utc": "2026-10-09T08:01:06.943070Z"
+              }
+            ]
+          },
+          "gross_receipt_digest": "sha256:ca07b6fd8a5779003f6490305f875cd5007f2575e1e025a7aef75742ab2b9fc8",
+          "gross_return": "-0.020000000000000018",
+          "model_fee_binding": {
+            "product_name": "CompositeScheduledModelFeeProfile",
+            "product_version": "v1",
+            "revision": "profile.1",
+            "digest": "sha256:6bee3737ac710875cb1fe363b0de9549e49c23398c1c75ce96fdccd93084ec7a"
+          },
+          "contract_version": "composite-member-source.v5",
+          "fee_entry": {
+            "entry_id": "day.C",
+            "member_id": "C",
+            "fee_base_amount": "300",
+            "schedule_rule": {
+              "algorithm": "WHOLE_AUM_BAND",
+              "bands": [
+                {
+                  "lower_bound": "0",
+                  "upper_bound": "300",
+                  "annual_model_wealth_rate": "0.01"
+                },
+                {
+                  "lower_bound": "300",
+                  "upper_bound": null,
+                  "annual_model_wealth_rate": "0.006"
+                }
+              ]
+            }
+          },
+          "derived_period_fee_fraction": "0.000016438356164383561643835616438356164383561643835616438356164383561643835616438356"
+        }
+      }
+    ]
+  },
+  "twr_response_projection": {
+    "periods": [
+      {
+        "period_start": "2026-01-05",
+        "period_end": "2026-01-05",
+        "status": "READY",
+        "return_value": "0.023311579909",
+        "cumulative_return": "0.023311579909",
+        "beginning_market_value": "600.000000",
+        "ending_market_value": "614.000000",
+        "member_count": 3,
+        "excluded_member_count": 0,
+        "dispersion_equal_weight": "0.060267329221",
+        "return_view": "NET_MODEL_FEE",
+        "reporting_currency": "USD",
+        "source_fingerprints": [
+          "sha256:8a7d3ff2577b7a3a3c96cba9b0cc1ddcce56311d16b598684744619fe280544e",
+          "sha256:b2585c12100b71954ee16b9dd6196b7f0ef4f9b3f29efe8807b1ad3fd2604c4c",
+          "sha256:c83cf6f3044c0a312f50e2678323bd1d2321da2caa38c31d5ba0151cb95f2210"
+        ],
+        "restatement_versions": [
+          "b93a147f-ff01-43c5-91fd-f5a19e747f87"
+        ],
+        "restatement_sequence": 1,
+        "reason_codes": [],
+        "member_contributions": [
+          {
+            "portfolio_id": "A",
+            "period_start": "2026-01-05",
+            "period_end": "2026-01-05",
+            "return_value": "0.099963835616",
+            "beginning_market_value": "100.000000",
+            "beginning_asset_weight": "0.166666666667",
+            "contribution": "0.016660639269",
+            "source_snapshot_id": "sha256:bfa374600e3229adef6306da44fdb94e5e81a5001145f5e2129399eb6f8e26d9",
+            "source_fingerprint": "sha256:8a7d3ff2577b7a3a3c96cba9b0cc1ddcce56311d16b598684744619fe280544e",
+            "restatement_version": "b93a147f-ff01-43c5-91fd-f5a19e747f87",
+            "restatement_sequence": 1,
+            "calculation_id": "9e8c871a-d467-432a-9b7e-00c2fec33461"
+          },
+          {
+            "portfolio_id": "B",
+            "period_start": "2026-01-05",
+            "period_end": "2026-01-05",
+            "return_value": "0.049976986301",
+            "beginning_market_value": "200.000000",
+            "beginning_asset_weight": "0.333333333333",
+            "contribution": "0.016658995434",
+            "source_snapshot_id": "sha256:32e5637025653ad95e11c0d079fb7cf063995d9a3d8de72ec25cdf579473bb08",
+            "source_fingerprint": "sha256:b2585c12100b71954ee16b9dd6196b7f0ef4f9b3f29efe8807b1ad3fd2604c4c",
+            "restatement_version": "b93a147f-ff01-43c5-91fd-f5a19e747f87",
+            "restatement_sequence": 1,
+            "calculation_id": "8f160c32-c5e9-412c-9898-0b0dcb0bb0d7"
+          },
+          {
+            "portfolio_id": "C",
+            "period_start": "2026-01-05",
+            "period_end": "2026-01-05",
+            "return_value": "-0.020016109589",
+            "beginning_market_value": "300.000000",
+            "beginning_asset_weight": "0.500000000000",
+            "contribution": "-0.010008054795",
+            "source_snapshot_id": "sha256:95464fc43496e3e84612ceab65e59b3ea87ff0593e902bcee6a65a8747500bb7",
+            "source_fingerprint": "sha256:c83cf6f3044c0a312f50e2678323bd1d2321da2caa38c31d5ba0151cb95f2210",
+            "restatement_version": "b93a147f-ff01-43c5-91fd-f5a19e747f87",
+            "restatement_sequence": 1,
+            "calculation_id": "746f7a46-a5ea-4f91-978d-de8bb34662f3"
+          }
+        ]
+      }
+    ]
+  },
+  "source_manifest_sha256": "7fda490cff296800011fd36ac8a6e77631a7f8623142a92cc3860afa56ba5c1a",
+  "fresh_process_latest_profile_and_child_execution_lookups": "REFUSED_IF_ATTEMPTED"
+}

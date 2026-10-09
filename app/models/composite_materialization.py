@@ -16,6 +16,7 @@ from app.models.composite_currency_normalization import (
     CompositeFXVerificationReceipt,
 )
 from app.models.composite_model_fees import CompositePeriodicMemberFee
+from app.models.composite_scheduled_model_fees import CompositeScheduledMemberFee
 from app.models.composites import CompositeMemberReturnFact, CompositeReturnView, ReportingCurrency
 from app.models.portfolio_asset_evidence import PortfolioSourceAssetEvidence, PortfolioSourceAssetObservation
 from app.models.twr_requests import TWRResolvedExecutionRequest
@@ -187,12 +188,8 @@ class CompositeNormalizedMemberSourceEvidence(BaseModel):
     fx_snapshots: list[CompositeFXSnapshot]
 
 
-class CompositeModelFeeMemberEvidence(BaseModel):
+class CompositeModelFeeGrossEvidence(BaseModel):
     model_config = ConfigDict(extra="forbid", allow_inf_nan=False)
-    contract_version: Literal["composite-member-source.v4"] = Field(
-        default="composite-member-source.v4",
-        description="Retained original gross evidence and governed model-fee transformation revision.",
-    )
     gross_evidence: CompositeMemberSourceEvidence | CompositeNormalizedMemberSourceEvidence = Field(
         description="Unchanged native or FX-normalized gross receipt, including original source-money custody."
     )
@@ -203,11 +200,35 @@ class CompositeModelFeeMemberEvidence(BaseModel):
         description="Verified retained gross member return as a decimal ratio, preserving its engine precision."
     )
     model_fee_binding: EvidenceBinding = Field(
-        description="Exact independently admitted periodic fee-profile product/version/revision/digest."
+        description="Exact independently admitted fee-profile product/version/revision/digest."
+    )
+
+
+class CompositeModelFeeMemberEvidence(CompositeModelFeeGrossEvidence):
+    contract_version: Literal["composite-member-source.v4"] = Field(
+        default="composite-member-source.v4",
+        description="Retained original gross evidence and governed periodic model-fee transformation revision.",
     )
     fee_entry: CompositePeriodicMemberFee = Field(
         description="Original approved member rate entry for the exact complete period."
     )
+
+
+class CompositeScheduledModelFeeMemberEvidence(CompositeModelFeeGrossEvidence):
+    contract_version: Literal["composite-member-source.v5"] = "composite-member-source.v5"
+    fee_entry: CompositeScheduledMemberFee
+    derived_period_fee_fraction: str = Field(
+        strict=True,
+        max_length=512,
+        pattern=r"^(?:0|[1-9]\d*)(?:\.\d+)?$",
+        description="Server-derived bounded Decimal wealth fraction; rederived from the original schedule on replay.",
+    )
+
+    @model_validator(mode="after")
+    def valid_derived_fraction(self):
+        if not Decimal(0) <= Decimal(self.derived_period_fee_fraction) < Decimal(1):
+            raise ValueError("Derived model wealth fraction must be within zero inclusive to one exclusive")
+        return self
 
 
 class CompositeProviderMemberEvidence(BaseModel):
@@ -242,6 +263,7 @@ class CompositeMemberMaterializationOutcome(BaseModel):
         | CompositeProviderMemberEvidence
         | CompositeNormalizedMemberSourceEvidence
         | CompositeModelFeeMemberEvidence
+        | CompositeScheduledModelFeeMemberEvidence
         | None
     ) = Field(
         default=None, description="Pinned money, methodology and source provenance; no fabricated missing evidence."

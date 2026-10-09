@@ -1,7 +1,7 @@
 """Retained gross receipt, untouched assets, independent rates and release refusals."""
 
 from copy import deepcopy
-from decimal import Decimal
+from decimal import ROUND_DOWN, ROUND_UP, Decimal, Inexact, Rounded, localcontext
 from fractions import Fraction
 
 import pytest
@@ -21,6 +21,7 @@ from app.services.reproducibility_service import generate_value_fingerprint
 from core.errors import APIConflictError
 from tests.composite_materialization_helpers import MemberSource, command_for
 from tests.composite_model_fee_helpers import SyntheticModelFeeApproval, model_fee_source_inputs
+from tests.composite_scheduled_model_fee_helpers import scheduled_source_inputs
 
 
 @pytest.fixture
@@ -64,6 +65,82 @@ def gross_case(monkeypatch):
 
 def require(command, outcome, admitted):
     return require_member_source_evidence(command, outcome, admitted_model_fee_source=admitted)
+
+
+@pytest.fixture
+def scheduled_gross_case(gross_case, monkeypatch):
+    original, gross, _ = gross_case
+    _, wire, command, source = scheduled_source_inputs()
+    command = command.model_copy(update={"member_calculations": original.member_calculations})
+    gross = gross.model_copy(
+        update={"fact": gross.fact.model_copy(update={"restatement_version": str(command.materialization_id)})}
+    )
+    monkeypatch.setattr(approvals, "method_approval_verifier", lambda: SyntheticModelFeeApproval(wire, source))
+    admitted = admit_model_fee_source(source, command, tenant_id=source.definition.tenant_id, retained_wire=wire)
+    return command, gross, admitted
+
+
+def test_scheduled_v5_retains_original_gross_assets_and_exact_derived_ratio(scheduled_gross_case):
+    command, gross, admitted = scheduled_gross_case
+    wrapped = apply_model_fee_to_outcome(command, gross, admitted)
+    require(command, wrapped, admitted)
+    expected = Fraction(11, 10) * (1 - Fraction(3, 91250)) - 1
+    assert abs(Fraction(wrapped.fact.return_value) - expected) < Fraction("1e-75")
+    assert wrapped.source_evidence.contract_version == "composite-member-source.v5"
+    assert wrapped.source_evidence.gross_evidence == gross.source_evidence
+    assert wrapped.source_evidence.fee_entry.fee_base_amount == "100"
+    assert wrapped.fact.beginning_market_value == gross.fact.beginning_market_value == Decimal(100)
+    assert wrapped.fact.ending_market_value == gross.fact.ending_market_value == Decimal(110)
+    restored = CompositeMemberMaterializationOutcome.model_validate(wrapped.model_dump(mode="json"))
+    require(command, restored, admitted)
+    assert restored == wrapped
+
+
+@pytest.mark.parametrize("rounding", [ROUND_DOWN, ROUND_UP])
+@pytest.mark.parametrize("precision", [9, 150])
+def test_scheduled_actual_member_boundary_numbers_and_pins_ignore_ambient_context(
+    scheduled_gross_case, rounding, precision
+):
+    command, gross, admitted = scheduled_gross_case
+    reference = apply_model_fee_to_outcome(command, gross, admitted)
+    with localcontext() as context:
+        context.prec, context.rounding = precision, rounding
+        context.Emin, context.Emax = -9, 9
+        context.traps[Inexact] = context.traps[Rounded] = True
+        flags = context.flags.copy()
+        result = apply_model_fee_to_outcome(command, gross, admitted)
+        require(command, result, admitted)
+        assert result.model_dump(mode="json") == reference.model_dump(mode="json")
+        assert context.prec == precision and context.rounding == rounding
+        assert context.Emin == -9 and context.Emax == 9
+        assert context.flags == flags and context.traps[Inexact] and context.traps[Rounded]
+
+
+@pytest.mark.parametrize("fault", ["rate", "base", "derived_fraction", "version", "fact_base"])
+def test_scheduled_rehashed_entry_fraction_namespace_or_original_base_tamper_refuses(scheduled_gross_case, fault):
+    command, gross, admitted = scheduled_gross_case
+    wrapped = deepcopy(apply_model_fee_to_outcome(command, gross, admitted))
+    evidence = wrapped.source_evidence
+    if fault == "rate":
+        evidence.fee_entry.schedule_rule.annual_model_wealth_rate = "0.02"
+    elif fault == "base":
+        evidence.fee_entry.fee_base_amount = "101"
+    elif fault == "derived_fraction":
+        evidence.derived_period_fee_fraction = "0.0001"
+    elif fault == "version":
+        evidence.contract_version = "composite-member-source.v4"
+    else:
+        wrapped.fact.beginning_market_value = Decimal(101)
+    wrapped.fact.source_snapshot_id = generate_value_fingerprint(evidence, evidence.contract_version)[0]
+    with pytest.raises(APIConflictError):
+        require(command, wrapped, admitted)
+
+
+def test_scheduled_profile_base_cannot_replace_genuine_original_asset_observation(scheduled_gross_case):
+    command, gross, admitted = scheduled_gross_case
+    admitted.period.member_rates[0].fee_base_amount = "101"
+    result = apply_model_fee_or_refuse(command, gross, admitted)
+    assert result.state == "BLOCKED" and result.fact is None and result.source_evidence is None
 
 
 def test_model_fact_has_distinct_source_and_preserves_original_gross_assets(gross_case):
