@@ -129,7 +129,8 @@ The calculation endpoint intentionally reads already-materialized member-return 
 fan out into hidden request-time member portfolio TWR calculations, infer membership policy, convert
 return views, or perform cross-currency aggregation at request time.
 
-composite contribution, composite attribution, composite MWR, carve-outs, sleeves, model portfolios,
+Contribution rankings, classified rollups, annualized contribution transforms, composite attribution,
+composite MWR, carve-outs, sleeves, model portfolios,
 wrap programs, pooled fund composites, private-market composites, portability records,
 tax-aware composites, leveraged composites, long/short special composite structures, and
 multi-currency composite aggregation beyond the current single reporting-currency guard are not
@@ -206,6 +207,22 @@ telemetry at `contracts/trust-telemetry/money-weighted-return-analytics.telemetr
 `contracts/trust-telemetry/benchmark-exposure-context.telemetry.v1.json`. Every active product in
 `contracts/domain-data-products/lotus-performance-products.v1.json` must have a matching
 repo-owned trust telemetry snapshot or a machine-readable exception policy.
+
+## Pinned Linked Member Contribution
+
+For pinned composite contribution, `POST /performance/composites/analytics` selects `LINKED_MEMBER_CONTRIBUTION` with
+`method=CARINO:v1`. An explicit chronological COMPLETE vector supplies original Decimal
+member economics and historical membership/source pins. The dataset carries linked member
+and period contributions, decimal-return units and separate precision/display differences;
+no residual is allocated. Compatible gross/actual-net and already admitted model-net facts
+follow existing authority rules. Model-net windows require the same complete immutable
+profile binding; unequal member/period rates within that profile are supported, while a changed
+revision/digest refuses.
+
+Results remain `CALCULATED_ANALYSIS` / `RETAINED_SOURCE_ATTESTATION_NOT_LIVE_QUALIFIED`.
+Rankings, classified rollups, annualized transforms, attribution/MWR and official selection
+remain separate. See the [linked caller guide](https://github.com/sgajbi/lotus-performance/blob/main/docs/guides/composite_linked_contribution.md)
+and [methodology](https://github.com/sgajbi/lotus-performance/blob/main/docs/methodologies/metrics/metric-composite-linked-member-contribution.md).
 
 ## Annual Composite Member Dispersion
 

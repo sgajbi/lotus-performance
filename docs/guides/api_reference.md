@@ -610,13 +610,25 @@ Return semantics for the workspace surface are now explicit rather than inferred
 - do not use this endpoint for ad hoc member-return uploads or hidden request-time portfolio TWR
   fan-out
 - unsupported boundaries:
-  - composite contribution, attribution, and MWR
+  - linked composite contribution (use the analytics operation below), attribution, and MWR
   - sleeves, carve-outs, model portfolios, wrap programs, pooled funds, private-market composites,
     portability records, tax-aware composites, leveraged composites, and long/short special
     structures
   - multi-currency composite aggregation beyond the current single reporting-currency guard
 - guide: `docs/guides/composite_performance.md`
 - certification: `docs/technical/composite-twr-endpoint-certification.md`
+
+### `POST /performance/composites/analytics`
+
+- purpose: calculate a named analysis from explicit retained Composite evidence
+- annual metric: `ANNUAL_MEMBER_DISPERSION`; its existing request/default and response remain unchanged
+- linked metric: `LINKED_MEMBER_CONTRIBUTION`, `method=CARINO:v1`, over 1–120 chronological COMPLETE receipts
+- linked dataset: original Decimal member economics, member/period contributions, source pins,
+  selection manifest, decimal-return units and separate precision/display differences
+- qualification: `CALCULATED_ANALYSIS` / `RETAINED_SOURCE_ATTESTATION_NOT_LIVE_QUALIFIED`;
+  official selection and live source qualification remain separate
+- guide: [Pinned linked contribution](composite_linked_contribution.md)
+- methodology: [Composite linked member contribution](../methodologies/metrics/metric-composite-linked-member-contribution.md)
 
 ### `POST /performance/composites/inspect`
 
