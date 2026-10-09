@@ -98,6 +98,17 @@ def test_a_skipped_contract_is_refused(tmp_path: Path) -> None:
     assert "skipped" in result.stdout
 
 
+def test_missing_junit_report_is_refused_even_after_zero_process_exit(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr(subprocess, "run", lambda *args, **kwargs: subprocess.CompletedProcess(args, 0))
+    totals, failures = postgres_concurrency_contracts_gate._run_target(
+        "missing-target", scratch=tmp_path, environment={}
+    )
+    assert totals == {} and len(failures) == 1
+    assert "produced no JUnit report" in failures[0]
+
+
 def test_a_nonzero_pytest_exit_is_refused_even_with_a_green_report(tmp_path: Path) -> None:
     """A green report describes what finished, not that the run finished.
 

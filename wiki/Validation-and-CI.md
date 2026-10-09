@@ -209,14 +209,22 @@ evidence, false-positive policy, remediation guidance, and lane placement are ag
 ## Performance characterization evidence
 
 From the `lotus-performance` repository root, `make postgres-concurrency-contracts-gate`
-runs inside required `PR Merge Gate / Tests (integration)`. Its seven default PostgreSQL
+runs in an isolated PostgreSQL job concurrently with the ordinary test matrix. Its nine default
 targets cover concurrency/locking, immutable facts, materialization, monthly eligibility,
-periodic model fees, scheduled model fees and pooled monetary custody. Every target must collect and pass without
+periodic model fees, scheduled and component model fees (including component API proof),
+and pooled monetary custody. Every target must collect and pass without
 skips; characterization discovery alone does not satisfy this required custody proof.
 For a local database bring-up, run `make postgres-concurrency-contracts-local` from that
 same root in Bash or PowerShell with Make installed, or supply
 `LOTUS_POSTGRES_PLAN_DATABASE_URL` and run
 `python scripts/postgres_concurrency_contracts_gate.py` from the repository root.
+
+The existing required `PR Merge Gate / Coverage Gate (Combined)` context always evaluates
+both dependency results and refuses missing, skipped, cancelled, timed-out or failed proof.
+It accepts exactly four nonempty coverage shards with matching revision/run-attempt manifests
+and hashes before the unchanged 99% combined coverage policy. Container publication depends
+on aggregate success. Main repeats ordinary three-suite coverage but does not repeat the PG
+supplement. Rerun the complete PR workflow rather than mixing artifact attempts.
 
 For benchmark characterization evidence, run:
 
@@ -259,6 +267,22 @@ child `docker.io/library/python@sha256:e529028263dbe6910a2d96f7d2b8f5266385e917f
 This selects one architecture; multi-architecture builds require separately reviewed manifests.
 The existing Debian package refresh and dependency resolution remain dependent on repositories
 at build time, so the base pin alone does not make final images reproducible.
+
+The runtime Dockerfile acquires that same child through `public.ecr.aws/docker/library/python`
+under Platform [#945](https://github.com/sgajbi/lotus-platform/issues/945). Its immutable digest and
+supplier content are unchanged and bound by byte-identical manifests. Hosted build, SBOM and
+vulnerability acceptance remain required; the distribution mapping has no mutable fallback
+and does not itself qualify a release.
+
+PR/Main image consumers use separate no-service admission prerequisites pinned to qualified
+Platform revision `386b40e13e76e60e761c6c4068fbe7a11256ca29`. PG16 services consume admitted
+image outputs directly; fixed Dockerfile/Compose bindings are checked before recovery/build,
+and the scanner command consumes its admitted Trivy output. All use linux/amd64, with bounded
+429 recovery and retained failed public responses. Failed admission cannot start a consumer.
+PG16 and Trivy retain baseline digest content. PG17 is a newly pinned admitted selection
+replacing the mutable tag; its historical binary digest is unknown, so final hosted recovery
+must qualify the new selection. Source supplier identity remains separate from distribution
+identity in provenance. No coverage, scan acceptance or financial assertion is relaxed.
 
 The bounded [#624 application qualification](https://github.com/sgajbi/lotus-performance/issues/624#issuecomment-6041708068)
 verified Python 3.11.17, bundled Expat 2.8.5, API/worker imports and isolated hardening for committed

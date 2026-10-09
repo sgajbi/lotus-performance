@@ -6,7 +6,7 @@ COVERAGE_FAIL_UNDER ?= 99
 COVERAGE_INPUTS ?= .coverage.unit .coverage.integration .coverage.e2e
 CONTAINER_IMAGE ?= lotus-performance:ci
 CONTAINER_SECURITY_OUTPUT_DIR ?= output/container-security
-TRIVY_IMAGE ?= aquasec/trivy:0.71.2
+TRIVY_IMAGE ?= ghcr.io/aquasecurity/trivy@sha256:f5d0e600ecda7449e2a9b272805aef698631d3bb3f3a739a750de2c6819acdc9
 TRIVY_SEVERITY ?= HIGH,CRITICAL
 CONTAINER_SERVICE_VERSION ?= 0.1.0
 # Quote a value for safe interpolation into a recipe. The value becomes data, never
@@ -221,7 +221,17 @@ quality-observability-readiness-gate:
 	python scripts/python_observability_readiness_inventory.py --limit 30 --max-missing 0
 
 postgres-concurrency-contracts-gate:
-	python scripts/postgres_concurrency_contracts_gate.py --coverage-file .coverage.integration
+	python scripts/postgres_concurrency_contracts_gate.py --coverage-file .coverage.postgres
+
+.PHONY: coverage-shard-evidence coverage-evidence-gate ci-proof-results-gate
+coverage-shard-evidence:
+	python scripts/ci_coverage_evidence.py stamp --shard $(SUITE)
+
+coverage-evidence-gate:
+	python scripts/ci_coverage_evidence.py verify --directory $(COVERAGE_INPUTS)
+
+ci-proof-results-gate:
+	python scripts/ci_coverage_evidence.py results
 
 # The developer-facing form: provisions the database first, so the gate can be
 # reproduced before pushing rather than discovered in a required lane. Mirrors
@@ -306,7 +316,7 @@ docker-down:
 
 
 docker-build:
-	docker build -f Dockerfile --target $(CONTAINER_BUILD_TARGET) -t $(CONTAINER_IMAGE) \
+	docker build --platform linux/amd64 -f Dockerfile --target $(CONTAINER_BUILD_TARGET) -t $(CONTAINER_IMAGE) \
 		--build-arg APP_VERSION=$(call shellquote,$(CONTAINER_SERVICE_VERSION)) \
 		--build-arg APP_GIT_COMMIT_SHA=$(call shellquote,$(CONTAINER_GIT_SHA)) \
 		--build-arg APP_GIT_BRANCH=$(call shellquote,$(CONTAINER_GIT_BRANCH)) \
@@ -320,11 +330,11 @@ container-supply-chain-evidence: container-sbom container-vulnerability-report
 
 container-sbom: docker-build
 	python -c "from pathlib import Path; Path('$(CONTAINER_SECURITY_OUTPUT_DIR)').mkdir(parents=True, exist_ok=True)"
-	docker run --rm -v /var/run/docker.sock:/var/run/docker.sock -v "$(CURDIR)/$(CONTAINER_SECURITY_OUTPUT_DIR):/output" $(TRIVY_IMAGE) image --scanners vuln --format cyclonedx --output /output/lotus-performance-image-sbom.cdx.json $(CONTAINER_IMAGE)
+	docker run --rm --platform linux/amd64 -v /var/run/docker.sock:/var/run/docker.sock -v "$(CURDIR)/$(CONTAINER_SECURITY_OUTPUT_DIR):/output" $(call shellquote,$(TRIVY_IMAGE)) image --scanners vuln --format cyclonedx --output /output/lotus-performance-image-sbom.cdx.json $(CONTAINER_IMAGE)
 
 container-vulnerability-report: docker-build
 	python -c "from pathlib import Path; Path('$(CONTAINER_SECURITY_OUTPUT_DIR)').mkdir(parents=True, exist_ok=True)"
-	docker run --rm -v /var/run/docker.sock:/var/run/docker.sock -v "$(CURDIR)/$(CONTAINER_SECURITY_OUTPUT_DIR):/output" $(TRIVY_IMAGE) image --scanners vuln --severity $(TRIVY_SEVERITY) --format json --output /output/lotus-performance-image-vulnerabilities.json --exit-code 0 $(CONTAINER_IMAGE)
+	docker run --rm --platform linux/amd64 -v /var/run/docker.sock:/var/run/docker.sock -v "$(CURDIR)/$(CONTAINER_SECURITY_OUTPUT_DIR):/output" $(call shellquote,$(TRIVY_IMAGE)) image --scanners vuln --severity $(TRIVY_SEVERITY) --format json --output /output/lotus-performance-image-vulnerabilities.json --exit-code 0 $(CONTAINER_IMAGE)
 
 # One scan decides everything. The evidence artifact, the acceptance validation and the
 # blocking verdict previously ran three separate `docker run --rm` invocations with no

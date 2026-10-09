@@ -26,9 +26,11 @@ def test_dockerfile_uses_minimized_non_root_runtime_image() -> None:
     dockerfile = (ROOT / "Dockerfile").read_text(encoding="utf-8")
 
     assert dockerfile.splitlines()[0] == (
-        "FROM docker.io/library/python@sha256:e529028263dbe6910a2d96f7d2b8f5266385e917fd45d286ef166977c094a51e AS runtime"
+        "FROM public.ecr.aws/docker/library/python@sha256:e529028263dbe6910a2d96f7d2b8f5266385e917fd45d286ef166977c094a51e AS runtime"
     )
     assert "apt-get update" in dockerfile
+    assert 'org.opencontainers.image.base.name="docker.io/library/python"' in dockerfile
+    assert 'lotus.image.base.distribution="public.ecr.aws/docker/library/python@sha256:' in dockerfile
     assert "apt-get upgrade --yes" in dockerfile
     assert "rm -rf /var/lib/apt/lists/*" in dockerfile
     assert "COPY requirements.txt requirements-image.txt ./" in dockerfile
