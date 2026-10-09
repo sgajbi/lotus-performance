@@ -17,6 +17,7 @@ repo, links to deeper evidence, and separates supported product claims from road
 | API and contracts | [API Surface](API-Surface), [docs/guides/api_reference.md](https://github.com/sgajbi/lotus-performance/blob/main/docs/guides/api_reference.md) |
 | Operations and support | [Operations Runbook](Operations-Runbook), [Troubleshooting](Troubleshooting) |
 | Demo and sales boundaries | [Supported Features](Supported-Features), [docs/guides/demo_readiness.md](https://github.com/sgajbi/lotus-performance/blob/main/docs/guides/demo_readiness.md) |
+| Configure bounded synthetic Composite receipt verification | [Composite Receipt Verification](Composite-Receipt-Verification) |
 
 ## Repo role
 

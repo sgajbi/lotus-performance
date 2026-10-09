@@ -5,6 +5,23 @@ independently from external client cash-flow timing. `lotus-performance` owns th
 methodology, endpoint contract, supportability posture, and certification evidence for portfolio
 TWR.
 
+## Current Scope and Reader Tasks
+
+| Reader task | Start here |
+| --- | --- |
+| Submit a calculation using the supported input shape | [TWR caller guide and executable examples](https://github.com/sgajbi/lotus-performance/blob/main/docs/guides/twr.md) |
+| Interpret daily returns, cash flows and benchmark evidence | [Product Contract](#product-contract) and [Evidence Flow](#evidence-flow) |
+| Check source ownership and unavailable states | [Integration Boundaries](#integration-boundaries) and [Current Limitations](#current-limitations) |
+| Diagnose execution, lineage or inspection | [Operational Posture](#operational-posture) and [Operations Runbook](Operations-Runbook) |
+| Verify calculation and response evidence | [Endpoint certification](https://github.com/sgajbi/lotus-performance/blob/main/docs/technical/twr-endpoint-certification.md) and [public documentation contracts](https://github.com/sgajbi/lotus-performance/blob/main/tests/unit/docs/test_public_docs_contract.py) |
+
+This page covers portfolio TWR. Composite calculations and retained candidates have their own
+[Composite Performance](Composite-Performance) contracts; a calculated result does not establish
+official selection or institutional approval. Source supportability and requested precision must
+be checked in the actual response. Exact admitted money and derived `FLOAT64` returns have
+different precision boundaries, explained below. Stateful evidence depends on the configured
+upstream sources; a controlled example does not qualify a deployment or its financial resolvers.
+
 ## Implemented Capability
 
 Daily valuation amounts retain Decimal before cash-flow/fee cancellation in both return modes.

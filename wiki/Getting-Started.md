@@ -1,8 +1,37 @@
 # Getting Started
 
+Use this page to prepare a development environment, start `lotus-performance`, and choose the
+appropriate validation path. Local startup and a passing check establish only the behavior they
+exercise. Stateful calculations require the configured source services; controlled fixtures do
+not establish live-source qualification, official Composite selection or production readiness.
+
+## Current Scope and Reader Tasks
+
+| Reader task | Start here |
+| --- | --- |
+| Prepare a Python environment and command shell | [Prerequisites](#prerequisites), then [Install](#install) |
+| Start the API and inspect health | [Run locally](#run-locally) |
+| Check a change before review | [Quick validation loop](#quick-validation-loop), then [Validation and CI](Validation-and-CI) |
+| Calculate and interpret a portfolio return | [Time-Weighted Return](Time-Weighted-Return) and its source-backed caller examples |
+| Investigate a deployed service or unavailable source | [Operations Runbook](Operations-Runbook) |
+| Understand retained Composite analysis and approval limits | [Composite Performance](Composite-Performance) |
+
+## Repository Working Directory
+
+Run the commands below from the `lotus-performance` repository root. Set `LOTUS_WORKSPACE_ROOT`
+to the directory holding your Lotus checkouts, then select the repository in your shell:
+
+```powershell
+Set-Location "$env:LOTUS_WORKSPACE_ROOT/lotus-performance"
+```
+
+```bash
+cd "$LOTUS_WORKSPACE_ROOT/lotus-performance"
+```
+
 ## Prerequisites
 
-- **GNU Make** — every command below is a make target
+- **GNU Make** — required for the repository's install, run and validation targets
 - Python environment compatible with the repo toolchain
 - local access to any required upstream Lotus services when exercising stateful flows
 - optional Docker if you want topology-parity or threshold-overlay runs
