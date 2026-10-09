@@ -8,9 +8,11 @@ from uuid import uuid4
 
 import pytest
 from fastapi.testclient import TestClient
+from prometheus_client import REGISTRY
 from sqlalchemy import event, text
 
 from app.core.config import get_settings
+from app.models.composite_result_candidates import CompositeResultCandidateErrorResponse
 from app.observability import tenant_id_var
 from app.services.async_result_store import get_async_result_store
 from app.services.composite_metadata_store import get_composite_metadata_store
@@ -24,6 +26,115 @@ from tests.unit.services.test_composite_annual_dispersion_service import month_r
 
 PATH = "/performance/composites/result-candidates"
 BUILD = "c100c885752c86b8d950d7970c99a8d223e6376a"
+
+
+@pytest.mark.parametrize("method", ["GET", "POST"])
+@pytest.mark.parametrize("origin,expected", [("http://localhost:3000", 200), ("https://untrusted.test", 400)])
+def test_candidate_browser_preflight_reaches_cors_without_principal(monkeypatch, tmp_path, method, origin, expected):
+    url = f"sqlite:///{tmp_path / 'preflight.db'}"
+    monkeypatch.setattr(get_settings(), "LINEAGE_METADATA_DATABASE_URL", url)
+    assert apply_durable_schema(database_url=url).status == "passed"
+    with TestClient(app) as client:
+        response = client.options(
+            PATH,
+            headers={
+                "Origin": origin,
+                "Access-Control-Request-Method": method,
+                "Access-Control-Request-Headers": "Authorization, Content-Type",
+            },
+        )
+    assert response.status_code == expected, response.text
+    if expected == 200:
+        assert response.headers["access-control-allow-origin"] == origin
+        assert "authorization" in response.headers["access-control-allow-headers"].lower()
+    else:
+        assert "access-control-allow-origin" not in response.headers
+    assert response.headers["X-Content-Type-Options"] == "nosniff"
+
+
+@pytest.mark.parametrize("denial,expected", [("missing", 401), ("wrong_audience", 401), ("capability", 403)])
+def test_candidate_denials_keep_security_context_access_log_and_metrics(
+    monkeypatch, tmp_path, caplog, denial, expected
+):
+    url = f"sqlite:///{tmp_path / 'denial-envelope.db'}"
+    monkeypatch.setattr(get_settings(), "LINEAGE_METADATA_DATABASE_URL", url)
+    assert apply_durable_schema(database_url=url).status == "passed"
+    authority, mint = install_principal_deployment(monkeypatch, app, tenant="tenant-a", portfolios=["member-a"])
+    headers = {"X-Correlation-Id": "candidate-denial-correlation", "X-Tenant-Id": "forged-tenant"}
+    if denial != "missing":
+        headers["Authorization"] = "Bearer " + (mint(aud="wrong-audience") if denial == "wrong_audience" else mint())
+    if denial == "capability":
+        authority.capabilities = frozenset()
+
+    def request_count():
+        return sum(
+            sample.value
+            for metric in REGISTRY.collect()
+            for sample in metric.samples
+            if sample.name == "http_requests_total"
+        )
+
+    with TestClient(app) as client, caplog.at_level("INFO", logger="http.access"):
+        before = request_count()
+        response = client.post(PATH, json={}, headers=headers)
+        assert request_count() == before + 1
+    assert response.status_code == expected, response.text
+    assert response.headers["X-Content-Type-Options"] == "nosniff"
+    assert response.headers["X-Frame-Options"] == "DENY"
+    assert response.headers["X-Correlation-Id"] == "candidate-denial-correlation"
+    assert response.headers["X-Request-Id"] and response.headers["X-Trace-Id"]
+    assert response.headers["traceparent"].split("-")[1] == response.headers["X-Trace-Id"]
+    assert any(record.name == "http.access" and record.getMessage() == "request.completed" for record in caplog.records)
+    assert tenant_id_var.get() != "forged-tenant"
+    assert (
+        CompositeResultCandidateErrorResponse.model_validate(response.json()).error_code == "PRINCIPAL_ADMISSION_DENIED"
+    )
+
+
+def test_overlapping_admission_resets_each_tenant_after_unhandled_exception(monkeypatch):
+    import asyncio
+
+    from app.composite_principal_admission import CompositePrincipalAdmissionMiddleware
+
+    authority, mint = install_principal_deployment(monkeypatch, app, tenant="tenant-a", portfolios=["member-a"])
+    monkeypatch.setattr(authority, "tenant_member", lambda subject, tenant: subject == "maker-" + tenant)
+
+    async def prove():
+        entered = set()
+        overlap = asyncio.Event()
+
+        async def broken(scope, receive, send):
+            tenant = scope["state"]["verified_composite_principal"].tenant_id
+            assert tenant_id_var.get() == tenant
+            entered.add(tenant)
+            if len(entered) == 2:
+                overlap.set()
+            await asyncio.wait_for(overlap.wait(), timeout=5)
+            assert tenant_id_var.get() == tenant
+            raise RuntimeError("controlled request failure")
+
+        async def request(tenant):
+            token = tenant_id_var.set("outer-" + tenant)
+            try:
+                scope = {
+                    "type": "http",
+                    "method": "GET",
+                    "path": PATH,
+                    "app": app,
+                    "headers": [(b"authorization", ("Bearer " + mint(tenant=tenant, sub="maker-" + tenant)).encode())],
+                }
+                with pytest.raises(RuntimeError, match="controlled request failure"):
+                    await CompositePrincipalAdmissionMiddleware(broken)(scope, None, None)
+                assert tenant_id_var.get() == "outer-" + tenant
+            finally:
+                tenant_id_var.reset(token)
+
+        await asyncio.gather(request("tenant-a"), request("tenant-b"))
+        assert entered == {"tenant-a", "tenant-b"}
+
+    before = tenant_id_var.get()
+    asyncio.run(prove())
+    assert tenant_id_var.get() == before
 
 
 def test_concurrent_verified_tenants_keep_request_context_and_audit_isolated(monkeypatch, tmp_path, caplog):

@@ -14,7 +14,11 @@ from app.api.http_status import HTTP_422_UNPROCESSABLE
 from app.composite_principal_admission import trusted_request_principal
 from app.models.composite_annual_comparison import CompositeAnnualComparisonRequest, CompositeAnnualComparisonResponse
 from app.models.composite_annual_dispersion import CompositeAnnualDispersionRequest, CompositeAnnualDispersionResponse
-from app.models.composite_result_candidates import CompositeResultCandidateResponse, CompositeResultCaptureRequest
+from app.models.composite_result_candidates import (
+    CompositeResultCandidateErrorResponse,
+    CompositeResultCandidateResponse,
+    CompositeResultCaptureRequest,
+)
 from app.models.composites import (
     CompositeErrorResponse,
     CompositeInspectionRequest,
@@ -334,6 +338,25 @@ def _verified_candidate_principal(request: Request):
     return require_verified_candidate_principal(trusted_request_principal(request))
 
 
+def _candidate_error_response(description, code, message, denial_class=None):
+    detail = {"code": code, "message": message, "denial_class": denial_class} if denial_class else message
+    return {
+        "model": CompositeResultCandidateErrorResponse,
+        "description": description,
+        "content": {
+            "application/json": {
+                "example": {
+                    "detail": detail,
+                    "error_code": code,
+                    "message": message,
+                    "source": "lotus-performance",
+                    "retryable": False,
+                }
+            }
+        },
+    }
+
+
 @router.post(
     "/composites/result-candidates",
     response_model=CompositeResultCandidateResponse,
@@ -348,10 +371,28 @@ def _verified_candidate_principal(request: Request):
         "it does not approve financial source makers, select an official result, freeze a period or attest an institution."
     ),
     responses={
-        401: {"description": "Credential missing or unverified."},
-        403: {"description": "Current trusted grants or portfolio scope refused."},
-        409: {"description": "Original identity conflict or incomplete retained evidence."},
-        503: {"description": "Original result custody or build provenance unavailable."},
+        401: _candidate_error_response(
+            "Credential missing or unverified.",
+            "PRINCIPAL_ADMISSION_DENIED",
+            "Principal admission refused.",
+            "missing_credential",
+        ),
+        403: _candidate_error_response(
+            "Current trusted grants or portfolio scope refused.",
+            "PRINCIPAL_ADMISSION_DENIED",
+            "Principal admission refused.",
+            "capability_not_granted",
+        ),
+        409: _candidate_error_response(
+            "Original identity conflict or incomplete retained evidence.",
+            "COMPOSITE_CAPTURE_EVIDENCE_INCOMPLETE",
+            "Capture requires a complete READY response.",
+        ),
+        503: _candidate_error_response(
+            "Original result custody or build provenance unavailable.",
+            "COMPOSITE_RESULT_CUSTODY_REFUSED",
+            "The service encountered an internal error. Use the correlation_id for support.",
+        ),
     },
 )
 def capture_composite_result_candidate(request: CompositeResultCaptureRequest, http_request: Request):
@@ -377,10 +418,28 @@ def capture_composite_result_candidate(request: CompositeResultCaptureRequest, h
         "portfolio still in scope. Missing or inconsistent original custody refuses; current engine/build versions never rewrite history."
     ),
     responses={
-        401: {"description": "Credential missing or unverified."},
-        403: {"description": "Current grants or scope refused."},
-        404: {"description": "Candidate absent in the verified tenant."},
-        503: {"description": "Original custody unavailable."},
+        401: _candidate_error_response(
+            "Credential missing or unverified.",
+            "PRINCIPAL_ADMISSION_DENIED",
+            "Principal admission refused.",
+            "missing_credential",
+        ),
+        403: _candidate_error_response(
+            "Current grants or scope refused.",
+            "PRINCIPAL_ADMISSION_DENIED",
+            "Principal admission refused.",
+            "capability_not_granted",
+        ),
+        404: _candidate_error_response(
+            "Candidate absent in the verified tenant.",
+            "COMPOSITE_RESULT_CANDIDATE_NOT_FOUND",
+            "Candidate is absent in the verified tenant.",
+        ),
+        503: _candidate_error_response(
+            "Original custody unavailable.",
+            "COMPOSITE_RESULT_CUSTODY_REFUSED",
+            "The service encountered an internal error. Use the correlation_id for support.",
+        ),
     },
 )
 def get_composite_result_candidate(candidate_id: UUID, http_request: Request):

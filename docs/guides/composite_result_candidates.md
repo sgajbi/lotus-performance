@@ -31,6 +31,12 @@ these routes. Isolated test keys and source/verifier ports certify no institutio
 Financial source makers retain their original qualification; signing the candidate
 creator never approves legacy source actors.
 
+Browser preflight is evaluated by the configured CORS policy without a bearer
+credential. Actual candidate requests still require admission. Refusals retain
+standard security and correlation headers, access logging and request metrics;
+their named error envelope carries a bounded denial class without trusting
+asserted tenant headers. Verified request tenant context resets even on exceptions.
+
 The server must have its actual forty-character release commit configured in
 `APP_GIT_COMMIT_SHA`. Local/unknown provenance refuses capture. Historical reads
 keep the captured build and method even after the current implementation changes.

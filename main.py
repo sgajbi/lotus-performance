@@ -110,11 +110,11 @@ def custom_openapi() -> dict[str, Any]:
 
 app.openapi = custom_openapi
 
-setup_observability(app, log_level=settings.LOG_LEVEL)
-configure_http_security(app, settings=settings)
 validate_enterprise_runtime_config(settings=settings)
 app.middleware("http")(build_enterprise_audit_middleware())
 app.add_middleware(CompositePrincipalAdmissionMiddleware)
+setup_observability(app, log_level=settings.LOG_LEVEL)
+configure_http_security(app, settings=settings)
 
 app.add_exception_handler(PerformanceCalculatorError, performance_calculator_exception_handler)
 app.add_exception_handler(APIError, core_api_error_exception_handler)

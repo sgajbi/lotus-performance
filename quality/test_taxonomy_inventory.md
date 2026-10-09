@@ -1,7 +1,7 @@
 # Lotus Performance Test Taxonomy Inventory
 
 Report date: 2026-10-09
-Branch: `feature/composite-model-fee`
+Branch: `feature/composite-result-authority-610`
 Mode: regression-blocking test taxonomy inventory; `make quality-test-taxonomy-gate` enforces
 minimum API/runtime and contract/governance breadth plus the current uncategorized-test ceiling.
 
@@ -22,19 +22,19 @@ python scripts/python_test_taxonomy_inventory.py --limit 30 --min-api-runtime-te
 
 | Metric | Value |
 | --- | ---: |
-| Test modules inventoried | 391 |
-| Test functions inventoried | 4731 |
-| Integration/API/runtime test functions | 976 |
+| Test modules inventoried | 395 |
+| Test functions inventoried | 4774 |
+| Integration/API/runtime test functions | 982 |
 | Contract/governance test functions | 227 |
 
 ## Test Functions By Suite
 
 | Suite | Modules | Test functions |
 | --- | ---: | ---: |
-| benchmarks | 12 | 98 |
+| benchmarks | 12 | 111 |
 | e2e | 1 | 21 |
-| integration | 40 | 524 |
-| unit | 338 | 4088 |
+| integration | 41 | 530 |
+| unit | 341 | 4112 |
 
 ## Test Functions By Family
 
@@ -44,8 +44,8 @@ above does sum to it, because a module belongs to exactly one suite.
 
 | Family | Test functions |
 | --- | ---: |
-| analytics_domain | 2510 |
-| api_or_runtime | 976 |
+| analytics_domain | 2553 |
+| api_or_runtime | 982 |
 | contract_or_governance | 227 |
 | observability_or_readiness | 757 |
 | quality_or_security | 349 |
