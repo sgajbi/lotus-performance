@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from app.adapters.composite_pooled_mwr_repository import CompositePooledMWRInputStore, composite_pooled_mwr_input_store
 from app.services.async_result_store import AsyncResultStore, async_result_store
 from app.services.composite_metadata_store import CompositeMetadataStore, composite_metadata_store
 from app.services.compute_job_store import ComputeJobStore, compute_job_store
@@ -17,6 +18,8 @@ def bootstrap_durable_metadata_stores(
     lineage_store: LineageMetadataStore | RuntimeStoreProxy[LineageMetadataStore] = lineage_metadata_store,
     composite_store: CompositeMetadataStore | RuntimeStoreProxy[CompositeMetadataStore] = composite_metadata_store,
     correction_store: SourceCorrectionStore | RuntimeStoreProxy[SourceCorrectionStore] = source_correction_store,
+    pooled_input_store: CompositePooledMWRInputStore
+    | RuntimeStoreProxy[CompositePooledMWRInputStore] = composite_pooled_mwr_input_store,
 ) -> None:
     execution_store.create_schema()
     compute_store.create_schema()
@@ -24,6 +27,7 @@ def bootstrap_durable_metadata_stores(
     lineage_store.create_schema()
     composite_store.create_schema()
     correction_store.create_schema()
+    pooled_input_store.create_schema()
 
 
 def verify_durable_metadata_stores(
@@ -34,6 +38,8 @@ def verify_durable_metadata_stores(
     lineage_store: LineageMetadataStore | RuntimeStoreProxy[LineageMetadataStore] = lineage_metadata_store,
     composite_store: CompositeMetadataStore | RuntimeStoreProxy[CompositeMetadataStore] = composite_metadata_store,
     correction_store: SourceCorrectionStore | RuntimeStoreProxy[SourceCorrectionStore] = source_correction_store,
+    pooled_input_store: CompositePooledMWRInputStore
+    | RuntimeStoreProxy[CompositePooledMWRInputStore] = composite_pooled_mwr_input_store,
 ) -> None:
     """Read-only startup contract; only the explicit owner calls bootstrap."""
     execution_store.verify_schema()
@@ -42,3 +48,4 @@ def verify_durable_metadata_stores(
     lineage_store.verify_schema()
     composite_store.verify_schema()
     correction_store.verify_schema()
+    pooled_input_store.verify_schema()

@@ -33,6 +33,7 @@ OWNED_DURABLE_TABLES = (
     "composite_materializations",
     "composite_model_fee_profiles",
     "composite_result_candidates",
+    "composite_pooled_mwr_inputs",
 )
 ADDITIVE_COLUMN_CHECKS = {
     "lineage_payloads": (
@@ -58,6 +59,7 @@ BOOTSTRAP_STORES = (
     "LineageMetadataStore",
     "CompositeMetadataStore",
     "SourceCorrectionStore",
+    "CompositePooledMWRInputStore",
 )
 
 
@@ -97,6 +99,7 @@ class DurableSchemaApplyEvidence:
 
 
 def apply_durable_schema(*, database_url: str | None = None) -> DurableSchemaApplyEvidence:
+    from app.adapters.composite_pooled_mwr_repository import CompositePooledMWRInputStore
     from app.core.config import get_settings
     from app.services.async_result_store import AsyncResultStore
     from app.services.composite_metadata_store import CompositeMetadataStore
@@ -113,7 +116,16 @@ def apply_durable_schema(*, database_url: str | None = None) -> DurableSchemaApp
     lineage_store = LineageMetadataStore(active_database_url)
     composite_store = CompositeMetadataStore(active_database_url)
     correction_store = SourceCorrectionStore(active_database_url)
-    stores = (execution_store, compute_store, async_result_store, lineage_store, composite_store, correction_store)
+    pooled_input_store = CompositePooledMWRInputStore(active_database_url)
+    stores = (
+        execution_store,
+        compute_store,
+        async_result_store,
+        lineage_store,
+        composite_store,
+        correction_store,
+        pooled_input_store,
+    )
 
     try:
         try:
@@ -124,6 +136,7 @@ def apply_durable_schema(*, database_url: str | None = None) -> DurableSchemaApp
                 lineage_store=lineage_store,
                 composite_store=composite_store,
                 correction_store=correction_store,
+                pooled_input_store=pooled_input_store,
             )
         except RuntimeError as exc:
             return _build_evidence(
@@ -136,7 +149,8 @@ def apply_durable_schema(*, database_url: str | None = None) -> DurableSchemaApp
             database_url=active_database_url, engine=execution_store._engine, verification_checks=checks
         )
     finally:
-        for store in stores:
+        pooled_input_store.close()
+        for store in stores[:-1]:
             store._engine.dispose()
 
 
