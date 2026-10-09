@@ -636,6 +636,16 @@ The retained July/August/September producer approvals exercise unchanged wire co
 Marked receipts generated inside the consumer controls are labelled synthetic projections;
 they do not establish deployed cross-service custody, PostgreSQL acceptance or bank qualification.
 
+The sealed producer snapshot in
+[`composite_monthly_063c3e8f_publication.json`](../../tests/fixtures/composite_monthly_063c3e8f_publication.json)
+preserves actual July, August and September resolver receipts and separately fetched canonical
+membership and universe JSON from signed Manage commit `063c3e8f`. Consumer tests join each
+complete graph, reject products from another month, reject a changed current locator even when
+the legacy universe digest stays unchanged, and reject fully rehashed membership semantics.
+They also exercise the registered resolver adapter with each original monthly binding. These
+are frozen synthetic producer wires tested in the consumer; they do not grant independent source,
+provider, method or financial authority, and default verification still refuses them.
+
 The required PostgreSQL contract gate also executes the registered monthly worker controls in an
 owned isolated schema. These exercise missing independent source verification, retained source
 JSON, exact replay, foreign-tenant refusal and reopening the store. The inputs and verifier records

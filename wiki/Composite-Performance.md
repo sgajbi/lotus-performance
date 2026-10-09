@@ -505,6 +505,10 @@ deployed custody. The materialization guide above contains the contract and focu
 The required PostgreSQL contract gate includes registered monthly worker, source JSON/reopen,
 replay and foreign-tenant controls in an owned schema. These prove consumer custody using synthetic
 upstream/verifier records; unsupported financial products remain refused with zero ready facts.
+The sealed signed-Manage `063c3e8f` fixture adds consumer joins of actual July, August and September
+resolver receipts with separately fetched canonical membership and universe responses. Cross-month
+products, changed current locators and fully rehashed decision tampering are refused. The inputs
+remain synthetic and unqualified; publication alone does not satisfy independent financial trust.
 
 ## References
 
