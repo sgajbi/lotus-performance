@@ -13,6 +13,8 @@
 - [Group-Return Evidence](Group-Return-Evidence)
 - [Composite Performance](Composite-Performance)
 - [Composite Result Authority](Composite-Result-Authority)
+- [Composite Attribution](Composite-Attribution)
+- [Composite Receipt Verification](Composite-Receipt-Verification)
 - [Mesh Data Products](Mesh-Data-Products)
 
 ## Engineering
