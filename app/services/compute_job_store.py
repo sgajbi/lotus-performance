@@ -6,10 +6,10 @@ from contextlib import contextmanager
 from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
 from enum import StrEnum
-from typing import Any, Iterable, Iterator, cast
+from typing import Any, Callable, Iterable, Iterator, TypeVar, cast
 from uuid import UUID
 
-from sqlalchemy import DateTime, Index, Integer, String, Text, case, delete, func, inspect, select, text, update
+from sqlalchemy import DateTime, Index, Integer, String, Text, case, delete, event, func, inspect, select, text, update
 from sqlalchemy.engine import Connection
 from sqlalchemy.exc import IntegrityError, OperationalError, ProgrammingError
 from sqlalchemy.orm import DeclarativeBase, Mapped, Session, mapped_column, sessionmaker
@@ -450,6 +450,51 @@ def _utc_aware_timestamp(value: datetime) -> datetime:
     return value.astimezone(timezone.utc)
 
 
+_LeaseOperationResult = TypeVar("_LeaseOperationResult")
+
+
+@contextmanager
+def _input_custody_connection(connection: Connection) -> Iterator[Connection]:
+    """Keep trusted input adapters inside the store-owned transaction boundary."""
+
+    def reject_transaction_end(*args):
+        raise ComputeJobLeaseOwnershipError("Input custody callbacks cannot end the owning transaction.")
+
+    def require_input_statement(conn, cursor, statement, parameters, context, executemany):
+        if statement.lstrip().split(None, 1)[0].upper() not in {"SELECT", "INSERT"}:
+            raise ComputeJobLeaseOwnershipError("Input custody callbacks permit only SELECT and INSERT.")
+
+    event.listen(connection, "commit", reject_transaction_end)
+    event.listen(connection, "rollback", reject_transaction_end)
+    event.listen(connection, "before_cursor_execute", require_input_statement)
+    try:
+        yield connection
+    finally:
+        event.remove(connection, "before_cursor_execute", require_input_statement)
+        event.remove(connection, "rollback", reject_transaction_end)
+        event.remove(connection, "commit", reject_transaction_end)
+
+
+def _require_input_custody_claim(row, *, calculation_id, tenant_id, analytics_type, worker_id, expected_attempt_count):
+    if (
+        not worker_id
+        or not worker_id.strip()
+        or expected_attempt_count < 1
+        or row.tenant_id != tenant_id
+        or row.analytics_type != analytics_type
+        or row.attempt_count != expected_attempt_count
+        or row.job_status != ComputeJobStatus.RUNNING.value
+    ):
+        raise ComputeJobLeaseOwnershipError("Input custody requires the exact active tenant/workflow/attempt claim.")
+    _ensure_compute_job_active_lease_owner(
+        row,
+        calculation_id=calculation_id,
+        worker_id=worker_id,
+        transition="bind immutable input for",
+        now=datetime.now(timezone.utc),
+    )
+
+
 def _ensure_compute_job_active_lease_owner(
     row: ComputeJobModel,
     *,
@@ -873,6 +918,45 @@ class ComputeJobStore:
             )
             row.leased_at_utc = now
             row.lease_expires_at_utc = now + timedelta(seconds=lease_seconds)
+
+    def run_with_active_lease_transaction(
+        self,
+        *,
+        calculation_id: UUID,
+        tenant_id: str,
+        analytics_type: str,
+        worker_id: str,
+        expected_attempt_count: int,
+        operation: Callable[[Connection], _LeaseOperationResult],
+    ) -> _LeaseOperationResult:
+        """Atomically bind input using a captured claim, never a fresh owner lookup.
+
+        The callback is trusted repository code, not an untrusted SQL sandbox. It
+        must use this connection only, cannot commit/rollback, and may SELECT/INSERT
+        owned input records. The connection closes before return. Existing lease
+        ownership and attempt count fence replaced claims without a new lease.
+        """
+        with self._session() as session:
+            connection = session.connection()
+            if connection.dialect.name == "sqlite":
+                connection.exec_driver_sql("BEGIN IMMEDIATE")
+            row = session.execute(
+                select(ComputeJobModel).where(ComputeJobModel.calculation_id == str(calculation_id)).with_for_update()
+            ).scalar_one_or_none()
+            if row is None:
+                raise ComputeJobLeaseOwnershipError("Input custody compute claim was not found.")
+            claim = dict(
+                calculation_id=calculation_id,
+                tenant_id=tenant_id,
+                analytics_type=analytics_type,
+                worker_id=worker_id,
+                expected_attempt_count=expected_attempt_count,
+            )
+            _require_input_custody_claim(row, **claim)
+            with _input_custody_connection(connection):
+                result = operation(connection)
+            _require_input_custody_claim(row, **claim)
+            return result
 
     def ensure_active_lease_owner(self, calculation_id: UUID, *, worker_id: str | None) -> None:
         with self._session() as session:
