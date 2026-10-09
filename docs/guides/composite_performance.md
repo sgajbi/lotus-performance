@@ -32,6 +32,15 @@ explicit COMPLETE window vector. See the [linked contribution client guide](comp
 and [methodology](../methodologies/metrics/metric-composite-linked-member-contribution.md).
 This is calculated analysis with retained source attestation, not official selection or live qualification.
 
+Pooled monetary analysis uses the same analytics operation with
+`metric_id=POOLED_MONEY_WEIGHTED_RETURN` and `method=XIRR:v1`, returning `202` for
+the existing worker. It pools exact dated source money before calling the existing
+MWR solver; member IRRs are never averaged. See the
+[pooled caller guide](composite_pooled_mwr.md) and
+[methodology](../methodologies/metrics/metric-composite-pooled-mwr.md).
+This is controlled synthetic qualification: the default source reader refuses,
+actual supplier applicability remains separate and ACT/365 is the only admitted basis.
+
 Not supported by this endpoint:
 
 - ad hoc request-time member return arrays;

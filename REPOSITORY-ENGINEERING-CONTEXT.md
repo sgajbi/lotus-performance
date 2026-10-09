@@ -408,7 +408,7 @@ Important validation expectations:
 14. PR Merge Gate and Main Releasability route matrix test coverage through
     `make test-coverage-shard` and combined coverage enforcement through `make coverage-combine-gate`
     so workflow YAML does not become a second source of truth for pytest or coverage behavior.
-    `make postgres-concurrency-contracts-gate` runs inside the required `PR Merge Gate / Tests (integration)` leg rather than as its own context: matrix legs become distinct required-context names, so a new leg would have created a context nobody requires. The gate runs concurrency/locking, composite immutable-fact migration/selection, materialization, monthly eligibility, periodic model-fee, and scheduled model-fee custody as six separate PostgreSQL targets and requires nonempty, skip-free success from each; aggregate success cannot conceal an empty target. The proofs previously ran only in `Performance Characterization / Benchmarks`, which provisions PostgreSQL and is not required, so a merge never waited for them.
+    `make postgres-concurrency-contracts-gate` runs inside the required `PR Merge Gate / Tests (integration)` leg rather than as its own context: matrix legs become distinct required-context names, so a new leg would have created a context nobody requires. The gate runs concurrency/locking, composite immutable-fact migration/selection, materialization, monthly eligibility, periodic model-fee, scheduled model-fee custody, and pooled MWR custody as seven separate PostgreSQL targets and requires nonempty, skip-free success from each; aggregate success cannot conceal an empty target. The proofs previously ran only in `Performance Characterization / Benchmarks`, which provisions PostgreSQL and is not required, so a merge never waited for them.
 
     Composite member-return fact identity includes return view, reporting currency, source version
     label, and positive numeric restatement sequence. Writes are append-only and idempotent only
@@ -1245,6 +1245,34 @@ Preserve #617's original Windows miss and missing historical samples/context. A 
 and unchanged engine tree do not establish causality or operating-envelope qualification.
 Use the named matched-envelope plan in `docs/technical/performance_characterization.md` before
 new measurements; never seek a lucky full-suite pass or weaken precision/budget/source admission.
+
+## Pooled Composite MWR Practice
+
+`POOLED_MONEY_WEIGHTED_RETURN` / `XIRR:v1` uses the existing composite analytics
+POST, returning `202` for the existing compute worker, and the retained results GET
+under `/performance/composites/analytics/results/{calculation_id}`. Only this
+POST discriminator and exact GET/HEAD results family join the existing server
+signature/grant admission boundary; ordinary annual/linked dispatch is unchanged.
+Population metadata is authorized before monetary source reads. Default supplier
+authority is unavailable; deployment-owned ports must verify actual source/policy
+applicability. Controlled fixtures cannot establish bank qualification.
+
+Keep full input/source custody in `composite_pooled_mwr_inputs`, an immutable
+analytical snapshot rather than a cash-flow ledger. Bind inputs and publish pooled
+financial originals through ComputeJobStore's public current-claim transaction
+hook: exact tenant, workflow, owner, RUNNING status, expiry and queued attempt+1.
+Never re-read a newer attempt counter to authorize an older worker. Operational
+failures stay in job/execution records. Existing solver runs once on pooled exact
+dated money; source Decimal precision is distinct from actual FLOAT64 root precision.
+Only ACT/365 is admitted; fallback requires explicit matching source policy and
+is labeled `FALLBACK_ANALYSIS`. Original/correction IDs and financial rows survive
+ordinary retention; indefinite custody remains interim pending purge/legal-hold policy.
+
+The guide and v3 methodology are `docs/guides/composite_pooled_mwr.md` and
+`docs/methodologies/metrics/metric-composite-pooled-mwr.md`. Registered API and
+actual PostgreSQL proofs include `test_composite_pooled_mwr_api.py` and
+`test_postgres_composite_pooled_mwr.py`; the fresh-interpreter helper explicitly
+configures read-only repeatable-read for its proof without changing runtime defaults.
 
 ## Cross-Links
 

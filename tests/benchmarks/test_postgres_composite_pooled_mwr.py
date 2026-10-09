@@ -40,6 +40,9 @@ from tests.integration.test_composite_pooled_mwr_api import (
     test_registered_pooled_retry_reuses_snapshot_after_transient_solver_failure as _assert_registered_retry,
 )
 from tests.integration.test_composite_pooled_mwr_api import (
+    test_registered_pooled_solver_dispositions_preserve_actual_evidence as _assert_solver_dispositions,
+)
+from tests.integration.test_composite_pooled_mwr_api import (
     test_registered_pooled_streamed_size_limit_preserves_security_headers as _assert_streamed_size,
 )
 from tests.integration.test_composite_pooled_mwr_worker import (
@@ -172,6 +175,11 @@ def test_postgres_registered_pooled_missing_terminal_records_no_financial_origin
 
 def test_postgres_registered_pooled_retry_reuses_snapshot(pooled_api_runtime, monkeypatch):
     _assert_registered_retry(pooled_api_runtime, monkeypatch)
+
+
+@pytest.mark.parametrize("case", ["ambiguous", "elected_fallback", "zero", "one_sided", "work_limit"])
+def test_postgres_registered_pooled_solver_dispositions(pooled_api_runtime, case):
+    _assert_solver_dispositions(pooled_api_runtime, case)
 
 
 @pytest.mark.parametrize("forged_tenant", [False, True])

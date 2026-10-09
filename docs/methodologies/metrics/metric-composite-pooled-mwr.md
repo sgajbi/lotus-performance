@@ -205,7 +205,7 @@ This controlled two-year ACT/365 example runs through the registered API and
 worker. Both members are included throughout 2025-01-01 to 2027-01-01.
 
 | Member | Opening value | 2026-01-01 contribution | Terminal value |
-| --- | ---: | ---: | ---: |
+|---|---:|---:|---:|
 | A | 100 | 0 | 121 |
 | B | 100 | 100 | 220 |
 | Pooled | 200 | 100 | 341 |
@@ -222,7 +222,7 @@ worker. Both members are included throughout 2025-01-01 to 2027-01-01.
 r = 0.0794735800308331061377877548969028459657461134194723829...
 ```
 
-The existing FLOAT64 solver publishes `outcome.return_value` approximately
+Output mapping: the existing FLOAT64 solver publishes `outcome.return_value` approximately
 `0.07947358003`, with `outcome.availability=AVAILABLE` and
 `outcome.actual_method=XIRR`. The registered test compares it with the independent
 Decimal quadratic oracle within `1e-9` in ratio units. Member A's IRR is 0.10;
