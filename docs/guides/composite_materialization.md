@@ -90,7 +90,8 @@ with explicitly synthetic upstream/method ports. They bind expected member ratio
 unchanged aggregation precision, original-method replay, actual-net refusal, tenant
 isolation and changed rate/schedule/calendar refusal. They publish and retrieve actual
 local catalog input. Their upstream authority and independent approval remain synthetic;
-they do not establish customer activation. Flat/tiered/AUM and specialized adjustments
+they do not establish customer activation. A separately named scheduled successor supports
+explicit annual flat/tiered/AUM wealth rates as described below; specialized adjustments
 remain indexed #609 work.
 
 Schema cutover requires the explicit existing owner `make migration-apply` before API
@@ -103,6 +104,30 @@ backups, apply the matching revision and require all six verification checks bef
 restart. On failure keep workloads stopped; use reviewed forward correction or an
 isolated backup restore under the [migration contract](../standards/migration-contract.md).
 Never reset the ledger, edit original method bytes or erase evidence to repair replay.
+
+### Scheduled Model-Fee Materialization
+
+`CompositeScheduledModelFeeProfile:v1` is a separate strict product on the same publication,
+resolution and materialization operations. It selects a nominal annual model wealth rate from
+verified original beginning assets using flat, marginal-tiered or whole-AUM rules. Actual inclusive
+days produce `f = annual_rate * days / 365`; the unchanged member transformation is
+`(1 + gross) * (1 - f) - 1`. The implied money is `beginning_assets * (1 + gross) * f`,
+not a fixed beginning-assets cash fee. Original source assets remain unchanged.
+
+The v5 receipt retains the complete schedule entry, derived fraction and original gross custody.
+Existing periodic v1 wire and v4 evidence remain compatible. Scheduled aggregation uses a fresh
+explicit Decimal context selected from exact retained receipts; current definitions cannot change
+historical method selection. Missing receipt context or changed selected outcomes refuse.
+Compatible multiwindow analysis requires one identical full profile binding, although that profile
+may contain unequal member/period rates. FX-normalized inputs and intraperiod interpolation refuse.
+
+Apply the matching owner migration before runtime: it expands only the known catalog product check,
+preserves original rows/custody and rejects unknown dependencies before mutation. Read the
+[scheduled caller and recovery guide](composite_scheduled_model_fee.md),
+[methodology and variable dictionary](../methodologies/metrics/metric-composite-scheduled-model-fee.md)
+and [executed synthetic example](../../app/api/examples/composite_scheduled_model_fee.json).
+Resolution and independent approval still default unavailable; synthetic controls do not certify
+institutional activation, official selection or compliance.
 
 ### Pinned Linked Member Contribution
 
@@ -347,7 +372,8 @@ inclusive dates, native reporting currency, fee view and positive restatement se
 reference pins its portfolio, retained calculation UUID, input fingerprint and calculation hash.
 `GROSS` and `NET_ACTUAL` are supported. `NET_MODEL_FEE` requires the exact immutable
 profile binding and approved internal native gross/asset selections described in
-[Periodic Model-Fee Materialization](#periodic-model-fee-materialization). Unbound,
+[Periodic Model-Fee Materialization](#periodic-model-fee-materialization) or
+[Scheduled Model-Fee Materialization](#scheduled-model-fee-materialization). Unbound,
 incompatible or independently unapproved methods refuse; publication alone grants no approval.
 
 ## Versioned External And Hybrid Source Admission

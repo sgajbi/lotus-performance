@@ -1031,6 +1031,24 @@ live in `docs/methodologies/metrics/metric-composite-periodic-model-fee.md` and
 `docs/guides/composite_materialization.md`; full #609 alternatives and #610 official freeze
 remain separately open. No supplier or official qualification follows from synthetic ports.
 
+The scheduled #609 successor is the separate strict `CompositeScheduledModelFeeProfile:v1`
+product. Reuse the same catalog, approval ports, materialization ledger and canonical engine.
+Verified original positive beginning assets select flat annual, marginal-tiered or whole-AUM
+model wealth rates; actual inclusive days use nominal fixed ACT/365. Retain v5 original gross,
+schedule entry and derived fraction; preserve periodic v1/v4 bytes and all original source assets.
+The implied modeled charge is post-gross wealth times the fraction, not beginning-assets cash
+accrual. Native-only scope refuses FX composition and intraperiod interpolation. For scheduled
+TWR, select a fresh explicit Decimal Context with bounded precision from immutable receipt
+authority: exact selected fact scope, complete validated outcomes and full method binding.
+The metadata owner delegates receipt lookup to the canonical ledger on its own database;
+never infer a historical method from the current mutable definition, hashes or money values.
+Missing context/mismatched outcomes or mixed scheduled fullbindings refuse. Existing periodic,
+gross and actual-net arithmetic remain unchanged. The owner-only catalog upgrade expands the
+known product check, preserving custody/guards; unknown SQLite views include quoted/mixed-case
+identifiers and must refuse before DDL/DML. Runtime verifiers remain read-only. See
+`docs/guides/composite_scheduled_model_fee.md` and
+`docs/methodologies/metrics/metric-composite-scheduled-model-fee.md` for recovery and conventions.
+
 The TWR request's explicit `materialization_ids` path reads 1–120 chronological retained windows
 under PostgreSQL REPEATABLE READ or an explicit SQLite read transaction. Reuse the existing
 materialization reader's source/progress/publication/fact checks; require exact contiguous coverage

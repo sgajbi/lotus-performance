@@ -8,7 +8,7 @@
       "openApiVersion": "3.1.0"
     }
   ],
-  "generatedAt": "2026-10-09T06:55:59.335884+00:00",
+  "generatedAt": "2026-10-09T08:44:12.220183+00:00",
   "attributeCatalog": [
     {
       "semanticId": "lotus.access_classification",
@@ -36,6 +36,20 @@
       ],
       "observedTypes": [
         "integer"
+      ]
+    },
+    {
+      "semanticId": "lotus.accrual_frequency",
+      "canonicalTerm": "accrual_frequency",
+      "preferredName": "accrual_frequency",
+      "description": "composite scheduled model fee profile input field: accrual frequency.",
+      "example": "example_accrual_frequency",
+      "type": "string",
+      "locations": [
+        "body"
+      ],
+      "observedTypes": [
+        "string"
       ]
     },
     {
@@ -2402,6 +2416,20 @@
       ]
     },
     {
+      "semanticId": "lotus.day_count",
+      "canonicalTerm": "day_count",
+      "preferredName": "day_count",
+      "description": "composite scheduled model fee profile input field: day count.",
+      "example": "example_day_count",
+      "type": "string",
+      "locations": [
+        "body"
+      ],
+      "observedTypes": [
+        "string"
+      ]
+    },
+    {
       "semanticId": "lotus.definition_content_hash",
       "canonicalTerm": "definition_content_hash",
       "preferredName": "definition_content_hash",
@@ -3213,6 +3241,34 @@
       ],
       "observedTypes": [
         "array"
+      ]
+    },
+    {
+      "semanticId": "lotus.fee_base_amount",
+      "canonicalTerm": "fee_base_amount",
+      "preferredName": "fee_base_amount",
+      "description": "Exact verified beginning reporting-currency assets, used only to select the model wealth rate.",
+      "example": "example_fee_base_amount",
+      "type": "string",
+      "locations": [
+        "body"
+      ],
+      "observedTypes": [
+        "string"
+      ]
+    },
+    {
+      "semanticId": "lotus.fee_base_basis",
+      "canonicalTerm": "fee_base_basis",
+      "preferredName": "fee_base_basis",
+      "description": "composite scheduled model fee profile input field: fee base basis.",
+      "example": "example_fee_base_basis",
+      "type": "string",
+      "locations": [
+        "body"
+      ],
+      "observedTypes": [
+        "string"
       ]
     },
     {
@@ -5205,6 +5261,20 @@
       ]
     },
     {
+      "semanticId": "lotus.monetary_charge_interpretation",
+      "canonicalTerm": "monetary_charge_interpretation",
+      "preferredName": "monetary_charge_interpretation",
+      "description": "composite scheduled model fee profile input field: monetary charge interpretation.",
+      "example": "example_monetary_charge_interpretation",
+      "type": "string",
+      "locations": [
+        "body"
+      ],
+      "observedTypes": [
+        "string"
+      ]
+    },
+    {
       "semanticId": "lotus.monetary_precision",
       "canonicalTerm": "monetary_precision",
       "preferredName": "monetary_precision",
@@ -6456,7 +6526,7 @@
       "semanticId": "lotus.product_name",
       "canonicalTerm": "product_name",
       "preferredName": "product_name",
-      "description": "composite periodic model fee profile input field: product name.",
+      "description": "evidence binding field: product name.",
       "example": "example_product_name",
       "type": "string",
       "locations": [
@@ -6470,7 +6540,7 @@
       "semanticId": "lotus.product_version",
       "canonicalTerm": "product_version",
       "preferredName": "product_version",
-      "description": "composite periodic model fee profile input field: product version.",
+      "description": "evidence binding field: product version.",
       "example": "example_product_version",
       "type": "string",
       "locations": [
@@ -6484,16 +6554,57 @@
       "semanticId": "lotus.profile",
       "canonicalTerm": "profile",
       "preferredName": "profile",
-      "description": "composite periodic model fee profile output object.",
+      "description": "Original complete strict method wire; publisher custody does not alter these bytes.",
       "example": {
-        "key": "value"
+        "profile_id": "PROFILE_001",
+        "revision": "example_revision",
+        "tenant_id": "default",
+        "composite_id": "COMPOSITE_001",
+        "method_id": "METHOD_001",
+        "method_revision": "example_method_revision",
+        "schedule_id": "SCHEDULE_001",
+        "schedule_revision": "example_schedule_revision",
+        "effective_from": "example_effective_from",
+        "effective_to": "example_effective_to",
+        "calendar_binding": {
+          "product_name": "example_product_name",
+          "product_version": "example_product_version",
+          "revision": "example_revision",
+          "digest": "example_digest"
+        },
+        "reporting_currency": "USD",
+        "gross_source_basis": "example_gross_source_basis",
+        "fee_component": "example_fee_component",
+        "transaction_cost_treatment": "example_transaction_cost_treatment",
+        "bundled_fee_context": "example_bundled_fee_context",
+        "timing": "example_timing",
+        "transformation": "example_transformation",
+        "asset_treatment": "example_asset_treatment",
+        "standards_applicability": "example_standards_applicability",
+        "product_name": "example_product_name",
+        "product_version": "example_product_version",
+        "rate_basis": "example_rate_basis",
+        "monetary_precision": "example_monetary_precision",
+        "periods": [
+          {
+            "period_start": "example_period_start",
+            "period_end": "example_period_end",
+            "member_rates": [
+              {
+                "entry_id": "ENTRY_001",
+                "member_id": "MEMBER_001",
+                "period_fee_fraction": "example_period_fee_fraction"
+              }
+            ]
+          }
+        ]
       },
-      "type": "CompositePeriodicModelFeeProfile-Output",
+      "type": "object",
       "locations": [
         "body"
       ],
       "observedTypes": [
-        "CompositePeriodicModelFeeProfile-Output"
+        "object"
       ]
     },
     {
@@ -8238,6 +8349,23 @@
       ],
       "observedTypes": [
         "string"
+      ]
+    },
+    {
+      "semanticId": "lotus.schedule_rule",
+      "canonicalTerm": "schedule_rule",
+      "preferredName": "schedule_rule",
+      "description": "composite scheduled member fee input field: schedule rule.",
+      "example": {
+        "algorithm": "example_algorithm",
+        "annual_model_wealth_rate": "example_annual_model_wealth_rate"
+      },
+      "type": "object",
+      "locations": [
+        "body"
+      ],
+      "observedTypes": [
+        "object"
       ]
     },
     {
@@ -17133,28 +17261,13 @@
             "attributeRef": "#/attributeCatalog/lotus.x_tenant_id"
           },
           {
-            "name": "product_name",
-            "location": "body",
-            "required": true,
-            "type": "string",
-            "semanticId": "lotus.product_name",
-            "attributeRef": "#/attributeCatalog/lotus.product_name"
-          },
-          {
-            "name": "product_version",
-            "location": "body",
-            "required": true,
-            "type": "string",
-            "semanticId": "lotus.product_version",
-            "attributeRef": "#/attributeCatalog/lotus.product_version"
-          },
-          {
             "name": "profile_id",
             "location": "body",
             "required": true,
             "type": "string",
             "semanticId": "lotus.profile_id",
-            "attributeRef": "#/attributeCatalog/lotus.profile_id"
+            "attributeRef": "#/attributeCatalog/lotus.profile_id",
+            "schemaVariant": "CompositePeriodicModelFeeProfile-Input"
           },
           {
             "name": "revision",
@@ -17162,7 +17275,8 @@
             "required": true,
             "type": "string",
             "semanticId": "lotus.revision",
-            "attributeRef": "#/attributeCatalog/lotus.revision"
+            "attributeRef": "#/attributeCatalog/lotus.revision",
+            "schemaVariant": "CompositePeriodicModelFeeProfile-Input"
           },
           {
             "name": "tenant_id",
@@ -17170,7 +17284,8 @@
             "required": true,
             "type": "string",
             "semanticId": "lotus.tenant_id",
-            "attributeRef": "#/attributeCatalog/lotus.tenant_id"
+            "attributeRef": "#/attributeCatalog/lotus.tenant_id",
+            "schemaVariant": "CompositePeriodicModelFeeProfile-Input"
           },
           {
             "name": "composite_id",
@@ -17178,7 +17293,8 @@
             "required": true,
             "type": "string",
             "semanticId": "lotus.composite_id",
-            "attributeRef": "#/attributeCatalog/lotus.composite_id"
+            "attributeRef": "#/attributeCatalog/lotus.composite_id",
+            "schemaVariant": "CompositePeriodicModelFeeProfile-Input"
           },
           {
             "name": "method_id",
@@ -17186,7 +17302,8 @@
             "required": true,
             "type": "string",
             "semanticId": "lotus.method_id",
-            "attributeRef": "#/attributeCatalog/lotus.method_id"
+            "attributeRef": "#/attributeCatalog/lotus.method_id",
+            "schemaVariant": "CompositePeriodicModelFeeProfile-Input"
           },
           {
             "name": "method_revision",
@@ -17194,7 +17311,8 @@
             "required": true,
             "type": "string",
             "semanticId": "lotus.method_revision",
-            "attributeRef": "#/attributeCatalog/lotus.method_revision"
+            "attributeRef": "#/attributeCatalog/lotus.method_revision",
+            "schemaVariant": "CompositePeriodicModelFeeProfile-Input"
           },
           {
             "name": "schedule_id",
@@ -17202,7 +17320,8 @@
             "required": true,
             "type": "string",
             "semanticId": "lotus.schedule_id",
-            "attributeRef": "#/attributeCatalog/lotus.schedule_id"
+            "attributeRef": "#/attributeCatalog/lotus.schedule_id",
+            "schemaVariant": "CompositePeriodicModelFeeProfile-Input"
           },
           {
             "name": "schedule_revision",
@@ -17210,7 +17329,8 @@
             "required": true,
             "type": "string",
             "semanticId": "lotus.schedule_revision",
-            "attributeRef": "#/attributeCatalog/lotus.schedule_revision"
+            "attributeRef": "#/attributeCatalog/lotus.schedule_revision",
+            "schemaVariant": "CompositePeriodicModelFeeProfile-Input"
           },
           {
             "name": "effective_from",
@@ -17218,7 +17338,8 @@
             "required": true,
             "type": "string",
             "semanticId": "lotus.effective_from",
-            "attributeRef": "#/attributeCatalog/lotus.effective_from"
+            "attributeRef": "#/attributeCatalog/lotus.effective_from",
+            "schemaVariant": "CompositePeriodicModelFeeProfile-Input"
           },
           {
             "name": "effective_to",
@@ -17226,7 +17347,8 @@
             "required": true,
             "type": "string",
             "semanticId": "lotus.effective_to",
-            "attributeRef": "#/attributeCatalog/lotus.effective_to"
+            "attributeRef": "#/attributeCatalog/lotus.effective_to",
+            "schemaVariant": "CompositePeriodicModelFeeProfile-Input"
           },
           {
             "name": "calendar_binding",
@@ -17234,7 +17356,8 @@
             "required": true,
             "type": "EvidenceBinding",
             "semanticId": "lotus.calendar_binding",
-            "attributeRef": "#/attributeCatalog/lotus.calendar_binding"
+            "attributeRef": "#/attributeCatalog/lotus.calendar_binding",
+            "schemaVariant": "CompositePeriodicModelFeeProfile-Input"
           },
           {
             "name": "calendar_binding.product_name",
@@ -17242,7 +17365,8 @@
             "required": true,
             "type": "string",
             "semanticId": "lotus.product_name",
-            "attributeRef": "#/attributeCatalog/lotus.product_name"
+            "attributeRef": "#/attributeCatalog/lotus.product_name",
+            "schemaVariant": "CompositePeriodicModelFeeProfile-Input"
           },
           {
             "name": "calendar_binding.product_version",
@@ -17250,7 +17374,8 @@
             "required": true,
             "type": "string",
             "semanticId": "lotus.product_version",
-            "attributeRef": "#/attributeCatalog/lotus.product_version"
+            "attributeRef": "#/attributeCatalog/lotus.product_version",
+            "schemaVariant": "CompositePeriodicModelFeeProfile-Input"
           },
           {
             "name": "calendar_binding.revision",
@@ -17258,7 +17383,8 @@
             "required": true,
             "type": "string",
             "semanticId": "lotus.revision",
-            "attributeRef": "#/attributeCatalog/lotus.revision"
+            "attributeRef": "#/attributeCatalog/lotus.revision",
+            "schemaVariant": "CompositePeriodicModelFeeProfile-Input"
           },
           {
             "name": "calendar_binding.digest",
@@ -17266,7 +17392,8 @@
             "required": true,
             "type": "string",
             "semanticId": "lotus.digest",
-            "attributeRef": "#/attributeCatalog/lotus.digest"
+            "attributeRef": "#/attributeCatalog/lotus.digest",
+            "schemaVariant": "CompositePeriodicModelFeeProfile-Input"
           },
           {
             "name": "reporting_currency",
@@ -17274,7 +17401,8 @@
             "required": true,
             "type": "string",
             "semanticId": "lotus.reporting_currency",
-            "attributeRef": "#/attributeCatalog/lotus.reporting_currency"
+            "attributeRef": "#/attributeCatalog/lotus.reporting_currency",
+            "schemaVariant": "CompositePeriodicModelFeeProfile-Input"
           },
           {
             "name": "gross_source_basis",
@@ -17282,7 +17410,8 @@
             "required": true,
             "type": "string",
             "semanticId": "lotus.gross_source_basis",
-            "attributeRef": "#/attributeCatalog/lotus.gross_source_basis"
+            "attributeRef": "#/attributeCatalog/lotus.gross_source_basis",
+            "schemaVariant": "CompositePeriodicModelFeeProfile-Input"
           },
           {
             "name": "fee_component",
@@ -17290,7 +17419,8 @@
             "required": true,
             "type": "string",
             "semanticId": "lotus.fee_component",
-            "attributeRef": "#/attributeCatalog/lotus.fee_component"
+            "attributeRef": "#/attributeCatalog/lotus.fee_component",
+            "schemaVariant": "CompositePeriodicModelFeeProfile-Input"
           },
           {
             "name": "transaction_cost_treatment",
@@ -17298,7 +17428,8 @@
             "required": true,
             "type": "string",
             "semanticId": "lotus.transaction_cost_treatment",
-            "attributeRef": "#/attributeCatalog/lotus.transaction_cost_treatment"
+            "attributeRef": "#/attributeCatalog/lotus.transaction_cost_treatment",
+            "schemaVariant": "CompositePeriodicModelFeeProfile-Input"
           },
           {
             "name": "bundled_fee_context",
@@ -17306,15 +17437,8 @@
             "required": true,
             "type": "string",
             "semanticId": "lotus.bundled_fee_context",
-            "attributeRef": "#/attributeCatalog/lotus.bundled_fee_context"
-          },
-          {
-            "name": "rate_basis",
-            "location": "body",
-            "required": true,
-            "type": "string",
-            "semanticId": "lotus.rate_basis",
-            "attributeRef": "#/attributeCatalog/lotus.rate_basis"
+            "attributeRef": "#/attributeCatalog/lotus.bundled_fee_context",
+            "schemaVariant": "CompositePeriodicModelFeeProfile-Input"
           },
           {
             "name": "timing",
@@ -17322,7 +17446,8 @@
             "required": true,
             "type": "string",
             "semanticId": "lotus.timing",
-            "attributeRef": "#/attributeCatalog/lotus.timing"
+            "attributeRef": "#/attributeCatalog/lotus.timing",
+            "schemaVariant": "CompositePeriodicModelFeeProfile-Input"
           },
           {
             "name": "transformation",
@@ -17330,7 +17455,8 @@
             "required": true,
             "type": "string",
             "semanticId": "lotus.transformation",
-            "attributeRef": "#/attributeCatalog/lotus.transformation"
+            "attributeRef": "#/attributeCatalog/lotus.transformation",
+            "schemaVariant": "CompositePeriodicModelFeeProfile-Input"
           },
           {
             "name": "asset_treatment",
@@ -17338,15 +17464,8 @@
             "required": true,
             "type": "string",
             "semanticId": "lotus.asset_treatment",
-            "attributeRef": "#/attributeCatalog/lotus.asset_treatment"
-          },
-          {
-            "name": "monetary_precision",
-            "location": "body",
-            "required": true,
-            "type": "string",
-            "semanticId": "lotus.monetary_precision",
-            "attributeRef": "#/attributeCatalog/lotus.monetary_precision"
+            "attributeRef": "#/attributeCatalog/lotus.asset_treatment",
+            "schemaVariant": "CompositePeriodicModelFeeProfile-Input"
           },
           {
             "name": "standards_applicability",
@@ -17354,7 +17473,44 @@
             "required": true,
             "type": "string",
             "semanticId": "lotus.standards_applicability",
-            "attributeRef": "#/attributeCatalog/lotus.standards_applicability"
+            "attributeRef": "#/attributeCatalog/lotus.standards_applicability",
+            "schemaVariant": "CompositePeriodicModelFeeProfile-Input"
+          },
+          {
+            "name": "product_name",
+            "location": "body",
+            "required": true,
+            "type": "string",
+            "semanticId": "lotus.product_name",
+            "attributeRef": "#/attributeCatalog/lotus.product_name",
+            "schemaVariant": "CompositePeriodicModelFeeProfile-Input"
+          },
+          {
+            "name": "product_version",
+            "location": "body",
+            "required": true,
+            "type": "string",
+            "semanticId": "lotus.product_version",
+            "attributeRef": "#/attributeCatalog/lotus.product_version",
+            "schemaVariant": "CompositePeriodicModelFeeProfile-Input"
+          },
+          {
+            "name": "rate_basis",
+            "location": "body",
+            "required": true,
+            "type": "string",
+            "semanticId": "lotus.rate_basis",
+            "attributeRef": "#/attributeCatalog/lotus.rate_basis",
+            "schemaVariant": "CompositePeriodicModelFeeProfile-Input"
+          },
+          {
+            "name": "monetary_precision",
+            "location": "body",
+            "required": true,
+            "type": "string",
+            "semanticId": "lotus.monetary_precision",
+            "attributeRef": "#/attributeCatalog/lotus.monetary_precision",
+            "schemaVariant": "CompositePeriodicModelFeeProfile-Input"
           },
           {
             "name": "periods",
@@ -17362,7 +17518,8 @@
             "required": true,
             "type": "array",
             "semanticId": "lotus.periods",
-            "attributeRef": "#/attributeCatalog/lotus.periods"
+            "attributeRef": "#/attributeCatalog/lotus.periods",
+            "schemaVariant": "CompositePeriodicModelFeeProfile-Input"
           },
           {
             "name": "periods[].period_start",
@@ -17370,7 +17527,8 @@
             "required": true,
             "type": "string",
             "semanticId": "lotus.period_start",
-            "attributeRef": "#/attributeCatalog/lotus.period_start"
+            "attributeRef": "#/attributeCatalog/lotus.period_start",
+            "schemaVariant": "CompositePeriodicModelFeeProfile-Input"
           },
           {
             "name": "periods[].period_end",
@@ -17378,7 +17536,8 @@
             "required": true,
             "type": "string",
             "semanticId": "lotus.period_end",
-            "attributeRef": "#/attributeCatalog/lotus.period_end"
+            "attributeRef": "#/attributeCatalog/lotus.period_end",
+            "schemaVariant": "CompositePeriodicModelFeeProfile-Input"
           },
           {
             "name": "periods[].member_rates",
@@ -17386,7 +17545,8 @@
             "required": true,
             "type": "array",
             "semanticId": "lotus.member_rates",
-            "attributeRef": "#/attributeCatalog/lotus.member_rates"
+            "attributeRef": "#/attributeCatalog/lotus.member_rates",
+            "schemaVariant": "CompositePeriodicModelFeeProfile-Input"
           },
           {
             "name": "periods[].member_rates[].entry_id",
@@ -17394,7 +17554,8 @@
             "required": true,
             "type": "string",
             "semanticId": "lotus.entry_id",
-            "attributeRef": "#/attributeCatalog/lotus.entry_id"
+            "attributeRef": "#/attributeCatalog/lotus.entry_id",
+            "schemaVariant": "CompositePeriodicModelFeeProfile-Input"
           },
           {
             "name": "periods[].member_rates[].member_id",
@@ -17402,7 +17563,8 @@
             "required": true,
             "type": "string",
             "semanticId": "lotus.member_id",
-            "attributeRef": "#/attributeCatalog/lotus.member_id"
+            "attributeRef": "#/attributeCatalog/lotus.member_id",
+            "schemaVariant": "CompositePeriodicModelFeeProfile-Input"
           },
           {
             "name": "periods[].member_rates[].period_fee_fraction",
@@ -17410,7 +17572,368 @@
             "required": true,
             "type": "string",
             "semanticId": "lotus.period_fee_fraction",
-            "attributeRef": "#/attributeCatalog/lotus.period_fee_fraction"
+            "attributeRef": "#/attributeCatalog/lotus.period_fee_fraction",
+            "schemaVariant": "CompositePeriodicModelFeeProfile-Input"
+          },
+          {
+            "name": "profile_id",
+            "location": "body",
+            "required": true,
+            "type": "string",
+            "semanticId": "lotus.profile_id",
+            "attributeRef": "#/attributeCatalog/lotus.profile_id",
+            "schemaVariant": "CompositeScheduledModelFeeProfile-Input"
+          },
+          {
+            "name": "revision",
+            "location": "body",
+            "required": true,
+            "type": "string",
+            "semanticId": "lotus.revision",
+            "attributeRef": "#/attributeCatalog/lotus.revision",
+            "schemaVariant": "CompositeScheduledModelFeeProfile-Input"
+          },
+          {
+            "name": "tenant_id",
+            "location": "body",
+            "required": true,
+            "type": "string",
+            "semanticId": "lotus.tenant_id",
+            "attributeRef": "#/attributeCatalog/lotus.tenant_id",
+            "schemaVariant": "CompositeScheduledModelFeeProfile-Input"
+          },
+          {
+            "name": "composite_id",
+            "location": "body",
+            "required": true,
+            "type": "string",
+            "semanticId": "lotus.composite_id",
+            "attributeRef": "#/attributeCatalog/lotus.composite_id",
+            "schemaVariant": "CompositeScheduledModelFeeProfile-Input"
+          },
+          {
+            "name": "method_id",
+            "location": "body",
+            "required": true,
+            "type": "string",
+            "semanticId": "lotus.method_id",
+            "attributeRef": "#/attributeCatalog/lotus.method_id",
+            "schemaVariant": "CompositeScheduledModelFeeProfile-Input"
+          },
+          {
+            "name": "method_revision",
+            "location": "body",
+            "required": true,
+            "type": "string",
+            "semanticId": "lotus.method_revision",
+            "attributeRef": "#/attributeCatalog/lotus.method_revision",
+            "schemaVariant": "CompositeScheduledModelFeeProfile-Input"
+          },
+          {
+            "name": "schedule_id",
+            "location": "body",
+            "required": true,
+            "type": "string",
+            "semanticId": "lotus.schedule_id",
+            "attributeRef": "#/attributeCatalog/lotus.schedule_id",
+            "schemaVariant": "CompositeScheduledModelFeeProfile-Input"
+          },
+          {
+            "name": "schedule_revision",
+            "location": "body",
+            "required": true,
+            "type": "string",
+            "semanticId": "lotus.schedule_revision",
+            "attributeRef": "#/attributeCatalog/lotus.schedule_revision",
+            "schemaVariant": "CompositeScheduledModelFeeProfile-Input"
+          },
+          {
+            "name": "effective_from",
+            "location": "body",
+            "required": true,
+            "type": "string",
+            "semanticId": "lotus.effective_from",
+            "attributeRef": "#/attributeCatalog/lotus.effective_from",
+            "schemaVariant": "CompositeScheduledModelFeeProfile-Input"
+          },
+          {
+            "name": "effective_to",
+            "location": "body",
+            "required": true,
+            "type": "string",
+            "semanticId": "lotus.effective_to",
+            "attributeRef": "#/attributeCatalog/lotus.effective_to",
+            "schemaVariant": "CompositeScheduledModelFeeProfile-Input"
+          },
+          {
+            "name": "calendar_binding",
+            "location": "body",
+            "required": true,
+            "type": "EvidenceBinding",
+            "semanticId": "lotus.calendar_binding",
+            "attributeRef": "#/attributeCatalog/lotus.calendar_binding",
+            "schemaVariant": "CompositeScheduledModelFeeProfile-Input"
+          },
+          {
+            "name": "calendar_binding.product_name",
+            "location": "body",
+            "required": true,
+            "type": "string",
+            "semanticId": "lotus.product_name",
+            "attributeRef": "#/attributeCatalog/lotus.product_name",
+            "schemaVariant": "CompositeScheduledModelFeeProfile-Input"
+          },
+          {
+            "name": "calendar_binding.product_version",
+            "location": "body",
+            "required": true,
+            "type": "string",
+            "semanticId": "lotus.product_version",
+            "attributeRef": "#/attributeCatalog/lotus.product_version",
+            "schemaVariant": "CompositeScheduledModelFeeProfile-Input"
+          },
+          {
+            "name": "calendar_binding.revision",
+            "location": "body",
+            "required": true,
+            "type": "string",
+            "semanticId": "lotus.revision",
+            "attributeRef": "#/attributeCatalog/lotus.revision",
+            "schemaVariant": "CompositeScheduledModelFeeProfile-Input"
+          },
+          {
+            "name": "calendar_binding.digest",
+            "location": "body",
+            "required": true,
+            "type": "string",
+            "semanticId": "lotus.digest",
+            "attributeRef": "#/attributeCatalog/lotus.digest",
+            "schemaVariant": "CompositeScheduledModelFeeProfile-Input"
+          },
+          {
+            "name": "reporting_currency",
+            "location": "body",
+            "required": true,
+            "type": "string",
+            "semanticId": "lotus.reporting_currency",
+            "attributeRef": "#/attributeCatalog/lotus.reporting_currency",
+            "schemaVariant": "CompositeScheduledModelFeeProfile-Input"
+          },
+          {
+            "name": "gross_source_basis",
+            "location": "body",
+            "required": true,
+            "type": "string",
+            "semanticId": "lotus.gross_source_basis",
+            "attributeRef": "#/attributeCatalog/lotus.gross_source_basis",
+            "schemaVariant": "CompositeScheduledModelFeeProfile-Input"
+          },
+          {
+            "name": "fee_component",
+            "location": "body",
+            "required": true,
+            "type": "string",
+            "semanticId": "lotus.fee_component",
+            "attributeRef": "#/attributeCatalog/lotus.fee_component",
+            "schemaVariant": "CompositeScheduledModelFeeProfile-Input"
+          },
+          {
+            "name": "transaction_cost_treatment",
+            "location": "body",
+            "required": true,
+            "type": "string",
+            "semanticId": "lotus.transaction_cost_treatment",
+            "attributeRef": "#/attributeCatalog/lotus.transaction_cost_treatment",
+            "schemaVariant": "CompositeScheduledModelFeeProfile-Input"
+          },
+          {
+            "name": "bundled_fee_context",
+            "location": "body",
+            "required": true,
+            "type": "string",
+            "semanticId": "lotus.bundled_fee_context",
+            "attributeRef": "#/attributeCatalog/lotus.bundled_fee_context",
+            "schemaVariant": "CompositeScheduledModelFeeProfile-Input"
+          },
+          {
+            "name": "timing",
+            "location": "body",
+            "required": true,
+            "type": "string",
+            "semanticId": "lotus.timing",
+            "attributeRef": "#/attributeCatalog/lotus.timing",
+            "schemaVariant": "CompositeScheduledModelFeeProfile-Input"
+          },
+          {
+            "name": "transformation",
+            "location": "body",
+            "required": true,
+            "type": "string",
+            "semanticId": "lotus.transformation",
+            "attributeRef": "#/attributeCatalog/lotus.transformation",
+            "schemaVariant": "CompositeScheduledModelFeeProfile-Input"
+          },
+          {
+            "name": "asset_treatment",
+            "location": "body",
+            "required": true,
+            "type": "string",
+            "semanticId": "lotus.asset_treatment",
+            "attributeRef": "#/attributeCatalog/lotus.asset_treatment",
+            "schemaVariant": "CompositeScheduledModelFeeProfile-Input"
+          },
+          {
+            "name": "standards_applicability",
+            "location": "body",
+            "required": true,
+            "type": "string",
+            "semanticId": "lotus.standards_applicability",
+            "attributeRef": "#/attributeCatalog/lotus.standards_applicability",
+            "schemaVariant": "CompositeScheduledModelFeeProfile-Input"
+          },
+          {
+            "name": "product_name",
+            "location": "body",
+            "required": true,
+            "type": "string",
+            "semanticId": "lotus.product_name",
+            "attributeRef": "#/attributeCatalog/lotus.product_name",
+            "schemaVariant": "CompositeScheduledModelFeeProfile-Input"
+          },
+          {
+            "name": "product_version",
+            "location": "body",
+            "required": true,
+            "type": "string",
+            "semanticId": "lotus.product_version",
+            "attributeRef": "#/attributeCatalog/lotus.product_version",
+            "schemaVariant": "CompositeScheduledModelFeeProfile-Input"
+          },
+          {
+            "name": "rate_basis",
+            "location": "body",
+            "required": true,
+            "type": "string",
+            "semanticId": "lotus.rate_basis",
+            "attributeRef": "#/attributeCatalog/lotus.rate_basis",
+            "schemaVariant": "CompositeScheduledModelFeeProfile-Input"
+          },
+          {
+            "name": "day_count",
+            "location": "body",
+            "required": true,
+            "type": "string",
+            "semanticId": "lotus.day_count",
+            "attributeRef": "#/attributeCatalog/lotus.day_count",
+            "schemaVariant": "CompositeScheduledModelFeeProfile-Input"
+          },
+          {
+            "name": "accrual_frequency",
+            "location": "body",
+            "required": true,
+            "type": "string",
+            "semanticId": "lotus.accrual_frequency",
+            "attributeRef": "#/attributeCatalog/lotus.accrual_frequency",
+            "schemaVariant": "CompositeScheduledModelFeeProfile-Input"
+          },
+          {
+            "name": "fee_base_basis",
+            "location": "body",
+            "required": true,
+            "type": "string",
+            "semanticId": "lotus.fee_base_basis",
+            "attributeRef": "#/attributeCatalog/lotus.fee_base_basis",
+            "schemaVariant": "CompositeScheduledModelFeeProfile-Input"
+          },
+          {
+            "name": "monetary_charge_interpretation",
+            "location": "body",
+            "required": true,
+            "type": "string",
+            "semanticId": "lotus.monetary_charge_interpretation",
+            "attributeRef": "#/attributeCatalog/lotus.monetary_charge_interpretation",
+            "schemaVariant": "CompositeScheduledModelFeeProfile-Input"
+          },
+          {
+            "name": "monetary_precision",
+            "location": "body",
+            "required": true,
+            "type": "string",
+            "semanticId": "lotus.monetary_precision",
+            "attributeRef": "#/attributeCatalog/lotus.monetary_precision",
+            "schemaVariant": "CompositeScheduledModelFeeProfile-Input"
+          },
+          {
+            "name": "periods",
+            "location": "body",
+            "required": true,
+            "type": "array",
+            "semanticId": "lotus.periods",
+            "attributeRef": "#/attributeCatalog/lotus.periods",
+            "schemaVariant": "CompositeScheduledModelFeeProfile-Input"
+          },
+          {
+            "name": "periods[].period_start",
+            "location": "body",
+            "required": true,
+            "type": "string",
+            "semanticId": "lotus.period_start",
+            "attributeRef": "#/attributeCatalog/lotus.period_start",
+            "schemaVariant": "CompositeScheduledModelFeeProfile-Input"
+          },
+          {
+            "name": "periods[].period_end",
+            "location": "body",
+            "required": true,
+            "type": "string",
+            "semanticId": "lotus.period_end",
+            "attributeRef": "#/attributeCatalog/lotus.period_end",
+            "schemaVariant": "CompositeScheduledModelFeeProfile-Input"
+          },
+          {
+            "name": "periods[].member_rates",
+            "location": "body",
+            "required": true,
+            "type": "array",
+            "semanticId": "lotus.member_rates",
+            "attributeRef": "#/attributeCatalog/lotus.member_rates",
+            "schemaVariant": "CompositeScheduledModelFeeProfile-Input"
+          },
+          {
+            "name": "periods[].member_rates[].entry_id",
+            "location": "body",
+            "required": true,
+            "type": "string",
+            "semanticId": "lotus.entry_id",
+            "attributeRef": "#/attributeCatalog/lotus.entry_id",
+            "schemaVariant": "CompositeScheduledModelFeeProfile-Input"
+          },
+          {
+            "name": "periods[].member_rates[].member_id",
+            "location": "body",
+            "required": true,
+            "type": "string",
+            "semanticId": "lotus.member_id",
+            "attributeRef": "#/attributeCatalog/lotus.member_id",
+            "schemaVariant": "CompositeScheduledModelFeeProfile-Input"
+          },
+          {
+            "name": "periods[].member_rates[].fee_base_amount",
+            "location": "body",
+            "required": true,
+            "type": "string",
+            "semanticId": "lotus.fee_base_amount",
+            "attributeRef": "#/attributeCatalog/lotus.fee_base_amount",
+            "schemaVariant": "CompositeScheduledModelFeeProfile-Input"
+          },
+          {
+            "name": "periods[].member_rates[].schedule_rule",
+            "location": "body",
+            "required": true,
+            "type": "object",
+            "semanticId": "lotus.schedule_rule",
+            "attributeRef": "#/attributeCatalog/lotus.schedule_rule",
+            "schemaVariant": "CompositeScheduledModelFeeProfile-Input"
           }
         ]
       },
@@ -17468,289 +17991,9 @@
             "name": "profile",
             "location": "body",
             "required": true,
-            "type": "CompositePeriodicModelFeeProfile-Output",
+            "type": "object",
             "semanticId": "lotus.profile",
             "attributeRef": "#/attributeCatalog/lotus.profile"
-          },
-          {
-            "name": "profile.product_name",
-            "location": "body",
-            "required": true,
-            "type": "string",
-            "semanticId": "lotus.product_name",
-            "attributeRef": "#/attributeCatalog/lotus.product_name"
-          },
-          {
-            "name": "profile.product_version",
-            "location": "body",
-            "required": true,
-            "type": "string",
-            "semanticId": "lotus.product_version",
-            "attributeRef": "#/attributeCatalog/lotus.product_version"
-          },
-          {
-            "name": "profile.profile_id",
-            "location": "body",
-            "required": true,
-            "type": "string",
-            "semanticId": "lotus.profile_id",
-            "attributeRef": "#/attributeCatalog/lotus.profile_id"
-          },
-          {
-            "name": "profile.revision",
-            "location": "body",
-            "required": true,
-            "type": "string",
-            "semanticId": "lotus.revision",
-            "attributeRef": "#/attributeCatalog/lotus.revision"
-          },
-          {
-            "name": "profile.tenant_id",
-            "location": "body",
-            "required": true,
-            "type": "string",
-            "semanticId": "lotus.tenant_id",
-            "attributeRef": "#/attributeCatalog/lotus.tenant_id"
-          },
-          {
-            "name": "profile.composite_id",
-            "location": "body",
-            "required": true,
-            "type": "string",
-            "semanticId": "lotus.composite_id",
-            "attributeRef": "#/attributeCatalog/lotus.composite_id"
-          },
-          {
-            "name": "profile.method_id",
-            "location": "body",
-            "required": true,
-            "type": "string",
-            "semanticId": "lotus.method_id",
-            "attributeRef": "#/attributeCatalog/lotus.method_id"
-          },
-          {
-            "name": "profile.method_revision",
-            "location": "body",
-            "required": true,
-            "type": "string",
-            "semanticId": "lotus.method_revision",
-            "attributeRef": "#/attributeCatalog/lotus.method_revision"
-          },
-          {
-            "name": "profile.schedule_id",
-            "location": "body",
-            "required": true,
-            "type": "string",
-            "semanticId": "lotus.schedule_id",
-            "attributeRef": "#/attributeCatalog/lotus.schedule_id"
-          },
-          {
-            "name": "profile.schedule_revision",
-            "location": "body",
-            "required": true,
-            "type": "string",
-            "semanticId": "lotus.schedule_revision",
-            "attributeRef": "#/attributeCatalog/lotus.schedule_revision"
-          },
-          {
-            "name": "profile.effective_from",
-            "location": "body",
-            "required": true,
-            "type": "string",
-            "semanticId": "lotus.effective_from",
-            "attributeRef": "#/attributeCatalog/lotus.effective_from"
-          },
-          {
-            "name": "profile.effective_to",
-            "location": "body",
-            "required": true,
-            "type": "string",
-            "semanticId": "lotus.effective_to",
-            "attributeRef": "#/attributeCatalog/lotus.effective_to"
-          },
-          {
-            "name": "profile.calendar_binding",
-            "location": "body",
-            "required": true,
-            "type": "EvidenceBinding",
-            "semanticId": "lotus.calendar_binding",
-            "attributeRef": "#/attributeCatalog/lotus.calendar_binding"
-          },
-          {
-            "name": "profile.calendar_binding.product_name",
-            "location": "body",
-            "required": true,
-            "type": "string",
-            "semanticId": "lotus.product_name",
-            "attributeRef": "#/attributeCatalog/lotus.product_name"
-          },
-          {
-            "name": "profile.calendar_binding.product_version",
-            "location": "body",
-            "required": true,
-            "type": "string",
-            "semanticId": "lotus.product_version",
-            "attributeRef": "#/attributeCatalog/lotus.product_version"
-          },
-          {
-            "name": "profile.calendar_binding.revision",
-            "location": "body",
-            "required": true,
-            "type": "string",
-            "semanticId": "lotus.revision",
-            "attributeRef": "#/attributeCatalog/lotus.revision"
-          },
-          {
-            "name": "profile.calendar_binding.digest",
-            "location": "body",
-            "required": true,
-            "type": "string",
-            "semanticId": "lotus.digest",
-            "attributeRef": "#/attributeCatalog/lotus.digest"
-          },
-          {
-            "name": "profile.reporting_currency",
-            "location": "body",
-            "required": true,
-            "type": "string",
-            "semanticId": "lotus.reporting_currency",
-            "attributeRef": "#/attributeCatalog/lotus.reporting_currency"
-          },
-          {
-            "name": "profile.gross_source_basis",
-            "location": "body",
-            "required": true,
-            "type": "string",
-            "semanticId": "lotus.gross_source_basis",
-            "attributeRef": "#/attributeCatalog/lotus.gross_source_basis"
-          },
-          {
-            "name": "profile.fee_component",
-            "location": "body",
-            "required": true,
-            "type": "string",
-            "semanticId": "lotus.fee_component",
-            "attributeRef": "#/attributeCatalog/lotus.fee_component"
-          },
-          {
-            "name": "profile.transaction_cost_treatment",
-            "location": "body",
-            "required": true,
-            "type": "string",
-            "semanticId": "lotus.transaction_cost_treatment",
-            "attributeRef": "#/attributeCatalog/lotus.transaction_cost_treatment"
-          },
-          {
-            "name": "profile.bundled_fee_context",
-            "location": "body",
-            "required": true,
-            "type": "string",
-            "semanticId": "lotus.bundled_fee_context",
-            "attributeRef": "#/attributeCatalog/lotus.bundled_fee_context"
-          },
-          {
-            "name": "profile.rate_basis",
-            "location": "body",
-            "required": true,
-            "type": "string",
-            "semanticId": "lotus.rate_basis",
-            "attributeRef": "#/attributeCatalog/lotus.rate_basis"
-          },
-          {
-            "name": "profile.timing",
-            "location": "body",
-            "required": true,
-            "type": "string",
-            "semanticId": "lotus.timing",
-            "attributeRef": "#/attributeCatalog/lotus.timing"
-          },
-          {
-            "name": "profile.transformation",
-            "location": "body",
-            "required": true,
-            "type": "string",
-            "semanticId": "lotus.transformation",
-            "attributeRef": "#/attributeCatalog/lotus.transformation"
-          },
-          {
-            "name": "profile.asset_treatment",
-            "location": "body",
-            "required": true,
-            "type": "string",
-            "semanticId": "lotus.asset_treatment",
-            "attributeRef": "#/attributeCatalog/lotus.asset_treatment"
-          },
-          {
-            "name": "profile.monetary_precision",
-            "location": "body",
-            "required": true,
-            "type": "string",
-            "semanticId": "lotus.monetary_precision",
-            "attributeRef": "#/attributeCatalog/lotus.monetary_precision"
-          },
-          {
-            "name": "profile.standards_applicability",
-            "location": "body",
-            "required": true,
-            "type": "string",
-            "semanticId": "lotus.standards_applicability",
-            "attributeRef": "#/attributeCatalog/lotus.standards_applicability"
-          },
-          {
-            "name": "profile.periods",
-            "location": "body",
-            "required": true,
-            "type": "array",
-            "semanticId": "lotus.periods",
-            "attributeRef": "#/attributeCatalog/lotus.periods"
-          },
-          {
-            "name": "profile.periods[].period_start",
-            "location": "body",
-            "required": true,
-            "type": "string",
-            "semanticId": "lotus.period_start",
-            "attributeRef": "#/attributeCatalog/lotus.period_start"
-          },
-          {
-            "name": "profile.periods[].period_end",
-            "location": "body",
-            "required": true,
-            "type": "string",
-            "semanticId": "lotus.period_end",
-            "attributeRef": "#/attributeCatalog/lotus.period_end"
-          },
-          {
-            "name": "profile.periods[].member_rates",
-            "location": "body",
-            "required": true,
-            "type": "array",
-            "semanticId": "lotus.member_rates",
-            "attributeRef": "#/attributeCatalog/lotus.member_rates"
-          },
-          {
-            "name": "profile.periods[].member_rates[].entry_id",
-            "location": "body",
-            "required": true,
-            "type": "string",
-            "semanticId": "lotus.entry_id",
-            "attributeRef": "#/attributeCatalog/lotus.entry_id"
-          },
-          {
-            "name": "profile.periods[].member_rates[].member_id",
-            "location": "body",
-            "required": true,
-            "type": "string",
-            "semanticId": "lotus.member_id",
-            "attributeRef": "#/attributeCatalog/lotus.member_id"
-          },
-          {
-            "name": "profile.periods[].member_rates[].period_fee_fraction",
-            "location": "body",
-            "required": true,
-            "type": "string",
-            "semanticId": "lotus.period_fee_fraction",
-            "attributeRef": "#/attributeCatalog/lotus.period_fee_fraction"
           },
           {
             "name": "published_by",
@@ -17875,289 +18118,9 @@
             "name": "profile",
             "location": "body",
             "required": true,
-            "type": "CompositePeriodicModelFeeProfile-Output",
+            "type": "object",
             "semanticId": "lotus.profile",
             "attributeRef": "#/attributeCatalog/lotus.profile"
-          },
-          {
-            "name": "profile.product_name",
-            "location": "body",
-            "required": true,
-            "type": "string",
-            "semanticId": "lotus.product_name",
-            "attributeRef": "#/attributeCatalog/lotus.product_name"
-          },
-          {
-            "name": "profile.product_version",
-            "location": "body",
-            "required": true,
-            "type": "string",
-            "semanticId": "lotus.product_version",
-            "attributeRef": "#/attributeCatalog/lotus.product_version"
-          },
-          {
-            "name": "profile.profile_id",
-            "location": "body",
-            "required": true,
-            "type": "string",
-            "semanticId": "lotus.profile_id",
-            "attributeRef": "#/attributeCatalog/lotus.profile_id"
-          },
-          {
-            "name": "profile.revision",
-            "location": "body",
-            "required": true,
-            "type": "string",
-            "semanticId": "lotus.revision",
-            "attributeRef": "#/attributeCatalog/lotus.revision"
-          },
-          {
-            "name": "profile.tenant_id",
-            "location": "body",
-            "required": true,
-            "type": "string",
-            "semanticId": "lotus.tenant_id",
-            "attributeRef": "#/attributeCatalog/lotus.tenant_id"
-          },
-          {
-            "name": "profile.composite_id",
-            "location": "body",
-            "required": true,
-            "type": "string",
-            "semanticId": "lotus.composite_id",
-            "attributeRef": "#/attributeCatalog/lotus.composite_id"
-          },
-          {
-            "name": "profile.method_id",
-            "location": "body",
-            "required": true,
-            "type": "string",
-            "semanticId": "lotus.method_id",
-            "attributeRef": "#/attributeCatalog/lotus.method_id"
-          },
-          {
-            "name": "profile.method_revision",
-            "location": "body",
-            "required": true,
-            "type": "string",
-            "semanticId": "lotus.method_revision",
-            "attributeRef": "#/attributeCatalog/lotus.method_revision"
-          },
-          {
-            "name": "profile.schedule_id",
-            "location": "body",
-            "required": true,
-            "type": "string",
-            "semanticId": "lotus.schedule_id",
-            "attributeRef": "#/attributeCatalog/lotus.schedule_id"
-          },
-          {
-            "name": "profile.schedule_revision",
-            "location": "body",
-            "required": true,
-            "type": "string",
-            "semanticId": "lotus.schedule_revision",
-            "attributeRef": "#/attributeCatalog/lotus.schedule_revision"
-          },
-          {
-            "name": "profile.effective_from",
-            "location": "body",
-            "required": true,
-            "type": "string",
-            "semanticId": "lotus.effective_from",
-            "attributeRef": "#/attributeCatalog/lotus.effective_from"
-          },
-          {
-            "name": "profile.effective_to",
-            "location": "body",
-            "required": true,
-            "type": "string",
-            "semanticId": "lotus.effective_to",
-            "attributeRef": "#/attributeCatalog/lotus.effective_to"
-          },
-          {
-            "name": "profile.calendar_binding",
-            "location": "body",
-            "required": true,
-            "type": "EvidenceBinding",
-            "semanticId": "lotus.calendar_binding",
-            "attributeRef": "#/attributeCatalog/lotus.calendar_binding"
-          },
-          {
-            "name": "profile.calendar_binding.product_name",
-            "location": "body",
-            "required": true,
-            "type": "string",
-            "semanticId": "lotus.product_name",
-            "attributeRef": "#/attributeCatalog/lotus.product_name"
-          },
-          {
-            "name": "profile.calendar_binding.product_version",
-            "location": "body",
-            "required": true,
-            "type": "string",
-            "semanticId": "lotus.product_version",
-            "attributeRef": "#/attributeCatalog/lotus.product_version"
-          },
-          {
-            "name": "profile.calendar_binding.revision",
-            "location": "body",
-            "required": true,
-            "type": "string",
-            "semanticId": "lotus.revision",
-            "attributeRef": "#/attributeCatalog/lotus.revision"
-          },
-          {
-            "name": "profile.calendar_binding.digest",
-            "location": "body",
-            "required": true,
-            "type": "string",
-            "semanticId": "lotus.digest",
-            "attributeRef": "#/attributeCatalog/lotus.digest"
-          },
-          {
-            "name": "profile.reporting_currency",
-            "location": "body",
-            "required": true,
-            "type": "string",
-            "semanticId": "lotus.reporting_currency",
-            "attributeRef": "#/attributeCatalog/lotus.reporting_currency"
-          },
-          {
-            "name": "profile.gross_source_basis",
-            "location": "body",
-            "required": true,
-            "type": "string",
-            "semanticId": "lotus.gross_source_basis",
-            "attributeRef": "#/attributeCatalog/lotus.gross_source_basis"
-          },
-          {
-            "name": "profile.fee_component",
-            "location": "body",
-            "required": true,
-            "type": "string",
-            "semanticId": "lotus.fee_component",
-            "attributeRef": "#/attributeCatalog/lotus.fee_component"
-          },
-          {
-            "name": "profile.transaction_cost_treatment",
-            "location": "body",
-            "required": true,
-            "type": "string",
-            "semanticId": "lotus.transaction_cost_treatment",
-            "attributeRef": "#/attributeCatalog/lotus.transaction_cost_treatment"
-          },
-          {
-            "name": "profile.bundled_fee_context",
-            "location": "body",
-            "required": true,
-            "type": "string",
-            "semanticId": "lotus.bundled_fee_context",
-            "attributeRef": "#/attributeCatalog/lotus.bundled_fee_context"
-          },
-          {
-            "name": "profile.rate_basis",
-            "location": "body",
-            "required": true,
-            "type": "string",
-            "semanticId": "lotus.rate_basis",
-            "attributeRef": "#/attributeCatalog/lotus.rate_basis"
-          },
-          {
-            "name": "profile.timing",
-            "location": "body",
-            "required": true,
-            "type": "string",
-            "semanticId": "lotus.timing",
-            "attributeRef": "#/attributeCatalog/lotus.timing"
-          },
-          {
-            "name": "profile.transformation",
-            "location": "body",
-            "required": true,
-            "type": "string",
-            "semanticId": "lotus.transformation",
-            "attributeRef": "#/attributeCatalog/lotus.transformation"
-          },
-          {
-            "name": "profile.asset_treatment",
-            "location": "body",
-            "required": true,
-            "type": "string",
-            "semanticId": "lotus.asset_treatment",
-            "attributeRef": "#/attributeCatalog/lotus.asset_treatment"
-          },
-          {
-            "name": "profile.monetary_precision",
-            "location": "body",
-            "required": true,
-            "type": "string",
-            "semanticId": "lotus.monetary_precision",
-            "attributeRef": "#/attributeCatalog/lotus.monetary_precision"
-          },
-          {
-            "name": "profile.standards_applicability",
-            "location": "body",
-            "required": true,
-            "type": "string",
-            "semanticId": "lotus.standards_applicability",
-            "attributeRef": "#/attributeCatalog/lotus.standards_applicability"
-          },
-          {
-            "name": "profile.periods",
-            "location": "body",
-            "required": true,
-            "type": "array",
-            "semanticId": "lotus.periods",
-            "attributeRef": "#/attributeCatalog/lotus.periods"
-          },
-          {
-            "name": "profile.periods[].period_start",
-            "location": "body",
-            "required": true,
-            "type": "string",
-            "semanticId": "lotus.period_start",
-            "attributeRef": "#/attributeCatalog/lotus.period_start"
-          },
-          {
-            "name": "profile.periods[].period_end",
-            "location": "body",
-            "required": true,
-            "type": "string",
-            "semanticId": "lotus.period_end",
-            "attributeRef": "#/attributeCatalog/lotus.period_end"
-          },
-          {
-            "name": "profile.periods[].member_rates",
-            "location": "body",
-            "required": true,
-            "type": "array",
-            "semanticId": "lotus.member_rates",
-            "attributeRef": "#/attributeCatalog/lotus.member_rates"
-          },
-          {
-            "name": "profile.periods[].member_rates[].entry_id",
-            "location": "body",
-            "required": true,
-            "type": "string",
-            "semanticId": "lotus.entry_id",
-            "attributeRef": "#/attributeCatalog/lotus.entry_id"
-          },
-          {
-            "name": "profile.periods[].member_rates[].member_id",
-            "location": "body",
-            "required": true,
-            "type": "string",
-            "semanticId": "lotus.member_id",
-            "attributeRef": "#/attributeCatalog/lotus.member_id"
-          },
-          {
-            "name": "profile.periods[].member_rates[].period_fee_fraction",
-            "location": "body",
-            "required": true,
-            "type": "string",
-            "semanticId": "lotus.period_fee_fraction",
-            "attributeRef": "#/attributeCatalog/lotus.period_fee_fraction"
           },
           {
             "name": "published_by",
