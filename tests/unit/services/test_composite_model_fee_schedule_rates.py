@@ -1,5 +1,6 @@
 """Independent rational rate/wealth/money distinctions and strict schedule boundaries."""
 
+from copy import deepcopy
 from datetime import date
 from decimal import ROUND_DOWN, ROUND_UP, Decimal, Inexact, Rounded, localcontext
 from fractions import Fraction
@@ -175,6 +176,29 @@ def test_new_scope_reuses_complete_calendar_and_preserves_original_periodic_prof
     assert CompositeScheduledModelFeeProfile.model_validate(wire).model_dump(mode="json") == wire
     wire["periods"][1]["period_start"] = "2026-02-02"
     with pytest.raises(ValidationError, match="adjacent"):
+        CompositeScheduledModelFeeProfile.model_validate(wire)
+
+
+@pytest.mark.parametrize("fault", ["inverted_period", "unsorted_members", "duplicate_member"])
+def test_scheduled_period_requires_ordered_unique_member_population(fault):
+    wire = scheduled_profile_wire()
+    period = wire["periods"][0]
+    extra = deepcopy(period["member_rates"][0])
+    extra.update(entry_id="synthetic.extra.member", member_id="ZZZ")
+    period["member_rates"].append(extra)
+    valid = CompositeScheduledModelFeeProfile.model_validate(wire)
+    assert len(valid.periods[0].member_rates) == 2
+
+    if fault == "inverted_period":
+        period["period_start"], period["period_end"] = period["period_end"], period["period_start"]
+        message = "period is inverted"
+    else:
+        if fault == "unsorted_members":
+            period["member_rates"].reverse()
+        else:
+            extra["member_id"] = period["member_rates"][0]["member_id"]
+        message = "member rates must be sorted and unique"
+    with pytest.raises(ValidationError, match=message):
         CompositeScheduledModelFeeProfile.model_validate(wire)
 
 

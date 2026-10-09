@@ -96,6 +96,29 @@ def test_scheduled_v5_retains_original_gross_assets_and_exact_derived_ratio(sche
     assert restored == wrapped
 
 
+@pytest.mark.parametrize("fault", ["missing_gross_receipt", "net_basis_receipt"])
+def test_scheduled_fee_refuses_missing_or_net_receipt_without_mutating_gross(scheduled_gross_case, fault):
+    command, gross, admitted = scheduled_gross_case
+    original = gross.model_dump(mode="json")
+    accepted = apply_model_fee_to_outcome(command, gross, admitted)
+    require(command, accepted, admitted)
+    corrupted = deepcopy(gross)
+    if fault == "missing_gross_receipt":
+        corrupted.source_evidence = None
+    else:
+        native = corrupted.source_evidence
+        native.calculation_request.portfolio.metric_basis = "NET"
+        native.input_fingerprint, native.calculation_hash = generate_value_fingerprint(
+            native.calculation_request, native.engine_version
+        )
+        corrupted.fact.source_fingerprint = native.calculation_hash
+        corrupted.fact.source_snapshot_id = generate_value_fingerprint(native, "composite-member-source.v1")[0]
+    with pytest.raises(APIConflictError) as refused:
+        apply_model_fee_to_outcome(command, corrupted, admitted)
+    assert refused.value.error_code == "COMPOSITE_MODEL_FEE_MEMBER_EVIDENCE_REFUSED"
+    assert gross.model_dump(mode="json") == original
+
+
 @pytest.mark.parametrize("rounding", [ROUND_DOWN, ROUND_UP])
 @pytest.mark.parametrize("precision", [9, 150])
 def test_scheduled_actual_member_boundary_numbers_and_pins_ignore_ambient_context(
