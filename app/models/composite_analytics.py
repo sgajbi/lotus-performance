@@ -2,14 +2,21 @@
 
 from typing import Annotated
 
-from pydantic import Discriminator, Tag, ValidationError, WrapValidator
+from pydantic import Discriminator, Field, Tag, ValidationError, WrapValidator
 
-from app.models.composite_annual_dispersion import CompositeAnnualDispersionRequest
-from app.models.composite_linked_contribution import CompositeLinkedContributionRequest
+from app.models.composite_annual_dispersion import CompositeAnnualDispersionRequest, CompositeAnnualDispersionResponse
+from app.models.composite_linked_contribution import (
+    CompositeLinkedContributionRequest,
+    CompositeLinkedContributionResponse,
+)
 
 
 def _analytics_metric(value):
-    return value.get("metric_id", "ANNUAL_MEMBER_DISPERSION") if isinstance(value, dict) else value.metric_id
+    return (
+        value.get("metric_id", "ANNUAL_MEMBER_DISPERSION")
+        if isinstance(value, dict)
+        else getattr(value, "metric_id", "ANNUAL_MEMBER_DISPERSION")
+    )
 
 
 def _preserve_annual_errors(value, handler):
@@ -30,4 +37,20 @@ CompositeAnalyticsRequest = Annotated[
     | Annotated[CompositeLinkedContributionRequest, Tag("LINKED_MEMBER_CONTRIBUTION")],
     Discriminator(_analytics_metric),
     WrapValidator(_preserve_annual_errors),
+    Field(
+        json_schema_extra={
+            "discriminator": {
+                "propertyName": "metric_id",
+                "mapping": {
+                    "ANNUAL_MEMBER_DISPERSION": "#/components/schemas/CompositeAnnualDispersionRequest",
+                    "LINKED_MEMBER_CONTRIBUTION": "#/components/schemas/CompositeLinkedContributionRequest",
+                },
+            }
+        }
+    ),
+]
+
+CompositeAnalyticsResponse = Annotated[
+    CompositeAnnualDispersionResponse | CompositeLinkedContributionResponse,
+    Field(discriminator="metric_id"),
 ]

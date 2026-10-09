@@ -73,8 +73,14 @@ def test_comparison_example_guard_refuses_bad_contract_and_accepts_registered_pa
 def test_registered_examples_validate_exact_request_and_response_schemas():
     operation = app.openapi()["paths"]["/performance/composites/analytics"]["post"]
     examples = annual_dispersion_openapi_examples()
-    assert operation["requestBody"]["content"]["application/json"]["example"] == examples["request"]
-    assert operation["responses"]["200"]["content"]["application/json"]["example"] == examples["response"]
+    assert (
+        operation["requestBody"]["content"]["application/json"]["examples"]["annual_member_dispersion"]["value"]
+        == examples["request"]
+    )
+    assert (
+        operation["responses"]["200"]["content"]["application/json"]["examples"]["annual_member_dispersion"]["value"]
+        == examples["response"]
+    )
     assert len(CompositeAnnualDispersionRequest.model_validate(examples["request"]).materialization_ids) == 12
     result = CompositeAnnualDispersionResponse.model_validate(examples["response"])
     assert str(result.value) == "0.018708286934"

@@ -120,6 +120,9 @@ def _extract_fields(
     location: str = "body",
 ) -> list[dict[str, Any]]:
     resolved = _resolve_schema(schema, components)
+    variants = resolved.get("oneOf") or resolved.get("anyOf")
+    if not prefix and isinstance(variants, list) and isinstance(resolved.get("discriminator"), dict):
+        return _extract_variant_fields(variants, components=components, prefix=prefix, location=location)
     properties = resolved.get("properties", {})
     required = set(resolved.get("required", []))
     if not isinstance(properties, dict):
@@ -168,6 +171,19 @@ def _extract_fields(
                         location=location,
                     )
                 )
+    return fields
+
+
+def _extract_variant_fields(variants, *, components, prefix, location):
+    fields = []
+    for variant in variants:
+        if not isinstance(variant, dict):
+            continue
+        selected = _extract_fields(variant, components=components, prefix=prefix, location=location)
+        identity = variant.get("$ref", variant.get("title", "inline")).rsplit("/", 1)[-1]
+        for field in selected:
+            field["schemaVariant"] = identity
+        fields.extend(selected)
     return fields
 
 
@@ -301,6 +317,7 @@ def build_inventory() -> dict[str, Any]:
                     "type": field["type"],
                     "semanticId": field["semanticId"],
                     "attributeRef": field["attributeRef"],
+                    **({"schemaVariant": field["schemaVariant"]} if "schemaVariant" in field else {}),
                 }
                 for field in request_fields
             ]
@@ -312,6 +329,7 @@ def build_inventory() -> dict[str, Any]:
                     "type": field["type"],
                     "semanticId": field["semanticId"],
                     "attributeRef": field["attributeRef"],
+                    **({"schemaVariant": field["schemaVariant"]} if "schemaVariant" in field else {}),
                 }
                 for field in response_fields
             ]

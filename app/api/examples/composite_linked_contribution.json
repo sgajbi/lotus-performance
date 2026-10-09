@@ -1,0 +1,215 @@
+{
+  "request": {
+    "composite_id": "SYNTHETIC_LINKED_USD",
+    "period_start": "2026-01-01",
+    "period_end": "2026-02-28",
+    "return_view": "GROSS",
+    "reporting_currency": "USD",
+    "calculation_id": "06310000-0000-4000-8000-000000000001",
+    "materialization_ids": [
+      "166e2af0-d202-579e-9181-afede29ee523",
+      "a4eca033-cecf-5989-8393-3df1e7975367"
+    ],
+    "method": "CARINO:v1",
+    "metric_id": "LINKED_MEMBER_CONTRIBUTION"
+  },
+  "response": {
+    "metric_id": "LINKED_MEMBER_CONTRIBUTION",
+    "calculation_id": "06310000-0000-4000-8000-000000000001",
+    "composite_id": "SYNTHETIC_LINKED_USD",
+    "period_start": "2026-01-01",
+    "period_end": "2026-02-28",
+    "return_view": "GROSS",
+    "reporting_currency": "USD",
+    "method": "CARINO:v1",
+    "status": "CALCULATED_ANALYSIS",
+    "qualification": "RETAINED_SOURCE_ATTESTATION_NOT_LIVE_QUALIFIED",
+    "units": "DECIMAL_RETURN",
+    "constituent_decomposition": "AVAILABLE",
+    "cumulative_return": "0.030200",
+    "total_linked_contribution": "0.030200000000000000000000000000000000000000000000000000000000000000000000000000000",
+    "reconciliation_difference": "0E-81",
+    "display_rounding_difference": "0E-12",
+    "members": [
+      {
+        "portfolio_id": "external-member-a",
+        "linked_contribution": "0.030274630541907723798278421725685604316257567000361472822229585706940284121847682",
+        "participating_period_count": 2
+      },
+      {
+        "portfolio_id": "external-member-b",
+        "linked_contribution": "-0.000074630541907723798278421725685604316257567000361472822229585706940284121847682",
+        "participating_period_count": 2
+      }
+    ],
+    "periods": [
+      {
+        "portfolio_id": "external-member-a",
+        "period_start": "2026-01-01",
+        "period_end": "2026-01-31",
+        "return_value": "0.05",
+        "beginning_market_value": "100",
+        "weight": "0.5",
+        "contribution": "0.025",
+        "linking_factor": "1.0099835796403432799234854100304713029447807555716210143213149203084570720821192",
+        "linked_contribution": "0.025249589491008581998087135250761782573619518889290525358032873007711426802052980",
+        "source_snapshot_id": "sha256:a47916d818890109a98b42dc7cccdede712ac55e957699738bcd2612ac83ae41",
+        "source_fingerprint": "sha256:a47916d818890109a98b42dc7cccdede712ac55e957699738bcd2612ac83ae41",
+        "calculation_id": null,
+        "restatement_version": "166e2af0-d202-579e-9181-afede29ee523",
+        "restatement_sequence": 1,
+        "source_authority_identity": {
+          "source_kind": "EXTERNAL_PROVIDER",
+          "return_source_kind": "EXTERNAL_PROVIDER",
+          "provider_id": "synthetic-provider-a",
+          "source_member_id": "external-member-a",
+          "product_name": "CompositeExternalMemberFacts",
+          "product_version": "v1",
+          "source_revision": "oracle.month-1",
+          "source_digest": "sha256:86466eb6344fdc4f94a7bf1394f220023f5835cf095ac87c1a3e171827c782db"
+        }
+      },
+      {
+        "portfolio_id": "external-member-b",
+        "period_start": "2026-01-01",
+        "period_end": "2026-01-31",
+        "return_value": "-0.03",
+        "beginning_market_value": "100",
+        "weight": "0.5",
+        "contribution": "-0.015",
+        "linking_factor": "1.0099835796403432799234854100304713029447807555716210143213149203084570720821192",
+        "linked_contribution": "-0.015149753694605149198852281150457069544171711333574315214819723804626856081231788",
+        "source_snapshot_id": "sha256:a47916d818890109a98b42dc7cccdede712ac55e957699738bcd2612ac83ae41",
+        "source_fingerprint": "sha256:a47916d818890109a98b42dc7cccdede712ac55e957699738bcd2612ac83ae41",
+        "calculation_id": null,
+        "restatement_version": "166e2af0-d202-579e-9181-afede29ee523",
+        "restatement_sequence": 1,
+        "source_authority_identity": {
+          "source_kind": "EXTERNAL_PROVIDER",
+          "return_source_kind": "EXTERNAL_PROVIDER",
+          "provider_id": "synthetic-provider-a",
+          "source_member_id": "external-member-b",
+          "product_name": "CompositeExternalMemberFacts",
+          "product_version": "v1",
+          "source_revision": "oracle.month-1",
+          "source_digest": "sha256:86466eb6344fdc4f94a7bf1394f220023f5835cf095ac87c1a3e171827c782db"
+        }
+      },
+      {
+        "portfolio_id": "external-member-a",
+        "period_start": "2026-02-01",
+        "period_end": "2026-02-28",
+        "return_value": "0.01",
+        "beginning_market_value": "100",
+        "weight": "0.5",
+        "contribution": "0.005",
+        "linking_factor": "1.0050082101798283600382572949847643485276096222141894928393425398457714639589404",
+        "linked_contribution": "0.0050250410508991418001912864749238217426380481110709474641967126992288573197947020",
+        "source_snapshot_id": "sha256:2b6df555c4fe9a606a0638e7fd1e097aaafac64179c5651436b70b3762805b6d",
+        "source_fingerprint": "sha256:2b6df555c4fe9a606a0638e7fd1e097aaafac64179c5651436b70b3762805b6d",
+        "calculation_id": null,
+        "restatement_version": "a4eca033-cecf-5989-8393-3df1e7975367",
+        "restatement_sequence": 2,
+        "source_authority_identity": {
+          "source_kind": "EXTERNAL_PROVIDER",
+          "return_source_kind": "EXTERNAL_PROVIDER",
+          "provider_id": "synthetic-provider-a",
+          "source_member_id": "external-member-a",
+          "product_name": "CompositeExternalMemberFacts",
+          "product_version": "v1",
+          "source_revision": "oracle.month-2",
+          "source_digest": "sha256:3e0371fa54f7626cd9168c34784c3e71e577df8513784c1d7387e966688392ea"
+        }
+      },
+      {
+        "portfolio_id": "external-member-b",
+        "period_start": "2026-02-01",
+        "period_end": "2026-02-28",
+        "return_value": "0.03",
+        "beginning_market_value": "100",
+        "weight": "0.5",
+        "contribution": "0.015",
+        "linking_factor": "1.0050082101798283600382572949847643485276096222141894928393425398457714639589404",
+        "linked_contribution": "0.015075123152697425400573859424771465227914144333212842392590138097686571959384106",
+        "source_snapshot_id": "sha256:2b6df555c4fe9a606a0638e7fd1e097aaafac64179c5651436b70b3762805b6d",
+        "source_fingerprint": "sha256:2b6df555c4fe9a606a0638e7fd1e097aaafac64179c5651436b70b3762805b6d",
+        "calculation_id": null,
+        "restatement_version": "a4eca033-cecf-5989-8393-3df1e7975367",
+        "restatement_sequence": 2,
+        "source_authority_identity": {
+          "source_kind": "EXTERNAL_PROVIDER",
+          "return_source_kind": "EXTERNAL_PROVIDER",
+          "provider_id": "synthetic-provider-a",
+          "source_member_id": "external-member-b",
+          "product_name": "CompositeExternalMemberFacts",
+          "product_version": "v1",
+          "source_revision": "oracle.month-2",
+          "source_digest": "sha256:3e0371fa54f7626cd9168c34784c3e71e577df8513784c1d7387e966688392ea"
+        }
+      }
+    ],
+    "selection_manifest": {
+      "qualification": "EXPLICIT_RETAINED_CALCULATED_REPLAY",
+      "windows": [
+        {
+          "materialization_id": "166e2af0-d202-579e-9181-afede29ee523",
+          "period_start": "2026-01-01",
+          "period_end": "2026-01-31",
+          "restatement_sequence": 1,
+          "definition_content_hash": "sha256:c89df20198c95783192eac7e46ff468d2c8cca7d7557c5535d64f3f2cd3f6124",
+          "membership_content_hash": "sha256:e03443162c1559cc71c836167b328c27eb838b502a05482ef15a5ea355d63969",
+          "attestation_content_hash": "sha256:e3e3c9b6f4751d64c271795275e163cfac544582ed41cd4709e33271b741b86e",
+          "source_cut_id": "synthetic-cut-original",
+          "method_binding": {
+            "product_name": "SyntheticReturnMethodProfile",
+            "product_version": "v1",
+            "revision": "synthetic.method.r1",
+            "digest": "sha256:56fc8f8777176e6d0697036c9100c8bebb780d924bc1a689526777a61e7ac80e"
+          },
+          "retained_receipt_fingerprint": "sha256:8c0309f4666de3a0c97dda940a3faec05a9d5753307df9ae0ac883a0d9da2d19"
+        },
+        {
+          "materialization_id": "a4eca033-cecf-5989-8393-3df1e7975367",
+          "period_start": "2026-02-01",
+          "period_end": "2026-02-28",
+          "restatement_sequence": 2,
+          "definition_content_hash": "sha256:b86fa0c11057a08e0cc2f9f57efd863c5a5c71b7eb52c14c2cc63bfdadc38f0b",
+          "membership_content_hash": "sha256:25d930507f65b0c41a773dafeef9f468faf58342fd0c8eb3808f844461a8afd3",
+          "attestation_content_hash": "sha256:94290d0fcdb69c1b291d06593d2d7d1380c92a64e020d4086f0ccbb9cfc6e27b",
+          "source_cut_id": "synthetic-cut-original",
+          "method_binding": {
+            "product_name": "SyntheticReturnMethodProfile",
+            "product_version": "v1",
+            "revision": "synthetic.method.r1",
+            "digest": "sha256:56fc8f8777176e6d0697036c9100c8bebb780d924bc1a689526777a61e7ac80e"
+          },
+          "retained_receipt_fingerprint": "sha256:06cf2b52111219051bf734f351013da0e83fd3a1325caa1f9aff65e58decaf2b"
+        }
+      ],
+      "engine_version": "lotus-performance-calculation-engine.v16",
+      "calculation_fingerprint": "sha256:4620fbc0de8f8f6dba79ca2f35d7318c6353368716ec53790b106515fdf5f46c"
+    }
+  },
+  "missing_request": {
+    "composite_id": "SYNTHETIC_LINKED_USD",
+    "period_start": "2026-01-01",
+    "period_end": "2026-02-28",
+    "return_view": "GROSS",
+    "reporting_currency": "USD",
+    "calculation_id": "06310000-0000-4000-8000-000000000001",
+    "materialization_ids": [
+      "166e2af0-d202-579e-9181-afede29ee523"
+    ],
+    "method": "CARINO:v1",
+    "metric_id": "LINKED_MEMBER_CONTRIBUTION"
+  },
+  "missing_response": {
+    "detail": "A required retained window is missing.",
+    "error_code": "REQUIRED_PERIOD_UNAVAILABLE",
+    "message": "A required retained window is missing.",
+    "correlation_id": "linked-contribution-example",
+    "request_id": "linked-contribution-request",
+    "source": "lotus-performance",
+    "retryable": false
+  }
+}

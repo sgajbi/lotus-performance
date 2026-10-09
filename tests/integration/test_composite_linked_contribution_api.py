@@ -1,12 +1,15 @@
+from copy import deepcopy
 from decimal import Decimal
 
 import pytest
 from fastapi.testclient import TestClient
 
+from app.api.dependencies.composite_linked_contribution import linked_contribution_openapi_examples
 from app.core.config import get_settings
+from app.models.composite_authority import authority_digest
 from main import app
 from scripts.durable_schema_apply import apply_durable_schema
-from tests.composite_authority_helpers import install_test_authorities
+from tests.composite_authority_helpers import install_test_authorities, rehash_definition
 from tests.composite_linked_contribution_helpers import (
     LINKED_PATH,
     assert_or13,
@@ -62,6 +65,35 @@ def test_registered_linked_or13_correction_pins_and_twr_compatibility(monkeypatc
             revised.json()["selection_manifest"]["calculation_fingerprint"]
             != result.json()["selection_manifest"]["calculation_fingerprint"]
         )
+        overlapping = client.post(LINKED_PATH, json=linked_request([commands[0], corrected, commands[1]]))
+        assert overlapping.status_code == 422, overlapping.text
+        assert overlapping.json()["error_code"] == "COMPOSITE_VECTOR_WINDOW_MISMATCH"
+        assert "members" not in overlapping.json()
+
+
+@pytest.mark.parametrize("fault", ["duplicate_source", "conflicting_digest"])
+def test_registered_linked_refuses_unavailable_duplicate_or_conflicting_source(monkeypatch, fault):
+    first, second = linked_packet(1), linked_packet(2)
+    packet, wire = second
+    if fault == "duplicate_source":
+        wire["rows"].append(deepcopy(wire["rows"][0]))
+        for selection in packet["definition"]["source_authority"]["payload"]["selections"]:
+            selection["source_digest"] = authority_digest(wire)
+        rehash_definition(packet["definition"])
+    else:
+        # Keep the approved source digest pinned while changing supplied economics.
+        wire["rows"][0]["member_return"] = "0.99"
+    pairs = [first, second]
+    _install(monkeypatch, pairs)
+    with TestClient(app, headers=HEADERS) as client:
+        commands = publish_pairs(client, pairs)
+        receipt = client.get(f"/performance/composites/materializations/{commands[1].materialization_id}")
+        assert receipt.status_code == 200 and receipt.json()["state"] != "COMPLETE", receipt.text
+        refused = client.post(LINKED_PATH, json=linked_request(commands))
+        assert (
+            refused.status_code == 409 and refused.json()["error_code"] == "REQUIRED_PERIOD_UNAVAILABLE"
+        ), refused.text
+        assert "members" not in refused.json() and "cumulative_return" not in refused.json()
 
 
 @pytest.mark.parametrize("excluded", [False, True])
@@ -82,6 +114,25 @@ def test_registered_linked_member_entry_exit_and_authoritative_exclusion(monkeyp
         expected = Decimal(".0201") if excluded else Decimal(".0302")
         assert abs(Decimal(body["cumulative_return"]) - expected) < Decimal("1e-70")
         assert abs(Decimal(body["reconciliation_difference"])) < Decimal("1e-70")
+
+
+def test_packaged_linked_success_and_missing_middle_match_registered_http(monkeypatch):
+    pairs = [linked_packet(month) for month in (1, 2)]
+    _install(monkeypatch, pairs)
+    examples = linked_contribution_openapi_examples()
+    headers = {
+        **HEADERS,
+        "X-Correlation-ID": "linked-contribution-example",
+        "X-Request-ID": "linked-contribution-request",
+    }
+    with TestClient(app, headers=headers) as client:
+        assert linked_request(publish_pairs(client, pairs)) == examples["request"]
+        result = client.post(LINKED_PATH, json=examples["request"])
+        assert result.status_code == 200 and result.json() == examples["response"], result.text
+        refused = client.post(LINKED_PATH, json=examples["missing_request"])
+        assert refused.status_code == 409 and refused.json() == examples["missing_response"], refused.text
+    with TestClient(app, headers=headers) as reopened:
+        assert reopened.post(LINKED_PATH, json=examples["request"]).json() == examples["response"]
 
 
 @pytest.mark.parametrize(

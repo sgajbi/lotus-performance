@@ -1,6 +1,6 @@
 from collections import defaultdict
-from decimal import Decimal, localcontext
-from typing import cast
+from decimal import Decimal, DecimalException, localcontext
+from typing import NoReturn, cast
 
 from app.models.composite_linked_contribution import (
     CompositeLinkedContributionRequest,
@@ -17,22 +17,26 @@ from engine.composites import COMPOSITE_RETURN_QUANTUM, calculate_asset_weighted
 from engine.contribution_smoothing import _calculate_carino_factor_for_return
 
 
-def _refuse(code: str) -> None:
+def _refuse(code: str) -> NoReturn:
     raise APIUnprocessableEntityError("Retained Composite linked contribution is unavailable.", error_code=code)
+
+
+def _ready_window_members(facts, window):
+    return sorted(
+        (
+            fact
+            for fact in facts
+            if (fact.period_start, fact.period_end) == (window.period_start, window.period_end)
+            and str(fact.status) == "READY"
+        ),
+        key=lambda fact: fact.portfolio_id,
+    )
 
 
 def _period_rows(facts, windows) -> tuple[list[LinkedMemberPeriod], Decimal]:
     rows, growth = [], Decimal(1)
     for window in windows:
-        members = sorted(
-            (
-                fact
-                for fact in facts
-                if (fact.period_start, fact.period_end) == (window.period_start, window.period_end)
-                and str(fact.status) == "READY"
-            ),
-            key=lambda fact: fact.portfolio_id,
-        )
+        members = _ready_window_members(facts, window)
         assets = sum((fact.beginning_market_value for fact in members), Decimal(0))
         contributions = [fact.return_value * fact.beginning_market_value / assets for fact in members]
         period_return = sum(contributions, Decimal(0))
@@ -62,6 +66,7 @@ def _period_rows(facts, windows) -> tuple[list[LinkedMemberPeriod], Decimal]:
                     contribution=contribution,
                     linking_factor=factor,
                     linked_contribution=Decimal(0),
+                    source_authority_identity=fact.source_authority_identity,
                 )
             )
     return rows, growth - 1
@@ -87,13 +92,7 @@ def _link(rows: list[LinkedMemberPeriod], cumulative_return: Decimal) -> list[Li
     ]
 
 
-def calculate_linked_member_contribution(
-    request: CompositeLinkedContributionRequest, *, tenant_id: str
-) -> CompositeLinkedContributionResponse:
-    facts, windows = select_composite_materialization_facts(tenant_id=tenant_id, request=request)
-    admitted = calculate_asset_weighted_composite_twr(composite_id=request.composite_id, member_return_facts=facts)
-    if admitted.status != "READY":
-        _refuse("COMPOSITE_CONSTITUENT_DECOMPOSITION_UNAVAILABLE")
+def _linked_economics(facts, windows):
     with localcontext() as context:
         context.prec = 80
         rows, cumulative = _period_rows(facts, windows)
@@ -105,6 +104,20 @@ def calculate_linked_member_contribution(
         display_difference = sum(
             (member.linked_contribution.quantize(COMPOSITE_RETURN_QUANTUM) for member in members), Decimal(0)
         ) - cumulative.quantize(COMPOSITE_RETURN_QUANTUM)
+    return cumulative, total, difference, display_difference, members, rows
+
+
+def calculate_linked_member_contribution(
+    request: CompositeLinkedContributionRequest, *, tenant_id: str
+) -> CompositeLinkedContributionResponse:
+    facts, windows = select_composite_materialization_facts(tenant_id=tenant_id, request=request)
+    try:
+        admitted = calculate_asset_weighted_composite_twr(composite_id=request.composite_id, member_return_facts=facts)
+        if admitted.status != "READY":
+            _refuse("COMPOSITE_CONSTITUENT_DECOMPOSITION_UNAVAILABLE")
+        cumulative, total, difference, display_difference, members, rows = _linked_economics(facts, windows)
+    except DecimalException:
+        _refuse("COMPOSITE_CARINO_PRECISION_REFUSED")
     version = calculation_engine_version()
     response = CompositeLinkedContributionResponse(
         calculation_id=request.calculation_id,

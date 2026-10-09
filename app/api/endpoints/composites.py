@@ -10,9 +10,10 @@ from app.api.dependencies.composite_annual_dispersion import (
     annual_dispersion_openapi_examples,
     get_annual_dispersion_receipt_reader,
 )
+from app.api.dependencies.composite_linked_contribution import linked_contribution_openapi_examples
 from app.api.http_status import HTTP_422_UNPROCESSABLE
 from app.composite_principal_admission import trusted_request_principal
-from app.models.composite_analytics import CompositeAnalyticsRequest
+from app.models.composite_analytics import CompositeAnalyticsRequest, CompositeAnalyticsResponse
 from app.models.composite_annual_comparison import CompositeAnnualComparisonRequest, CompositeAnnualComparisonResponse
 from app.models.composite_annual_dispersion import CompositeAnnualDispersionResponse
 from app.models.composite_linked_contribution import (
@@ -498,11 +499,12 @@ def inspect_composite_twr(
 
 
 ANNUAL_DISPERSION_OPENAPI_EXAMPLES = annual_dispersion_openapi_examples()
+LINKED_CONTRIBUTION_OPENAPI_EXAMPLES = linked_contribution_openapi_examples()
 
 
 @router.post(
     "/composites/analytics",
-    response_model=CompositeAnnualDispersionResponse | CompositeLinkedContributionResponse,
+    response_model=CompositeAnalyticsResponse,
     summary="Evaluate named Composite analytics from exact retained evidence",
     description=(
         "One bounded composite analytics operation with explicit metric and method selection. "
@@ -519,8 +521,15 @@ ANNUAL_DISPERSION_OPENAPI_EXAMPLES = annual_dispersion_openapi_examples()
     ),
     responses={
         200: {
-            "description": "Available dispersion or typed insufficient full-year member population.",
-            "content": {"application/json": {"example": ANNUAL_DISPERSION_OPENAPI_EXAMPLES["response"]}},
+            "description": "Named annual dispersion or pinned linked member contribution calculated dataset.",
+            "content": {
+                "application/json": {
+                    "examples": {
+                        "annual_member_dispersion": {"value": ANNUAL_DISPERSION_OPENAPI_EXAMPLES["response"]},
+                        "linked_member_contribution": {"value": LINKED_CONTRIBUTION_OPENAPI_EXAMPLES["response"]},
+                    }
+                }
+            },
         },
         **COMPOSITE_TENANT_AUTHORITY_RESPONSES,
         404: {
@@ -557,7 +566,16 @@ ANNUAL_DISPERSION_OPENAPI_EXAMPLES = annual_dispersion_openapi_examples()
     },
     openapi_extra={
         **COMPOSITE_TENANT_OPENAPI_EXTRA,
-        "requestBody": {"content": {"application/json": {"example": ANNUAL_DISPERSION_OPENAPI_EXAMPLES["request"]}}},
+        "requestBody": {
+            "content": {
+                "application/json": {
+                    "examples": {
+                        "annual_member_dispersion": {"value": ANNUAL_DISPERSION_OPENAPI_EXAMPLES["request"]},
+                        "linked_member_contribution": {"value": LINKED_CONTRIBUTION_OPENAPI_EXAMPLES["request"]},
+                    }
+                }
+            }
+        },
     },
 )
 def evaluate_composite_analytics(
