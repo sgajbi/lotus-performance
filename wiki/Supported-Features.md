@@ -208,21 +208,18 @@ telemetry at `contracts/trust-telemetry/money-weighted-return-analytics.telemetr
 `contracts/domain-data-products/lotus-performance-products.v1.json` must have a matching
 repo-owned trust telemetry snapshot or a machine-readable exception policy.
 
-## Pinned Linked Member Contribution
+## Pinned Composite Linked Contribution
 
-For pinned composite contribution, `POST /performance/composites/analytics` selects `LINKED_MEMBER_CONTRIBUTION` with
-`method=CARINO:v1`. An explicit chronological COMPLETE vector supplies original Decimal
-member economics and historical membership/source pins. The dataset carries linked member
-and period contributions, decimal-return units and separate precision/display differences;
-no residual is allocated. Compatible gross/actual-net and already admitted model-net facts
-follow existing authority rules. Model-net windows require the same complete immutable
-profile binding; unequal member/period rates within that profile are supported, while a changed
-revision/digest refuses.
-
-Results remain `CALCULATED_ANALYSIS` / `RETAINED_SOURCE_ATTESTATION_NOT_LIVE_QUALIFIED`.
-Rankings, classified rollups, annualized transforms, attribution/MWR and official selection
-remain separate. See the [linked caller guide](https://github.com/sgajbi/lotus-performance/blob/main/docs/guides/composite_linked_contribution.md)
-and [methodology](https://github.com/sgajbi/lotus-performance/blob/main/docs/methodologies/metrics/metric-composite-linked-member-contribution.md).
+Pinned composite contribution uses `POST /performance/composites/analytics`, `LINKED_MEMBER_CONTRIBUTION` and
+`CARINO:v1` over an explicit chronological COMPLETE retained vector. It consumes original
+Decimal member economics, preserves historical membership/source pins and reconciles without
+residual allocation. Compatible gross, actual-net and admitted model-net views are supported;
+model-net windows require one identical complete immutable profile binding, which can contain
+unequal member/period rates. Changed revision/digest refuses; cross-profile history remains separate.
+Output carries `CALCULATED_ANALYSIS` / `RETAINED_SOURCE_ATTESTATION_NOT_LIVE_QUALIFIED`.
+Rankings, classified rollups, annualized transforms, attribution, MWR and official selection are
+outside this method. See [Composite Performance](Composite-Performance#pinned-linked-member-contribution)
+and the [linked caller guide](https://github.com/sgajbi/lotus-performance/blob/main/docs/guides/composite_linked_contribution.md).
 
 ## Annual Composite Member Dispersion
 

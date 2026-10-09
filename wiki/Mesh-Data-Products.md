@@ -131,7 +131,10 @@ they do not establish production capacity or downstream acceptance.
   `contracts/trust-telemetry/composite-performance-analytics.telemetry.v1.json`, and approved for
   `lotus-gateway` consumption. Gateway and Workbench may display composite product evidence, but
   must not reconstruct composite returns, weights, lineage, or restatement posture downstream.
-  Composite contribution, attribution, MWR, sleeves, carve-outs, and multi-currency composite
+  Pinned composite linked contribution is available through the separate typed analytics operation;
+  see [Composite Performance](Composite-Performance#pinned-linked-member-contribution) for its retained
+  source and qualification boundaries. Contribution rankings, rollups, annualized transforms,
+  attribution, MWR, sleeves, carve-outs, and multi-currency composite
   aggregation beyond the current single reporting-currency guard remain unsupported. See
   [Composite Performance](Composite-Performance).
 - Mandate performance health product evidence: `POST /performance/mandate-health-context` emits
