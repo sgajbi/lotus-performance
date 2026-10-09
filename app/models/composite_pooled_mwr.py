@@ -56,6 +56,8 @@ class CompositePooledMWRRequest(PooledContract):
             raise ValueError("Pooled XIRR requires a strictly positive explicit date interval.")
         if self.correction_of_calculation_id == self.calculation_id:
             raise ValueError("A correction must use a new calculation identity.")
+        if self.annualization.periods_per_year is not None:
+            raise ValueError("Pooled policy binds the named engine day basis; custom divisors are unsupported.")
         return self
 
 
@@ -100,6 +102,8 @@ class PooledCashFlow(PooledContract):
     portfolio_id: Identifier
     economic_date: date
     source_date: date
+    settlement_date: date | None = None
+    payment_date: date | None = None
     amount: ExactSourceMoney
     currency: Currency
     timing: Literal["BOD", "EOD"]
@@ -112,9 +116,18 @@ class PooledCashFlow(PooledContract):
     revision: Identifier
     lifecycle_status: Literal["ACTIVE", "REVERSED", "CANCELLED", "SUPERSEDED"]
     predecessor_event_id: Identifier | None = None
+    predecessor_revision: Identifier | None = None
     transfer_group_id: Identifier | None = None
     counterparty_portfolio_id: Identifier | None = None
     units: Literal["MONETARY_AMOUNT"] = "MONETARY_AMOUNT"
+
+    @model_validator(mode="after")
+    def require_complete_predecessor(self):
+        if (self.predecessor_event_id is None) != (self.predecessor_revision is None):
+            raise ValueError("Flow predecessor requires both source event identity and revision.")
+        if self.predecessor_event_id == self.event_id and self.predecessor_revision == self.revision:
+            raise ValueError("A flow revision cannot be its own predecessor.")
+        return self
 
 
 class PooledFlowCoverage(PooledContract):
@@ -138,6 +151,7 @@ class PooledPolicyBinding(PooledContract):
     fee_basis: Identifier
     tax_basis: Identifier
     sign_convention: Literal["PORTFOLIO_IN_POSITIVE"]
+    flow_lifecycle_policy: Literal["OWNER_RESOLVED_CURRENT_EFFECTIVE"]
     date_basis: Literal["EFFECTIVE_DATE", "SETTLEMENT_DATE", "PAYMENT_DATE"]
     opening_timing: Literal["BOD", "EOD"]
     terminal_timing: Literal["BOD", "EOD"]
@@ -202,3 +216,17 @@ class PooledMonetaryObservation(PooledContract):
     eliminated_transfer_event_ids: tuple[str, ...]
     excluded_flow_event_ids: tuple[str, ...]
     source_bundle: PooledSourceBundle
+
+
+class PooledSolverOutcome(PooledContract):
+    availability: Literal["AVAILABLE", "NOT_CALCULABLE", "FALLBACK_ANALYSIS"]
+    actual_method: Literal["XIRR", "MODIFIED_DIETZ", "DIETZ"]
+    return_value: Decimal | None
+    annualized_return: Decimal | None
+    holding_period_return: Decimal | None
+    units: Literal["DECIMAL_FRACTION"] = "DECIMAL_FRACTION"
+    root_precision: Literal["FLOAT64"] = "FLOAT64"
+    input_money_precision: Literal["EXACT_DECIMAL"] = "EXACT_DECIMAL"
+    reason_codes: tuple[str, ...]
+    diagnostics: dict[str, Any]
+    original_solver_result: dict[str, Any]

@@ -107,3 +107,11 @@ def test_dated_flow_requires_identity_classification_and_original_date():
         incomplete = {key: value for key, value in payload.items() if key != field}
         with pytest.raises(ValidationError):
             PooledCashFlow.model_validate(incomplete)
+
+
+@pytest.mark.parametrize("divisor", [366, float("inf"), float("nan")])
+def test_named_day_basis_cannot_be_silently_overridden_without_policy(divisor):
+    with pytest.raises(ValidationError, match="custom divisors"):
+        CompositePooledMWRRequest.model_validate(
+            {**request_payload(), "annualization": {"basis": "ACT/365", "periods_per_year": divisor}}
+        )

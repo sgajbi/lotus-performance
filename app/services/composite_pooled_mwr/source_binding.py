@@ -1,12 +1,19 @@
 """Validate resolved source bindings; a digest never supplies owner authority."""
 
+from typing import NoReturn
+
 from app.models.composite_authority import authority_digest
 from app.models.composite_pooled_mwr import CompositePooledMWRRequest, PooledSourceBundle, PooledSourcePin
 from app.ports.composite_pooled_mwr import PooledSourceAdmissionError
 
 
-def refuse(code: str, message: str, *, unavailable: bool = False) -> None:
+def refuse(code: str, message: str, *, unavailable: bool = False) -> NoReturn:
     raise PooledSourceAdmissionError(code, message, availability="UNAVAILABLE" if unavailable else "REFUSED")
+
+
+def require_pooled_day_basis(request) -> None:
+    if request.annualization.basis != "ACT/365":
+        refuse("METHOD_DATE_BASIS_UNSUPPORTED", "Pooled XIRR currently admits the reviewed ACT/365 convention only.")
 
 
 def require_source_bindings(
@@ -69,6 +76,7 @@ def _require_complete_pin(pin, body, request):
 
 
 def _require_policy(request, bundle):
+    require_pooled_day_basis(request)
     policy = bundle.policy
     if (
         policy.binding_id != request.policy_binding_id
