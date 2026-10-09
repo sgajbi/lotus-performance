@@ -1072,6 +1072,22 @@ not live runtime acceptance.
 
 ## Annual Composite Analysis Practice
 
+`POST /performance/composites/analytics` also selects `LINKED_MEMBER_CONTRIBUTION` with
+`method=CARINO:v1`. This separate typed operation consumes an explicit chronological COMPLETE
+retained vector and original Decimal member economics through the existing read port. Preserve
+historical membership and source pins; never link rounded presentation contributions, allocate a
+residual, or substitute current membership. The fresh explicit Decimal context isolates caller
+precision, rounding and traps. Results retain `CALCULATED_ANALYSIS` and
+`RETAINED_SOURCE_ATTESTATION_NOT_LIVE_QUALIFIED`.
+
+Compatible `GROSS`, `NET_ACTUAL` and admitted `NET_MODEL_FEE` vectors are supported. Model-net
+windows require one identical complete immutable profile binding, which may contain unequal
+member/period rates. Changed revision/digest refuses; logical schedule identity does not establish
+cross-profile compatibility. Rankings, classified rollups, annualized transforms, attribution,
+MWR and #610 official selection remain separate. See the
+[linked caller guide](docs/guides/composite_linked_contribution.md) and
+[methodology](docs/methodologies/metrics/metric-composite-linked-member-contribution.md).
+
 `POST /performance/composites/analytics` currently selects `ANNUAL_MEMBER_DISPERSION` and either
 `EQUAL_WEIGHT_SAMPLE_STDDEV` or `YEAR_BEGIN_ASSET_WEIGHTED_POPULATION_STDDEV`. The thin router
 uses an application service, typed read port, existing materialization-store adapter, and Decimal
