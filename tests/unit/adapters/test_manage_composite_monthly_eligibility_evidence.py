@@ -2,13 +2,15 @@
 
 import json
 from copy import deepcopy
+from pathlib import Path
 
 import httpx
 import pytest
 
 from app.adapters.manage_composite_eligibility_evidence import ManageCompositeEligibilityEvidence
 from app.core.config import get_settings
-from app.models.composite_authority import legacy_composite_product_digest
+from app.models.composite_authority import authority_digest, legacy_composite_product_digest
+from app.models.composite_eligibility_evidence import _month_window
 from app.models.composite_monthly_eligibility_evidence import CompositeMonthlyEligibilityPublicationReceipt
 from app.ports import composite_external_evidence as ports
 from app.services.composite_materialization import authority_policy
@@ -19,9 +21,108 @@ from tests.composite_eligibility_helpers import verification_expectation
 from tests.composite_monthly_eligibility_helpers import rehash, synthetic_monthly_packet
 
 
+def producer_publications():
+    """Sealed actual producer HTTP responses; all authority is synthetic/unqualified."""
+    path = Path(__file__).resolve().parents[2] / "fixtures" / "composite_monthly_063c3e8f_publication.json"
+    return json.loads(path.read_text(encoding="utf-8"))
+
+
+def producer_graph(index):
+    record = producer_publications()["records"][index]
+    wire = record["publication_receipt"]
+    return {
+        "definition": wire["definition"],
+        "membership": record["canonical_membership"],
+        "attestation": record["canonical_universe"],
+    }, wire
+
+
+def test_sealed_producer_packet_preserves_full_publication_provenance_and_hash():
+    packet = producer_publications()
+    assert packet["producer_commit"] == "063c3e8fe9ce4a4539accf83ed288b3dac9e4bdb"
+    assert packet["producer_tree"] == "f164e3e8acb4062ec4fc99bb98e4280e6a062ead"
+    assert packet["authority_posture"] == "SYNTHETIC_NON_CERTIFYING_UNQUALIFIED"
+    assert packet["content_hash"] == "sha256:9cbca0ea2bca5570d4c5212215a7ca5e26fdbdf99196ed98a9432f4d816d1ccb"
+    assert (
+        authority_digest({key: value for key, value in packet.items() if key != "content_hash"})
+        == packet["content_hash"]
+    )
+
+
+@pytest.mark.parametrize("index", range(3))
+def test_actual_producer_month_joins_separate_canonical_membership_and_universe(index):
+    packet, wire = producer_graph(index)
+    result = join(packet, wire)
+    assert result.receipt.model_dump() == wire
+    assert result.membership_binding.digest == packet["membership"]["content_hash"]
+    assert result.universe_binding.digest == packet["attestation"]["content_hash"]
+    locators = [
+        item
+        for item in packet["attestation"]["source_products"]
+        if item["product_name"] == "CompositeMonthlyEvaluationApproval"
+    ]
+    assert len(locators) == 1
+    assert locators[0]["content_hash"] == wire["approval"]["content_hash"]
+    assert result.receipt.approval.proposal.publication_evidence_version == "v1"
+
+
+@pytest.mark.parametrize("index", range(3))
+@pytest.mark.parametrize("product", ["membership", "attestation"])
+def test_actual_producer_graph_refuses_separate_canonical_product_from_other_month(index, product):
+    packet, wire = producer_graph(index)
+    other, _ = producer_graph((index + 1) % 3)
+    packet[product] = other[product]
+    with pytest.raises(APIError):
+        join(packet, wire)
+
+
+@pytest.mark.parametrize("index", range(3))
+def test_actual_producer_locator_tamper_refuses_even_when_legacy_universe_hash_is_unchanged(index):
+    packet, wire = producer_graph(index)
+    locator = next(
+        item
+        for item in packet["attestation"]["source_products"]
+        if item["product_name"] == "CompositeMonthlyEvaluationApproval"
+    )
+    locator["content_hash"] = "sha256:" + "e" * 64
+    assert legacy_composite_product_digest(packet["attestation"]) == packet["attestation"]["content_hash"]
+    with pytest.raises(APIError) as refused:
+        join(packet, wire)
+    assert refused.value.error_code == "COMPOSITE_ELIGIBILITY_RESOLUTION_BINDING_MISMATCH"
+
+
+@pytest.mark.parametrize("index", range(3))
+def test_actual_producer_fully_rehashed_membership_semantic_tamper_refuses(index):
+    packet, wire = producer_graph(index)
+    first = wire["approval"]["proposal"]["observations"]["month"] + "-01"
+    decision = next(item for item in packet["membership"]["decisions"] if item["effective_from"] == first)
+    decision["source_snapshot_id"] = "another-evaluation"
+    bind_membership(packet, wire)
+    with pytest.raises(APIError) as refused:
+        join(packet, wire)
+    assert refused.value.error_code == "COMPOSITE_ELIGIBILITY_PUBLISHED_DECISION_MISMATCH"
+
+
+@pytest.mark.parametrize("index", range(3))
+def test_actual_producer_publication_does_not_grant_independent_source_authority(index):
+    packet, wire = producer_graph(index)
+    result = join(packet, wire)
+    first, last = _month_window(wire["approval"]["proposal"]["observations"]["month"])
+    with pytest.raises(APIError) as refused:
+        authority_policy._verify_monthly_approvals(
+            result.receipt.definition,
+            command_for_packet(packet, period_start=first, period_end=last),
+            "registry-digest",
+            packet["attestation"]["expected_portfolio_ids"],
+            result.receipt,
+        )
+    assert refused.value.error_code == "COMPOSITE_RECEIPT_VERIFICATION_UNAVAILABLE"
+
+
 def join(packet, wire):
+    first, last = _month_window(wire["approval"]["proposal"]["observations"]["month"])
     return published_eligibility_from_wire(
-        command=command_for_packet(packet),
+        command=command_for_packet(packet, period_start=first, period_end=last),
         tenant_id="synthetic-tenant",
         **packet,
         receipt=CompositeMonthlyEligibilityPublicationReceipt.model_validate(wire),
@@ -130,8 +231,10 @@ def test_unmarked_missing_current_locator_cannot_fall_back_to_first_month_approv
 
 
 @pytest.mark.asyncio
-async def test_registered_adapter_posts_exact_current_month_locator_and_decodes_monthly_receipt(monkeypatch):
-    packet, wire = synthetic_monthly_packet()
+@pytest.mark.parametrize("index", [-1, 0, 1, 2])
+async def test_registered_adapter_posts_exact_current_month_locator_and_decodes_monthly_receipt(monkeypatch, index):
+    packet, wire = synthetic_monthly_packet() if index == -1 else producer_graph(index)
+    first, last = _month_window(wire["approval"]["proposal"]["observations"]["month"])
     calls = []
 
     async def post(**kwargs):
@@ -142,7 +245,7 @@ async def test_registered_adapter_posts_exact_current_month_locator_and_decodes_
     monkeypatch.setattr(get_settings(), "MANAGE_BASE_URL", "http://manage/api/v1/")
     monkeypatch.setattr("app.adapters.manage_composite_eligibility_evidence.post_with_retry", post)
     result = await ManageCompositeEligibilityEvidence().read_published(
-        command_for_packet(packet),
+        command_for_packet(packet, period_start=first, period_end=last),
         tenant_id="synthetic-tenant",
         actor_id="reader",
         role="DPM_COMPOSITE_CONSUMER",
