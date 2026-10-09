@@ -5,6 +5,7 @@ checks separately fetched canonical product wires against that returned graph.
 No issuer qualification or financial authority follows from an HTTP response.
 """
 
+import json
 from collections.abc import Mapping
 from typing import Any
 from urllib.parse import quote
@@ -14,11 +15,13 @@ from pydantic import ValidationError
 
 from app.core.config import get_settings
 from app.models.composite_authority import ManageCompositeDefinitionV2, decode_authority_json
-from app.models.composite_eligibility_evidence import SubjectFinalizationReceipt
+from app.models.composite_eligibility_evidence import decode_eligibility_receipt
 from app.models.composite_materialization import CompositeMaterializationCommand
+from app.models.composite_monthly_eligibility_evidence import monthly_publication_binding
 from app.observability import propagation_headers
 from app.ports.composite_external_evidence import PublishedEligibilityEvidence
 from app.services.composite_materialization.source_contract import (
+    ManageUniverseAttestation,
     published_eligibility_from_wire,
     source_refusal,
     verify_source_wire_hashes,
@@ -64,8 +67,12 @@ class ManageCompositeEligibilityEvidence:
         try:
             verify_source_wire_hashes(command, definition, membership, attestation)
             typed = ManageCompositeDefinitionV2.model_validate(definition)
-            binding = typed.source_authority.payload.eligibility_evaluation_binding
-            if binding.product_name != "CompositeSubjectEvaluationApproval":
+            universe = ManageUniverseAttestation.model_validate(attestation)
+            binding = monthly_publication_binding(
+                [item.model_dump() for item in universe.source_products], universe.source_cut_id
+            )
+            binding = binding or typed.source_authority.payload.eligibility_evaluation_binding
+            if binding.product_name not in {"CompositeSubjectEvaluationApproval", "CompositeMonthlyEvaluationApproval"}:
                 raise source_refusal("COMPOSITE_ELIGIBILITY_RESOLUTION_BINDING_MISMATCH")
             if (typed.tenant_id, typed.composite_id, typed.definition_version) != (
                 tenant_id,
@@ -90,7 +97,8 @@ class ManageCompositeEligibilityEvidence:
                 response_decoder=eligibility_response_payload,
             )
             _require_resolved_status(status)
-            receipt = SubjectFinalizationReceipt.model_validate(payload)
+            # Reuse exact duplicate/number-safe decoder and product discriminator.
+            receipt = decode_eligibility_receipt(json.dumps(payload))
             return published_eligibility_from_wire(
                 command=command,
                 tenant_id=tenant_id,

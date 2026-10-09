@@ -969,6 +969,34 @@ From this repository root with the pinned `.venv`, the focused source/transport 
 `python -m pytest tests/unit/models/test_composite_eligibility_evidence.py tests/unit/adapters/test_manage_composite_eligibility_evidence.py tests/unit/services/test_http_resilience.py -q`.
 This is in-process source admission proof; deployed cross-service and PostgreSQL acceptance are separate.
 
+Recurring publication uses the same resolver and a current universe `POLICY_INPUT` locator for
+`CompositeMonthlyEvaluationApproval:v1`, owned by `lotus-manage`. The revision is the exact evaluation
+revision and the digest is the full approval hash. A new
+`CompositeMonthlyEligibilityPublicationReceipt:v1` joins the unchanged full definition, full monthly
+approval, membership/universe bindings, source cut and strict positive publication sequence. New
+proposals carry server-owned `publication_evidence_version: v1`; legacy absent fields remain absent
+from wire/hashes. Explicit null and unsupported versions refuse. A missing current locator never
+supplies recurring financial admission through the first subject's approval.
+
+Retained five-input source assembly is decoded and rebound to its exact observations and whole-month
+`COMPOSITE_MONTHLY_SOURCE_CUT` receipt. Independent source verification does not authorize financial
+facts, FX, economic authority, method/calendar or the current month's prospective policy/checker.
+Recurring policy and membership approval requests carry the full receipt and exact month; the
+original definition's financial authority date is not compared to every future month's approval.
+All production verifier ports still default unavailable. Current membership decisions are checked
+against the evaluated month; earlier history remains retained. No new runtime service or ledger is
+introduced. Monthly models live in `app/models/composite_monthly_eligibility_evidence.py`; actual
+publication comparisons live in `app/services/composite_materialization/monthly_eligibility.py`.
+
+From this repository root, the additional focused checks are
+`python -m pytest tests/unit/models/test_composite_monthly_source_assembly.py tests/unit/models/test_composite_monthly_eligibility_evidence.py tests/unit/adapters/test_manage_composite_monthly_eligibility_evidence.py -q`.
+Retained producer approvals prove wire compatibility. Consumer-generated marked receipts are
+explicitly synthetic control fixtures and do not prove deployed producer custody or bank approval.
+`make postgres-concurrency-contracts-gate` includes
+`tests/benchmarks/test_postgres_composite_monthly_eligibility.py`, which executes the registered
+worker and source JSON/reopen/replay/foreign-tenant controls in owned PostgreSQL schemas. It requires
+zero skips and preserves the synthetic upstream/verifier boundary and unsupported financial refusal.
+
 Use the existing source-contract, materialization worker, ledger and fact-publication path for
 internal/external/hybrid authority. Retained v2 receipts preserve independent per-fact selections,
 provider observation cuts and genuine internal receipts. A provider cut is not the Manage universe

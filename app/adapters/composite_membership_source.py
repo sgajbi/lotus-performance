@@ -120,6 +120,10 @@ class ManageCompositeMembershipSource:
                 if (
                     typed.source_authority.payload.eligibility_evaluation_binding.product_name
                     == "CompositeSubjectEvaluationApproval"
+                    or any(
+                        item.get("product_name") == "CompositeMonthlyEvaluationApproval"
+                        for item in attestation.get("source_products", [])
+                    )
                 ):
                     published_eligibility = await ManageCompositeEligibilityEvidence(
                         request_headers=self.request_headers
@@ -142,5 +146,5 @@ class ManageCompositeMembershipSource:
             )
         except APIError:
             raise
-        except (ValidationError, ValueError, TypeError) as exc:
+        except (ValidationError, ValueError, TypeError, AttributeError) as exc:
             raise source_refusal("COMPOSITE_SOURCE_SCHEMA_INVALID") from exc

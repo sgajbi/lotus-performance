@@ -601,6 +601,47 @@ From this repository root with its pinned Python environment, run
 This source/transport proof does not establish deployed cross-service custody, qualified production
 approval or PostgreSQL acceptance of the new joined path.
 
+### Recurring Monthly Publication
+
+Each recurring month selects its own `CompositeMonthlyEvaluationApproval:v1` from the published
+universe's `source_products`. There must be exactly one locator with owner `lotus-manage`, scope
+`POLICY_INPUT`, the published source cut, the exact evaluation revision and the full approval hash.
+Performance posts that binding to the existing resolver. It never derives a monthly approval from
+the first definition's eligibility binding, a correlation ID or a latest revision.
+
+The response is `CompositeMonthlyEligibilityPublicationReceipt:v1`: the full unchanged
+`CompositeDefinition:v2`, full monthly approval, membership and universe bindings, source cut,
+positive publication sequence, `UNVERIFIED` completeness and full receipt hash. Its proposal must
+carry the server-owned `publication_evidence_version: v1`. Historical proposals without this marker
+retain their original projection and hash; they do not qualify as a new marked publication.
+Explicit null or unknown versions refuse.
+
+Membership and universe v1 hashes retain their historical recursive omission of `content_hash`.
+Because that omission includes source-product digests, Performance independently compares the
+current locator's full approval digest and every source-product value. The new receipt's hash
+retains all nested hashes. The actual separately fetched definition, membership and universe must
+agree with the returned graph. Only decisions overlapping the evaluated month must match the new
+evaluation and checker claims; prior membership history remains intact.
+
+The five-input source assembly covers prior assets, month-end assets, settled cash, readiness and
+flows. Its `COMPOSITE_MONTHLY_SOURCE_CUT` verification is separate from approval of financial facts,
+FX grants, economic authority and method/calendar. Each month still needs its own prospective
+policy approval and independent membership checker. The first economic authority approval is not
+reused as the next month's policy or checker. Server-owned verifier ports remain unavailable by
+default; an unsigned approval, receipt hash or header cannot confer institutional trust.
+
+From this repository root with the pinned Python environment, run
+`python -m pytest tests/unit/models/test_composite_monthly_source_assembly.py tests/unit/models/test_composite_monthly_eligibility_evidence.py tests/unit/adapters/test_manage_composite_monthly_eligibility_evidence.py -q`.
+The retained July/August/September producer approvals exercise unchanged wire compatibility.
+Marked receipts generated inside the consumer controls are labelled synthetic projections;
+they do not establish deployed cross-service custody, PostgreSQL acceptance or bank qualification.
+
+The required PostgreSQL contract gate also executes the registered monthly worker controls in an
+owned isolated schema. These exercise missing independent source verification, retained source
+JSON, exact replay, foreign-tenant refusal and reopening the store. The inputs and verifier records
+remain synthetic; unsupported financial products still block with zero ready facts. This is real
+PostgreSQL consumer custody proof, separate from a deployed Manage publication or bank approval.
+
 From the repository root, run `make postgres-concurrency-contracts-gate` against the documented
 live proof database, followed by the required delivery gates in the [CI guide](../../quality/ci_quality_gates.md).
 Registered HTTP proof and independent three-member/large-decimal examples live in

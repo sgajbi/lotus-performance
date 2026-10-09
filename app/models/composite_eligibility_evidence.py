@@ -1,7 +1,8 @@
 """Strict consumer projections of Manage's staged eligibility lifecycle.
 
-Pinned producer snapshot SHA256 af64f94e52ff4876f21df7ca8706bd1b32271cf753a300756d793c3130f93122.
-All wire fields are required: decoding never inserts defaults into hashed material.
+Legacy producer snapshot SHA256 af64f94e52ff4876f21df7ca8706bd1b32271cf753a300756d793c3130f93122.
+Retained monthly assembly is an optional producer-version extension: absent legacy
+evidence remains absent from hashes. Other wire fields remain required.
 These models decode evidence; they do not confer institutional trust or publication.
 """
 
@@ -9,9 +10,9 @@ from __future__ import annotations
 
 import calendar
 from datetime import date, datetime
-from typing import Annotated, Any, Literal, Self
+from typing import TYPE_CHECKING, Annotated, Any, Literal, Self
 
-from pydantic import Field, ValidationInfo, field_validator, model_validator
+from pydantic import Field, ValidationInfo, field_validator, model_serializer, model_validator
 
 from app.models.composite_authority import (
     AuthorityWire,
@@ -25,6 +26,9 @@ from app.models.composite_authority import (
     authority_digest,
     decode_authority_json,
 )
+
+if TYPE_CHECKING:
+    from app.models.composite_monthly_eligibility_evidence import CompositeMonthlyEligibilityPublicationReceipt
 
 _SCOPE = ("tenant_id", "composite_id", "definition_version")
 _BUSINESS_DATES = frozenset(
@@ -371,6 +375,7 @@ class VerificationRequest(EligibilityWire):
         "COMPOSITE_ECONOMIC_AUTHORITY_PROFILE",
         "RETURN_METHOD_CALENDAR",
         "PROVIDER_REGISTRATION",
+        "COMPOSITE_MONTHLY_SOURCE_CUT",
     ]
     source_product: Identifier | None
     subject_content_hash: Digest
@@ -394,6 +399,88 @@ class VerificationReceipt(HashedEligibilityWire):
     product_version: Literal["v1"]
     request: VerificationRequest
     verifier_id: Identifier
+
+
+class MonthlyInputBinding(EligibilityWire):
+    kind: Literal["PRIOR_ASSETS", "MONTH_END_ASSETS", "CASH", "READINESS", "FLOWS"]
+    owner_service: Identifier
+    source_cut_id: Identifier
+    evidence: EvidenceBinding
+
+
+class MonthlySourceAssembly(EligibilityWire):
+    product_name: Literal["CompositeMonthlyEligibilityAssembly"]
+    product_version: Literal["v1"]
+    observations: MonthlyEligibilityObservations
+    inputs: list[MonthlyInputBinding] = Field(min_length=5, max_length=5)
+    compatibility_binding: EvidenceBinding
+    compatibility_posture: Literal["SYNTHETIC_UNQUALIFIED", "SOURCE_UNVERIFIED", "UNAVAILABLE"]
+
+    @model_validator(mode="after")
+    def assembly_links(self) -> Self:
+        kinds = [item.kind for item in self.inputs]
+        _require(
+            set(kinds) == {"PRIOR_ASSETS", "MONTH_END_ASSETS", "CASH", "READINESS", "FLOWS"},
+            "COMPOSITE_SOURCE_ASSEMBLY_INPUTS_INCOMPLETE",
+        )
+        _require(kinds == sorted(kinds), "COMPOSITE_SOURCE_ASSEMBLY_INPUTS_NONCANONICAL")
+        _require(
+            self.compatibility_binding.product_name == "CompositeSourceCutCompatibility",
+            "COMPOSITE_SOURCE_COMPATIBILITY_BINDING_INVALID",
+        )
+        _require(
+            self.compatibility_binding.digest
+            == authority_digest(
+                {"observations": self.observations.model_dump(), "inputs": [item.model_dump() for item in self.inputs]}
+            ),
+            "COMPOSITE_SOURCE_COMPATIBILITY_CONTENT_MISMATCH",
+        )
+        return self
+
+
+def monthly_assembly_verification_request(assembly: MonthlySourceAssembly) -> VerificationRequest:
+    observations = assembly.observations
+    first, last = _month_window(observations.month)
+    return VerificationRequest(
+        purpose="COMPOSITE_MONTHLY_SOURCE_CUT",
+        tenant_id=observations.tenant_id,
+        composite_id=observations.composite_id,
+        definition_version=observations.definition_version,
+        subject_content_hash=authority_digest(observations.model_dump()),
+        claims_digest=authority_digest(assembly.model_dump()),
+        effective_from=first,
+        effective_to=last,
+        binding=assembly.compatibility_binding,
+        source_product=assembly.product_name,
+    )
+
+
+class VerifiedMonthlySourceAssembly(EligibilityWire):
+    assembly: MonthlySourceAssembly
+    verification: VerificationReceipt
+
+    @model_validator(mode="after")
+    def assembly_verification_links(self) -> Self:
+        self.assembly = MonthlySourceAssembly.model_validate(self.assembly.model_dump())
+        self.verification = VerificationReceipt.model_validate(self.verification.model_dump())
+        _require(
+            self.assembly.compatibility_posture == "SYNTHETIC_UNQUALIFIED"
+            and self.assembly.observations.evidence_class == "SYNTHETIC_UNQUALIFIED"
+            and self.verification.posture == "SYNTHETIC_NON_CERTIFYING"
+            and self.verification.request == monthly_assembly_verification_request(self.assembly),
+            "COMPOSITE_SOURCE_ASSEMBLY_VERIFICATION_MISMATCH",
+        )
+        return self
+
+
+def retained_monthly_source_assembly(
+    evidence: VerifiedMonthlySourceAssembly | None, observations: MonthlyEligibilityObservations
+) -> VerifiedMonthlySourceAssembly | None:
+    if evidence is None:
+        return None
+    verified = VerifiedMonthlySourceAssembly.model_validate(evidence.model_dump())
+    _require(verified.assembly.observations == observations, "COMPOSITE_SOURCE_ASSEMBLY_OBSERVATIONS_MISMATCH")
+    return verified
 
 
 class SubjectPolicyApproval(HashedEligibilityWire):
@@ -431,6 +518,7 @@ class SubjectEvaluationProposal(HashedEligibilityWire):
     evaluation_revision: Identifier
     observation_binding: DpmCompositeUniverseSourceProduct
     observations: MonthlyEligibilityObservations
+    source_assembly_evidence: VerifiedMonthlySourceAssembly | None = None
     policy_approval: SubjectPolicyApproval
     product_name: Literal["CompositeSubjectEvaluationProposal"]
     product_version: Literal["v1"]
@@ -438,8 +526,31 @@ class SubjectEvaluationProposal(HashedEligibilityWire):
     proposed_by: Identifier
     target_membership_revision: Identifier
 
+    @model_serializer(mode="wrap")
+    def legacy_optional_assembly_wire(self, handler: Any) -> dict[str, Any]:
+        # Pydantic2.11 does not support Field.exclude_if. Preserve the producer's
+        # canonical omission without changing other fields or dropping evidence.
+        payload: dict[str, Any] = handler(self)
+        if self.source_assembly_evidence is None:
+            payload.pop("source_assembly_evidence", None)
+        return payload
+
+    @model_validator(mode="before")
+    @classmethod
+    def canonical_optional_assembly_field(cls, value: Any) -> Any:
+        if (
+            isinstance(value, dict)
+            and "source_assembly_evidence" in value
+            and value["source_assembly_evidence"] is None
+        ):
+            raise ValueError("COMPOSITE_SOURCE_ASSEMBLY_NONCANONICAL_NULL")
+        return value
+
     @model_validator(mode="after")
     def evaluation_links(self) -> Self:
+        self.source_assembly_evidence = retained_monthly_source_assembly(
+            self.source_assembly_evidence, self.observations
+        )
         subject = self.policy_approval.proposal.subject
         _equal(
             subject,
@@ -755,6 +866,11 @@ def _provider_verifications(definition: ManageCompositeDefinitionV2, requests: l
     )
 
 
-def decode_eligibility_receipt(wire: str) -> SubjectFinalizationReceipt:
+def decode_eligibility_receipt(wire: str) -> SubjectFinalizationReceipt | CompositeMonthlyEligibilityPublicationReceipt:
     """Decode exact wire strings; this is neither verification nor a custody join."""
-    return SubjectFinalizationReceipt.model_validate(decode_authority_json(wire))
+    payload = decode_authority_json(wire)
+    if payload.get("product_name") == "CompositeMonthlyEligibilityPublicationReceipt":
+        from app.models.composite_monthly_eligibility_evidence import CompositeMonthlyEligibilityPublicationReceipt
+
+        return CompositeMonthlyEligibilityPublicationReceipt.model_validate(payload)
+    return SubjectFinalizationReceipt.model_validate(payload)

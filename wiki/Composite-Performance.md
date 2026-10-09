@@ -487,6 +487,25 @@ PostgreSQL acceptance remain separate. The
 [materialization guide](https://github.com/sgajbi/lotus-performance/blob/main/docs/guides/composite_materialization.md)
 describes the resolver and focused proof.
 
+Recurring months use the same resolver with their own exact
+`CompositeMonthlyEvaluationApproval:v1` locator from the published universe. Its owner, policy-input
+scope, source cut, evaluation revision and full approval hash must agree. The new
+`CompositeMonthlyEligibilityPublicationReceipt:v1` binds the full unchanged definition, monthly
+approval, membership/universe pins and publication sequence. New proposals require the server-owned
+`publication_evidence_version: v1`; old absent-marker wires remain readable with unchanged hashes.
+Missing current locators cannot inherit first-month financial admission.
+
+Every source-product value is compared independently because legacy v1 universe hashing omits
+nested content hashes. Current-month decisions must match the approved evaluation; earlier history
+remains retained. Five-input `COMPOSITE_MONTHLY_SOURCE_CUT` verification stays separate from each
+month's prospective policy/checker, original economic authority, method/calendar, per-fact financial
+source admission and FX. Production verification remains unavailable. Retained producer history
+proves wire compatibility; synthetic consumer control receipts do not prove bank qualification or
+deployed custody. The materialization guide above contains the contract and focused commands.
+The required PostgreSQL contract gate includes registered monthly worker, source JSON/reopen,
+replay and foreign-tenant controls in an owned schema. These prove consumer custody using synthetic
+upstream/verifier records; unsupported financial products remain refused with zero ready facts.
+
 ## References
 
 - [Composite performance guide](https://github.com/sgajbi/lotus-performance/blob/main/docs/guides/composite_performance.md)

@@ -6,16 +6,23 @@ wire payload before typed projection so timestamp spelling is not rewritten.
 
 from __future__ import annotations
 
-import hashlib
-import json
 from datetime import date, datetime
 from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field
 
-from app.models.composite_authority import EvidenceBinding, ManageCompositeDefinitionV2, authority_digest
+from app.models.composite_authority import (
+    EvidenceBinding,
+    ManageCompositeDefinitionV2,
+    authority_digest,
+    legacy_composite_product_digest,
+)
 from app.models.composite_eligibility_evidence import SubjectFinalizationReceipt
 from app.models.composite_materialization import CompositeMaterializationCommand
+from app.models.composite_monthly_eligibility_evidence import (
+    CompositeMonthlyEligibilityPublicationReceipt,
+    monthly_publication_binding,
+)
 from app.models.composites import CompositeDefinition, CompositeMembership, CompositeSourceAuthority
 from app.ports import composite_external_evidence as evidence_ports
 from app.services.composite_materialization.authority_policy import admit_authority_profile
@@ -26,17 +33,8 @@ def source_refusal(code: str) -> APIUnprocessableEntityError:
     return APIUnprocessableEntityError(detail="Pinned composite source evidence failed admission.", error_code=code)
 
 
-def _without_content_hash(value: Any) -> Any:
-    if isinstance(value, dict):
-        return {key: _without_content_hash(item) for key, item in value.items() if key != "content_hash"}
-    if isinstance(value, list):
-        return [_without_content_hash(item) for item in value]
-    return value
-
-
 def source_digest(payload: dict[str, Any]) -> str:
-    canonical = json.dumps(_without_content_hash(payload), sort_keys=True, separators=(",", ":"), allow_nan=False)
-    return "sha256:" + hashlib.sha256(canonical.encode("utf-8")).hexdigest()
+    return legacy_composite_product_digest(payload)
 
 
 class _ManageIdentity(BaseModel):
@@ -246,7 +244,7 @@ def published_eligibility_from_wire(
     definition: dict[str, Any],
     membership: dict[str, Any],
     attestation: dict[str, Any],
-    receipt: SubjectFinalizationReceipt,
+    receipt: SubjectFinalizationReceipt | CompositeMonthlyEligibilityPublicationReceipt,
 ) -> evidence_ports.PublishedEligibilityEvidence:
     """Join the configured resolver's published graph with separately fetched canonical products."""
     verify_source_wire_hashes(command, definition, membership, attestation)
@@ -284,8 +282,14 @@ def _admit_published_eligibility(source: PinnedCompositeSource, *, command: Comp
     definition = source.definition
     if not isinstance(definition, ManageCompositeDefinitionV2):
         return
-    binding = definition.source_authority.payload.eligibility_evaluation_binding
-    if binding.product_name != "CompositeSubjectEvaluationApproval":
+    try:
+        binding = monthly_publication_binding(
+            source.wire_evidence.attestation["source_products"], source.attestation.source_cut_id
+        )
+    except ValueError as exc:
+        raise source_refusal(str(exc)) from exc
+    binding = binding or definition.source_authority.payload.eligibility_evaluation_binding
+    if binding.product_name not in {"CompositeSubjectEvaluationApproval", "CompositeMonthlyEvaluationApproval"}:
         return
     request = evidence_ports.EligibilityResolutionRequest(
         tenant_id=definition.tenant_id,
@@ -315,7 +319,12 @@ def _admit_published_eligibility(source: PinnedCompositeSource, *, command: Comp
         )
     except ValueError as exc:
         raise source_refusal(str(exc)) from exc
-    _admit_eligibility_graph(source, receipt)
+    if isinstance(receipt, CompositeMonthlyEligibilityPublicationReceipt):
+        from app.services.composite_materialization.monthly_eligibility import admit_monthly_publication_graph
+
+        admit_monthly_publication_graph(source, receipt)
+    else:
+        _admit_eligibility_graph(source, receipt)
 
 
 def _admit_eligibility_graph(source: PinnedCompositeSource, receipt: SubjectFinalizationReceipt) -> None:
