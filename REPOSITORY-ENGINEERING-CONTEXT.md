@@ -1013,6 +1013,20 @@ truncating retained history. Return a request/vector/engine/result-bound manifes
 calculated historical replay, not durable result capture, official approval or freeze. A missing or
 incomplete selected window refuses with `REQUIRED_PERIOD_UNAVAILABLE` and no financial payload.
 
+Explicit result-candidate capture is a separate opt-in route family. Its outer Ed25519
+admission supplies typed verified principal state to enterprise audit and observability;
+asserted identity headers never override that state. Trusted issuer/audience/JWKS and
+revocation/membership/grant ports default unavailable. Reuse existing operations runtime
+manage/read capabilities with current portfolio scope. The existing Composite store inserts
+a protected-from-birth `COMPOSITE_TWR_CANDIDATE` original in `analytics_async_result` and
+an immutable nonfinancial `composite_result_candidates` descriptor in one verified owning
+database transaction. No async result table is created by the Composite owner. Runtime
+catalog verification must include both owners' exact enabled guards, and normal retention
+excludes captured originals. In-memory/cross-database capture and unknown release commit
+refuse. Reads preserve original numerical response/calculation/build/method and never
+recalculate. Source makers remain separately qualified; approval/freeze/reopen are not
+implemented by this candidate. See `docs/guides/composite_result_candidates.md`.
+
 The frozen `SyntheticMonthlyMemberFacts:v1` decoder requires an exact admitted source profile
 and independent method verification against the actual command. It retains the wire unchanged,
 without inferred ending assets or added cash-flow fields. Retryable provider observation failures

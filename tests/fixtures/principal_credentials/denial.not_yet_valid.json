@@ -1,0 +1,15 @@
+{
+  "$schema": "https://lotus.dev/schemas/principal-credential-vector.v1",
+  "vector_id": "denial.not_yet_valid",
+  "expected_outcome": "expired_credential",
+  "why": "Not yet valid. It shares the expired class deliberately: a caller learns the credential is outside its window, not which end.",
+  "verification_inputs": {
+    "expected_issuer": "https://identity.lotus.test/realms/lotus",
+    "expected_audience": "lotus-workbench-bff",
+    "jwks": "jwks.json",
+    "evaluate_at": "2026-09-07T12:00:00Z",
+    "revoked_credential_ids": [],
+    "revoked_subjects": []
+  },
+  "credential": "eyJhbGciOiJFZERTQSIsImtpZCI6ImxvdHVzLXRlc3QtaXNzdWVyLTIwMjYtMDkiLCJ0eXAiOiJKV1QifQ.eyJhdWQiOiJsb3R1cy13b3JrYmVuY2gtYmZmIiwiZXhwIjoxNzg4Nzg5NjAwLCJpc3MiOiJodHRwczovL2lkZW50aXR5LmxvdHVzLnRlc3QvcmVhbG1zL2xvdHVzIiwianRpIjoiY3JlZC0wMDAxIiwibmJmIjoxNzg4Nzg0MjAwLCJwcmluY2lwYWxfa2luZCI6InVzZXIiLCJzdWIiOiJ1c2VyOmFkdmlzZXIuc2cuMDAxIiwidGVuYW50IjoidGVuYW50LXNnIn0.Ojc4W6BD8I0aEbAY7GlzaeyalFSuDYMo-Fowti8EaE61D2eS4jsFRaqDe_0JpNARm4PGuqvrfZF83VVy23oNCA"
+}

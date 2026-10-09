@@ -242,6 +242,11 @@ def resolve_tenant_id(request: Request) -> str:
     A wholly blank header still resolves to ``""`` -- absence is preserved and
     never replaced by a default."""
 
+    from app.composite_principal_admission import is_candidate_path, trusted_request_principal
+
+    if is_candidate_path(request.url.path):
+        principal = trusted_request_principal(request)
+        return principal.tenant_id if principal else ""
     getlist = getattr(request.headers, "getlist", None)
     presented_values = (
         getlist("X-Tenant-Id")

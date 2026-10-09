@@ -1,0 +1,15 @@
+{
+  "$schema": "https://lotus.dev/schemas/principal-credential-vector.v1",
+  "vector_id": "denial.wrong_issuer",
+  "expected_outcome": "wrong_issuer",
+  "why": "A validly signed credential from an issuer this deployment does not accept.",
+  "verification_inputs": {
+    "expected_issuer": "https://identity.lotus.test/realms/lotus",
+    "expected_audience": "lotus-workbench-bff",
+    "jwks": "jwks.json",
+    "evaluate_at": "2026-09-07T12:00:00Z",
+    "revoked_credential_ids": [],
+    "revoked_subjects": []
+  },
+  "credential": "eyJhbGciOiJFZERTQSIsImtpZCI6ImxvdHVzLXRlc3QtaXNzdWVyLTIwMjYtMDkiLCJ0eXAiOiJKV1QifQ.eyJhdWQiOiJsb3R1cy13b3JrYmVuY2gtYmZmIiwiZXhwIjoxNzg4Nzg2MDAwLCJpc3MiOiJodHRwczovL2lkZW50aXR5Lm90aGVyLnRlc3QvcmVhbG1zL2xvdHVzIiwianRpIjoiY3JlZC0wMDAxIiwibmJmIjoxNzg4Nzc4ODAwLCJwcmluY2lwYWxfa2luZCI6InVzZXIiLCJzdWIiOiJ1c2VyOmFkdmlzZXIuc2cuMDAxIiwidGVuYW50IjoidGVuYW50LXNnIn0.7UqPen7tt6Zl2vwijtPLI3-TZJM7vcgl8_nx4px_2kqYGGiGU4lrHOYy6UlydHqqZjNmN9C8wW6rz24ngaY5Bg"
+}

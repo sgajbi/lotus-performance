@@ -1,13 +1,15 @@
 from concurrent.futures import ThreadPoolExecutor
-from datetime import date
+from datetime import UTC, date, datetime, timedelta
 from decimal import Decimal
 from threading import Barrier, Event, Lock, local
 from time import monotonic, sleep
+from uuid import uuid4
 
 import pytest
 from sqlalchemy import create_engine, event, inspect, text
 from sqlalchemy.exc import IntegrityError
 
+from app.adapters.durable_schema.errors import DurableSchemaMigrationRequiredError
 from app.models.composites import (
     CompositeDefinition,
     CompositeMemberReturnFact,
@@ -16,12 +18,14 @@ from app.models.composites import (
 )
 from app.observability import tenant_id_var
 from app.services import composite_metadata_store as composite_metadata_store_module
+from app.services.async_result_store import AsyncResultModel, AsyncResultStore
 from app.services.composite_calculation_service import calculate_composite_twr_from_persisted_facts
 from app.services.composite_metadata_store import (
     COMPOSITE_DEFINITION_CURRENCY_CHECK,
     MEMBER_RETURN_FACT_COMPLETED_DELETE_TRIGGER,
     MEMBER_RETURN_FACT_COMPLETED_INSERT_TRIGGER,
     MEMBER_RETURN_FACT_CURRENCY_CHECK,
+    MEMBER_RETURN_FACT_IMMUTABLE_TRUNCATE_TRIGGER,
     MEMBER_RETURN_FACT_IMMUTABLE_UPDATE_TRIGGER,
     MEMBER_RETURN_FACT_SEQUENCE_CHECK,
     MEMBER_RETURN_FACT_VERSION_CHECK,
@@ -29,6 +33,7 @@ from app.services.composite_metadata_store import (
     POSTGRES_TENANT_ID_CHECK_SQL,
     PUBLICATION_CURRENCY_CHECK,
     PUBLICATION_IMMUTABLE_DELETE_TRIGGER,
+    PUBLICATION_IMMUTABLE_TRUNCATE_TRIGGER,
     PUBLICATION_IMMUTABLE_UPDATE_TRIGGER,
     PUBLICATION_PERIOD_CHECK,
     PUBLICATION_SEQUENCE_CHECK,
@@ -43,6 +48,178 @@ from app.services.composite_metadata_store import (
     _serialize_fact_families,
 )
 from tests.benchmarks.postgres_runtime_helpers import get_postgres_database_url
+from tests.integration.test_composite_result_candidate_api import (
+    test_registered_candidate_original_retry_retention_audit_and_current_scope as _assert_registered_candidate,
+)
+
+
+@pytest.fixture
+def captured_postgres_result():
+    store = AsyncResultStore(get_postgres_database_url())
+    store.create_schema()
+    calculation_id = uuid4()
+    now = datetime.now(UTC) - timedelta(days=90)
+    with store._session() as session:
+        session.add(
+            AsyncResultModel(
+                calculation_id=str(calculation_id),
+                tenant_id="test-tenant",
+                analytics_type="COMPOSITE_TWR_CANDIDATE",
+                result_status="complete",
+                response_json='{"cumulative_return":"0.030200000000"}',
+                created_at_utc=now,
+                updated_at_utc=now,
+            )
+        )
+    try:
+        yield store, calculation_id
+    finally:
+        store._engine.dispose()
+
+
+@pytest.mark.parametrize(
+    "mutation",
+    [
+        "UPDATE analytics_async_result SET response_json = '{}'",
+        "UPDATE analytics_async_result SET analytics_type = 'TWR'",
+        "UPDATE analytics_async_result SET tenant_id = 'other-tenant'",
+        "DELETE FROM analytics_async_result",
+        "TRUNCATE analytics_async_result",
+        "TRUNCATE analytics_async_result CASCADE",
+    ],
+)
+def test_postgres_original_result_custody_refuses_loss(captured_postgres_result, mutation):
+    store, _ = captured_postgres_result
+    with store._engine.connect() as connection:
+        original = connection.execute(text("SELECT * FROM analytics_async_result")).all()
+    with pytest.raises(IntegrityError, match="immutable"):
+        with store._engine.begin() as connection:
+            connection.execute(text(mutation))
+    with store._engine.connect() as connection:
+        assert connection.execute(text("SELECT * FROM analytics_async_result")).all() == original
+    store.verify_schema()
+
+
+def test_postgres_original_result_retention_preserves_original(captured_postgres_result):
+    store, calculation_id = captured_postgres_result
+    original = store.get_result(calculation_id)
+    ordinary = uuid4()
+    store.record_success(
+        calculation_id=ordinary, analytics_type="TWR", tenant_id="test-tenant", response_payload={"return": "0.2"}
+    )
+    cutoff = datetime.now(UTC) + timedelta(days=1)
+    assert store.list_result_ids_older_than(cutoff) == [str(ordinary)]
+    assert store.prune_results_older_than(cutoff, dry_run=True) == 1
+    assert store.prune_results_older_than(cutoff) == 1
+    assert store.get_result(calculation_id) == original
+
+
+@pytest.mark.parametrize("drift", ["missing", "disabled", "wrong_event", "weakened_function"])
+def test_postgres_original_result_guard_drift_refuses_runtime(captured_postgres_result, drift):
+    store, calculation_id = captured_postgres_result
+    original = store.get_result(calculation_id)
+    name = "trg_composite_result_custody_truncate"
+    with store._engine.begin() as connection:
+        if drift == "missing":
+            connection.exec_driver_sql(f"DROP TRIGGER {name} ON analytics_async_result")
+        elif drift == "disabled":
+            connection.exec_driver_sql(f"ALTER TABLE analytics_async_result DISABLE TRIGGER {name}")
+        elif drift == "wrong_event":
+            connection.exec_driver_sql(f"DROP TRIGGER {name} ON analytics_async_result")
+            connection.exec_driver_sql(
+                f"CREATE TRIGGER {name} BEFORE DELETE ON analytics_async_result FOR EACH ROW EXECUTE FUNCTION reject_composite_result_custody_mutation()"
+            )
+        else:
+            connection.exec_driver_sql(
+                "CREATE OR REPLACE FUNCTION reject_composite_result_custody_mutation() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN RETURN NULL; END; $$"
+            )
+    statements = []
+
+    def observe(connection, cursor, statement, parameters, context, executemany):
+        statements.append(statement)
+
+    event.listen(store._engine, "before_cursor_execute", observe)
+    try:
+        for _ in range(2):
+            with pytest.raises(DurableSchemaMigrationRequiredError):
+                store.verify_schema()
+        assert statements and all(statement.lstrip().upper().startswith("SELECT") for statement in statements)
+    finally:
+        event.remove(store._engine, "before_cursor_execute", observe)
+    store.create_schema()
+    store.verify_schema()
+    assert store.get_result(calculation_id) == original
+
+
+def test_postgres_registered_candidate_verified_original_capture(monkeypatch, tmp_path, caplog):
+    from tests.benchmarks.postgres_runtime_helpers import owned_postgres_runtime_stores
+
+    url = get_postgres_database_url()
+    with owned_postgres_runtime_stores(url, monkeypatch):
+        _assert_registered_candidate(monkeypatch, tmp_path, caplog, database_url=url)
+
+
+@pytest.fixture
+def postgres_candidate_inputs(monkeypatch):
+    from tests.unit.services.test_composite_result_candidates import build_candidate_inputs
+
+    inputs = build_candidate_inputs(get_postgres_database_url(), monkeypatch)
+    try:
+        yield inputs
+    finally:
+        inputs[0].close()
+        inputs[1]._engine.dispose()
+
+
+@pytest.mark.parametrize("boundary", ["analytics_async_result", "composite_result_candidates"])
+def test_postgres_candidate_every_write_boundary_rolls_back(postgres_candidate_inputs, boundary):
+    from tests.unit.services.test_composite_result_candidates import (
+        test_every_write_boundary_rolls_back_original_and_descriptor,
+    )
+
+    test_every_write_boundary_rolls_back_original_and_descriptor(postgres_candidate_inputs, boundary)
+
+
+def test_postgres_candidate_single_concurrent_winner(postgres_candidate_inputs):
+    from tests.unit.services.test_composite_result_candidates import (
+        test_single_concurrent_winner_has_no_losing_original,
+    )
+
+    test_single_concurrent_winner_has_no_losing_original(postgres_candidate_inputs)
+
+
+def test_postgres_candidate_gc_before_descriptor_commit_preserves_original(postgres_candidate_inputs):
+    from tests.unit.services.test_composite_result_candidates import (
+        test_gc_during_atomic_capture_cannot_delete_born_original,
+    )
+
+    test_gc_during_atomic_capture_cannot_delete_born_original(postgres_candidate_inputs)
+
+
+@pytest.mark.parametrize("boundary", ["analytics_async_result", "composite_result_candidates"])
+def test_postgres_candidate_abrupt_crash_at_each_write(postgres_candidate_inputs, boundary):
+    from tests.unit.services.test_composite_result_candidates import (
+        test_abrupt_process_crash_at_each_write_preserves_atomicity,
+    )
+
+    test_abrupt_process_crash_at_each_write_preserves_atomicity(postgres_candidate_inputs, boundary)
+
+
+def test_postgres_candidate_descriptor_and_result_truncation_refuse(postgres_candidate_inputs):
+    from tests.unit.services.test_composite_result_candidates import _capture, _counts
+
+    store, *_ = postgres_candidate_inputs
+    original = _capture(postgres_candidate_inputs)
+    for mutation in (
+        "TRUNCATE composite_result_candidates",
+        "TRUNCATE analytics_async_result",
+        "TRUNCATE composite_result_candidates, analytics_async_result CASCADE",
+    ):
+        with pytest.raises(IntegrityError, match="immutable"):
+            with store._engine.begin() as connection:
+                connection.exec_driver_sql(mutation)
+        assert _counts(store) == (1, 1)
+        assert _capture(postgres_candidate_inputs) == original
 
 
 @pytest.fixture(autouse=True)
@@ -2799,3 +2976,175 @@ def test_postgres_direct_sql_publication_requires_exact_families_and_fences_late
     finally:
         engine.dispose()
         store.close()
+
+
+def _financial_custody_snapshot(engine):
+    tables = ("composite_member_return_facts", "composite_member_return_fact_publications")
+    with engine.connect() as connection:
+        return {table: list(connection.exec_driver_sql(f"SELECT * FROM {table}")) for table in tables}
+
+
+@pytest.fixture
+def published_financial_custody():
+    database_url = get_postgres_database_url()
+    store = CompositeMetadataStore(database_url)
+    try:
+        store.create_schema()
+        store.upsert_definition(_definition())
+        fact = _fact(
+            return_value="0.0100",
+            return_view="NET_ACTUAL",
+            restatement_version="published",
+            restatement_sequence=1,
+            fingerprint="net-v1",
+        )
+        store.upsert_member_return_fact(fact)
+        _complete_publication(store, fact, source_fingerprint="sha256:net-publication-v1")
+        original = _financial_custody_snapshot(store._engine)
+        assert all(len(rows) == 1 for rows in original.values())
+        yield store, original, database_url
+    finally:
+        store.close()
+
+
+@pytest.mark.parametrize(
+    "statement",
+    [
+        "TRUNCATE composite_member_return_facts",
+        "TRUNCATE composite_member_return_fact_publications",
+        "TRUNCATE composite_member_return_facts, composite_member_return_fact_publications",
+        "TRUNCATE composite_member_return_fact_publications CASCADE",
+    ],
+)
+def test_postgres_completed_financial_custody_refuses_statement_truncation(statement, published_financial_custody):
+    store, original, _ = published_financial_custody
+    with pytest.raises(IntegrityError, match="immutable"):
+        with store._engine.begin() as connection:
+            connection.exec_driver_sql(statement)
+    assert _financial_custody_snapshot(store._engine) == original
+    store.verify_schema()
+
+
+@pytest.mark.parametrize(
+    "table,trigger,function",
+    [
+        (
+            "composite_member_return_facts",
+            MEMBER_RETURN_FACT_IMMUTABLE_TRUNCATE_TRIGGER,
+            "reject_composite_member_return_fact_mutation",
+        ),
+        (
+            "composite_member_return_fact_publications",
+            PUBLICATION_IMMUTABLE_TRUNCATE_TRIGGER,
+            "reject_composite_fact_publication_mutation",
+        ),
+    ],
+)
+@pytest.mark.parametrize("drift", ["missing", "disabled", "wrong_event", "weakened_function"])
+def test_postgres_financial_truncate_guard_drift_refuses_read_only(
+    table, trigger, function, drift, published_financial_custody
+):
+    store, original, _ = published_financial_custody
+    try:
+        store.create_schema()
+        store.verify_schema()
+        with store._engine.begin() as connection:
+            if drift == "disabled":
+                connection.exec_driver_sql(f"ALTER TABLE {table} DISABLE TRIGGER {trigger}")
+            elif drift == "weakened_function":
+                connection.exec_driver_sql(
+                    f"CREATE OR REPLACE FUNCTION {function}() RETURNS trigger LANGUAGE plpgsql "
+                    "AS $$ BEGIN RETURN OLD; END; $$"
+                )
+            else:
+                connection.exec_driver_sql(f"DROP TRIGGER {trigger} ON {table}")
+                if drift == "wrong_event":
+                    connection.exec_driver_sql(
+                        f"CREATE TRIGGER {trigger} BEFORE UPDATE ON {table} "
+                        f"FOR EACH ROW EXECUTE FUNCTION {function}()"
+                    )
+        observed = []
+
+        def read_only(_connection, _cursor, statement, *_arguments):
+            observed.append(statement)
+            assert statement.lstrip().upper().startswith("SELECT"), statement
+
+        event.listen(store._engine, "before_cursor_execute", read_only)
+        try:
+            for _ in range(2):
+                with pytest.raises(DurableSchemaMigrationRequiredError) as failure:
+                    store.verify_schema()
+                expected = f"function:{function}" if drift == "weakened_function" else f"trigger:{trigger}"
+                assert expected in failure.value.issues
+        finally:
+            event.remove(store._engine, "before_cursor_execute", read_only)
+        assert observed
+        # Only the explicit owner repairs the installed guard; runtime did not.
+        store.create_schema()
+        store.verify_schema()
+        assert _financial_custody_snapshot(store._engine) == original
+    finally:
+        store.close()
+
+
+def test_postgres_populated_statement_guard_upgrade_and_restart_preserve_originals(published_financial_custody):
+    store, original, database_url = published_financial_custody
+    with store._engine.begin() as connection:
+        for table, trigger in (
+            ("composite_member_return_facts", MEMBER_RETURN_FACT_IMMUTABLE_TRUNCATE_TRIGGER),
+            ("composite_member_return_fact_publications", PUBLICATION_IMMUTABLE_TRUNCATE_TRIGGER),
+        ):
+            connection.exec_driver_sql(f"DROP TRIGGER {trigger} ON {table}")
+    with pytest.raises(DurableSchemaMigrationRequiredError):
+        store.verify_schema()
+    store.create_schema()
+    assert _financial_custody_snapshot(store._engine) == original
+    restarted = CompositeMetadataStore(database_url)
+    try:
+        restarted.verify_schema()
+        for table in original:
+            with pytest.raises(IntegrityError, match="immutable"):
+                with restarted._engine.begin() as connection:
+                    connection.exec_driver_sql(f"TRUNCATE {table}")
+        assert _financial_custody_snapshot(restarted._engine) == original
+    finally:
+        restarted.close()
+
+
+@pytest.mark.parametrize("table", ["composite_member_return_facts", "composite_member_return_fact_publications"])
+def test_postgres_truncate_waits_for_writer_then_refuses_without_custody_loss(table, published_financial_custody):
+    store, original, _ = published_financial_custody
+    ready = Event()
+    peer_pids = []
+
+    def truncate():
+        with pytest.raises(IntegrityError, match="immutable") as failure:
+            with store._engine.begin() as connection:
+                peer_pids.append(connection.exec_driver_sql("SELECT pg_backend_pid()").scalar_one())
+                ready.set()
+                connection.exec_driver_sql(f"TRUNCATE {table}")
+        return failure.value.orig.sqlstate
+
+    with ThreadPoolExecutor(max_workers=1) as pool:
+        with store._engine.begin() as writer:
+            writer.exec_driver_sql(f"LOCK TABLE {table} IN ROW EXCLUSIVE MODE")
+            result = pool.submit(truncate)
+            assert ready.wait(10)
+            deadline = monotonic() + 10
+            while monotonic() < deadline:
+                with store._engine.connect() as observer:
+                    waiting = observer.scalar(
+                        text(
+                            "SELECT EXISTS (SELECT 1 FROM pg_locks WHERE pid=:pid "
+                            "AND locktype='relation' AND mode='AccessExclusiveLock' AND NOT granted)"
+                        ),
+                        {"pid": peer_pids[0]},
+                    )
+                if waiting:
+                    break
+                sleep(0.05)
+            else:
+                pytest.fail("TRUNCATE did not wait for the real PostgreSQL writer lock")
+            assert not result.done()
+        assert result.result(timeout=10) == "23514"
+    assert _financial_custody_snapshot(store._engine) == original

@@ -49,6 +49,26 @@
 - Recovery role: poll/result APIs remain available across process restarts
 - Failure contract: nullable `failure_json` mirrors the compute classification so result routes can
   restore the safe status, code and retryability without parsing messages or Python class names.
+- Composite originals: explicit `COMPOSITE_TWR_CANDIDATE` responses are protected from birth by
+  owner-installed UPDATE/DELETE and PostgreSQL TRUNCATE guards. Normal result retention excludes
+  this purpose; ordinary analytic results retain their existing behavior. Runtime verifies exact
+  enabled guards without DDL. Capture shares the Composite descriptor transaction after proving
+  both stores use the same installed database; no second response table is created.
+
+### `composite_result_candidates`
+
+- Owner: existing `app/services/composite_metadata_store.py`, with
+  `app/adapters/composite_result_candidate_records.py` schema metadata
+- Purpose: immutable nonfinancial references to an original calculated response, semantic
+  request/response and original response digests, exact retained vector/member scope, build/method
+  identity, and verified candidate creator. Numerical response bytes live only in `analytics_async_result`.
+- Atomicity: original and descriptor insert within one owning session transaction. Identity
+  collisions roll back losing writes; abrupt process death cannot commit a detached half.
+- Custody: descriptor UPDATE/DELETE/TRUNCATE refuse; an insertion must reference an existing
+  same-tenant COMPLETE protected original. Runtime exact catalog checks cover both owners.
+- Recovery: preserve original content and provenance through backup and restore. Catalog repair
+  never reconstructs a missing original; inconsistent custody refuses. Do not drop a populated
+  descriptor/result table as a rollback. Candidate capture grants no official approval or freeze.
 
 ### `analytics_source_correction`
 

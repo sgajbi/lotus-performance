@@ -13,6 +13,11 @@ from sqlalchemy import DateTime, Index, String, Text, delete, func, inspect, sel
 from sqlalchemy.engine import Connection
 from sqlalchemy.orm import DeclarativeBase, Mapped, Session, mapped_column, sessionmaker
 
+from app.adapters.composite_result_custody_schema import (
+    COMPOSITE_CAPTURE_ANALYTICS_TYPE,
+    composite_result_custody_guard_statements,
+    create_composite_result_custody_guards,
+)
 from app.services.durable_database_engine import create_durable_database_engine
 from app.services.durable_failure_classification import DurableFailureClassification, load_durable_failure
 from app.services.durable_schema_creation import create_durable_schema
@@ -28,6 +33,17 @@ INVALID_ASYNC_RESULT_PAYLOAD_MESSAGE = "Stored async result response payload is 
 
 class AsyncResultTenantConflictError(RuntimeError):
     """A result identity is already owned by a different durable authority."""
+
+
+class AsyncResultCaptureAdmissionRequiredError(RuntimeError):
+    """Protected originals require the owning atomic candidate admission."""
+
+
+def _require_generic_result_purpose(analytics_type):
+    if analytics_type == COMPOSITE_CAPTURE_ANALYTICS_TYPE:
+        raise AsyncResultCaptureAdmissionRequiredError(
+            "Composite originals require atomic candidate capture admission."
+        )
 
 
 class AsyncResultStatus(StrEnum):
@@ -91,13 +107,18 @@ class AsyncResultStore:
                 self._ensure_tenant_id_column,
                 self._ensure_failure_json_column,
                 self._ensure_runtime_indexes,
+                create_composite_result_custody_guards,
             ),
         )
 
     def verify_schema(self) -> None:
         from app.adapters.durable_schema.catalog import verify_durable_schema
 
-        verify_durable_schema(self._engine, Base.metadata)
+        verify_durable_schema(
+            self._engine,
+            Base.metadata,
+            managed_guards=composite_result_custody_guard_statements(self._engine.dialect),
+        )
 
     @contextmanager
     def _session(self) -> Iterator[Session]:
@@ -122,6 +143,7 @@ class AsyncResultStore:
             statement = (
                 select(AsyncResultModel.calculation_id)
                 .where(AsyncResultModel.updated_at_utc <= cutoff)
+                .where(AsyncResultModel.analytics_type != COMPOSITE_CAPTURE_ANALYTICS_TYPE)
                 .order_by(AsyncResultModel.updated_at_utc.asc(), AsyncResultModel.created_at_utc.asc())
             )
             return [row[0] for row in session.execute(statement).all()]
@@ -136,7 +158,9 @@ class AsyncResultStore:
         with self._session() as session:
             dialect_name = session.bind.dialect.name if session.bind is not None else ""
             cutoff = normalize_filter_datetime(older_than, dialect_name=dialect_name)
-            retention_filter = AsyncResultModel.updated_at_utc <= cutoff
+            retention_filter = (AsyncResultModel.updated_at_utc <= cutoff) & (
+                AsyncResultModel.analytics_type != COMPOSITE_CAPTURE_ANALYTICS_TYPE
+            )
             if exclude_calculation_ids:
                 retention_filter &= AsyncResultModel.calculation_id.not_in(exclude_calculation_ids)
             if dry_run:
@@ -153,6 +177,7 @@ class AsyncResultStore:
         response_payload: dict[str, Any],
         tenant_id: str | None = None,
     ) -> None:
+        _require_generic_result_purpose(analytics_type)
         canonical_tenant_id = None if tenant_id is None else tenant_id.strip()
         now = datetime.now(timezone.utc)
         with self._session() as session:
@@ -186,6 +211,7 @@ class AsyncResultStore:
         tenant_id: str | None = None,
         failure: DurableFailureClassification | None = None,
     ) -> None:
+        _require_generic_result_purpose(analytics_type)
         canonical_tenant_id = None if tenant_id is None else tenant_id.strip()
         now = datetime.now(timezone.utc)
         with self._session() as session:
