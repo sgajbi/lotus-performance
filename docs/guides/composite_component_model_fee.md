@@ -64,6 +64,7 @@ activated Python environment:
 ```text
 python -m pytest tests/unit/services/test_composite_component_cost_admission.py tests/integration/test_composite_component_model_fee_api.py -q
 python -m pytest tests/unit/services/test_composite_scheduled_model_fee_catalog_upgrade.py -q
+python scripts/postgres_concurrency_contracts_gate.py --target tests/benchmarks/test_postgres_composite_component_model_fee.py --target tests/integration/test_composite_component_model_fee_api.py
 ```
 
 For PostgreSQL, set `LOTUS_POSTGRES_PLAN_DATABASE_URL` to an owned test instance before the same
@@ -71,5 +72,10 @@ integration command. The existing benchmark fixture allocates and cleans one iso
 it does not modify other schemas. Root's exact rational example remains gross .02, total .010,
 same-charge inclusion .002 -> .01184; distinct-charge full deduction -> .00980. Registered controls
 also test complete zero, original asset weights, full source pins, hostile Decimal context and replay.
+The existing required PostgreSQL gate includes both component targets. It rejects skips, empty
+collection and nonzero subprocess exits; there are no component exceptions or threshold changes.
+The migration target checks populated periodic/scheduled custody, owner-only expansion, rollback,
+unknown schemas and concurrent immutable identity. This proof belongs in the existing PR/main
+integration lane because SQLite cannot establish PostgreSQL DDL and concurrency behavior.
 
 [Methodology](../methodologies/metrics/metric-composite-component-model-fee.md)

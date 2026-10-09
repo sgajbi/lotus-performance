@@ -13,7 +13,9 @@ from tests.composite_eligibility_helpers import verification_expectation
 from tests.unit.models.test_composite_component_model_fees import component_case
 
 
-def component_source_inputs(packet, gross_outcomes, *, distinct=False, zero=False, false_base=False):
+def component_source_inputs(
+    packet, gross_outcomes, *, distinct=False, zero=False, false_base=False, signed_foreign=False, false_gross=False
+):
     profile, template = component_case()
     profile.update(
         tenant_id=packet["definition"]["tenant_id"],
@@ -40,6 +42,10 @@ def component_source_inputs(packet, gross_outcomes, *, distinct=False, zero=Fals
             member_id=outcome.portfolio_id,
             gross_receipt_digest=fact.source_snapshot_id,
         )
+        if signed_foreign and outcome.portfolio_id == "C":
+            scope["tenant_id"] = "foreign-tenant"
+        if false_gross and outcome.portfolio_id == "C":
+            entry["gross_receipt_digest"] = scope["gross_receipt_digest"] = "sha256:" + "7" * 64
         if distinct or zero:
             entry["components"][-1].update(treatment="DEDUCT", gross_inclusion_evidence=None)
             evidence["included_components"] = []
@@ -52,7 +58,7 @@ def component_source_inputs(packet, gross_outcomes, *, distinct=False, zero=Fals
         if false_base and outcome.portfolio_id == "C":
             amount = "999"
         reference = {
-            "gross_receipt_digest": fact.source_snapshot_id,
+            "gross_receipt_digest": scope["gross_receipt_digest"],
             "reporting_currency": "USD",
             "reference_wealth_amount": amount,
             "reference_wealth_convention": "BEGINNING_ASSETS_TIMES_GROSS_WEALTH_FACTOR",

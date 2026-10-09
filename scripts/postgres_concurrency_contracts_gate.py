@@ -37,6 +37,8 @@ DEFAULT_TARGETS = (
     "tests/benchmarks/test_postgres_composite_monthly_eligibility.py",
     "tests/benchmarks/test_postgres_composite_model_fee.py",
     "tests/benchmarks/test_postgres_composite_scheduled_model_fee.py",
+    "tests/benchmarks/test_postgres_composite_component_model_fee.py",
+    "tests/integration/test_composite_component_model_fee_api.py",
     "tests/benchmarks/test_postgres_composite_pooled_mwr.py",
 )
 
