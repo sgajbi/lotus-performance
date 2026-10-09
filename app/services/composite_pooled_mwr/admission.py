@@ -35,10 +35,7 @@ def admit_pooled_observation(
 
 def _complete_segments(segments, start, end, *, code):
     """Require disjoint inclusive complete coverage without enumerating dates."""
-    clipped = sorted(
-        ((max(left, start), min(right, end), row) for left, right, row in segments if left <= end and right >= start),
-        key=lambda item: (item[0], item[1]),
-    )
+    clipped = _clipped_segments(segments, start, end)
     cursor = start
     for left, right, row in clipped:
         if left > right or cursor is None or left != cursor:
@@ -47,6 +44,13 @@ def _complete_segments(segments, start, end, *, code):
     if cursor is not None:
         refuse(code, "Dated source history does not cover the whole interval.", unavailable=True)
     return clipped
+
+
+def _clipped_segments(segments, start, end):
+    return sorted(
+        ((max(left, start), min(right, end), row) for left, right, row in segments if left <= end and right >= start),
+        key=lambda item: (item[0], item[1]),
+    )
 
 
 def _complete_membership(bundle):
@@ -113,6 +117,10 @@ def _require_lifecycle_graph(versions):
                 unavailable=True,
             )
         predecessors[key] = predecessor
+    _require_acyclic_predecessors(predecessors)
+
+
+def _require_acyclic_predecessors(predecessors):
     completed = set()
     for start in predecessors:
         current, path = start, set()
@@ -138,21 +146,25 @@ def _require_flow_coverage(bundle, flows, pins):
             by_member[member], bundle.period_start, bundle.period_end, code="MISSING_FLOW_COVERAGE"
         )
         for left, right, coverage in segments:
-            selected = [flow for flow in flows if flow.portfolio_id == member and left <= flow.economic_date <= right]
-            if any(flow.source_pin_id != coverage.source_pin_id for flow in selected):
-                refuse("SOURCE_CUT_CONFLICT", "Flow population and coverage use different source bindings.")
-            if Counter(coverage.active_event_ids) != Counter(flow.event_id for flow in selected):
-                refuse(
-                    "MISSING_FLOW_COVERAGE",
-                    "Flow identities disagree with the source coverage control.",
-                    unavailable=True,
-                )
-            if coverage.explicitly_empty != (not selected):
-                refuse(
-                    "MISSING_FLOW_COVERAGE",
-                    "An empty flow list requires explicit source-owned empty coverage.",
-                    unavailable=True,
-                )
+            _require_covered_events(member, left, right, coverage, flows)
+
+
+def _require_covered_events(member, left, right, coverage, flows):
+    selected = [flow for flow in flows if flow.portfolio_id == member and left <= flow.economic_date <= right]
+    if any(flow.source_pin_id != coverage.source_pin_id for flow in selected):
+        refuse("SOURCE_CUT_CONFLICT", "Flow population and coverage use different source bindings.")
+    _require_event_control(coverage, selected)
+
+
+def _require_event_control(coverage, selected):
+    if Counter(coverage.active_event_ids) != Counter(flow.event_id for flow in selected):
+        refuse("MISSING_FLOW_COVERAGE", "Flow identities disagree with the source coverage control.", unavailable=True)
+    if coverage.explicitly_empty != (not selected):
+        refuse(
+            "MISSING_FLOW_COVERAGE",
+            "An empty flow list requires explicit source-owned empty coverage.",
+            unavailable=True,
+        )
 
 
 def _require_monetary_rows(bundle, flows, pins):
@@ -166,21 +178,25 @@ def _require_monetary_rows(bundle, flows, pins):
         if row.currency != bundle.reporting_currency:
             refuse("UNSUPPORTED_CURRENCY", "This pooled source contract requires one reporting currency.")
     for flow in flows:
-        if flow.classification == "UNKNOWN":
-            refuse(
-                "FLOW_CLASSIFICATION_UNAVAILABLE",
-                "Unclassified source economics cannot become zero flows.",
-                unavailable=True,
-            )
-        elected_date = {
-            "EFFECTIVE_DATE": flow.source_date,
-            "SETTLEMENT_DATE": flow.settlement_date,
-            "PAYMENT_DATE": flow.payment_date,
-        }[bundle.policy.date_basis]
-        if elected_date is None:
-            refuse("FLOW_DATE_POLICY_UNAVAILABLE", "The elected source date is not retained.", unavailable=True)
-        if elected_date != flow.economic_date:
-            refuse("FLOW_DATE_POLICY_MISMATCH", "Source date evidence conflicts with the elected economic date.")
+        _require_flow_classification_and_date(bundle, flow)
+
+
+def _require_flow_classification_and_date(bundle, flow):
+    if flow.classification == "UNKNOWN":
+        refuse(
+            "FLOW_CLASSIFICATION_UNAVAILABLE",
+            "Unclassified source economics cannot become zero flows.",
+            unavailable=True,
+        )
+    elected_date = {
+        "EFFECTIVE_DATE": flow.source_date,
+        "SETTLEMENT_DATE": flow.settlement_date,
+        "PAYMENT_DATE": flow.payment_date,
+    }[bundle.policy.date_basis]
+    if elected_date is None:
+        refuse("FLOW_DATE_POLICY_UNAVAILABLE", "The elected source date is not retained.", unavailable=True)
+    if elected_date != flow.economic_date:
+        refuse("FLOW_DATE_POLICY_MISMATCH", "Source date evidence conflicts with the elected economic date.")
 
 
 def _member_status(segments, economic_date):
@@ -204,12 +220,7 @@ def _included_runs(segments):
 
 
 def _boundary_economics(bundle, membership):
-    values = {}
-    for row in bundle.valuations:
-        key = (row.portfolio_id, row.economic_date, row.role)
-        if key in values:
-            refuse("BOUNDARY_VALUATION_CONFLICT", "Boundary valuation must be unique.")
-        values[key] = row
+    values = _boundary_values(bundle)
     controls, boundary_flows = {}, []
     for member, segments in membership.items():
         control = {
@@ -217,40 +228,64 @@ def _boundary_economics(bundle, membership):
             for key in ("opening_value", "terminal_value", "external_flows", "entry_capital", "exit_capital")
         }
         for left, right in _included_runs(segments):
-            opening_role = "OPENING" if left == bundle.period_start else "ENTRY"
-            terminal_role = "TERMINAL" if right == bundle.period_end else "EXIT"
-            for day, role, timing in (
-                (left, opening_role, bundle.policy.opening_timing),
-                (right, terminal_role, bundle.policy.terminal_timing),
-            ):
-                row = values.get((member, day, role))
-                if row is None:
-                    refuse(
-                        "MISSING_BOUNDARY_VALUATION",
-                        "Every applicable opening/terminal/entry/exit requires a source valuation.",
-                        unavailable=True,
-                    )
-                if row.timing != timing:
-                    refuse("BOUNDARY_TIMING_MISMATCH", "Boundary valuation timing differs from the approved policy.")
-                if role in {"ENTRY", "EXIT"}:
-                    if bundle.policy.entry_exit_policy != "EXPLICIT_BOUNDARY_CAPITAL":
-                        refuse(
-                            "BOUNDARY_POLICY_UNAVAILABLE",
-                            "Membership transitions have no approved capital treatment.",
-                            unavailable=True,
-                        )
-                    amount = row.amount if role == "ENTRY" else row.amount.copy_negate()
-                    boundary_flows.append((day, amount, "membership:" + row.source_row_id))
-                control[
-                    {
-                        "OPENING": "opening_value",
-                        "TERMINAL": "terminal_value",
-                        "ENTRY": "entry_capital",
-                        "EXIT": "exit_capital",
-                    }[role]
-                ] += row.amount
+            _append_boundary_run(bundle, values, member, left, right, control, boundary_flows)
         controls[member] = control
     return controls, boundary_flows
+
+
+def _boundary_values(bundle):
+    values = {}
+    for row in bundle.valuations:
+        key = (row.portfolio_id, row.economic_date, row.role)
+        if key in values:
+            refuse("BOUNDARY_VALUATION_CONFLICT", "Boundary valuation must be unique.")
+        values[key] = row
+    return values
+
+
+def _append_boundary_run(bundle, values, member, left, right, control, boundary_flows):
+    opening_role = "OPENING" if left == bundle.period_start else "ENTRY"
+    terminal_role = "TERMINAL" if right == bundle.period_end else "EXIT"
+    for day, role, timing in (
+        (left, opening_role, bundle.policy.opening_timing),
+        (right, terminal_role, bundle.policy.terminal_timing),
+    ):
+        row = _source_boundary_row(values, member, day, role, timing)
+        _append_membership_capital(bundle, row, boundary_flows)
+        control[
+            {
+                "OPENING": "opening_value",
+                "TERMINAL": "terminal_value",
+                "ENTRY": "entry_capital",
+                "EXIT": "exit_capital",
+            }[role]
+        ] += row.amount
+
+
+def _source_boundary_row(values, member, day, role, timing):
+    row = values.get((member, day, role))
+    if row is None:
+        refuse(
+            "MISSING_BOUNDARY_VALUATION",
+            "Every applicable opening/terminal/entry/exit requires a source valuation.",
+            unavailable=True,
+        )
+    if row.timing != timing:
+        refuse("BOUNDARY_TIMING_MISMATCH", "Boundary valuation timing differs from the approved policy.")
+    return row
+
+
+def _append_membership_capital(bundle, row, boundary_flows):
+    if row.role not in {"ENTRY", "EXIT"}:
+        return
+    if bundle.policy.entry_exit_policy != "EXPLICIT_BOUNDARY_CAPITAL":
+        refuse(
+            "BOUNDARY_POLICY_UNAVAILABLE",
+            "Membership transitions have no approved capital treatment.",
+            unavailable=True,
+        )
+    amount = row.amount if row.role == "ENTRY" else row.amount.copy_negate()
+    boundary_flows.append((row.economic_date, amount, "membership:" + row.source_row_id))
 
 
 def _external_flows(bundle, membership, flows):
@@ -260,6 +295,15 @@ def _external_flows(bundle, membership, flows):
             excluded.append(_event_label(flow))
         else:
             selected.append(flow)
+    external, transfers = _partition_transfer_flows(bundle, selected)
+    eliminated = []
+    for legs in transfers.values():
+        _require_transfer_pair(legs)
+        eliminated.extend(_event_label(flow) for flow in legs)
+    return external, sorted(eliminated), sorted(excluded)
+
+
+def _partition_transfer_flows(bundle, selected):
     transfers = defaultdict(list)
     external = []
     for flow in selected:
@@ -273,11 +317,7 @@ def _external_flows(bundle, membership, flows):
             transfers[(flow.identity_namespace, flow.transfer_group_id)].append(flow)
         else:
             external.append(flow)
-    eliminated = []
-    for legs in transfers.values():
-        _require_transfer_pair(legs)
-        eliminated.extend(_event_label(flow) for flow in legs)
-    return external, sorted(eliminated), sorted(excluded)
+    return external, transfers
 
 
 def _require_transfer_pair(legs):
@@ -288,21 +328,23 @@ def _require_transfer_pair(legs):
             unavailable=True,
         )
     left, right = legs
-    if (
+    if not _matching_transfer_scope(left, right) or left.amount == 0 or left.amount + right.amount != 0:
+        refuse(
+            "TRANSFER_LEGS_UNRECONCILED",
+            "Linked transfer legs do not reconcile their economic scope and amount.",
+            unavailable=True,
+        )
+
+
+def _matching_transfer_scope(left, right):
+    return not (
         left.portfolio_id == right.portfolio_id
         or left.counterparty_portfolio_id != right.portfolio_id
         or right.counterparty_portfolio_id != left.portfolio_id
         or left.economic_date != right.economic_date
         or left.timing != right.timing
         or left.currency != right.currency
-        or left.amount == 0
-        or left.amount + right.amount != 0
-    ):
-        refuse(
-            "TRANSFER_LEGS_UNRECONCILED",
-            "Linked transfer legs do not reconcile their economic scope and amount.",
-            unavailable=True,
-        )
+    )
 
 
 def _net_projection(rows):

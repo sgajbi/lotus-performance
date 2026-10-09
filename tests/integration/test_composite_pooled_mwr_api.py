@@ -315,6 +315,11 @@ def test_pooled_published_contract_refuses_unbound_result_identity(pooled_api_ru
 
 
 def test_registered_pooled_dated_flow_matches_independent_quadratic_oracle(pooled_api_runtime):
+    import json
+    from pathlib import Path
+
+    from app.models.composite_pooled_mwr import CompositePooledMWRRequest
+
     _, reader, _, _, _ = pooled_api_runtime
     payload = deepcopy(reader.payloads["controlled-original-v1"])
     payload["source_manifest_id"] = "controlled-dated-oracle-v1"
@@ -355,9 +360,12 @@ def test_registered_pooled_dated_flow_matches_independent_quadratic_oracle(poole
         pin["source_cut_id"] += "-dated-oracle"
     reader.rebind(payload)
     reader.payloads[payload["source_manifest_id"]] = payload
-    request = controlled_request().model_copy(
-        update={"period_end": date(2027, 1, 1), "source_manifest_id": payload["source_manifest_id"]}
+    example = json.loads(
+        (Path(__file__).resolve().parents[2] / "app/api/examples/composite_pooled_mwr.json").read_text(encoding="utf-8")
     )
+    request = CompositePooledMWRRequest.model_validate({**example, "calculation_id": str(uuid4())})
+    assert request.period_end == date(2027, 1, 1)
+    assert request.source_manifest_id == payload["source_manifest_id"]
     _, _, result = _run_request(pooled_api_runtime, request)
     observed = Decimal(result["outcome"]["return_value"])
     # Solve 200*x^2 + 100*x - 341 = 0 with x = 1+r; the independent

@@ -148,6 +148,21 @@ def run_pooled_mwr_attempt(job, *, job_store, settings) -> CompositePooledMWRRes
             raise APIConflictError("Retained input differs from queued request.", error_code="INPUT_CUSTODY_CONFLICT")
     except PooledSourceAdmissionError as exc:
         raise _source_error(exc) from exc
+    replay = _retained_pooled_result(job, snapshot, settings)
+    if replay is not None:
+        return replay
+    return CompositePooledMWRResponse(
+        calculation_id=job.calculation_id,
+        composite_id=request.composite_id,
+        input_manifest_digest=snapshot.observation.input_manifest_digest,
+        calculation_engine_version=calculation_engine_version(settings),
+        correction_of_calculation_id=request.correction_of_calculation_id,
+        observation=snapshot.observation,
+        outcome=calculate_pooled_xirr(request, snapshot.observation),
+    )
+
+
+def _retained_pooled_result(job, snapshot, settings):
     retained = get_async_result_store(database_url=settings.LINEAGE_METADATA_DATABASE_URL).get_result_for_tenant(
         job.calculation_id, tenant_id=job.tenant_id
     )
@@ -161,15 +176,7 @@ def run_pooled_mwr_attempt(job, *, job_store, settings) -> CompositePooledMWRRes
         if response.observation != snapshot.observation:
             raise APIConflictError("Retained result differs from original inputs.", error_code="INPUT_CUSTODY_CONFLICT")
         return response
-    return CompositePooledMWRResponse(
-        calculation_id=job.calculation_id,
-        composite_id=request.composite_id,
-        input_manifest_digest=snapshot.observation.input_manifest_digest,
-        calculation_engine_version=calculation_engine_version(settings),
-        correction_of_calculation_id=request.correction_of_calculation_id,
-        observation=snapshot.observation,
-        outcome=calculate_pooled_xirr(request, snapshot.observation),
-    )
+    return None
 
 
 def publish_pooled_mwr_result(job, response_payload, *, job_store, result_store, settings) -> None:

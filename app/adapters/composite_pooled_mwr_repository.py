@@ -123,6 +123,10 @@ class CompositePooledMWRInputStore:
             ).scalar_one_or_none()
         if raw is None:
             return None
+        return self._parse_member_scope(raw)
+
+    @staticmethod
+    def _parse_member_scope(raw):
         members = json.loads(raw)
         if (
             not isinstance(members, list)

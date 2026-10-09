@@ -36,6 +36,13 @@ def require_source_bindings(
     )
     if any(actual != expected for actual, expected in identities):
         refuse("SOURCE_CUT_CONFLICT", "Resolved source scope differs from the admitted request.")
+    pins = _require_source_vector(request, bundle)
+    _require_population(bundle, pins)
+    _require_policy(request, bundle)
+    return pins
+
+
+def _require_source_vector(request, bundle):
     pins = {pin.pin_id: pin for pin in bundle.source_pins}
     if not pins or len(pins) != len(bundle.source_pins):
         refuse("SOURCE_IDENTITY_UNAVAILABLE", "Source pin identities must be nonempty and unique.")
@@ -49,6 +56,10 @@ def require_source_bindings(
         )
     for pin in pins.values():
         _require_complete_pin(pin, bundle.raw_source_bodies[pin.pin_id], request)
+    return pins
+
+
+def _require_population(bundle, pins):
     if bundle.population_source_pin_id not in pins or not bundle.population_complete:
         refuse("MISSING_POPULATION_COVERAGE", "Complete pinned population coverage is required.", unavailable=True)
     expected = set(bundle.expected_portfolio_ids)
@@ -58,8 +69,6 @@ def require_source_bindings(
             "Expected population identities and control count disagree.",
             unavailable=True,
         )
-    _require_policy(request, bundle)
-    return pins
 
 
 def _require_complete_pin(pin, body, request):
