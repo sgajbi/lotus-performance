@@ -34,6 +34,7 @@ OWNED_DURABLE_TABLES = (
     "composite_model_fee_profiles",
     "composite_result_candidates",
     "composite_pooled_mwr_inputs",
+    "composite_attribution_inputs",
     "composite_authority_proposals",
     "composite_authority_approvals",
     "composite_authority_decisions",

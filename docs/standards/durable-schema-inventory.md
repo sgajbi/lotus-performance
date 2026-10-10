@@ -58,6 +58,18 @@
   and complete installed database/schema/server identity; socket or ambiguous identity refuses.
   SQLite custody compares actual durable file identity.
 
+### `composite_attribution_inputs`
+
+BF input custody is subordinate to the same Composite metadata owner:
+`composite_attribution_inputs` retains tenant/calculation identity, full original request and
+source/policy/purpose observation, input manifest digest and payload digest. Exact UPDATE/DELETE
+and PostgreSQL TRUNCATE guards preserve it. Numerical BF outputs live only in the existing
+`analytics_async_result` under protected `COMPOSITE_ATTRIBUTION` purpose; ordinary result
+retention excludes this purpose. The explicit owner additively creates the input table and updates
+result guards. Runtime verification refuses missing/drifted custody without repair. Back up and
+restore both owners together; do not drop retained originals as rollback or recreate them from
+current sources. See [the BF caller guide](../guides/composite_attribution.md).
+
 ### `composite_result_candidates`
 
 - Owner: existing `app/services/composite_metadata_store.py`, with

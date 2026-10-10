@@ -7,11 +7,19 @@ Ordinary analytic results retain their existing mutation and retention behavior.
 from sqlalchemy.engine.interfaces import Dialect
 
 from app.adapters.durable_schema.statements import SchemaStatements
-from app.services.analytics_workflow_types import ANALYTICS_WORKFLOW_COMPOSITE_POOLED_MWR
+from app.services.analytics_workflow_types import (
+    ANALYTICS_WORKFLOW_COMPOSITE_ATTRIBUTION,
+    ANALYTICS_WORKFLOW_COMPOSITE_POOLED_MWR,
+)
 
 COMPOSITE_CAPTURE_ANALYTICS_TYPE = "COMPOSITE_TWR_CANDIDATE"
 COMPOSITE_POOLED_ANALYTICS_TYPE = ANALYTICS_WORKFLOW_COMPOSITE_POOLED_MWR
-COMPOSITE_PROTECTED_RESULT_TYPES = (COMPOSITE_CAPTURE_ANALYTICS_TYPE, COMPOSITE_POOLED_ANALYTICS_TYPE)
+COMPOSITE_ATTRIBUTION_ANALYTICS_TYPE = ANALYTICS_WORKFLOW_COMPOSITE_ATTRIBUTION
+COMPOSITE_PROTECTED_RESULT_TYPES = (
+    COMPOSITE_CAPTURE_ANALYTICS_TYPE,
+    COMPOSITE_POOLED_ANALYTICS_TYPE,
+    COMPOSITE_ATTRIBUTION_ANALYTICS_TYPE,
+)
 _TABLE = "analytics_async_result"
 _TRIGGER = "trg_composite_result_custody"
 _FUNCTION = "reject_composite_result_custody_mutation"
@@ -42,7 +50,7 @@ def composite_result_custody_guard_statements(dialect: Dialect) -> tuple[str, ..
         # Keep the function literal so SQL construction accepts no runtime data;
         # custody tests exercise both purposes against this catalog contract.
         writer.exec_driver_sql("""CREATE OR REPLACE FUNCTION reject_composite_result_custody_mutation() RETURNS trigger LANGUAGE plpgsql AS $$
-            DECLARE protected_types CONSTANT text[] := ARRAY['COMPOSITE_TWR_CANDIDATE', 'COMPOSITE_POOLED_MWR'];
+            DECLARE protected_types CONSTANT text[] := ARRAY['COMPOSITE_TWR_CANDIDATE', 'COMPOSITE_POOLED_MWR', 'COMPOSITE_ATTRIBUTION'];
             BEGIN
                 IF TG_OP = 'TRUNCATE' THEN
                     IF EXISTS (SELECT 1 FROM analytics_async_result WHERE analytics_type = ANY(protected_types)) THEN

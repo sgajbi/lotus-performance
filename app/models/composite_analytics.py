@@ -5,6 +5,7 @@ from typing import Annotated
 from pydantic import Discriminator, Field, Tag, ValidationError, WrapValidator
 
 from app.models.composite_annual_dispersion import CompositeAnnualDispersionRequest, CompositeAnnualDispersionResponse
+from app.models.composite_attribution import CompositeAttributionRequest, CompositeAttributionResponse
 from app.models.composite_fee_drag import CompositeFeeDragRequest, CompositeFeeDragResponse
 from app.models.composite_linked_contribution import (
     CompositeLinkedContributionRequest,
@@ -38,6 +39,7 @@ CompositeAnalyticsRequest = Annotated[
     Annotated[CompositeAnnualDispersionRequest, Tag("ANNUAL_MEMBER_DISPERSION")]
     | Annotated[CompositeLinkedContributionRequest, Tag("LINKED_MEMBER_CONTRIBUTION")]
     | Annotated[CompositePooledMWRRequest, Tag("POOLED_MONEY_WEIGHTED_RETURN")]
+    | Annotated[CompositeAttributionRequest, Tag("SINGLE_PERIOD_BRINSON_FACHLER")]
     | Annotated[CompositeFeeDragRequest, Tag("MODEL_FEE_DRAG")],
     Discriminator(_analytics_metric),
     WrapValidator(_preserve_annual_errors),
@@ -49,6 +51,7 @@ CompositeAnalyticsRequest = Annotated[
                     "ANNUAL_MEMBER_DISPERSION": "#/components/schemas/CompositeAnnualDispersionRequest",
                     "LINKED_MEMBER_CONTRIBUTION": "#/components/schemas/CompositeLinkedContributionRequest",
                     "POOLED_MONEY_WEIGHTED_RETURN": "#/components/schemas/CompositePooledMWRRequest",
+                    "SINGLE_PERIOD_BRINSON_FACHLER": "#/components/schemas/CompositeAttributionRequest",
                     "MODEL_FEE_DRAG": "#/components/schemas/CompositeFeeDragRequest",
                 },
             }
@@ -60,6 +63,7 @@ CompositeAnalyticsResponse = Annotated[
     CompositeAnnualDispersionResponse
     | CompositeLinkedContributionResponse
     | CompositePooledMWRResponse
+    | CompositeAttributionResponse
     | CompositeFeeDragResponse,
     Field(discriminator="metric_id"),
 ]

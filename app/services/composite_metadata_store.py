@@ -2544,6 +2544,7 @@ class CompositeMetadataStore:
             return read_candidate(session, tenant_id=tenant_id, candidate_id=candidate_id, principal=principal)
 
     def create_schema(self) -> None:
+        from app.adapters.composite_attribution_schema import create_attribution_schema, require_attribution_schema
         from app.adapters.composite_model_fee_profile_upgrade import upgrade_model_fee_profile_products
         from app.adapters.composite_result_authority.schema import create_authority_schema, require_authority_schema
         from app.adapters.composite_result_candidate_schema import create_candidate_schema, require_candidate_schema
@@ -2552,6 +2553,7 @@ class CompositeMetadataStore:
             self._engine,
             Base.metadata,
             schema_preflights=(
+                require_attribution_schema,
                 require_authority_schema,
                 require_candidate_schema,
                 upgrade_model_fee_profile_products,
@@ -2574,10 +2576,13 @@ class CompositeMetadataStore:
                 create_model_fee_profile_schema,
                 create_candidate_schema,
                 create_authority_schema,
+                create_attribution_schema,
             ),
         )
 
     def verify_schema(self) -> None:
+        from app.adapters.composite_attribution_schema import attribution_guard_statements
+        from app.adapters.composite_attribution_schema import metadata as attribution_metadata
         from app.adapters.composite_result_authority.records import AuthorityBase
         from app.adapters.composite_result_authority.schema import authority_guard_statements
         from app.adapters.composite_result_candidate_records import CandidateBase
@@ -2591,11 +2596,13 @@ class CompositeMetadataStore:
             ModelFeeProfileBase.metadata,
             CandidateBase.metadata,
             AuthorityBase.metadata,
+            attribution_metadata,
             managed_guards=(
                 *composite_fact_guard_statements(self._engine.dialect),
                 *model_fee_profile_guard_statements(self._engine.dialect),
                 *candidate_guard_statements(self._engine.dialect),
                 *authority_guard_statements(self._engine.dialect),
+                *attribution_guard_statements(self._engine.dialect),
             ),
         )
 

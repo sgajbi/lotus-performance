@@ -16,6 +16,7 @@ from app.models.attribution_analytics_requests import AttributionAnalyticsReques
 from app.models.attribution_requests import AttributionRequest
 from app.models.benchmark_analytics_requests import BenchmarkAnalyticsRequest, BenchmarkInputMode
 from app.models.benchmark_requests import BenchmarkPerformanceRequest
+from app.models.composite_attribution import CompositeAttributionRequest, CompositeAttributionResponse
 from app.models.composite_materialization import CompositeMaterializationCommand
 from app.models.composite_pooled_mwr import CompositePooledMWRRequest, CompositePooledMWRResponse
 from app.models.contribution_analytics_requests import ContributionAnalyticsRequest, ContributionInputMode
@@ -35,6 +36,7 @@ from app.observability import (
 from app.services.analytics_workflow_types import (
     ANALYTICS_WORKFLOW_ATTRIBUTION,
     ANALYTICS_WORKFLOW_BENCHMARK,
+    ANALYTICS_WORKFLOW_COMPOSITE_ATTRIBUTION,
     ANALYTICS_WORKFLOW_COMPOSITE_MATERIALIZATION,
     ANALYTICS_WORKFLOW_COMPOSITE_POOLED_MWR,
     ANALYTICS_WORKFLOW_CONTRIBUTION,
@@ -50,6 +52,11 @@ from app.services.attribution_service import calculate_attribution
 from app.services.benchmark_mode_service import resolve_benchmark_request
 from app.services.benchmark_service import calculate_benchmark_response
 from app.services.calculation_engine_version import calculation_engine_version
+from app.services.composite_attribution.application import (
+    attribution_claim,
+    publish_attribution_result,
+    run_attribution_attempt,
+)
 from app.services.composite_materialization.application import run_materialization_attempt
 from app.services.composite_pooled_mwr.application import (
     pooled_claim,
@@ -258,7 +265,22 @@ def _publish_compute_job_success(
         return
 
     try:
-        if job.analytics_type == ANALYTICS_WORKFLOW_COMPOSITE_POOLED_MWR:
+        if job.analytics_type == ANALYTICS_WORKFLOW_COMPOSITE_ATTRIBUTION:
+            publish_attribution_result(
+                job,
+                response_payload,
+                job_store=runtime.job_store,
+                result_store=runtime.result_store,
+                settings=runtime.execution_context.settings,
+            )
+            complete_execution_with_lineage(
+                calculation_id=job.calculation_id,
+                calculation_type=job.analytics_type,
+                request_model=CompositeAttributionRequest.model_validate(job.request_payload["request"]),
+                response_model=CompositeAttributionResponse.model_validate(response_payload),
+                execution_details={"input_manifest_digest": response_payload["input_manifest_digest"]},
+            )
+        elif job.analytics_type == ANALYTICS_WORKFLOW_COMPOSITE_POOLED_MWR:
             publish_pooled_mwr_result(
                 job,
                 response_payload,
@@ -802,6 +824,13 @@ def _execute_composite_materialization_job(job: ComputeJobRecord, context: _Comp
     return response
 
 
+def _execute_composite_attribution_job(job: ComputeJobRecord, context: _ComputeJobExecutionContext) -> Any:
+    context.job_store.run_with_active_lease_transaction(**attribution_claim(job), operation=lambda connection: None)
+    context.execution_store.mark_running(job.calculation_id)
+    context.execution_store.start_stage(job.calculation_id, EXECUTION_STAGE_EXECUTION)
+    return run_attribution_attempt(job, job_store=context.job_store, settings=context.settings)
+
+
 def _execute_composite_pooled_mwr_job(job: ComputeJobRecord, context: _ComputeJobExecutionContext) -> Any:
     context.job_store.run_with_active_lease_transaction(**pooled_claim(job), operation=lambda connection: None)
     context.execution_store.mark_running(job.calculation_id)
@@ -810,6 +839,7 @@ def _execute_composite_pooled_mwr_job(job: ComputeJobRecord, context: _ComputeJo
 
 
 _COMPUTE_JOB_EXECUTORS: dict[str, _ComputeJobExecutor] = {
+    ANALYTICS_WORKFLOW_COMPOSITE_ATTRIBUTION: _execute_composite_attribution_job,
     ANALYTICS_WORKFLOW_COMPOSITE_POOLED_MWR: _execute_composite_pooled_mwr_job,
     ANALYTICS_WORKFLOW_COMPOSITE_MATERIALIZATION: _execute_composite_materialization_job,
     ANALYTICS_WORKFLOW_RETURNS_SERIES: _execute_returns_series_job,
@@ -1343,7 +1373,7 @@ def _record_terminal_failure(
     failure = failure or generic_durable_failure()
     active_result_store = result_store or async_result_store
     active_execution_store = execution_store or execution_registry
-    if analytics_type != ANALYTICS_WORKFLOW_COMPOSITE_POOLED_MWR:
+    if analytics_type not in {ANALYTICS_WORKFLOW_COMPOSITE_POOLED_MWR, ANALYTICS_WORKFLOW_COMPOSITE_ATTRIBUTION}:
         active_result_store.record_failure(
             calculation_id=calculation_id,
             analytics_type=analytics_type,

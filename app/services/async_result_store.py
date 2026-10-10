@@ -16,6 +16,7 @@ from sqlalchemy.engine import Connection
 from sqlalchemy.orm import DeclarativeBase, Mapped, Session, mapped_column, sessionmaker
 
 from app.adapters.composite_result_custody_schema import (
+    COMPOSITE_ATTRIBUTION_ANALYTICS_TYPE,
     COMPOSITE_CAPTURE_ANALYTICS_TYPE,
     COMPOSITE_POOLED_ANALYTICS_TYPE,
     COMPOSITE_PROTECTED_RESULT_TYPES,
@@ -46,13 +47,14 @@ class AsyncResultCaptureAdmissionRequiredError(RuntimeError):
 
 
 class AsyncResultOriginalConflictError(ValueError):
-    """A pooled original differs from its retained input or existing result identity."""
+    """A Composite analytical original differs from its retained input or result identity."""
 
 
 def _require_generic_result_purpose(analytics_type):
-    if analytics_type == COMPOSITE_POOLED_ANALYTICS_TYPE:
+    if analytics_type in {COMPOSITE_POOLED_ANALYTICS_TYPE, COMPOSITE_ATTRIBUTION_ANALYTICS_TYPE}:
         raise AsyncResultCaptureAdmissionRequiredError(
-            "Pooled originals require active-claim transactional publication; operational failures remain in the job registry."
+            "Composite analytical originals require active-claim transactional publication; "
+            "operational failures remain in the job registry."
         )
     if analytics_type == COMPOSITE_CAPTURE_ANALYTICS_TYPE:
         raise AsyncResultCaptureAdmissionRequiredError(
@@ -192,6 +194,48 @@ class AsyncResultStore:
         input_manifest_digest: str,
         response_payload: dict[str, Any],
     ) -> None:
+        self._record_composite_success_in_transaction(
+            connection,
+            calculation_id=calculation_id,
+            tenant_id=tenant_id,
+            input_manifest_digest=input_manifest_digest,
+            response_payload=response_payload,
+            input_table=pooled_inputs,
+            analytics_type=COMPOSITE_POOLED_ANALYTICS_TYPE,
+        )
+
+    def record_attribution_success_in_transaction(
+        self,
+        connection: Connection,
+        *,
+        calculation_id: UUID,
+        tenant_id: str,
+        input_manifest_digest: str,
+        response_payload: dict[str, Any],
+    ) -> None:
+        from app.adapters.composite_attribution_schema import attribution_inputs
+
+        self._record_composite_success_in_transaction(
+            connection,
+            calculation_id=calculation_id,
+            tenant_id=tenant_id,
+            input_manifest_digest=input_manifest_digest,
+            response_payload=response_payload,
+            input_table=attribution_inputs,
+            analytics_type=COMPOSITE_ATTRIBUTION_ANALYTICS_TYPE,
+        )
+
+    def _record_composite_success_in_transaction(
+        self,
+        connection: Connection,
+        *,
+        calculation_id: UUID,
+        tenant_id: str,
+        input_manifest_digest: str,
+        response_payload: dict[str, Any],
+        input_table,
+        analytics_type: str,
+    ) -> None:
         """Publish once using the existing active-claim transaction's Connection.
 
         No independent transaction, merge or UPDATE is permitted. A conflicting
@@ -201,8 +245,8 @@ class AsyncResultStore:
         """
         tenant_id = require_composite_tenant_authority(admitted_tenant_authority(tenant_id)).tenant_id
         snapshot = connection.execute(
-            select(pooled_inputs.c.input_manifest_digest).where(
-                pooled_inputs.c.tenant_id == tenant_id, pooled_inputs.c.calculation_id == str(calculation_id)
+            select(input_table.c.input_manifest_digest).where(
+                input_table.c.tenant_id == tenant_id, input_table.c.calculation_id == str(calculation_id)
             )
         ).scalar_one_or_none()
         if (
@@ -210,18 +254,20 @@ class AsyncResultStore:
             or response_payload.get("calculation_id") != str(calculation_id)
             or response_payload.get("input_manifest_digest") != input_manifest_digest
         ):
-            raise AsyncResultOriginalConflictError("Pooled result does not bind the retained tenant/calculation input.")
+            raise AsyncResultOriginalConflictError(
+                "Composite result does not bind the retained tenant/calculation input."
+            )
         response_json = json.dumps(response_payload, sort_keys=True)
         now = datetime.now(timezone.utc)
         insert_factory = {"postgresql": postgres_insert, "sqlite": sqlite_insert}.get(connection.dialect.name)
         if insert_factory is None:
-            raise ValueError("Pooled result custody requires PostgreSQL or SQLite.")
+            raise ValueError("Composite result custody requires PostgreSQL or SQLite.")
         connection.execute(
             insert_factory(AsyncResultModel.__table__)
             .values(
                 calculation_id=str(calculation_id),
                 tenant_id=tenant_id,
-                analytics_type=COMPOSITE_POOLED_ANALYTICS_TYPE,
+                analytics_type=analytics_type,
                 result_status=AsyncResultStatus.COMPLETE.value,
                 response_json=response_json,
                 error_message=None,
@@ -244,7 +290,7 @@ class AsyncResultStore:
         )
         expected_identity = (
             tenant_id,
-            COMPOSITE_POOLED_ANALYTICS_TYPE,
+            analytics_type,
             AsyncResultStatus.COMPLETE.value,
             response_json,
         )

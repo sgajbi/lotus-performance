@@ -12,6 +12,7 @@ This index maps implemented lotus-performance metrics to detailed methodology do
 | Position Total Contribution | POST /performance/contribution | Stateless + Stateful | [metric-contribution-total.md](./metric-contribution-total.md) |
 | Composite Linked Member Contribution | POST /performance/composites/analytics | Explicit retained vector, CARINO:v1 | [metric-composite-linked-member-contribution.md](./metric-composite-linked-member-contribution.md) |
 | Pooled Composite Money-Weighted Return | POST /performance/composites/analytics; GET /performance/composites/analytics/results/{calculation_id} | Asynchronous ACT/365 XIRR:v1; controlled synthetic qualification; default supplier unavailable | [metric-composite-pooled-mwr.md](./metric-composite-pooled-mwr.md) |
+| Composite Single-Period Brinson-Fachler Attribution | POST /performance/composites/analytics; GET /performance/composites/analytics/results/{calculation_id} | Asynchronous calculated analysis; explicit complete historical source and independent BF-purpose authority; default unavailable | [metric-composite-single-period-brinson-fachler.md](./metric-composite-single-period-brinson-fachler.md) |
 | Position Local Contribution | POST /performance/contribution | Stateless + Stateful | [metric-contribution-local.md](./metric-contribution-local.md) |
 | Position FX Contribution | POST /performance/contribution | Stateless + Stateful | [metric-contribution-fx.md](./metric-contribution-fx.md) |
 | Attribution Allocation Effect | POST /performance/attribution | Stateless + Stateful | [metric-attribution-allocation.md](./metric-attribution-allocation.md) |
@@ -54,7 +55,9 @@ This index maps implemented lotus-performance metrics to detailed methodology do
   only. It does not accept ad hoc member returns and does not perform hidden request-time portfolio
   TWR fan-out. Linked member contribution is available through the explicit retained analytics
   operation described above. Pooled MWR has a separate asynchronous analytics contract and
-  controlled source qualification; it is not a TWR variant. Composite attribution, sleeves, carve-outs, and multi-currency
+  controlled source qualification; it is not a TWR variant. Single-period Composite Brinson-Fachler
+  attribution has the separate bounded calculated-analysis contract above. Advanced or linked
+  composite attribution, sleeves, carve-outs, and multi-currency
   aggregation beyond the current single reporting-currency guard remain unsupported.
 - In current engine behavior, `mwr_method=MODIFIED_DIETZ` uses dated cash-flow weights and
   `mwr_method=DIETZ` keeps the midpoint Simple Dietz path.
