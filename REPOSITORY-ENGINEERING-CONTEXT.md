@@ -306,7 +306,7 @@ Use these commands as the primary local contract:
    `make coverage-combine-gate COVERAGE_INPUTS=<coverage-paths> COVERAGE_FAIL_UNDER=99`
 18. deterministic unit collection and contribution order check
    `make test-unit-order-stability`
-19. PostgreSQL concurrency contracts, blocking inside `PR Merge Gate / Tests (integration)`
+19. PostgreSQL concurrency contracts, blocking in isolated PR and main PostgreSQL jobs
    `make postgres-concurrency-contracts-gate` in CI, where the lane supplies the database;
    `make postgres-concurrency-contracts-local` on a developer machine, which starts the
    `performance-lineage-db` compose service first and needs no DSN because that service
@@ -408,22 +408,26 @@ Important validation expectations:
 14. PR Merge Gate and Main Releasability route matrix test coverage through
     `make test-coverage-shard` and combined coverage enforcement through `make coverage-combine-gate`
     so workflow YAML does not become a second source of truth for pytest or coverage behavior.
-    The PR PostgreSQL target passes the runner's explicit `--coverage-file .coverage.postgres`
+    Both lanes' PostgreSQL target passes the runner's explicit `--coverage-file .coverage.postgres`
     option in a separate isolated PostgreSQL job, alongside the ordinary three-suite matrix.
-    Each of its nine pytest processes appends the existing `app`/`engine`/`core`/`adapters`
+    Each of its eleven pytest processes appends the existing `app`/`engine`/`core`/`adapters`
     coverage sources to that separate shard. Direct runner
     calls without this option remain non-coverage proofs. Do not inherit another pytest-cov
-    destination or overwrite the ordinary suite's measurements. Main Releasability has no
-    PostgreSQL supplement and independently enforces its ordinary three-suite coverage floor.
-    `make postgres-concurrency-contracts-gate` retains all nine targets from the runner's
-    `DEFAULT_TARGETS`, including both component-model-fee proof targets and pooled MWR.
+    destination or overwrite the ordinary suite's measurements. Main independently reruns
+    the same four coverage cohorts on its exact merged SHA, using the existing admitted
+    PostgreSQL 16 image and unchanged runner. `make postgres-concurrency-contracts-gate`
+    retains all eleven `DEFAULT_TARGETS`, including both component-model-fee proof targets,
+    pooled MWR and the two result-authority targets.
     The existing required combined-coverage context has `always()` plus explicit success
     checks for both the full matrix and the isolated PostgreSQL job; it refuses absent or
     non-success proof before artifact processing. `make coverage-shard-evidence` binds each
     shard to the revision/run attempt and data digest; `make coverage-evidence-gate` accepts
     exactly unit/integration/e2e/postgres inputs before the unchanged combiner and 99% policy.
-    Rerun the complete PR workflow when prior-attempt artifacts are present. Main workflow
-    and per-revision dispatcher remain unchanged; main does not repeat this PG supplement.
+    Rerun the complete owning workflow when prior-attempt artifacts are present. Main verifies
+    its own revision/run-attempt manifests; PR success does not qualify main by inheritance.
+    The workflow-parity regression compares executable cohort/admission/provenance steps and
+    refuses missing PostgreSQL coverage, lost manifests, stale identity and merge-before-verify
+    drift. The per-revision dispatcher is unchanged.
     Synthetic coverage-combine tests must pin an owned temporary COVERAGE_FILE and discard
     inherited COV_CORE_ settings, so native suite coverage cannot redirect their evidence.
 
@@ -1350,6 +1354,11 @@ inserts/commit and registered ASGI credential/audit checks. PostgreSQL proofs li
 and use `tests/benchmarks/postgres_runtime_helpers.py` for isolated schemas. Preserve failed runs
 alongside passing evidence. The existing `make postgres-concurrency-contracts-gate` includes both
 authority suites; each must independently execute nonempty and without skips/failures/errors.
+Synthetic registered HTTP authority fixtures must inject the same financial clock as their direct
+application fixture, while principal admission keeps its own real clock. Exercise valid and expired
+financial claims at historical and future fixture dates; retain exact denial codes and no-write
+assertions. Restore fixture-owned dependency construction on teardown rather than changing production
+time, extending evidence expiry or weakening financial admission.
 Imported history, external recipients and institutional/materiality
 activation remain unsupported under #610 and Platform #923.
 

@@ -79,12 +79,12 @@ branch `main` at the exact merged SHA, while manual dispatch retains its selecte
   `pytest --cov-branch`, writes raw JSON under `output/branch-coverage/`, and refreshes
   `quality/coverage_inventory.md` without enforcing a branch threshold
 - `make postgres-concurrency-contracts-gate`
-  required PR integration proof over all seven PostgreSQL targets. It appends the
-  existing four-source coverage measurement to `.coverage.integration` before that
-  shard is uploaded, preserving ordinary integration and every PostgreSQL process.
+  required isolated PostgreSQL proof in PR and main over all eleven governed targets.
+  It appends every subprocess's four-source coverage to separate `.coverage.postgres`,
+  preserving the ordinary integration shard and every PostgreSQL measurement.
   Each target independently requires nonempty, passed, skip-free JUnit evidence.
-  Main Releasability retains its separate ordinary unit/integration/e2e coverage gate;
-  the PR's PostgreSQL supplement does not qualify main coverage by inheritance.
+  Main independently repeats all four cohorts on the merged revision; PR evidence
+  does not qualify main by inheritance.
 - `make quality-baseline`
   report-only baseline refresh that writes raw scanner snapshots under `output/quality-baseline/`
   and refreshes the baseline report used by the enterprise refactor evidence trail
@@ -209,22 +209,24 @@ evidence, false-positive policy, remediation guidance, and lane placement are ag
 ## Performance characterization evidence
 
 From the `lotus-performance` repository root, `make postgres-concurrency-contracts-gate`
-runs in an isolated PostgreSQL job concurrently with the ordinary test matrix. Its nine default
+runs in an isolated PostgreSQL job in both PR and main, concurrently with the ordinary test matrix. Its eleven default
 targets cover concurrency/locking, immutable facts, materialization, monthly eligibility,
 periodic model fees, scheduled and component model fees (including component API proof),
-and pooled monetary custody. Every target must collect and pass without
+pooled monetary custody and result authority. Every target must collect and pass without
 skips; characterization discovery alone does not satisfy this required custody proof.
 For a local database bring-up, run `make postgres-concurrency-contracts-local` from that
 same root in Bash or PowerShell with Make installed, or supply
 `LOTUS_POSTGRES_PLAN_DATABASE_URL` and run
 `python scripts/postgres_concurrency_contracts_gate.py` from the repository root.
 
-The existing required `PR Merge Gate / Coverage Gate (Combined)` context always evaluates
+The PR and main combined-coverage contexts always evaluate
 both dependency results and refuses missing, skipped, cancelled, timed-out or failed proof.
 It accepts exactly four nonempty coverage shards with matching revision/run-attempt manifests
 and hashes before the unchanged 99% combined coverage policy. Container publication depends
-on aggregate success. Main repeats ordinary three-suite coverage but does not repeat the PG
-supplement. Rerun the complete PR workflow rather than mixing artifact attempts.
+on aggregate success. Main uses its own exact revision and run-attempt evidence, with the same
+admitted PostgreSQL 16 digest and contract runner as PR. Executable workflow-parity tests refuse
+cohort, admission, manifest and proof-order drift. Rerun the complete owning workflow rather
+than mixing artifact attempts.
 
 For benchmark characterization evidence, run:
 
