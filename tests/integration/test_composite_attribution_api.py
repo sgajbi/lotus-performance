@@ -17,6 +17,7 @@ from main import app
 from scripts.durable_schema_apply import apply_durable_schema
 from tests.benchmarks.postgres_runtime_helpers import RUNTIME_STORE_MODULES
 from tests.composite_attribution_helpers import seal
+from tests.composite_attribution_refusal_helpers import SOURCE_REFUSAL_CASES, refused_source_cut
 from tests.composite_attribution_runtime_helpers import (
     ControlledAttributionReader,
     SignedSyntheticBFVerifier,
@@ -221,6 +222,64 @@ def test_registered_unavailable_source_is_typed_and_does_not_submit(attribution_
     assert response.json()["error_code"] == "SOURCE_AUTHORITY_UNAVAILABLE"
     assert source.financial_reads == 0
     assert get_compute_job_store().get_job(request.calculation_id) is None
+
+
+@pytest.mark.parametrize("case,expected_code", SOURCE_REFUSAL_CASES)
+def test_registered_financial_source_refusal_has_no_retained_economics(
+    attribution_runtime, monkeypatch, case, expected_code
+):
+    from sqlalchemy import text
+
+    client, request, source, verifier, headers, fixture, *_ = attribution_runtime
+    original = source.bundles[request.source_manifest_id]
+    original_wire = original.model_dump(mode="json")
+    admitted = client.post(PATH, json=request.model_dump(mode="json"), headers=headers)
+    assert admitted.status_code == 202, admitted.text
+    assert source.financial_reads == 0
+    changed = refused_source_cut(original, case)
+    source.bundles[request.source_manifest_id] = changed
+    verifier.authorize(changed)
+
+    def forbidden_kernel(*args, **kwargs):
+        pytest.fail("Incomplete or incompatible observations reached the numerical kernel")
+
+    monkeypatch.setattr("app.services.composite_attribution.application.calculate_attribution", forbidden_kernel)
+    assert process_pending_jobs(limit=1) == 1
+    failed = client.get(admitted.json()["result_path"], headers=headers)
+    assert failed.status_code == (503 if expected_code.endswith("UNAVAILABLE") else 409), failed.text
+    assert failed.json()["error_code"] == expected_code
+    assert source.financial_reads == 1
+    assert get_compute_job_store().get_job(request.calculation_id).job_status == ComputeJobStatus.FAILED
+    assert get_async_result_store().get_result(request.calculation_id) is None
+    with fixture.store._engine.connect() as connection:
+        assert connection.execute(text("SELECT count(*) FROM composite_attribution_inputs")).scalar_one() == 0
+    assert original.model_dump(mode="json") == original_wire
+
+
+@pytest.mark.parametrize("benchmark_return", [0.0, -0.02])
+def test_registered_observed_zero_or_negative_return_is_not_missing(attribution_runtime, benchmark_return):
+    client, request, source, verifier, headers, *_ = attribution_runtime
+    bundle = source.bundles[request.source_manifest_id]
+    changed, _ = seal(
+        bundle.model_copy(
+            update={
+                "groups": (
+                    bundle.groups[0].model_copy(update={"benchmark_return": benchmark_return}),
+                    *bundle.groups[1:],
+                )
+            }
+        )
+    )
+    source.bundles[request.source_manifest_id] = changed
+    verifier.authorize(changed)
+    path, result = run_request(attribution_runtime)
+    assert result["observation"]["source_bundle"] == changed.model_dump(mode="json")
+    assert result["outcome"]["benchmark_return"] == pytest.approx(0.5 * benchmark_return + 0.5 * 0.03, abs=1e-12)
+    assert result["outcome"]["active_return"] == pytest.approx(0.068 - (0.5 * benchmark_return + 0.5 * 0.03), abs=1e-12)
+    assert result["outcome"]["units"] == "DECIMAL_RETURN"
+    assert result["method"] == request.method
+    source.available = False
+    assert client.get(path, headers=headers).json() == result
 
 
 @pytest.mark.parametrize("evidence", ["absent", "twr-purpose"])
