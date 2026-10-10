@@ -105,7 +105,10 @@ def custom_openapi() -> dict[str, Any]:
         routes=app.routes,
         tags=app.openapi_tags,
     )
+    from app.api.dependencies.composite_attribution import restore_attribution_example_values
+
     app.openapi_schema = enrich_openapi_schema(schema)
+    restore_attribution_example_values(app.openapi_schema)
     return app.openapi_schema
 
 

@@ -90,8 +90,9 @@ def test_registered_examples_validate_exact_request_and_response_schemas():
     for status, case in [("404", "not_found"), ("409", "incomplete"), ("503", "retained_evidence")]:
         content = operation["responses"][status]["content"]["application/json"]
         assert content["schema"]["$ref"].endswith("/ErrorDetailResponse")
-        assert content["example"] == examples["errors"][case]
-        assert ErrorDetailResponse.model_validate(content["example"]).retryable is False
+        example = content["examples"][case]["value"] if status == "503" else content["example"]
+        assert example == examples["errors"][case]
+        assert ErrorDetailResponse.model_validate(example).retryable is False
     content = operation["responses"]["422"]["content"]["application/json"]
     assert content["schema"]["$ref"].endswith("/ErrorDetailResponse")
     assert content["examples"]["requestValidation"]["value"] == examples["errors"]["request_validation"]

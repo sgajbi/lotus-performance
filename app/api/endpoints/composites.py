@@ -11,6 +11,11 @@ from app.api.dependencies.composite_annual_dispersion import (
     annual_dispersion_openapi_examples,
     get_annual_dispersion_receipt_reader,
 )
+from app.api.dependencies.composite_attribution import (
+    attribution_openapi_examples,
+    missing_composite_analysis_example,
+    named_attribution_examples,
+)
 from app.api.dependencies.composite_fee_drag import fee_drag_openapi_examples
 from app.api.dependencies.composite_linked_contribution import linked_contribution_openapi_examples
 from app.api.dependencies.composite_pooled_mwr import require_pooled_principal
@@ -521,6 +526,7 @@ def inspect_composite_twr(
 ANNUAL_DISPERSION_OPENAPI_EXAMPLES = annual_dispersion_openapi_examples()
 LINKED_CONTRIBUTION_OPENAPI_EXAMPLES = linked_contribution_openapi_examples()
 FEE_DRAG_OPENAPI_EXAMPLES = fee_drag_openapi_examples()
+ATTRIBUTION_OPENAPI_EXAMPLES = attribution_openapi_examples()
 
 
 @router.post(
@@ -554,6 +560,9 @@ FEE_DRAG_OPENAPI_EXAMPLES = fee_drag_openapi_examples()
         202: {
             "model": CompositePooledMWRAcceptedResponse | CompositeAttributionAcceptedResponse,
             "description": "Pooled XIRR or single-period BF accepted for the existing compute worker; follow result_path.",
+            "content": {
+                "application/json": {"examples": named_attribution_examples(ATTRIBUTION_OPENAPI_EXAMPLES, "accepted")}
+            },
         },
         200: {
             "description": "Named annual dispersion, linked member contribution or same-population model fee drag.",
@@ -588,15 +597,25 @@ FEE_DRAG_OPENAPI_EXAMPLES = fee_drag_openapi_examples()
                             "value": ANNUAL_DISPERSION_OPENAPI_EXAMPLES["errors"]["request_validation"]
                         },
                         "domainAdmission": {"value": ANNUAL_DISPERSION_OPENAPI_EXAMPLES["errors"]["domain_admission"]},
+                        "bf_strict_precision": {"value": ATTRIBUTION_OPENAPI_EXAMPLES["errors"]["strict_precision"]},
                     }
                 }
             },
         },
         503: {
             "model": ErrorDetailResponse,
-            "description": "Retained materialization evidence failed validation; reviewed recovery is required.",
+            "description": "Source authority is unavailable or retained materialization evidence failed validation.",
             "content": {
-                "application/json": {"example": ANNUAL_DISPERSION_OPENAPI_EXAMPLES["errors"]["retained_evidence"]}
+                "application/json": {
+                    "examples": {
+                        "retained_evidence": {
+                            "value": ANNUAL_DISPERSION_OPENAPI_EXAMPLES["errors"]["retained_evidence"]
+                        },
+                        "bf_source_unavailable": {
+                            "value": ATTRIBUTION_OPENAPI_EXAMPLES["errors"]["source_unavailable"]
+                        },
+                    },
+                }
             },
         },
     },
@@ -609,6 +628,7 @@ FEE_DRAG_OPENAPI_EXAMPLES = fee_drag_openapi_examples()
                         "annual_member_dispersion": {"value": ANNUAL_DISPERSION_OPENAPI_EXAMPLES["request"]},
                         "linked_member_contribution": {"value": LINKED_CONTRIBUTION_OPENAPI_EXAMPLES["request"]},
                         "model_fee_drag": {"value": FEE_DRAG_OPENAPI_EXAMPLES["request"]},
+                        **named_attribution_examples(ATTRIBUTION_OPENAPI_EXAMPLES, "request", "correction_request"),
                     }
                 }
             }
@@ -638,9 +658,64 @@ def evaluate_composite_analytics(
     "/composites/analytics/results/{calculation_id}",
     response_model=CompositePooledMWRResponse | CompositeAttributionResponse,
     summary="Read a retained Composite calculated analysis original",
+    description=(
+        "Read the exact retained pooled XIRR or single-period BF result in the verified tenant and member scope. "
+        "Pending work returns 202. BF original replay returns the same source revisions, immutable effects and "
+        "explicit official-selection nulls without new source reads or approval. Corrections have new calculation IDs. "
+        "Named BF examples use controlled synthetic observations and non-certifying purpose evidence; "
+        "they grant no institutional source, official selection or downstream publication approval."
+    ),
     responses={
-        202: {"model": CompositePooledMWRAcceptedResponse | CompositeAttributionAcceptedResponse},
+        200: {
+            "description": "Immutable calculated analysis; original and corrected BF observations remain separately replayable.",
+            "content": {
+                "application/json": {
+                    "examples": named_attribution_examples(
+                        ATTRIBUTION_OPENAPI_EXAMPLES, "original_ready", "original_replay", "corrected_ready"
+                    )
+                }
+            },
+        },
+        202: {
+            "model": CompositePooledMWRAcceptedResponse | CompositeAttributionAcceptedResponse,
+            "description": "The registered calculation is pending or running; follow result_path.",
+            "content": {
+                "application/json": {"examples": named_attribution_examples(ATTRIBUTION_OPENAPI_EXAMPLES, "pending")}
+            },
+        },
         **COMPOSITE_TENANT_AUTHORITY_RESPONSES,
+        404: {
+            "model": ErrorDetailResponse,
+            "description": "The calculation is absent in the verified tenant; the shared route uses its existing pooled reader.",
+            "content": {"application/json": {"example": missing_composite_analysis_example()}},
+        },
+        409: {
+            "model": ErrorDetailResponse,
+            "description": "The source universe or retained original custody is inconsistent or incomplete.",
+            "content": {
+                "application/json": {
+                    "examples": {
+                        "bf_incomplete_groups": {"value": ATTRIBUTION_OPENAPI_EXAMPLES["errors"]["incomplete_groups"]}
+                    }
+                }
+            },
+        },
+        503: {
+            "model": ErrorDetailResponse,
+            "description": "Historical source or independent BF-purpose authority is unavailable; no financial result is published.",
+            "content": {
+                "application/json": {
+                    "examples": {
+                        "bf_source_unavailable": {
+                            "value": ATTRIBUTION_OPENAPI_EXAMPLES["errors"]["source_unavailable"]
+                        },
+                        "bf_purpose_unavailable": {
+                            "value": ATTRIBUTION_OPENAPI_EXAMPLES["errors"]["purpose_unavailable"]
+                        },
+                    }
+                }
+            },
+        },
     },
     openapi_extra=COMPOSITE_TENANT_OPENAPI_EXTRA,
 )

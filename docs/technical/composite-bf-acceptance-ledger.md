@@ -14,7 +14,7 @@ source and downstream acceptance.
 | Original and corrected replay | Registered worker, real PostgreSQL, immutable retained inputs/results, fresh process, corrected benchmark/classification/member identity | Institution-supplied historical revisions and export custody have not been exercised as a joined producer flow. |
 | Full population and financial refusals | Registered endpoint/worker refusal matrix below, plus existing precision, tenant, source identity and current-selection boundary tests | These are controlled source-port fixtures, not certification of an external source adapter. |
 | Unsupported conventions | Zero/signed weights, off-benchmark groups and derivatives refuse before the kernel; observed zero and negative benchmark returns remain valid | Other conventions require separately elected methodology and observations. Fixed income, factors, linked attribution and currency attribution are subsequent increments. |
-| Dataset and consumer preservation | Existing result endpoint retains full effects, units, method, original source bundle and approval; source-free original replay | Named OpenAPI request/accepted/ready/refusal families and capability example certification need closure. Actual Gateway/Report consumption, including unavailable states, needs joined consumer evidence. |
+| Dataset and consumer preservation | Existing result endpoint retains full effects, units, method, original source bundle and approval; source-free original replay. Named BF OpenAPI examples bind request/correction, accepted/pending, original ready/replay, corrected ready and typed refusals to production-backed values and registered behavior. | Actual Gateway/Report consumption, including unavailable states, needs joined consumer evidence. Institutional source acceptance remains separate from these synthetic examples. |
 | Documentation | Caller guide, v3 method, executable OR17 output, source custody/replay diagrams and correction guidance | Keep named endpoint examples and any eventual downstream publication contract synchronized with executable behavior. |
 | Source and financial authority | Deployment defaults refuse unavailable historical source and independent BF-purpose authority; synthetic qualification stays explicit | An actual source-owner adapter, independently approved BF-purpose policy and verifier, and their institutional acceptance have not been supplied or certified. |
 
@@ -53,7 +53,20 @@ stale-selection and correction boundaries; this matrix does not replace them.
 
 ## Scope decisions
 
-This slice changes test evidence and the acceptance ledger. It changes no financial method,
+The named API increment adds a capability-owned executable example factory, static DTO loader,
+exact OpenAPI/behavior ledger and negative certification controls. The eleven named modes are
+inventoried in `docs/examples/composite_attribution_endpoint_family.json`; no named BF modes remain
+unpublished in that bounded family. Shared analytics routes and all existing synchronous families
+remain in place. Production response assembly is extracted without changing financial arithmetic,
+engine version, custody fences, approvals or result hashes. A registered HTTP test checks original
+and corrected effect cells against the published examples.
+
+Reader-facing example truth is updated in `wiki/Composite-Attribution.md`; the four PR 643 wiki
+pages are unchanged. No README, supported-feature promotion, mesh product, platform context or
+skill change is needed: this uses the existing endpoint certification workflow and preserves
+the original source/downstream blockers. All final-source PR and exact-main checks remain required.
+
+The preceding refusal slice changes test evidence and the acceptance ledger. It changes no financial method,
 runtime source provider, public schema, downstream publication contract, workflow or guard.
 No wiki change is required: the published caller behavior, supported features and source
 qualification are unchanged. No platform context or skill change is required: the existing

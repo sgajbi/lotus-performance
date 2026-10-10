@@ -195,20 +195,26 @@ def run_attribution_attempt(job, *, job_store, settings):
     )
     if retained is not None:
         return _replay_retained_result(request, snapshot, retained)
-    engine_version = calculation_engine_version(settings)
-    fingerprint, calculation_hash = financial_identity(request, snapshot.observation, engine_version)
+    return build_attribution_response(
+        request, snapshot.observation, engine_version=calculation_engine_version(settings)
+    )
+
+
+def build_attribution_response(request, observation, *, engine_version):
+    """Assemble the financial response from admitted original observations."""
+    fingerprint, calculation_hash = financial_identity(request, observation, engine_version)
     return CompositeAttributionResponse(
         calculation_id=request.calculation_id,
         composite_id=request.composite_id,
-        input_manifest_digest=snapshot.observation.input_manifest_digest,
+        input_manifest_digest=observation.input_manifest_digest,
         calculation_engine_version=engine_version,
         financial_input_fingerprint=fingerprint,
         calculation_hash=calculation_hash,
         official_scope_id=request.official_scope_id,
         official_revision=request.official_revision,
         correction_of_calculation_id=request.correction_of_calculation_id,
-        observation=snapshot.observation,
-        outcome=calculate_attribution(request, snapshot.observation),
+        observation=observation,
+        outcome=calculate_attribution(request, observation),
     )
 
 

@@ -30,10 +30,11 @@ def seal(bundle):
     return bundle, approval
 
 
-def controlled_financial_case():
+def controlled_financial_case(*, calculation_id=None, candidate_id=None):
     request = CompositeAttributionRequest(
+        calculation_id=calculation_id or uuid4(),
         composite_id="CMP-OR17",
-        candidate_id=uuid4(),
+        candidate_id=candidate_id or uuid4(),
         source_manifest_id="manifest-1",
         policy_binding_id="policy-1",
         period_start="2026-01-01",
