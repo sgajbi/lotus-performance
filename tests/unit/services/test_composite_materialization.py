@@ -600,9 +600,18 @@ def test_materialization_missing_member_recovers_after_store_restart_without_sur
             membership_source=membership,
             member_source=members,
         )
+        from app.services.composite_calculation_service import retained_return_method, retained_window_evidence
+
+        completed_record = restarted_ledger.get(command.materialization_id, tenant_id="tenant-a")
+        method = retained_return_method(completed_record, None)
+        receipt = retained_window_evidence(completed_record, method)
+        assert method["methodology"] == "TWR" and method["metric_basis"] == "NET"
     finally:
         restarted_ledger.close()
     assert complete.state == "COMPLETE"
+    reopened = ledger.get(command.materialization_id, tenant_id="tenant-a")
+    assert retained_return_method(reopened, None) == method
+    assert retained_window_evidence(reopened, method) == receipt
     assert membership.reads == 1
     assert members.reads == ["A", "B", "C", "C"]
     rows = facts_for(facts)

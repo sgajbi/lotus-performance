@@ -1314,7 +1314,8 @@ def test_registered_fx_normalization_keeps_positive_tenant_populations_separate(
             assert reported.status_code == 200 and reported.json()["periods"] == expected["periods"], reported.text
 
 
-def test_http_missing_member_recovery_and_correction_preserve_reported_version(monkeypatch):
+@pytest.mark.parametrize("explicit_selection", [False, True], ids=["fact-sequence", "retained-vector"])
+def test_http_missing_member_recovery_and_correction_preserve_reported_version(monkeypatch, explicit_selection):
     products = source_products(composite_id="COMPOSITE_" + uuid4().hex)
     figures = dict(STANDARD_ASSETS)
     reads = install_source_wire_controls(monkeypatch, products, figures=figures)
@@ -1328,6 +1329,14 @@ def test_http_missing_member_recovery_and_correction_preserve_reported_version(m
         # the supported TWR API. No member-return facts are seeded directly.
         assert execution_registry.delete_executions([references[-1]["calculation_id"]]) == 1
         command = command_for(products, member_calculations=references)
+
+        def selected_request(selected, sequence=None):
+            payload = composite_request(selected, sequence=sequence)
+            if explicit_selection:
+                payload.pop("restatement_sequence", None)
+                payload["materialization_ids"] = [str(selected.materialization_id)]
+            return payload
+
         accepted = client.post("/performance/composites/materializations", json=command.model_dump(mode="json"))
         assert accepted.status_code == 202, accepted.text
         assert process_pending_jobs(limit=10) == 1
@@ -1335,8 +1344,11 @@ def test_http_missing_member_recovery_and_correction_preserve_reported_version(m
         assert (partial["state"], partial["ready_count"], partial["waiting_count"]) == ("WAITING", 2, 1)
         assert partial["members"][-1]["portfolio_id"] == "C"
         assert partial["members"][-1]["fact"] is None
-        refused = client.post("/performance/composites/twr", json=composite_request(command))
+        refused = client.post("/performance/composites/twr", json=selected_request(command))
         assert refused.status_code != 200 or refused.json()["status"] != "READY", refused.text
+        if explicit_selection:
+            assert refused.status_code == 409
+            assert refused.json()["error_code"] == "REQUIRED_PERIOD_UNAVAILABLE"
         pending_job = compute_job_store.get_job_for_tenant(command.calculation_id, tenant_id="tenant-a")
         for _ in range(pending_job.max_attempts - pending_job.attempt_count):
             assert process_pending_jobs(limit=10) == 1
@@ -1356,9 +1368,13 @@ def test_http_missing_member_recovery_and_correction_preserve_reported_version(m
         process_lineage(limit=100)
         assert client.get(accepted.json()["result_path"]).json()["state"] == "COMPLETE"
         assert compute_job_store.get_job_for_tenant(command.calculation_id, tenant_id="tenant-a").job_status == "failed"
-        original = client.post("/performance/composites/twr", json=composite_request(command, sequence=1))
+        original = client.post("/performance/composites/twr", json=selected_request(command, sequence=1))
         assert original.status_code == 200, original.text
         original_result = original.json()
+        if explicit_selection:
+            method = original_result["selection_manifest"]["windows"][0]["method_binding"]
+            assert method["methodology"] == "TWR" and method["metric_basis"] == "NET"
+            assert method["precision_mode"] == "FLOAT64" and method["reporting_currency"] == "USD"
         assert Decimal(str(original_result["periods"][0]["return_value"])) == (Decimal(14) / Decimal(600)).quantize(
             Decimal("0.000000000001")
         )
@@ -1374,11 +1390,19 @@ def test_http_missing_member_recovery_and_correction_preserve_reported_version(m
         )
         assert corrected_acceptance.status_code == 202, corrected_acceptance.text
         assert process_pending_jobs(limit=10) == 1
-        pending_latest = client.post("/performance/composites/twr", json=composite_request(command))
+        pending_latest = client.post("/performance/composites/twr", json=selected_request(corrected))
         assert pending_latest.status_code != 200 or pending_latest.json()["status"] != "READY", pending_latest.text
-        retained_original = client.post("/performance/composites/twr", json=composite_request(command, sequence=1))
+        if explicit_selection:
+            assert pending_latest.status_code == 409
+            assert pending_latest.json()["error_code"] == "REQUIRED_PERIOD_UNAVAILABLE"
+        retained_original = client.post("/performance/composites/twr", json=selected_request(command, sequence=1))
         assert retained_original.status_code == 200
         assert retained_original.json()["periods"] == original_result["periods"]
+        if explicit_selection:
+            assert (
+                retained_original.json()["selection_manifest"]["windows"]
+                == original_result["selection_manifest"]["windows"]
+            )
         assert (
             create_stateful_member(client, "A", calculation_id=corrected_references[0]["calculation_id"])
             == corrected_references[0]
@@ -1386,12 +1410,12 @@ def test_http_missing_member_recovery_and_correction_preserve_reported_version(m
         process_lineage(limit=100)
         assert process_pending_jobs(limit=10) == 1
         process_lineage(limit=100)
-        revised = client.post("/performance/composites/twr", json=composite_request(command))
+        revised = client.post("/performance/composites/twr", json=selected_request(corrected))
         assert revised.status_code == 200, revised.text
         assert revised.json()["status"] == "READY"
         assert Decimal(str(revised.json()["periods"][0]["return_value"])) == Decimal("0.04")
         assert (
-            client.post("/performance/composites/twr", json=composite_request(command, sequence=1)).json()["periods"]
+            client.post("/performance/composites/twr", json=selected_request(command, sequence=1)).json()["periods"]
             == original_result["periods"]
         )
 

@@ -1095,6 +1095,19 @@ truncating retained history. Return a request/vector/engine/result-bound manifes
 calculated historical replay, not durable result capture, official approval or freeze. A missing or
 incomplete selected window refuses with `REQUIRED_PERIOD_UNAVAILABLE` and no financial payload.
 
+Internal Manage v1 native-currency `NET_ACTUAL` vectors derive common method evidence in
+`composite_materialization/internal_return_method.py` from original retained member requests,
+engine revisions and verified source receipts. Revalidate existing member fingerprints; bind TWR,
+engine, NET/currency, precision, calendar and numerical/fee/reset/data-policy digests in the current
+selection manifest. All selected members/windows must agree. Those requests already participate
+in the unchanged retained-window fingerprint: do not introduce another authority record or infer
+method from the current definition or expired execution. Result-authority vector reads use this
+same derivation when checking original manifest custody. Preserve separate v2/FX verifier guards
+and no financial approval claim. The focused unit/API controls are
+`tests/unit/services/test_composite_internal_return_method.py` and the existing materialization API
+missing-member/recovery/correction test; the existing PostgreSQL restart control verifies fresh
+reader method and receipt parity.
+
 Explicit result-candidate capture is a separate opt-in route family. Its outer Ed25519
 admission supplies typed verified principal state to enterprise audit and observability;
 asserted identity headers never override that state. Trusted issuer/audience/JWKS and

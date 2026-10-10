@@ -754,6 +754,21 @@ def test_postgres_materialization_restart_recovers_missing_member_without_partia
         )
         assert completed.state == "COMPLETE" and source.reads == 1
         assert members.reads == ["A", "B", "C", "C"]
+        from app.services.composite_calculation_service import retained_return_method, retained_window_evidence
+
+        completed_record = restarted.get(command.materialization_id, tenant_id="tenant-a")
+        method = retained_return_method(completed_record, None)
+        receipt = retained_window_evidence(completed_record, method)
+        assert method["methodology"] == "TWR" and method["metric_basis"] == "NET"
+        # The original source and member receipts remain sufficient after both
+        # worker recovery and a fresh reader; no current execution lookup occurs.
+        reader = CompositeMaterializationStore(url)
+        try:
+            reopened = reader.get(command.materialization_id, tenant_id="tenant-a")
+            assert retained_return_method(reopened, None) == method
+            assert retained_window_evidence(reopened, method) == receipt
+        finally:
+            reader.close()
         result = calculate_asset_weighted_composite_twr(composite_id="COMPOSITE", member_return_facts=facts_for(facts))
         assert result.period_results[0].return_value == (Decimal(14) / Decimal(600)).quantize(Decimal("0.000000000001"))
         assert facts.count_records(tenant_id="tenant-a").member_return_facts == 3
