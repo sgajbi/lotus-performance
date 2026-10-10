@@ -9,8 +9,10 @@ import pytest
 from fastapi.testclient import TestClient
 
 from app.adapters import composite_attribution_deployment as deployment
+from app.api.dependencies.composite_attribution import attribution_openapi_examples, missing_composite_analysis_example
 from app.core.config import get_settings
 from app.services.async_result_store import get_async_result_store
+from app.services.composite_attribution.application import accepted_attribution
 from app.services.compute_job_store import ComputeJobStatus, get_compute_job_store
 from app.workers.compute_executor_worker import process_pending_jobs
 from main import app
@@ -65,8 +67,10 @@ def run_request(runtime, request=None):
     request = request or original
     submitted = client.post(PATH, json=request.model_dump(mode="json"), headers=headers)
     assert submitted.status_code == 202, submitted.text
+    assert submitted.json() == accepted_attribution(request.calculation_id).model_dump(mode="json")
     path = submitted.json()["result_path"]
-    assert client.get(path, headers=headers).status_code == 202
+    pending = client.get(path, headers=headers)
+    assert pending.status_code == 202 and pending.json() == submitted.json()
     assert process_pending_jobs(limit=1) == 1
     job = get_compute_job_store().get_job(request.calculation_id)
     assert job.job_status == ComputeJobStatus.COMPLETE, (job.error_type, job.error_message)
@@ -104,6 +108,10 @@ def test_registered_or17_all_effect_cells_original_replay(attribution_runtime):
         for key in ("allocation", "selection", "interaction", "total"):
             assert row[key] == pytest.approx(expected_row[key], abs=1e-12)
     assert result["observation"]["approval"]["qualification"] == "SYNTHETIC_NON_CERTIFYING"
+    published = attribution_openapi_examples()["original_ready"]
+    assert outcome == published["outcome"]
+    assert result["official_scope_id"] is None and result["official_revision"] is None
+    assert result["correction_of_calculation_id"] is None
     job = get_compute_job_store().get_job(request.calculation_id)
     assert job.job_status == ComputeJobStatus.COMPLETE and job.attempt_count == 1
     assert get_async_result_store().get_result(request.calculation_id).response_payload == result
@@ -158,6 +166,9 @@ def test_registered_strict_precision_refuses_before_source_or_job(attribution_ru
     response = client.post(PATH, json=request.model_dump(mode="json"), headers=headers)
     assert response.status_code == 422, response.text
     assert response.json()["error_code"] == "ATTRIBUTION_PRECISION_UNSUPPORTED"
+    assert {key: value for key, value in response.json().items() if key not in {"request_id", "correlation_id"}} == (
+        attribution_openapi_examples()["errors"]["strict_precision"]
+    )
     assert (source.metadata_reads, source.financial_reads) == (0, 0)
     assert get_compute_job_store().get_job(request.calculation_id) is None
 
@@ -188,6 +199,10 @@ def test_registered_benchmark_classification_correction_preserves_both_originals
     )
     corrected_path, corrected = run_request(attribution_runtime, correction)
     assert corrected["outcome"]["benchmark_return"] == pytest.approx(0.06)
+    assert corrected["outcome"] == attribution_openapi_examples()["corrected_ready"]["outcome"]
+    assert corrected["correction_of_calculation_id"] == str(request.calculation_id)
+    assert corrected["observation"]["source_bundle"]["benchmark_revision"] == "benchmark-2"
+    assert corrected["observation"]["source_bundle"]["classification_revision"] == "classification-2"
     assert corrected["input_manifest_digest"] != original["input_manifest_digest"]
     source.available = False
     assert client.get(path, headers=headers).json() == original
@@ -222,6 +237,31 @@ def test_registered_unavailable_source_is_typed_and_does_not_submit(attribution_
     assert response.json()["error_code"] == "SOURCE_AUTHORITY_UNAVAILABLE"
     assert source.financial_reads == 0
     assert get_compute_job_store().get_job(request.calculation_id) is None
+
+
+def test_registered_source_withdrawal_before_worker_has_no_financial_result(attribution_runtime):
+    from sqlalchemy import text
+
+    client, request, source, _, headers, fixture, *_ = attribution_runtime
+    absent = client.get(f"{PATH}/results/{request.calculation_id}", headers=headers)
+    assert absent.status_code == 404
+    assert {key: value for key, value in absent.json().items() if key not in {"request_id", "correlation_id"}} == (
+        missing_composite_analysis_example()
+    )
+    response = client.post(PATH, json=request.model_dump(mode="json"), headers=headers)
+    assert response.status_code == 202
+    source.available = False
+    assert process_pending_jobs(limit=1) == 1
+    failed = client.get(response.json()["result_path"], headers=headers)
+    assert failed.status_code == 503
+    expected = attribution_openapi_examples()["errors"]["source_unavailable"]
+    assert {
+        key: value for key, value in failed.json().items() if key not in {"request_id", "correlation_id"}
+    } == expected
+    assert get_compute_job_store().get_job(request.calculation_id).job_status == ComputeJobStatus.FAILED
+    assert get_async_result_store().get_result(request.calculation_id) is None
+    with fixture.store._engine.connect() as connection:
+        assert connection.execute(text("SELECT count(*) FROM composite_attribution_inputs")).scalar_one() == 0
 
 
 @pytest.mark.parametrize("case,expected_code", SOURCE_REFUSAL_CASES)

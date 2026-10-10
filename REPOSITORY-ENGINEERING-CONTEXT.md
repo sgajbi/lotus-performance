@@ -1318,6 +1318,20 @@ Read `docs/guides/composite_attribution.md` and the v3 BF methodology for the re
 source requirements and non-certifying scope. The controlled OR17 JSON is asserted by the
 registered API test; it is not a live supplier fixture.
 
+The BF named HTTP family is authored by `tests/composite_attribution_example_factory.py` through
+production admission, `build_attribution_response`, and original replay. Runtime loads only
+validated static DTOs from `app/api/examples/composite_attribution.json`; never import the test
+factory or install synthetic sources at bootstrap. The endpoint-family ledger under `docs/examples/`
+binds every named mode to existing registered behavior. Its OpenAPI contract suite must fail for
+missing modes or behavior evidence and changed figures. Preserve explicit nulls and synthetic
+qualification; API examples cannot promote a source product or institutional approval.
+FastAPI strips null values during OpenAPI encoding; the capability's enrichment restores packaged
+BF example values after schema generation. Compare generated OpenAPI exactly, not just route
+metadata, so future framework serialization cannot silently erase official-selection nulls.
+Example authoring must isolate and restore tracing ContextVars; prior unit tests or an active
+request must not change deterministic example values. Run both OpenAPI quality and completeness
+checks when adding a response status: the completeness inventory also requires error examples.
+
 ## Pooled Composite MWR Practice
 
 `POOLED_MONEY_WEIGHTED_RETURN` / `XIRR:v1` uses the existing composite analytics

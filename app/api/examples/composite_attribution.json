@@ -1,0 +1,1172 @@
+{
+  "request": {
+    "calculation_id": "00000000-0000-4000-8000-000000000017",
+    "metric_id": "SINGLE_PERIOD_BRINSON_FACHLER",
+    "method": "BRINSON_FACHLER_ARITHMETIC_THREE_EFFECT:v1",
+    "composite_id": "CMP-OR17",
+    "candidate_id": "00000000-0000-4000-8000-000000000016",
+    "source_manifest_id": "manifest-1",
+    "policy_binding_id": "policy-1",
+    "period_start": "2026-01-01",
+    "period_end": "2026-01-31",
+    "reporting_currency": "USD",
+    "return_view": "GROSS",
+    "precision_mode": "FLOAT64",
+    "official_scope_id": null,
+    "official_revision": null,
+    "correction_of_calculation_id": null
+  },
+  "correction_request": {
+    "calculation_id": "00000000-0000-4000-8000-000000000018",
+    "metric_id": "SINGLE_PERIOD_BRINSON_FACHLER",
+    "method": "BRINSON_FACHLER_ARITHMETIC_THREE_EFFECT:v1",
+    "composite_id": "CMP-OR17",
+    "candidate_id": "00000000-0000-4000-8000-000000000016",
+    "source_manifest_id": "corrected-2",
+    "policy_binding_id": "policy-1",
+    "period_start": "2026-01-01",
+    "period_end": "2026-01-31",
+    "reporting_currency": "USD",
+    "return_view": "GROSS",
+    "precision_mode": "FLOAT64",
+    "official_scope_id": null,
+    "official_revision": null,
+    "correction_of_calculation_id": "00000000-0000-4000-8000-000000000017"
+  },
+  "accepted": {
+    "calculation_id": "00000000-0000-4000-8000-000000000017",
+    "status": "accepted",
+    "metric_id": "SINGLE_PERIOD_BRINSON_FACHLER",
+    "poll_path": "/performance/executions/00000000-0000-4000-8000-000000000017",
+    "result_path": "/performance/composites/analytics/results/00000000-0000-4000-8000-000000000017"
+  },
+  "pending": {
+    "calculation_id": "00000000-0000-4000-8000-000000000017",
+    "status": "accepted",
+    "metric_id": "SINGLE_PERIOD_BRINSON_FACHLER",
+    "poll_path": "/performance/executions/00000000-0000-4000-8000-000000000017",
+    "result_path": "/performance/composites/analytics/results/00000000-0000-4000-8000-000000000017"
+  },
+  "original_ready": {
+    "calculation_id": "00000000-0000-4000-8000-000000000017",
+    "composite_id": "CMP-OR17",
+    "metric_id": "SINGLE_PERIOD_BRINSON_FACHLER",
+    "method": "BRINSON_FACHLER_ARITHMETIC_THREE_EFFECT:v1",
+    "qualification": "CALCULATED_ANALYSIS",
+    "input_manifest_digest": "sha256:7a4866b83a23db4580be34ea759832e39b58990a2980235e46f31aa238f7f400",
+    "calculation_engine_version": "lotus-performance-calculation-engine.v16",
+    "financial_input_fingerprint": "sha256:9f5379528e33a8afeafc1c104fbba9b063aca13078262ad2c1764b02568eed0d",
+    "calculation_hash": "sha256:5586ee82a4708f60e7f85de439ba166f638ec1d353569b5dd7a3d291716458a3",
+    "official_scope_id": null,
+    "official_revision": null,
+    "correction_of_calculation_id": null,
+    "observation": {
+      "input_manifest_digest": "sha256:7a4866b83a23db4580be34ea759832e39b58990a2980235e46f31aa238f7f400",
+      "source_bundle": {
+        "tenant_id": "tenant-a",
+        "composite_id": "CMP-OR17",
+        "source_manifest_id": "manifest-1",
+        "candidate_id": "00000000-0000-4000-8000-000000000016",
+        "original_response_digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "vector_digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "period_start": "2026-01-01",
+        "period_end": "2026-01-31",
+        "reporting_currency": "USD",
+        "return_view": "GROSS",
+        "membership_revision": "membership-1",
+        "membership_digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "classification_revision": "classification-1",
+        "classification_pin_id": "classification",
+        "benchmark_id": "BENCHMARK",
+        "benchmark_revision": "benchmark-1",
+        "benchmark_pin_id": "benchmark",
+        "group_source_pin_id": "economics",
+        "membership_pin_id": "population",
+        "expected_portfolio_ids": [
+          "member-a"
+        ],
+        "expected_group_ids": [
+          "g1",
+          "g2"
+        ],
+        "expected_benchmark_group_ids": [
+          "g1",
+          "g2"
+        ],
+        "members": [
+          {
+            "portfolio_id": "member-a",
+            "status": "INCLUDED",
+            "effective_from": "2026-01-01",
+            "effective_to": "2026-01-31",
+            "reason": "approved",
+            "composite_weight": 1,
+            "actual_return": 0.068,
+            "source_row_id": "member-row"
+          }
+        ],
+        "member_groups": [
+          {
+            "portfolio_id": "member-a",
+            "group_id": "g1",
+            "member_weight": 0.6,
+            "actual_return": 0.1,
+            "source_row_id": "g1-member"
+          },
+          {
+            "portfolio_id": "member-a",
+            "group_id": "g2",
+            "member_weight": 0.4,
+            "actual_return": 0.02,
+            "source_row_id": "g2-member"
+          }
+        ],
+        "groups": [
+          {
+            "group_id": "g1",
+            "portfolio_weight": 0.6,
+            "benchmark_weight": 0.5,
+            "portfolio_return": 0.1,
+            "benchmark_return": 0.08,
+            "source_row_id": "g1-pooled"
+          },
+          {
+            "group_id": "g2",
+            "portfolio_weight": 0.4,
+            "benchmark_weight": 0.5,
+            "portfolio_return": 0.02,
+            "benchmark_return": 0.03,
+            "source_row_id": "g2-pooled"
+          }
+        ],
+        "source_pins": [
+          {
+            "pin_id": "population",
+            "owner": "controlled-owner",
+            "product_name": "population",
+            "revision": "population-1",
+            "source_cut_id": "cut-1",
+            "payload_digest": "sha256:c9cd131297ddb789cd5b63d984e6220ac572c3c1215a2db501749c5d2559f7bf",
+            "coverage_from": "2026-01-01",
+            "coverage_to": "2026-01-31",
+            "page_ids": [
+              "page-1"
+            ],
+            "expected_page_count": 1,
+            "omitted_component_count": 0,
+            "completeness": "COMPLETE"
+          },
+          {
+            "pin_id": "economics",
+            "owner": "controlled-owner",
+            "product_name": "economics",
+            "revision": "economics-1",
+            "source_cut_id": "cut-1",
+            "payload_digest": "sha256:0f985900701ff1cff0b07465744ab6a9ad6f6045e3e528957f5de94b46c0c9a8",
+            "coverage_from": "2026-01-01",
+            "coverage_to": "2026-01-31",
+            "page_ids": [
+              "page-1"
+            ],
+            "expected_page_count": 1,
+            "omitted_component_count": 0,
+            "completeness": "COMPLETE"
+          },
+          {
+            "pin_id": "benchmark",
+            "owner": "controlled-owner",
+            "product_name": "benchmark",
+            "revision": "benchmark-1",
+            "source_cut_id": "cut-1",
+            "payload_digest": "sha256:7890c40bc5ed4ca1fb1d87fe7e4bccf4c4b6b0df823fe14f11d1dbd71b406f04",
+            "coverage_from": "2026-01-01",
+            "coverage_to": "2026-01-31",
+            "page_ids": [
+              "page-1"
+            ],
+            "expected_page_count": 1,
+            "omitted_component_count": 0,
+            "completeness": "COMPLETE"
+          },
+          {
+            "pin_id": "classification",
+            "owner": "controlled-owner",
+            "product_name": "classification",
+            "revision": "classification-1",
+            "source_cut_id": "cut-1",
+            "payload_digest": "sha256:b7f7e14eb6eab3d9c8a5b22c5ca04e565abfc66c3c109ce2a96f0e5224ffc796",
+            "coverage_from": "2026-01-01",
+            "coverage_to": "2026-01-31",
+            "page_ids": [
+              "page-1"
+            ],
+            "expected_page_count": 1,
+            "omitted_component_count": 0,
+            "completeness": "COMPLETE"
+          }
+        ],
+        "compatible_pin_ids": [
+          "population",
+          "economics",
+          "benchmark",
+          "classification"
+        ],
+        "compatibility_reference": "approved-cut-1",
+        "policy": {
+          "binding_id": "policy-1",
+          "revision": "policy-revision-1",
+          "purpose": "COMPOSITE_SINGLE_PERIOD_BRINSON_FACHLER",
+          "aggregation": "SOURCE_APPROVED_POOLED_COMPOSITE_GROUP_ECONOMICS",
+          "method": "BRINSON_FACHLER_ARITHMETIC_THREE_EFFECT:v1",
+          "weight_basis": "BEGINNING_CAPITAL",
+          "return_basis": "SINGLE_PERIOD_ARITHMETIC",
+          "return_view": "GROSS",
+          "reporting_currency": "USD",
+          "fee_basis": "gross-no-fees",
+          "tax_basis": "source-tax-basis",
+          "tolerance": 1e-12,
+          "effective_from": "2026-01-01",
+          "effective_to": "2026-01-31"
+        },
+        "derivatives_present": false,
+        "qualification": "CONTROLLED_SYNTHETIC_ONLY",
+        "raw_source_bodies": {
+          "population": {
+            "projection": {
+              "membership_revision": "membership-1",
+              "membership_digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+              "expected_portfolio_ids": [
+                "member-a"
+              ],
+              "members": [
+                {
+                  "portfolio_id": "member-a",
+                  "status": "INCLUDED",
+                  "effective_from": "2026-01-01",
+                  "effective_to": "2026-01-31",
+                  "reason": "approved",
+                  "composite_weight": 1,
+                  "actual_return": 0.068,
+                  "source_row_id": "member-row"
+                }
+              ]
+            }
+          },
+          "economics": {
+            "projection": {
+              "groups": [
+                {
+                  "group_id": "g1",
+                  "portfolio_weight": 0.6,
+                  "benchmark_weight": 0.5,
+                  "portfolio_return": 0.1,
+                  "benchmark_return": 0.08,
+                  "source_row_id": "g1-pooled"
+                },
+                {
+                  "group_id": "g2",
+                  "portfolio_weight": 0.4,
+                  "benchmark_weight": 0.5,
+                  "portfolio_return": 0.02,
+                  "benchmark_return": 0.03,
+                  "source_row_id": "g2-pooled"
+                }
+              ],
+              "member_groups": [
+                {
+                  "portfolio_id": "member-a",
+                  "group_id": "g1",
+                  "member_weight": 0.6,
+                  "actual_return": 0.1,
+                  "source_row_id": "g1-member"
+                },
+                {
+                  "portfolio_id": "member-a",
+                  "group_id": "g2",
+                  "member_weight": 0.4,
+                  "actual_return": 0.02,
+                  "source_row_id": "g2-member"
+                }
+              ],
+              "expected_group_ids": [
+                "g1",
+                "g2"
+              ],
+              "period_start": "2026-01-01",
+              "period_end": "2026-01-31",
+              "reporting_currency": "USD",
+              "return_view": "GROSS",
+              "policy": {
+                "binding_id": "policy-1",
+                "revision": "policy-revision-1",
+                "purpose": "COMPOSITE_SINGLE_PERIOD_BRINSON_FACHLER",
+                "aggregation": "SOURCE_APPROVED_POOLED_COMPOSITE_GROUP_ECONOMICS",
+                "method": "BRINSON_FACHLER_ARITHMETIC_THREE_EFFECT:v1",
+                "weight_basis": "BEGINNING_CAPITAL",
+                "return_basis": "SINGLE_PERIOD_ARITHMETIC",
+                "return_view": "GROSS",
+                "reporting_currency": "USD",
+                "fee_basis": "gross-no-fees",
+                "tax_basis": "source-tax-basis",
+                "tolerance": 1e-12,
+                "effective_from": "2026-01-01",
+                "effective_to": "2026-01-31"
+              },
+              "derivatives_present": false
+            }
+          },
+          "benchmark": {
+            "projection": {
+              "benchmark_id": "BENCHMARK",
+              "benchmark_revision": "benchmark-1",
+              "period_start": "2026-01-01",
+              "period_end": "2026-01-31",
+              "reporting_currency": "USD",
+              "return_view": "GROSS",
+              "return_basis": "SINGLE_PERIOD_ARITHMETIC",
+              "fee_basis": "gross-no-fees",
+              "tax_basis": "source-tax-basis",
+              "expected_group_ids": [
+                "g1",
+                "g2"
+              ],
+              "groups": [
+                {
+                  "group_id": "g1",
+                  "weight": 0.5,
+                  "return": 0.08
+                },
+                {
+                  "group_id": "g2",
+                  "weight": 0.5,
+                  "return": 0.03
+                }
+              ]
+            }
+          },
+          "classification": {
+            "projection": {
+              "classification_revision": "classification-1",
+              "expected_group_ids": [
+                "g1",
+                "g2"
+              ],
+              "member_group_mapping": [
+                {
+                  "portfolio_id": "member-a",
+                  "group_id": "g1"
+                },
+                {
+                  "portfolio_id": "member-a",
+                  "group_id": "g2"
+                }
+              ]
+            }
+          }
+        }
+      },
+      "approval": {
+        "purpose": "COMPOSITE_SINGLE_PERIOD_BRINSON_FACHLER",
+        "bundle_digest": "sha256:ce784b0d32a18779d60f1b4b73ce88ffc2286a03a9176aa03835c4f67381dd1c",
+        "policy_digest": "sha256:2c0a71413cb8d77ac3a8338b5e3a4b4835e86f5658d6b747717c7b39af5f2aad",
+        "evidence_digest": "sha256:e3ab52ff55979925c839bfbbb033f63e38144b228fbd46200a2411534f16ef42",
+        "evidence_wire": "synthetic-unit-fixture",
+        "canonical_maker": "source-maker",
+        "canonical_checker": "independent-checker",
+        "qualification": "SYNTHETIC_NON_CERTIFYING"
+      },
+      "original_return": 0.068,
+      "portfolio_return": 0.068,
+      "benchmark_return": 0.055,
+      "portfolio_weight_sum": 1,
+      "benchmark_weight_sum": 1,
+      "portfolio_reconciliation_delta": 0
+    },
+    "outcome": {
+      "units": "DECIMAL_RETURN",
+      "precision_mode": "FLOAT64",
+      "active_return_convention": "ARITHMETIC_DIFFERENCE",
+      "portfolio_return": 0.068,
+      "benchmark_return": 0.055,
+      "active_return": 0.013000000000000005,
+      "allocation": 0.004999999999999999,
+      "selection": 0.005000000000000003,
+      "interaction": 0.0029999999999999996,
+      "reconciliation_delta": -3.469446951953614e-18,
+      "groups": [
+        {
+          "group_id": "g1",
+          "allocation": 0.0024999999999999996,
+          "selection": 0.010000000000000002,
+          "interaction": 0.002,
+          "total": 0.014500000000000002
+        },
+        {
+          "group_id": "g2",
+          "allocation": 0.0024999999999999996,
+          "selection": -0.004999999999999999,
+          "interaction": 0.0009999999999999996,
+          "total": -0.0015
+        }
+      ]
+    }
+  },
+  "original_replay": {
+    "calculation_id": "00000000-0000-4000-8000-000000000017",
+    "composite_id": "CMP-OR17",
+    "metric_id": "SINGLE_PERIOD_BRINSON_FACHLER",
+    "method": "BRINSON_FACHLER_ARITHMETIC_THREE_EFFECT:v1",
+    "qualification": "CALCULATED_ANALYSIS",
+    "input_manifest_digest": "sha256:7a4866b83a23db4580be34ea759832e39b58990a2980235e46f31aa238f7f400",
+    "calculation_engine_version": "lotus-performance-calculation-engine.v16",
+    "financial_input_fingerprint": "sha256:9f5379528e33a8afeafc1c104fbba9b063aca13078262ad2c1764b02568eed0d",
+    "calculation_hash": "sha256:5586ee82a4708f60e7f85de439ba166f638ec1d353569b5dd7a3d291716458a3",
+    "official_scope_id": null,
+    "official_revision": null,
+    "correction_of_calculation_id": null,
+    "observation": {
+      "input_manifest_digest": "sha256:7a4866b83a23db4580be34ea759832e39b58990a2980235e46f31aa238f7f400",
+      "source_bundle": {
+        "tenant_id": "tenant-a",
+        "composite_id": "CMP-OR17",
+        "source_manifest_id": "manifest-1",
+        "candidate_id": "00000000-0000-4000-8000-000000000016",
+        "original_response_digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "vector_digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "period_start": "2026-01-01",
+        "period_end": "2026-01-31",
+        "reporting_currency": "USD",
+        "return_view": "GROSS",
+        "membership_revision": "membership-1",
+        "membership_digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "classification_revision": "classification-1",
+        "classification_pin_id": "classification",
+        "benchmark_id": "BENCHMARK",
+        "benchmark_revision": "benchmark-1",
+        "benchmark_pin_id": "benchmark",
+        "group_source_pin_id": "economics",
+        "membership_pin_id": "population",
+        "expected_portfolio_ids": [
+          "member-a"
+        ],
+        "expected_group_ids": [
+          "g1",
+          "g2"
+        ],
+        "expected_benchmark_group_ids": [
+          "g1",
+          "g2"
+        ],
+        "members": [
+          {
+            "portfolio_id": "member-a",
+            "status": "INCLUDED",
+            "effective_from": "2026-01-01",
+            "effective_to": "2026-01-31",
+            "reason": "approved",
+            "composite_weight": 1,
+            "actual_return": 0.068,
+            "source_row_id": "member-row"
+          }
+        ],
+        "member_groups": [
+          {
+            "portfolio_id": "member-a",
+            "group_id": "g1",
+            "member_weight": 0.6,
+            "actual_return": 0.1,
+            "source_row_id": "g1-member"
+          },
+          {
+            "portfolio_id": "member-a",
+            "group_id": "g2",
+            "member_weight": 0.4,
+            "actual_return": 0.02,
+            "source_row_id": "g2-member"
+          }
+        ],
+        "groups": [
+          {
+            "group_id": "g1",
+            "portfolio_weight": 0.6,
+            "benchmark_weight": 0.5,
+            "portfolio_return": 0.1,
+            "benchmark_return": 0.08,
+            "source_row_id": "g1-pooled"
+          },
+          {
+            "group_id": "g2",
+            "portfolio_weight": 0.4,
+            "benchmark_weight": 0.5,
+            "portfolio_return": 0.02,
+            "benchmark_return": 0.03,
+            "source_row_id": "g2-pooled"
+          }
+        ],
+        "source_pins": [
+          {
+            "pin_id": "population",
+            "owner": "controlled-owner",
+            "product_name": "population",
+            "revision": "population-1",
+            "source_cut_id": "cut-1",
+            "payload_digest": "sha256:c9cd131297ddb789cd5b63d984e6220ac572c3c1215a2db501749c5d2559f7bf",
+            "coverage_from": "2026-01-01",
+            "coverage_to": "2026-01-31",
+            "page_ids": [
+              "page-1"
+            ],
+            "expected_page_count": 1,
+            "omitted_component_count": 0,
+            "completeness": "COMPLETE"
+          },
+          {
+            "pin_id": "economics",
+            "owner": "controlled-owner",
+            "product_name": "economics",
+            "revision": "economics-1",
+            "source_cut_id": "cut-1",
+            "payload_digest": "sha256:0f985900701ff1cff0b07465744ab6a9ad6f6045e3e528957f5de94b46c0c9a8",
+            "coverage_from": "2026-01-01",
+            "coverage_to": "2026-01-31",
+            "page_ids": [
+              "page-1"
+            ],
+            "expected_page_count": 1,
+            "omitted_component_count": 0,
+            "completeness": "COMPLETE"
+          },
+          {
+            "pin_id": "benchmark",
+            "owner": "controlled-owner",
+            "product_name": "benchmark",
+            "revision": "benchmark-1",
+            "source_cut_id": "cut-1",
+            "payload_digest": "sha256:7890c40bc5ed4ca1fb1d87fe7e4bccf4c4b6b0df823fe14f11d1dbd71b406f04",
+            "coverage_from": "2026-01-01",
+            "coverage_to": "2026-01-31",
+            "page_ids": [
+              "page-1"
+            ],
+            "expected_page_count": 1,
+            "omitted_component_count": 0,
+            "completeness": "COMPLETE"
+          },
+          {
+            "pin_id": "classification",
+            "owner": "controlled-owner",
+            "product_name": "classification",
+            "revision": "classification-1",
+            "source_cut_id": "cut-1",
+            "payload_digest": "sha256:b7f7e14eb6eab3d9c8a5b22c5ca04e565abfc66c3c109ce2a96f0e5224ffc796",
+            "coverage_from": "2026-01-01",
+            "coverage_to": "2026-01-31",
+            "page_ids": [
+              "page-1"
+            ],
+            "expected_page_count": 1,
+            "omitted_component_count": 0,
+            "completeness": "COMPLETE"
+          }
+        ],
+        "compatible_pin_ids": [
+          "population",
+          "economics",
+          "benchmark",
+          "classification"
+        ],
+        "compatibility_reference": "approved-cut-1",
+        "policy": {
+          "binding_id": "policy-1",
+          "revision": "policy-revision-1",
+          "purpose": "COMPOSITE_SINGLE_PERIOD_BRINSON_FACHLER",
+          "aggregation": "SOURCE_APPROVED_POOLED_COMPOSITE_GROUP_ECONOMICS",
+          "method": "BRINSON_FACHLER_ARITHMETIC_THREE_EFFECT:v1",
+          "weight_basis": "BEGINNING_CAPITAL",
+          "return_basis": "SINGLE_PERIOD_ARITHMETIC",
+          "return_view": "GROSS",
+          "reporting_currency": "USD",
+          "fee_basis": "gross-no-fees",
+          "tax_basis": "source-tax-basis",
+          "tolerance": 1e-12,
+          "effective_from": "2026-01-01",
+          "effective_to": "2026-01-31"
+        },
+        "derivatives_present": false,
+        "qualification": "CONTROLLED_SYNTHETIC_ONLY",
+        "raw_source_bodies": {
+          "population": {
+            "projection": {
+              "membership_revision": "membership-1",
+              "membership_digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+              "expected_portfolio_ids": [
+                "member-a"
+              ],
+              "members": [
+                {
+                  "portfolio_id": "member-a",
+                  "status": "INCLUDED",
+                  "effective_from": "2026-01-01",
+                  "effective_to": "2026-01-31",
+                  "reason": "approved",
+                  "composite_weight": 1,
+                  "actual_return": 0.068,
+                  "source_row_id": "member-row"
+                }
+              ]
+            }
+          },
+          "economics": {
+            "projection": {
+              "groups": [
+                {
+                  "group_id": "g1",
+                  "portfolio_weight": 0.6,
+                  "benchmark_weight": 0.5,
+                  "portfolio_return": 0.1,
+                  "benchmark_return": 0.08,
+                  "source_row_id": "g1-pooled"
+                },
+                {
+                  "group_id": "g2",
+                  "portfolio_weight": 0.4,
+                  "benchmark_weight": 0.5,
+                  "portfolio_return": 0.02,
+                  "benchmark_return": 0.03,
+                  "source_row_id": "g2-pooled"
+                }
+              ],
+              "member_groups": [
+                {
+                  "portfolio_id": "member-a",
+                  "group_id": "g1",
+                  "member_weight": 0.6,
+                  "actual_return": 0.1,
+                  "source_row_id": "g1-member"
+                },
+                {
+                  "portfolio_id": "member-a",
+                  "group_id": "g2",
+                  "member_weight": 0.4,
+                  "actual_return": 0.02,
+                  "source_row_id": "g2-member"
+                }
+              ],
+              "expected_group_ids": [
+                "g1",
+                "g2"
+              ],
+              "period_start": "2026-01-01",
+              "period_end": "2026-01-31",
+              "reporting_currency": "USD",
+              "return_view": "GROSS",
+              "policy": {
+                "binding_id": "policy-1",
+                "revision": "policy-revision-1",
+                "purpose": "COMPOSITE_SINGLE_PERIOD_BRINSON_FACHLER",
+                "aggregation": "SOURCE_APPROVED_POOLED_COMPOSITE_GROUP_ECONOMICS",
+                "method": "BRINSON_FACHLER_ARITHMETIC_THREE_EFFECT:v1",
+                "weight_basis": "BEGINNING_CAPITAL",
+                "return_basis": "SINGLE_PERIOD_ARITHMETIC",
+                "return_view": "GROSS",
+                "reporting_currency": "USD",
+                "fee_basis": "gross-no-fees",
+                "tax_basis": "source-tax-basis",
+                "tolerance": 1e-12,
+                "effective_from": "2026-01-01",
+                "effective_to": "2026-01-31"
+              },
+              "derivatives_present": false
+            }
+          },
+          "benchmark": {
+            "projection": {
+              "benchmark_id": "BENCHMARK",
+              "benchmark_revision": "benchmark-1",
+              "period_start": "2026-01-01",
+              "period_end": "2026-01-31",
+              "reporting_currency": "USD",
+              "return_view": "GROSS",
+              "return_basis": "SINGLE_PERIOD_ARITHMETIC",
+              "fee_basis": "gross-no-fees",
+              "tax_basis": "source-tax-basis",
+              "expected_group_ids": [
+                "g1",
+                "g2"
+              ],
+              "groups": [
+                {
+                  "group_id": "g1",
+                  "weight": 0.5,
+                  "return": 0.08
+                },
+                {
+                  "group_id": "g2",
+                  "weight": 0.5,
+                  "return": 0.03
+                }
+              ]
+            }
+          },
+          "classification": {
+            "projection": {
+              "classification_revision": "classification-1",
+              "expected_group_ids": [
+                "g1",
+                "g2"
+              ],
+              "member_group_mapping": [
+                {
+                  "portfolio_id": "member-a",
+                  "group_id": "g1"
+                },
+                {
+                  "portfolio_id": "member-a",
+                  "group_id": "g2"
+                }
+              ]
+            }
+          }
+        }
+      },
+      "approval": {
+        "purpose": "COMPOSITE_SINGLE_PERIOD_BRINSON_FACHLER",
+        "bundle_digest": "sha256:ce784b0d32a18779d60f1b4b73ce88ffc2286a03a9176aa03835c4f67381dd1c",
+        "policy_digest": "sha256:2c0a71413cb8d77ac3a8338b5e3a4b4835e86f5658d6b747717c7b39af5f2aad",
+        "evidence_digest": "sha256:e3ab52ff55979925c839bfbbb033f63e38144b228fbd46200a2411534f16ef42",
+        "evidence_wire": "synthetic-unit-fixture",
+        "canonical_maker": "source-maker",
+        "canonical_checker": "independent-checker",
+        "qualification": "SYNTHETIC_NON_CERTIFYING"
+      },
+      "original_return": 0.068,
+      "portfolio_return": 0.068,
+      "benchmark_return": 0.055,
+      "portfolio_weight_sum": 1,
+      "benchmark_weight_sum": 1,
+      "portfolio_reconciliation_delta": 0
+    },
+    "outcome": {
+      "units": "DECIMAL_RETURN",
+      "precision_mode": "FLOAT64",
+      "active_return_convention": "ARITHMETIC_DIFFERENCE",
+      "portfolio_return": 0.068,
+      "benchmark_return": 0.055,
+      "active_return": 0.013000000000000005,
+      "allocation": 0.004999999999999999,
+      "selection": 0.005000000000000003,
+      "interaction": 0.0029999999999999996,
+      "reconciliation_delta": -3.469446951953614e-18,
+      "groups": [
+        {
+          "group_id": "g1",
+          "allocation": 0.0024999999999999996,
+          "selection": 0.010000000000000002,
+          "interaction": 0.002,
+          "total": 0.014500000000000002
+        },
+        {
+          "group_id": "g2",
+          "allocation": 0.0024999999999999996,
+          "selection": -0.004999999999999999,
+          "interaction": 0.0009999999999999996,
+          "total": -0.0015
+        }
+      ]
+    }
+  },
+  "corrected_ready": {
+    "calculation_id": "00000000-0000-4000-8000-000000000018",
+    "composite_id": "CMP-OR17",
+    "metric_id": "SINGLE_PERIOD_BRINSON_FACHLER",
+    "method": "BRINSON_FACHLER_ARITHMETIC_THREE_EFFECT:v1",
+    "qualification": "CALCULATED_ANALYSIS",
+    "input_manifest_digest": "sha256:e382e2c08be0da3e3319db522a50f70c47f5b27793bf0bb46c8998f3586f6c07",
+    "calculation_engine_version": "lotus-performance-calculation-engine.v16",
+    "financial_input_fingerprint": "sha256:dfc258bcb52ea21940bca32c497b385eb0fd7c1cfee8f7572f28d9648f480092",
+    "calculation_hash": "sha256:bb17508e145b2a3f854212e8a535ff76d0f3839d8dc2c0ae49ba053d671de97e",
+    "official_scope_id": null,
+    "official_revision": null,
+    "correction_of_calculation_id": "00000000-0000-4000-8000-000000000017",
+    "observation": {
+      "input_manifest_digest": "sha256:e382e2c08be0da3e3319db522a50f70c47f5b27793bf0bb46c8998f3586f6c07",
+      "source_bundle": {
+        "tenant_id": "tenant-a",
+        "composite_id": "CMP-OR17",
+        "source_manifest_id": "corrected-2",
+        "candidate_id": "00000000-0000-4000-8000-000000000016",
+        "original_response_digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "vector_digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "period_start": "2026-01-01",
+        "period_end": "2026-01-31",
+        "reporting_currency": "USD",
+        "return_view": "GROSS",
+        "membership_revision": "membership-1",
+        "membership_digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "classification_revision": "classification-2",
+        "classification_pin_id": "classification",
+        "benchmark_id": "BENCHMARK",
+        "benchmark_revision": "benchmark-2",
+        "benchmark_pin_id": "benchmark",
+        "group_source_pin_id": "economics",
+        "membership_pin_id": "population",
+        "expected_portfolio_ids": [
+          "member-a"
+        ],
+        "expected_group_ids": [
+          "g1",
+          "g2"
+        ],
+        "expected_benchmark_group_ids": [
+          "g1",
+          "g2"
+        ],
+        "members": [
+          {
+            "portfolio_id": "member-a",
+            "status": "INCLUDED",
+            "effective_from": "2026-01-01",
+            "effective_to": "2026-01-31",
+            "reason": "approved",
+            "composite_weight": 1,
+            "actual_return": 0.068,
+            "source_row_id": "member-row"
+          }
+        ],
+        "member_groups": [
+          {
+            "portfolio_id": "member-a",
+            "group_id": "g1",
+            "member_weight": 0.6,
+            "actual_return": 0.1,
+            "source_row_id": "g1-member"
+          },
+          {
+            "portfolio_id": "member-a",
+            "group_id": "g2",
+            "member_weight": 0.4,
+            "actual_return": 0.02,
+            "source_row_id": "g2-member"
+          }
+        ],
+        "groups": [
+          {
+            "group_id": "g1",
+            "portfolio_weight": 0.6,
+            "benchmark_weight": 0.5,
+            "portfolio_return": 0.1,
+            "benchmark_return": 0.09,
+            "source_row_id": "g1-pooled"
+          },
+          {
+            "group_id": "g2",
+            "portfolio_weight": 0.4,
+            "benchmark_weight": 0.5,
+            "portfolio_return": 0.02,
+            "benchmark_return": 0.03,
+            "source_row_id": "g2-pooled"
+          }
+        ],
+        "source_pins": [
+          {
+            "pin_id": "population",
+            "owner": "controlled-owner",
+            "product_name": "population",
+            "revision": "population-2",
+            "source_cut_id": "cut-1",
+            "payload_digest": "sha256:c9cd131297ddb789cd5b63d984e6220ac572c3c1215a2db501749c5d2559f7bf",
+            "coverage_from": "2026-01-01",
+            "coverage_to": "2026-01-31",
+            "page_ids": [
+              "page-1"
+            ],
+            "expected_page_count": 1,
+            "omitted_component_count": 0,
+            "completeness": "COMPLETE"
+          },
+          {
+            "pin_id": "economics",
+            "owner": "controlled-owner",
+            "product_name": "economics",
+            "revision": "economics-2",
+            "source_cut_id": "cut-1",
+            "payload_digest": "sha256:9edfb878e65e19955aca4ccef6e359d09a1f8e282b5a2a8232d4359788df27a9",
+            "coverage_from": "2026-01-01",
+            "coverage_to": "2026-01-31",
+            "page_ids": [
+              "page-1"
+            ],
+            "expected_page_count": 1,
+            "omitted_component_count": 0,
+            "completeness": "COMPLETE"
+          },
+          {
+            "pin_id": "benchmark",
+            "owner": "controlled-owner",
+            "product_name": "benchmark",
+            "revision": "benchmark-2",
+            "source_cut_id": "cut-1",
+            "payload_digest": "sha256:d2e662e89e66668855f4243ff26d577aea74e598293a3bb8389c41d2a26c411b",
+            "coverage_from": "2026-01-01",
+            "coverage_to": "2026-01-31",
+            "page_ids": [
+              "page-1"
+            ],
+            "expected_page_count": 1,
+            "omitted_component_count": 0,
+            "completeness": "COMPLETE"
+          },
+          {
+            "pin_id": "classification",
+            "owner": "controlled-owner",
+            "product_name": "classification",
+            "revision": "classification-2",
+            "source_cut_id": "cut-1",
+            "payload_digest": "sha256:99a583b42b751792e284d846970fad2bb5b989b1a66d1388382a72563090f7df",
+            "coverage_from": "2026-01-01",
+            "coverage_to": "2026-01-31",
+            "page_ids": [
+              "page-1"
+            ],
+            "expected_page_count": 1,
+            "omitted_component_count": 0,
+            "completeness": "COMPLETE"
+          }
+        ],
+        "compatible_pin_ids": [
+          "population",
+          "economics",
+          "benchmark",
+          "classification"
+        ],
+        "compatibility_reference": "approved-cut-1",
+        "policy": {
+          "binding_id": "policy-1",
+          "revision": "policy-revision-1",
+          "purpose": "COMPOSITE_SINGLE_PERIOD_BRINSON_FACHLER",
+          "aggregation": "SOURCE_APPROVED_POOLED_COMPOSITE_GROUP_ECONOMICS",
+          "method": "BRINSON_FACHLER_ARITHMETIC_THREE_EFFECT:v1",
+          "weight_basis": "BEGINNING_CAPITAL",
+          "return_basis": "SINGLE_PERIOD_ARITHMETIC",
+          "return_view": "GROSS",
+          "reporting_currency": "USD",
+          "fee_basis": "gross-no-fees",
+          "tax_basis": "source-tax-basis",
+          "tolerance": 1e-12,
+          "effective_from": "2026-01-01",
+          "effective_to": "2026-01-31"
+        },
+        "derivatives_present": false,
+        "qualification": "CONTROLLED_SYNTHETIC_ONLY",
+        "raw_source_bodies": {
+          "population": {
+            "projection": {
+              "membership_revision": "membership-1",
+              "membership_digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+              "expected_portfolio_ids": [
+                "member-a"
+              ],
+              "members": [
+                {
+                  "portfolio_id": "member-a",
+                  "status": "INCLUDED",
+                  "effective_from": "2026-01-01",
+                  "effective_to": "2026-01-31",
+                  "reason": "approved",
+                  "composite_weight": 1,
+                  "actual_return": 0.068,
+                  "source_row_id": "member-row"
+                }
+              ]
+            }
+          },
+          "economics": {
+            "projection": {
+              "groups": [
+                {
+                  "group_id": "g1",
+                  "portfolio_weight": 0.6,
+                  "benchmark_weight": 0.5,
+                  "portfolio_return": 0.1,
+                  "benchmark_return": 0.09,
+                  "source_row_id": "g1-pooled"
+                },
+                {
+                  "group_id": "g2",
+                  "portfolio_weight": 0.4,
+                  "benchmark_weight": 0.5,
+                  "portfolio_return": 0.02,
+                  "benchmark_return": 0.03,
+                  "source_row_id": "g2-pooled"
+                }
+              ],
+              "member_groups": [
+                {
+                  "portfolio_id": "member-a",
+                  "group_id": "g1",
+                  "member_weight": 0.6,
+                  "actual_return": 0.1,
+                  "source_row_id": "g1-member"
+                },
+                {
+                  "portfolio_id": "member-a",
+                  "group_id": "g2",
+                  "member_weight": 0.4,
+                  "actual_return": 0.02,
+                  "source_row_id": "g2-member"
+                }
+              ],
+              "expected_group_ids": [
+                "g1",
+                "g2"
+              ],
+              "period_start": "2026-01-01",
+              "period_end": "2026-01-31",
+              "reporting_currency": "USD",
+              "return_view": "GROSS",
+              "policy": {
+                "binding_id": "policy-1",
+                "revision": "policy-revision-1",
+                "purpose": "COMPOSITE_SINGLE_PERIOD_BRINSON_FACHLER",
+                "aggregation": "SOURCE_APPROVED_POOLED_COMPOSITE_GROUP_ECONOMICS",
+                "method": "BRINSON_FACHLER_ARITHMETIC_THREE_EFFECT:v1",
+                "weight_basis": "BEGINNING_CAPITAL",
+                "return_basis": "SINGLE_PERIOD_ARITHMETIC",
+                "return_view": "GROSS",
+                "reporting_currency": "USD",
+                "fee_basis": "gross-no-fees",
+                "tax_basis": "source-tax-basis",
+                "tolerance": 1e-12,
+                "effective_from": "2026-01-01",
+                "effective_to": "2026-01-31"
+              },
+              "derivatives_present": false
+            }
+          },
+          "benchmark": {
+            "projection": {
+              "benchmark_id": "BENCHMARK",
+              "benchmark_revision": "benchmark-2",
+              "period_start": "2026-01-01",
+              "period_end": "2026-01-31",
+              "reporting_currency": "USD",
+              "return_view": "GROSS",
+              "return_basis": "SINGLE_PERIOD_ARITHMETIC",
+              "fee_basis": "gross-no-fees",
+              "tax_basis": "source-tax-basis",
+              "expected_group_ids": [
+                "g1",
+                "g2"
+              ],
+              "groups": [
+                {
+                  "group_id": "g1",
+                  "weight": 0.5,
+                  "return": 0.09
+                },
+                {
+                  "group_id": "g2",
+                  "weight": 0.5,
+                  "return": 0.03
+                }
+              ]
+            }
+          },
+          "classification": {
+            "projection": {
+              "classification_revision": "classification-2",
+              "expected_group_ids": [
+                "g1",
+                "g2"
+              ],
+              "member_group_mapping": [
+                {
+                  "portfolio_id": "member-a",
+                  "group_id": "g1"
+                },
+                {
+                  "portfolio_id": "member-a",
+                  "group_id": "g2"
+                }
+              ]
+            }
+          }
+        }
+      },
+      "approval": {
+        "purpose": "COMPOSITE_SINGLE_PERIOD_BRINSON_FACHLER",
+        "bundle_digest": "sha256:cf09dc89710434b3ce026e11b4fe05b148c2e99dc1779d497ba460c44886b0dc",
+        "policy_digest": "sha256:2c0a71413cb8d77ac3a8338b5e3a4b4835e86f5658d6b747717c7b39af5f2aad",
+        "evidence_digest": "sha256:e3ab52ff55979925c839bfbbb033f63e38144b228fbd46200a2411534f16ef42",
+        "evidence_wire": "synthetic-unit-fixture",
+        "canonical_maker": "source-maker",
+        "canonical_checker": "independent-checker",
+        "qualification": "SYNTHETIC_NON_CERTIFYING"
+      },
+      "original_return": 0.068,
+      "portfolio_return": 0.068,
+      "benchmark_return": 0.06,
+      "portfolio_weight_sum": 1,
+      "benchmark_weight_sum": 1,
+      "portfolio_reconciliation_delta": 0
+    },
+    "outcome": {
+      "units": "DECIMAL_RETURN",
+      "precision_mode": "FLOAT64",
+      "active_return_convention": "ARITHMETIC_DIFFERENCE",
+      "portfolio_return": 0.068,
+      "benchmark_return": 0.06,
+      "active_return": 0.008000000000000007,
+      "allocation": 0.005999999999999998,
+      "selection": 5.204170427930421e-18,
+      "interaction": 0.002,
+      "reconciliation_delta": -3.469446951953614e-18,
+      "groups": [
+        {
+          "group_id": "g1",
+          "allocation": 0.002999999999999999,
+          "selection": 0.0050000000000000044,
+          "interaction": 0.0010000000000000007,
+          "total": 0.009000000000000005
+        },
+        {
+          "group_id": "g2",
+          "allocation": 0.002999999999999999,
+          "selection": -0.004999999999999999,
+          "interaction": 0.0009999999999999996,
+          "total": -0.0010000000000000005
+        }
+      ]
+    }
+  },
+  "errors": {
+    "source_unavailable": {
+      "detail": "The service encountered an internal error. Use the correlation_id for support.",
+      "error_code": "SOURCE_AUTHORITY_UNAVAILABLE",
+      "message": "The service encountered an internal error. Use the correlation_id for support.",
+      "source": "lotus-performance",
+      "retryable": false
+    },
+    "purpose_unavailable": {
+      "detail": "The service encountered an internal error. Use the correlation_id for support.",
+      "error_code": "ATTRIBUTION_PURPOSE_AUTHORITY_UNAVAILABLE",
+      "message": "The service encountered an internal error. Use the correlation_id for support.",
+      "source": "lotus-performance",
+      "retryable": false
+    },
+    "incomplete_groups": {
+      "detail": "Observed pooled groups differ from the full expected universe.",
+      "error_code": "SOURCE_UNIVERSE_INCOMPLETE",
+      "message": "Observed pooled groups differ from the full expected universe.",
+      "source": "lotus-performance",
+      "retryable": false
+    },
+    "strict_precision": {
+      "detail": "Attribution supports FLOAT64 only; DECIMAL_STRICT attribution is not supported.",
+      "error_code": "ATTRIBUTION_PRECISION_UNSUPPORTED",
+      "message": "Attribution supports FLOAT64 only; DECIMAL_STRICT attribution is not supported.",
+      "source": "lotus-performance",
+      "retryable": false
+    }
+  }
+}

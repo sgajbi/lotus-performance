@@ -32,6 +32,15 @@ flowchart LR
 `method=BRINSON_FACHLER_ARITHMETIC_THREE_EFFECT:v1`. The existing worker produces the result;
 callers follow the returned result path. Group arrays and approvals are not HTTP inputs.
 
+Swagger's named BF examples cover request/correction, accepted/pending, original ready/replay,
+corrected ready and typed source, purpose, completeness and precision refusals. They are compiled
+from production admission and response assembly with deterministic synthetic observations.
+The original example gives 6.8% versus 5.5% and a 1.3 percentage-point active difference; changing
+the first benchmark group return to 9% gives a 6% benchmark and 0.8 percentage-point difference.
+All effect cells, units, source revisions, explicit nulls and non-certifying qualification are
+checked against executable contracts. The caller guide above describes mode names and validation.
+These examples do not attest actual supplier or downstream acceptance.
+
 All effects use decimal-return units and FLOAT64. Full member and group universes, both actual
 returns, independently normalized weights, original-return reconciliation and exact historical
 pins are mandatory. Missing returns are never interpreted as observed zero. Optional official

@@ -140,6 +140,44 @@ Both originals remain immutable. Reusing an existing ID for revised inputs refus
 
 ## Refusal and recovery
 
+### Executable HTTP examples
+
+Swagger publishes `bf_request` and `bf_correction_request` on the existing analytics POST,
+and `bf_accepted` on its 202 response. The existing result GET publishes `bf_pending` (202),
+`bf_original_ready`, `bf_original_replay` and `bf_corrected_ready` (200). Original replay is
+byte-for-value identical to the retained original; a correction has a new calculation identity,
+benchmark/classification revisions and manifest digest. Explicit null official-selection fields
+remain null. These examples use controlled synthetic sources and non-certifying purpose evidence.
+
+The original OR17 example has portfolio return 0.068, benchmark 0.055 and active difference
+0.013 (6.8%, 5.5%, and 1.3 percentage points). The corrected benchmark example changes the first
+benchmark group return to 0.09: benchmark return becomes 0.06 and active difference 0.008.
+Every allocation, selection and interaction cell comes from production admission and the existing
+BF kernel, serialized through the production response DTO. No response math runs at app import.
+
+Named errors distinguish source unavailability (503), independent purpose unavailability (503),
+incomplete observed groups (409), and unsupported strict precision (422). The first and last can
+refuse POST before registration; group and purpose failures arise during worker execution and are
+read through GET. A failed job publishes no financial result.
+
+`docs/examples/composite_attribution_endpoint_family.json` binds all eleven named modes to
+registered behavior tests. `tests/composite_attribution_example_factory.py` authors the packaged
+values through production DTO, admission, response and original-replay paths using deterministic
+synthetic source fixtures. The contract test compares the factory, static DTOs, generated OpenAPI
+and behavior ledger exactly, and rejects missing modes or missing executable behavior references.
+Run from the repository root:
+
+```powershell
+python -m pytest tests/unit/app/test_composite_attribution_openapi_contract.py tests/integration/test_composite_attribution_api.py -q --no-cov
+```
+
+```bash
+python -m pytest tests/unit/app/test_composite_attribution_openapi_contract.py tests/integration/test_composite_attribution_api.py -q --no-cov
+```
+
+This certifies bounded contract behavior. Institution-supplied historical observations, independently
+approved policy/verifier and joined Gateway/Report publication remain unearned.
+
 - `401/403`: bearer, audience, tenant, capability or current portfolio-scope admission failed.
 - `422 ATTRIBUTION_PRECISION_UNSUPPORTED`: choose supported FLOAT64 explicitly; exact source money does not provide strict attribution arithmetic.
 - `503 SOURCE_AUTHORITY_UNAVAILABLE` or `ATTRIBUTION_PURPOSE_AUTHORITY_UNAVAILABLE`: the required configured authority is absent; never substitute fixtures in production.

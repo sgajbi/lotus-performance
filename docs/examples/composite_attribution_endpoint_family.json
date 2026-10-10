@@ -1,0 +1,91 @@
+{
+  "family": "composite-single-period-bf",
+  "evidence_class": "CONTROLLED_SYNTHETIC_ONLY",
+  "institutional_acceptance": "NOT_ATTESTED",
+  "modes": [
+    {
+      "mode": "request",
+      "method": "post",
+      "status": "request",
+      "example": "bf_request",
+      "behavior": "tests/integration/test_composite_attribution_api.py::test_registered_or17_all_effect_cells_original_replay"
+    },
+    {
+      "mode": "correction_request",
+      "method": "post",
+      "status": "request",
+      "example": "bf_correction_request",
+      "behavior": "tests/integration/test_composite_attribution_api.py::test_registered_benchmark_classification_correction_preserves_both_originals"
+    },
+    {
+      "mode": "accepted",
+      "method": "post",
+      "status": "202",
+      "example": "bf_accepted",
+      "behavior": "tests/integration/test_composite_attribution_api.py::test_registered_or17_all_effect_cells_original_replay"
+    },
+    {
+      "mode": "pending",
+      "method": "get",
+      "status": "202",
+      "example": "bf_pending",
+      "behavior": "tests/integration/test_composite_attribution_api.py::test_registered_or17_all_effect_cells_original_replay"
+    },
+    {
+      "mode": "original_ready",
+      "method": "get",
+      "status": "200",
+      "example": "bf_original_ready",
+      "behavior": "tests/integration/test_composite_attribution_api.py::test_registered_or17_all_effect_cells_original_replay"
+    },
+    {
+      "mode": "original_replay",
+      "method": "get",
+      "status": "200",
+      "example": "bf_original_replay",
+      "behavior": "tests/integration/test_composite_attribution_api.py::test_registered_replay_does_not_recalculate_or_reapprove"
+    },
+    {
+      "mode": "corrected_ready",
+      "method": "get",
+      "status": "200",
+      "example": "bf_corrected_ready",
+      "behavior": "tests/integration/test_composite_attribution_api.py::test_registered_benchmark_classification_correction_preserves_both_originals"
+    },
+    {
+      "mode": "source_unavailable",
+      "method": "post",
+      "status": "503",
+      "example": "bf_source_unavailable",
+      "behavior": "tests/integration/test_composite_attribution_api.py::test_registered_unavailable_source_is_typed_and_does_not_submit"
+    },
+    {
+      "mode": "purpose_unavailable",
+      "method": "get",
+      "status": "503",
+      "example": "bf_purpose_unavailable",
+      "behavior": "tests/integration/test_composite_attribution_api.py::test_registered_unavailable_or_wrong_financial_purpose_cannot_publish"
+    },
+    {
+      "mode": "source_unavailable",
+      "method": "get",
+      "status": "503",
+      "example": "bf_source_unavailable",
+      "behavior": "tests/integration/test_composite_attribution_api.py::test_registered_source_withdrawal_before_worker_has_no_financial_result"
+    },
+    {
+      "mode": "incomplete_groups",
+      "method": "get",
+      "status": "409",
+      "example": "bf_incomplete_groups",
+      "behavior": "tests/integration/test_composite_attribution_api.py::test_registered_financial_source_refusal_has_no_retained_economics"
+    },
+    {
+      "mode": "strict_precision",
+      "method": "post",
+      "status": "422",
+      "example": "bf_strict_precision",
+      "behavior": "tests/integration/test_composite_attribution_api.py::test_registered_strict_precision_refuses_before_source_or_job"
+    }
+  ]
+}
