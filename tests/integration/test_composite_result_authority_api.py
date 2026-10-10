@@ -1,5 +1,6 @@
 """Registered ASGI routes, actual signed principal admission and enterprise audit."""
 
+from datetime import UTC, datetime, timedelta
 from uuid import uuid4
 
 import pytest
@@ -22,6 +23,12 @@ def authority_http(tmp_path, monkeypatch):
     monkeypatch.setattr(get_settings(), "LINEAGE_METADATA_DATABASE_URL", url)
     assert apply_durable_schema(database_url=url).status == "passed"
     fixture = AuthorityFixture(url, monkeypatch)
+    application_type = dependencies.CompositeAuthorityApplication
+
+    def synthetic_application(repository, verifier):
+        return application_type(repository, verifier, clock=lambda: fixture.now)
+
+    monkeypatch.setattr(dependencies, "CompositeAuthorityApplication", synthetic_application)
     _, mint = install_principal_deployment(monkeypatch, app, tenant="tenant-a", portfolios=["A", "B", "C"])
     monkeypatch.setattr(dependencies, "get_composite_metadata_store", lambda: fixture.store)
     monkeypatch.setattr(dependencies, "get_async_result_store", lambda: fixture.results)
@@ -89,8 +96,12 @@ def test_registered_approval_default_unavailable_preserves_proposal_without_sele
     assert fixture.counts() == before
 
 
-def test_registered_synthetic_workflow_returns_original_and_verified_audit_actor(authority_http, monkeypatch, caplog):
+@pytest.mark.parametrize("synthetic_now", [datetime(2020, 1, 1, tzinfo=UTC), datetime(2040, 1, 1, tzinfo=UTC)])
+def test_registered_synthetic_workflow_returns_original_and_verified_audit_actor(
+    authority_http, monkeypatch, caplog, synthetic_now
+):
     fixture, client, mint = authority_http
+    fixture.now = synthetic_now
     monkeypatch.setattr(app.state, "composite_financial_authority", fixture.verifier, raising=False)
     with caplog.at_level("INFO", logger="enterprise_readiness"):
         original, proposal = propose(fixture, client, mint)
@@ -102,6 +113,16 @@ def test_registered_synthetic_workflow_returns_original_and_verified_audit_actor
             json=bad_request.model_dump(mode="json"),
         )
         assert refusal.status_code == 403 and fixture.counts() == before
+        expired_request = fixture.financial_request(
+            proposal, claim_changes={"exp": int((fixture.now - timedelta(seconds=1)).timestamp())}
+        )
+        expired = client.post(
+            PATH + "/proposals/" + str(proposal.proposal_id) + "/approvals",
+            headers=headers(mint, "checker"),
+            json=expired_request.model_dump(mode="json"),
+        )
+        assert expired.status_code == 403 and fixture.counts() == before
+        assert expired.json()["error_code"] == "COMPOSITE_FINANCIAL_ACTION_DENIED"
         request = fixture.financial_request(proposal)
         approved = client.post(
             PATH + "/proposals/" + str(proposal.proposal_id) + "/approvals",

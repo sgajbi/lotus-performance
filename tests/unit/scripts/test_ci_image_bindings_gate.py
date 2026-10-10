@@ -110,10 +110,11 @@ def test_image_consumers_depend_on_their_admission_outputs():
         build_index = container["steps"].index(build)
         assert binding_index < build_index
         if workflow == "main-releasability.yml":
-            assert "postgres16-admission" not in jobs
             assert "exact-revision-assertion" in jobs["python-admission"]["needs"]
+            assert "exact-revision-assertion" in jobs["postgres16-admission"]["needs"]
     for workflow, job in (
         ("pr-merge-gate.yml", "postgres-contracts"),
+        ("main-releasability.yml", "postgres-contracts"),
         ("performance-characterization.yml", "characterization"),
     ):
         jobs = yaml.safe_load((ROOT / ".github/workflows" / workflow).read_text())["jobs"]

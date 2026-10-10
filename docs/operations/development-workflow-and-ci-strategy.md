@@ -116,8 +116,8 @@ compute executor; optional `ops` retention is outside this scope. A separately a
 extension must use consistent profiles for bring-up, restart, and teardown. PR Merge Gate feeds this job
 into the required compatibility aggregate; Main Releasability repeats it on the merged SHA.
 
-The required PR PostgreSQL contracts proof runs concurrently with the ordinary unit/integration/e2e
-matrix in its own PostgreSQL 16 job/database. All nine default targets and their JUnit no-skip,
+The required PR and main PostgreSQL contracts proof runs concurrently with the ordinary unit/integration/e2e
+matrix in its own PostgreSQL 16 job/database. All eleven default targets and their JUnit no-skip,
 nonempty, zero-failure/error rules are unchanged. `make postgres-concurrency-contracts-gate`
 records a separate `.coverage.postgres` shard; the existing required combined-coverage job uses
 `always()` and `make ci-proof-results-gate` to refuse any missing or non-success dependency.
@@ -130,8 +130,11 @@ are `python scripts/ci_coverage_evidence.py stamp --shard <suite>`,
 `python scripts/ci_coverage_evidence.py results`. CI supplies `CI_EVIDENCE_SHA`,
 `CI_EVIDENCE_RUN` and `CI_PROOF_RESULTS`; local evidence must explicitly provide the same
 revision/run identity and complete dependency-results JSON. These commands check proof transport,
-not financial methodology. Main's three-suite coverage and per-revision dispatcher are unchanged;
-main does not repeat this PG supplement. Full workflow reruns are required when attempts differ.
+not financial methodology. Main independently reruns and verifies all four cohorts on the exact
+merged revision; PR artifacts are never substituted for main proof. Main's revision assertion and
+per-revision dispatcher remain unchanged. Full workflow reruns are required when attempts differ.
+The workflow-parity regression checks executable cohorts, admitted image bindings, manifest
+uploads and proof-before-combine ordering across both lanes, including representative mutations.
 
 Image consumers first run separate no-service admission prerequisites in their owning workflow.
 Each checks out the qualified Platform governance revision
@@ -143,7 +146,8 @@ PostgreSQL 16 services consume the validated output directly. Recovery and conta
 `scripts/ci_image_bindings_gate.py` before Make to bind the admitted Python image to the fixed
 Dockerfile; recovery also checks the resolved fixed Compose files and PostgreSQL 17 platform.
 The scanner command consumes only its admitted Trivy output. No credentials or mutable fallback
-are needed. Main adds admission only for its existing Python/PG17/scanner consumers.
+are needed. Main uses the same PostgreSQL 16 admission as PR before initializing its contract
+database, alongside the existing Python/PG17/scanner prerequisites.
 
 The PG16 and Trivy digests preserve the retained successful baseline content. PostgreSQL 17 is
 a newly pinned, admitted selection replacing a mutable tag; its historical recovery binary was
