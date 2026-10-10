@@ -112,6 +112,14 @@ refuse with `REQUIRED_PERIOD_UNAVAILABLE` and no financial payload; no survivor 
 The request ceiling is a new interactive resource bound, supporting ten years of monthly windows;
 larger requests refuse explicitly and retained history is not truncated.
 
+Native-currency internal Manage v1 `NET_ACTUAL` windows derive their common TWR method from
+validated original member receipts. The existing manifest exposes the actual engine revision,
+precision, NET/currency and calendar/policy/method digests. Every participating member and selected
+window must agree; missing method evidence, incompatible methods and corrupt receipts refuse.
+Original receipts already retain the exact requests and versions, so replay preserves their
+fingerprints without a new custody store. This internal method grants no provider, FX or financial
+approval authority; the separate v2 and FX verification requirements remain.
+
 The returned selection manifest/fingerprint binds the request, exact historical vector, engine and
 result. This is calculated replay, not a stored result, official selection, approval or freeze;
 #610's durable authority obligations remain open. Existing latest and single-sequence behavior stays

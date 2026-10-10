@@ -502,6 +502,19 @@ and policy must cover every window; different opaque method digests are refused.
 definition, membership, eligibility and source hashes remain independently retained and verified.
 An omitted currency comes from the first selected immutable window, not a current live definition.
 
+Ordinary internal Manage v1 windows also support explicit `NET_ACTUAL` replay in their native
+reporting currency. Performance revalidates each retained member request, engine revision,
+precision, source-asset receipt and calculation fingerprint before deriving a common TWR method.
+The existing `method_binding` contains `methodology`, `engine_version`, `precision_mode`,
+`metric_basis`, `reporting_currency`, `calendar_digest`, `policy_digest` and `method_digest`.
+Calendar and numerical/fee/reset/data-policy digests must agree across participating members and
+selected windows. The method is derived from original receipts already covered by the unchanged
+retained-window fingerprint; it is never copied from a mutable definition or an expired execution.
+Absent method evidence refuses with `COMPOSITE_VECTOR_METHOD_UNAVAILABLE`; incompatible common
+methods refuse with `COMPOSITE_VECTOR_METHOD_MISMATCH`. Corrupt receipts retain their existing
+integrity refusals. This internal method supplies no provider, FX, financial approval or bank
+authority: the separate v2 and FX admission paths and their unavailable-authority refusals remain.
+
 This is explicit historical calculated replay, including when a newer correction is pending or
 complete. It does not select latest-approved or official authority and does not freeze edits.
 PostgreSQL reads every selected receipt, publication and fact check under REPEATABLE READ; SQLite

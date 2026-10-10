@@ -45,7 +45,7 @@ def captured_vector(session, principal, candidate_id):
         record = _captured_record(session, principal.tenant_id, window.materialization_id)
         source, command = record.source, record.command
         currency = retained_currency_authority(record)
-        method = retained_return_method(source.definition, currency.normalization_method)
+        method = retained_return_method(record, currency.normalization_method)
         if retained_window_evidence(record, method) != window:
             custody_refused()
         pin = {

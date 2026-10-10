@@ -96,6 +96,61 @@ def test_registered_approval_default_unavailable_preserves_proposal_without_sele
     assert fixture.counts() == before
 
 
+def test_internal_v1_candidate_authority_revalidates_original_method_digest(authority_http, monkeypatch):
+    from uuid import UUID
+
+    from app.adapters.composite_result_authority import vector
+    from app.models.composites import CompositeTWRRequest
+    from app.services.composite_materialization.application import run_materialization_attempt
+    from core.errors import APIError
+    from tests.composite_materialization_helpers import (
+        MembershipSource,
+        MemberSource,
+        admitted,
+        command_for,
+        running_job,
+    )
+
+    fixture, _, _ = authority_http
+    command = command_for()
+    completed = run_materialization_attempt(
+        running_job(fixture.jobs, command),
+        job_store=fixture.jobs,
+        ledger=fixture.ledger,
+        facts=fixture.store,
+        membership_source=MembershipSource(admitted(command)),
+        member_source=MemberSource(),
+    )
+    assert completed.state == "COMPLETE"
+    candidate = fixture.capture(
+        CompositeTWRRequest(
+            composite_id=command.composite_id,
+            period_start=command.period_start,
+            period_end=command.period_end,
+            materialization_ids=[command.materialization_id],
+        )
+    )
+    identity = UUID(candidate["candidate_id"])
+    principal = fixture.principal("maker")
+    with fixture.store._session_factory() as session:
+        original = vector.captured_vector(session, principal, identity)
+        assert original.windows[0].materialization_id == command.materialization_id
+        derive = vector.retained_return_method
+        # Simulate a downstream method projection changing while the original
+        # protected candidate and its source receipts remain byte-for-byte intact.
+        monkeypatch.setattr(
+            vector,
+            "retained_return_method",
+            lambda record, currency: {
+                **derive(record, currency),
+                "method_digest": "sha256:" + "0" * 64,
+            },
+        )
+        with pytest.raises(APIError) as error:
+            vector.captured_vector(session, principal, identity)
+        assert error.value.error_code == "COMPOSITE_RESULT_CUSTODY_REFUSED"
+
+
 @pytest.mark.parametrize("synthetic_now", [datetime(2020, 1, 1, tzinfo=UTC), datetime(2040, 1, 1, tzinfo=UTC)])
 def test_registered_synthetic_workflow_returns_original_and_verified_audit_actor(
     authority_http, monkeypatch, caplog, synthetic_now

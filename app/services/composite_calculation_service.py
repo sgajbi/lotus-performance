@@ -65,7 +65,7 @@ def select_composite_materialization_facts(
         definition = _complete_window_definition(record)
         _require_window_scope(record.command, request, currency, cursor)
         currency_authority = retained_currency_authority(record)
-        method = retained_return_method(definition, currency_authority.normalization_method)
+        method = retained_return_method(record, currency_authority.normalization_method)
         selected_basis = (
             definition.calculation_method,
             record.command.policy_version,
@@ -119,20 +119,17 @@ def _complete_window_definition(
     if record.state != CompositeMaterializationState.COMPLETE or record.source is None:
         raise APIConflictError("A required retained window is unavailable.", error_code="REQUIRED_PERIOD_UNAVAILABLE")
     definition = record.source.definition
-    if not isinstance(definition, ManageCompositeDefinitionV2) and record.source.currency_normalization_wire is None:
-        raise APIUnprocessableEntityError(
-            "Pinned TWR windows require retained method authority.", error_code="COMPOSITE_VECTOR_METHOD_UNAVAILABLE"
-        )
     return definition
 
 
-def retained_return_method(definition, currency_method):
+def retained_return_method(record: MaterializationRecord, currency_method):
+    definition = _complete_window_definition(record)
     if isinstance(definition, ManageCompositeDefinitionV2):
         return definition.source_authority.payload.return_method_binding.model_dump(mode="json")
     if currency_method is None:
-        raise APIUnprocessableEntityError(
-            "Pinned TWR windows require retained method authority.", error_code="COMPOSITE_VECTOR_METHOD_UNAVAILABLE"
-        )
+        from app.services.composite_materialization.internal_return_method import retained_internal_return_method
+
+        return retained_internal_return_method(record)
     return currency_method
 
 
