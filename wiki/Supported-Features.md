@@ -130,7 +130,13 @@ The calculation endpoint intentionally reads already-materialized member-return 
 fan out into hidden request-time member portfolio TWR calculations, infer membership policy, convert
 return views, or perform cross-currency aggregation at request time.
 
-Contribution rankings, classified rollups, annualized contribution transforms, composite attribution,
+Bounded single-period Composite BF analysis uses the existing analytics operation and worker with
+complete historical source economics, a READY original and separate BF-purpose approval.
+See [Composite Attribution](Composite-Attribution) for its retained dataset and caller/method links.
+This is controlled synthetic software evidence; source and purpose authority default unavailable.
+It does not extend the TWR product's trust contract or grant official/current-use qualification.
+
+Contribution rankings, classified rollups, annualized contribution transforms, institutionally qualified or advanced composite attribution,
 institutionally qualified composite MWR, carve-outs, sleeves, model portfolios,
 wrap programs, pooled fund composites, private-market composites, portability records,
 tax-aware composites, leveraged composites, long/short special composite structures, and

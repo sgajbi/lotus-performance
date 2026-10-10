@@ -1,0 +1,32 @@
+{
+  "evidence_class": "CONTROLLED_SYNTHETIC_ONLY",
+  "request": {
+    "calculation_id": "b6a82a78-e78f-48dd-b704-10c99fc68c01",
+    "metric_id": "SINGLE_PERIOD_BRINSON_FACHLER",
+    "method": "BRINSON_FACHLER_ARITHMETIC_THREE_EFFECT:v1",
+    "composite_id": "COMPOSITE",
+    "candidate_id": "4539f492-6fc5-4cd4-a89d-1b210696ef25",
+    "source_manifest_id": "manifest-1",
+    "policy_binding_id": "policy-1",
+    "period_start": "2026-01-05",
+    "period_end": "2026-01-05",
+    "reporting_currency": "USD",
+    "return_view": "NET_ACTUAL",
+    "precision_mode": "FLOAT64"
+  },
+  "expected_outcome": {
+    "units": "DECIMAL_RETURN",
+    "precision_mode": "FLOAT64",
+    "active_return_convention": "ARITHMETIC_DIFFERENCE",
+    "portfolio_return": 0.068,
+    "benchmark_return": 0.055,
+    "active_return": 0.013,
+    "allocation": 0.005,
+    "selection": 0.005,
+    "interaction": 0.003,
+    "groups": [
+      {"group_id": "g1", "allocation": 0.0025, "selection": 0.01, "interaction": 0.002, "total": 0.0145},
+      {"group_id": "g2", "allocation": 0.0025, "selection": -0.005, "interaction": 0.001, "total": -0.0015}
+    ]
+  }
+}

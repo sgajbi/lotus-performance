@@ -52,6 +52,14 @@ MWR solver; member IRRs are never averaged. See the
 This is controlled synthetic qualification: the default source reader refuses,
 actual supplier applicability remains separate and ACT/365 is the only admitted basis.
 
+Single-period BF attribution uses the same analytics operation with
+`metric_id=SINGLE_PERIOD_BRINSON_FACHLER` and the existing worker. It reconciles complete
+source-approved pooled group economics against one retained READY original before producing
+allocation, selection and interaction. See the [caller guide](composite_attribution.md) and
+[methodology](../methodologies/metrics/metric-composite-single-period-brinson-fachler.md).
+Source and separate financial-purpose authority default unavailable; controlled synthetic proof
+does not establish institutional approval or current permission to publish a result.
+
 Not supported by this endpoint:
 
 - ad hoc request-time member return arrays;
@@ -314,8 +322,8 @@ downstream product material until implemented and proven.
 Current unsupported scopes:
 
 - contribution rankings, classified rollups and annualized contribution transforms;
-- composite attribution;
-- composite MWR;
+- advanced or institutionally qualified composite attribution (bounded synthetic single-period BF analysis is described above);
+- institutionally qualified composite MWR (bounded synthetic pooled analysis is described above);
 - sleeves and carve-outs;
 - model portfolios and wrap programs;
 - pooled fund and private-market composites;

@@ -13,6 +13,7 @@ separate from official approval, freeze, live-source qualification and instituti
 | Interpret the supported model-fee calculation | [Model-fee methodology](https://github.com/sgajbi/lotus-performance/blob/main/docs/methodologies/metrics/metric-composite-periodic-model-fee.md) |
 | Use annual flat, marginal-tiered or whole-AUM model wealth rates | [Scheduled caller guide](https://github.com/sgajbi/lotus-performance/blob/main/docs/guides/composite_scheduled_model_fee.md) |
 | Interpret pooled dated monetary analysis | [Pooled XIRR caller guide](https://github.com/sgajbi/lotus-performance/blob/main/docs/guides/composite_pooled_mwr.md) |
+| Explain one original period against a historical benchmark | [Composite Attribution](Composite-Attribution), with source and purpose authority unavailable by default |
 | Operate or recover the service | [Operations runbook](Operations-Runbook) |
 
 ## Result Capture and Evidence Posture
@@ -481,7 +482,7 @@ and [methodology](https://github.com/sgajbi/lotus-performance/blob/main/docs/met
 The current implementation does not support:
 
 - contribution rankings, classified rollups and annualized contribution transforms;
-- composite attribution;
+- advanced or institutionally qualified composite attribution (bounded synthetic single-period BF is described in [Composite Attribution](Composite-Attribution));
 - institutionally qualified composite MWR (bounded synthetic analysis is described above);
 - sleeves and carve-outs;
 - model portfolios and wrap programs;

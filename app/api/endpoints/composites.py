@@ -16,10 +16,15 @@ from app.api.dependencies.composite_linked_contribution import linked_contributi
 from app.api.dependencies.composite_pooled_mwr import require_pooled_principal
 from app.api.http_response_adapter import to_fastapi_response
 from app.api.http_status import HTTP_422_UNPROCESSABLE
-from app.composite_principal_admission import trusted_request_principal
+from app.composite_principal_admission import VERIFIED_SURFACE_STATE_KEY, trusted_request_principal
 from app.models.composite_analytics import CompositeAnalyticsRequest, CompositeAnalyticsResponse
 from app.models.composite_annual_comparison import CompositeAnnualComparisonRequest, CompositeAnnualComparisonResponse
 from app.models.composite_annual_dispersion import CompositeAnnualDispersionResponse
+from app.models.composite_attribution import (
+    CompositeAttributionAcceptedResponse,
+    CompositeAttributionRequest,
+    CompositeAttributionResponse,
+)
 from app.models.composite_fee_drag import CompositeFeeDragRequest, CompositeFeeDragResponse
 from app.models.composite_linked_contribution import (
     CompositeLinkedContributionRequest,
@@ -47,9 +52,11 @@ from app.models.composites import (
 )
 from app.models.platform_surfaces import ErrorDetailResponse
 from app.ports.composite_annual_dispersion import AnnualDispersionReceiptReader
+from app.services.analytics_workflow_types import ANALYTICS_WORKFLOW_COMPOSITE_ATTRIBUTION
 from app.services.calculation_engine_version import calculation_engine_version
 from app.services.composite_annual_dispersion.application import calculate_annual_member_dispersion
 from app.services.composite_annual_dispersion.comparison import compare_annual_member_dispersion
+from app.services.composite_attribution.application import read_attribution_result, submit_attribution
 from app.services.composite_calculation_service import (
     CompositeDefinitionNotFoundError,
     calculate_composite_twr_from_materializations,
@@ -65,6 +72,7 @@ from app.services.composite_result_candidate_admission import (
     read_result_candidate,
     require_verified_candidate_principal,
 )
+from app.services.compute_job_store import compute_job_store
 from app.services.core_tenant_authority import (
     COMPOSITE_TENANT_AUTHORITY_REQUIRED_DETAIL,
     MALFORMED_TENANT_AUTHORITY_DETAIL,
@@ -527,6 +535,9 @@ FEE_DRAG_OPENAPI_EXAMPLES = fee_drag_openapi_examples()
         "pooled monetary calculation using qualified source ports and verified principal/member scope. "
         "Original monetary inputs and results are retained immutably; corrections use new calculation IDs. "
         "Member IRRs are never averaged. Missing supplier authority refuses; controlled examples remain synthetic. "
+        "SINGLE_PERIOD_BRINSON_FACHLER registers an asynchronous arithmetic allocation, selection and interaction "
+        "analysis against one retained READY Composite original. Complete source-owned group economics and separate "
+        "financial-purpose authority are required; source and authority defaults are unavailable. "
         "MODEL_FEE_DRAG compares original gross and model-net returns from the same complete retained model-fee "
         "receipt vector. Period and independently linked horizon differences are decimal return differences, not cash fees. "
         "The linked metric uses "
@@ -541,8 +552,8 @@ FEE_DRAG_OPENAPI_EXAMPLES = fee_drag_openapi_examples()
     ),
     responses={
         202: {
-            "model": CompositePooledMWRAcceptedResponse,
-            "description": "Pooled XIRR accepted for the existing compute worker; follow result_path.",
+            "model": CompositePooledMWRAcceptedResponse | CompositeAttributionAcceptedResponse,
+            "description": "Pooled XIRR or single-period BF accepted for the existing compute worker; follow result_path.",
         },
         200: {
             "description": "Named annual dispersion, linked member contribution or same-population model fee drag.",
@@ -610,6 +621,9 @@ def evaluate_composite_analytics(
     tenant_id: Annotated[str, Depends(_required_composite_tenant)],
     reader: Annotated[AnnualDispersionReceiptReader, Depends(get_annual_dispersion_receipt_reader)],
 ) -> CompositeAnnualDispersionResponse | CompositeLinkedContributionResponse | CompositeFeeDragResponse | JSONResponse:
+    if isinstance(request, CompositeAttributionRequest):
+        principal = require_pooled_principal(http_request, tenant_id=tenant_id)
+        return to_fastapi_response(submit_attribution(request, principal=principal))
     if isinstance(request, CompositePooledMWRRequest):
         principal = require_pooled_principal(http_request, tenant_id=tenant_id)
         return to_fastapi_response(submit_pooled_mwr(request, principal=principal))
@@ -622,9 +636,12 @@ def evaluate_composite_analytics(
 
 @router.get(
     "/composites/analytics/results/{calculation_id}",
-    response_model=CompositePooledMWRResponse,
-    summary="Read a retained pooled Composite XIRR result",
-    responses={202: {"model": CompositePooledMWRAcceptedResponse}, **COMPOSITE_TENANT_AUTHORITY_RESPONSES},
+    response_model=CompositePooledMWRResponse | CompositeAttributionResponse,
+    summary="Read a retained Composite calculated analysis original",
+    responses={
+        202: {"model": CompositePooledMWRAcceptedResponse | CompositeAttributionAcceptedResponse},
+        **COMPOSITE_TENANT_AUTHORITY_RESPONSES,
+    },
     openapi_extra=COMPOSITE_TENANT_OPENAPI_EXTRA,
 )
 def get_pooled_composite_analytics_result(
@@ -633,6 +650,10 @@ def get_pooled_composite_analytics_result(
     tenant_id: Annotated[str, Depends(_required_composite_tenant)],
 ):
     principal = require_pooled_principal(http_request, tenant_id=tenant_id)
+    job = compute_job_store.get_job_for_tenant(calculation_id, tenant_id=tenant_id)
+    if job is not None and job.analytics_type == ANALYTICS_WORKFLOW_COMPOSITE_ATTRIBUTION:
+        setattr(http_request.state, VERIFIED_SURFACE_STATE_KEY, "composite_attribution")
+        return to_fastapi_response(read_attribution_result(calculation_id, principal=principal))
     return to_fastapi_response(read_pooled_mwr_result(calculation_id, principal=principal))
 
 

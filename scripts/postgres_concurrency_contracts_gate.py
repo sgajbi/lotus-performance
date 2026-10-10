@@ -42,6 +42,7 @@ DEFAULT_TARGETS = (
     "tests/benchmarks/test_postgres_composite_pooled_mwr.py",
     "tests/benchmarks/test_postgres_composite_authority.py",
     "tests/benchmarks/test_postgres_composite_authority_extended.py",
+    "tests/benchmarks/test_postgres_composite_attribution.py",
 )
 
 

@@ -122,7 +122,7 @@ def test_pg_and_matrix_are_independent_jobs_preserving_baseline_and_authority_pr
         "integration",
         "e2e",
     }
-    assert len(DEFAULT_TARGETS) == 11 and len(set(DEFAULT_TARGETS)) == 11
+    assert len(DEFAULT_TARGETS) == 12 and len(set(DEFAULT_TARGETS)) == 12
     # Immutable baseline target-manifest digest from main e67ef6db. Works in the
     # shallow CI checkout, without creating a second editable selection list.
     assert sha256(json.dumps(DEFAULT_TARGETS[:9]).encode()).hexdigest() == (
@@ -131,6 +131,7 @@ def test_pg_and_matrix_are_independent_jobs_preserving_baseline_and_authority_pr
     assert DEFAULT_TARGETS[9:] == (
         "tests/benchmarks/test_postgres_composite_authority.py",
         "tests/benchmarks/test_postgres_composite_authority_extended.py",
+        "tests/benchmarks/test_postgres_composite_attribution.py",
     )
 
 

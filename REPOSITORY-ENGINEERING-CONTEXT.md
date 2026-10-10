@@ -1282,6 +1282,42 @@ and unchanged engine tree do not establish causality or operating-envelope quali
 Use the named matched-envelope plan in `docs/technical/performance_characterization.md` before
 new measurements; never seek a lucky full-suite pass or weaken precision/budget/source admission.
 
+In `tests/benchmarks/test_postgres_concurrency_contracts.py`, direct durable-store allocations
+belong to the enclosing test's `ExitStack`, including restarted owners and stores constructed
+inside contention workers. Register each actual engine for disposal before using it. Existing
+runtime-cache ownership helpers remain responsible for resolver allocations; do not clear borrowed
+caches or raise PostgreSQL connection limits to hide leaked test owners. The connection-lifetime
+regression retains store objects and observes their exact backend PIDs through repeated concurrent
+waves, covering successful and interrupted scopes. #648 retains the original full-cohort failure.
+Choose an ownership alias absent from the original scope's names and bindings, including
+parameters, assignments, loops, exception targets and imports. Removing ownership wrappers and
+comparing the original AST alone cannot detect a newly captured or shadowed alias: #648's first
+repair reused an existing `owners` list name and failed on restarted allocation. Preserve the
+original domain-owner binding and verify alias separation alongside structural equivalence.
+
+## Single-period Composite BF Practice
+
+`SINGLE_PERIOD_BRINSON_FACHLER` reuses the registered Composite analytics route, verified
+principal admission, existing compute worker, shared calculation-engine version and async result
+owner. Its full immutable input lives in `composite_attribution_inputs`, subordinate to
+`CompositeMetadataStore`; include it in explicit durable-schema ownership and guards.
+Do not create a second financial engine or numerical ledger.
+
+Require one actual retained READY original, full member/group and benchmark universes,
+independently normalized positive beginning-capital weights, actual returns, original-return
+reconciliation, exact historical pins/raw source custody and separate BF-purpose approval.
+Source and independent financial authority default unavailable. No portfolio alignment fill,
+member-effect averaging, linking, annualization or unit conversion enters this convention.
+Reject strict precision before source/job registration under the shared FLOAT64 policy.
+
+Source reads, financial verification and BF arithmetic remain outside write fences. The existing
+lease transaction binds inputs and publishes results with original/current-selection dependency
+rechecks. Published replay reads original custody without recalculation or new BF approval;
+captured-original source-authority registrations remain required. Corrections use new identities.
+Read `docs/guides/composite_attribution.md` and the v3 BF methodology for the retained dataset,
+source requirements and non-certifying scope. The controlled OR17 JSON is asserted by the
+registered API test; it is not a live supplier fixture.
+
 ## Pooled Composite MWR Practice
 
 `POOLED_MONEY_WEIGHTED_RETURN` / `XIRR:v1` uses the existing composite analytics

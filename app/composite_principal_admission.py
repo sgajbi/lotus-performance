@@ -1,4 +1,4 @@
-"""Outer verified admission for candidate routes and the explicit pooled metric."""
+"""Outer verified admission for candidate routes and protected Composite metrics."""
 
 import json
 from dataclasses import dataclass
@@ -29,8 +29,8 @@ from app.observability import tenant_id_var
 RESULT_CANDIDATE_PATH = "/performance/composites/result-candidates"
 PRINCIPAL_STATE_KEY = "verified_composite_principal"
 VERIFIED_SURFACE_STATE_KEY = "verified_composite_surface"
-POOLED_ANALYTICS_PATH = "/performance/composites/analytics"
-POOLED_RESULTS_PATH = POOLED_ANALYTICS_PATH + "/results/"
+COMPOSITE_ANALYTICS_PATH = "/performance/composites/analytics"
+COMPOSITE_RESULTS_PATH = COMPOSITE_ANALYTICS_PATH + "/results/"
 RESULT_AUTHORITY_PATH = "/performance/composites/result-authorities"
 
 
@@ -42,12 +42,12 @@ def is_authority_path(path):
     return path == RESULT_AUTHORITY_PATH or path.startswith(RESULT_AUTHORITY_PATH + "/")
 
 
-def _is_pooled_result_route(scope):
+def _is_composite_result_route(scope):
     path = scope["path"]
-    suffix = path.removeprefix(POOLED_RESULTS_PATH)
+    suffix = path.removeprefix(COMPOSITE_RESULTS_PATH)
     return (
         scope["method"] in ("GET", "HEAD")
-        and path.startswith(POOLED_RESULTS_PATH)
+        and path.startswith(COMPOSITE_RESULTS_PATH)
         and bool(suffix)
         and "/" not in suffix
     )
@@ -61,6 +61,8 @@ def verified_composite_surface(request: Request) -> str | None:
     # Only outer server middleware establishes this marker. Pending dispatch
     # fails closed in terminal logs if oversized bytes prevent classification.
     marker = getattr(request.state, VERIFIED_SURFACE_STATE_KEY, None)
+    if marker == "composite_attribution":
+        return marker
     if marker in ("composite_pooled_mwr", "composite_pooled_dispatch"):
         return "composite_pooled_mwr"
     return None
@@ -94,20 +96,31 @@ def _replay_body(receive: Receive, body: bytes, *, disconnected: bool) -> Receiv
     return replay
 
 
-async def _pooled_dispatch_body(request: Request, receive: Receive) -> tuple[bool, Receive]:
+async def _composite_analytics_dispatch_body(request: Request, receive: Receive) -> tuple[str | None, Receive]:
     bound = _max_write_payload_bytes()
     if _write_payload_too_large(method=request.method, headers=request.headers, max_write_payload_bytes=bound):
         raise PayloadTooLargeError
     body, disconnected = await _bounded_dispatch_bytes(receive, bound)
     replay = _replay_body(receive, body, disconnected=disconnected)
     if disconnected:
-        return False, replay
+        return None, replay
     try:
         payload = json.loads(body)
     except (ValueError, RecursionError):
-        return False, replay
+        return None, replay
     # Match Request.json()'s last-key-wins semantics and replay exact body bytes.
-    return isinstance(payload, dict) and payload.get("metric_id") == "POOLED_MONEY_WEIGHTED_RETURN", replay
+    return _protected_analytics_surface(payload), replay
+
+
+def _protected_analytics_surface(payload):
+    metric = payload.get("metric_id") if isinstance(payload, dict) else None
+    if not isinstance(metric, str):
+        return None
+    surfaces = {
+        "POOLED_MONEY_WEIGHTED_RETURN": "composite_pooled_mwr",
+        "SINGLE_PERIOD_BRINSON_FACHLER": "composite_attribution",
+    }
+    return surfaces.get(metric)
 
 
 async def _bounded_dispatch_bytes(receive: Receive, bound: int) -> tuple[bytes, bool]:
@@ -130,12 +143,12 @@ async def _bounded_dispatch_bytes(receive: Receive, bound: int) -> tuple[bytes, 
 async def _classify_surface(request: Request, receive: Receive):
     scope = request.scope
     candidate = is_candidate_path(scope["path"]) or is_authority_path(scope["path"])
-    pooled = _is_pooled_result_route(scope)
-    if scope["method"] == "POST" and scope["path"] == POOLED_ANALYTICS_PATH and _json_body_request(request):
+    analytics_surface = "composite_pooled_mwr" if _is_composite_result_route(scope) else None
+    if scope["method"] == "POST" and scope["path"] == COMPOSITE_ANALYTICS_PATH and _json_body_request(request):
         scope.setdefault("state", {})[VERIFIED_SURFACE_STATE_KEY] = "composite_pooled_dispatch"
-        pooled, receive = await _pooled_dispatch_body(request, receive)
+        analytics_surface, receive = await _composite_analytics_dispatch_body(request, receive)
         scope["state"].pop(VERIFIED_SURFACE_STATE_KEY, None)
-    return candidate, pooled, receive
+    return candidate, analytics_surface, receive
 
 
 @dataclass(frozen=True)
@@ -222,12 +235,14 @@ class CompositePrincipalAdmissionMiddleware:
             return await self.app(scope, receive, send)
         request = Request(scope)
         try:
-            candidate, pooled, receive = await _classify_surface(request, receive)
+            candidate, analytics_surface, receive = await _classify_surface(request, receive)
         except PayloadTooLargeError:
             return await _payload_too_large_response()(scope, receive, send)
-        if not candidate and not pooled:
+        if not candidate and not analytics_surface:
             return await self.app(scope, receive, send)
-        scope.setdefault("state", {})[VERIFIED_SURFACE_STATE_KEY] = _surface_name(scope["path"], candidate)
+        scope.setdefault("state", {})[VERIFIED_SURFACE_STATE_KEY] = _surface_name(
+            scope["path"], candidate, analytics_surface
+        )
         outcome = _admitted_principal(request)
         if isinstance(outcome, PrincipalDenial):
             response = _denied_response(request, outcome)
@@ -240,7 +255,7 @@ class CompositePrincipalAdmissionMiddleware:
             tenant_id_var.reset(token)
 
 
-def _surface_name(path, candidate):
+def _surface_name(path, candidate, analytics_surface):
     if is_authority_path(path):
         return "composite_result_authority"
-    return "composite_result_candidates" if candidate else "composite_pooled_mwr"
+    return "composite_result_candidates" if candidate else analytics_surface
