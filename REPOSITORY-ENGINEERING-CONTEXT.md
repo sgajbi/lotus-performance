@@ -1282,6 +1282,19 @@ and unchanged engine tree do not establish causality or operating-envelope quali
 Use the named matched-envelope plan in `docs/technical/performance_characterization.md` before
 new measurements; never seek a lucky full-suite pass or weaken precision/budget/source admission.
 
+Issue #617's 10 October 2026 reference qualification binds exact source `b4e905e4` to the
+actual Python 3.11.17 Linux runtime image (four-CPU effective quota/4 GiB/no extra swap)
+and Python 3.13.3 Windows (real Job affinity0xF/process+job4 GiB) profiles. Their unchanged
+75k/FLOAT64/caller-copy-plus-run medians are respectively 0.33487504499498755 and
+0.42923679994419217 seconds. Loaded numerical pins, source/native results and exact cleanup
+are retained; Windows has external full environment/source pre/post freeze. See the technical
+guide's qualified reference profiles for complete samples and identities. Reuse accepted
+exact-source full characterization/financial proof; no support shrink, original-failure causal
+claim, universal latency guarantee or bank resource entitlement follows from these references.
+For external profile custody, validate exact seal bytes before launch and retain native failures
+independently of controller/cleanup verdicts; qualify observed Docker representations without
+weakening the effective resource guards.
+
 In `tests/benchmarks/test_postgres_concurrency_contracts.py`, direct durable-store allocations
 belong to the enclosing test's `ExitStack`, including restarted owners and stores constructed
 inside contention workers. Register each actual engine for disposal before using it. Existing
