@@ -3,6 +3,7 @@
 import pytest
 
 from tests.benchmarks.postgres_runtime_helpers import get_postgres_database_url
+from tests.composite_attribution_refusal_helpers import SOURCE_REFUSAL_CASES
 from tests.integration import test_composite_attribution_api as contracts
 
 attribution_runtime = contracts.attribution_runtime
@@ -50,6 +51,20 @@ def test_postgres_independent_bf_purpose(attribution_runtime, evidence):
 
 def test_postgres_strict_precision_before_source(attribution_runtime):
     contracts.test_registered_strict_precision_refuses_before_source_or_job(attribution_runtime)
+
+
+@pytest.mark.parametrize("case,expected_code", SOURCE_REFUSAL_CASES)
+def test_postgres_financial_source_refusal_has_no_retained_economics(
+    attribution_runtime, monkeypatch, case, expected_code
+):
+    contracts.test_registered_financial_source_refusal_has_no_retained_economics(
+        attribution_runtime, monkeypatch, case, expected_code
+    )
+
+
+@pytest.mark.parametrize("benchmark_return", [0.0, -0.02])
+def test_postgres_observed_zero_or_negative_return_is_not_missing(attribution_runtime, benchmark_return):
+    contracts.test_registered_observed_zero_or_negative_return_is_not_missing(attribution_runtime, benchmark_return)
 
 
 def test_postgres_missing_guard_refuses_without_repair(attribution_runtime):
