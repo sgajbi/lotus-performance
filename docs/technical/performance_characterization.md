@@ -133,6 +133,57 @@ causal claims require a separately reviewed comparison. Resource or supported-li
 changes require explicit governed acceptance. Richer artifacts alone do not close #617 or
 certify deployment readiness.
 
+### Qualified reference profiles - 10 October 2026
+
+The two missing source/resource bindings in [issue #617 qualification evidence](https://github.com/sgajbi/lotus-performance/issues/617#issuecomment-6097213411)
+are qualified for source `b4e905e43e2ea7cc28b56d45d5fefa3ce20cc057`, tree
+`4e731901901ed2c5445ba0885b067b58de41d83c`. Both use loaded NumPy/pandas `2.3.2`,
+the same admitted FLOAT64 input/configuration, 75,000 unique daily rows, one warm-up,
+five measured calls and the unchanged caller-copy-plus-calculation boundary and 0.500-second budget.
+
+| Reference | Actual interpreter and enforced resources | Median seconds |
+| --- | --- | --- |
+| Linux runtime image | Python 3.11.17; process-effective cgroup quota `400000 100000`, memory `4294967296`, swap `0`; UID/GID10001, network none, read-only root | 0.33487504499498755 |
+| Windows | Python 3.13.3; Windows 11 build26200/i9-11900KF; real Job membership, process/job affinity `0xF`, process/job memory limits `4294967296` | 0.42923679994419217 |
+
+Ordered samples in seconds, retained without rounding:
+
+```json
+{
+  "linux": [0.33487504499498755, 0.3113839700818062, 0.3542105440283194, 0.3240083260461688, 0.3411974039627239],
+  "windows": [0.47468290000688285, 0.4553645000560209, 0.42923679994419217, 0.41219469998031855, 0.42801520007196814]
+}
+```
+
+The Linux profile ran inside locally built deployable image
+`sha256:1930e7ce557ccb5385bdc8df359c3214a40f0dbadaf75acc6aa5bc00fdfeb99d`, from
+the unchanged canonical Dockerfile and frozen source. This is an actual image identity, not a
+published registry digest. Its observed affinity spans 16 host CPUs; the enforced resource is
+the four-CPU quota, not a four-CPU cpuset. Loaded numerical libraries resolve under `/usr/local`;
+no source/library overlay is present. The source check after the helper and both native exits pass.
+Windows admission assigns the suspended child to the real Job before resume; the child rechecks
+limits, interpreter/DLL and loaded libraries before the owning pytest node. Native child/launcher
+exits are zero, with owned Job/process quiescence and handle cleanup. External pre/post checks
+rehash 9,883 environment and 1,404 source files plus interpreter/DLL and adapter seals; this is
+external pre/post freeze, not an inside-child full-binary hash guard.
+
+Both measurements bind canonical input SHA256
+`df37b292eface97c4ff733f93c0abfe809105966d822a40f0335ef33df935897` and config SHA256
+`72e1d1462bd0f753f4e1f4b3f3a09e0808a2209ac801b6c81b4e441a51dd2a62`.
+The retained qualification JSON SHA256 is
+`2a2a736554eaad3341c2508241f63a5578caa1d620ebddbb268a20e90bf73d77`; its 127-file
+evidence archive SHA256 is `e3a0e46a5f0d9818dfec42a04168e2e836fd6fa630389eb75f6d7920487f7497`.
+It preserves all samples, identities, native results and the spent pre-engine controller failure.
+The deterministic operational repair did not retry a measured budget failure or change numerics.
+
+The [exact-source hosted characterization](https://github.com/sgajbi/lotus-performance/actions/runs/38037935203)
+passed 365 full and 48 real PostgreSQL cases without skips/errors/failures; its accepted financial
+and FLOAT64/DECIMAL_STRICT correctness evidence is reused. Hosted CI, these local reference
+profiles and a bank's production resource entitlement remain distinct. No full campaign was
+repeated to obtain these measurements. The original Windows miss retains its uncertainty;
+these later passes do not establish its cause or guarantee every compatible host/interpreter.
+Python `>=3.11,<3.14`, including Windows/3.13, remains supported; no compatibility limit changed.
+
 ## Durable queue-stat budgets
 
 These characterize the control-plane query path behind:

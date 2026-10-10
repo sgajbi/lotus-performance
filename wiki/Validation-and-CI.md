@@ -256,9 +256,21 @@ Unavailable fields are null with reasons. A hosted runner and supplied image dec
 prove deployed resource qualification.
 
 Package compatibility remains Python `>=3.11,<3.14`; CI/container target Python 3.11 does not
-silently exclude Windows/3.13. #617 remains open for the original Windows miss and operating
-envelope. Preserve failed evidence and uncertainty; use a reviewed bounded matched-envelope plan,
-not repeated full-suite runs or budget/precision changes. See
+silently exclude Windows/3.13. [Issue #617 qualification](https://github.com/sgajbi/lotus-performance/issues/617#issuecomment-6097213411)
+now records two exact-source `b4e905e4` reference profiles with loaded NumPy/pandas2.3.2:
+
+| Qualified reference | Enforced resources | Unchanged 75k/FLOAT64 median |
+| --- | --- | --- |
+| Actual Linux runtime image, Python 3.11.17 | Four-CPU effective quota, 4 GiB/no extra swap, nonroot/read-only/network none | 0.33487504499498755s |
+| Windows 11/Python 3.13.3 | Real suspended-child Job admission, affinity0xF, process/job4 GiB | 0.42923679994419217s |
+
+Both retain the caller deep copy, one warm-up, all five samples and the 0.500-second assertion.
+Native results and exact cleanup passed; Windows environment/source hashes match before and
+after execution. Exact-source full characterization (365 cases) and real PostgreSQL (48 cases)
+proof is reused, with no duplicate campaign. These measured references do not establish the
+cause of the original miss, qualify every compatible host, or allocate bank production capacity.
+Preserve failed evidence and uncertainty; use bounded reviewed admission for any new measurement,
+without budget/precision changes. See
 [Performance Characterization](https://github.com/sgajbi/lotus-performance/blob/main/docs/technical/performance_characterization.md)
 for the field contract and qualification limits.
 
