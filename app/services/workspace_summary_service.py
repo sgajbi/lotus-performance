@@ -906,7 +906,8 @@ def _resolve_workspace_summary_supportability(
         ),
         report_end_date=request.report_end_date,
         benchmark_row_count=len(evidence.in_window_benchmark_df),
-        minimum_input_row_count=2,
+        # Workspace TWR consumes complete BOD/EOD daily intervals, not valuation instants.
+        minimum_input_row_count=1,
         source_quality_evidence=portfolio_input.source_quality_evidence,
         history_coverage=evidence.history_coverage,
     )
@@ -962,14 +963,14 @@ def _unavailable_workspace_supportability(
     evidence: _WorkspaceSupportabilityEvidence,
 ) -> PerformanceCalculationSupportability | None:
     benchmark_row_count = len(evidence.in_window_benchmark_df)
-    if evidence.input_row_count < 2 or emitted_result_count <= 0:
+    if evidence.input_row_count < 1 or emitted_result_count <= 0:
         return build_calculation_supportability(
             input_row_count=evidence.input_row_count,
             resolved_period_count=emitted_result_count,
             latest_observation_date=evidence.latest_observation_date,
             report_end_date=request.report_end_date,
             benchmark_row_count=benchmark_row_count,
-            minimum_input_row_count=2,
+            minimum_input_row_count=1,
             source_quality_evidence=portfolio_input.source_quality_evidence,
             history_coverage=evidence.history_coverage,
         )

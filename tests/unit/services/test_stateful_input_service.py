@@ -587,6 +587,7 @@ def test_build_portfolio_chunk_payload_projects_identity_observations_and_page_c
         "reporting_currency": "USD",
         "observations": [
             {"valuation_date": "2026-01-01", "ending_market_value": "101"},
+            {"valuation_date": "2026-01-02", "ending_market_value": "stale"},
             {"valuation_date": "2026-01-02", "ending_market_value": "102"},
         ],
         "retrieval_metadata": {"page_count": 3},
@@ -635,6 +636,7 @@ def test_build_portfolio_timeseries_payload_normalizes_chunk_responses():
         "reporting_currency": "USD",
         "observations": [
             {"valuation_date": "2026-01-01", "ending_market_value": "101"},
+            {"valuation_date": "2026-01-02", "ending_market_value": "102"},
             {"valuation_date": "2026-01-02", "ending_market_value": "replacement"},
         ],
         "retrieval_metadata": {"chunk_count": 3, "page_count": 3},

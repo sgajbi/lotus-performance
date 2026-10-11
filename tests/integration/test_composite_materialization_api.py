@@ -46,7 +46,7 @@ LARGE_EXACT_ASSETS = {
 
 
 def install_source_wire_controls(
-    monkeypatch, products, *, figures=None, flows=None, currencies=None, performance_day="2026-01-05"
+    monkeypatch, products, *, figures=None, flows=None, currencies=None, performance_day="2026-01-05", single_day=False
 ):
     """Controlled upstream wires, not live Manage/Core acceptance."""
     definition, membership, attestation = products
@@ -75,13 +75,19 @@ def install_source_wire_controls(
             "portfolio_open_date": "2026-01-01",
             "portfolio_currency": currency,
             "reporting_currency": currency,
-            "observations": [
-                {
-                    "valuation_date": "2026-01-02",
-                    "beginning_market_value": beginning,
-                    "ending_market_value": beginning,
-                    "source_classification": "official",
-                },
+            "observations": (
+                [
+                    {
+                        "valuation_date": "2026-01-02",
+                        "beginning_market_value": beginning,
+                        "ending_market_value": beginning,
+                        "source_classification": "official",
+                    },
+                ]
+                if not single_day
+                else []
+            )
+            + [
                 {
                     "valuation_date": performance_day,
                     "beginning_market_value": beginning,
@@ -138,10 +144,11 @@ def composite_request(command, *, sequence=None):
     }
 
 
-def test_retained_member_adapter_refuses_conflicting_execution_and_financial_evidence(monkeypatch):
+@pytest.mark.parametrize("single_day", [False, True])
+def test_retained_member_adapter_refuses_conflicting_execution_and_financial_evidence(monkeypatch, single_day):
     """Adversarial retained reads start from an actual registered STATEFUL result."""
     products = source_products(composite_id="COMPOSITE_" + uuid4().hex)
-    install_source_wire_controls(monkeypatch, products)
+    install_source_wire_controls(monkeypatch, products, single_day=single_day)
     headers = {"X-Tenant-Id": "tenant-a", "X-Actor-Id": "operator", "X-Role": "DPM_COMPOSITE_CONSUMER"}
     with TestClient(app, headers=headers) as client:
         reference = create_stateful_member(client, "A", precision="DECIMAL_STRICT")
@@ -221,12 +228,17 @@ def test_retained_member_adapter_refuses_conflicting_execution_and_financial_evi
             ("response", ("calculation_supportability", "source_quality_evidence", "quality_state"), "degraded"),
             ("response", ("calculation_supportability", "history_coverage"), None),
             ("response", ("calculation_supportability", "history_coverage", "status"), "partial"),
+            ("response", ("calculation_supportability", "history_coverage", "status"), "unknown"),
+            ("response", ("calculation_supportability", "state"), "empty"),
+            ("response", ("calculation_supportability", "state"), "stale"),
+            ("response", ("calculation_supportability", "source_quality_evidence", "quality_state"), "stale"),
             ("response", ("calculation_supportability", "history_coverage", "requested_start_date"), "2026-01-04"),
             ("response", ("currency_evidence", "applied_report_ccy"), "EUR"),
             ("response", ("results_by_period",), {}),
             ("response", (*daily, "period_end"), "2026-01-06"),
             ("response", evidence, None),
             ("response", (*evidence, "status"), "unavailable"),
+            ("response", (*evidence, "linkability_status"), "non_linkable"),
             ("response", (*evidence, "portfolio_currency"), "EUR"),
             ("response", (*evidence, "daily_return"), 99),
             ("response", (*evidence, "daily_return"), "Infinity"),
@@ -391,8 +403,9 @@ def test_registered_fx_normalization_refuses_unbound_retained_member_custody_aft
 @pytest.mark.parametrize("basis,view", [("NET", "NET_ACTUAL"), ("GROSS", "GROSS")])
 @pytest.mark.parametrize("precision", ["FLOAT64", "DECIMAL_STRICT"])
 @pytest.mark.parametrize("rounding", [6, 12])
+@pytest.mark.parametrize("single_day", [False, True])
 def test_http_materialization_preserves_cashflow_fee_and_precision_inputs(
-    monkeypatch, basis, view, precision, rounding
+    monkeypatch, basis, view, precision, rounding, single_day
 ):
     products = source_products(composite_id="COMPOSITE_" + uuid4().hex)
     figures = {**STANDARD_ASSETS, "A": ("100", "122")}
@@ -405,7 +418,7 @@ def test_http_materialization_preserves_cashflow_fee_and_precision_inputs(
             {"amount": "-2", "timing": "eod", "cash_flow_type": "fee"},
         ]
     }
-    install_source_wire_controls(monkeypatch, products, figures=figures, flows=flows)
+    install_source_wire_controls(monkeypatch, products, figures=figures, flows=flows, single_day=single_day)
     headers = {"X-Tenant-Id": "tenant-a", "X-Actor-Id": "operator", "X-Role": "DPM_COMPOSITE_CONSUMER"}
     with TestClient(app, headers=headers) as client:
         references = [

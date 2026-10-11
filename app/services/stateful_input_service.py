@@ -1108,10 +1108,8 @@ class StatefulInputService:
             "portfolio_open_date": accumulator.portfolio_open_date,
             "portfolio_currency": accumulator.portfolio_currency,
             "reporting_currency": accumulator.reporting_currency,
-            "observations": self._merge_dedup_records(
-                records=accumulator.observations,
-                date_key="valuation_date",
-            ),
+            # Preserve same-date evidence for canonical valuation admission and quality checks.
+            "observations": _merge_portfolio_observations(accumulator.observations),
             "retrieval_metadata": {
                 "page_count": accumulator.page_count,
             },
@@ -1592,9 +1590,8 @@ class StatefulInputService:
             "reporting_currency": _single_value_or_none(
                 set(_string_payload_values(responses=responses, field_name="reporting_currency"))
             ),
-            "observations": self._merge_dedup_records(
-                records=_dict_list_payload_items(responses=responses, field_name="observations"),
-                date_key="valuation_date",
+            "observations": _merge_portfolio_observations(
+                _dict_list_payload_items(responses=responses, field_name="observations"),
             ),
             "retrieval_metadata": {
                 "chunk_count": chunk_count,
@@ -2553,6 +2550,12 @@ def _payload_string_identity_value(
     if isinstance(payload_value, str):
         return payload_value
     return None
+
+
+def _merge_portfolio_observations(observations: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """Collapse identical serialized page overlap, never choose between conflicting daily rows."""
+    unique = {json.dumps(row, sort_keys=True, default=str): row for row in observations}
+    return sorted(unique.values(), key=lambda row: str(row.get("valuation_date", "")))
 
 
 def _portfolio_observations_from_payload(payload: dict[str, Any]) -> list[dict[str, Any]]:

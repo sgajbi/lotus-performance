@@ -70,7 +70,13 @@ Current repository posture:
 7. the TWR inspection supportability contract can now preserve bounded Lotus AI workflow-pack run
    posture and the optional `support_brief.md` artifact without making the inspection verdict
    dependent on Lotus AI availability,
-8. completed TWR, MWR, contribution, and attribution responses expose the shared
+8. TWR and Workspace TWR input sufficiency counts complete BOD/EOD daily intervals, so one clean,
+   current interval with complete requested history and a resolved period may be ready. MWR keeps
+   its separate two-point rule. Portfolio page/chunk aggregation preserves conflicting same-date
+   rows for canonical valuation admission and collapses only identical overlap; it cannot choose
+   a last-row winner. Retained composite admission independently requires ready stateful Core
+   evidence, exact history/calculation/source pins, and calculated/linkable daily evidence.
+   Completed TWR, MWR, contribution, and attribution responses expose the shared
    `calculation_supportability` block, publish the allowed `metric_labels`, and emit the bounded
    `lotus_performance_calculation_supportability_total` metric for front-office freshness and
    degraded-state handling. Tests prove the Prometheus exposition uses only bounded labels and does

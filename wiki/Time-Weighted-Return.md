@@ -24,6 +24,14 @@ upstream sources; a controlled example does not qualify a deployment or its fina
 
 ## Implemented Capability
 
+One complete daily BOD/EOD interval can support a one-day TWR or Workspace TWR calculation:
+`100` beginning value, `110` ending value, and zero flows/fees produce `10%`. Supportability still
+requires resolved periods, complete requested history, freshness, and source quality. Acquisition
+preserves conflicting same-date source observations for canonical refusal rather than choosing
+a last-row winner. Retained composite members additionally require ready Core-owned stateful
+evidence, exact calculation/source pins, and calculated/linkable daily results; zero-capital and
+reset/nonlinkable intervals remain refused. MWR retains its separate sufficiency rule.
+
 Daily valuation amounts retain Decimal before cash-flow/fee cancellation in both return modes.
 `FLOAT64` applies to derived numerical returns, not admitted money. Monetary bucket and daily
 calculation evidence emit decimal strings; returns remain numbers. Qualify consumer schema handling

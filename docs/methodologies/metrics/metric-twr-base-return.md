@@ -48,6 +48,13 @@ TWR Base Return (`portfolio.summary.period_return.base`)
 - `R_P_pp`: period-linked base return in pp
 
 ## Methodology and Formulas
+One admitted daily row already contains both interval endpoints. TWR and Workspace TWR therefore
+require at least one complete daily interval rather than two valuation rows. For `B_t=100`,
+`E_t=110`, and zero flows/fees, `N_t=10`, `D_t=100`, and the single-day return is `10%`.
+Requested-history coverage, freshness, source quality, and downstream calculated/linkable daily
+evidence qualify that return separately; row sufficiency does not authorize linking zero-capital
+or reset intervals. This policy does not change MWR sufficiency.
+
 1. Daily base return (engine `calculate_daily_ror`):
 - `r_t = N_t / D_t` when `D_t != 0` and `perf_date_t >= effective_period_start_date_t`
 - `r_t = 0` otherwise
