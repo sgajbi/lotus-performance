@@ -612,6 +612,13 @@ def test_returns_series_stateful_long_window_uses_chunked_portfolio_retrieval(mo
     original_chunk_days = settings.STATEFUL_INPUT_PORTFOLIO_CHUNK_DAYS
     settings.STATEFUL_INPUT_PORTFOLIO_CHUNK_DAYS = 2
     calls: list[tuple[str, str]] = []
+    daily_values = {
+        "2026-02-23": ("1000", "1100"),
+        "2026-02-24": ("1100", "1210"),
+        "2026-02-25": ("1210", "1331"),
+        "2026-02-26": ("1331", "1464.1"),
+        "2026-02-27": ("1464.1", "1610.51"),
+    }
 
     async def _mock_get_portfolio_analytics_timeseries(self, **kwargs):  # noqa: ARG001
         calls.append((str(kwargs["start_date"]), str(kwargs["end_date"])))
@@ -621,15 +628,12 @@ def test_returns_series_stateful_long_window_uses_chunked_portfolio_retrieval(mo
                 "portfolio_open_date": "2026-02-23",
                 "observations": [
                     {
-                        "valuation_date": str(kwargs["start_date"]),
-                        "beginning_market_value": "1000",
-                        "ending_market_value": "1005",
-                    },
-                    {
-                        "valuation_date": str(kwargs["end_date"]),
-                        "beginning_market_value": "1005",
-                        "ending_market_value": "1010",
-                    },
+                        "valuation_date": valuation_date,
+                        "beginning_market_value": values[0],
+                        "ending_market_value": values[1],
+                    }
+                    for valuation_date, values in daily_values.items()
+                    if str(kwargs["start_date"]) <= valuation_date <= str(kwargs["end_date"])
                 ],
             },
         )
@@ -661,6 +665,9 @@ def test_returns_series_stateful_long_window_uses_chunked_portfolio_retrieval(mo
         ("2026-02-25", "2026-02-26"),
         ("2026-02-27", "2026-02-27"),
     ]
+    points = response.json()["series"]["portfolio_returns"]
+    assert [point["date"] for point in points] == list(daily_values)
+    assert [Decimal(point["return_value"]) for point in points] == [Decimal("0.1")] * 5
 
 
 def test_returns_series_stateful_requires_reporting_currency_for_risk_free(monkeypatch):
