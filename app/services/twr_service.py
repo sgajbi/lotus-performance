@@ -835,7 +835,9 @@ def _resolve_twr_supportability(
         latest_observation_date=latest_observation_date,
         report_end_date=performance_request.report_end_date,
         benchmark_row_count=benchmark_row_count,
-        minimum_input_row_count=2,
+        # Each DailyInputData row contains a complete BOD/EOD interval.
+        # History coverage, source quality and consumer linkability remain separate checks.
+        minimum_input_row_count=1,
         source_quality_evidence=performance_request.source_quality_evidence,
         history_coverage=history_coverage,
     )

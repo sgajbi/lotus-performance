@@ -548,7 +548,7 @@ def test_workspace_summary_supportability_fails_closed_for_stale_out_of_window_o
     assert supportability.benchmark_row_count == expected_row_count
 
 
-def test_workspace_summary_supportability_prioritizes_insufficient_portfolio_truth_over_benchmark_gap():
+def test_workspace_summary_supportability_preserves_benchmark_gap_with_one_daily_interval():
     request = WorkspaceSummaryRequest.model_validate(
         {
             "calculation_id": str(uuid4()),
@@ -596,8 +596,8 @@ def test_workspace_summary_supportability_prioritizes_insufficient_portfolio_tru
         daily_results_df=pd.DataFrame({"perf_date": [date(2026, 6, 30)]}),
     )
 
-    assert supportability.state == "empty"
-    assert supportability.reason == "insufficient_valuation_points"
+    assert supportability.state == "degraded"
+    assert supportability.reason == "benchmark_unavailable"
     assert supportability.benchmark_row_count == 1
 
 

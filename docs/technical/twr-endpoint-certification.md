@@ -65,6 +65,19 @@ responses through `calculation_supportability`. The block uses bounded state, re
 vocabularies so Gateway and Workbench can distinguish a ready calculation from stale or empty source
 posture without parsing prose diagnostics.
 
+TWR and Workspace TWR count complete BOD/EOD daily intervals: one finite interval with a resolved
+period, complete requested history, current observations, and clean source quality is `ready`.
+For example, beginning value `100`, ending value `110`, and zero flows/fees yield `10%` for that
+one day. Empty inputs, partial/unknown coverage, stale observations, and degraded source evidence
+retain their refusal or non-ready posture. Portfolio acquisition collapses only identical page
+overlap and preserves conflicting same-date rows for canonical admission; it never selects a
+last-row winner. Retained composite materialization still requires ready Core-owned stateful
+evidence, complete exact-date coverage, calculated/linkable daily results, and matching retained
+calculation, asset, currency, fee-view, and snapshot pins. A zero-capital or reset/nonlinkable
+interval cannot become a composite member merely because it meets the row-count minimum.
+MWR and other operations keep their own sufficiency rules. These controlled tests do not qualify
+a live deployment or complete the January composite/workbook acceptance campaign.
+
 The Prometheus metric is:
 
 `lotus_performance_calculation_supportability_total{operation,supportability_state,reason,freshness_bucket}`

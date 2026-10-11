@@ -10,6 +10,12 @@ This document defines the canonical request and response schemas used across the
 
 This is the standard structure for providing a single day of performance data. It is used in TWR, Contribution, and Attribution requests.
 
+Each row is a complete daily interval containing beginning and ending valuations, flows, and fees.
+For TWR and Workspace TWR, one row can therefore satisfy input sufficiency for a one-day window;
+it is not a single valuation instant requiring a second row. Complete requested history, freshness,
+source quality, and daily calculation/linkability remain independent requirements. MWR retains its
+own valuation-point sufficiency policy.
+
 ```json
 {
   "perf_date": "2025-01-01",
@@ -166,5 +172,4 @@ The following shows a complete TWR response, including the data payload (`breakd
   }
 }
 ```
-
 

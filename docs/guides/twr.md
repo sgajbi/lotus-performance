@@ -324,6 +324,30 @@ the authored benchmark return stream, not component-level FX decomposition.
 
 ## Example request
 
+For a single-day stateful window, the source row already carries beginning and ending valuations:
+
+```json
+{
+  "portfolio_id": "DAILY_INTERVAL_CONTROL",
+  "input_mode": "stateful",
+  "stateful_input": {},
+  "report_start_date": "2026-01-05",
+  "report_end_date": "2026-01-05",
+  "metric_basis": "NET",
+  "report_ccy": "USD",
+  "precision_mode": "DECIMAL_STRICT",
+  "rounding_precision": 12,
+  "annualization": {"enabled": false},
+  "analyses": [{"period": "EXPLICIT", "frequencies": ["daily"]}]
+}
+```
+
+When Core supplies one clean, current interval with beginning `100`, ending `110`, and zero flows
+and fees, the independently expected return is `10%`, `input_row_count` is `1`, history is complete,
+and supportability is `ready`. The registered route and retained-member proof is in
+[`test_twr_daily_interval_supportability.py`](../../tests/integration/test_twr_daily_interval_supportability.py).
+The same daily-interval rule applies to Workspace TWR; MWR retains its own sufficiency rule.
+
 ```json
 {
   "input_mode": "stateless",
