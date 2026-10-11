@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+from copy import deepcopy
 from datetime import date
 from typing import Any
 from uuid import UUID, uuid4
@@ -19,6 +20,7 @@ from app.services.stateful_input_service import (
     _component_index_id,
     _component_index_points,
     _component_point_records,
+    _merge_portfolio_observations,
     _non_empty_string,
     _performance_component_economics_supportability_state_reason,
     _PerformanceComponentEconomicsAccumulator,
@@ -34,6 +36,20 @@ from app.services.stateful_input_service import (
     _record_position_chunk_payload,
 )
 from app.services.stateful_portfolio_source_port import CoreStatefulPortfolioSourceAdapter
+
+
+def test_portfolio_merge_excludes_undated_rows_without_erasing_dated_conflicts_or_mutating_source():
+    first = {"valuation_date": "2025-01-01", "beginning_market_value": "100", "ending_market_value": "110"}
+    conflict = {**first, "ending_market_value": "111"}
+    undated = [{}, {"valuation_date": None}, {"valuation_date": 1}]
+    # The acquisition contract filters non-string dates; string parsing belongs downstream.
+    unparsed = [{"valuation_date": ""}, {"valuation_date": "not-a-date"}]
+    source = [*undated, conflict, deepcopy(first), first, *unparsed]
+    original = deepcopy(source)
+
+    assert _merge_portfolio_observations(source) == [unparsed[0], conflict, first, unparsed[1]]
+    assert _merge_portfolio_observations(undated) == []
+    assert source == original
 
 
 class _CoreServiceStub:

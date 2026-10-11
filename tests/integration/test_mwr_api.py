@@ -21,9 +21,19 @@ from tests.conftest import drain_lineage_queue
 
 @pytest.mark.parametrize("method", ["XIRR", "MODIFIED_DIETZ"])
 @pytest.mark.parametrize("transport", ["same-page", "pages", "chunks"])
-@pytest.mark.parametrize("fault", [None, "valuation", "cash-flow", "lifecycle", "currency", "single-interval"])
+@pytest.mark.parametrize(
+    ("fault", "placement"),
+    [(fault, "between") for fault in [None, "valuation", "cash-flow", "lifecycle", "currency", "single-interval"]]
+    + [
+        (f"undated-{date_kind}-{values}", placement)
+        for date_kind in ["missing", "null", "number"]
+        for values in ["values", "empty"]
+        for placement in ["first", "between", "last"]
+    ]
+    + [(f"undated-{date_kind}-only", "between") for date_kind in ["missing", "null", "number"]],
+)
 def test_stateful_mwr_admits_identical_overlap_and_refuses_daily_conflicts(
-    client, monkeypatch, method, transport, fault
+    client, monkeypatch, method, transport, fault, placement
 ):
     first = {
         "valuation_date": "2025-01-01",
@@ -45,6 +55,15 @@ def test_stateful_mwr_admits_identical_overlap_and_refuses_daily_conflicts(
     elif fault == "currency":
         first["cash_flow_currency"] = "USD"
         overlap["cash_flow_currency"] = "EUR"
+    elif fault and fault.startswith("undated-"):
+        # Acquisition historically discards rows without a string business date.
+        overlap = {"cash_flows": [{"amount": "999", "timing": "bod"}]}
+        if "null" in fault:
+            overlap["valuation_date"] = None
+        elif "number" in fault:
+            overlap["valuation_date"] = 1
+        if fault.endswith("values"):
+            overlap.update(beginning_market_value="1000", ending_market_value="2000")
     last = {
         "valuation_date": "2025-01-02",
         "beginning_market_value": "110",
@@ -55,6 +74,7 @@ def test_stateful_mwr_admits_identical_overlap_and_refuses_daily_conflicts(
         last = deepcopy(first)
     if transport == "chunks":
         monkeypatch.setattr(get_settings(), "STATEFUL_INPUT_PORTFOLIO_CHUNK_DAYS", 1)
+    source_payloads = []
 
     async def source(self, **kwargs):  # noqa: ARG001
         payload = {
@@ -73,6 +93,20 @@ def test_stateful_mwr_admits_identical_overlap_and_refuses_daily_conflicts(
             payload["observations"] = (
                 [deepcopy(first)] if str(kwargs["start_date"]) == "2025-01-01" else [deepcopy(overlap), deepcopy(last)]
             )
+        if fault and fault.startswith("undated-"):
+            ordered = [deepcopy(first), deepcopy(last)]
+            ordered.insert({"first": 0, "between": 1, "last": 2}[placement], deepcopy(overlap))
+            payload["observations"] = ordered
+            if transport == "pages":
+                payload["observations"] = ordered[1:] if kwargs.get("page_token") else ordered[:1]
+            elif transport == "chunks":
+                split = 1 if placement == "last" else 2
+                payload["observations"] = (
+                    ordered[:split] if str(kwargs["start_date"]) == "2025-01-01" else ordered[split:]
+                )
+        if fault and fault.endswith("-only"):
+            payload["observations"] = [deepcopy(overlap)]
+        source_payloads.append((payload, deepcopy(payload)))
         return 200, payload
 
     monkeypatch.setattr(
@@ -92,15 +126,20 @@ def test_stateful_mwr_admits_identical_overlap_and_refuses_daily_conflicts(
             "stateful_input": {"window_start_date": "2025-01-01"},
         },
     )
-    if fault not in {None, "single-interval"}:
+    assert source_payloads and all(actual == original for actual, original in source_payloads)
+    if fault in {"valuation", "cash-flow", "lifecycle", "currency"} or (fault and fault.endswith("-only")):
         assert response.status_code == 422, response.text
         assert response.json()["error_code"] == "INVALID_REQUEST"
-        assert "Conflicting stateful MWR observations" in response.text
+        if fault.endswith("-only"):
+            assert "Stateful source returned no observations" in response.text
+        else:
+            assert "Conflicting stateful MWR observations" in response.text
         execution = client.get(f"/performance/executions/{calculation_id}")
         assert execution.status_code == 200, execution.text
         assert execution.json()["status"] == "failed"
         stages = {stage["stage_name"]: stage for stage in execution.json()["stages"]}
-        assert stages["normalization"]["status"] == "failed"
+        if not fault.endswith("-only"):
+            assert stages["normalization"]["status"] == "failed"
         assert lineage_metadata_store.get_record(UUID(calculation_id)) is None
         assert client.get(f"/performance/lineage/{calculation_id}/artifacts/response.json").status_code == 404
         return

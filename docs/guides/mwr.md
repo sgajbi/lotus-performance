@@ -25,6 +25,8 @@ Before deriving opening/closing values or cash flows, stateful MWR requires one 
 observation per business date. Identical rows collapse; differing rows return HTTP `422`, including
 nested cash-flow, lifecycle or currency differences. This uses full source-row equality, not only
 projected valuation totals. Valid single-interval inputs retain the existing method behavior.
+Portfolio acquisition excludes missing or non-string valuation dates before endpoint selection,
+as in the existing source contract; an entirely undated response fails with no observations.
 
 The stateful envelope is intentionally lightweight. lotus-performance stamps the
 source consumer identity server-side instead of requiring an explicit consumer field.

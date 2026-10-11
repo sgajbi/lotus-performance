@@ -2553,8 +2553,9 @@ def _payload_string_identity_value(
 
 
 def _merge_portfolio_observations(observations: list[dict[str, Any]]) -> list[dict[str, Any]]:
-    """Collapse identical serialized page overlap, never choose between conflicting daily rows."""
-    unique = {json.dumps(row, sort_keys=True, default=str): row for row in observations}
+    """Keep dated conflicts, collapse identical overlap, and retain the existing undated-row exclusion."""
+    dated = (row for row in observations if isinstance(row.get("valuation_date"), str))
+    unique = {json.dumps(row, sort_keys=True, default=str): row for row in dated}
     return sorted(unique.values(), key=lambda row: str(row.get("valuation_date", "")))
 
 
