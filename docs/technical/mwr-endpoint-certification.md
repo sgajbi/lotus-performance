@@ -74,6 +74,11 @@ The base URL must be `CORE_CONTROL_PLANE_BASE_URL`, not the lotus-core query-ser
 
 Stateful MWR normalization uses:
 
+- one admitted source row per business date: identical rows collapse, while differing complete rows
+  fail HTTP `422` before endpoint selection or cash-flow/carry-forward construction. Nested flow,
+  lifecycle and currency evidence participates in equality. The registered execution is failed and
+  no successful lineage response is published; valid single-interval inputs remain supported;
+
 - first valid observation beginning market value as `begin_mv`;
 - last valid observation ending market value as `end_mv`;
 - explicit external source cash-flow rows;

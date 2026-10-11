@@ -72,8 +72,12 @@ Current repository posture:
    dependent on Lotus AI availability,
 8. TWR and Workspace TWR input sufficiency counts complete BOD/EOD daily intervals, so one clean,
    current interval with complete requested history and a resolved period may be ready. MWR keeps
-   its separate two-point rule. Portfolio page/chunk aggregation preserves conflicting same-date
-   rows for canonical valuation admission and collapses only identical overlap; it cannot choose
+   its separate supportability rule; a valid single source interval supplies both endpoint values.
+   Before deriving MWR endpoints or flows, normalization collapses identical complete source rows
+   and rejects differing rows for the same business date, including nested flow/lifecycle/currency
+   evidence. Existing invalid-date quality handling is unchanged. Portfolio page/chunk aggregation
+   preserves conflicting same-date rows for canonical valuation admission and collapses only
+   identical overlap; it cannot choose
    a last-row winner. Retained composite admission independently requires ready stateful Core
    evidence, exact history/calculation/source pins, and calculated/linkable daily evidence.
    Completed TWR, MWR, contribution, and attribution responses expose the shared

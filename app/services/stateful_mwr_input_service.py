@@ -1,14 +1,16 @@
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from datetime import date as Date
 from datetime import datetime as DateTime
 from decimal import Decimal, InvalidOperation
 from typing import Literal
 
 from app.models.mwr_requests import CashFlow
+from app.services.error_details import invalid_request_detail
 from app.services.source_cashflow_taxonomy import classify_cashflow_type
 from app.services.stateful_performance_input_service import StatefulPortfolioInput
+from core.errors import APIUnprocessableEntityError
 from core.monetary_input import validate_calculated_money_model
 from engine.numerical_boundary import monetary_arithmetic_context
 
@@ -140,6 +142,7 @@ def build_stateful_mwr_input_for_window(
     source_input: StatefulPortfolioInput,
     window_start_date: Date,
 ) -> StatefulMWRInput:
+    source_input = replace(source_input, observations=_admit_stateful_mwr_observations(source_input.observations))
     first_observation = source_input.observations[0]
     last_observation = source_input.observations[-1]
 
@@ -190,6 +193,25 @@ def build_stateful_mwr_input_for_window(
             source_cashflow_quality=cash_flow_collection.source_cashflow_quality,
         ),
     )
+
+
+def _admit_stateful_mwr_observations(observations: list[dict[str, object]]) -> list[dict[str, object]]:
+    """Require one unambiguous source row per day before deriving MWR flows and endpoints."""
+    admitted: list[dict[str, object]] = []
+    by_date: dict[Date, dict[str, object]] = {}
+    for observation in observations:
+        observation_date = _parse_observation_date(observation)
+        previous = by_date.get(observation_date) if observation_date is not None else None
+        if previous is not None:
+            if previous != observation:
+                raise APIUnprocessableEntityError(
+                    invalid_request_detail(f"Conflicting stateful MWR observations for {observation_date}.")
+                )
+            continue
+        admitted.append(observation)
+        if observation_date is not None:
+            by_date[observation_date] = observation
+    return admitted
 
 
 def _stateful_mwr_market_value_evidence(
