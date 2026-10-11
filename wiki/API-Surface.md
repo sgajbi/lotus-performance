@@ -173,6 +173,12 @@ calculation-quality metadata (`status`, `reason_codes`, `warnings`, `fallback_re
 `is_approximation`) plus `holding_period_return` and XIRR convergence diagnostics so demos,
 support workflows, and downstream UI panels can explain whether the value is an annualized XIRR, a
 Modified Dietz fallback, Simple Dietz result, or not calculable.
+
+Stateful MWR admits one unambiguous complete source row per business date before deriving values
+or flows. Identical rows collapse; differing rows, including nested flow/lifecycle/currency evidence,
+return HTTP `422` with a failed execution and no successful retained response. Valid single-interval
+inputs remain supported. See the [MWR guide](https://github.com/sgajbi/lotus-performance/blob/main/docs/guides/mwr.md).
+
 Successful XIRR now requires explicit termination, scaled-residual, and uniqueness evidence.
 Close distinct roots, unique non-simple repeated/tangent roots, excessive or exhausted work
 budgets, and unsupported uniqueness proof remain labeled fallbacks; their convergence diagnostics

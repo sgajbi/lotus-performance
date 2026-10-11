@@ -21,6 +21,11 @@ Stateful callers use:
 
 - `stateful_input.window_start_date`
 
+Before deriving opening/closing values or cash flows, stateful MWR requires one unambiguous source
+observation per business date. Identical rows collapse; differing rows return HTTP `422`, including
+nested cash-flow, lifecycle or currency differences. This uses full source-row equality, not only
+projected valuation totals. Valid single-interval inputs retain the existing method behavior.
+
 The stateful envelope is intentionally lightweight. lotus-performance stamps the
 source consumer identity server-side instead of requiring an explicit consumer field.
 

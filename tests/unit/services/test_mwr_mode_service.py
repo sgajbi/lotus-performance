@@ -1,3 +1,4 @@
+from copy import deepcopy
 from datetime import date
 from decimal import Decimal
 from uuid import uuid4
@@ -149,6 +150,29 @@ def test_build_stateful_mwr_input_for_window_uses_requested_window_start():
     )
 
     assert normalized.start_date == date(2025, 1, 10)
+
+
+def test_build_stateful_mwr_input_deduplicates_complete_source_rows_without_mutating_them():
+    first = {
+        "valuation_date": "2025-01-01",
+        "beginning_market_value": "100",
+        "ending_market_value": "111",
+        "cash_flows": [{"amount": "1", "cash_flow_type": "CONTRIBUTION", "event_id": "event-1"}],
+    }
+    observations = [
+        first,
+        deepcopy(first),
+        {"valuation_date": "2025-01-02", "beginning_market_value": "111", "ending_market_value": "122"},
+    ]
+    source_input = StatefulPortfolioInput(performance_start_date=date(2025, 1, 1), observations=observations)
+    original_observations = deepcopy(observations)
+    normalized = build_stateful_mwr_input(source_input=source_input)
+    assert source_input.observations == original_observations
+    assert len(normalized.observations) == 2
+    assert [(flow.date, flow.amount) for flow in normalized.cash_flows] == [(date(2025, 1, 1), Decimal("1"))]
+    components = normalized.currency_evidence.cashflow_evidence[0].source_components
+    assert len(components) == 1
+    assert components[0].source_event_id == "event-1"
 
 
 def test_build_stateful_mwr_input_marks_single_currency_fx_conversion_not_required():

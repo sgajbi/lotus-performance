@@ -1,4 +1,5 @@
 # tests/integration/test_mwr_api.py
+from copy import deepcopy
 from uuid import UUID, uuid4
 
 import pytest
@@ -16,6 +17,101 @@ from app.workers.lineage_worker import process_pending_calculation
 from core.repro import generate_canonical_hash
 from main import app
 from tests.conftest import drain_lineage_queue
+
+
+@pytest.mark.parametrize("method", ["XIRR", "MODIFIED_DIETZ"])
+@pytest.mark.parametrize("transport", ["same-page", "pages", "chunks"])
+@pytest.mark.parametrize("fault", [None, "valuation", "cash-flow", "lifecycle", "currency", "single-interval"])
+def test_stateful_mwr_admits_identical_overlap_and_refuses_daily_conflicts(
+    client, monkeypatch, method, transport, fault
+):
+    first = {
+        "valuation_date": "2025-01-01",
+        "beginning_market_value": "100",
+        "ending_market_value": "110",
+        "cash_flows": [],
+    }
+    overlap = deepcopy(first)
+    if fault == "valuation":
+        overlap["ending_market_value"] = "111"
+    elif fault == "cash-flow":
+        overlap["cash_flows"] = [{"amount": "1", "timing": "eod", "cash_flow_type": "CONTRIBUTION"}]
+    elif fault == "lifecycle":
+        first["cash_flows"] = [
+            {"amount": "1", "timing": "eod", "cash_flow_type": "CONTRIBUTION", "event_id": "event-1"}
+        ]
+        overlap = deepcopy(first)
+        overlap["cash_flows"][0]["event_id"] = "event-2"
+    elif fault == "currency":
+        first["cash_flow_currency"] = "USD"
+        overlap["cash_flow_currency"] = "EUR"
+    last = {
+        "valuation_date": "2025-01-02",
+        "beginning_market_value": "110",
+        "ending_market_value": "121",
+        "cash_flows": [],
+    }
+    if fault == "single-interval":
+        last = deepcopy(first)
+    if transport == "chunks":
+        monkeypatch.setattr(get_settings(), "STATEFUL_INPUT_PORTFOLIO_CHUNK_DAYS", 1)
+
+    async def source(self, **kwargs):  # noqa: ARG001
+        payload = {
+            "portfolio_open_date": "2025-01-01",
+            "portfolio_currency": "USD",
+            "reporting_currency": "USD",
+            "observations": [deepcopy(first), deepcopy(overlap), deepcopy(last)],
+        }
+        if transport == "pages":
+            if kwargs.get("page_token"):
+                payload["observations"] = [deepcopy(overlap), deepcopy(last)]
+            else:
+                payload["observations"] = [deepcopy(first)]
+                payload["page"] = {"next_page_token": "page-2"}
+        elif transport == "chunks":
+            payload["observations"] = (
+                [deepcopy(first)] if str(kwargs["start_date"]) == "2025-01-01" else [deepcopy(overlap), deepcopy(last)]
+            )
+        return 200, payload
+
+    monkeypatch.setattr(
+        "app.services.core_integration_service.CoreIntegrationService.get_portfolio_analytics_timeseries", source
+    )
+    calculation_id = str(uuid4())
+    response = client.post(
+        "/performance/mwr",
+        json={
+            "calculation_id": calculation_id,
+            "portfolio_id": "MWR_DAILY_CONFLICT_CONTROL",
+            "as_of": "2025-01-02",
+            "report_ccy": "USD",
+            "mwr_method": method,
+            "annualization": {"enabled": False},
+            "input_mode": "stateful",
+            "stateful_input": {"window_start_date": "2025-01-01"},
+        },
+    )
+    if fault not in {None, "single-interval"}:
+        assert response.status_code == 422, response.text
+        assert response.json()["error_code"] == "INVALID_REQUEST"
+        assert "Conflicting stateful MWR observations" in response.text
+        execution = client.get(f"/performance/executions/{calculation_id}")
+        assert execution.status_code == 200, execution.text
+        assert execution.json()["status"] == "failed"
+        stages = {stage["stage_name"]: stage for stage in execution.json()["stages"]}
+        assert stages["normalization"]["status"] == "failed"
+        assert lineage_metadata_store.get_record(UUID(calculation_id)) is None
+        assert client.get(f"/performance/lineage/{calculation_id}/artifacts/response.json").status_code == 404
+        return
+    assert response.status_code == 200, response.text
+    body = response.json()
+    # Independent no-flow economics: (EOD - 100) / 100, for one or two source intervals.
+    expected_percent = 10.0 if fault == "single-interval" else 21.0
+    assert body["holding_period_return"] == pytest.approx(expected_percent, abs=1e-10)
+    assert body["cashflows_used"] == []
+    assert body["calculation_supportability"]["input_row_count"] == 2
+
 
 _EXPECTED_SUPPORTABILITY_METRIC_LABELS = list(PERFORMANCE_CALCULATION_SUPPORTABILITY_METRIC_LABELS)
 
