@@ -1,9 +1,12 @@
 from __future__ import annotations
 
 from datetime import date as dt_date
+from functools import partial
 from uuid import UUID
 
 from app.adapters.composite_materialization_repository import get_composite_materialization_store
+from app.adapters.composite_principal_credentials import VerifiedCompositePrincipal
+from app.adapters.composite_result_candidate_scope import require_candidate_member_scope, require_composite_member_scope
 from app.models.composite_authority import ManageCompositeDefinitionV2
 from app.models.composite_materialization import CompositeMaterializationCommand, CompositeMaterializationState
 from app.models.composites import (
@@ -38,9 +41,17 @@ class CompositeDefinitionNotFoundError(ValueError):
 
 
 def calculate_composite_twr_from_materializations(
-    *, tenant_id: str, request: CompositeTWRRequest
+    *, tenant_id: str, request: CompositeTWRRequest, principal: VerifiedCompositePrincipal | None = None
 ) -> tuple[CompositeCalculationResult, list[CompositeTWRWindowEvidence]]:
     """Explicit historical selection; never infer latest or official authority."""
+    request = request.model_copy(update={"materialization_ids": list(_selected_materializations(request))})
+    if principal is not None:
+        require_candidate_member_scope(
+            get_composite_materialization_store(),
+            request=request,
+            principal=principal,
+            unavailable_code="REQUIRED_PERIOD_UNAVAILABLE",
+        )
     facts, windows = select_composite_materialization_facts(tenant_id=tenant_id, request=request)
     scheduled = request.return_view == CompositeReturnView.NET_MODEL_FEE and requires_scoped_model_arithmetic(
         windows[0].method_binding
@@ -209,6 +220,7 @@ def calculate_composite_twr_from_persisted_facts(
     reporting_currency: str | None = None,
     restatement_sequence: int | None = None,
     store: CompositeMetadataStore | RuntimeStoreProxy[CompositeMetadataStore] = composite_metadata_store,
+    principal: VerifiedCompositePrincipal | None = None,
 ) -> CompositeCalculationResult:
     tenant_id = require_composite_tenant_authority(
         admitted_tenant_authority(tenant_id_var.get() if tenant_id is None else tenant_id),
@@ -225,14 +237,27 @@ def calculate_composite_twr_from_persisted_facts(
         return_view=return_view,
         reporting_currency=reporting_currency,
         restatement_sequence=restatement_sequence,
+        authorize_scope=partial(require_composite_member_scope, principal=principal) if principal is not None else None,
     )
-    if any(fact.ending_market_value is None for fact in facts):
-        raise APIUnprocessableEntityError(
-            detail="This composite calculation includes asset reporting and requires authoritative ending assets.",
-            error_code="COMPOSITE_ENDING_ASSETS_UNAVAILABLE",
-        )
+    _require_twr_fact_assets(facts, verified=principal is not None)
     scheduled = False
     if return_view == CompositeReturnView.NET_MODEL_FEE and facts:
         records = store.get_member_return_fact_materializations(facts, tenant_id=tenant_id)
         scheduled = selected_facts_require_scoped_model_arithmetic(facts, records)
     return calculate_with_model_fee_context(composite_id=composite_id, facts=facts, scheduled=scheduled)
+
+
+def _require_twr_fact_assets(facts: list[CompositeMemberReturnFact], *, verified: bool) -> None:
+    if verified and not facts:
+        raise APIUnprocessableEntityError(
+            {
+                "code": "NO_MEMBER_RETURN_FACTS",
+                "message": "No persisted member-return facts exist for the requested composite window.",
+            },
+            error_code="NO_MEMBER_RETURN_FACTS",
+        )
+    if any(fact.ending_market_value is None for fact in facts):
+        raise APIUnprocessableEntityError(
+            detail="This composite calculation includes asset reporting and requires authoritative ending assets.",
+            error_code="COMPOSITE_ENDING_ASSETS_UNAVAILABLE",
+        )

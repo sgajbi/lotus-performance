@@ -23,6 +23,7 @@ from main import app
 from scripts.durable_schema_apply import apply_durable_schema
 from tests.composite_authority_helpers import command_for_packet, install_test_authorities, rehash_definition
 from tests.composite_model_fee_helpers import SyntheticModelFeeApproval, model_fee_source_inputs
+from tests.composite_principal_helpers import TWR_FINANCIAL_FIXTURE_PORTFOLIOS, signed_twr_read_headers
 from tests.integration.test_composite_materialization_api import create_stateful_member, install_source_wire_controls
 
 PATH = "/performance/composites/materializations"
@@ -197,6 +198,12 @@ def test_registered_model_fee_worker_retention_replay_and_actual_net_refusal(
                 "reporting_currency": "USD",
                 "restatement_sequence": 1,
             },
+            headers=signed_twr_read_headers(
+                monkeypatch,
+                app,
+                tenant=client.headers.get("X-Tenant-Id", "test-tenant"),
+                portfolios=TWR_FINANCIAL_FIXTURE_PORTFOLIOS,
+            ),
         )
         assert result.status_code == 200, result.text
         weighted = (100 * observed["A"] + 200 * observed["B"] + 300 * observed["C"]) / 600

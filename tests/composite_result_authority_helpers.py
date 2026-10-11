@@ -8,6 +8,7 @@ from pathlib import Path
 from uuid import uuid4
 
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
+from fastapi import Request
 from sqlalchemy import text
 
 from app.adapters.composite_materialization_repository import CompositeMaterializationStore
@@ -15,6 +16,7 @@ from app.adapters.composite_principal_credentials import CredentialTrust, Princi
 from app.adapters.composite_result_authority.repository import CompositeAuthorityRepository
 from app.adapters.composite_result_authority.verification import SignedFinancialAuthorityVerifier
 from app.api.endpoints.composites import calculate_composite_twr
+from app.composite_principal_admission import PRINCIPAL_STATE_KEY
 from app.core.config import get_settings
 from app.models.composite_authority import authority_digest
 from app.models.composite_result_authority import (
@@ -141,12 +143,14 @@ class AuthorityFixture:
         return capture_windows(self, [command], tenant=tenant)
 
     def capture(self, request, *, tenant="tenant-a"):
-        original = calculate_composite_twr(request, tenant)
+        principal = self.principal("maker", tenant)
+        http_request = Request({"type": "http", "state": {PRINCIPAL_STATE_KEY: principal}})
+        original = calculate_composite_twr(request, http_request, tenant)
         captured = self.store.capture_result_candidate(
             candidate_id=uuid4(),
             request=request,
             response=original,
-            principal=self.principal("maker", tenant),
+            principal=principal,
             result_store=self.results,
         )
         self.record("captured_original", captured)

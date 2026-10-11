@@ -6,6 +6,14 @@
 
 ## Security and IAM Baseline
 
+- `POST /performance/composites/twr` requires verified `operations.runtime.read` and emits
+  `privileged_read` audit metadata despite its HTTP method. Native Composite Ed25519 admission
+  verifies issuer, audience, revocation, tenant membership and grants; all authority providers
+  default unavailable. Tenant headers assert consistency only. Before arithmetic or numeric
+  extraction, selection authorizes all selected historical members, including excluded members,
+  and refuses changes to the pinned population. This operation does not enroll callers or grant
+  financial-purpose authority. Other Composite operations retain their existing capability rules.
+
 - HTTP boundary hardening is registered centrally through `app.http_security`.
 - Host allow-listing is governed by `HTTP_ALLOWED_HOSTS`; defaults are scoped to local test,
   `host.docker.internal` Docker-to-host calls, and Lotus development hosts.

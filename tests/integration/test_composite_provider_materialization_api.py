@@ -13,6 +13,7 @@ from app.workers.compute_executor_worker import process_pending_jobs
 from main import app
 from scripts.durable_schema_apply import apply_durable_schema
 from tests.composite_authority_helpers import command_for_packet, install_test_authorities, observation_packet
+from tests.composite_principal_helpers import TWR_FINANCIAL_FIXTURE_PORTFOLIOS, signed_twr_read_headers
 
 
 @pytest.fixture(autouse=True)
@@ -97,7 +98,16 @@ def test_registered_external_default_worker_original_correction_and_replay(monke
                 assert member["fact"]["calculation_id"] is None
                 assert member["fact"]["source_authority_identity"]["source_kind"] == "EXTERNAL_PROVIDER"
                 assert member["source_evidence"]["qualification"] == "SYNTHETIC_TEST_ONLY"
-            result = client.post("/performance/composites/twr", json=request_for(command, command.restatement_sequence))
+            result = client.post(
+                "/performance/composites/twr",
+                json=request_for(command, command.restatement_sequence),
+                headers=signed_twr_read_headers(
+                    monkeypatch,
+                    app,
+                    tenant=client.headers.get("X-Tenant-Id", "test-tenant"),
+                    portfolios=TWR_FINANCIAL_FIXTURE_PORTFOLIOS,
+                ),
+            )
             assert result.status_code == 200, result.text
             period = result.json()["periods"][0]
             assert abs(Decimal(str(period["return_value"])) - expected_return) < Decimal("1e-12")
@@ -108,7 +118,16 @@ def test_registered_external_default_worker_original_correction_and_replay(monke
                 ).status_code
                 == 202
             )
-        retained = client.post("/performance/composites/twr", json=request_for(commands[0], 1))
+        retained = client.post(
+            "/performance/composites/twr",
+            json=request_for(commands[0], 1),
+            headers=signed_twr_read_headers(
+                monkeypatch,
+                app,
+                tenant=client.headers.get("X-Tenant-Id", "test-tenant"),
+                portfolios=TWR_FINANCIAL_FIXTURE_PORTFOLIOS,
+            ),
+        )
         assert retained.status_code == 200, retained.text
         assert Decimal(str(retained.json()["periods"][0]["ending_market_value"])) == Decimal(640)
 
@@ -135,12 +154,27 @@ def test_missing_ending_assets_are_retained_but_dependent_calculation_refuses(mo
         receipt = client.get(accepted.json()["result_path"]).json()
         assert receipt["state"] == "COMPLETE", receipt
         assert all(member["fact"]["ending_market_value"] is None for member in receipt["members"])
-        result = client.post("/performance/composites/twr", json=request_for(command))
+        result = client.post(
+            "/performance/composites/twr",
+            json=request_for(command),
+            headers=signed_twr_read_headers(
+                monkeypatch,
+                app,
+                tenant=client.headers.get("X-Tenant-Id", "test-tenant"),
+                portfolios=TWR_FINANCIAL_FIXTURE_PORTFOLIOS,
+            ),
+        )
         assert result.status_code == 422, result.text
         assert "COMPOSITE_ENDING_ASSETS_UNAVAILABLE" in result.text
         pinned = client.post(
             "/performance/composites/twr",
             json={**request_for(command), "materialization_ids": [str(command.materialization_id)]},
+            headers=signed_twr_read_headers(
+                monkeypatch,
+                app,
+                tenant=client.headers.get("X-Tenant-Id", "test-tenant"),
+                portfolios=TWR_FINANCIAL_FIXTURE_PORTFOLIOS,
+            ),
         )
         assert pinned.status_code == 422, pinned.text
         assert pinned.json()["error_code"] == "COMPOSITE_ENDING_ASSETS_UNAVAILABLE"
@@ -173,7 +207,16 @@ def test_two_member_independent_reference_is_one_percent_with_actual_ending_weal
         receipt = client.get(accepted.json()["result_path"]).json()
         assert receipt["state"] == "COMPLETE", receipt
         assert receipt["ready_count"] == 2
-        result = client.post("/performance/composites/twr", json=request_for(command))
+        result = client.post(
+            "/performance/composites/twr",
+            json=request_for(command),
+            headers=signed_twr_read_headers(
+                monkeypatch,
+                app,
+                tenant=client.headers.get("X-Tenant-Id", "test-tenant"),
+                portfolios=TWR_FINANCIAL_FIXTURE_PORTFOLIOS,
+            ),
+        )
         assert result.status_code == 200, result.text
         period = result.json()["periods"][0]
         assert Decimal(str(period["return_value"])) == Decimal("0.01")
@@ -191,7 +234,16 @@ def test_registered_external_month_matches_independent_or01(monkeypatch):
         accepted = client.post("/performance/composites/materializations", json=command.model_dump(mode="json"))
         assert accepted.status_code == 202, accepted.text
         assert process_pending_jobs(limit=1) == 1
-        result = client.post("/performance/composites/twr", json=request_for(command))
+        result = client.post(
+            "/performance/composites/twr",
+            json=request_for(command),
+            headers=signed_twr_read_headers(
+                monkeypatch,
+                app,
+                tenant=client.headers.get("X-Tenant-Id", "test-tenant"),
+                portfolios=TWR_FINANCIAL_FIXTURE_PORTFOLIOS,
+            ),
+        )
         assert result.status_code == 200, result.text
         spec = numerical_oracles()["fixtures"][0]
         period = result.json()["periods"][0]
@@ -246,6 +298,12 @@ def test_registered_external_missing_eligible_member_month_cannot_publish_surviv
                 "restatement_sequence": None,
                 "materialization_ids": identities,
             },
+            headers=signed_twr_read_headers(
+                monkeypatch,
+                app,
+                tenant=client.headers.get("X-Tenant-Id", "test-tenant"),
+                portfolios=TWR_FINANCIAL_FIXTURE_PORTFOLIOS,
+            ),
         )
         assert result.status_code == 409 and result.json()["error_code"] == "REQUIRED_PERIOD_UNAVAILABLE"
         assert "cumulative_return" not in result.json()
@@ -280,7 +338,16 @@ def test_registered_external_two_month_chain_matches_independent_or02(monkeypatc
             "materialization_ids": identities,
             "calculation_id": str(command.calculation_id),
         }
-        result = client.post("/performance/composites/twr", json=payload)
+        result = client.post(
+            "/performance/composites/twr",
+            json=payload,
+            headers=signed_twr_read_headers(
+                monkeypatch,
+                app,
+                tenant=client.headers.get("X-Tenant-Id", "test-tenant"),
+                portfolios=TWR_FINANCIAL_FIXTURE_PORTFOLIOS,
+            ),
+        )
         assert result.status_code == 200, result.text
         spec = numerical_oracles()
         expected = Decimal(spec["fixtures"][1]["expected"]["cumulative_return"])
@@ -308,23 +375,71 @@ def test_registered_external_two_month_chain_matches_independent_or02(monkeypatc
         )
         admitted = client.post("/performance/composites/materializations", json=correction.model_dump(mode="json"))
         assert admitted.status_code == 202
-        assert client.post("/performance/composites/twr", json=payload).json() == result.json()
+        assert (
+            client.post(
+                "/performance/composites/twr",
+                json=payload,
+                headers=signed_twr_read_headers(
+                    monkeypatch,
+                    app,
+                    tenant=client.headers.get("X-Tenant-Id", "test-tenant"),
+                    portfolios=TWR_FINANCIAL_FIXTURE_PORTFOLIOS,
+                ),
+            ).json()
+            == result.json()
+        )
         latest = {key: value for key, value in payload.items() if key != "materialization_ids"}
-        assert client.post("/performance/composites/twr", json=latest).status_code == 409
+        assert (
+            client.post(
+                "/performance/composites/twr",
+                json=latest,
+                headers=signed_twr_read_headers(
+                    monkeypatch,
+                    app,
+                    tenant=client.headers.get("X-Tenant-Id", "test-tenant"),
+                    portfolios=TWR_FINANCIAL_FIXTURE_PORTFOLIOS,
+                ),
+            ).status_code
+            == 409
+        )
         assert process_pending_jobs(limit=1) == 1
         corrected_receipt = client.get(admitted.json()["result_path"])
         assert corrected_receipt.status_code == 200, corrected_receipt.text
         assert corrected_receipt.json()["state"] == "COMPLETE", corrected_receipt.text
         assert all(member["fact"] is not None for member in corrected_receipt.json()["members"]), corrected_receipt.text
-        assert client.post("/performance/composites/twr", json=payload).json() == result.json()
+        assert (
+            client.post(
+                "/performance/composites/twr",
+                json=payload,
+                headers=signed_twr_read_headers(
+                    monkeypatch,
+                    app,
+                    tenant=client.headers.get("X-Tenant-Id", "test-tenant"),
+                    portfolios=TWR_FINANCIAL_FIXTURE_PORTFOLIOS,
+                ),
+            ).json()
+            == result.json()
+        )
         revised = client.post(
             "/performance/composites/twr",
             json={**request_for(correction), "materialization_ids": [str(correction.materialization_id)]},
+            headers=signed_twr_read_headers(
+                monkeypatch,
+                app,
+                tenant=client.headers.get("X-Tenant-Id", "test-tenant"),
+                portfolios=TWR_FINANCIAL_FIXTURE_PORTFOLIOS,
+            ),
         )
         assert revised.status_code == 200 and Decimal(str(revised.json()["cumulative_return"])) == Decimal("0.035")
         overlapping = client.post(
             "/performance/composites/twr",
             json={**payload, "materialization_ids": [identities[0], str(correction.materialization_id), identities[1]]},
+            headers=signed_twr_read_headers(
+                monkeypatch,
+                app,
+                tenant=client.headers.get("X-Tenant-Id", "test-tenant"),
+                portfolios=TWR_FINANCIAL_FIXTURE_PORTFOLIOS,
+            ),
         )
         assert overlapping.status_code == 422, overlapping.text
         assert overlapping.json()["error_code"] == "COMPOSITE_VECTOR_WINDOW_MISMATCH"
@@ -383,8 +498,20 @@ def test_pinned_external_vector_refuses_invalid_selection(monkeypatch, fault):
             payload["materialization_ids"] = [str(uuid4()) for _ in range(121)]
         elif fault == "sequence":
             payload["restatement_sequence"] = 1
-        response = client.post("/performance/composites/twr", json=payload, headers=headers)
-        expected = 409 if fault == "gap" else 404 if fault == "foreign" else 422
+        response = client.post(
+            "/performance/composites/twr",
+            json=payload,
+            headers={
+                **headers,
+                **signed_twr_read_headers(
+                    monkeypatch,
+                    app,
+                    tenant=client.headers.get("X-Tenant-Id", "test-tenant"),
+                    portfolios=TWR_FINANCIAL_FIXTURE_PORTFOLIOS,
+                ),
+            },
+        )
+        expected = 409 if fault == "gap" else 403 if fault == "foreign" else 422
         assert response.status_code == expected, response.text
         assert "cumulative_return" not in response.json()
         if fault == "method":
@@ -435,6 +562,12 @@ def test_pinned_vector_refuses_mixed_retained_manifest(monkeypatch):
                 "period_start": "2026-01-01",
                 "materialization_ids": [str(command.materialization_id) for command in commands],
             },
+            headers=signed_twr_read_headers(
+                monkeypatch,
+                app,
+                tenant=client.headers.get("X-Tenant-Id", "test-tenant"),
+                portfolios=TWR_FINANCIAL_FIXTURE_PORTFOLIOS,
+            ),
         )
         assert (
             result.status_code == 503
@@ -628,6 +761,15 @@ def test_registered_internal_and_hybrid_v2_without_ending_selection(monkeypatch,
                     facts=[internal_fact],
                 )
             assert refused.value.error_code == "COMPOSITE_INTERNAL_RECEIPT_BINDING_MISMATCH"
-        result = client.post("/performance/composites/twr", json=request_for(command))
+        result = client.post(
+            "/performance/composites/twr",
+            json=request_for(command),
+            headers=signed_twr_read_headers(
+                monkeypatch,
+                app,
+                tenant=client.headers.get("X-Tenant-Id", "test-tenant"),
+                portfolios=TWR_FINANCIAL_FIXTURE_PORTFOLIOS,
+            ),
+        )
         assert result.status_code == 422, result.text
         assert "COMPOSITE_ENDING_ASSETS_UNAVAILABLE" in result.text

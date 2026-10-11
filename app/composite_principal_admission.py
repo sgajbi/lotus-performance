@@ -16,7 +16,7 @@ from app.adapters.composite_principal_credentials import (
     VerifiedCompositePrincipal,
     resolve_composite_principal,
 )
-from app.enterprise_capability_rules import _CAPABILITY_OPERATIONS_RUNTIME_MANAGE, _CAPABILITY_OPERATIONS_RUNTIME_READ
+from app.enterprise_capability_rules import COMPOSITE_TWR_READ_PATH, verified_composite_required_capability
 from app.enterprise_payload_limits import (
     PayloadTooLargeError,
     _payload_too_large_response,
@@ -61,7 +61,7 @@ def verified_composite_surface(request: Request) -> str | None:
     # Only outer server middleware establishes this marker. Pending dispatch
     # fails closed in terminal logs if oversized bytes prevent classification.
     marker = getattr(request.state, VERIFIED_SURFACE_STATE_KEY, None)
-    if marker == "composite_attribution":
+    if marker in ("composite_attribution", "composite_twr"):
         return marker
     if marker in ("composite_pooled_mwr", "composite_pooled_dispatch"):
         return "composite_pooled_mwr"
@@ -144,6 +144,8 @@ async def _classify_surface(request: Request, receive: Receive):
     scope = request.scope
     candidate = is_candidate_path(scope["path"]) or is_authority_path(scope["path"])
     analytics_surface = "composite_pooled_mwr" if _is_composite_result_route(scope) else None
+    if (scope["method"], scope["path"]) == ("POST", COMPOSITE_TWR_READ_PATH):
+        analytics_surface = "composite_twr"
     if scope["method"] == "POST" and scope["path"] == COMPOSITE_ANALYTICS_PATH and _json_body_request(request):
         scope.setdefault("state", {})[VERIFIED_SURFACE_STATE_KEY] = "composite_pooled_dispatch"
         analytics_surface, receive = await _composite_analytics_dispatch_body(request, receive)
@@ -183,11 +185,7 @@ def _admitted_principal(request):
     credential = _presented_credential(request)
     if isinstance(credential, PrincipalDenial):
         return credential
-    capability = (
-        _CAPABILITY_OPERATIONS_RUNTIME_READ
-        if request.method in ("GET", "HEAD")
-        else _CAPABILITY_OPERATIONS_RUNTIME_MANAGE
-    )
+    capability = verified_composite_required_capability(request.method, request.url.path)
     deployment = get_composite_principal_deployment(request.app)
     return resolve_composite_principal(
         credential,

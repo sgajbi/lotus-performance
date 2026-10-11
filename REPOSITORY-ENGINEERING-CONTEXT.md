@@ -377,8 +377,10 @@ Important validation expectations:
    local and GitHub evidence stay aligned, while `quality/refactor_health_report.md` and
    `quality/quality_scorecard.md` remain curated source reports updated by meaningful slices.
     `make quality-baseline-check` is the non-mutating freshness assertion in the required PR gate.
-    It must fail when generated report inputs change without regeneration and pass after the
-    reviewed refresh. The CI-local Docker lifecycle derives a stable checkout-specific Compose
+   It must fail when generated report inputs change without regeneration and pass after the
+    reviewed refresh. After regeneration, reconcile current collected-test rows and their deltas
+    in both curated reports, then run `python -m pytest tests/unit/scripts/test_curated_report_consistency.py -q`
+    from this repository root; preserve explicitly historical measurements. The CI-local Docker lifecycle derives a stable checkout-specific Compose
     project and uses it symmetrically for up and down. It stages the checkout into an ephemeral
     container workspace while excluding ignored runtime/generated state, then reconstructs the
     active Git worktree with a container-local
@@ -1437,6 +1439,28 @@ assertions. Restore fixture-owned dependency construction on teardown rather tha
 time, extending evidence expiry or weakening financial admission.
 Imported history, external recipients and institutional/materiality
 activation remain unsupported under #610 and Platform #923.
+
+## Composite TWR Read Admission Practice
+
+Treat exactly `POST /performance/composites/twr` as verified `operations.runtime.read` with
+`privileged_read` auditing. Reuse native Composite Ed25519 deployment and PrincipalAuthority;
+trust, issuer, revocation, tenant membership and grants default unavailable. Never infer this
+operation's authority from POST or caller identity headers. Optional tenant headers must agree
+with the verified tenant. Authorize complete selected historical populations before numeric
+extraction, including excluded or closed attested members. Pin persisted selection sequence and
+identities and reject population races; preserve legacy explicit non-materialized selection
+semantics. Keep analytics admission separate. Caller guidance is in
+`docs/guides/composite_performance.md`; tests use explicit signed admission without a global bypass.
+
+The historical RFC-049 capture script requires `--bearer-token-env` naming an already populated
+operator credential environment variable. From the `lotus-performance` root in PowerShell or Bash,
+run `python scripts/capture_rfc049_live_composite_proof.py --bearer-token-env LOTUS_RFC049_BEARER_TOKEN --output-dir output/rfc-049-slice12-live-proof`.
+The script admits credential syntax and transports it; native receivers must verify signature,
+issuer/audience, tenant membership, read capability and every selected historical member including
+excluded members. Trust and authority deployment must already exist. Gateway and BFF must forward
+the credential under their supported contracts; a supplied token does not certify that live path.
+Missing, blank or malformed input refuses before HTTP. Never put the credential literal in CLI
+arguments, manifests or stdout, and do not treat test signing helpers as bank deployment authority.
 
 ## Cross-Links
 

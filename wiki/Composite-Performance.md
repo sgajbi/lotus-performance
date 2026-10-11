@@ -6,6 +6,27 @@ separate from official approval, freeze, live-source qualification and instituti
 
 ## Reader Tasks
 
+TWR calculations require a deployment-verified bearer credential with `operations.runtime.read`,
+tenant membership and grants for every selected historical member, including excluded members.
+`X-Tenant-Id` is an optional matching assertion. Trust and authority providers default unavailable.
+See the [TWR caller guide](https://github.com/sgajbi/lotus-performance/blob/main/docs/guides/composite_performance.md)
+before migrating a reporting caller; a manage-only grant cannot authorize this read.
+
+For the historical RFC-049 capture utility, populate an operator credential environment variable
+through the approved deployment process, then run from the `lotus-performance` root in PowerShell or Bash:
+
+```text
+python scripts/capture_rfc049_live_composite_proof.py --bearer-token-env LOTUS_RFC049_BEARER_TOKEN --output-dir output/rfc-049-slice12-live-proof
+```
+
+The argument names the variable, never the token literal. Missing, blank or malformed credentials
+refuse before HTTP; request credentials are excluded from manifests and stdout. Native Performance
+must verify the credential and grants for the complete selected historical population, including
+excluded members. Trust/authority providers must be configured, and Gateway/BFF must support
+credential forwarding. Supplying a token alone is not live forwarding, financial or institutional
+certification. Existing numerical/refusal validators remain the evidence checks for this historical
+fixture utility; it does not replace the governed canonical front-office flow.
+
 | Reader task | Start here |
 | --- | --- |
 | Calculate or inspect retained performance | [Caller and migration guide](https://github.com/sgajbi/lotus-performance/blob/main/docs/guides/composite_materialization.md) |

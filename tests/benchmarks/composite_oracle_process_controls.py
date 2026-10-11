@@ -21,6 +21,7 @@ from tests.composite_authority_helpers import (
     numerical_oracles,
     oracle_month_packet,
 )
+from tests.composite_principal_helpers import signed_twr_read_headers
 from tests.integration.test_composite_provider_materialization_api import HEADERS, install_provider_wires, request_for
 
 
@@ -76,6 +77,14 @@ def write_phase(client, monkeypatch, path):
     for name in ("OR-01", "OR-02", "OR-18"):
         pairs = scenario_pairs(name)
         packets, wires = map(list, zip(*pairs, strict=True))
+        client.headers.update(
+            signed_twr_read_headers(
+                monkeypatch,
+                app,
+                tenant=packets[0]["definition"]["tenant_id"],
+                portfolios={member for packet in packets for member in packet["attestation"]["expected_portfolio_ids"]},
+            )
+        )
         install_test_authorities(monkeypatch, packets)
         install_provider_wires(monkeypatch, packets, wires)
         identities = []
@@ -136,6 +145,14 @@ def write_phase(client, monkeypatch, path):
 def read_phase(client, monkeypatch, path):
     state = json.loads(path.read_text(encoding="utf-8"))
     packets = [*state["packets"], state["corrected_packet"]]
+    client.headers.update(
+        signed_twr_read_headers(
+            monkeypatch,
+            app,
+            tenant=packets[0]["definition"]["tenant_id"],
+            portfolios={member for packet in packets for member in packet["attestation"]["expected_portfolio_ids"]},
+        )
+    )
     install_test_authorities(monkeypatch, packets)
     # Only the new correction may fetch observations; originals must be retained reads.
     install_provider_wires(monkeypatch, packets, [state["corrected_wire"]])

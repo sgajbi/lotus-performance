@@ -91,3 +91,30 @@ def install_principal_deployment(monkeypatch, application, *, tenant, portfolios
         return wire + "." + encode(key.sign(wire.encode()))
 
     return authority, mint
+
+
+TWR_FINANCIAL_FIXTURE_PORTFOLIOS = (
+    "A",
+    "B",
+    "C",
+    "P1",
+    "P2",
+    "P3",
+    "LEGACY_NATIVE",
+    "1",
+    "2",
+    "3",
+    "4",
+    "5",
+    "6",
+    "external-member-a",
+    "external-member-b",
+    "external-member-c",
+)
+
+
+def signed_twr_read_headers(monkeypatch, application, *, tenant, portfolios):
+    """Enroll this finite financial test population and mint a real read-only JWS."""
+    authority, mint = install_principal_deployment(monkeypatch, application, tenant=tenant, portfolios=portfolios)
+    authority.capabilities = frozenset({"operations.runtime.read"})
+    return {"Authorization": "Bearer " + mint(principal_kind="service")}

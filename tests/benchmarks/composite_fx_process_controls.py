@@ -21,6 +21,7 @@ from app.workers.compute_executor_worker import process_pending_jobs
 from main import app
 from tests.composite_currency_normalization_helpers import synthetic_fx_verification
 from tests.composite_materialization_helpers import source_products
+from tests.composite_principal_helpers import signed_twr_read_headers
 from tests.integration.test_composite_materialization_api import (
     composite_request,
     run_registered_fx_money_control,
@@ -87,7 +88,14 @@ def read_phase(state, *, known_wires):
             assert response.status_code == 200, response.text
             assert response.json() == state["receipt"]
             report = client.post(
-                "/performance/composites/twr", json=composite_request(command, sequence=command.restatement_sequence)
+                "/performance/composites/twr",
+                json=composite_request(command, sequence=command.restatement_sequence),
+                headers=signed_twr_read_headers(
+                    monkeypatch,
+                    app,
+                    tenant=HEADERS["X-Tenant-Id"],
+                    portfolios={member["portfolio_id"] for member in state["receipt"]["members"]},
+                ),
             )
             assert report.status_code == 200 and report.json()["periods"] == state["periods"], report.text
             job = compute_job_store.get_job_for_tenant(command.calculation_id, tenant_id="tenant-a")

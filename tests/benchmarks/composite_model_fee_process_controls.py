@@ -42,6 +42,7 @@ def main():
     from main import app
     from tests.composite_authority_helpers import install_test_authorities
     from tests.composite_model_fee_helpers import SyntheticModelFeeApproval
+    from tests.composite_principal_helpers import signed_twr_read_headers
 
     case = json.loads(Path(sys.argv[1]).read_text(encoding="utf-8"))
     get_settings().LINEAGE_METADATA_DATABASE_URL = case["database_url"]
@@ -81,7 +82,13 @@ def main():
                     "restatement_sequence",
                 )
             }
-            response = client.post("/performance/composites/twr", json=request)
+            response = client.post(
+                "/performance/composites/twr",
+                json=request,
+                headers=signed_twr_read_headers(
+                    patch, app, tenant=tenant, portfolios=packet["attestation"]["expected_portfolio_ids"]
+                ),
+            )
             assert response.status_code == 200, response.text
             assert response.json()["periods"] == case["periods"]
         print(

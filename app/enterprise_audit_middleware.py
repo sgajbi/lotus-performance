@@ -12,6 +12,7 @@ from app.enterprise_authorization import (
     _denied_request_action,
     _request_action,
 )
+from app.enterprise_capability_rules import _CAPABILITY_OPERATIONS_RUNTIME_READ, verified_composite_required_capability
 from app.enterprise_payload_limits import (
     PayloadTooLargeError,
     _payload_too_large_response,
@@ -69,11 +70,12 @@ def _emit_allowed_audit_event(
 
 def _candidate_audit_metadata(request: Request, status_code: int) -> dict[str, Any]:
     principal = trusted_request_principal(request)
-    read = request.method in ("GET", "HEAD")
+    capability = verified_composite_required_capability(request.method, request.url.path)
+    read = capability == _CAPABILITY_OPERATIONS_RUNTIME_READ
     return {
         "status_code": status_code,
         "access_mode": "privileged_read" if read else "write",
-        "required_capability": "operations.runtime.read" if read else "operations.runtime.manage",
+        "required_capability": capability,
         "governed_surface": verified_composite_surface(request),
         "delegated_actor": principal.delegated_actor if principal else None,
     }

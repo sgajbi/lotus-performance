@@ -12,6 +12,7 @@ from typing import Any
 from uuid import uuid4
 
 from fastapi.testclient import TestClient
+from pytest import MonkeyPatch
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 if str(REPO_ROOT) not in sys.path:
@@ -22,6 +23,7 @@ from app.services.composite_metadata_store import composite_metadata_store  # no
 from app.services.durable_metadata_bootstrap import bootstrap_durable_metadata_stores  # noqa: E402
 from main import app  # noqa: E402
 from scripts.seed_composite_performance_fixture import seed_canonical_composite_fixture  # noqa: E402
+from tests.composite_principal_helpers import signed_twr_read_headers  # noqa: E402
 
 DEMO_COMPOSITE_FIXTURE_IDS = {"PB_GLOBAL_BALANCED_USD", "PB_GLOBAL_BALANCED_USD_DEGRADED"}
 DEMO_TENANT_ID = "lotus-demo"
@@ -34,8 +36,10 @@ class CertificationCheck:
     assertions: dict[str, Any]
 
 
-def _post_json(client: TestClient, path: str, payload: dict[str, Any]) -> dict[str, Any]:
-    response = client.post(path, json=payload, headers={"X-Tenant-Id": DEMO_TENANT_ID})
+def _post_json(
+    client: TestClient, path: str, payload: dict[str, Any], *, headers: dict[str, str] | None = None
+) -> dict[str, Any]:
+    response = client.post(path, json=payload, headers={"X-Tenant-Id": DEMO_TENANT_ID, **(headers or {})})
     if response.status_code != 200:
         raise AssertionError(f"{path} returned HTTP {response.status_code}: {response.text}")
     return response.json()
@@ -467,16 +471,26 @@ def _certify_composite_twr(client: TestClient) -> CertificationCheck:
     bootstrap_durable_metadata_stores()
     composite_metadata_store.clear_records_for_composites(DEMO_COMPOSITE_FIXTURE_IDS, tenant_id=DEMO_TENANT_ID)
     seed_canonical_composite_fixture(tenant_id=DEMO_TENANT_ID)
-    body = _post_json(
-        client,
-        "/performance/composites/twr",
-        {
-            "calculation_id": str(uuid4()),
-            "composite_id": "PB_GLOBAL_BALANCED_USD",
-            "period_start": "2026-01-01",
-            "period_end": "2026-02-28",
-        },
-    )
+    # This in-process certification owns only its finite synthetic fixture grant.
+    # Context exit restores deployment even if signature admission or arithmetic fails.
+    with MonkeyPatch.context() as admission:
+        credential = signed_twr_read_headers(
+            admission,
+            app,
+            tenant=DEMO_TENANT_ID,
+            portfolios=("PB_SG_GLOBAL_BAL_001", "PB_SG_GLOBAL_BAL_002"),
+        )
+        body = _post_json(
+            client,
+            "/performance/composites/twr",
+            {
+                "calculation_id": str(uuid4()),
+                "composite_id": "PB_GLOBAL_BALANCED_USD",
+                "period_start": "2026-01-01",
+                "period_end": "2026-02-28",
+            },
+            headers=credential,
+        )
     if body["status"] != "READY":
         raise AssertionError(f"Composite TWR expected READY, got {body['status']}")
     if [period["member_count"] for period in body["periods"]] != [2, 2]:

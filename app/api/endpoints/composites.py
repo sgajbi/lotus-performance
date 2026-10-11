@@ -96,6 +96,14 @@ def _required_composite_tenant(request: Request) -> str:
     return require_composite_tenant_authority(authority).tenant_id
 
 
+def _verified_twr_tenant(request: Request) -> str:
+    principal = require_verified_candidate_principal(trusted_request_principal(request))
+    authority = admitted_tenant_authority_from_header_values(request.headers.getlist(TENANT_HEADER))
+    if authority is not None and authority.tenant_id != principal.tenant_id:
+        raise HTTPException(status_code=403, detail={"code": "PRINCIPAL_ADMISSION_DENIED"})
+    return principal.tenant_id
+
+
 COMPOSITE_TENANT_OPENAPI_EXTRA = {
     "parameters": [
         {
@@ -148,6 +156,23 @@ COMPOSITE_TENANT_AUTHORITY_RESPONSES = {
             }
         },
     },
+}
+
+COMPOSITE_TWR_OPENAPI_EXTRA = {
+    "parameters": [
+        {
+            **COMPOSITE_TENANT_OPENAPI_EXTRA["parameters"][0],
+            "required": False,
+            "description": "Optional tenant assertion; must match the verified credential tenant. It grants no authority.",
+        },
+        {
+            "name": "Authorization",
+            "in": "header",
+            "required": True,
+            "schema": {"type": "string", "example": "Bearer <bank-issued-credential>"},
+            "description": "Verified Ed25519 Composite credential with operations.runtime.read and complete selected historical member scope.",
+        },
+    ]
 }
 
 
@@ -290,25 +315,69 @@ def _period_response(item) -> CompositePeriodResultResponse:
         "method authority and complete interval coverage. The new interactive limit supports ten years of "
         "monthly windows; larger vectors refuse validation without truncation. This selection is mutually "
         "exclusive with restatement_sequence. A successful explicit replay returns a selection manifest "
-        "and calculation fingerprint; it does not confer official approval or durable freeze authority."
+        "and calculation fingerprint; it does not confer official approval or durable freeze authority. "
+        "This POST is a privileged read requiring verified operations.runtime.read, tenant membership, "
+        "and the complete selected historical member population, including excluded members. "
+        "Authority providers are unavailable by default; caller identity headers do not grant access."
     ),
     responses={
         200: {"description": "Composite TWR calculated from persisted member-return facts."},
-        **COMPOSITE_TENANT_AUTHORITY_RESPONSES,
+        400: COMPOSITE_TENANT_AUTHORITY_RESPONSES[400],
+        401: {
+            "model": ErrorDetailResponse,
+            "description": "Verified Composite credential is missing or invalid.",
+            "content": {
+                "application/json": {
+                    "example": {
+                        "detail": {
+                            "code": "PRINCIPAL_ADMISSION_DENIED",
+                            "message": "Principal admission refused.",
+                            "denial_class": "missing_credential",
+                        },
+                        "error_code": "PRINCIPAL_ADMISSION_DENIED",
+                        "message": "Principal admission refused.",
+                        "source": "lotus-performance",
+                        "retryable": False,
+                    }
+                }
+            },
+        },
+        403: {
+            "model": ErrorDetailResponse,
+            "description": "Verified read capability, tenant or complete historical member scope is refused.",
+            "content": {
+                "application/json": {
+                    "example": {
+                        "detail": {
+                            "code": "PRINCIPAL_ADMISSION_DENIED",
+                            "message": "Principal admission refused.",
+                            "denial_class": "capability_not_granted",
+                        },
+                        "error_code": "PRINCIPAL_ADMISSION_DENIED",
+                        "message": "Principal admission refused.",
+                        "source": "lotus-performance",
+                        "retryable": False,
+                    }
+                }
+            },
+        },
         409: FACT_SELECTION_CONFLICT_RESPONSE,
         404: COMPOSITE_NOT_FOUND_RESPONSE,
         422: NO_MEMBER_RETURN_FACTS_RESPONSE,
     },
-    openapi_extra=COMPOSITE_TENANT_OPENAPI_EXTRA,
+    openapi_extra=COMPOSITE_TWR_OPENAPI_EXTRA,
 )
 def calculate_composite_twr(
     request: CompositeTWRRequest,
-    tenant_id: Annotated[str, Depends(_required_composite_tenant)],
+    http_request: Request,
+    tenant_id: Annotated[str, Depends(_verified_twr_tenant)],
 ) -> CompositeTWRResponse:
     try:
         windows = None
         if request.materialization_ids is not None:
-            result, windows = calculate_composite_twr_from_materializations(tenant_id=tenant_id, request=request)
+            result, windows = calculate_composite_twr_from_materializations(
+                tenant_id=tenant_id, request=request, principal=trusted_request_principal(http_request)
+            )
         else:
             result = calculate_composite_twr_from_persisted_facts(
                 tenant_id=tenant_id,
@@ -318,6 +387,7 @@ def calculate_composite_twr(
                 return_view=request.return_view,
                 reporting_currency=request.reporting_currency,
                 restatement_sequence=request.restatement_sequence,
+                principal=trusted_request_principal(http_request),
             )
     except CompositeDefinitionNotFoundError as exc:
         raise HTTPException(
@@ -430,7 +500,7 @@ def _candidate_error_response(description, code, message, denial_class=None):
 def capture_composite_result_candidate(request: CompositeResultCaptureRequest, http_request: Request):
     principal = _verified_candidate_principal(http_request)
     store, results = admit_candidate_calculation(request.calculation, principal)
-    response = calculate_composite_twr(request.calculation, principal.tenant_id)
+    response = calculate_composite_twr(request.calculation, http_request, principal.tenant_id)
     return store.capture_result_candidate(
         candidate_id=request.candidate_id,
         request=request.calculation,

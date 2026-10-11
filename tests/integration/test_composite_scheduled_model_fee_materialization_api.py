@@ -14,6 +14,7 @@ from app.services.composite_metadata_store import CompositeMetadataStore
 from app.workers.compute_executor_worker import process_pending_jobs
 from main import app
 from tests.composite_model_fee_helpers import model_fee_source_inputs
+from tests.composite_principal_helpers import TWR_FINANCIAL_FIXTURE_PORTFOLIOS, signed_twr_read_headers
 from tests.composite_scheduled_model_fee_helpers import band_rule, scheduled_source_inputs
 from tests.integration import test_composite_model_fee_materialization_api as periodic_controls
 from tests.integration.test_composite_materialization_api import STANDARD_ASSETS, install_source_wire_controls
@@ -70,7 +71,16 @@ def test_scheduled_registered_worker_preserves_original_economics_and_profile(
                 "restatement_sequence",
             )
         }
-        aggregate = client.post("/performance/composites/twr", json=twr_request)
+        aggregate = client.post(
+            "/performance/composites/twr",
+            json=twr_request,
+            headers=signed_twr_read_headers(
+                monkeypatch,
+                app,
+                tenant=client.headers.get("X-Tenant-Id", "test-tenant"),
+                portfolios=TWR_FINANCIAL_FIXTURE_PORTFOLIOS,
+            ),
+        )
         assert aggregate.status_code == 200, aggregate.text
         assert abs(Fraction(str(aggregate.json()["periods"][0]["return_value"])) - weighted) <= Fraction("1e-12")
         reloaded = CompositeMaterializationStore(model_fee_database)
@@ -144,7 +154,16 @@ def test_scheduled_twr_full_response_isolates_ambient_decimal_state(
             if pinned:
                 payload.pop("restatement_sequence")
                 payload["materialization_ids"] = [str(command.materialization_id)]
-            baseline = client.post("/performance/composites/twr", json=payload)
+            baseline = client.post(
+                "/performance/composites/twr",
+                json=payload,
+                headers=signed_twr_read_headers(
+                    monkeypatch,
+                    app,
+                    tenant=client.headers.get("X-Tenant-Id", "test-tenant"),
+                    portfolios=TWR_FINANCIAL_FIXTURE_PORTFOLIOS,
+                ),
+            )
             assert baseline.status_code == 200, baseline.text
             for precision, rounding in ((9, ROUND_DOWN), (150, ROUND_UP)):
                 with localcontext() as caller:
@@ -153,7 +172,16 @@ def test_scheduled_twr_full_response_isolates_ambient_decimal_state(
                     caller.traps[Inexact] = caller.traps[Rounded] = True
                     caller.clear_flags()
                     before = caller.copy()
-                    actual = client.post("/performance/composites/twr", json=payload)
+                    actual = client.post(
+                        "/performance/composites/twr",
+                        json=payload,
+                        headers=signed_twr_read_headers(
+                            monkeypatch,
+                            app,
+                            tenant=client.headers.get("X-Tenant-Id", "test-tenant"),
+                            portfolios=TWR_FINANCIAL_FIXTURE_PORTFOLIOS,
+                        ),
+                    )
                     assert actual.status_code == 200, actual.text
                     assert actual.json() == baseline.json()
                     assert (caller.prec, caller.rounding, caller.Emin, caller.Emax, caller.traps, caller.flags) == (
@@ -194,7 +222,16 @@ def test_later_scheduled_definition_preserves_historical_periodic_arithmetic(mon
     with TestClient(app, headers=headers) as client:
         with localcontext() as caller:
             caller.prec, caller.rounding = 9, ROUND_DOWN
-            before = client.post("/performance/composites/twr", json=payload)
+            before = client.post(
+                "/performance/composites/twr",
+                json=payload,
+                headers=signed_twr_read_headers(
+                    monkeypatch,
+                    app,
+                    tenant=client.headers.get("X-Tenant-Id", "test-tenant"),
+                    portfolios=TWR_FINANCIAL_FIXTURE_PORTFOLIOS,
+                ),
+            )
         assert before.status_code == 200, before.text
         scheduled_packet, _, _, _ = scheduled_source_inputs()
         replacement = ManageCompositeDefinitionV2.model_validate(
@@ -207,6 +244,15 @@ def test_later_scheduled_definition_preserves_historical_periodic_arithmetic(mon
             store.close()
         with localcontext() as caller:
             caller.prec, caller.rounding = 9, ROUND_DOWN
-            after = client.post("/performance/composites/twr", json=payload)
+            after = client.post(
+                "/performance/composites/twr",
+                json=payload,
+                headers=signed_twr_read_headers(
+                    monkeypatch,
+                    app,
+                    tenant=client.headers.get("X-Tenant-Id", "test-tenant"),
+                    portfolios=TWR_FINANCIAL_FIXTURE_PORTFOLIOS,
+                ),
+            )
         assert after.status_code == 200, after.text
         assert after.json() == before.json()

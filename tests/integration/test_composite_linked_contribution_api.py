@@ -17,6 +17,7 @@ from tests.composite_linked_contribution_helpers import (
     linked_request,
     publish_pairs,
 )
+from tests.composite_principal_helpers import TWR_FINANCIAL_FIXTURE_PORTFOLIOS, signed_twr_read_headers
 from tests.integration.test_composite_provider_materialization_api import HEADERS, install_provider_wires
 
 
@@ -58,7 +59,16 @@ def test_registered_linked_or13_correction_pins_and_twr_compatibility(monkeypatc
             map(Decimal, (".025", "-.015", ".005", ".015"))
         )
         twr_payload = {key: value for key, value in payload.items() if key not in ("method", "metric_id")}
-        twr = client.post("/performance/composites/twr", json=twr_payload)
+        twr = client.post(
+            "/performance/composites/twr",
+            json=twr_payload,
+            headers=signed_twr_read_headers(
+                monkeypatch,
+                app,
+                tenant=client.headers.get("X-Tenant-Id", "test-tenant"),
+                portfolios=TWR_FINANCIAL_FIXTURE_PORTFOLIOS,
+            ),
+        )
         assert twr.status_code == 200
         assert Decimal(twr.json()["cumulative_return"]) == Decimal(".0302")
         original_windows = result.json()["selection_manifest"]["windows"]

@@ -22,6 +22,7 @@ from core.errors import APIError
 from engine.composites import _build_ready_member_contributions
 from main import app
 from tests.composite_authority_helpers import install_test_authorities, observation_packet, shared_packet
+from tests.composite_principal_helpers import signed_twr_read_headers
 from tests.integration.test_composite_provider_materialization_api import HEADERS, request_for
 
 
@@ -117,6 +118,16 @@ def execute_phase(state, phase):
     with pytest.MonkeyPatch.context() as monkeypatch:
         install_process_controls(monkeypatch, packets, wires, phase)
         with TestClient(app, headers=HEADERS) as client:
+            client.headers.update(
+                signed_twr_read_headers(
+                    monkeypatch,
+                    app,
+                    tenant=packets[0]["definition"]["tenant_id"],
+                    portfolios={
+                        member for packet in packets for member in packet["attestation"]["expected_portfolio_ids"]
+                    },
+                )
+            )
             return run_phase(client, commands, state["shape"], phase)
 
 
