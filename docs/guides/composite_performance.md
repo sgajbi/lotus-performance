@@ -17,6 +17,18 @@ data-product contracts.
 
 ## Current Capability
 
+`POST /performance/composites/twr` is a verified privileged read. Supply
+`Authorization: Bearer <bank-issued-credential>` using the configured Ed25519 issuer,
+audience and trust provider. The principal needs `operations.runtime.read`, verified tenant
+membership and current grants for the complete selected historical population, including
+excluded and closed members. A manage-only grant is insufficient. Identity, role and capability
+headers grant no authority; optional `X-Tenant-Id` must match the verified tenant.
+Issuer trust, revocation, tenant membership and grant providers default unavailable.
+This applies to both persisted-fact selection and explicit retained-window replay.
+The selected sequence and member identities are pinned before numeric extraction; a changed
+population refuses rather than silently selecting a newer sequence or dropping members.
+Analytics operations retain their separate admission rules.
+
 `lotus-performance` now owns persisted-fact composite TWR for private-banking composites.
 
 Supported now:
@@ -118,10 +130,10 @@ Route:
 
 `POST /performance/composites/twr`
 
-The caller must provide its admitted `X-Tenant-Id`. Tenant authority is transport context, not a
-request-body field. Missing or blank authority is refused with HTTP 401 and malformed authority
-with HTTP 400 before any composite lookup. The same external composite and portfolio identifiers
-may exist independently for different tenants.
+The verified bearer credential supplies tenant authority. Optional `X-Tenant-Id` must agree;
+conflicting authority refuses with HTTP 403 and malformed authority with HTTP 400. Missing or
+invalid credentials refuse with HTTP 401 before lookup. The same external composite and portfolio
+identifiers may exist independently for different tenants.
 
 Use this endpoint when the requested composite, window, and member-return facts are already
 materialized in the composite metadata store.

@@ -202,6 +202,26 @@ npm run live:evidence
 
 ## Closure Assessment
 
+### Current authenticated invocation
+
+The command recorded above is historical execution evidence. With verified TWR admission, populate
+an operator credential environment variable through the approved deployment process and use the
+following command from the `lotus-performance` root in either PowerShell or Bash:
+
+```text
+python scripts/capture_rfc049_live_composite_proof.py --bearer-token-env LOTUS_RFC049_BEARER_TOKEN --output-dir output/rfc-049-slice12-live-proof
+```
+
+The CLI accepts the environment-variable name rather than a credential literal. The script refuses
+missing, blank or malformed input before HTTP and forwards Bearer on direct Performance, Gateway
+and BFF TWR probes. Native verification and grants for the full selected historical population,
+including excluded members, require an already configured deployment. Gateway/BFF forwarding must
+also be supported and validated separately; this input change does not claim a new live proof.
+Credentials are not included in the generated manifest or stdout. Existing fixture, financial and
+refusal validators remain unchanged.
+
+### Recorded Slice 12 closure
+
 Slice 12 proves the implemented composite TWR and inspection paths end to end across:
 
 - persisted composite member-return facts;

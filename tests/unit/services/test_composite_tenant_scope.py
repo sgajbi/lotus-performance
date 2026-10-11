@@ -311,25 +311,25 @@ def test_composite_routes_refuse_missing_blank_and_malformed_tenant_before_looku
         pytest.fail("tenant admission refusal must precede durable composite access")
 
     monkeypatch.setattr(
-        "app.api.endpoints.composites.calculate_composite_twr_from_persisted_facts",
+        "app.api.endpoints.composites.inspect_composite_twr_from_persisted_facts",
         _unexpected_durable_lookup,
     )
     client = TestClient(app)
     try:
-        missing = client.post("/performance/composites/twr", json=payload)
-        blank = client.post("/performance/composites/twr", json=payload, headers={"X-Tenant-Id": "  "})
+        missing = client.post("/performance/composites/inspect", json=payload)
+        blank = client.post("/performance/composites/inspect", json=payload, headers={"X-Tenant-Id": "  "})
         malformed = client.post(
-            "/performance/composites/twr",
+            "/performance/composites/inspect",
             json=payload,
             headers={"X-Tenant-Id": "t" * 129},
         )
         duplicate_equal = client.post(
-            "/performance/composites/twr",
+            "/performance/composites/inspect",
             json=payload,
             headers=[("X-Tenant-Id", "tenant-a"), ("X-Tenant-Id", "tenant-a")],
         )
         duplicate_different = client.post(
-            "/performance/composites/twr",
+            "/performance/composites/inspect",
             json=payload,
             headers=[("X-Tenant-Id", "tenant-a"), ("X-Tenant-Id", "tenant-b")],
         )
@@ -350,7 +350,7 @@ def test_composite_routes_refuse_missing_blank_and_malformed_tenant_before_looku
         assert duplicate.json()["detail"] == DUPLICATE_TENANT_AUTHORITY_DETAIL
 
     schema = app.openapi()
-    for path in ("/performance/composites/twr", "/performance/composites/inspect"):
+    for path in ("/performance/composites/inspect",):
         operation = schema["paths"][path]["post"]
         tenant_parameter = next(
             parameter for parameter in operation["parameters"] if parameter["name"] == "X-Tenant-Id"

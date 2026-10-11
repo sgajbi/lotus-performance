@@ -10,6 +10,7 @@ from app.models.composites import CompositeDefinition, CompositeMemberReturnFact
 from app.observability import tenant_id_var
 from app.services.composite_metadata_store import composite_metadata_store
 from main import app
+from tests.composite_principal_helpers import TWR_FINANCIAL_FIXTURE_PORTFOLIOS, signed_twr_read_headers
 
 
 @pytest.fixture(autouse=True)
@@ -104,7 +105,7 @@ def _complete_publication(*facts: CompositeMemberReturnFact, tenant_id: str = "t
     )
 
 
-def test_composite_twr_api_calculates_from_persisted_member_facts():
+def test_composite_twr_api_calculates_from_persisted_member_facts(monkeypatch):
     with TestClient(app) as client:
         composite_metadata_store.clear_all_records()
         _seed_definition()
@@ -119,6 +120,12 @@ def test_composite_twr_api_calculates_from_persisted_member_facts():
                 "period_start": "2026-01-01",
                 "period_end": "2026-01-31",
             },
+            headers=signed_twr_read_headers(
+                monkeypatch,
+                app,
+                tenant=client.headers.get("X-Tenant-Id", "test-tenant"),
+                portfolios=TWR_FINANCIAL_FIXTURE_PORTFOLIOS,
+            ),
         )
 
     assert response.status_code == 200
@@ -139,7 +146,7 @@ def test_composite_twr_api_calculates_from_persisted_member_facts():
     assert payload["methodology"] == "persisted_member_return_asset_weighted_twr_v1"
 
 
-def test_composite_twr_api_scopes_identical_external_ids_by_admitted_tenant():
+def test_composite_twr_api_scopes_identical_external_ids_by_admitted_tenant(monkeypatch):
     payload = {
         "composite_id": "PB_GLOBAL_BALANCED_USD",
         "period_start": "2026-01-01",
@@ -156,12 +163,28 @@ def test_composite_twr_api_scopes_identical_external_ids_by_admitted_tenant():
         tenant_a = client.post(
             "/performance/composites/twr",
             json=payload,
-            headers={"X-Tenant-Id": "tenant-a"},
+            headers={
+                **{"X-Tenant-Id": "tenant-a"},
+                **signed_twr_read_headers(
+                    monkeypatch,
+                    app,
+                    tenant="tenant-a",
+                    portfolios=TWR_FINANCIAL_FIXTURE_PORTFOLIOS,
+                ),
+            },
         )
         tenant_b = client.post(
             "/performance/composites/twr",
             json=payload,
-            headers={"X-Tenant-Id": "tenant-b"},
+            headers={
+                **{"X-Tenant-Id": "tenant-b"},
+                **signed_twr_read_headers(
+                    monkeypatch,
+                    app,
+                    tenant="tenant-b",
+                    portfolios=TWR_FINANCIAL_FIXTURE_PORTFOLIOS,
+                ),
+            },
         )
 
     assert tenant_a.status_code == 200
@@ -212,7 +235,7 @@ def test_composite_inspection_api_isolates_two_tenants_and_refuses_foreign_only_
     assert foreign_only.json()["detail"]["code"] == "COMPOSITE_NOT_FOUND"
 
 
-def test_composite_twr_api_selects_immutable_net_versions_and_gross_view():
+def test_composite_twr_api_selects_immutable_net_versions_and_gross_view(monkeypatch):
     with TestClient(app) as client:
         composite_metadata_store.clear_all_records()
         _seed_definition()
@@ -238,6 +261,12 @@ def test_composite_twr_api_selects_immutable_net_versions_and_gross_view():
                 "return_view": "NET_ACTUAL",
                 "reporting_currency": "usd",
             },
+            headers=signed_twr_read_headers(
+                monkeypatch,
+                app,
+                tenant=client.headers.get("X-Tenant-Id", "test-tenant"),
+                portfolios=TWR_FINANCIAL_FIXTURE_PORTFOLIOS,
+            ),
         )
         original_net = client.post(
             "/performance/composites/twr",
@@ -249,6 +278,12 @@ def test_composite_twr_api_selects_immutable_net_versions_and_gross_view():
                 "reporting_currency": "USD",
                 "restatement_sequence": 1,
             },
+            headers=signed_twr_read_headers(
+                monkeypatch,
+                app,
+                tenant=client.headers.get("X-Tenant-Id", "test-tenant"),
+                portfolios=TWR_FINANCIAL_FIXTURE_PORTFOLIOS,
+            ),
         )
         gross = client.post(
             "/performance/composites/twr",
@@ -259,6 +294,12 @@ def test_composite_twr_api_selects_immutable_net_versions_and_gross_view():
                 "return_view": "GROSS",
                 "reporting_currency": "USD",
             },
+            headers=signed_twr_read_headers(
+                monkeypatch,
+                app,
+                tenant=client.headers.get("X-Tenant-Id", "test-tenant"),
+                portfolios=TWR_FINANCIAL_FIXTURE_PORTFOLIOS,
+            ),
         )
 
     assert latest_net.status_code == 200
@@ -290,7 +331,7 @@ def test_composite_twr_api_selects_immutable_net_versions_and_gross_view():
         assert contribution["restatement_sequence"] == expected_sequence
 
 
-def test_composite_twr_api_replays_pinned_set_before_later_member_was_added():
+def test_composite_twr_api_replays_pinned_set_before_later_member_was_added(monkeypatch):
     with TestClient(app) as client:
         composite_metadata_store.clear_all_records()
         _seed_definition()
@@ -309,6 +350,12 @@ def test_composite_twr_api_replays_pinned_set_before_later_member_was_added():
                 "period_end": "2026-01-31",
                 "restatement_sequence": 1,
             },
+            headers=signed_twr_read_headers(
+                monkeypatch,
+                app,
+                tenant=client.headers.get("X-Tenant-Id", "test-tenant"),
+                portfolios=TWR_FINANCIAL_FIXTURE_PORTFOLIOS,
+            ),
         )
         latest = client.post(
             "/performance/composites/twr",
@@ -317,6 +364,12 @@ def test_composite_twr_api_replays_pinned_set_before_later_member_was_added():
                 "period_start": "2026-01-01",
                 "period_end": "2026-01-31",
             },
+            headers=signed_twr_read_headers(
+                monkeypatch,
+                app,
+                tenant=client.headers.get("X-Tenant-Id", "test-tenant"),
+                portfolios=TWR_FINANCIAL_FIXTURE_PORTFOLIOS,
+            ),
         )
 
     assert pinned.status_code == 200
@@ -326,7 +379,7 @@ def test_composite_twr_api_replays_pinned_set_before_later_member_was_added():
     assert latest.json()["cumulative_return"] == "0.027500000000"
 
 
-def test_composite_twr_api_refuses_partial_latest_fact_sequence():
+def test_composite_twr_api_refuses_partial_latest_fact_sequence(monkeypatch):
     with TestClient(app) as client:
         composite_metadata_store.clear_all_records()
         _seed_definition()
@@ -341,13 +394,19 @@ def test_composite_twr_api_refuses_partial_latest_fact_sequence():
                 "period_start": "2026-01-01",
                 "period_end": "2026-01-31",
             },
+            headers=signed_twr_read_headers(
+                monkeypatch,
+                app,
+                tenant=client.headers.get("X-Tenant-Id", "test-tenant"),
+                portfolios=TWR_FINANCIAL_FIXTURE_PORTFOLIOS,
+            ),
         )
 
     assert response.status_code == 409
     assert response.json()["detail"]["code"] == "COMPOSITE_FACT_SELECTION_INCOMPLETE"
 
 
-def test_composite_twr_api_returns_not_found_for_unknown_definition():
+def test_composite_twr_api_returns_not_found_for_unknown_definition(monkeypatch):
     with TestClient(app) as client:
         composite_metadata_store.clear_all_records()
 
@@ -358,13 +417,19 @@ def test_composite_twr_api_returns_not_found_for_unknown_definition():
                 "period_start": "2026-01-01",
                 "period_end": "2026-01-31",
             },
+            headers=signed_twr_read_headers(
+                monkeypatch,
+                app,
+                tenant=client.headers.get("X-Tenant-Id", "test-tenant"),
+                portfolios=TWR_FINANCIAL_FIXTURE_PORTFOLIOS,
+            ),
         )
 
     assert response.status_code == 404
     assert response.json()["detail"]["code"] == "COMPOSITE_NOT_FOUND"
 
 
-def test_composite_twr_api_returns_unprocessable_for_empty_persisted_fact_window():
+def test_composite_twr_api_returns_unprocessable_for_empty_persisted_fact_window(monkeypatch):
     with TestClient(app) as client:
         composite_metadata_store.clear_all_records()
         _seed_definition()
@@ -376,13 +441,19 @@ def test_composite_twr_api_returns_unprocessable_for_empty_persisted_fact_window
                 "period_start": "2026-01-01",
                 "period_end": "2026-01-31",
             },
+            headers=signed_twr_read_headers(
+                monkeypatch,
+                app,
+                tenant=client.headers.get("X-Tenant-Id", "test-tenant"),
+                portfolios=TWR_FINANCIAL_FIXTURE_PORTFOLIOS,
+            ),
         )
 
     assert response.status_code == 422
     assert response.json()["detail"]["code"] == "NO_MEMBER_RETURN_FACTS"
 
 
-def test_composite_apis_reject_explicit_sequence_when_fact_universe_is_empty():
+def test_composite_apis_reject_explicit_sequence_when_fact_universe_is_empty(monkeypatch):
     with TestClient(app) as client:
         composite_metadata_store.clear_all_records()
         _seed_definition()
@@ -396,6 +467,12 @@ def test_composite_apis_reject_explicit_sequence_when_fact_universe_is_empty():
         twr_response = client.post(
             "/performance/composites/twr",
             json=common_request,
+            headers=signed_twr_read_headers(
+                monkeypatch,
+                app,
+                tenant=client.headers.get("X-Tenant-Id", "test-tenant"),
+                portfolios=TWR_FINANCIAL_FIXTURE_PORTFOLIOS,
+            ),
         )
         inspection_response = client.post(
             "/performance/composites/inspect",
@@ -407,7 +484,7 @@ def test_composite_apis_reject_explicit_sequence_when_fact_universe_is_empty():
         assert response.json()["detail"]["code"] == "COMPOSITE_FACT_SELECTION_INCOMPLETE"
 
 
-def test_composite_twr_api_returns_degraded_reason_codes_for_non_ready_member_facts():
+def test_composite_twr_api_returns_degraded_reason_codes_for_non_ready_member_facts(monkeypatch):
     with TestClient(app) as client:
         composite_metadata_store.clear_all_records()
         _seed_definition()
@@ -424,6 +501,12 @@ def test_composite_twr_api_returns_degraded_reason_codes_for_non_ready_member_fa
                 "period_start": "2026-01-01",
                 "period_end": "2026-01-31",
             },
+            headers=signed_twr_read_headers(
+                monkeypatch,
+                app,
+                tenant=client.headers.get("X-Tenant-Id", "test-tenant"),
+                portfolios=TWR_FINANCIAL_FIXTURE_PORTFOLIOS,
+            ),
         )
 
     assert response.status_code == 200
@@ -434,7 +517,7 @@ def test_composite_twr_api_returns_degraded_reason_codes_for_non_ready_member_fa
     assert payload["periods"][0]["reason_codes"] == ["missing_final_valuation"]
 
 
-def test_composite_twr_api_preserves_selected_sequence_for_blocked_period():
+def test_composite_twr_api_preserves_selected_sequence_for_blocked_period(monkeypatch):
     with TestClient(app) as client:
         composite_metadata_store.clear_all_records()
         _seed_definition()
@@ -454,6 +537,12 @@ def test_composite_twr_api_preserves_selected_sequence_for_blocked_period():
                 "period_start": "2026-01-01",
                 "period_end": "2026-01-31",
             },
+            headers=signed_twr_read_headers(
+                monkeypatch,
+                app,
+                tenant=client.headers.get("X-Tenant-Id", "test-tenant"),
+                portfolios=TWR_FINANCIAL_FIXTURE_PORTFOLIOS,
+            ),
         )
 
     assert response.status_code == 200
@@ -463,7 +552,7 @@ def test_composite_twr_api_preserves_selected_sequence_for_blocked_period():
     assert payload["periods"][0]["restatement_sequence"] == 7
 
 
-def test_composite_twr_api_rejects_invalid_window_before_calculation():
+def test_composite_twr_api_rejects_invalid_window_before_calculation(monkeypatch):
     with TestClient(app) as client:
         composite_metadata_store.clear_all_records()
         _seed_definition()
@@ -475,6 +564,12 @@ def test_composite_twr_api_rejects_invalid_window_before_calculation():
                 "period_start": "2026-02-01",
                 "period_end": "2026-01-31",
             },
+            headers=signed_twr_read_headers(
+                monkeypatch,
+                app,
+                tenant=client.headers.get("X-Tenant-Id", "test-tenant"),
+                portfolios=TWR_FINANCIAL_FIXTURE_PORTFOLIOS,
+            ),
         )
 
     assert response.status_code == 422

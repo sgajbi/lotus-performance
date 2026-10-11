@@ -8,6 +8,16 @@ from app.enterprise_runtime_config import (
 
 _CAPABILITY_OPERATIONS_RUNTIME_MANAGE = "operations.runtime.manage"
 _CAPABILITY_OPERATIONS_RUNTIME_READ = "operations.runtime.read"
+COMPOSITE_TWR_READ_PATH = "/performance/composites/twr"
+
+
+def verified_composite_required_capability(method: str, path: str) -> str:
+    """Classify the governed operation, independently of its HTTP transport."""
+    if (method.upper(), path) == ("POST", COMPOSITE_TWR_READ_PATH) or method.upper() in ("GET", "HEAD"):
+        return _CAPABILITY_OPERATIONS_RUNTIME_READ
+    return _CAPABILITY_OPERATIONS_RUNTIME_MANAGE
+
+
 _HTTP_METHOD_DELETE = "DELETE"
 _HTTP_METHOD_GET = "GET"
 _HTTP_METHOD_PATCH = "PATCH"

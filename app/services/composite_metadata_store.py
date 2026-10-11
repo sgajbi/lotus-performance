@@ -6,7 +6,7 @@ from contextlib import contextmanager
 from dataclasses import dataclass
 from datetime import date as dt_date
 from hashlib import sha256
-from typing import Any, Iterator
+from typing import Any, Callable, Iterator
 
 from sqlalchemy import (
     CheckConstraint,
@@ -24,6 +24,7 @@ from sqlalchemy import (
     or_,
     select,
     text,
+    tuple_,
 )
 from sqlalchemy.engine import Connection
 from sqlalchemy.engine.interfaces import Dialect
@@ -39,6 +40,7 @@ from app.adapters.composite_model_fee_profile_schema import (
     create_model_fee_profile_schema,
     model_fee_profile_guard_statements,
 )
+from app.adapters.composite_result_candidate_scope import retained_materialization_members
 from app.adapters.composite_schema_policy import (
     CANONICAL_REPORTING_CURRENCY_CHECK_SQL,
     POSTGRES_STRIP_CHARACTERS_SQL,
@@ -2509,6 +2511,68 @@ def _enable_sqlite_foreign_keys(dbapi_connection: Any, _connection_record: Any) 
         cursor.close()
 
 
+def _selected_fact_families(session, statement):
+    return set(
+        session.execute(
+            statement.with_only_columns(
+                CompositeMemberReturnFactModel.portfolio_id,
+                CompositeMemberReturnFactModel.period_start,
+                CompositeMemberReturnFactModel.period_end,
+            )
+        ).all()
+    )
+
+
+def _authorize_fact_selection(session, statement, expected_families, tenant_id, authorize_scope):
+    """Pin identity metadata before extracting any selected numerical payload."""
+    families = _selected_fact_families(session, statement)
+    dimensions = (
+        "tenant_id",
+        "composite_id",
+        "return_view",
+        "reporting_currency",
+        "restatement_sequence",
+        "period_start",
+        "period_end",
+    )
+    selected_scopes = statement.with_only_columns(
+        *(getattr(CompositeMemberReturnFactModel, name) for name in dimensions)
+    )
+    identities = session.scalars(
+        select(CompositeMaterializationModel.materialization_id).where(
+            tuple_(*(getattr(CompositeMaterializationModel, name) for name in dimensions)).in_(selected_scopes)
+        )
+    ).all()
+    retained_members = retained_materialization_members(
+        session.connection(), materialization_ids=identities, tenant_id=tenant_id
+    )
+    members = frozenset(family[0] for family in families | expected_families) | retained_members
+    if members:
+        authorize_scope(members)
+    return families
+
+
+def _read_admitted_fact_rows(session, statement, completed_families, tenant_id, authorize_scope):
+    admitted = (
+        _authorize_fact_selection(session, statement, completed_families or set(), tenant_id, authorize_scope)
+        if authorize_scope is not None
+        else None
+    )
+    numeric_selection = statement
+    if admitted is not None:
+        numeric_selection = statement.where(
+            tuple_(
+                CompositeMemberReturnFactModel.portfolio_id,
+                CompositeMemberReturnFactModel.period_start,
+                CompositeMemberReturnFactModel.period_end,
+            ).in_(admitted)
+        )
+    rows = session.execute(numeric_selection).scalars().all()
+    if admitted is not None and admitted != _selected_fact_families(session, statement):
+        raise CompositeMemberReturnFactSelectionError("Selected member identities changed after authorization.")
+    return rows
+
+
 class CompositeMetadataStore:
     def __init__(self, database_url: str):
         self._engine = create_durable_database_engine(database_url)
@@ -3025,6 +3089,7 @@ class CompositeMetadataStore:
         return_view: CompositeReturnView,
         reporting_currency: str | None,
         restatement_sequence: int | None = None,
+        authorize_scope: Callable[[frozenset[str]], None] | None = None,
     ) -> list[CompositeMemberReturnFact]:
         tenant_id = _admitted_composite_tenant_id(tenant_id)
         with self._session() as session:
@@ -3093,7 +3158,6 @@ class CompositeMetadataStore:
                 CompositeMemberReturnFactModel.period_end,
                 CompositeMemberReturnFactModel.portfolio_id,
             )
-            rows = session.execute(statement).scalars().all()
             completed_publication_families = _completed_publication_families(
                 session,
                 publication_filters=publication_identity_filters,
@@ -3101,14 +3165,18 @@ class CompositeMetadataStore:
                 period_start=period_start,
                 period_end=period_end,
             )
+            expected_families = (
+                completed_publication_families
+                if completed_publication_families is not None
+                else _member_return_fact_families(session, filters=filters)
+            )
+            rows = _read_admitted_fact_rows(
+                session, statement, completed_publication_families, tenant_id, authorize_scope
+            )
             _validate_member_return_fact_selection(
                 selecting_latest=selecting_latest,
                 selected_sequence=selected_sequence,
-                expected_families=(
-                    completed_publication_families
-                    if completed_publication_families is not None
-                    else _member_return_fact_families(session, filters=filters)
-                ),
+                expected_families=expected_families,
                 has_completed_publication=completed_publication_families is not None,
                 selected_rows=rows,
             )

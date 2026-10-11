@@ -8,7 +8,7 @@
       "openApiVersion": "3.1.0"
     }
   ],
-  "generatedAt": "2026-10-10T01:19:33.778243+00:00",
+  "generatedAt": "2026-10-11T04:12:51.322327+00:00",
   "attributeCatalog": [
     {
       "semanticId": "lotus.access_classification",
@@ -798,6 +798,20 @@
       ],
       "observedTypes": [
         "Audit"
+      ]
+    },
+    {
+      "semanticId": "lotus.authorization",
+      "canonicalTerm": "authorization",
+      "preferredName": "authorization",
+      "description": "Canonical authorization used by lotus-performance APIs.",
+      "example": null,
+      "type": "string",
+      "locations": [
+        "header"
+      ],
+      "observedTypes": [
+        "string"
       ]
     },
     {
@@ -13369,13 +13383,25 @@
       "name": "x_tenant_id",
       "kind": "request_option",
       "location": "header",
-      "required": true,
+      "required": false,
       "type": "string",
-      "description": "Required admitted tenant authority for Performance-owned composite state. Surrounding whitespace is trimmed; the service never mints or defaults this value.",
+      "description": "Optional tenant assertion; must match the verified credential tenant. It grants no authority.",
       "example": "private-bank-sg",
       "allowedValues": [],
       "semanticId": "lotus.x_tenant_id",
       "attributeRef": "#/attributeCatalog/lotus.x_tenant_id"
+    },
+    {
+      "name": "authorization",
+      "kind": "request_option",
+      "location": "header",
+      "required": true,
+      "type": "string",
+      "description": "Verified Ed25519 Composite credential with operations.runtime.read and complete selected historical member scope.",
+      "example": "Bearer <bank-issued-credential>",
+      "allowedValues": [],
+      "semanticId": "lotus.authorization",
+      "attributeRef": "#/attributeCatalog/lotus.authorization"
     },
     {
       "name": "candidate_id",
@@ -16779,10 +16805,18 @@
           {
             "name": "X-Tenant-Id",
             "location": "header",
-            "required": true,
+            "required": false,
             "type": "string",
             "semanticId": "lotus.x_tenant_id",
             "attributeRef": "#/attributeCatalog/lotus.x_tenant_id"
+          },
+          {
+            "name": "Authorization",
+            "location": "header",
+            "required": true,
+            "type": "string",
+            "semanticId": "lotus.authorization",
+            "attributeRef": "#/attributeCatalog/lotus.authorization"
           },
           {
             "name": "calculation_id",

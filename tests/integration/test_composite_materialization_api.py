@@ -27,6 +27,7 @@ from main import app
 from scripts.durable_schema_apply import apply_durable_schema
 from tests.composite_currency_normalization_helpers import normalization_wire, synthetic_fx_verification
 from tests.composite_materialization_helpers import command_for, source_products
+from tests.composite_principal_helpers import TWR_FINANCIAL_FIXTURE_PORTFOLIOS, signed_twr_read_headers
 
 
 @pytest.fixture(autouse=True)
@@ -348,6 +349,12 @@ def test_registered_fx_normalization_refuses_unbound_retained_member_custody_aft
                 report = client.post(
                     "/performance/composites/twr",
                     json={**composite_request(command), "materialization_ids": [str(command.materialization_id)]},
+                    headers=signed_twr_read_headers(
+                        monkeypatch,
+                        app,
+                        tenant=client.headers.get("X-Tenant-Id", "test-tenant"),
+                        portfolios=TWR_FINANCIAL_FIXTURE_PORTFOLIOS,
+                    ),
                 )
                 assert report.status_code == 503 and "cumulative_return" not in report.json(), report.text
             with pytest.raises(APIError) as refused:
@@ -366,7 +373,16 @@ def test_registered_fx_normalization_refuses_unbound_retained_member_custody_aft
                 client.get(f"/performance/composites/materializations/{command.materialization_id}").json()
                 == captured["receipt"]
             )
-            report = client.post("/performance/composites/twr", json=composite_request(command))
+            report = client.post(
+                "/performance/composites/twr",
+                json=composite_request(command),
+                headers=signed_twr_read_headers(
+                    monkeypatch,
+                    app,
+                    tenant=client.headers.get("X-Tenant-Id", "test-tenant"),
+                    portfolios=TWR_FINANCIAL_FIXTURE_PORTFOLIOS,
+                ),
+            )
             assert report.status_code == 200 and report.json()["periods"] == captured["periods"], report.text
     finally:
         ledger.close()
@@ -428,7 +444,16 @@ def test_http_materialization_preserves_cashflow_fee_and_precision_inputs(
             Decimal(100) * a_reported + Decimal(200) * Decimal("0.05") + Decimal(300) * Decimal("-0.02")
         ) / Decimal(600)
         assert abs(Decimal(member["fact"]["return_value"]) - a_reported) < Decimal("1e-12")
-        result = client.post("/performance/composites/twr", json=composite_request(command))
+        result = client.post(
+            "/performance/composites/twr",
+            json=composite_request(command),
+            headers=signed_twr_read_headers(
+                monkeypatch,
+                app,
+                tenant=client.headers.get("X-Tenant-Id", "test-tenant"),
+                portfolios=TWR_FINANCIAL_FIXTURE_PORTFOLIOS,
+            ),
+        )
         assert result.status_code == 200, result.text
         period = result.json()["periods"][0]
         assert abs(Decimal(str(period["return_value"])) - expected) <= Decimal("1e-12")
@@ -678,7 +703,19 @@ def run_registered_fx_money_control(
             retained = composite_materialization_store.get(command.materialization_id, tenant_id=tenant_id)
             assert retained.source.currency_normalization_wire is not None
             assert retained.source.attestation.expected_portfolio_ids == ["A", "B", "C"]
-            assert client.post("/performance/composites/twr", json=composite_request(command)).status_code != 200
+            assert (
+                client.post(
+                    "/performance/composites/twr",
+                    json=composite_request(command),
+                    headers=signed_twr_read_headers(
+                        monkeypatch,
+                        app,
+                        tenant=client.headers.get("X-Tenant-Id", "test-tenant"),
+                        portfolios=TWR_FINANCIAL_FIXTURE_PORTFOLIOS,
+                    ),
+                ).status_code
+                != 200
+            )
             assert client.get(accepted.json()["result_path"]).json() == receipt
             return
         if expected_fx_refusal is not None:
@@ -691,7 +728,19 @@ def run_registered_fx_money_control(
             assert [row["portfolio_id"] for row in receipt["members"]] == ["A", "B", "C"]
             assert all(row["reason_code"] == expected_fx_refusal for row in receipt["members"])
             assert all(row["fact"] is None and row["source_evidence"] is None for row in receipt["members"])
-            assert client.post("/performance/composites/twr", json=composite_request(command)).status_code != 200
+            assert (
+                client.post(
+                    "/performance/composites/twr",
+                    json=composite_request(command),
+                    headers=signed_twr_read_headers(
+                        monkeypatch,
+                        app,
+                        tenant=client.headers.get("X-Tenant-Id", "test-tenant"),
+                        portfolios=TWR_FINANCIAL_FIXTURE_PORTFOLIOS,
+                    ),
+                ).status_code
+                != 200
+            )
             retained = composite_materialization_store.get(command.materialization_id, tenant_id=tenant_id)
             assert retained.source.attestation.expected_portfolio_ids == ["A", "B", "C"]
             assert retained.source.currency_normalization_wire is None
@@ -720,7 +769,14 @@ def run_registered_fx_money_control(
             assert Decimal(converted_fee["reporting_amount"]) == Decimal(management_fee) * Decimal(ending_rate)
             assert converted_fee["fixing_date"] == converted_fee["business_date"] == performance_day
             normalized = client.post(
-                "/performance/composites/twr", json=composite_request(command, sequence=restatement_sequence)
+                "/performance/composites/twr",
+                json=composite_request(command, sequence=restatement_sequence),
+                headers=signed_twr_read_headers(
+                    monkeypatch,
+                    app,
+                    tenant=client.headers.get("X-Tenant-Id", "test-tenant"),
+                    portfolios=TWR_FINANCIAL_FIXTURE_PORTFOLIOS,
+                ),
             )
             assert normalized.status_code == 200, normalized.text
             period = normalized.json()["periods"][0]
@@ -776,7 +832,14 @@ def run_registered_fx_money_control(
                     )
             assert client.get(accepted.json()["result_path"]).json()["state"] == "COMPLETE"
             reported_again = client.post(
-                "/performance/composites/twr", json=composite_request(command, sequence=restatement_sequence)
+                "/performance/composites/twr",
+                json=composite_request(command, sequence=restatement_sequence),
+                headers=signed_twr_read_headers(
+                    monkeypatch,
+                    app,
+                    tenant=client.headers.get("X-Tenant-Id", "test-tenant"),
+                    portfolios=TWR_FINANCIAL_FIXTURE_PORTFOLIOS,
+                ),
             )
             assert (
                 reported_again.status_code == 200 and reported_again.json()["periods"] == normalized.json()["periods"]
@@ -794,7 +857,16 @@ def run_registered_fx_money_control(
         refused_member = receipt["members"][0]
         assert refused_member["reason_code"] == "MEMBER_FINANCIAL_EVIDENCE_REFUSED"
         assert refused_member["fact"] is None and refused_member["source_evidence"] is None
-        refused_result = client.post("/performance/composites/twr", json=composite_request(command))
+        refused_result = client.post(
+            "/performance/composites/twr",
+            json=composite_request(command),
+            headers=signed_twr_read_headers(
+                monkeypatch,
+                app,
+                tenant=client.headers.get("X-Tenant-Id", "test-tenant"),
+                portfolios=TWR_FINANCIAL_FIXTURE_PORTFOLIOS,
+            ),
+        )
         assert refused_result.status_code != 200 or refused_result.json()["status"] != "READY", refused_result.text
 
 
@@ -878,22 +950,58 @@ def test_registered_fx_normalization_reports_independently_admitted_native_compo
         request = composite_request(command)
         request.pop("reporting_currency")
         with TestClient(app, headers={"X-Tenant-Id": tenant_id}) as client:
-            default = client.post("/performance/composites/twr", json=request)
+            default = client.post(
+                "/performance/composites/twr",
+                json=request,
+                headers=signed_twr_read_headers(
+                    monkeypatch,
+                    app,
+                    tenant=client.headers.get("X-Tenant-Id", "test-tenant"),
+                    portfolios=TWR_FINANCIAL_FIXTURE_PORTFOLIOS,
+                ),
+            )
             if legacy_native:
                 assert default.status_code == 409, default.text
                 assert default.json()["detail"]["code"] == "COMPOSITE_FACT_SELECTION_INCOMPLETE"
             else:
                 assert default.status_code == 200, default.text
                 assert default.json()["periods"] == periods
-            explicit = client.post("/performance/composites/twr", json={**request, "reporting_currency": "USD"})
+            explicit = client.post(
+                "/performance/composites/twr",
+                json={**request, "reporting_currency": "USD"},
+                headers=signed_twr_read_headers(
+                    monkeypatch,
+                    app,
+                    tenant=client.headers.get("X-Tenant-Id", "test-tenant"),
+                    portfolios=TWR_FINANCIAL_FIXTURE_PORTFOLIOS,
+                ),
+            )
             assert explicit.status_code == 200 and explicit.json()["periods"] == periods
             pinned = client.post(
                 "/performance/composites/twr",
                 json={**request, "materialization_ids": [str(command.materialization_id)]},
+                headers=signed_twr_read_headers(
+                    monkeypatch,
+                    app,
+                    tenant=client.headers.get("X-Tenant-Id", "test-tenant"),
+                    portfolios=TWR_FINANCIAL_FIXTURE_PORTFOLIOS,
+                ),
             )
             assert pinned.status_code == 200 and pinned.json()["periods"] == periods
-            foreign = client.post("/performance/composites/twr", json=request, headers={"X-Tenant-Id": "other-tenant"})
-            assert foreign.status_code == 404
+            foreign = client.post(
+                "/performance/composites/twr",
+                json=request,
+                headers={
+                    **{"X-Tenant-Id": "other-tenant"},
+                    **signed_twr_read_headers(
+                        monkeypatch,
+                        app,
+                        tenant=client.headers.get("X-Tenant-Id", "test-tenant"),
+                        portfolios=TWR_FINANCIAL_FIXTURE_PORTFOLIOS,
+                    ),
+                },
+            )
+            assert foreign.status_code == 403
         retained = composite_materialization_store.get(command.materialization_id, tenant_id=tenant_id)
         assert retained.source.definition.reporting_currency == native_currency
         assert retained.source.definition.content_hash == products[0]["content_hash"]
@@ -1198,7 +1306,16 @@ def test_registered_fx_normalization_links_adjacent_periods_without_resetting_in
             "period_end": "2026-01-06",
             "materialization_ids": identities,
         }
-        response = client.post("/performance/composites/twr", json=payload)
+        response = client.post(
+            "/performance/composites/twr",
+            json=payload,
+            headers=signed_twr_read_headers(
+                monkeypatch,
+                app,
+                tenant=client.headers.get("X-Tenant-Id", "test-tenant"),
+                portfolios=TWR_FINANCIAL_FIXTURE_PORTFOLIOS,
+            ),
+        )
         if mismatch is not None:
             assert response.status_code == 422, response.text
             assert response.json()["error_code"] == (
@@ -1238,11 +1355,27 @@ def test_registered_fx_normalization_links_adjacent_periods_without_resetting_in
                 window["retained_receipt_fingerprint"]
                 == generate_value_fingerprint(historical_receipt, "composite-retained-window.v1")[0]
             )
-        missing = client.post("/performance/composites/twr", json={**payload, "materialization_ids": identities[:1]})
+        missing = client.post(
+            "/performance/composites/twr",
+            json={**payload, "materialization_ids": identities[:1]},
+            headers=signed_twr_read_headers(
+                monkeypatch,
+                app,
+                tenant=client.headers.get("X-Tenant-Id", "test-tenant"),
+                portfolios=TWR_FINANCIAL_FIXTURE_PORTFOLIOS,
+            ),
+        )
         assert missing.status_code == 409 and "REQUIRED_PERIOD_UNAVAILABLE" in missing.text, missing.text
         assert "cumulative_return" not in missing.json()
         reversed_windows = client.post(
-            "/performance/composites/twr", json={**payload, "materialization_ids": list(reversed(identities))}
+            "/performance/composites/twr",
+            json={**payload, "materialization_ids": list(reversed(identities))},
+            headers=signed_twr_read_headers(
+                monkeypatch,
+                app,
+                tenant=client.headers.get("X-Tenant-Id", "test-tenant"),
+                portfolios=TWR_FINANCIAL_FIXTURE_PORTFOLIOS,
+            ),
         )
         assert reversed_windows.status_code == 422 and "COMPOSITE_VECTOR_WINDOW_MISMATCH" in reversed_windows.text
         assert "cumulative_return" not in reversed_windows.json()
@@ -1308,7 +1441,15 @@ def test_registered_fx_normalization_keeps_positive_tenant_populations_separate(
             assert receipt.json()["ready_count"] == receipt.json()["expected_count"] == 3
             reported = client.post(
                 "/performance/composites/twr",
-                headers=headers,
+                headers={
+                    **headers,
+                    **signed_twr_read_headers(
+                        monkeypatch,
+                        app,
+                        tenant=tenant_id,
+                        portfolios=TWR_FINANCIAL_FIXTURE_PORTFOLIOS,
+                    ),
+                },
                 json=composite_request(expected["command"], sequence=1),
             )
             assert reported.status_code == 200 and reported.json()["periods"] == expected["periods"], reported.text
@@ -1344,7 +1485,16 @@ def test_http_missing_member_recovery_and_correction_preserve_reported_version(m
         assert (partial["state"], partial["ready_count"], partial["waiting_count"]) == ("WAITING", 2, 1)
         assert partial["members"][-1]["portfolio_id"] == "C"
         assert partial["members"][-1]["fact"] is None
-        refused = client.post("/performance/composites/twr", json=selected_request(command))
+        refused = client.post(
+            "/performance/composites/twr",
+            json=selected_request(command),
+            headers=signed_twr_read_headers(
+                monkeypatch,
+                app,
+                tenant=client.headers.get("X-Tenant-Id", "test-tenant"),
+                portfolios=TWR_FINANCIAL_FIXTURE_PORTFOLIOS,
+            ),
+        )
         assert refused.status_code != 200 or refused.json()["status"] != "READY", refused.text
         if explicit_selection:
             assert refused.status_code == 409
@@ -1368,7 +1518,16 @@ def test_http_missing_member_recovery_and_correction_preserve_reported_version(m
         process_lineage(limit=100)
         assert client.get(accepted.json()["result_path"]).json()["state"] == "COMPLETE"
         assert compute_job_store.get_job_for_tenant(command.calculation_id, tenant_id="tenant-a").job_status == "failed"
-        original = client.post("/performance/composites/twr", json=selected_request(command, sequence=1))
+        original = client.post(
+            "/performance/composites/twr",
+            json=selected_request(command, sequence=1),
+            headers=signed_twr_read_headers(
+                monkeypatch,
+                app,
+                tenant=client.headers.get("X-Tenant-Id", "test-tenant"),
+                portfolios=TWR_FINANCIAL_FIXTURE_PORTFOLIOS,
+            ),
+        )
         assert original.status_code == 200, original.text
         original_result = original.json()
         if explicit_selection:
@@ -1390,12 +1549,30 @@ def test_http_missing_member_recovery_and_correction_preserve_reported_version(m
         )
         assert corrected_acceptance.status_code == 202, corrected_acceptance.text
         assert process_pending_jobs(limit=10) == 1
-        pending_latest = client.post("/performance/composites/twr", json=selected_request(corrected))
+        pending_latest = client.post(
+            "/performance/composites/twr",
+            json=selected_request(corrected),
+            headers=signed_twr_read_headers(
+                monkeypatch,
+                app,
+                tenant=client.headers.get("X-Tenant-Id", "test-tenant"),
+                portfolios=TWR_FINANCIAL_FIXTURE_PORTFOLIOS,
+            ),
+        )
         assert pending_latest.status_code != 200 or pending_latest.json()["status"] != "READY", pending_latest.text
         if explicit_selection:
             assert pending_latest.status_code == 409
             assert pending_latest.json()["error_code"] == "REQUIRED_PERIOD_UNAVAILABLE"
-        retained_original = client.post("/performance/composites/twr", json=selected_request(command, sequence=1))
+        retained_original = client.post(
+            "/performance/composites/twr",
+            json=selected_request(command, sequence=1),
+            headers=signed_twr_read_headers(
+                monkeypatch,
+                app,
+                tenant=client.headers.get("X-Tenant-Id", "test-tenant"),
+                portfolios=TWR_FINANCIAL_FIXTURE_PORTFOLIOS,
+            ),
+        )
         assert retained_original.status_code == 200
         assert retained_original.json()["periods"] == original_result["periods"]
         if explicit_selection:
@@ -1410,12 +1587,30 @@ def test_http_missing_member_recovery_and_correction_preserve_reported_version(m
         process_lineage(limit=100)
         assert process_pending_jobs(limit=10) == 1
         process_lineage(limit=100)
-        revised = client.post("/performance/composites/twr", json=selected_request(corrected))
+        revised = client.post(
+            "/performance/composites/twr",
+            json=selected_request(corrected),
+            headers=signed_twr_read_headers(
+                monkeypatch,
+                app,
+                tenant=client.headers.get("X-Tenant-Id", "test-tenant"),
+                portfolios=TWR_FINANCIAL_FIXTURE_PORTFOLIOS,
+            ),
+        )
         assert revised.status_code == 200, revised.text
         assert revised.json()["status"] == "READY"
         assert Decimal(str(revised.json()["periods"][0]["return_value"])) == Decimal("0.04")
         assert (
-            client.post("/performance/composites/twr", json=selected_request(command, sequence=1)).json()["periods"]
+            client.post(
+                "/performance/composites/twr",
+                json=selected_request(command, sequence=1),
+                headers=signed_twr_read_headers(
+                    monkeypatch,
+                    app,
+                    tenant=client.headers.get("X-Tenant-Id", "test-tenant"),
+                    portfolios=TWR_FINANCIAL_FIXTURE_PORTFOLIOS,
+                ),
+            ).json()["periods"]
             == original_result["periods"]
         )
 
@@ -1518,6 +1713,12 @@ def test_registered_stateful_twr_to_materialization_to_composite_with_independen
                 "return_view": "NET_ACTUAL",
                 "reporting_currency": "USD",
             },
+            headers=signed_twr_read_headers(
+                monkeypatch,
+                app,
+                tenant=client.headers.get("X-Tenant-Id", "test-tenant"),
+                portfolios=TWR_FINANCIAL_FIXTURE_PORTFOLIOS,
+            ),
         )
         assert calculated.status_code == 200, calculated.text
         result = calculated.json()

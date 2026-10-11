@@ -16,6 +16,7 @@ from app.services.composite_metadata_store import CompositeMetadataStore
 from main import app
 from scripts.durable_schema_apply import apply_durable_schema
 from tests.composite_annual_fx_helpers import normalized_month_record
+from tests.composite_principal_helpers import TWR_FINANCIAL_FIXTURE_PORTFOLIOS, signed_twr_read_headers
 from tests.unit.services.test_composite_annual_dispersion_service import month_record
 
 
@@ -99,7 +100,10 @@ def test_registered_projection_defaults_are_scoped_or_require_explicit_currency(
     gbp = normalized_month_record(replace(gbp_template, command=command, outcomes=outcomes))
     publish_projection(url, usd)
     publish_projection(url, gbp)
-    with TestClient(app, headers={"X-Tenant-Id": "tenant-a"}) as client:
+    read_headers = signed_twr_read_headers(
+        monkeypatch, app, tenant="tenant-a", portfolios=TWR_FINANCIAL_FIXTURE_PORTFOLIOS
+    )
+    with TestClient(app, headers={"X-Tenant-Id": "tenant-a", **read_headers}) as client:
         omitted = client.post(endpoint, json=request_for(usd))
         if same_window is True:
             assert omitted.status_code == 409, omitted.text
@@ -121,11 +125,12 @@ def test_registered_projection_defaults_are_scoped_or_require_explicit_currency(
             pinned = client.post(
                 "/performance/composites/twr",
                 json={**request_for(record), "materialization_ids": [str(record.command.materialization_id)]},
+                headers=read_headers,
             )
             assert pinned.status_code == 200, pinned.text
             assert pinned.json()["periods"][0]["reporting_currency"] == record.command.reporting_currency
         foreign = client.post(endpoint, json=request_for(usd), headers={"X-Tenant-Id": "tenant-b"})
-        assert foreign.status_code == 404
+        assert foreign.status_code == (403 if endpoint.endswith("twr") else 404)
 
 
 @pytest.mark.parametrize("endpoint", ["/performance/composites/twr", "/performance/composites/inspect"])
@@ -155,7 +160,10 @@ def test_registered_legacy_currency_default_survives_a_later_reporting_projectio
             "restatement_sequence": legacy.command.restatement_sequence,
             identity_field: str(uuid4()),
         }
-        with TestClient(app, headers={"X-Tenant-Id": "tenant-a"}) as client:
+        read_headers = signed_twr_read_headers(
+            monkeypatch, app, tenant="tenant-a", portfolios=TWR_FINANCIAL_FIXTURE_PORTFOLIOS
+        )
+        with TestClient(app, headers={"X-Tenant-Id": "tenant-a", **read_headers}) as client:
             before = client.post(endpoint, json=request)
             assert before.status_code == 200 and response_currency(endpoint, before.json()) == "USD", before.text
             # Latest still requires a completed publication; explicit legacy chronology

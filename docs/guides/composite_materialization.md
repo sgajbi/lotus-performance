@@ -343,7 +343,9 @@ The client sequence is:
    permit reporting a successfully normalized composite return.
 3. Call `POST /performance/composites/twr` with the command's `composite_id`,
    `period_start`, `period_end`, `reporting_currency`, `return_view` and explicitly
-   selected `restatement_sequence`. This example yields USD 630 opening assets,
+   selected `restatement_sequence`. Supply a deployment-verified bearer credential with
+   `operations.runtime.read`, tenant membership and grants for the complete selected historical
+   population, including excluded members. This example yields USD 630 opening assets,
    USD 646.80 closing assets and a reported decimal-fraction return near `2/75`.
    The JSON retains the actual public output precision.
 4. For an adjacent-window report, supply ordered `materialization_ids` for every
@@ -362,7 +364,7 @@ and its native-currency supported contract until an aggregate FX method is defin
 | Inspect | `GET /performance/composites/materializations/{materialization_id}`, paginated member outcomes. |
 | Calculate | `POST /performance/composites/twr`, after the exact generation is COMPLETE. |
 
-Provide admitted `X-Tenant-Id`, `X-Actor-Id` and `X-Role`. With enterprise enforcement enabled,
+For materialization submission, provide admitted `X-Tenant-Id`, `X-Actor-Id` and `X-Role`. With enterprise enforcement enabled,
 persistable service identity must authorize both submission and member-result reads. Bearer
 credentials are never persisted or replaced by a fabricated privileged identity.
 
@@ -492,6 +494,11 @@ only those bounded test nodes; synthetic verification ports are not bank approva
 ## Completion And Recovery
 
 ### Explicit Retained Window Replay
+
+TWR replay uses verified read admission even though its transport is POST. Caller identity
+headers grant no authority, and optional `X-Tenant-Id` must match the credential tenant.
+Trust and authority providers default unavailable. See the
+[TWR caller guide](composite_performance.md#current-capability) for migration details.
 
 The existing `POST /performance/composites/twr` request accepts an optional chronological
 `materialization_ids` vector. It is mutually exclusive with `restatement_sequence`. Omitted vector

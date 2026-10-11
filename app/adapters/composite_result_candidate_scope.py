@@ -29,11 +29,9 @@ def _member_scope(scope_json):
         ) from None
 
 
-def _require_complete_window(row):
+def _require_complete_window(row, error_code="COMPOSITE_CAPTURE_EVIDENCE_INCOMPLETE"):
     if row is None or row.state != "COMPLETE":
-        raise APIConflictError(
-            "A complete retained window is required.", error_code="COMPOSITE_CAPTURE_EVIDENCE_INCOMPLETE"
-        )
+        raise APIConflictError("A complete retained window is required.", error_code=error_code)
 
 
 def _scope_projection(connection):
@@ -63,14 +61,41 @@ def _scope_row(connection, identity, tenant):
         ) from None
 
 
-def require_candidate_member_scope(store, *, request, principal):
+def require_candidate_member_scope(
+    store, *, request, principal, unavailable_code="COMPOSITE_CAPTURE_EVIDENCE_INCOMPLETE"
+):
     # Project only member identities inside the database, not the full source
     # JSON (which may also contain FX inputs). Numerical payloads stay unread.
     with store._engine.connect() as connection:
-        for identity in request.materialization_ids:
-            row = _scope_row(connection, identity, principal.tenant_id)
-            _require_complete_window(row)
-            if not _member_scope(row.member_scope) <= principal.portfolio_scope:
-                raise APIError(
-                    status_code=403, detail="Retained member scope is refused.", error_code="PORTFOLIO_OUTSIDE_SCOPE"
-                )
+        members = retained_materialization_members(
+            connection,
+            materialization_ids=request.materialization_ids,
+            tenant_id=principal.tenant_id,
+            unavailable_code=unavailable_code,
+        )
+        require_composite_member_scope(members, principal=principal)
+
+
+def retained_materialization_members(
+    connection, *, materialization_ids, tenant_id, unavailable_code="COMPOSITE_CAPTURE_EVIDENCE_INCOMPLETE"
+):
+    """Project historical population identities without loading financial inputs."""
+    members = set()
+    for identity in materialization_ids:
+        row = _scope_row(connection, identity, tenant_id)
+        _require_complete_window(row, unavailable_code)
+        members.update(_member_scope(row.member_scope))
+    return frozenset(members)
+
+
+def require_composite_member_scope(members, *, principal):
+    if not members:
+        raise APIError(
+            status_code=503,
+            detail="Retained member scope is unavailable.",
+            error_code="COMPOSITE_RESULT_CUSTODY_REFUSED",
+        )
+    if not members <= principal.portfolio_scope:
+        raise APIError(
+            status_code=403, detail="Retained member scope is refused.", error_code="PORTFOLIO_OUTSIDE_SCOPE"
+        )

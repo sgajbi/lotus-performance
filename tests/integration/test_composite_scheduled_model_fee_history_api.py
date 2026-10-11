@@ -13,6 +13,7 @@ from app.services.composite_materialization.model_fee_calculation import selecte
 from core.errors import APIUnprocessableEntityError
 from main import app
 from tests.composite_linked_contribution_helpers import LINKED_PATH, independent_reference, linked_request
+from tests.composite_principal_helpers import TWR_FINANCIAL_FIXTURE_PORTFOLIOS, signed_twr_read_headers
 from tests.composite_scheduled_model_fee_helpers import band_rule, scheduled_source_inputs
 from tests.integration import test_composite_model_fee_materialization_api as periodic_controls
 from tests.integration.test_composite_linked_model_fee_api import _publish
@@ -63,7 +64,16 @@ def test_registered_scheduled_history_unequal_rates_and_full_binding(monkeypatch
             store.close()
         linked_payload = {**linked_request([first_command, second_command]), "return_view": "NET_MODEL_FEE"}
         twr_payload = {key: value for key, value in linked_payload.items() if key not in {"method", "metric_id"}}
-        twr = client.post("/performance/composites/twr", json=twr_payload)
+        twr = client.post(
+            "/performance/composites/twr",
+            json=twr_payload,
+            headers=signed_twr_read_headers(
+                monkeypatch,
+                app,
+                tenant=client.headers.get("X-Tenant-Id", "test-tenant"),
+                portfolios=TWR_FINANCIAL_FIXTURE_PORTFOLIOS,
+            ),
+        )
         linked = client.post(LINKED_PATH, json=linked_payload)
         if changed_binding:
             for response in (twr, linked):

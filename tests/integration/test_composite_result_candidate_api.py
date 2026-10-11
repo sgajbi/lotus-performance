@@ -216,7 +216,11 @@ def test_registered_candidate_original_retry_retention_audit_and_current_scope(
             )
 
     with TestClient(app) as client:
-        legacy = client.post("/performance/composites/twr", json=calculation, headers={"X-Tenant-Id": "tenant-a"})
+        legacy = client.post(
+            "/performance/composites/twr",
+            json=calculation,
+            headers={"X-Tenant-Id": "tenant-a", "Authorization": "Bearer " + mint()},
+        )
         assert legacy.status_code == 200, legacy.text
         assert counts() == (0, 0)
         headers = [

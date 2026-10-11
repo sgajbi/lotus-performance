@@ -1,12 +1,16 @@
 from __future__ import annotations
 
 import argparse
+import base64
 import csv
 import json
+import os
+import re
 import sys
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from decimal import Decimal
+from functools import partial
 from pathlib import Path
 from typing import Any
 from urllib.error import HTTPError, URLError
@@ -30,7 +34,25 @@ class ProbeResult:
     payload: dict[str, Any]
 
 
-def _post_json(url: str, payload: dict[str, Any], *, correlation_id: str) -> ProbeResult:
+def _operator_bearer_credential(token: str | None) -> str:
+    message = "A well-formed operator bearer credential is required from the selected environment variable."
+    if not token or re.fullmatch(r"[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+", token) is None:
+        raise ValueError(message)
+    try:
+        header, claims, _signature = (
+            base64.urlsafe_b64decode(part + "=" * (-len(part) % 4)) for part in token.split(".")
+        )
+        if not isinstance(json.loads(header), dict) or not isinstance(json.loads(claims), dict):
+            raise ValueError(message)
+    except (ValueError, UnicodeError):
+        raise ValueError(message) from None
+    # Syntax admission only. Native receivers verify signature, tenant, grants and scope.
+    return token
+
+
+def _post_json(
+    url: str, payload: dict[str, Any], *, correlation_id: str, bearer_token: str | None = None
+) -> ProbeResult:
     body = json.dumps(payload, sort_keys=True).encode("utf-8")
     request = Request(
         url,
@@ -45,6 +67,7 @@ def _post_json(url: str, payload: dict[str, Any], *, correlation_id: str) -> Pro
             "X-Region": "SG",
             "X-Booking-Center-Code": "SG",
             "X-Role": "performance-operator",
+            **({"Authorization": "Bearer " + bearer_token} if bearer_token else {}),
         },
         method="POST",
     )
@@ -196,8 +219,14 @@ def _probe(
     payload: dict[str, Any],
     correlation_id: str,
     output_dir: Path,
+    bearer_token: str,
 ) -> ProbeResult:
-    result = _post_json(f"{base_url.rstrip('/')}{path}", payload, correlation_id=correlation_id)
+    result = _post_json(
+        f"{base_url.rstrip('/')}{path}",
+        payload,
+        correlation_id=correlation_id,
+        bearer_token=bearer_token if path.endswith("/composites/twr") else None,
+    )
     result = ProbeResult(
         name=name,
         url=result.url,
@@ -223,7 +252,10 @@ def capture_live_proof(
     performance_base_url: str,
     gateway_base_url: str,
     workbench_base_url: str,
+    bearer_token: str | None = None,
 ) -> dict[str, Any]:
+    credential = _operator_bearer_credential(bearer_token)
+    probe = partial(_probe, bearer_token=credential)
     output_dir.mkdir(parents=True, exist_ok=True)
 
     twr_payload = {
@@ -252,7 +284,7 @@ def capture_live_proof(
     }
 
     probes = [
-        _probe(
+        probe(
             name="performance-ready-twr",
             base_url=performance_base_url,
             path="/performance/composites/twr",
@@ -260,7 +292,7 @@ def capture_live_proof(
             correlation_id="rfc049-performance-ready-twr",
             output_dir=output_dir,
         ),
-        _probe(
+        probe(
             name="performance-inspection",
             base_url=performance_base_url,
             path="/performance/composites/inspect",
@@ -268,7 +300,7 @@ def capture_live_proof(
             correlation_id="rfc049-performance-inspection",
             output_dir=output_dir,
         ),
-        _probe(
+        probe(
             name="performance-degraded-twr",
             base_url=performance_base_url,
             path="/performance/composites/twr",
@@ -276,7 +308,7 @@ def capture_live_proof(
             correlation_id="rfc049-performance-degraded-twr",
             output_dir=output_dir,
         ),
-        _probe(
+        probe(
             name="performance-no-facts-error",
             base_url=performance_base_url,
             path="/performance/composites/twr",
@@ -284,7 +316,7 @@ def capture_live_proof(
             correlation_id="rfc049-performance-no-facts-error",
             output_dir=output_dir,
         ),
-        _probe(
+        probe(
             name="gateway-ready-twr",
             base_url=gateway_base_url,
             path="/api/v1/performance/composites/twr",
@@ -292,7 +324,7 @@ def capture_live_proof(
             correlation_id="rfc049-gateway-ready-twr",
             output_dir=output_dir,
         ),
-        _probe(
+        probe(
             name="gateway-inspection",
             base_url=gateway_base_url,
             path="/api/v1/performance/composites/inspect",
@@ -300,7 +332,7 @@ def capture_live_proof(
             correlation_id="rfc049-gateway-inspection",
             output_dir=output_dir,
         ),
-        _probe(
+        probe(
             name="workbench-bff-ready-twr",
             base_url=workbench_base_url,
             path="/api/bff/api/v1/performance/composites/twr",
@@ -308,7 +340,7 @@ def capture_live_proof(
             correlation_id="rfc049-workbench-bff-ready-twr",
             output_dir=output_dir,
         ),
-        _probe(
+        probe(
             name="workbench-bff-inspection",
             base_url=workbench_base_url,
             path="/api/bff/api/v1/performance/composites/inspect",
@@ -354,13 +386,23 @@ def main() -> None:
     parser.add_argument("--performance-base-url", default="http://performance.dev.lotus")
     parser.add_argument("--gateway-base-url", default="http://gateway.dev.lotus")
     parser.add_argument("--workbench-base-url", default="http://workbench.dev.lotus")
+    parser.add_argument(
+        "--bearer-token-env",
+        required=True,
+        help="Environment variable NAME containing an operator-supplied bearer JWS.",
+    )
     args = parser.parse_args()
+    try:
+        credential = _operator_bearer_credential(os.environ.get(args.bearer_token_env))
+    except ValueError as error:
+        parser.error(str(error))
 
     manifest = capture_live_proof(
         output_dir=Path(args.output_dir),
         performance_base_url=args.performance_base_url,
         gateway_base_url=args.gateway_base_url,
         workbench_base_url=args.workbench_base_url,
+        bearer_token=credential,
     )
     print(json.dumps(manifest, indent=2, sort_keys=True))
 

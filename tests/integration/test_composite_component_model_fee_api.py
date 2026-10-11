@@ -33,6 +33,7 @@ from tests.composite_component_source_helpers import (
     write_component_capture,
 )
 from tests.composite_model_fee_helpers import model_fee_source_inputs
+from tests.composite_principal_helpers import TWR_FINANCIAL_FIXTURE_PORTFOLIOS, signed_twr_read_headers
 from tests.integration import test_composite_model_fee_materialization_api as periodic
 from tests.integration.test_composite_materialization_api import install_source_wire_controls
 
@@ -157,7 +158,16 @@ def test_registered_component_worker_retains_full_financial_source_and_replays(
             reporting_currency="USD",
             materialization_ids=[str(command.materialization_id)],
         )
-        twr = client.post("/performance/composites/twr", json=selection)
+        twr = client.post(
+            "/performance/composites/twr",
+            json=selection,
+            headers=signed_twr_read_headers(
+                monkeypatch,
+                app,
+                tenant=client.headers.get("X-Tenant-Id", "test-tenant"),
+                portfolios=TWR_FINANCIAL_FIXTURE_PORTFOLIOS,
+            ),
+        )
         assert twr.status_code == 200, twr.text
         analysis_request = {**selection, "metric_id": "MODEL_FEE_DRAG", "method": "ADDITIVE_GROSS_MINUS_MODEL:v1"}
         drag = client.post(
@@ -199,7 +209,19 @@ def test_registered_component_worker_retains_full_financial_source_and_replays(
         finally:
             reopened.close()
         assert client.get(accepted.json()["result_path"]).json() == retained
-        assert client.post("/performance/composites/twr", json=selection).json() == twr.json()
+        assert (
+            client.post(
+                "/performance/composites/twr",
+                json=selection,
+                headers=signed_twr_read_headers(
+                    monkeypatch,
+                    app,
+                    tenant=client.headers.get("X-Tenant-Id", "test-tenant"),
+                    portfolios=TWR_FINANCIAL_FIXTURE_PORTFOLIOS,
+                ),
+            ).json()
+            == twr.json()
+        )
         published = client.get(
             f"/performance/composites/model-fee-profiles/{profile['profile_id']}/{profile['revision']}",
             headers={
