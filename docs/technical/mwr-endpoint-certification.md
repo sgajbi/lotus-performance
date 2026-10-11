@@ -74,6 +74,9 @@ The base URL must be `CORE_CONTROL_PLANE_BASE_URL`, not the lotus-core query-ser
 
 Stateful MWR normalization uses:
 
+Acquisition first excludes missing/non-string valuation dates; an entirely undated response returns
+HTTP `422` without a successful result. Date-string parsing remains a downstream responsibility.
+
 - one admitted source row per business date: identical rows collapse, while differing complete rows
   fail HTTP `422` before endpoint selection or cash-flow/carry-forward construction. Nested flow,
   lifecycle and currency evidence participates in equality. The registered execution is failed and

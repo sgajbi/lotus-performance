@@ -75,7 +75,9 @@ Current repository posture:
    its separate supportability rule; a valid single source interval supplies both endpoint values.
    Before deriving MWR endpoints or flows, normalization collapses identical complete source rows
    and rejects differing rows for the same business date, including nested flow/lifecycle/currency
-   evidence. Existing invalid-date quality handling is unchanged. Portfolio page/chunk aggregation
+   evidence. Portfolio acquisition excludes missing/non-string valuation dates before endpoint
+   selection; an entirely undated response fails with no observations. Direct normalization retains
+   its existing invalid-date cash-flow quality handling. Portfolio page/chunk aggregation
    preserves conflicting same-date rows for canonical valuation admission and collapses only
    identical overlap; it cannot choose
    a last-row winner. Retained composite admission independently requires ready stateful Core
