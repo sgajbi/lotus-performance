@@ -22,7 +22,7 @@ def create_candidate_schema(connection):
         connection.exec_driver_sql(statement)
 
 
-def candidate_guard_statements(dialect):
+def candidate_guard_statements(dialect, *, include_capture=True):
     writer = SchemaStatements(dialect)
     original = (
         "SELECT 1 FROM analytics_async_result r WHERE r.calculation_id = NEW.calculation_id "
@@ -62,4 +62,34 @@ def candidate_guard_statements(dialect):
             writer.exec_driver_sql(
                 f"CREATE TRIGGER {name} BEFORE {operation} ON {_TABLE} FOR EACH {level} EXECUTE FUNCTION {_FUNCTION}()"
             )
+    if include_capture:
+        _capture_pair_guard(writer)
     return tuple(writer.statements)
+
+
+def _capture_pair_guard(writer):
+    pair = (
+        "(NEW.arithmetic_capture_json IS NULL AND NEW.arithmetic_capture_digest IS NULL) OR "
+        "(NEW.arithmetic_capture_json IS NOT NULL AND NEW.arithmetic_capture_digest IS NOT NULL "
+        "AND length(NEW.arithmetic_capture_json) BETWEEN 2 AND 8388608 "
+        "AND length(NEW.arithmetic_capture_digest) = 71 "
+        "AND substr(NEW.arithmetic_capture_digest, 1, 7) = 'sha256:')"
+    )
+    name = "trg_composite_candidate_capture_pair"
+    if writer.dialect.name == "sqlite":
+        writer.exec_driver_sql(f"DROP TRIGGER IF EXISTS {name}")
+        writer.exec_driver_sql(
+            f"CREATE TRIGGER {name} BEFORE INSERT ON {_TABLE} WHEN NOT ({pair}) "
+            "BEGIN SELECT RAISE(ABORT, 'composite candidate capture pair invalid'); END"
+        )
+    elif writer.dialect.name == "postgresql":
+        function = "require_composite_candidate_capture_pair"
+        writer.exec_driver_sql(
+            f"CREATE OR REPLACE FUNCTION {function}() RETURNS trigger LANGUAGE plpgsql AS $$ "
+            f"BEGIN IF NOT ({pair}) THEN RAISE EXCEPTION USING ERRCODE = '23514', "
+            "MESSAGE = 'composite candidate capture pair invalid'; END IF; RETURN NEW; END; $$"
+        )
+        writer.exec_driver_sql(f"DROP TRIGGER IF EXISTS {name} ON {_TABLE}")
+        writer.exec_driver_sql(
+            f"CREATE TRIGGER {name} BEFORE INSERT ON {_TABLE} FOR EACH ROW EXECUTE FUNCTION {function}()"
+        )

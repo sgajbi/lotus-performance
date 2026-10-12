@@ -31,3 +31,5 @@ class CompositeResultCandidateModel(CandidateBase):
     credential_id: Mapped[str] = mapped_column(String(128), nullable=False)
     delegated_actor: Mapped[str | None] = mapped_column(String(128), nullable=True)
     captured_at_utc: Mapped[str] = mapped_column(String(40), nullable=False)
+    arithmetic_capture_json: Mapped[str | None] = mapped_column(Text, nullable=True)
+    arithmetic_capture_digest: Mapped[str | None] = mapped_column(String(71), nullable=True)

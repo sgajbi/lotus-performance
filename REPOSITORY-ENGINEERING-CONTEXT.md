@@ -1474,6 +1474,17 @@ the credential under their supported contracts; a supplied token does not certif
 Missing, blank or malformed input refuses before HTTP. Never put the credential literal in CLI
 arguments, manifests or stdout, and do not treat test signing helpers as bank deployment authority.
 
+## Source arithmetic capture practice
+
+Source arithmetic capture practice: the existing candidate API accepts optional
+`AW_TWR_DECIMAL_REPLAY.v1`. Keep observer hooks free of new arithmetic, context
+scopes or flag mutation. Regenerate and review the trusted installed source manifest
+after changing any listed kernel path, using `python -m app.adapters.composite_arithmetic_capture.bundle`
+from this repository root in PowerShell or Bash. The command emits only; the reviewed
+manifest is packaged source. Preserve exact original response custody and the explicit
+audit-only comparison exclusions. Apply the additive schema owner before deployment;
+runtime validation does not upgrade old schemas. See `docs/guides/composite_arithmetic_capture.md`.
+
 ## Cross-Links
 
 1. `../lotus-platform/context/LOTUS-QUICKSTART-CONTEXT.md`

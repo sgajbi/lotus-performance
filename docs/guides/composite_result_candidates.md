@@ -1,5 +1,11 @@
 # Composite result candidates
 
+For source-time Decimal evidence, set the optional `precision_capture_profile` to
+`AW_TWR_DECIMAL_REPLAY.v1` on this same POST. See the
+[capture and replay guide](composite_arithmetic_capture.md) for the exact comparison
+projection, resource limits and additive migration. Omitting the profile preserves
+the legacy candidate response; old candidates are not backfilled.
+
 An explicit candidate capture preserves the original calculated composite response,
 calculation ID, retained window vector, method version, release commit and verified
 creator. Ordinary `/performance/composites/twr` calls continue to calculate without

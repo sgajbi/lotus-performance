@@ -187,7 +187,17 @@ def test_postgres_truncate_requires_exact_enabled_statement_guard(postgres_catal
 
 @pytest.mark.parametrize(
     "fault",
-    [None, "missing_truncate", "row_truncate", "disabled", "missing_original", "foreign_tenant", "failed_result"],
+    [
+        None,
+        "missing_truncate",
+        "row_truncate",
+        "disabled",
+        "missing_original",
+        "foreign_tenant",
+        "failed_result",
+        "missing_capture_pair",
+        "weakened_capture_pair",
+    ],
 )
 def test_candidate_postgres_catalog_requires_original_custody_and_statement_truncate(postgres_catalog, fault):
     from sqlalchemy.dialects import postgresql
@@ -206,6 +216,15 @@ def test_candidate_postgres_catalog_requires_original_custody_and_statement_trun
         "RAISE EXCEPTION USING ERRCODE = '23514', MESSAGE = 'composite candidate original result is unavailable'; "
         "END IF; RETURN NEW; END;"
     )
+    capture_body = (
+        "BEGIN IF NOT ((NEW.arithmetic_capture_json IS NULL AND NEW.arithmetic_capture_digest IS NULL) OR "
+        "(NEW.arithmetic_capture_json IS NOT NULL AND NEW.arithmetic_capture_digest IS NOT NULL "
+        "AND length(NEW.arithmetic_capture_json) BETWEEN 2 AND 8388608 "
+        "AND length(NEW.arithmetic_capture_digest) = 71 "
+        "AND substr(NEW.arithmetic_capture_digest, 1, 7) = 'sha256:')) THEN "
+        "RAISE EXCEPTION USING ERRCODE = '23514', MESSAGE = 'composite candidate capture pair invalid'; "
+        "END IF; RETURN NEW; END;"
+    )
     template_function = postgres_catalog.functions[0].copy()
     postgres_catalog.functions[:] = [
         dict(template_function, proname="require_composite_result_candidate_original", prosrc=original_body),
@@ -214,6 +233,7 @@ def test_candidate_postgres_catalog_requires_original_custody_and_statement_trun
             proname="reject_composite_result_candidate_mutation",
             prosrc="BEGIN RAISE EXCEPTION USING ERRCODE = '23514', MESSAGE = 'composite result candidate is immutable'; END;",
         ),
+        dict(template_function, proname="require_composite_candidate_capture_pair", prosrc=capture_body),
     ]
     template_trigger = postgres_catalog.triggers[0].copy()
     postgres_catalog.triggers[:] = [
@@ -223,6 +243,13 @@ def test_candidate_postgres_catalog_requires_original_custody_and_statement_trun
             relname="composite_result_candidates",
             tgtype=7,
             proname="require_composite_result_candidate_original",
+        ),
+        dict(
+            template_trigger,
+            tgname="trg_composite_candidate_capture_pair",
+            relname="composite_result_candidates",
+            tgtype=7,
+            proname="require_composite_candidate_capture_pair",
         ),
         *[
             dict(
@@ -247,6 +274,12 @@ def test_candidate_postgres_catalog_requires_original_custody_and_statement_trun
         postgres_catalog.functions[0]["prosrc"] = original_body.replace("AND r.tenant_id = NEW.tenant_id ", "")
     elif fault == "failed_result":
         postgres_catalog.functions[0]["prosrc"] = original_body.replace("AND r.failure_json IS NULL", "")
+    elif fault == "missing_capture_pair":
+        postgres_catalog.triggers.pop(1)
+    elif fault == "weakened_capture_pair":
+        postgres_catalog.functions[-1]["prosrc"] = capture_body.replace(
+            "BETWEEN 2 AND 8388608", "BETWEEN 1 AND 8388608"
+        )
     before = ([row.copy() for row in postgres_catalog.functions], [row.copy() for row in postgres_catalog.triggers])
     statements = candidate_guard_statements(postgresql.dialect())
     if fault is None:

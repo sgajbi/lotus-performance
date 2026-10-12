@@ -607,6 +607,14 @@ See the [component source guide](https://github.com/sgajbi/lotus-performance/blo
 
 ## References
 
+Source-time arithmetic capture is an optional profile on the existing result-candidate
+API. It retains original ordered facts, native Decimal controls and sticky flags,
+intermediate checkpoints, and exact per-side installed replay evidence. Equivalent
+sticky-history retries keep the first winning capsule. Legacy candidates remain readable.
+See the [capture and replay guide](https://github.com/sgajbi/lotus-performance/blob/main/docs/guides/composite_arithmetic_capture.md)
+for the exact comparison projection, resource envelope and additive migration.
+Any-two explanations and financial/official authority remain separate acceptance.
+
 - [Composite performance guide](https://github.com/sgajbi/lotus-performance/blob/main/docs/guides/composite_performance.md)
 - [Composite TWR methodology](https://github.com/sgajbi/lotus-performance/blob/main/docs/methodologies/metrics/metric-composite-twr.md)
 - [Composite endpoint certification](https://github.com/sgajbi/lotus-performance/blob/main/docs/technical/composite-twr-endpoint-certification.md)

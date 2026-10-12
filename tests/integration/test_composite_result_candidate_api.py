@@ -186,7 +186,7 @@ def test_concurrent_verified_tenants_keep_request_context_and_audit_isolated(mon
 
 
 def test_registered_candidate_original_retry_retention_audit_and_current_scope(
-    monkeypatch, tmp_path, caplog, database_url=None
+    monkeypatch, tmp_path, caplog, database_url=None, precision=False
 ):
     url = database_url or f"sqlite:///{tmp_path / 'registered-candidate.db'}"
     monkeypatch.setattr(get_settings(), "LINEAGE_METADATA_DATABASE_URL", url)
@@ -206,6 +206,8 @@ def test_registered_candidate_original_retry_retention_audit_and_current_scope(
         "materialization_ids": [str(record.command.materialization_id)],
     }
     body = {"candidate_id": str(uuid4()), "calculation": calculation}
+    if precision:
+        body["precision_capture_profile"] = "AW_TWR_DECIMAL_REPLAY.v1"
     store, results = get_composite_metadata_store(), get_async_result_store()
 
     def counts():
@@ -235,6 +237,12 @@ def test_registered_candidate_original_retry_retention_audit_and_current_scope(
             captured = client.post(PATH, json=body, headers=headers)
         assert captured.status_code == 200, captured.text
         original = captured.json()
+        if precision:
+            assert original["arithmetic_capture"]["payload"]["projection_replay"]["status"] == "MATCHED"
+            assert (
+                original["arithmetic_capture"]["payload"]["scope"]["windows"]
+                == original["response"]["selection_manifest"]["windows"]
+            )
         assert original["response"] == legacy.json()
         assert original["captured_by"] == "verified-test-maker" and original["tenant_id"] == "tenant-a"
         audits = [
@@ -267,6 +275,12 @@ def test_registered_candidate_original_retry_retention_audit_and_current_scope(
         finally:
             event.remove(store._engine, "before_cursor_execute", observe)
     assert tenant_id_var.get() != "tenant-a"
+
+
+def test_registered_precision_candidate_retains_original_replay_and_current_authority(monkeypatch, tmp_path, caplog):
+    test_registered_candidate_original_retry_retention_audit_and_current_scope(
+        monkeypatch, tmp_path, caplog, precision=True
+    )
 
 
 @pytest.mark.parametrize(

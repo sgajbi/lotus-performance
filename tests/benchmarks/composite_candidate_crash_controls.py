@@ -52,6 +52,12 @@ def main():
             os._exit(73)
 
     event.listen(store._engine, "after_cursor_execute", crash)
+    if len(sys.argv) > 2 and sys.argv[2] == "precision":
+        from tests.unit.services.composite_arithmetic_capture.test_capture import capture_attempt, source_attempt
+
+        inputs = (store, results, request, response, principal)
+        capture_attempt(inputs, source_attempt(inputs))
+        raise AssertionError("Requested precision write boundary was never reached")
     store.capture_result_candidate(
         candidate_id=uuid4(), request=request, response=response, principal=principal, result_store=results
     )

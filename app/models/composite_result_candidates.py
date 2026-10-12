@@ -4,8 +4,9 @@ from datetime import datetime
 from typing import Literal
 from uuid import UUID
 
-from pydantic import BaseModel, ConfigDict, Field, model_validator
+from pydantic import BaseModel, ConfigDict, Field, model_serializer, model_validator
 
+from app.models.composite_arithmetic_capture import ArithmeticCaptureEnvelope
 from app.models.composites import CompositeTWRRequest, CompositeTWRResponse
 
 
@@ -13,6 +14,7 @@ class CompositeResultCaptureRequest(BaseModel):
     model_config = ConfigDict(extra="forbid")
     candidate_id: UUID = Field(description="Retry identity for this explicit calculated result capture.")
     calculation: CompositeTWRRequest
+    precision_capture_profile: Literal["AW_TWR_DECIMAL_REPLAY.v1"] | None = None
 
     @model_validator(mode="after")
     def require_explicit_vector(self):
@@ -34,6 +36,14 @@ class CompositeResultCandidateResponse(BaseModel):
     credential_id: str
     captured_at_utc: datetime
     response: CompositeTWRResponse
+    arithmetic_capture: ArithmeticCaptureEnvelope | None = None
+
+    @model_serializer(mode="wrap")
+    def retain_legacy_wire(self, handler):
+        payload = handler(self)
+        if self.arithmetic_capture is None:
+            payload.pop("arithmetic_capture", None)
+        return payload
 
 
 class CompositeResultCandidateErrorResponse(BaseModel):

@@ -43,6 +43,7 @@ OWNED_DURABLE_TABLES = (
     "composite_authority_scopes",
 )
 ADDITIVE_COLUMN_CHECKS = {
+    "composite_result_candidates": ("arithmetic_capture_json", "arithmetic_capture_digest"),
     "lineage_payloads": (
         "worker_id",
         "leased_at_utc",

@@ -47,9 +47,9 @@ def _require_exact_retained_facts(facts, records):
         _refuse_context()
 
 
-def calculate_with_model_fee_context(*, composite_id, facts, scheduled: bool):
+def calculate_with_model_fee_context(*, composite_id, facts, scheduled: bool, observer=None):
     if not scheduled:
-        return calculate_asset_weighted_composite_twr(composite_id=composite_id, member_return_facts=facts)
+        return _observed_calculation(composite_id, facts, observer, scheduled=False)
     values = [
         value
         for fact in facts
@@ -58,7 +58,18 @@ def calculate_with_model_fee_context(*, composite_id, facts, scheduled: bool):
     ]
     with localcontext(scheduled_model_fee_context()):
         with monetary_arithmetic_context(values, products=True):
-            return calculate_asset_weighted_composite_twr(composite_id=composite_id, member_return_facts=facts)
+            return _observed_calculation(composite_id, facts, observer, scheduled=True)
+
+
+def _observed_calculation(composite_id, facts, observer, *, scheduled):
+    if observer is not None:
+        observer.start(scheduled=scheduled)
+    result = calculate_asset_weighted_composite_twr(
+        composite_id=composite_id, member_return_facts=facts, observer=observer
+    )
+    if observer is not None:
+        observer.finish()
+    return result
 
 
 def _refuse_context():

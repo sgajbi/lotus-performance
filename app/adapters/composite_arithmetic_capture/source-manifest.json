@@ -1,0 +1,100 @@
+{
+  "bundle_version": "CompositeProjectionSourceBundle.v1",
+  "files": [
+    {
+      "normalized_length": 2738,
+      "path": "app/adapters/composite_arithmetic_capture/bundle.py",
+      "sha256": "e9a8f21b92c47a565754336a42d114f70b195d9c6dbd239f4c38f685a635f180"
+    },
+    {
+      "normalized_length": 2344,
+      "path": "app/adapters/composite_arithmetic_capture/codec.py",
+      "sha256": "c1d2de4a994f3a9fd4b3a6c90078c7ca5304fa0dabad25ff76b63fe352903ee6"
+    },
+    {
+      "normalized_length": 16828,
+      "path": "app/adapters/composite_result_candidate_storage.py",
+      "sha256": "39cc2e33551d191c622e6827902502262bf2a0b7611e8f06afe88c2bfc2b6d25"
+    },
+    {
+      "normalized_length": 6072,
+      "path": "app/models/composite_arithmetic_capture.py",
+      "sha256": "1b1e98e7a5716cae26920e3740560d50e26e55350d27c71d2ea45844ecd77034"
+    },
+    {
+      "normalized_length": 9400,
+      "path": "app/models/composite_authority.py",
+      "sha256": "31ccec4b12d8d804cf0e4c3d27225937f89534acb8366bd2ba128f63b6531776"
+    },
+    {
+      "normalized_length": 29215,
+      "path": "app/models/composites.py",
+      "sha256": "7cbd2673c53e9ee7a715867f82ed129394fb1cb7c42b2b7aaef89960dbfbb3a4"
+    },
+    {
+      "normalized_length": 1378,
+      "path": "app/services/calculation_engine_version.py",
+      "sha256": "cf46e308bc48303d3e2d365d7d53459067e5d3776113165fdcd8d2cec792bbde"
+    },
+    {
+      "normalized_length": 6575,
+      "path": "app/services/composite_arithmetic_capture/capture.py",
+      "sha256": "aaa110d7a16eac9aea691ae13f08be5b1195a6207a6ad70e722f6d83586a3ca1"
+    },
+    {
+      "normalized_length": 3044,
+      "path": "app/services/composite_arithmetic_capture/collector.py",
+      "sha256": "c3b6ac72e1214efba7400508e9b186e357f30bbefa0f699691280e79d4ae1ba9"
+    },
+    {
+      "normalized_length": 6067,
+      "path": "app/services/composite_arithmetic_capture/replay.py",
+      "sha256": "fd11dcd6af6141b00847c063f5f38b2e25db6e645b611ca9bb9ebe916b69973e"
+    },
+    {
+      "normalized_length": 3293,
+      "path": "app/services/composite_arithmetic_capture/response.py",
+      "sha256": "768e400da39b1656d187013bef72b77f9c89fa159d2204fad24672651b4c81b3"
+    },
+    {
+      "normalized_length": 3574,
+      "path": "app/services/composite_arithmetic_capture/validation.py",
+      "sha256": "3fc7eda729996788e1ec0fadf69fd21e779982c2d71c8965a08ef30a3bc78844"
+    },
+    {
+      "normalized_length": 12494,
+      "path": "app/services/composite_calculation_service.py",
+      "sha256": "12ef43acb2fda043c1ab32a69df89abcd3429984dafc3773a03e55f862a4ebaa"
+    },
+    {
+      "normalized_length": 3184,
+      "path": "app/services/composite_materialization/model_fee_calculation.py",
+      "sha256": "f3ce381c836a29e376818341531c4234a2db199fb038fd3a6449c29650081ffa"
+    },
+    {
+      "normalized_length": 3495,
+      "path": "app/services/composite_materialization/model_fee_schedule_rates.py",
+      "sha256": "d53435721498767459e01b7f0c3a396d055cb31786494a1ff72e5fdb759db8ce"
+    },
+    {
+      "normalized_length": 545,
+      "path": "app/services/reproducibility_service.py",
+      "sha256": "27a68c4479ae9811741b8b5ada18047b3b250eb0bb7b2a219a4e41645ecb3af2"
+    },
+    {
+      "normalized_length": 1514,
+      "path": "core/repro.py",
+      "sha256": "f5072014d6c7f371f783569847b07996979a01697d5edc3eafbbdaa2fe25b741"
+    },
+    {
+      "normalized_length": 24147,
+      "path": "engine/composites.py",
+      "sha256": "720d224e9a1843302d02c4f0d70288f4fe877029122ada631d477e2210cfd1e4"
+    },
+    {
+      "normalized_length": 2678,
+      "path": "engine/numerical_boundary.py",
+      "sha256": "01cb510d5c71d89243cb03d7768973512fb2013b11de55d8a158772dd68ce212"
+    }
+  ]
+}
