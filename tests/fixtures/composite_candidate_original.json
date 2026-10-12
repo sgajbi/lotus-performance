@@ -154,7 +154,7 @@
   "reason_codes": [],
   "selection_manifest": {
     "calculation_fingerprint": "sha256:9d7dd9127d3358189c3f0c1f670d9c4769e6bd6966685da06fd647bfa07a1435",
-    "engine_version": "lotus-performance-calculation-engine.v16",
+    "engine_version": "lotus-performance-calculation-engine.v17",
     "qualification": "EXPLICIT_RETAINED_CALCULATED_REPLAY",
     "windows": [
       {

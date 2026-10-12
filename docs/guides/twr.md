@@ -54,6 +54,10 @@ Stateless valuation inputs retain the fee-exclusive `end_mv` contract: supply `1
 `-10` for the same economics. Returns-series, workspace TWR and Composite member TWR use the
 same stateful convention. Source asset evidence and reported stateful ending assets retain
 the actual `1090`, rather than the reconstructed fee-exclusive engine workspace value.
+TWR and workspace restore source assets at their presentation boundary; the engine's
+fee-exclusive output remains available to contribution's monetary allocation, including
+zero-capital fee-only positions. Raw async and synchronous stateful TWR retain the same
+`AFTER_FEES` basis in their resolved request and calculation hash.
 Calculation identity v17 applies to new calculations; retained historical results are unchanged.
 
 Preferred local defaults for `CORE_CONTROL_PLANE_BASE_URL` are:

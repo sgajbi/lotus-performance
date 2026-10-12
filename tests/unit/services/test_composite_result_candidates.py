@@ -319,7 +319,9 @@ def test_gc_during_atomic_capture_cannot_delete_born_original(candidate_inputs):
     assert results.prune_results_older_than(datetime.now(UTC) + timedelta(days=1)) == 0
 
 
-@pytest.mark.parametrize("bad", ["no_vector", "blocked", "no_manifest", "no_scope", "no_capability", "unknown_build"])
+@pytest.mark.parametrize(
+    "bad", ["no_vector", "blocked", "no_manifest", "no_scope", "no_capability", "unknown_build", "old_engine"]
+)
 def test_candidate_default_and_incomplete_admission_refuse_without_writes(candidate_inputs, bad, monkeypatch):
     store, results, request, response, principal = candidate_inputs
     if bad == "no_vector":
@@ -328,6 +330,8 @@ def test_candidate_default_and_incomplete_admission_refuse_without_writes(candid
         response.status = "BLOCKED"
     elif bad == "no_manifest":
         response.selection_manifest = None
+    elif bad == "old_engine":
+        response.selection_manifest.engine_version = "lotus-performance-calculation-engine.v16"
     elif bad == "unknown_build":
         monkeypatch.setattr(get_settings(), "APP_GIT_COMMIT_SHA", "local")
     elif bad == "no_capability":

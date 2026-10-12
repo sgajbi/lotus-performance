@@ -62,16 +62,12 @@ def _calculate_monetary_frame(
 ) -> Tuple[pd.DataFrame, EngineDiagnostics]:
     monetary_values = [value for col in _engine_numeric_column_names()[1:6] for value in working_df[col]]
     with monetary_arithmetic_context(monetary_values, products=True):
-        source_ending_values = None
         if config.ending_value_basis == EndingValueBasis.AFTER_FEES:
-            source_ending_values = working_df[PortfolioColumns.END_MV.value].copy()
             normalize_after_fee_ending_values(working_df, config.precision_mode)
         retained_money = _use_exact_integer_monetary_workspace(working_df, config)
         final_df, diagnostics = _calculate_prepared_valuation_frame(working_df, config, policy_diagnostics)
         for column, values in retained_money.items():
             final_df[column] = values.reindex(final_df.index)
-        if source_ending_values is not None:
-            final_df[PortfolioColumns.END_MV.value] = source_ending_values.reindex(final_df.index)
     return final_df, diagnostics
 
 

@@ -84,6 +84,7 @@ from app.services.execution_registry import ExecutionRegistry, execution_registr
 from app.services.execution_stage_names import EXECUTION_STAGE_EXECUTION
 from app.services.inspection import run_twr_inspection
 from app.services.returns_series_service import calculate_returns_series, to_dataframe
+from app.services.twr_calculation_service import build_resolved_twr_identity_payload
 from app.services.twr_mode_service import resolve_twr_request
 from app.services.twr_service import calculate_twr_response
 from app.services.workspace_summary_service import calculate_workspace_summary
@@ -1338,9 +1339,10 @@ def _resolve_raw_twr_job_request(
 ]:
     analytics_request = TWRAnalyticsRequest.model_validate(payload)
     resolved_request = asyncio.run(resolve_twr_request(analytics_request, settings=settings))
-    resolved_identity_payload = TWRResolvedExecutionRequest(
-        portfolio=resolved_request.performance_request,
-        benchmark=resolved_request.benchmark_request,
+    resolved_identity_payload = build_resolved_twr_identity_payload(
+        performance_request=resolved_request.performance_request,
+        benchmark_request=resolved_request.benchmark_request,
+        input_mode=resolved_request.input_mode,
     )
     should_update_identity = (
         resolved_request.input_mode == TWRInputMode.STATEFUL or resolved_request.benchmark_request is not None
