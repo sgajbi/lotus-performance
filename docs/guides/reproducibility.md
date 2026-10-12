@@ -51,6 +51,11 @@ Version `v17` supersedes `v16` for Core after-fee valuation basis at stateful TW
 and workspace boundaries. Booked expenses/refunds are applied once; source ending assets are
 retained in output and daily evidence reconciles to the declared basis. Stateless fee-exclusive
 inputs remain unchanged. Historical calculations retain their original results and identities.
+Current executable examples bind the new resolved-request shape and version: their source and
+receipt hashes are regenerated from synthetic source-qualified calculations, while unchanged
+financial values remain checked by independent return, dispersion and fee-drag oracles.
+Composite currency reprojection consumes the retained request's ending-value basis as well as
+its precision and FX policy, so reprojected source money agrees with the captured member return.
 
 Version `v16` superseded `v15` for explicit FLOAT64-only attribution admission and actual-policy
 provenance. Unsupported DECIMAL_STRICT requests are refused before accepting new work; retained

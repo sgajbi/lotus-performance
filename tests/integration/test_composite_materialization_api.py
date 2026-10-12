@@ -409,8 +409,8 @@ def test_http_materialization_preserves_cashflow_fee_and_precision_inputs(
 ):
     products = source_products(composite_id="COMPOSITE_" + uuid4().hex)
     figures = {**STANDARD_ASSETS, "A": ("100", "122")}
-    # Existing TWR convention: valuation122 excludes the separately supplied
-    # fee2. BOD capital120 grows10%, then EOD withdrawal10 leaves122.
+    # Core valuation122 already contains the signed fee-2. With BOD capital120
+    # and EOD withdrawal10, observed NET gain is12 and fee-exclusive GROSS gain14.
     flows = {
         "A": [
             {"amount": "20", "timing": "bod", "cash_flow_type": "external_flow"},
@@ -444,8 +444,8 @@ def test_http_materialization_preserves_cashflow_fee_and_precision_inputs(
         )
         # Derive the constituent and asset-weighted return independently from
         # explicit flows; changing fee view must not change retained source money.
-        net_fee = Decimal(-2) if basis == "NET" else Decimal(0)
-        a_return = (Decimal(122) - Decimal(100) - Decimal(20) - Decimal(-10) + net_fee) / Decimal(120)
+        gross_fee_addback = Decimal(2) if basis == "GROSS" else Decimal(0)
+        a_return = (Decimal(122) - Decimal(100) - Decimal(20) - Decimal(-10) + gross_fee_addback) / Decimal(120)
         # FLOAT64 rounds public percentages; DECIMAL_STRICT retains the decimal
         # result. Preserve the reported policy, not reconstructed asset returns.
         a_reported = (
@@ -604,7 +604,9 @@ def run_registered_fx_money_control(
         result = translated.json()
         period = next(iter(result["results_by_period"].values()))["portfolio"]
         a_reporting_begin = a_begin * Decimal(beginning_rate)
-        applied_fee = Decimal(management_fee) * Decimal(ending_rate) if return_view == "NET_ACTUAL" else Decimal(0)
+        # Both native and translated ending assets already contain the fee.
+        # Only GROSS removes that signed fee, at the fee's economic-date FX rate.
+        applied_fee = -Decimal(management_fee) * Decimal(ending_rate) if return_view == "GROSS" else Decimal(0)
         expected_member_return = (a_end * Decimal(ending_rate) - a_reporting_begin + applied_fee) / a_reporting_begin
         if precision == "FLOAT64":
             expected_member_return = Decimal(str(round(float(expected_member_return * 100), rounding))) / 100
@@ -1058,7 +1060,10 @@ def test_registered_fx_normalization_converts_actual_fee_without_changing_money_
             run_registered_fx_money_control(
                 scope, normalize=True, eod_flow="0", management_fee="-2", return_view=view, capture=capture
             )
-    expected = {"GROSS": (Fraction(32, 325), Fraction(2, 75)), "NET_ACTUAL": (Fraction(1, 13), Fraction(1, 45))}
+    # Independent reporting-currency oracle: A starts at100*1.3=130 and ends
+    # after fees at102*1.4=142.8. NET gain12.8; GROSS removes signed fee-2.8,
+    # giving15.6. Other members gain4 on500; total beginning assets are630.
+    expected = {"GROSS": (Fraction(3, 25), Fraction(7, 225)), "NET_ACTUAL": (Fraction(32, 325), Fraction(2, 75))}
     money = []
     for view, result in captured.items():
         member = result["receipt"]["members"][0]

@@ -171,6 +171,7 @@ def _recalculate_member_daily_returns(command, native, points):
         performance_start_date=command.period_start,
         report_end_date=command.period_end,
         metric_basis=request.metric_basis,
+        ending_value_basis=native.calculation_request.ending_value_basis,
         period_type="YTD",
         precision_mode=precision,
         rounding_precision=request.rounding_precision,

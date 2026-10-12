@@ -1,13 +1,18 @@
 """Financial refusals preserve exact native money and independently admitted daily FX."""
 
 from copy import deepcopy
+from datetime import date
 from decimal import Decimal
 from types import SimpleNamespace
 
 import pytest
 
 from app.models.composite_authority import authority_digest
-from app.services.composite_materialization.currency_normalization import normalize_member_money
+from app.models.twr_requests import TWRResolvedExecutionRequest
+from app.services.composite_materialization.currency_normalization import (
+    _recalculate_member_daily_returns,
+    normalize_member_money,
+)
 from app.services.composite_materialization.currency_source_admission import (
     admit_composite_fx_source,
     fx_resolution_for_command,
@@ -15,6 +20,55 @@ from app.services.composite_materialization.currency_source_admission import (
 from tests.composite_annual_fx_helpers import normalized_month_record
 from tests.composite_currency_normalization_helpers import synthetic_fx_verification
 from tests.unit.services.test_composite_annual_dispersion_service import month_record
+
+
+@pytest.mark.parametrize("ending_basis", ["AFTER_FEES", "FEE_EXCLUSIVE"])
+@pytest.mark.parametrize("precision", ["FLOAT64", "DECIMAL_STRICT"])
+@pytest.mark.parametrize("metric_basis", ["NET", "GROSS"])
+@pytest.mark.parametrize("fee", ["-2", "2", "0"])
+def test_currency_reprojection_uses_retained_fee_basis(ending_basis, precision, metric_basis, fee):
+    day = date(2026, 1, 5)
+    retained = TWRResolvedExecutionRequest.model_validate(
+        {
+            "ending_value_basis": ending_basis,
+            "portfolio": {
+                "portfolio_id": "SOURCE_FEE_BASIS",
+                "performance_start_date": day,
+                "report_start_date": day,
+                "report_end_date": day,
+                "analyses": [{"period": "EXPLICIT", "frequencies": ["daily"]}],
+                "metric_basis": metric_basis,
+                "precision_mode": precision,
+                "rounding_precision": 12,
+                "currency": "EUR",
+                "currency_mode": "BOTH",
+                "report_ccy": "USD",
+                "fx": {
+                    "rates": [
+                        {"date": "2026-01-04", "ccy": "EUR", "rate": "1.3"},
+                        {"date": day, "ccy": "EUR", "rate": "1.4"},
+                    ]
+                },
+                "valuation_points": [{"perf_date": day, "begin_mv": "100", "end_mv": "102", "mgmt_fees": fee}],
+            },
+        }
+    )
+    native = SimpleNamespace(calculation_request=retained, precision_mode=precision)
+    command = SimpleNamespace(period_start=day, period_end=day)
+    actual = _recalculate_member_daily_returns(command, native, retained.portfolio.valuation_points)
+    # Independently convert admitted source money at its economic-date fixing.
+    # AFTER_FEES NET leaves observed ending assets intact; GROSS removes the fee.
+    # Historical/stateless FEE_EXCLUSIVE keeps its existing separate-fee semantics.
+    adjustment = (
+        -Decimal(fee)
+        if ending_basis == "AFTER_FEES" and metric_basis == "GROSS"
+        else Decimal(fee)
+        if ending_basis == "FEE_EXCLUSIVE" and metric_basis == "NET"
+        else Decimal(0)
+    )
+    expected = ((Decimal(102) + adjustment) * Decimal("1.4") - Decimal(100) * Decimal("1.3")) / Decimal(130)
+    assert len(actual) == 1
+    assert abs(actual[0] - expected) <= Decimal("1e-12")
 
 
 @pytest.fixture
