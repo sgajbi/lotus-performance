@@ -5,6 +5,15 @@ Branch: `feat/performance-architecture-boundary-refactor`
 Baseline source: `quality/baseline_report.md`
 Testing inventory refresh: 2026-10-10, result authority (#610), PR/main coverage parity (#641/#645), and single-period BF (#633).
 Other phase-zero measurements, including coverage percentages, remain historical.
+S1 measured refresh (2026-10-12, source `d5b08d6f`): code-health counts, taxonomy,
+maintainability, function size and architecture current values were recomputed from native source.
+From the repository root in PowerShell or Bash, use `python scripts/generate_quality_baseline.py --check --skip-inventories`,
+`python scripts/python_test_taxonomy_inventory.py --limit 30`,
+`python scripts/python_complexity_inventory.py --limit 1`,
+`python scripts/python_function_size_inventory.py --limit 1`, and
+`python scripts/python_architecture_boundary_inventory.py --limit 1`.
+These measurements supersede older scanner snapshots for the refreshed rows; historical columns,
+coverage results and execution failures remain unchanged. Collection is not a test pass or release acceptance.
 Historical #540 exact main `39aec74c` passed all ten jobs in run `37136810103`; its candidate
 coverage was raw 98.5068273355382% (30,539 statements/456 missing), passing the unchanged configured
 99% gate at zero-decimal precision. Earlier failures remain historical. #473's locked source
@@ -47,11 +56,11 @@ link the commit, command, or CI artifact that proves the change.
 
 | Metric | Baseline | Current | Status | Evidence |
 | --- | ---: | ---: | --- | --- |
-| Python files | 480 | 818 | measured | `quality/baseline_report.md` |
-| Python package markers | 18 | 25 | measured | recursive `__init__.py` count |
-| Python LOC | 104,454 | 264,208 | measured | `quality/baseline_report.md` |
+| Python files | 480 | 1014 | measured | `quality/baseline_report.md` |
+| Python package markers | 18 | 35 | measured | recursive `__init__.py` count |
+| Python LOC | 104,454 | 296,029 | measured | `quality/baseline_report.md` |
 | Largest Python file LOC | 2,399 | 4,447 | measured | largest-file inventory on this branch |
-| Largest production file LOC | 1,156 | 3,069 | measured | `app/services/composite_metadata_store.py` |
+| Largest production file LOC | 1,156 | 3,271 | measured | `app/services/composite_metadata_store.py` |
 | Duplicate code hotspots | 0 | 0 | enforced | `quality/duplicate_code_inventory.md`; `make quality-duplicate-code-gate` with `--min-lines 12 --max-groups 0`; duplicated LOC reduced from `24` to `0` in LP-CR-1407 |
 | Tracked local byproduct findings | unknown | 0 | enforced | `scripts/repository_hygiene_gate.py`; `make repository-hygiene-gate`; blocking through `make lint` |
 | Dead-code candidates at 60% confidence | unknown | 438 | measured | `quality/dead_code_inventory.md` via `scripts/python_dead_code_inventory.py` |
@@ -63,8 +72,8 @@ link the commit, command, or CI artifact that proves the change.
 | --- | ---: | ---: | --- | --- |
 | Max cyclomatic complexity | unknown | 8 | enforced | `quality/complexity_inventory.md` via `scripts/python_complexity_inventory.py`; `make quality-complexity-gate` |
 | High-complexity functions | unknown | 0 | enforced | rank D-F functions in `quality/complexity_inventory.md`; `make quality-complexity-gate` |
-| Average maintainability index | unknown | 55.49 | measured | `quality/complexity_inventory.md` via `scripts/python_complexity_inventory.py` |
-| Largest functions by LOC | unknown | 81 | measured | `quality/function_size_inventory.md` via `scripts/python_function_size_inventory.py`; `StatefulInputService._fetch_position_chunk(...)` remains the largest production function at `81` lines |
+| Average maintainability index | unknown | 55.24 | measured | `quality/complexity_inventory.md` via `scripts/python_complexity_inventory.py` |
+| Largest functions by LOC | unknown | 169 | measured | `quality/function_size_inventory.md` via `scripts/python_function_size_inventory.py`; `_create_sqlite_composite_fact_validation_guards(...)` remains the largest production function at `169` lines |
 
 ## Architecture
 
@@ -74,8 +83,8 @@ link the commit, command, or CI artifact that proves the change.
 | Routers importing infrastructure directly | unknown | 0 | enforced | `ROUTER_DIRECT_BOUNDARY_IMPORT` absent from `quality/architecture_boundary_inventory.md`; `make quality-architecture-gate` |
 | Engine/core importing framework or infra code | unknown | 0 | enforced | `DOMAIN_INFRA_OR_FRAMEWORK_IMPORT` absent from `quality/architecture_boundary_inventory.md`; `make quality-architecture-gate` |
 | Route workflow direct DTO calls | unknown | 0 | enforced | `ROUTE_WORKFLOW_DTO_DIRECT_CALL` absent from `quality/architecture_boundary_inventory.md`; `make quality-architecture-gate` |
-| Application-service concrete-store imports | unknown | 66 | measured | `APPLICATION_SERVICE_CONCRETE_STORE_IMPORT` in `quality/architecture_boundary_inventory.md`; report-only after execution polling pilot moved behind `ExecutionPollingStore` |
-| Large production service hotspots | 3 | 8 | measured | `returns_series_service.py`, `stateful_input_service.py`, `compute_job_store.py`, `twr_service.py`, `stateful_attribution_input_service.py`, `lineage_metadata_store.py`, `workspace_summary_service.py`, and `calculation_consistency.py` exceed 1,000 LOC |
+| Application-service concrete-store imports | unknown | 73 | measured | `APPLICATION_SERVICE_CONCRETE_STORE_IMPORT` in `quality/architecture_boundary_inventory.md`; report-only after execution polling pilot moved behind `ExecutionPollingStore` |
+| Large production service hotspots | 3 | 14 | measured | `scripts/generate_quality_baseline.py` native file inventory; 14 app/services files exceed 1,000 LOC, led by composite_metadata_store.py (3,271) |
 | Router/middleware oversized function findings (`--threshold 80`) | unknown | 0 | enforced | `quality/router_middleware_thinness_inventory.md`; `make quality-router-thinness-gate` |
 
 ## API Quality
@@ -94,11 +103,11 @@ link the commit, command, or CI artifact that proves the change.
 
 | Metric | Baseline | Current | Status | Evidence |
 | --- | ---: | ---: | --- | --- |
-| Test modules | 228 | 447 | measured | `rg --files tests -g 'test_*.py'` |
-| Collected tests | 2,035 | 8,746 | measured | `python -m pytest --collect-only -q` |
+| Test modules | 228 | 449 | measured | `rg --files tests -g 'test_*.py'` |
+| Collected tests | 2,035 | 8,780 | measured | `python -m pytest --collect-only -q` |
 | Line coverage | unknown | 99.58% | measured | `quality/coverage_inventory.md` via `make branch-coverage-baseline` (`3,013` unit, `308` integration, and `21` e2e tests under branch coverage; `21,154` covered lines of `21,244` statements) |
 | Branch coverage | unknown | 98.00% | measured | `quality/coverage_inventory.md` via `make branch-coverage-baseline` (`3,013` unit, `308` integration, and `21` e2e tests under branch coverage; `4,318` covered branches of `4,406`, `88` missing branches, `88` partial branches) |
-| Integration/API/runtime test functions | unknown | 1086 | enforced | `quality/test_taxonomy_inventory.md`; `make quality-test-taxonomy-gate` |
+| Integration/API/runtime test functions | unknown | 1087 | enforced | `quality/test_taxonomy_inventory.md`; `make quality-test-taxonomy-gate` |
 | Contract/governance test functions | unknown | 239 | enforced | `quality/test_taxonomy_inventory.md`; `make quality-test-taxonomy-gate` |
 | Uncategorized test functions | unknown | 558 | enforced ceiling | `quality/test_taxonomy_inventory.md`; `make quality-test-taxonomy-gate`; #619 classifies the precise source/error adapter module; observed 558, separately banked policy 558. |
 
@@ -1696,7 +1705,7 @@ Historical failures above are unchanged.
 
 ## Operator Retention Entrypoint Development Inventory (#604)
 
-Current AST inventory: 381 modules, 4,661 source test functions, 973 integration/API/runtime,
+Historical #604 AST inventory: 381 modules, 4,661 source test functions, 973 integration/API/runtime,
 227 contract/governance, 755 observability/readiness, 349 quality/security, 2,442 analytics-domain
 and 558 uncategorized functions. Fresh subprocess contracts cover help, dry-run, scheduled Make
 execution and positive policy boundaries. No gate or financial formula changed. Release acceptance
