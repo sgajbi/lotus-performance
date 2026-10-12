@@ -6,6 +6,15 @@ Baseline source: `quality/baseline_report.md`
 Current source: `quality/refactor_health_report.md`
 Testing inventory refresh: 2026-10-10, result authority (#610), PR proof controls (#641) and main coverage parity (#645).
 Other phase-zero measurements below remain historical, not current acceptance evidence.
+S1 measured refresh (2026-10-12, source `d5b08d6f`): code-health counts, taxonomy,
+maintainability, function size and architecture current values were recomputed from native source.
+From the repository root in PowerShell or Bash, use `python scripts/generate_quality_baseline.py --check --skip-inventories`,
+`python scripts/python_test_taxonomy_inventory.py --limit 30`,
+`python scripts/python_complexity_inventory.py --limit 1`,
+`python scripts/python_function_size_inventory.py --limit 1`, and
+`python scripts/python_architecture_boundary_inventory.py --limit 1`.
+These measurements supersede older scanner snapshots for the refreshed rows; historical columns,
+coverage results and execution failures remain unchanged. Collection is not a test pass or release acceptance.
 Mode: phase-zero scorecard; static-quality and evaluation enforcement includes complexity,
 architecture, router-thinness, duplicate-code, repository hygiene, observability-readiness,
 domain-product validation, deterministic API evaluation, test taxonomy breadth gates, license
@@ -23,13 +32,13 @@ metrics in each section are updated with each meaningful slice.
 
 | Metric | Baseline | Current | Delta | Status | Evidence |
 | --- | ---: | ---: | ---: | --- | --- |
-| Python files | 480 | 818 | 338 | measured | `quality/baseline_report.md`; `quality/refactor_health_report.md` |
-| Python package markers | 18 | 25 | 7 | measured | `quality/baseline_report.md`; `quality/refactor_health_report.md` |
-| Python LOC | 104,454 | 264,208 | 159,754 | measured | `quality/baseline_report.md`; `quality/refactor_health_report.md` |
+| Python files | 480 | 1014 | 534 | measured | `quality/baseline_report.md`; `quality/refactor_health_report.md` |
+| Python package markers | 18 | 35 | 17 | measured | `quality/baseline_report.md`; `quality/refactor_health_report.md` |
+| Python LOC | 104,454 | 296,029 | 191,575 | measured | `quality/baseline_report.md`; `quality/refactor_health_report.md` |
 | Largest Python file LOC | 2,399 | 4,447 | 2,048 | measured | `quality/baseline_report.md`; `quality/refactor_health_report.md` |
-| Largest production file LOC | 1,156 | 3,069 | 1,913 | measured | `quality/refactor_health_report.md`; `quality/architecture_boundary_inventory.md` |
-| Python test modules | 228 | 447 | 219 | measured | `quality/baseline_report.md`; `quality/refactor_health_report.md` |
-| Collected tests | 2,035 | 8,746 | 6,711 | measured | `quality/baseline_report.md`; `quality/refactor_health_report.md` |
+| Largest production file LOC | 1,156 | 3,271 | 2,115 | measured | `quality/refactor_health_report.md`; `quality/architecture_boundary_inventory.md` |
+| Python test modules | 228 | 449 | 221 | measured | `quality/baseline_report.md`; `quality/refactor_health_report.md` |
+| Collected tests | 2,035 | 8,780 | 6,745 | measured | `quality/baseline_report.md`; `quality/refactor_health_report.md` |
 | Duplicate code hotspots | 0 | 0 | 0 | enforced | `quality/duplicate_code_inventory.md`; `quality/refactor_health_report.md`; `make quality-duplicate-code-gate` |
 | Tracked local byproduct findings | unknown | 0 | n/a | enforced | `scripts/repository_hygiene_gate.py`; `make repository-hygiene-gate`; `quality/refactor_health_report.md` |
 
@@ -39,8 +48,8 @@ metrics in each section are updated with each meaningful slice.
 | --- | ---: | ---: | ---: | --- | --- |
 | Max cyclomatic complexity | unknown | 8 | n/a | enforced | `quality/complexity_inventory.md`; `quality/refactor_health_report.md`; `make quality-complexity-gate` |
 | High-complexity functions (D-F) | unknown | 0 | n/a | enforced | `quality/complexity_inventory.md`; `quality/refactor_health_report.md`; `make quality-complexity-gate` |
-| Average maintainability index | unknown | 55.49 | n/a | measured | `quality/complexity_inventory.md`; `quality/refactor_health_report.md` |
-| Largest functions by LOC | unknown | 81 | n/a | measured | `quality/function_size_inventory.md`; `quality/refactor_health_report.md`; `StatefulInputService._fetch_position_chunk(...)` remains the largest production function at `81` lines |
+| Average maintainability index | unknown | 55.24 | n/a | measured | `quality/complexity_inventory.md`; `quality/refactor_health_report.md` |
+| Largest functions by LOC | unknown | 169 | n/a | measured | `quality/function_size_inventory.md`; `quality/refactor_health_report.md`; `_create_sqlite_composite_fact_validation_guards(...)` remains the largest production function at `169` lines |
 
 ### Architecture
 
@@ -50,8 +59,8 @@ metrics in each section are updated with each meaningful slice.
 | Routers with infrastructure imports | unknown | 0 | n/a | enforced | `quality/architecture_boundary_inventory.md`; `quality/refactor_health_report.md`; `make quality-architecture-gate` |
 | Engine/core infra/framework imports | unknown | 0 | n/a | enforced | `quality/architecture_boundary_inventory.md`; `quality/refactor_health_report.md`; `make quality-architecture-gate` |
 | Route workflow direct DTO calls | unknown | 0 | n/a | enforced | `quality/architecture_boundary_inventory.md`; `scripts/python_architecture_boundary_inventory.py`; `make quality-architecture-gate` |
-| Application-service concrete-store imports | unknown | 66 | n/a | measured | `quality/architecture_boundary_inventory.md`; `scripts/python_architecture_boundary_inventory.py`; execution polling pilot moved behind `ExecutionPollingStore` |
-| Large production service hotspots (LOC > 1000) | 3 | 8 | 5 | measured | `quality/refactor_health_report.md`; `quality/architecture_boundary_inventory.md` |
+| Application-service concrete-store imports | unknown | 73 | n/a | measured | `quality/architecture_boundary_inventory.md`; `scripts/python_architecture_boundary_inventory.py`; execution polling pilot moved behind `ExecutionPollingStore` |
+| Large production service hotspots (LOC > 1000) | 3 | 14 | 11 | measured | `quality/refactor_health_report.md`; `quality/architecture_boundary_inventory.md` |
 | Router/middleware oversized function findings (`--threshold 80`) | unknown | 0 | n/a | enforced | `quality/router_middleware_thinness_inventory.md`; `quality/refactor_health_report.md`; `make quality-router-thinness-gate` |
 
 ### API Quality
@@ -70,7 +79,7 @@ metrics in each section are updated with each meaningful slice.
 | --- | ---: | ---: | ---: | --- | --- |
 | Line coverage | unknown | 99.58% | n/a | measured | `quality/coverage_inventory.md`; `quality/refactor_health_report.md` |
 | Branch coverage | unknown | 98.00% | n/a | measured | `quality/coverage_inventory.md`; `quality/refactor_health_report.md`; `make branch-coverage-baseline` |
-| Integration/API/runtime test functions | unknown | 1086 | n/a | enforced | `quality/test_taxonomy_inventory.md`; `quality/refactor_health_report.md`; `make quality-test-taxonomy-gate` |
+| Integration/API/runtime test functions | unknown | 1087 | n/a | enforced | `quality/test_taxonomy_inventory.md`; `quality/refactor_health_report.md`; `make quality-test-taxonomy-gate` |
 | Contract/governance test functions | unknown | 239 | n/a | enforced | `quality/test_taxonomy_inventory.md`; `quality/refactor_health_report.md`; `make quality-test-taxonomy-gate` |
 | Uncategorized test functions | unknown | 558 | n/a | enforced ceiling | `quality/test_taxonomy_inventory.md`; `make quality-test-taxonomy-gate`; #619 exact adapter classification measures 558 and separately banks policy 558. |
 
@@ -148,7 +157,7 @@ Historical failures above are unchanged.
 
 ## Operator Retention Entrypoint Development Inventory (#604)
 
-Current AST inventory: 381 modules, 4,661 source test functions, 973 integration/API/runtime,
+Historical #604 AST inventory: 381 modules, 4,661 source test functions, 973 integration/API/runtime,
 227 contract/governance, 755 observability/readiness, 349 quality/security, 2,442 analytics-domain
 and 558 uncategorized functions. Fresh subprocess contracts cover help, dry-run, scheduled Make
 execution and positive policy boundaries. No gate or financial formula changed. Release acceptance

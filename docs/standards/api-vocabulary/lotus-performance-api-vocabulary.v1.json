@@ -8,7 +8,7 @@
       "openApiVersion": "3.1.0"
     }
   ],
-  "generatedAt": "2026-10-11T04:12:51.322327+00:00",
+  "generatedAt": "2026-10-12T01:00:56.389092+00:00",
   "attributeCatalog": [
     {
       "semanticId": "lotus.access_classification",
@@ -605,6 +605,198 @@
       ],
       "observedTypes": [
         "string"
+      ]
+    },
+    {
+      "semanticId": "lotus.arithmetic_capture",
+      "canonicalTerm": "arithmetic_capture",
+      "preferredName": "arithmetic_capture",
+      "description": "composite result candidate response field: arithmetic capture.",
+      "example": {
+        "digest": "example_digest",
+        "payload": {
+          "schema_version": "example_schema_version",
+          "adapter": "example_adapter",
+          "source": {
+            "owner": "example_owner",
+            "tenant_id": "default",
+            "candidate_id": "CANDIDATE_001",
+            "calculation_id": "2f4f3e0e-6e0e-4e0e-8e0e-2f4f3e0e6e0e",
+            "original_response_digest": "example_original_response_digest",
+            "request_binding_digest": "example_request_binding_digest"
+          },
+          "algorithm": {
+            "engine_version": "example_engine_version",
+            "release_commit": "example_release_commit",
+            "kernel_source_digest": "example_kernel_source_digest",
+            "projection_policy": "example_projection_policy",
+            "runtime": {
+              "python_implementation": "example_python_implementation",
+              "python_version": "example_python_version",
+              "decimal_version": "example_decimal_version",
+              "libmpdec_version": "example_libmpdec_version",
+              "decimal_contextvar": true
+            }
+          },
+          "scope": {
+            "composite_id": "COMPOSITE_001",
+            "period_start": "2026-02-27",
+            "period_end": "2026-02-27",
+            "return_view": "example_return_view",
+            "reporting_currency": "USD",
+            "materialization_vector": [
+              "example_materialization_vector_item"
+            ],
+            "windows": [
+              {
+                "materialization_id": "MATERIALIZATION_001",
+                "period_start": "2026-02-27",
+                "period_end": "2026-02-27",
+                "restatement_sequence": 1,
+                "definition_content_hash": "example_definition_content_hash",
+                "membership_content_hash": "example_membership_content_hash",
+                "attestation_content_hash": "example_attestation_content_hash",
+                "source_cut_id": "SOURCE_CUT_001",
+                "method_binding": {
+                  "key": "value"
+                },
+                "retained_receipt_fingerprint": "example_retained_receipt_fingerprint"
+              }
+            ]
+          },
+          "calculation_request": {
+            "calculation_id": "7f2b08b0-58e5-49be-b3ef-7a9cfb0321ce",
+            "composite_id": "PB_GLOBAL_BALANCED_USD",
+            "period_start": "2026-01-01",
+            "period_end": "2026-03-31",
+            "return_view": "GROSS",
+            "reporting_currency": "USD",
+            "restatement_sequence": 1,
+            "materialization_ids": [
+              "example_materialization_ids_item"
+            ]
+          },
+          "source_refs": [
+            {
+              "kind": "example_kind",
+              "owner": "example_owner",
+              "tenant_id": "default",
+              "materialization_id": "MATERIALIZATION_001",
+              "retained_receipt_fingerprint": "example_retained_receipt_fingerprint",
+              "source_cut_id": "SOURCE_CUT_001"
+            }
+          ],
+          "ordered_facts": [
+            {
+              "ordinal": 1,
+              "window_ordinal": 1,
+              "fact": {
+                "composite_id": "PB_GLOBAL_BALANCED_USD",
+                "portfolio_id": "PB_SG_GLOBAL_BAL_001",
+                "period_start": "2026-01-01",
+                "period_end": "2026-01-31",
+                "return_value": "0.0125",
+                "return_view": "GROSS",
+                "beginning_market_value": "1000000.00",
+                "ending_market_value": "1012500.00",
+                "reporting_currency": "USD",
+                "calculation_id": "7f2b08b0-58e5-49be-b3ef-7a9cfb0321ce",
+                "source_authority_identity": {
+                  "source_kind": "INTERNAL",
+                  "return_source_kind": "LOTUS_PERFORMANCE",
+                  "provider_id": "lotus-performance",
+                  "source_member_id": "MEMBER_A",
+                  "product_name": "CompositeMemberSourceEvidence",
+                  "product_version": "composite-member-source.v1",
+                  "source_revision": "7f2b08b0-58e5-49be-b3ef-7a9cfb0321ce",
+                  "source_digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+                },
+                "source_snapshot_id": "portfolio-twr-2026-01-31T23:59:59Z",
+                "source_fingerprint": "sha256:member-return-fact-pb-sg-global-bal-001-2026-01",
+                "restatement_version": "v1",
+                "restatement_sequence": 1,
+                "status": "READY",
+                "reason_codes": [
+                  "missing_final_valuation"
+                ]
+              }
+            }
+          ],
+          "input_digest": "example_input_digest",
+          "context_route": "AMBIENT",
+          "effective_context": {
+            "prec": 1,
+            "rounding": "example_rounding",
+            "Emin": 1,
+            "Emax": 1,
+            "capitals": 1,
+            "clamp": 1,
+            "traps": {
+              "key": "value"
+            },
+            "entry_flags": {
+              "key": "value"
+            }
+          },
+          "exit_flags": {
+            "key": "value"
+          },
+          "checkpoints": [
+            {
+              "period_start": "2026-02-27",
+              "period_end": "2026-02-27",
+              "beginning_assets": "example_beginning_assets",
+              "ending_assets": "example_ending_assets",
+              "weighted_return": "example_weighted_return",
+              "next_cumulative_growth": "example_next_cumulative_growth",
+              "cumulative_return_before_quantize": "example_cumulative_return_before_quantize"
+            }
+          ],
+          "response_binding": {
+            "wire_codec": "example_wire_codec",
+            "original_response_digest": "example_original_response_digest"
+          },
+          "capture_binding": {
+            "captured_by": "example_captured_by",
+            "captured_at_utc": "example_captured_at_utc",
+            "credential_id": "CREDENTIAL_001",
+            "principal_kind": "user",
+            "delegated_actor": "example_delegated_actor"
+          },
+          "projection_replay": {
+            "status": "pending",
+            "adapter": "example_adapter",
+            "input_digest": "example_input_digest",
+            "mathematical_return": {
+              "numerator": "example_numerator",
+              "denominator": "example_denominator"
+            },
+            "internal_return": {
+              "numerator": "example_numerator",
+              "denominator": "example_denominator"
+            },
+            "reported_return": {
+              "numerator": "example_numerator",
+              "denominator": "example_denominator"
+            },
+            "internal_arithmetic_error": {
+              "numerator": "example_numerator",
+              "denominator": "example_denominator"
+            },
+            "output_quantization_error": {
+              "numerator": "example_numerator",
+              "denominator": "example_denominator"
+            }
+          },
+          "evidence_binding_digest": "example_evidence_binding_digest"
+        }
+      },
+      "type": "object",
+      "locations": [
+        "body"
+      ],
+      "observedTypes": [
+        "object"
       ]
     },
     {
@@ -8586,6 +8778,20 @@
       "preferredName": "posture",
       "description": "Publication retains input custody; independent method approval is still required.",
       "example": "example_posture",
+      "type": "string",
+      "locations": [
+        "body"
+      ],
+      "observedTypes": [
+        "string"
+      ]
+    },
+    {
+      "semanticId": "lotus.precision_capture_profile",
+      "canonicalTerm": "precision_capture_profile",
+      "preferredName": "precision_capture_profile",
+      "description": "Canonical precision capture profile used by lotus-performance APIs.",
+      "example": "STANDARD_VALUE",
       "type": "string",
       "locations": [
         "body"
@@ -17296,6 +17502,14 @@
             "type": "object",
             "semanticId": "lotus.materialization_ids",
             "attributeRef": "#/attributeCatalog/lotus.materialization_ids"
+          },
+          {
+            "name": "precision_capture_profile",
+            "location": "body",
+            "required": false,
+            "type": "string",
+            "semanticId": "lotus.precision_capture_profile",
+            "attributeRef": "#/attributeCatalog/lotus.precision_capture_profile"
           }
         ]
       },
@@ -17716,6 +17930,14 @@
             "type": "object",
             "semanticId": "lotus.selection_manifest",
             "attributeRef": "#/attributeCatalog/lotus.selection_manifest"
+          },
+          {
+            "name": "arithmetic_capture",
+            "location": "body",
+            "required": false,
+            "type": "object",
+            "semanticId": "lotus.arithmetic_capture",
+            "attributeRef": "#/attributeCatalog/lotus.arithmetic_capture"
           }
         ]
       }
@@ -18155,6 +18377,14 @@
             "type": "object",
             "semanticId": "lotus.selection_manifest",
             "attributeRef": "#/attributeCatalog/lotus.selection_manifest"
+          },
+          {
+            "name": "arithmetic_capture",
+            "location": "body",
+            "required": false,
+            "type": "object",
+            "semanticId": "lotus.arithmetic_capture",
+            "attributeRef": "#/attributeCatalog/lotus.arithmetic_capture"
           }
         ]
       }
@@ -27223,6 +27453,14 @@
             "type": "object",
             "semanticId": "lotus.selection_manifest",
             "attributeRef": "#/attributeCatalog/lotus.selection_manifest"
+          },
+          {
+            "name": "original.arithmetic_capture",
+            "location": "body",
+            "required": false,
+            "type": "object",
+            "semanticId": "lotus.arithmetic_capture",
+            "attributeRef": "#/attributeCatalog/lotus.arithmetic_capture"
           },
           {
             "name": "current_use",
