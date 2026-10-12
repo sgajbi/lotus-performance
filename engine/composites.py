@@ -453,6 +453,7 @@ def _build_ready_composite_period_result(
     *,
     period_fact_set: _CompositePeriodFactSet,
     cumulative_growth: Decimal,
+    observer=None,
 ) -> tuple[CompositePeriodResult, Decimal]:
     weighted_return, member_contributions = _build_ready_member_contributions(
         ready_facts=period_fact_set.ready_facts,
@@ -460,6 +461,16 @@ def _build_ready_composite_period_result(
     )
     next_cumulative_growth = cumulative_growth * (Decimal("1") + weighted_return)
     cumulative_return = next_cumulative_growth - Decimal("1")
+    if observer is not None:
+        observer.period(
+            period_start=period_fact_set.period_start,
+            period_end=period_fact_set.period_end,
+            beginning_assets=period_fact_set.beginning_assets,
+            ending_assets=period_fact_set.ending_assets,
+            weighted_return=weighted_return,
+            next_cumulative_growth=next_cumulative_growth,
+            cumulative_return=cumulative_return,
+        )
     status = "READY" if not period_fact_set.excluded_facts else "DEGRADED"
     return (
         CompositePeriodResult(
@@ -527,6 +538,7 @@ def _calculate_composite_period_result(
     *,
     period_fact_set: _CompositePeriodFactSet,
     cumulative_growth: Decimal,
+    observer=None,
 ) -> _CompositePeriodCalculation:
     blocked_period = _blocked_composite_period_result_for_invalid_ready_facts(
         period_start=period_fact_set.period_start,
@@ -552,6 +564,7 @@ def _calculate_composite_period_result(
     period_result, next_cumulative_growth = _build_ready_composite_period_result(
         period_fact_set=period_fact_set,
         cumulative_growth=cumulative_growth,
+        observer=observer,
     )
     return _CompositePeriodCalculation(
         period_result=period_result,
@@ -564,6 +577,7 @@ def calculate_asset_weighted_composite_twr(
     *,
     composite_id: str,
     member_return_facts: Sequence[CompositeMemberReturnFactLike],
+    observer=None,
 ) -> CompositeCalculationResult:
     grouped_facts = _group_composite_member_return_facts(
         composite_id=composite_id,
@@ -585,6 +599,7 @@ def calculate_asset_weighted_composite_twr(
         period_calculation = _calculate_composite_period_result(
             period_fact_set=period_fact_set,
             cumulative_growth=cumulative_growth,
+            observer=observer,
         )
         period_results.append(period_calculation.period_result)
         cumulative_growth = period_calculation.cumulative_growth

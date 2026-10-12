@@ -49,18 +49,16 @@ from app.models.composites import (
     CompositeErrorResponse,
     CompositeInspectionRequest,
     CompositeInspectionResponse,
-    CompositeMemberContributionResponse,
-    CompositePeriodResultResponse,
     CompositeTWRRequest,
     CompositeTWRResponse,
-    CompositeTWRSelectionManifest,
 )
 from app.models.platform_surfaces import ErrorDetailResponse
 from app.ports.composite_annual_dispersion import AnnualDispersionReceiptReader
 from app.services.analytics_workflow_types import ANALYTICS_WORKFLOW_COMPOSITE_ATTRIBUTION
-from app.services.calculation_engine_version import calculation_engine_version
 from app.services.composite_annual_dispersion.application import calculate_annual_member_dispersion
 from app.services.composite_annual_dispersion.comparison import compare_annual_member_dispersion
+from app.services.composite_arithmetic_capture.collector import ArithmeticCollector
+from app.services.composite_arithmetic_capture.response import composite_response
 from app.services.composite_attribution.application import read_attribution_result, submit_attribution
 from app.services.composite_calculation_service import (
     CompositeDefinitionNotFoundError,
@@ -86,7 +84,6 @@ from app.services.core_tenant_authority import (
     admitted_tenant_authority_from_header_values,
     require_composite_tenant_authority,
 )
-from app.services.reproducibility_service import generate_value_fingerprint
 
 router = APIRouter(tags=["Performance"])
 
@@ -260,48 +257,6 @@ FACT_SELECTION_CONFLICT_RESPONSE = {
 }
 
 
-def _member_contribution_response(item) -> CompositeMemberContributionResponse:
-    return CompositeMemberContributionResponse(
-        portfolio_id=item.portfolio_id,
-        period_start=item.period_start,
-        period_end=item.period_end,
-        return_value=item.return_value,
-        beginning_market_value=item.beginning_market_value,
-        beginning_asset_weight=item.weight,
-        contribution=item.contribution,
-        source_snapshot_id=item.source_snapshot_id,
-        source_fingerprint=item.source_fingerprint,
-        restatement_version=item.restatement_version,
-        restatement_sequence=item.restatement_sequence,
-        calculation_id=item.calculation_id,
-        source_authority_identity=item.source_authority_identity,
-    )
-
-
-def _period_response(item) -> CompositePeriodResultResponse:
-    return CompositePeriodResultResponse(
-        period_start=item.period_start,
-        period_end=item.period_end,
-        status=item.status,
-        return_value=item.return_value,
-        cumulative_return=item.cumulative_return,
-        beginning_market_value=item.beginning_market_value,
-        ending_market_value=item.ending_market_value,
-        member_count=item.member_count,
-        excluded_member_count=item.excluded_member_count,
-        dispersion_equal_weight=item.dispersion_equal_weight,
-        return_view=item.return_view,
-        reporting_currency=item.reporting_currency,
-        source_fingerprints=item.source_fingerprints,
-        restatement_versions=item.restatement_versions,
-        restatement_sequence=item.restatement_sequence,
-        reason_codes=item.reason_codes,
-        member_contributions=[
-            _member_contribution_response(contribution) for contribution in item.member_contributions
-        ],
-    )
-
-
 @router.post(
     "/composites/twr",
     response_model=CompositeTWRResponse,
@@ -372,11 +327,18 @@ def calculate_composite_twr(
     http_request: Request,
     tenant_id: Annotated[str, Depends(_verified_twr_tenant)],
 ) -> CompositeTWRResponse:
+    return _calculate_composite_response(request, http_request, tenant_id)
+
+
+def _calculate_composite_response(request, http_request, tenant_id, observer=None):
     try:
         windows = None
         if request.materialization_ids is not None:
             result, windows = calculate_composite_twr_from_materializations(
-                tenant_id=tenant_id, request=request, principal=trusted_request_principal(http_request)
+                tenant_id=tenant_id,
+                request=request,
+                principal=trusted_request_principal(http_request),
+                observer=observer,
             )
         else:
             result = calculate_composite_twr_from_persisted_facts(
@@ -409,31 +371,7 @@ def calculate_composite_twr(
             },
         )
 
-    response = CompositeTWRResponse(
-        calculation_id=request.calculation_id,
-        composite_id=result.composite_id,
-        status=result.status,
-        period_start=request.period_start,
-        period_end=request.period_end,
-        cumulative_return=result.cumulative_return,
-        reason_codes=result.reason_codes,
-        periods=[_period_response(period) for period in result.period_results],
-    )
-    if windows is not None:
-        version = calculation_engine_version()
-        fingerprint = generate_value_fingerprint(
-            {
-                "tenant_id": tenant_id,
-                "request": request.model_dump(mode="json"),
-                "windows": [window.model_dump(mode="json") for window in windows],
-                "result": response.model_dump(mode="json"),
-            },
-            version,
-        )[0]
-        response.selection_manifest = CompositeTWRSelectionManifest(
-            windows=windows, engine_version=version, calculation_fingerprint=fingerprint
-        )
-    return response
+    return composite_response(request, result, windows, tenant_id)
 
 
 def _verified_candidate_principal(request: Request):
@@ -500,13 +438,16 @@ def _candidate_error_response(description, code, message, denial_class=None):
 def capture_composite_result_candidate(request: CompositeResultCaptureRequest, http_request: Request):
     principal = _verified_candidate_principal(http_request)
     store, results = admit_candidate_calculation(request.calculation, principal)
-    response = calculate_composite_twr(request.calculation, http_request, principal.tenant_id)
+    observer = ArithmeticCollector() if request.precision_capture_profile is not None else None
+    response = _calculate_composite_response(request.calculation, http_request, principal.tenant_id, observer)
     return store.capture_result_candidate(
         candidate_id=request.candidate_id,
         request=request.calculation,
         response=response,
         principal=principal,
         result_store=results,
+        observer=observer,
+        precision_capture_profile=request.precision_capture_profile,
     )
 
 

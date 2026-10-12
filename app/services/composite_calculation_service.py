@@ -41,7 +41,11 @@ class CompositeDefinitionNotFoundError(ValueError):
 
 
 def calculate_composite_twr_from_materializations(
-    *, tenant_id: str, request: CompositeTWRRequest, principal: VerifiedCompositePrincipal | None = None
+    *,
+    tenant_id: str,
+    request: CompositeTWRRequest,
+    principal: VerifiedCompositePrincipal | None = None,
+    observer=None,
 ) -> tuple[CompositeCalculationResult, list[CompositeTWRWindowEvidence]]:
     """Explicit historical selection; never infer latest or official authority."""
     request = request.model_copy(update={"materialization_ids": list(_selected_materializations(request))})
@@ -53,11 +57,13 @@ def calculate_composite_twr_from_materializations(
             unavailable_code="REQUIRED_PERIOD_UNAVAILABLE",
         )
     facts, windows = select_composite_materialization_facts(tenant_id=tenant_id, request=request)
+    if observer is not None:
+        observer.select(facts, windows)
     scheduled = request.return_view == CompositeReturnView.NET_MODEL_FEE and requires_scoped_model_arithmetic(
         windows[0].method_binding
     )
     return calculate_with_model_fee_context(
-        composite_id=request.composite_id, facts=facts, scheduled=scheduled
+        composite_id=request.composite_id, facts=facts, scheduled=scheduled, observer=observer
     ), windows
 
 

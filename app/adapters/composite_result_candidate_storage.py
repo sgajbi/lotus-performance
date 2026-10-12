@@ -300,7 +300,17 @@ def read_candidate(session, *, tenant_id, candidate_id, principal=None):
         raise APIError(
             status_code=403, detail="Candidate portfolio scope is refused.", error_code="PORTFOLIO_OUTSIDE_SCOPE"
         )
-    return _candidate_receipt(row, _retained_response(_retained_original(session, row), row, members))
+    payload = _retained_response(_retained_original(session, row), row, members)
+    receipt = _candidate_receipt(row, payload)
+    from app.services.composite_arithmetic_capture.capture import read_capture
+
+    try:
+        arithmetic = read_capture(row, payload)
+    except (ValueError, TypeError, KeyError):
+        _refuse("Retained arithmetic capture custody is unavailable.")
+    if arithmetic is not None:
+        receipt["arithmetic_capture"] = arithmetic
+    return receipt
 
 
 def _existing_candidate(session, tenant, candidate_id, digest):
@@ -315,8 +325,24 @@ def _existing_candidate(session, tenant, candidate_id, digest):
     ).scalar_one_or_none()
 
 
-def capture_candidate(session, *, candidate_id: UUID, request, response, principal):
+def capture_candidate(
+    session,
+    *,
+    candidate_id: UUID,
+    request,
+    response,
+    principal,
+    arithmetic_capture=None,
+    precision_capture_profile=None,
+):
     request, response, build, digest = _admit(request, response, principal)
+    from app.adapters.composite_arithmetic_capture.storage import (
+        capture_columns,
+        profile_request_digest,
+        require_candidate_bounds,
+    )
+
+    digest = profile_request_digest(digest, precision_capture_profile)
     _require_installed(session.connection())
     payload = response.model_dump(mode="json")
     original_wire = _wire(payload)
@@ -324,12 +350,26 @@ def capture_candidate(session, *, candidate_id: UUID, request, response, princip
     tenant = principal.tenant_id
     existing = _existing_candidate(session, tenant, candidate_id, digest)
     if existing is not None:
-        return _same_candidate(session, existing, digest, financial_digest)
+        return _same_candidate(session, existing, digest, financial_digest, arithmetic_capture)
     if session.get(AsyncResultModel, str(request.calculation_id)) is not None:
         raise APIConflictError(
             "Original calculation identity is already retained.", error_code="COMPOSITE_CAPTURE_IDENTITY_CONFLICT"
         )
-    now = datetime.now(UTC)
+    now = (
+        datetime.fromisoformat(arithmetic_capture["capture_binding"]["captured_at_utc"])
+        if arithmetic_capture is not None
+        else datetime.now(UTC)
+    )
+    arithmetic_columns = capture_columns(
+        arithmetic_capture,
+        response=payload,
+        principal=principal,
+        candidate_id=candidate_id,
+        request_digest=digest,
+        original_digest=_wire_digest(original_wire),
+        build=build,
+        now=now,
+    )
     row = CompositeResultCandidateModel(
         tenant_id=tenant,
         candidate_id=str(candidate_id),
@@ -348,7 +388,9 @@ def capture_candidate(session, *, candidate_id: UUID, request, response, princip
         credential_id=principal.credential_id,
         delegated_actor=principal.delegated_actor,
         captured_at_utc=now.isoformat(),
+        **arithmetic_columns,
     )
+    require_candidate_bounds(row, payload, arithmetic_capture)
     try:
         with session.begin_nested():
             session.add(
@@ -377,14 +419,24 @@ def capture_candidate(session, *, candidate_id: UUID, request, response, princip
                 "Candidate identity collides with different retained content.",
                 error_code="COMPOSITE_CAPTURE_IDENTITY_CONFLICT",
             ) from exc
-        return _same_candidate(session, winner, digest, financial_digest)
+        return _same_candidate(session, winner, digest, financial_digest, arithmetic_capture)
     return read_candidate(session, tenant_id=tenant, candidate_id=candidate_id)
 
 
-def _same_candidate(session, row, digest, financial_digest):
+def _same_candidate(session, row, digest, financial_digest, arithmetic_capture=None):
     if row.semantic_request_digest != digest or row.semantic_response_digest != financial_digest:
         raise APIConflictError(
             "Candidate identity contradicts original retained content.",
             error_code="COMPOSITE_CAPTURE_IDENTITY_CONFLICT",
         )
-    return read_candidate(session, tenant_id=row.tenant_id, candidate_id=row.candidate_id)
+    retained = read_candidate(session, tenant_id=row.tenant_id, candidate_id=row.candidate_id)
+    from app.adapters.composite_arithmetic_capture.storage import require_same_arithmetic
+
+    try:
+        require_same_arithmetic(row, retained["response"], arithmetic_capture)
+    except (ValueError, TypeError, KeyError) as exc:
+        raise APIConflictError(
+            "Candidate source arithmetic contradicts retained evidence.",
+            error_code="COMPOSITE_CAPTURE_IDENTITY_CONFLICT",
+        ) from exc
+    return retained

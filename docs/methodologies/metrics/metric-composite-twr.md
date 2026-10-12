@@ -243,6 +243,14 @@ Inspector fields:
   `lineage_manifest.json`, and `support_brief.md`
 
 ## Worked Example
+
+Source arithmetic evidence is available through the optional existing candidate
+capture profile. It records the native Decimal intermediate return H separately
+from the rational mathematical ideal M and reported q12 return Q. Only Q-H has
+the final HALF_EVEN half-quantum bound; intermediate arithmetic error H-M is
+reported separately. See [source capture and installed replay](../../guides/composite_arithmetic_capture.md).
+This diagnostic evidence does not approve financial sources or official results.
+
 Two-member, two-period asset-weighted composite:
 
 | period | member | `B_i,p` | `r_i,p` | `w_i,p` | `c_i,p = r_i,p * w_i,p` |

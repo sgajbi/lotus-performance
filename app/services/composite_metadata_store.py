@@ -2583,15 +2583,32 @@ class CompositeMetadataStore:
     def close(self) -> None:
         self._engine.dispose()
 
-    def capture_result_candidate(self, *, candidate_id, request, response, principal, result_store):
+    def capture_result_candidate(
+        self, *, candidate_id, request, response, principal, result_store, observer=None, precision_capture_profile=None
+    ):
+        from app.adapters.composite_arithmetic_capture.storage import prepare_capture
         from app.adapters.composite_result_candidate_storage import capture_candidate, require_same_result_database
 
         require_same_result_database(self, result_store)
+        arithmetic_capture = prepare_capture(
+            candidate_id=candidate_id,
+            request=request,
+            response=response,
+            principal=principal,
+            observer=observer,
+            profile=precision_capture_profile,
+        )
         with self._session() as session:
             if self._engine.dialect.name == "sqlite":
                 session.connection().exec_driver_sql("BEGIN IMMEDIATE")
             return capture_candidate(
-                session, candidate_id=candidate_id, request=request, response=response, principal=principal
+                session,
+                candidate_id=candidate_id,
+                request=request,
+                response=response,
+                principal=principal,
+                arithmetic_capture=arithmetic_capture,
+                precision_capture_profile=precision_capture_profile,
             )
 
     def get_result_candidate(self, *, candidate_id, tenant_id, result_store, principal=None):
@@ -2608,10 +2625,11 @@ class CompositeMetadataStore:
             return read_candidate(session, tenant_id=tenant_id, candidate_id=candidate_id, principal=principal)
 
     def create_schema(self) -> None:
+        from app.adapters.composite_arithmetic_capture.migration import upgrade_candidate_capture_columns
         from app.adapters.composite_attribution_schema import create_attribution_schema, require_attribution_schema
         from app.adapters.composite_model_fee_profile_upgrade import upgrade_model_fee_profile_products
         from app.adapters.composite_result_authority.schema import create_authority_schema, require_authority_schema
-        from app.adapters.composite_result_candidate_schema import create_candidate_schema, require_candidate_schema
+        from app.adapters.composite_result_candidate_schema import create_candidate_schema
 
         create_durable_schema(
             self._engine,
@@ -2619,7 +2637,7 @@ class CompositeMetadataStore:
             schema_preflights=(
                 require_attribution_schema,
                 require_authority_schema,
-                require_candidate_schema,
+                upgrade_candidate_capture_columns,
                 upgrade_model_fee_profile_products,
                 upgrade_materialization_return_views,
                 require_materialization_schema,
