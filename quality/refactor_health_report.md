@@ -5,6 +5,9 @@ Branch: `feat/performance-architecture-boundary-refactor`
 Baseline source: `quality/baseline_report.md`
 Testing inventory refresh: 2026-10-10, result authority (#610), PR/main coverage parity (#641/#645), and single-period BF (#633).
 Other phase-zero measurements, including coverage percentages, remain historical.
+PostgreSQL regression authoring refresh (2026-10-12): file, LOC, collection and
+taxonomy rows include the precision capture target and focused gate controls.
+The new PostgreSQL cases are collected only; no database execution is claimed.
 S1 measured refresh (2026-10-12, source `d5b08d6f`): code-health counts, taxonomy,
 maintainability, function size and architecture current values were recomputed from native source.
 From the repository root in PowerShell or Bash, use `python scripts/generate_quality_baseline.py --check --skip-inventories`,
@@ -56,9 +59,9 @@ link the commit, command, or CI artifact that proves the change.
 
 | Metric | Baseline | Current | Status | Evidence |
 | --- | ---: | ---: | --- | --- |
-| Python files | 480 | 1014 | measured | `quality/baseline_report.md` |
+| Python files | 480 | 1015 | measured | `quality/baseline_report.md` |
 | Python package markers | 18 | 35 | measured | recursive `__init__.py` count |
-| Python LOC | 104,454 | 296,029 | measured | `quality/baseline_report.md` |
+| Python LOC | 104,454 | 296,200 | measured | `quality/baseline_report.md` |
 | Largest Python file LOC | 2,399 | 4,447 | measured | largest-file inventory on this branch |
 | Largest production file LOC | 1,156 | 3,271 | measured | `app/services/composite_metadata_store.py` |
 | Duplicate code hotspots | 0 | 0 | enforced | `quality/duplicate_code_inventory.md`; `make quality-duplicate-code-gate` with `--min-lines 12 --max-groups 0`; duplicated LOC reduced from `24` to `0` in LP-CR-1407 |
@@ -103,12 +106,12 @@ link the commit, command, or CI artifact that proves the change.
 
 | Metric | Baseline | Current | Status | Evidence |
 | --- | ---: | ---: | --- | --- |
-| Test modules | 228 | 449 | measured | `rg --files tests -g 'test_*.py'` |
-| Collected tests | 2,035 | 8,780 | measured | `python -m pytest --collect-only -q` |
+| Test modules | 228 | 450 | measured | `rg --files tests -g 'test_*.py'` |
+| Collected tests | 2,035 | 8,801 | measured | `python -m pytest --collect-only -q` |
 | Line coverage | unknown | 99.58% | measured | `quality/coverage_inventory.md` via `make branch-coverage-baseline` (`3,013` unit, `308` integration, and `21` e2e tests under branch coverage; `21,154` covered lines of `21,244` statements) |
 | Branch coverage | unknown | 98.00% | measured | `quality/coverage_inventory.md` via `make branch-coverage-baseline` (`3,013` unit, `308` integration, and `21` e2e tests under branch coverage; `4,318` covered branches of `4,406`, `88` missing branches, `88` partial branches) |
 | Integration/API/runtime test functions | unknown | 1087 | enforced | `quality/test_taxonomy_inventory.md`; `make quality-test-taxonomy-gate` |
-| Contract/governance test functions | unknown | 239 | enforced | `quality/test_taxonomy_inventory.md`; `make quality-test-taxonomy-gate` |
+| Contract/governance test functions | unknown | 240 | enforced | `quality/test_taxonomy_inventory.md`; `make quality-test-taxonomy-gate` |
 | Uncategorized test functions | unknown | 558 | enforced ceiling | `quality/test_taxonomy_inventory.md`; `make quality-test-taxonomy-gate`; #619 classifies the precise source/error adapter module; observed 558, separately banked policy 558. |
 
 ## Security And Dependencies

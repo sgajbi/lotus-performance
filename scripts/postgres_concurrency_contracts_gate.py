@@ -43,6 +43,7 @@ DEFAULT_TARGETS = (
     "tests/benchmarks/test_postgres_composite_authority.py",
     "tests/benchmarks/test_postgres_composite_authority_extended.py",
     "tests/benchmarks/test_postgres_composite_attribution.py",
+    "tests/benchmarks/test_postgres_composite_arithmetic_capture.py",
 )
 
 
