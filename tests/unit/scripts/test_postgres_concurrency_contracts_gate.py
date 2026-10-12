@@ -35,6 +35,10 @@ def test_default_invocation_executes_fee_pooled_and_result_authority_targets(mon
 
     assert postgres_concurrency_contracts_gate.main() == 0
     assert {
+        "tests/benchmarks/test_postgres_concurrency_contracts.py",
+        "tests/benchmarks/test_postgres_composite_fact_versions.py",
+        "tests/benchmarks/test_postgres_composite_materialization.py",
+        "tests/benchmarks/test_postgres_composite_monthly_eligibility.py",
         "tests/benchmarks/test_postgres_composite_model_fee.py",
         "tests/benchmarks/test_postgres_composite_scheduled_model_fee.py",
         "tests/benchmarks/test_postgres_composite_component_model_fee.py",
@@ -43,7 +47,35 @@ def test_default_invocation_executes_fee_pooled_and_result_authority_targets(mon
         "tests/benchmarks/test_postgres_composite_authority.py",
         "tests/benchmarks/test_postgres_composite_authority_extended.py",
         "tests/benchmarks/test_postgres_composite_attribution.py",
+        "tests/benchmarks/test_postgres_composite_arithmetic_capture.py",
     } <= set(selected)
+    assert len(selected) == len(set(selected)) == 13
+
+
+@pytest.mark.parametrize("outcome", ["passed", "absent", "empty", "failed", "skipped", "nonzero"])
+def test_new_precision_target_must_supply_its_own_completed_proof(tmp_path, monkeypatch, outcome):
+    """Twelve green legacy targets cannot compensate for missing capsule proof."""
+    precision_target = "tests/benchmarks/test_postgres_composite_arithmetic_capture.py"
+    selected = []
+
+    def child(command, **kwargs):
+        target = command[3]
+        selected.append(target)
+        report = Path(next(argument.split("=", 1)[1] for argument in command if argument.startswith("--junitxml=")))
+        state = outcome if target == precision_target else "passed"
+        if state != "absent":
+            report.write_text(
+                f'<testsuite tests="{0 if state == "empty" else 1}" '
+                f'skipped="{int(state == "skipped")}" failures="{int(state == "failed")}" errors="0"/>',
+                encoding="utf-8",
+            )
+        return subprocess.CompletedProcess(command, 2 if state in {"absent", "nonzero"} else 0)
+
+    monkeypatch.setattr(sys, "argv", [GATE])
+    monkeypatch.setattr(subprocess, "run", child)
+    assert postgres_concurrency_contracts_gate.main() == (0 if outcome == "passed" else 1)
+    assert selected == list(postgres_concurrency_contracts_gate.DEFAULT_TARGETS)
+    assert precision_target in selected
 
 
 def _run_gate(
