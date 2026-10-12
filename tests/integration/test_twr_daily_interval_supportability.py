@@ -119,6 +119,49 @@ def test_native_single_day_result_is_admitted_by_retained_member_source(daily_cl
     assert outcome.source_evidence.core_snapshots[0].response_fingerprint
 
 
+@pytest.mark.parametrize("fee", ["-10", "10", "0"])
+@pytest.mark.parametrize("metric_basis", ["NET", "GROSS"])
+def test_after_fee_twr_evidence_and_retained_member_assets(daily_client, daily_source, fee, metric_basis):
+    ending = Decimal("110") + Decimal(fee)
+    daily_source["observations"][0].update(
+        ending_market_value=str(ending),
+        cash_flows=[{"amount": fee, "timing": "eod", "cash_flow_type": "FEE"}],
+    )
+    payload = request_for("/performance/twr")
+    payload["metric_basis"] = metric_basis
+    response = daily_client.post("/performance/twr", json=payload)
+    assert response.status_code == 200, response.text
+    body = response.json()
+    portfolio = body["results_by_period"]["EXPLICIT"]["portfolio"]
+    expected_pnl = Decimal("10") + (Decimal(fee) if metric_basis == "NET" else 0)
+    assert abs(Decimal(str(portfolio["summary"]["period_return"]["base"])) - expected_pnl) < Decimal("1e-12")
+    evidence = portfolio["breakdowns"]["daily"][0]["calculation_evidence"]
+    assert Decimal(evidence["performance_pnl"]) == expected_pnl
+    assert Decimal(evidence["end_mv"]) == ending
+    assert Decimal(evidence["management_fees"]) == Decimal(fee)
+    if metric_basis == "NET":
+        drain_lineage_queue()
+        outcome = retained_outcome(body)
+        assert outcome.state == "READY", outcome.reason_code
+        assert abs(outcome.fact.return_value - expected_pnl / 100) < Decimal("1e-12")
+        assert outcome.fact.ending_market_value == ending
+
+
+@pytest.mark.parametrize("fee", ["-10", "10", "0"])
+def test_workspace_after_fee_net_gross_and_actual_assets(daily_client, daily_source, fee):
+    ending = Decimal("110") + Decimal(fee)
+    daily_source["observations"][0].update(
+        ending_market_value=str(ending),
+        cash_flows=[{"amount": fee, "timing": "eod", "cash_flow_type": "FEE"}],
+    )
+    response = daily_client.post("/performance/workspace-summary", json=request_for("/performance/workspace-summary"))
+    assert response.status_code == 200, response.text
+    block = response.json()["results_by_period"]["EXPLICIT"]["portfolio_twr"]
+    for basis, expected in (("net", Decimal("10") + Decimal(fee)), ("gross", Decimal("10"))):
+        assert abs(Decimal(str(block[basis]["summary"]["period_return"]["base"])) - expected) < Decimal("1e-12")
+        assert Decimal(block[basis]["summary"]["economics"]["end_market_value"]) == ending
+
+
 def retained_outcome(body):
     reference = {
         "portfolio_id": "A",

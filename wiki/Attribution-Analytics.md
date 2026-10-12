@@ -48,7 +48,7 @@ non-retryable HTTP422 / `ATTRIBUTION_PRECISION_UNSUPPORTED` before source reads 
 Exact monetary inputs do not imply Decimal group effects or linking. Retained historical results
 are not rewritten; their original precision metadata is not strict-execution certification.
 
-The governed calculation identity is `lotus-performance-calculation-engine.v16`. Attribution's
+The governed calculation identity is `lotus-performance-calculation-engine.v17`. Attribution's
 scale-aware linking safeguard was introduced in v7; v16 enforces the supported precision policy.
 The current service-wide identity also includes
 the exact valuation-money/weight boundary, contribution fee-basis, strict Decimal contribution, and benchmark price/FX corrections and prevents

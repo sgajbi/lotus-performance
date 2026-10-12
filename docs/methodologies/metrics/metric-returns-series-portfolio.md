@@ -45,6 +45,12 @@ Canonical Portfolio Return Series (`series.portfolio_returns`)
 3. Stateful portfolio series derivation:
 - normalize valuation observations to internal valuation points (`begin_mv`, `end_mv`, `bod_cf`, `eod_cf`)
 - run daily TWR engine (`metric_basis` respected)
+- Core ending assets already include booked fees. Declare `AFTER_FEES` at the engine boundary;
+  retain the signed fee separately. The engine reconstructs its fee-exclusive workspace once,
+  includes the fee once in NET, and removes it for GROSS. Expense and refund signs are preserved.
+- For positive capital `C = begin_mv + bod_cf`, after-fee ending assets `E`, signed fee `F`
+  and EOD external flow `CF`, `r_NET = (E - C - CF) / C` and
+  `r_GROSS = (E - F - C - CF) / C`. Engine reset/short-capital rules still apply.
 - map `daily_ror` pp to decimal: `r_t = r_t_pp / 100`
 - filter/sort into `W`
 
@@ -89,6 +95,13 @@ Supporting diagnostics:
 - `diagnostics.policy_applied`
 
 ## Worked Example
+Core after-fee assets `1000 -> 1090` with signed fee `-10` and no external flows yield
+`0.09` NET and `0.10` GROSS. A `+10` refund with ending assets `1110` yields `0.11` NET
+and `0.10` GROSS. Reported source ending assets remain `1090` or `1110` respectively.
+Calculation identity v17 separates corrected computations from retained historical results;
+previous calculations remain immutable. Stateless returns-series points are already returns
+and are not adjusted for fees by this service.
+
 Stateless input (`frequency=WEEKLY`):
 
 | date | daily return `r_t` |

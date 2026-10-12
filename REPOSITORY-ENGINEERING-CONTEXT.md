@@ -921,9 +921,17 @@ Important validation expectations:
 Attribution supports FLOAT64 only across instrument/group, currency and linking paths. The shared
 `core/attribution_precision_policy.py` guard applies before source/job admission and at engine
 entry; successful metadata reports the supported policy. Strict requests receive non-retryable
-`ATTRIBUTION_PRECISION_UNSUPPORTED`. Exact money is not strict attribution. Identity v16 includes
+`ATTRIBUTION_PRECISION_UNSUPPORTED`. Exact money is not strict attribution. Identity v17 includes
 this admission/provenance correction; retained historical responses remain unchanged and their
 original precision labels are not retroactive execution certification.
+
+Core portfolio timeseries ending values are after booked fees. Stateful TWR (including Composite
+member facts), returns-series and workspace TWR explicitly declare `EndingValueBasis.AFTER_FEES`
+when creating the engine config; stateless valuation inputs retain `FEE_EXCLUSIVE`. Keep the
+Core adapter's actual assets and signed fee facts unchanged. The engine normalizes only its
+calculation workspace and restores source ending assets in output; daily TWR evidence respects
+the declared basis. Identity v17 separates new calculations from immutable historical results.
+The focused regression pack is `tests/unit/services/test_twr_stateful_fee_basis.py`.
 
 Monetary request admission is owned by `core/monetary_input.py`. Daily and position valuation
 values, cash flows, fees, MWR amounts and shared FX rates retain Decimal inputs; exact JSON

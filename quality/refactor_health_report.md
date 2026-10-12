@@ -59,9 +59,9 @@ link the commit, command, or CI artifact that proves the change.
 
 | Metric | Baseline | Current | Status | Evidence |
 | --- | ---: | ---: | --- | --- |
-| Python files | 480 | 1023 | measured | `quality/baseline_report.md` |
+| Python files | 480 | 1024 | measured | `quality/baseline_report.md` |
 | Python package markers | 18 | 35 | measured | recursive `__init__.py` count |
-| Python LOC | 104,454 | 298,033 | measured | `quality/baseline_report.md` |
+| Python LOC | 104,454 | 298,317 | measured | `quality/baseline_report.md` |
 | Largest Python file LOC | 2,399 | 4,447 | measured | largest-file inventory on this branch |
 | Largest production file LOC | 1,156 | 3,271 | measured | `app/services/composite_metadata_store.py` |
 | Duplicate code hotspots | 0 | 0 | enforced | `quality/duplicate_code_inventory.md`; `make quality-duplicate-code-gate` with `--min-lines 12 --max-groups 0`; duplicated LOC reduced from `24` to `0` in LP-CR-1407 |
@@ -106,11 +106,11 @@ link the commit, command, or CI artifact that proves the change.
 
 | Metric | Baseline | Current | Status | Evidence |
 | --- | ---: | ---: | --- | --- |
-| Test modules | 228 | 458 | measured | `rg --files tests -g 'test_*.py'` |
-| Collected tests | 2,035 | 8,991 | measured | `python -m pytest --collect-only -q` |
+| Test modules | 228 | 459 | measured | `rg --files tests -g 'test_*.py'` |
+| Collected tests | 2,035 | 9,033 | measured | `python -m pytest --collect-only -q` |
 | Line coverage | unknown | 99.58% | measured | `quality/coverage_inventory.md` via `make branch-coverage-baseline` (`3,013` unit, `308` integration, and `21` e2e tests under branch coverage; `21,154` covered lines of `21,244` statements) |
 | Branch coverage | unknown | 98.00% | measured | `quality/coverage_inventory.md` via `make branch-coverage-baseline` (`3,013` unit, `308` integration, and `21` e2e tests under branch coverage; `4,318` covered branches of `4,406`, `88` missing branches, `88` partial branches) |
-| Integration/API/runtime test functions | unknown | 1087 | enforced | `quality/test_taxonomy_inventory.md`; `make quality-test-taxonomy-gate` |
+| Integration/API/runtime test functions | unknown | 1089 | enforced | `quality/test_taxonomy_inventory.md`; `make quality-test-taxonomy-gate` |
 | Contract/governance test functions | unknown | 248 | enforced | `quality/test_taxonomy_inventory.md`; `make quality-test-taxonomy-gate` |
 | Uncategorized test functions | unknown | 558 | enforced ceiling | `quality/test_taxonomy_inventory.md`; `make quality-test-taxonomy-gate`; #619 classifies the precise source/error adapter module; observed 558, separately banked policy 558. |
 

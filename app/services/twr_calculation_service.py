@@ -34,6 +34,7 @@ from app.services.twr_mode_service import resolve_twr_request
 from app.services.twr_service import calculate_twr_response
 from core.errors import APIError, APIInternalServerError
 from core.periods import resolve_periods
+from engine.config import EndingValueBasis
 
 
 @dataclass(frozen=True)
@@ -73,10 +74,14 @@ def build_resolved_twr_identity_payload(
     *,
     performance_request,
     benchmark_request,
+    input_mode: TWRInputMode = TWRInputMode.STATELESS,
 ) -> TWRResolvedExecutionRequest:
     return TWRResolvedExecutionRequest(
         portfolio=performance_request,
         benchmark=benchmark_request,
+        ending_value_basis=(
+            EndingValueBasis.AFTER_FEES if input_mode == TWRInputMode.STATEFUL else EndingValueBasis.FEE_EXCLUSIVE
+        ),
     )
 
 
@@ -472,6 +477,7 @@ def _calculate_twr_resolved_response(
     resolved_twr_identity_payload = build_resolved_twr_identity_payload(
         performance_request=performance_request,
         benchmark_request=resolved_request.benchmark_request,
+        input_mode=resolved_request.input_mode,
     )
     request_artifact_model = twr_request_artifact_model(
         request=request,

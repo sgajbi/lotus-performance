@@ -3068,7 +3068,7 @@ def test_twr_stateful_hashes_follow_resolved_inputs(client, monkeypatch):
         }
     )
     expected_input_fingerprint, expected_calculation_hash = generate_canonical_hash_from_value(
-        TWRResolvedExecutionRequest(portfolio=expected_request, benchmark=None),
+        TWRResolvedExecutionRequest(portfolio=expected_request, benchmark=None, ending_value_basis="AFTER_FEES"),
         calculation_engine_version(get_settings()),
     )
 

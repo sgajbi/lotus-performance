@@ -37,7 +37,7 @@ key and prove that the calculation output and evidence contract remain unchanged
 Calculation hashes use the governed calculation engine version token, not the deployable build
 version. In other words, the calculation engine version is not the deployable build version. The
 current source is `Settings.CALCULATION_ENGINE_VERSION`, which defaults to
-`lotus-performance-calculation-engine.v16` and is exposed through the same helper for TWR, MWR,
+`lotus-performance-calculation-engine.v17` and is exposed through the same helper for TWR, MWR,
 contribution, attribution, benchmark, workspace-summary, TWR inspection, and returns-series hash
 paths. The token is intentionally separate from `APP_VERSION`, Git SHA, OCI image labels, image
 digest, CI run id, and `/version` build metadata.
@@ -47,7 +47,12 @@ compatibility semantics, or governed reproducibility behavior changes in a way t
 new calculation identity for the same economic input. Do not change it merely because the service is
 rebuilt, retagged, promoted across environments, or receives a non-methodology runtime patch.
 
-Version `v16` supersedes `v15` for explicit FLOAT64-only attribution admission and actual-policy
+Version `v17` supersedes `v16` for Core after-fee valuation basis at stateful TWR, returns-series
+and workspace boundaries. Booked expenses/refunds are applied once; source ending assets are
+retained in output and daily evidence reconciles to the declared basis. Stateless fee-exclusive
+inputs remain unchanged. Historical calculations retain their original results and identities.
+
+Version `v16` superseded `v15` for explicit FLOAT64-only attribution admission and actual-policy
 provenance. Unsupported DECIMAL_STRICT requests are refused before accepting new work; retained
 historical results are not rewritten or certified by retrieval.
 

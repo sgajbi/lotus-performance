@@ -109,7 +109,7 @@ def test_daily_ror_from_portfolio_timeseries_rejects_empty_engine_results(monkey
         "portfolio_timeseries_to_valuation_points",
         lambda *, observations: [{"valuation_date": "2026-02-23"}],
     )
-    monkeypatch.setattr(returns_series_service, "create_engine_config", lambda *args: object())
+    monkeypatch.setattr(returns_series_service, "create_engine_config", lambda *args, **kwargs: object())
     monkeypatch.setattr(returns_series_service, "create_engine_dataframe", lambda points: pd.DataFrame(points))
     monkeypatch.setattr(returns_series_service, "run_calculations", lambda *args: (pd.DataFrame(), None))
 
@@ -146,7 +146,7 @@ def test_daily_ror_from_portfolio_timeseries_rejects_invalid_engine_returns(monk
         "portfolio_timeseries_to_valuation_points",
         lambda *, observations: [{"valuation_date": "2026-02-23"}],
     )
-    monkeypatch.setattr(returns_series_service, "create_engine_config", lambda *args: object())
+    monkeypatch.setattr(returns_series_service, "create_engine_config", lambda *args, **kwargs: object())
     monkeypatch.setattr(returns_series_service, "create_engine_dataframe", lambda points: pd.DataFrame(points))
     monkeypatch.setattr(returns_series_service, "run_calculations", lambda *args: (daily_results_df, None))
 

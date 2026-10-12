@@ -8,7 +8,7 @@
       "openApiVersion": "3.1.0"
     }
   ],
-  "generatedAt": "2026-10-12T01:00:56.389092+00:00",
+  "generatedAt": "2026-10-12T22:54:43.562987+00:00",
   "attributeCatalog": [
     {
       "semanticId": "lotus.access_classification",
@@ -11439,6 +11439,7 @@
         "input_fingerprint": "example_input_fingerprint",
         "calculation_hash": "example_calculation_hash",
         "calculation_request": {
+          "ending_value_basis": "FEE_EXCLUSIVE",
           "portfolio": {
             "calculation_id": "2f4f3e0e-6e0e-4e0e-8e0e-2f4f3e0e6e0e",
             "portfolio_id": "DEMO_DPM_EUR_001",
