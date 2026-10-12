@@ -59,43 +59,43 @@
         "portfolio_id": "A",
         "period_start": "2026-01-05",
         "period_end": "2026-01-05",
-        "gross_receipt_digest": "sha256:905e846c869943fd40f2fac89e0e815cc0cb5ae86534ec9bcfa71148d3c18a53",
-        "model_receipt_digest": "sha256:f274685c7e049d36e190ed858a4ebf5b43d35d72abc5ad4465c0c220f2475bed"
+        "gross_receipt_digest": "sha256:d32deadb7fd7372ae636ba3a0f9a4bf24fd142c3b3d76941a174d9b024be965e",
+        "model_receipt_digest": "sha256:a91520813a155d7a9064451cdc5d57b7b8d6c70b87a548869af7345b2b0b0956"
       },
       {
         "portfolio_id": "B",
         "period_start": "2026-01-05",
         "period_end": "2026-01-05",
-        "gross_receipt_digest": "sha256:e6240b7af118e32c93eab6e8b19e6fa18ecbd7b5cc546a552a0007576f6ef6e3",
-        "model_receipt_digest": "sha256:b3a8f9180c7b77bf64a93606efa5d8cc59707864c71ca5062d14e51f2124b7ed"
+        "gross_receipt_digest": "sha256:170db0d6d3fa64ac6eecde2e70b8c5a963869f22f438e07b915b43fa35e95cdb",
+        "model_receipt_digest": "sha256:bb5bdf34790176f8b641aae068b04b17f3c04a52c09de751fa6bdbebfc16a0c0"
       },
       {
         "portfolio_id": "C",
         "period_start": "2026-01-05",
         "period_end": "2026-01-05",
-        "gross_receipt_digest": "sha256:c4fa71092238a0a27f53b2c126628d43a956aa5cf513d284f86b669d84f08d66",
-        "model_receipt_digest": "sha256:22109db2b2729bc6c40b816cebac5f82f8fe979132a4453ec1d073ff244fa57c"
+        "gross_receipt_digest": "sha256:dbc1c5628792f614ae556baef14246e7a9df3bc54a5f6ab28b54da25e9ddac98",
+        "model_receipt_digest": "sha256:1d3fad088c3d13121fac807eff4e046e74cfcbaf6801deff3fccf19fe42226be"
       },
       {
         "portfolio_id": "A",
         "period_start": "2026-01-06",
         "period_end": "2026-01-06",
-        "gross_receipt_digest": "sha256:1ac07b430bc9104639d615b4e637b0a36cd37d25070c23668c317987c8d277dd",
-        "model_receipt_digest": "sha256:a5850c2158c203a04d08395d208a992b55ceae37898ef32f6dba0710e9d931cf"
+        "gross_receipt_digest": "sha256:3386d88bd4f6569ee1da4c1904b47c4486e4a15cb2169b69cd72359b30b147e8",
+        "model_receipt_digest": "sha256:bf7fda69ed51acdad21a8e6a5a45f5711769ce3d5d811c2897b43ae891502b6a"
       },
       {
         "portfolio_id": "B",
         "period_start": "2026-01-06",
         "period_end": "2026-01-06",
-        "gross_receipt_digest": "sha256:8fc20a9deef50e8dc2c24ba591aeb4b09101e23c6521aa8b67bed932cd531780",
-        "model_receipt_digest": "sha256:e4c47451494da8f42076e9b3d770ffa371eef5ee366c086e6b844a4c42f001dd"
+        "gross_receipt_digest": "sha256:af39dad7a0e5bc6e2aac56c06f641ee9ce410a1197e6b53e6d7dc1354f95b5e0",
+        "model_receipt_digest": "sha256:fa565e1c1a47e708a408e54e7fd47ebf860ff7cf738a3607b2d351ab83b116f2"
       },
       {
         "portfolio_id": "C",
         "period_start": "2026-01-06",
         "period_end": "2026-01-06",
-        "gross_receipt_digest": "sha256:6fcfa46da19446356fe60fa47c0ab0a151beedd97f60ca9d00e48d1e0ce909cb",
-        "model_receipt_digest": "sha256:ff3815a6232a4b8298901ab5ddf30e3652f2ceeb347f3ad508b2c28a107f4694"
+        "gross_receipt_digest": "sha256:d4d6a4817a206925379175465d354e1dec84d8597658d8f13f2aecbf42debeff",
+        "model_receipt_digest": "sha256:49039fadeef0ac6b3379ece6344173a5389370f7a4c8da3d9799e150edc291f8"
       }
     ],
     "selection_manifest": {
@@ -106,7 +106,7 @@
           "period_start": "2026-01-05",
           "period_end": "2026-01-05",
           "restatement_sequence": 1,
-          "definition_content_hash": "sha256:824b137e8531955c977770e3650d9ce2cc17b4ec96a6b4c7f3a9adeca56a328c",
+          "definition_content_hash": "sha256:9500f9d5d7cdde4f71d82a80f470adffbd7dd01c8e0cbb745b43213118a67efa",
           "membership_content_hash": "sha256:41d8db4f9107a834b9256e6547ffd721003d64fd303e0ec19ca049a0f0a92a5e",
           "attestation_content_hash": "sha256:babc14df37030982ecb8a1500badf97b1167c057408a16bea24aba626bb28ca3",
           "source_cut_id": "synthetic-cut-original",
@@ -116,14 +116,14 @@
             "revision": "profile.1",
             "digest": "sha256:54573ecb82d82f2dc6d60e356387b1839e088659319a94e86087842ab060708b"
           },
-          "retained_receipt_fingerprint": "sha256:dd44a7fd20882efe8be1b9065c661110e1b7e5c4ae4baf2e16540e41e6d6a2d2"
+          "retained_receipt_fingerprint": "sha256:726a34f22e5c4e3302d5a019aef203f72738bbf3532ac73beb935f461f187bb1"
         },
         {
           "materialization_id": "4d131864-90d0-577f-9a79-6c4999b02f8b",
           "period_start": "2026-01-06",
           "period_end": "2026-01-06",
           "restatement_sequence": 2,
-          "definition_content_hash": "sha256:0434cdc1872cacbb4bea89814051f00a586f19bfc237b6dfe4378d27e6b0906c",
+          "definition_content_hash": "sha256:b3f730f95b4593e766ea82d2c8d55400d5cc8b29af67e049772c4b50b0a72229",
           "membership_content_hash": "sha256:c6c63d89db5a08753de0bb8e76ff4a7b6dcb1a831b532abc1de69d0450af98a0",
           "attestation_content_hash": "sha256:01ff85f2c4611d2563d44ec043038d0d106df110f64c277f10a638466f452481",
           "source_cut_id": "synthetic-cut-original",
@@ -133,11 +133,11 @@
             "revision": "profile.1",
             "digest": "sha256:54573ecb82d82f2dc6d60e356387b1839e088659319a94e86087842ab060708b"
           },
-          "retained_receipt_fingerprint": "sha256:73fe153af85c5f60bdde2b7592da254463ff78f335501ec76c3b918e86a8c0fc"
+          "retained_receipt_fingerprint": "sha256:9cb1e941d05c06a6b72c336d16073e8e2c4a0b05c9c7b773840c1ddb45e4aeb4"
         }
       ],
-      "engine_version": "lotus-performance-calculation-engine.v16",
-      "calculation_fingerprint": "sha256:663f0d54094dddcf1a74dbd415d22d53ac7ae80aaa07e008da483facea189746"
+      "engine_version": "lotus-performance-calculation-engine.v17",
+      "calculation_fingerprint": "sha256:3067bf21d7217c1e96155da559d79e0308c8e0df6d20679d977ae5be8b3860b5"
     }
   },
   "missing_request": {

@@ -186,7 +186,7 @@
           "retained_receipt_fingerprint": "sha256:06cf2b52111219051bf734f351013da0e83fd3a1325caa1f9aff65e58decaf2b"
         }
       ],
-      "engine_version": "lotus-performance-calculation-engine.v16",
+      "engine_version": "lotus-performance-calculation-engine.v17",
       "calculation_fingerprint": "sha256:4620fbc0de8f8f6dba79ca2f35d7318c6353368716ec53790b106515fdf5f46c"
     }
   },
