@@ -77,6 +77,7 @@ from core.monetary_input import validate_calculated_money_model
 from core.repro import generate_canonical_hash
 from core.workspace_periods import ResolvedWorkspacePeriod, resolve_workspace_periods
 from engine.compute import run_calculations
+from engine.config import EndingValueBasis
 from engine.mwr import calculate_money_weighted_return
 from engine.numerical_boundary import monetary_arithmetic_context
 from engine.schema import PortfolioColumns
@@ -794,7 +795,16 @@ def _calculate_workspace_twr_artifacts(
         },
     )
     master_start_date = min(point.perf_date for point in valuation_points)
-    engine_config = create_engine_config(performance_request, master_start_date, request.report_end_date)
+    engine_config = create_engine_config(
+        performance_request,
+        master_start_date,
+        request.report_end_date,
+        ending_value_basis=(
+            EndingValueBasis.AFTER_FEES
+            if request.input_mode == TWRInputMode.STATEFUL
+            else EndingValueBasis.FEE_EXCLUSIVE
+        ),
+    )
     engine_df = create_engine_dataframe([point.model_dump(mode="python") for point in valuation_points])
     daily_results_df, engine_diagnostics = run_calculations(engine_df, engine_config)
     daily_results_df[PortfolioColumns.PERF_DATE.value] = observation_date_series(

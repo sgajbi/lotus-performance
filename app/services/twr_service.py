@@ -55,6 +55,7 @@ from core.errors import APIBadRequestError
 from core.periods import ResolvedPeriod, resolve_periods
 from engine.breakdown import generate_performance_breakdowns
 from engine.compute import run_calculations
+from engine.config import EndingValueBasis
 from engine.diagnostics import EngineDiagnostics
 from engine.numerical_boundary import monetary_arithmetic_context
 from engine.schema import PortfolioColumns
@@ -254,6 +255,7 @@ def _daily_calculation_evidence_inputs(
     row: pd.Series,
     *,
     metric_basis: str,
+    ending_value_basis: EndingValueBasis = EndingValueBasis.FEE_EXCLUSIVE,
 ) -> _DailyCalculationEvidenceInputs:
     begin_mv = Decimal(str(row.get(PortfolioColumns.BEGIN_MV.value, 0)))
     bod_cf = Decimal(str(row.get(PortfolioColumns.BOD_CF.value, 0)))
@@ -264,7 +266,9 @@ def _daily_calculation_evidence_inputs(
         signed_adjusted_capital = begin_mv + bod_cf
         adjusted_capital = abs(signed_adjusted_capital)
         performance_pnl = end_mv - bod_cf - begin_mv - eod_cf
-        if metric_basis == "NET":
+        if ending_value_basis == EndingValueBasis.AFTER_FEES and metric_basis == "GROSS":
+            performance_pnl -= management_fees
+        elif ending_value_basis == EndingValueBasis.FEE_EXCLUSIVE and metric_basis == "NET":
             performance_pnl += management_fees
     daily_return = _as_numeric(row.get(PortfolioColumns.DAILY_ROR.value, 0))
     return _DailyCalculationEvidenceInputs(
@@ -441,10 +445,11 @@ def _build_daily_calculation_evidence(
     row: pd.Series,
     *,
     metric_basis: str,
+    ending_value_basis: EndingValueBasis = EndingValueBasis.FEE_EXCLUSIVE,
     portfolio_currency: str | None = None,
     reporting_currency: str | None = None,
 ) -> TWRDailyCalculationEvidence:
-    inputs = _daily_calculation_evidence_inputs(row, metric_basis=metric_basis)
+    inputs = _daily_calculation_evidence_inputs(row, metric_basis=metric_basis, ending_value_basis=ending_value_basis)
     classification = _classify_daily_calculation_evidence(row, inputs=inputs)
 
     return TWRDailyCalculationEvidence(
@@ -571,6 +576,7 @@ def _build_portfolio_breakdowns(
     metric_basis: str,
     portfolio_currency: str | None,
     reporting_currency: str | None,
+    ending_value_basis: EndingValueBasis = EndingValueBasis.FEE_EXCLUSIVE,
 ) -> dict[Frequency, list[ComparativeBreakdownItem]]:
     breakdowns: dict[Frequency, list[ComparativeBreakdownItem]] = {}
     for frequency in requested_frequencies:
@@ -595,6 +601,7 @@ def _build_portfolio_breakdowns(
                     summary_data=summary_data,
                     include_timeseries=include_timeseries,
                     metric_basis=metric_basis,
+                    ending_value_basis=ending_value_basis,
                     portfolio_currency=portfolio_currency,
                     reporting_currency=reporting_currency,
                 )
@@ -615,6 +622,7 @@ def _build_portfolio_breakdown_item(
     summary_data: dict,
     include_timeseries: bool,
     metric_basis: str,
+    ending_value_basis: EndingValueBasis = EndingValueBasis.FEE_EXCLUSIVE,
     portfolio_currency: str | None = None,
     reporting_currency: str | None = None,
 ) -> ComparativeBreakdownItem:
@@ -643,6 +651,7 @@ def _build_portfolio_breakdown_item(
             frequency=frequency,
             frequency_df=frequency_df,
             metric_basis=metric_basis,
+            ending_value_basis=ending_value_basis,
             portfolio_currency=portfolio_currency,
             reporting_currency=reporting_currency,
         ),
@@ -665,6 +674,7 @@ def _portfolio_breakdown_calculation_evidence(
     frequency: Frequency,
     frequency_df: pd.DataFrame,
     metric_basis: str,
+    ending_value_basis: EndingValueBasis = EndingValueBasis.FEE_EXCLUSIVE,
     portfolio_currency: str | None = None,
     reporting_currency: str | None = None,
 ) -> TWRDailyCalculationEvidence | None:
@@ -673,6 +683,7 @@ def _portfolio_breakdown_calculation_evidence(
     return _build_daily_calculation_evidence(
         frequency_df.iloc[0],
         metric_basis=metric_basis,
+        ending_value_basis=ending_value_basis,
         portfolio_currency=portfolio_currency,
         reporting_currency=reporting_currency,
     )
@@ -847,12 +858,16 @@ def _run_twr_execution_calculation(
     *,
     performance_request: PerformanceRequest,
     benchmark_request: BenchmarkPerformanceRequest | None,
+    input_mode: TWRInputMode = TWRInputMode.STATELESS,
 ) -> _TWRExecutionCalculation:
     period_scope = _resolve_twr_execution_period_scope(performance_request)
     engine_config = create_engine_config(
         performance_request,
         period_scope.master_start_date,
         period_scope.master_end_date,
+        ending_value_basis=(
+            EndingValueBasis.AFTER_FEES if input_mode == TWRInputMode.STATEFUL else EndingValueBasis.FEE_EXCLUSIVE
+        ),
     )
     engine_df = create_engine_dataframe([item.model_dump() for item in performance_request.valuation_points])
     daily_results_df, engine_diagnostics = run_calculations(engine_df, engine_config)
@@ -911,6 +926,7 @@ def _build_twr_results_by_period(
     resolved_benchmark_id: str | None,
     benchmark_return_source: BenchmarkReturnSource,
     master_start_date: date,
+    ending_value_basis: EndingValueBasis = EndingValueBasis.FEE_EXCLUSIVE,
 ) -> dict[str, SinglePeriodPerformanceResult]:
     results_by_period: dict[str, SinglePeriodPerformanceResult] = {}
     benchmark_context = (
@@ -937,6 +953,7 @@ def _build_twr_results_by_period(
             daily_results_df=daily_results_df,
             engine_diagnostics=engine_diagnostics,
             benchmark_context=benchmark_context,
+            ending_value_basis=ending_value_basis,
         )
         if period_result is None:
             continue
@@ -954,6 +971,7 @@ def _build_twr_period_result(
     daily_results_df: pd.DataFrame,
     engine_diagnostics: EngineDiagnostics,
     benchmark_context: _TWRBenchmarkPeriodContext | None,
+    ending_value_basis: EndingValueBasis = EndingValueBasis.FEE_EXCLUSIVE,
 ) -> SinglePeriodPerformanceResult | None:
     period_slice_df = daily_results_df[
         (daily_results_df[PortfolioColumns.PERF_DATE.value] >= period.start_date)
@@ -976,6 +994,7 @@ def _build_twr_period_result(
         daily_results_df=daily_results_df,
         requested_frequencies=requested_frequencies,
         breakdowns_data=breakdowns_data,
+        ending_value_basis=ending_value_basis,
     )
 
     period_result = SinglePeriodPerformanceResult(portfolio=portfolio)
@@ -1020,6 +1039,7 @@ def _build_twr_portfolio_period_block(
     daily_results_df: pd.DataFrame,
     requested_frequencies: list[Frequency],
     breakdowns_data: dict[Frequency, list[dict]],
+    ending_value_basis: EndingValueBasis = EndingValueBasis.FEE_EXCLUSIVE,
 ) -> ComparativeAnalyticsBlock:
     portfolio_period_return = _calculate_total_return_from_slice(period_slice_df, daily_results_df)
     portfolio_currency = normalized_currency_code(performance_request.currency)
@@ -1033,6 +1053,7 @@ def _build_twr_portfolio_period_block(
         breakdowns_data=breakdowns_data,
         include_timeseries=performance_request.output.include_timeseries,
         metric_basis=performance_request.metric_basis,
+        ending_value_basis=ending_value_basis,
         portfolio_currency=portfolio_currency,
         reporting_currency=reporting_currency,
     )
@@ -1356,12 +1377,14 @@ def _run_twr_execution_stage(
     *,
     performance_request: PerformanceRequest,
     benchmark_request: BenchmarkPerformanceRequest | None,
+    input_mode: TWRInputMode = TWRInputMode.STATELESS,
 ) -> _TWRExecutionCalculation:
     execution_registry.start_stage(performance_request.calculation_id, EXECUTION_STAGE_EXECUTION)
     try:
         return _run_twr_execution_calculation(
             performance_request=performance_request,
             benchmark_request=benchmark_request,
+            input_mode=input_mode,
         )
     except Exception as exc:
         execution_registry.fail_stage(performance_request.calculation_id, EXECUTION_STAGE_EXECUTION, str(exc))
@@ -1376,6 +1399,7 @@ def _build_twr_execution_period_results(
     benchmark_input_mode: BenchmarkInputMode | None,
     resolved_benchmark_id: str | None,
     benchmark_return_source: BenchmarkReturnSource,
+    input_mode: TWRInputMode = TWRInputMode.STATELESS,
 ) -> dict[str, SinglePeriodPerformanceResult]:
     return _build_twr_results_by_period(
         performance_request=performance_request,
@@ -1389,6 +1413,9 @@ def _build_twr_execution_period_results(
         resolved_benchmark_id=resolved_benchmark_id,
         benchmark_return_source=benchmark_return_source,
         master_start_date=calculation.master_start_date,
+        ending_value_basis=(
+            EndingValueBasis.AFTER_FEES if input_mode == TWRInputMode.STATEFUL else EndingValueBasis.FEE_EXCLUSIVE
+        ),
     )
 
 
@@ -1410,6 +1437,7 @@ def calculate_twr_response(
     calculation = _run_twr_execution_stage(
         performance_request=performance_request,
         benchmark_request=benchmark_request,
+        input_mode=input_mode,
     )
     results_by_period = _build_twr_execution_period_results(
         performance_request=performance_request,
@@ -1418,6 +1446,7 @@ def calculate_twr_response(
         benchmark_input_mode=benchmark_input_mode,
         resolved_benchmark_id=resolved_benchmark_id,
         benchmark_return_source=normalized_benchmark_return_source,
+        input_mode=input_mode,
     )
 
     return _assemble_completed_twr_response(

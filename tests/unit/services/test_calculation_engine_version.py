@@ -19,7 +19,7 @@ def test_calculation_engine_version_is_not_deployable_app_version() -> None:
 
 
 def test_governed_calculation_changes_have_new_reproducibility_identity() -> None:
-    assert CALCULATION_ENGINE_VERSION == "lotus-performance-calculation-engine.v16"
+    assert CALCULATION_ENGINE_VERSION == "lotus-performance-calculation-engine.v17"
     source_input = {
         "portfolio_id": "BHB_REPLAY",
         "model": "BHB",
@@ -28,7 +28,7 @@ def test_governed_calculation_changes_have_new_reproducibility_identity() -> Non
     }
 
     old_fingerprint, old_hash = generate_canonical_hash_from_value(
-        source_input, "lotus-performance-calculation-engine.v7"
+        source_input, "lotus-performance-calculation-engine.v16"
     )
     new_fingerprint, new_hash = generate_canonical_hash_from_value(source_input, CALCULATION_ENGINE_VERSION)
 

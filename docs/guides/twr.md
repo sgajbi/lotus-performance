@@ -47,6 +47,15 @@ through `CORE_CONTROL_PLANE_BASE_URL`,
 normalizes them into canonical valuation points, then runs the same owned TWR engine
 used by stateless requests.
 
+Core ending market values already include booked fees. Stateful TWR declares the existing
+`AFTER_FEES` engine basis, so NET includes each signed expense or refund once and GROSS removes
+it. For example, `1000 -> 1090` with fee `-10` gives `9%` NET and `10%` GROSS.
+Stateless valuation inputs retain the fee-exclusive `end_mv` contract: supply `1100` and fee
+`-10` for the same economics. Returns-series, workspace TWR and Composite member TWR use the
+same stateful convention. Source asset evidence and reported stateful ending assets retain
+the actual `1090`, rather than the reconstructed fee-exclusive engine workspace value.
+Calculation identity v17 applies to new calculations; retained historical results are unchanged.
+
 Preferred local defaults for `CORE_CONTROL_PLANE_BASE_URL` are:
 
 - app/runtime: `http://core-control.dev.lotus`

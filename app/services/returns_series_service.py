@@ -83,6 +83,7 @@ from core.monetary_input import validate_calculated_money_model
 from core.repro import generate_canonical_hash
 from engine.benchmarks import benchmark_return_points_to_dataframe, calculate_benchmark_returns
 from engine.compute import run_calculations
+from engine.config import EndingValueBasis
 from engine.schema import PortfolioColumns
 
 RETURN_POINT_QUANTUM = Decimal("0.000000000001")
@@ -629,7 +630,12 @@ def daily_ror_from_portfolio_timeseries(
             "valuation_points": valuation_points,
         },
     )
-    config = create_engine_config(request_model, resolved_window.start_date, resolved_window.end_date)
+    config = create_engine_config(
+        request_model,
+        resolved_window.start_date,
+        resolved_window.end_date,
+        ending_value_basis=EndingValueBasis.AFTER_FEES,
+    )
     engine_df = create_engine_dataframe([point for point in valuation_points])
     daily_results_df, _ = run_calculations(engine_df, config)
     if daily_results_df.empty:

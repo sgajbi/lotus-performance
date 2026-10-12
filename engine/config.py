@@ -20,7 +20,7 @@ class PrecisionMode(str, Enum):
 
 
 class EndingValueBasis(str, Enum):
-    """Declares whether ending values already exclude separately booked fees."""
+    """Declares whether ending values already include signed booked fees."""
 
     FEE_EXCLUSIVE = "FEE_EXCLUSIVE"
     AFTER_FEES = "AFTER_FEES"

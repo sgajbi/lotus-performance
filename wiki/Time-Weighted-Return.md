@@ -7,6 +7,13 @@ TWR.
 
 ## Current Scope and Reader Tasks
 
+Stateful Core valuations use after-fee ending assets. NET counts the signed booked fee once;
+GROSS removes it, including positive refunds. Stateless valuation inputs retain fee-exclusive
+ending-value semantics. A Core `1000 -> 1090` observation with fee `-10` returns `9%` NET and
+`10%` GROSS while keeping actual ending assets `1090`. The same boundary serves returns-series,
+workspace TWR and Composite member facts. Calculation identity v17 distinguishes corrected new
+computations from immutable historical results; installed/live acceptance is a separate proof.
+
 | Reader task | Start here |
 | --- | --- |
 | Submit a calculation using the supported input shape | [TWR caller guide and executable examples](https://github.com/sgajbi/lotus-performance/blob/main/docs/guides/twr.md) |

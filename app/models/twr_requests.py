@@ -13,6 +13,7 @@ from app.models.benchmark_analytics_requests import (
 )
 from app.models.benchmark_requests import BenchmarkPerformanceRequest
 from app.models.requests import DailyInputData, PerformanceRequest, PerformanceRequestBase, admit_daily_input_data
+from engine.config import EndingValueBasis
 
 
 class TWRInputMode(str, Enum):
@@ -147,6 +148,8 @@ class TWRBenchmarkRequest(BaseModel):
 
 class TWRResolvedExecutionRequest(BaseModel):
     model_config = ConfigDict(extra="forbid")
+
+    ending_value_basis: EndingValueBasis = EndingValueBasis.FEE_EXCLUSIVE
 
     portfolio: PerformanceRequest = Field(
         ..., description="Resolved stateless portfolio request executed by the TWR engine."

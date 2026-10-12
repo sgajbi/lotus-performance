@@ -11,13 +11,17 @@ from app.models.responses import (
     PerformanceSummary,
 )
 from common.enums import Frequency, PeriodType
-from engine.config import EngineConfig, PrecisionMode
+from engine.config import EndingValueBasis, EngineConfig, PrecisionMode
 from engine.dataframe import create_engine_dataframe_from_valuation_points
 from engine.schema import PortfolioColumns
 
 
 def create_engine_config(
-    request: PerformanceRequest, effective_start_date: date, effective_end_date: date
+    request: PerformanceRequest,
+    effective_start_date: date,
+    effective_end_date: date,
+    *,
+    ending_value_basis: EndingValueBasis = EndingValueBasis.FEE_EXCLUSIVE,
 ) -> EngineConfig:
     """Creates an EngineConfig object from an API PerformanceRequest and an effective date range."""
     # Since we run the engine once on a master period, we can use the first analysis's period type
@@ -32,6 +36,7 @@ def create_engine_config(
         period_type=period_type_for_engine,
         rounding_precision=request.rounding_precision,
         precision_mode=PrecisionMode(request.precision_mode),
+        ending_value_basis=ending_value_basis,
         data_policy=request.data_policy,
         currency_mode=request.currency_mode,
         report_ccy=request.report_ccy,
