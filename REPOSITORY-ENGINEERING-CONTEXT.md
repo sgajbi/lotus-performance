@@ -928,8 +928,9 @@ original precision labels are not retroactive execution certification.
 Core portfolio timeseries ending values are after booked fees. Stateful TWR (including Composite
 member facts), returns-series and workspace TWR explicitly declare `EndingValueBasis.AFTER_FEES`
 when creating the engine config; stateless valuation inputs retain `FEE_EXCLUSIVE`. Keep the
-Core adapter's actual assets and signed fee facts unchanged. The engine normalizes only its
-calculation workspace and restores source ending assets in output; daily TWR evidence respects
+Core adapter's actual assets and signed fee facts unchanged. Contribution consumes fee-exclusive
+engine output to calculate monetary PnL. Stateful TWR/workspace restore after-fee ending assets
+only at their presentation boundary, after engine execution; daily TWR evidence respects
 the declared basis. Identity v17 separates new calculations from immutable historical results.
 The focused regression pack is `tests/unit/services/test_twr_stateful_fee_basis.py`.
 

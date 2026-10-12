@@ -6,6 +6,7 @@ import pandas as pd
 
 from core.envelope import DataPolicy
 from engine.config import PrecisionMode
+from engine.numerical_boundary import monetary_arithmetic_context
 from engine.schema import PortfolioColumns
 
 _DEFAULT_OUTLIER_SCOPE = {"SECURITY_RETURNS"}
@@ -108,3 +109,17 @@ def normalize_after_fee_ending_values(
         ]
         return
     valuation_frame[PortfolioColumns.END_MV.value] = ending_values - management_fees
+
+
+def restore_after_fee_ending_values(valuation_frame: pd.DataFrame) -> None:
+    """Restore source assets at a presentation boundary, after all engine consumers.
+
+    Contribution consumes fee-exclusive engine values to calculate monetary PnL.
+    Stateful TWR/workspace projections instead expose actual after-fee assets.
+    """
+    ending_values = [Decimal(str(value)) for value in valuation_frame[PortfolioColumns.END_MV.value]]
+    management_fees = [Decimal(str(value)) for value in valuation_frame[PortfolioColumns.MGMT_FEES.value]]
+    with monetary_arithmetic_context([*ending_values, *management_fees]):
+        valuation_frame[PortfolioColumns.END_MV.value] = [
+            ending_value + management_fee for ending_value, management_fee in zip(ending_values, management_fees)
+        ]

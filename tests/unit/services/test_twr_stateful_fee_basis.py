@@ -1,7 +1,7 @@
 from datetime import date
 from decimal import Decimal
+from types import SimpleNamespace
 
-import pandas as pd
 import pytest
 
 from adapters.api_adapter import create_engine_config
@@ -15,9 +15,9 @@ from app.services.calculation_engine_version import CALCULATION_ENGINE_VERSION
 from app.services.reproducibility_service import generate_value_fingerprint
 from app.services.twr_calculation_service import build_resolved_twr_identity_payload
 from app.services.valuation_points_service import portfolio_timeseries_to_valuation_points
+from app.workers import compute_executor_worker
 from common.enums import Frequency
 from engine.config import EndingValueBasis
-from engine.runtime import run_engine_for_valuation_points
 
 DAY = date(2026, 3, 12)
 
@@ -144,16 +144,16 @@ def test_live_fee_day_regression_preserves_source_assets_and_net_return():
     assert result.iloc[0]["return_value"] == Decimal("-0.00006055")
 
 
-def test_after_fee_engine_restores_admitted_assets_after_report_window_slicing():
+def test_stateful_twr_restores_admitted_assets_after_report_window_slicing():
     points = [
         {"perf_date": "2026-03-11", "begin_mv": "1000", "end_mv": "1090", "mgmt_fees": "-10"},
         {"perf_date": DAY.isoformat(), "begin_mv": "1090", "end_mv": "1195", "mgmt_fees": "5"},
     ]
     request = _performance_request(points, "NET", "DECIMAL_STRICT")
-    results = run_engine_for_valuation_points(
-        points, create_engine_config(request, DAY, DAY, ending_value_basis=EndingValueBasis.AFTER_FEES)
-    )
-    assert results["perf_date"].tolist() == [pd.Timestamp(DAY)]
+    results = twr_service._run_twr_execution_calculation(
+        performance_request=request, benchmark_request=None, input_mode=TWRInputMode.STATEFUL
+    ).daily_results_df
+    assert results["perf_date"].tolist() == [DAY]
     assert results.iloc[0]["end_mv"] == Decimal("1195")
 
 
@@ -176,3 +176,60 @@ def test_resolved_twr_identity_binds_fee_basis_without_rewriting_historical_requ
     )
     historical_payload = {"portfolio": request.model_dump(mode="python"), "benchmark": None}
     assert type(stateful).model_validate(historical_payload).ending_value_basis == EndingValueBasis.FEE_EXCLUSIVE
+
+
+@pytest.mark.parametrize("input_mode", [TWRInputMode.STATEFUL, TWRInputMode.STATELESS])
+@pytest.mark.parametrize("metric_basis", ["NET", "GROSS"])
+def test_raw_twr_worker_binds_same_basis_and_hash_as_sync_execution(monkeypatch, input_mode, metric_basis):
+    request = _performance_request(
+        [{"perf_date": DAY.isoformat(), "begin_mv": "1000", "end_mv": "1090", "mgmt_fees": "-10"}],
+        metric_basis,
+        "DECIMAL_STRICT",
+    )
+
+    async def resolve(analytics_request, *, settings):
+        return SimpleNamespace(
+            performance_request=request,
+            benchmark_request=None,
+            input_mode=analytics_request.input_mode,
+            resolved_benchmark_id=None,
+            benchmark_input_mode=None,
+        )
+
+    monkeypatch.setattr(compute_executor_worker, "resolve_twr_request", resolve)
+    expected_artifact = build_resolved_twr_identity_payload(
+        performance_request=request, benchmark_request=None, input_mode=input_mode
+    )
+    expected_identity = generate_value_fingerprint(expected_artifact, CALCULATION_ENGINE_VERSION)
+    observed = []
+
+    def calculate(performance_request, **metadata):
+        artifact = metadata["request_artifact_model"]
+        if input_mode == TWRInputMode.STATEFUL:
+            assert artifact == expected_artifact
+            assert (metadata["input_fingerprint"], metadata["calculation_hash"]) == expected_identity
+        return twr_service._run_twr_execution_calculation(
+            performance_request=performance_request, benchmark_request=None, input_mode=metadata["input_mode"]
+        ).daily_results_df
+
+    payload = request.model_dump(mode="json")
+    payload["input_mode"] = input_mode.value
+    if input_mode == TWRInputMode.STATEFUL:
+        payload["stateful_input"] = {}
+        payload.pop("valuation_points")
+    context = SimpleNamespace(
+        settings=SimpleNamespace(CALCULATION_ENGINE_VERSION=CALCULATION_ENGINE_VERSION),
+        execution_store=SimpleNamespace(update_execution_identity=lambda *args, **kwargs: observed.append(kwargs)),
+        twr_calculator=calculate,
+    )
+    result = compute_executor_worker._execute_twr_job(
+        SimpleNamespace(request_payload=payload, calculation_id=request.calculation_id), context
+    )
+    expected_pnl = Decimal("90") if input_mode == TWRInputMode.STATEFUL else Decimal("80")
+    if metric_basis == "GROSS":
+        expected_pnl += 10
+    assert result.iloc[0]["daily_ror"] == expected_pnl / 10
+    if input_mode == TWRInputMode.STATEFUL:
+        assert observed == [{"input_fingerprint": expected_identity[0], "calculation_hash": expected_identity[1]}]
+    else:
+        assert observed == []

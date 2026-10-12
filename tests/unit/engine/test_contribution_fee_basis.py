@@ -6,7 +6,11 @@ import pytest
 from app.models.contribution_requests import ContributionRequest
 from core.envelope import DataPolicy
 from engine.config import EndingValueBasis, EngineConfig, PrecisionMode
-from engine.contribution import _prepare_hierarchical_data, _retain_zero_capital_contribution
+from engine.contribution import (
+    _calculate_daily_instrument_contributions,
+    _prepare_hierarchical_data,
+    _retain_zero_capital_contribution,
+)
 from engine.contribution_fee_basis import normalize_after_fee_ending_values
 from engine.runtime import run_engine_for_valuation_points
 from engine.schema import PortfolioColumns
@@ -35,6 +39,46 @@ def test_zero_capital_allocation_preserves_funded_rows_and_zero_portfolio_guard(
     assert frame["raw_fx_contribution"].iloc[1] == number("0.01")
     if decimal_mode:
         assert all(isinstance(value, Decimal) for value in frame["raw_contribution"])
+
+
+@pytest.mark.parametrize("fee", ["-10", "10"])
+@pytest.mark.parametrize("metric_basis", ["NET", "GROSS"])
+@pytest.mark.parametrize("precision_mode", ["FLOAT64", "DECIMAL_STRICT"])
+def test_zero_capital_fee_position_closes_monetary_contribution(fee, metric_basis, precision_mode):
+    point = {"perf_date": "2025-01-01", "begin_mv": "0", "end_mv": fee, "mgmt_fees": fee}
+    request = ContributionRequest.model_validate(
+        {
+            "portfolio_id": "ZERO_CAPITAL_FEE",
+            "report_start_date": "2025-01-01",
+            "report_end_date": "2025-01-01",
+            "analyses": [{"period": "SI", "frequencies": ["daily"]}],
+            "precision_mode": precision_mode,
+            "portfolio_data": {
+                "metric_basis": metric_basis,
+                "valuation_points": [{**point, "begin_mv": "1000", "end_mv": str(Decimal("1000") + Decimal(fee))}],
+            },
+            "positions_data": [
+                {"position_id": "FEE_ONLY", "valuation_points": [point]},
+                {
+                    "position_id": "FUNDED",
+                    "valuation_points": [{**point, "begin_mv": "1000", "end_mv": "1000", "mgmt_fees": "0"}],
+                },
+            ],
+        }
+    )
+    instruments, portfolio = _prepare_hierarchical_data(request)
+    expected_pnl = Decimal(fee) if metric_basis == "NET" else Decimal("0")
+    fee_row = instruments[instruments["position_id"] == "FEE_ONLY"].iloc[0]
+    assert fee_row["_contribution_local_pnl"] == expected_pnl
+    daily = _calculate_daily_instrument_contributions(
+        instruments, portfolio, request.weighting_scheme, request.smoothing
+    )
+    fee_contribution = daily[daily["position_id"] == "FEE_ONLY"].iloc[0]
+    assert float(fee_contribution["raw_contribution"]) == pytest.approx(float(expected_pnl / 1000), abs=1e-12)
+    assert float(fee_contribution["raw_local_contribution"]) == pytest.approx(float(expected_pnl / 1000), abs=1e-12)
+    assert float(daily["raw_contribution"].sum()) == pytest.approx(
+        float(portfolio.iloc[0]["daily_ror"]) / 100, abs=1e-12
+    )
 
 
 def test_contribution_points_reconstruct_fee_exclusive_end_values_in_strict_decimal_mode():
@@ -193,6 +237,9 @@ def test_contribution_engine_boundary_normalizes_portfolio_and_position_rows(
     )
 
     position_results, portfolio_results = _prepare_hierarchical_data(request)
+
+    # Contribution weights consume this monetary numerator, independently of daily_ror.
+    assert position_results["_contribution_local_pnl"].iloc[0] == Decimal(str(expected_return)) * Decimal("10")
 
     if precision_mode == "DECIMAL_STRICT":
         assert portfolio_results[PortfolioColumns.DAILY_ROR.value].iloc[0] == expected_return

@@ -56,6 +56,7 @@ from core.periods import ResolvedPeriod, resolve_periods
 from engine.breakdown import generate_performance_breakdowns
 from engine.compute import run_calculations
 from engine.config import EndingValueBasis
+from engine.contribution_fee_basis import restore_after_fee_ending_values
 from engine.diagnostics import EngineDiagnostics
 from engine.numerical_boundary import monetary_arithmetic_context
 from engine.schema import PortfolioColumns
@@ -871,6 +872,8 @@ def _run_twr_execution_calculation(
     )
     engine_df = create_engine_dataframe([item.model_dump() for item in performance_request.valuation_points])
     daily_results_df, engine_diagnostics = run_calculations(engine_df, engine_config)
+    if engine_config.ending_value_basis == EndingValueBasis.AFTER_FEES:
+        restore_after_fee_ending_values(daily_results_df)
     benchmark_artifacts = calculate_benchmark_artifacts(benchmark_request) if benchmark_request is not None else None
 
     return _TWRExecutionCalculation(

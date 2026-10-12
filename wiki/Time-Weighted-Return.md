@@ -11,7 +11,10 @@ Stateful Core valuations use after-fee ending assets. NET counts the signed book
 GROSS removes it, including positive refunds. Stateless valuation inputs retain fee-exclusive
 ending-value semantics. A Core `1000 -> 1090` observation with fee `-10` returns `9%` NET and
 `10%` GROSS while keeping actual ending assets `1090`. The same boundary serves returns-series,
-workspace TWR and Composite member facts. Calculation identity v17 distinguishes corrected new
+workspace TWR and Composite member facts. TWR/workspace restore reported source assets after
+engine execution, preserving contribution's fee-exclusive monetary workspace and zero-capital
+fee allocation. Synchronous and raw async stateful identities both bind `AFTER_FEES`.
+Calculation identity v17 distinguishes corrected new
 computations from immutable historical results; installed/live acceptance is a separate proof.
 
 | Reader task | Start here |

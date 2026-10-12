@@ -78,6 +78,7 @@ from core.repro import generate_canonical_hash
 from core.workspace_periods import ResolvedWorkspacePeriod, resolve_workspace_periods
 from engine.compute import run_calculations
 from engine.config import EndingValueBasis
+from engine.contribution_fee_basis import restore_after_fee_ending_values
 from engine.mwr import calculate_money_weighted_return
 from engine.numerical_boundary import monetary_arithmetic_context
 from engine.schema import PortfolioColumns
@@ -807,6 +808,8 @@ def _calculate_workspace_twr_artifacts(
     )
     engine_df = create_engine_dataframe([point.model_dump(mode="python") for point in valuation_points])
     daily_results_df, engine_diagnostics = run_calculations(engine_df, engine_config)
+    if engine_config.ending_value_basis == EndingValueBasis.AFTER_FEES:
+        restore_after_fee_ending_values(daily_results_df)
     daily_results_df[PortfolioColumns.PERF_DATE.value] = observation_date_series(
         daily_results_df[PortfolioColumns.PERF_DATE.value]
     )
