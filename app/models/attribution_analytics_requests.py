@@ -15,6 +15,7 @@ from app.models.attribution_requests import (
     PortfolioGroup,
 )
 from app.models.stateful_position_inputs import StatefulDimensionName, StatefulPositionFilters
+from core.monetary_input import validate_calculated_money_model
 
 
 class AttributionInputMode(str, Enum):
@@ -201,6 +202,25 @@ class AttributionAnalyticsRequest(AttributionRequest):
 
         payload = _attribution_request_payload(request=self, resolved_input=resolved_input)
         return AttributionRequest.model_validate(payload)
+
+
+def build_calculated_attribution_request(
+    *,
+    request: AttributionAnalyticsRequest,
+    portfolio_data: AttributionPortfolioData,
+    instruments_data: list[InstrumentData],
+    benchmark_groups_data: list[BenchmarkGroup],
+) -> AttributionRequest:
+    """Reconstruct internally sourced stateful money without raw-import scale loss."""
+    resolved_input = _ResolvedAttributionStatelessInput(
+        portfolio_data=portfolio_data,
+        instruments_data=instruments_data,
+        portfolio_groups_data=None,
+        benchmark_groups_data=benchmark_groups_data,
+    )
+    return validate_calculated_money_model(
+        AttributionRequest, _attribution_request_payload(request=request, resolved_input=resolved_input)
+    )
 
 
 def _attribution_request_payload(

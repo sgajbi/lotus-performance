@@ -48,6 +48,7 @@ from core.errors import (
     APIError,
     APIUnprocessableEntityError,
 )
+from core.monetary_input import validate_calculated_money_model
 from engine.benchmarks import calculate_benchmark_returns
 
 _SUPPORTED_ATTRIBUTION_GROUPS: set[str] = {"asset_class", "sector", "country", "currency"}
@@ -406,13 +407,14 @@ def build_stateful_attribution_input(
         reporting_currency=reporting_currency,
     )
 
-    portfolio_data = AttributionPortfolioData.model_validate(
+    portfolio_data = validate_calculated_money_model(
+        AttributionPortfolioData,
         {
             "metric_basis": metric_basis,
             "valuation_points": portfolio_timeseries_to_valuation_points(
                 observations=source_input.portfolio_input.observations
             ),
-        }
+        },
     )
     instruments_data = _build_instruments_data(
         rows=source_input.position_rows,
@@ -898,12 +900,13 @@ def _build_instruments_data(
         )
 
     return [
-        InstrumentData.model_validate(
+        validate_calculated_money_model(
+            InstrumentData,
             {
                 "instrument_id": position_id,
                 "meta": instrument_meta.get(position_id, {}),
                 "valuation_points": positions_by_id[position_id],
-            }
+            },
         )
         for position_id in sorted(positions_by_id)
     ]
