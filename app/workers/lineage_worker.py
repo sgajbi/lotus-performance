@@ -59,6 +59,7 @@ def process_pending_jobs(
         max_attempts=max_attempts,
         settings=settings,
     )
+    _reconcile_stranded_source_custody(runtime)
     pending = runtime.lineage_store.lease_pending_payloads(
         worker_id=runtime.worker_id,
         limit=runtime.batch_size,
@@ -75,6 +76,22 @@ def process_pending_jobs(
         ):
             processed += 1
     return processed
+
+
+def _reconcile_stranded_source_custody(runtime: _LineageWorkerRuntime) -> None:
+    try:
+        runtime.lineage_store.reconcile_stranded_source_custody(limit=runtime.batch_size)
+    except Exception:
+        logger.warning(
+            "Source custody reconciliation failed; retained evidence remains protected for a later pass.",
+            extra=worker_log_extra(
+                worker_name=_WORKER_NAME,
+                worker_id=runtime.worker_id,
+                queue=_QUEUE_NAME,
+                failure_classification="source_custody_reconciliation_failed",
+                retryable=True,
+            ),
+        )
 
 
 def process_pending_calculation(
@@ -296,6 +313,9 @@ def _materialize_leased_payload(
             response_json=payload.response_json,
             calculation_details=payload.details,
             worker_id=payload.worker_id,
+            **(
+                {"expected_attempt_count": payload.attempt_count} if payload.calculation_type == "ReturnsSeries" else {}
+            ),
         )
     except LineagePayloadLeaseOwnershipError as exc:
         _log_stale_lineage_payload_finalization_skipped(payload, exc)
@@ -349,6 +369,18 @@ def _handle_lineage_materialization_retry(
     execution_store: ExecutionRegistry | RuntimeStoreProxy[ExecutionRegistry],
     max_attempts: int,
 ) -> None:
+    record = lineage_store.get_record(payload.calculation_id) if payload.calculation_type == "ReturnsSeries" else None
+    if record is not None and record.source_custody_state is not None:
+        try:
+            lineage_store.retry_source_materialization(
+                payload.calculation_id,
+                worker_id=payload.worker_id,
+                expected_attempt_count=payload.attempt_count,
+                max_attempts=max_attempts,
+            )
+        except LineagePayloadLeaseOwnershipError as exc:
+            _log_stale_lineage_payload_finalization_skipped(payload, exc)
+        return
     current_payload = lineage_store.get_payload(payload.calculation_id)
     if current_payload is None:
         return

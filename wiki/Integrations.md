@@ -8,6 +8,18 @@ corresponding flow sections; planned integrations are not presented as runtime-r
 
 Current scope and evidence posture:
 
+New stateful portfolio NET/GROSS ReturnsSeries executions expose independent consumed-source
+custody through the existing lineage contract. A complete state requires matching retained tenant
+authority and verified immutable artifacts, including all consumed portfolio pages. Inline, queued,
+and resolved-promotion paths are covered. Benchmark/risk-free raw-source custody and historical
+reconstruction remain outside this first slice; their arithmetic options are unchanged. See the
+[operator runbook](https://github.com/sgajbi/lotus-performance/blob/main/docs/runbooks/returns-series-operator-triage.md#retained-portfolio-source-evidence)
+for source-off replay boundaries. Performance evidence does not replace Core source authority.
+Publication requires a qualified Linux filesystem honoring file/directory durability barriers and
+atomic hard links. Unsupported native platforms expose failed custody without changing arithmetic.
+Originating inline attempt authority persists after freeze; active compute retries retain their
+existing lease-fenced reuse. Native volume acceptance remains separate from simulated fixtures.
+
 - use **Upstream dependencies** and **Contract grouping** for system boundaries;
 - use the TWR, MWR, contribution, and attribution source-flow sections for analytics ownership;
 - use the operator sections for execution, lineage, recovery, and runtime evidence.

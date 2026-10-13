@@ -19,6 +19,20 @@ Calculations referenced by `analytics_source_correction` are also protected, wit
 `source_correction_reproducibility`, so original and corrected evidence is not deleted while the
 correction record remains governed truth.
 
+Portfolio ReturnsSeries source custody protects the whole retained authority group while capture,
+freeze, enqueue, or a lineage lease is pending. Once every extant execution, result, compute job,
+and lineage member is independently eligible under the existing cutoff, they may retire together.
+Existing legal holds propagate across those members. Protection is reported as
+`retained_source_authority`; no new retention duration or storage root is introduced. Failed
+custody retains its root identity but can expire under the existing terminal policy once leases
+are released. Interrupted cleanup uses the existing phase evidence and retry flow. Orphan source
+files are never readable without a retained matching execution and lineage authority.
+
+The ordinary lineage worker can terminalize frozen custody stranded without a queue payload after
+matching execution and compute work become terminal. This sets failed custody and a current lineage
+terminal timestamp while retaining the root and arithmetic. The existing cutoff, whole-group eligibility
+and holds still apply; terminalization does not immediately delete files or recover complete evidence.
+
 ## Controlled Scope
 
 The cleanup covers records older than the selected retention cutoff in:

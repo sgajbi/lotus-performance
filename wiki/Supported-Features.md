@@ -6,6 +6,17 @@ claim list.
 
 ## How To Use This Page
 
+The portfolio ReturnsSeries source-custody first slice retains new NET/GROSS consumed portfolio
+inputs across inline and async execution. Custody status is independent of calculation success;
+complete evidence requires durable tenant authority and verified artifacts. Historical rows remain
+unavailable, and benchmark/risk-free raw-source retention is not included. Source-off verification
+covers retained raw portfolio pages through the existing normalized return-point engine, not full
+optional-family or live-provider certification. Operational details and limits are in the
+[source verification runbook](https://github.com/sgajbi/lotus-performance/blob/main/docs/runbooks/returns-series-operator-triage.md#retained-portfolio-source-evidence).
+Complete source publication requires a qualified Linux lineage volume. Unsupported native platforms
+retain arithmetic functionality but report custody failure; portable fixtures do not establish
+native storage durability or automatic recovery from a dual persistence outage.
+
 Use this page as the current-state product evidence map:
 
 - business users can see which performance analytics capabilities are implemented and where each

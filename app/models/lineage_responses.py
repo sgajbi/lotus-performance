@@ -55,6 +55,13 @@ class ArtifactLink(LineageArtifactMetadata):
 
 
 class LineageResponse(BaseModel):
+    source_custody_state: Literal["capturing", "frozen", "pending_materialization", "complete", "failed"] | None = (
+        Field(
+            default=None,
+            description="Independent retained source custody state. Null means unavailable, including historical records.",
+            examples=["pending_materialization"],
+        )
+    )
     calculation_id: UUID = Field(
         description="Durable calculation identifier whose lineage is being inspected.",
         examples=["2f4f3e0e-6e0e-4e0e-8e0e-2f4f3e0e6e0e"],

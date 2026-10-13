@@ -206,6 +206,24 @@ def _collect_prunable_items(*, cutoff: datetime) -> RuntimeRetentionPrunableItem
     protected_lineage_ids = legal_hold_index.protected_ids_for(candidate_lineage_ids)
     protected_compute_job_ids = legal_hold_index.protected_ids_for(candidate_compute_job_ids)
     protected_async_result_ids = legal_hold_index.protected_ids_for(candidate_async_result_ids)
+    custody_ids = lineage_metadata_store.source_retention_protection(
+        execution_ids=set(candidate_execution_ids),
+        lineage_ids=set(candidate_lineage_ids),
+        compute_ids=set(candidate_compute_job_ids),
+        result_ids=set(candidate_async_result_ids),
+    )
+    held_group_ids = set(
+        protected_execution_ids + protected_lineage_ids + protected_compute_job_ids + protected_async_result_ids
+    )
+    custody_protection = custody_ids | held_group_ids
+    protected_execution_ids = sorted(set(protected_execution_ids) | (set(candidate_execution_ids) & custody_protection))
+    protected_lineage_ids = sorted(set(protected_lineage_ids) | (set(candidate_lineage_ids) & custody_protection))
+    protected_compute_job_ids = sorted(
+        set(protected_compute_job_ids) | (set(candidate_compute_job_ids) & custody_protection)
+    )
+    protected_async_result_ids = sorted(
+        set(protected_async_result_ids) | (set(candidate_async_result_ids) & custody_protection)
+    )
     correction_ids = source_correction_store.referenced_calculation_ids()
     protected_execution_ids = sorted(set(protected_execution_ids) | (set(candidate_execution_ids) & correction_ids))
     protected_lineage_ids = sorted(set(protected_lineage_ids) | (set(candidate_lineage_ids) & correction_ids))
@@ -238,6 +256,7 @@ def _collect_prunable_items(*, cutoff: datetime) -> RuntimeRetentionPrunableItem
             legal_hold_counts=legal_hold_index.reason_counts_for(protected_ids),
             correction_ids=correction_ids,
             protected_ids=protected_ids,
+            custody_ids=custody_ids,
         ),
     )
 
@@ -247,11 +266,15 @@ def _protected_reason_counts(
     legal_hold_counts: dict[str, int],
     correction_ids: set[str],
     protected_ids: list[str],
+    custody_ids: set[str] | None = None,
 ) -> dict[str, int]:
     counts = dict(legal_hold_counts)
     correction_count = len(correction_ids & set(protected_ids))
     if correction_count:
         counts["source_correction_reproducibility"] = correction_count
+    custody_count = len((custody_ids or set()) & set(protected_ids))
+    if custody_count:
+        counts["retained_source_authority"] = custody_count
     return counts
 
 

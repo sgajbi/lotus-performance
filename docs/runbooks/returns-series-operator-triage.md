@@ -15,6 +15,93 @@ returns-series freshness, partial coverage, side-series fill evidence, skipped r
 retained gaps, async result failure, or elevated
 `lotus_performance_calculation_supportability_total{operation="returns_series"}` samples.
 
+## Retained Portfolio Source Evidence
+
+For new stateful NET/GROSS calculations, inspect `GET /performance/lineage/{calculation_id}`
+separately from the arithmetic result. `source_custody_state` progresses through `capturing`,
+`frozen`, `pending_materialization`, and `complete`; `failed` preserves the selected identity.
+Null means unavailable, including historical calculations. Arithmetic success does not imply
+complete custody. Storage, enqueue, or materialization failure must not be reported as complete
+evidence, and exhausting custody retries does not turn a successful arithmetic result into failure.
+The originating inline attempt remains the mutation owner after freeze. A different inline attempt
+cannot enqueue or fail it; an admitted current compute retry can reuse the frozen identity under
+the compute store's existing tenant, attempt and live-lease checks.
+
+The first slice retains the exact successful portfolio-timeseries JSON entity bytes, opaque page
+tokens, ordered chunk/page index, separately named legacy parsed fingerprints, and the consumed
+normalized inputs. It covers inline, queued, and API-resolved promotion. The fixed archive/index
+format streams pages rather than publishing an unbounded page list. Financial decimals encoded as
+strings retain their lexemes; normalized JSON preserves the representation the existing engine
+consumed. No new financial limits, truncation, currency aliases, or missing-value fills are added.
+
+Benchmark and risk-free raw-source custody remains unavailable. Their existing arithmetic options
+continue to work; a retained normalized side series is not complete upstream source custody. This
+slice does not close issue #662 or certify source authority, historical evidence, production capacity,
+or a multi-provider coherent snapshot.
+
+Raw artifacts remain operator-only under the existing lineage policy. Reads require a matching
+retained execution tenant even when local privileged-read enforcement is disabled. Every read
+verifies the selected manifest, artifact hashes, source bundle, and complete page traversal.
+Missing execution authority, corruption, and path escape fail closed. The queue can retire after
+successful materialization; it is not the permanent evidence owner.
+
+For source-off verification, use the existing database and lineage volume with an authorized
+operator identity. Run from the `lotus-performance` repository root. Set the named environment
+variables to those existing resources; supply the retained calculation and its admitted tenant.
+The command reads authority and source artifacts and runs the existing portfolio normalizer and
+return engine. It performs no Core calls, enqueue, migration, or calculation submission.
+
+PowerShell:
+
+```powershell
+python scripts/replay_returns_series_source.py --database-url "$env:LINEAGE_METADATA_DATABASE_URL" --storage-path "$env:LINEAGE_STORAGE_PATH" --calculation-id "$CalculationId" --tenant-id "$TenantId"
+```
+
+POSIX:
+
+```bash
+python scripts/replay_returns_series_source.py --database-url "$LINEAGE_METADATA_DATABASE_URL" --storage-path "$LINEAGE_STORAGE_PATH" --calculation-id "$CALCULATION_ID" --tenant-id "$TENANT_ID"
+```
+
+Success verifies raw pages through normalized portfolio return points. It does not independently
+certify optional families or the final aligned response. A mismatch exits unsuccessfully. Local
+fixture proof is not live-provider, PostgreSQL-concurrency, image, or capacity qualification.
+
+All source files, interrupted staging files, and page spools remain beneath the existing calculation
+directory and existing retention policy. Archive creation uses page-sized buffers and retains the
+current chunk's opaque token set for loop detection; normalization
+and the engine retain their existing workload memory requirements. Spooling and immutable files
+consume additional disk. Exhausted storage is a custody failure, not permission to truncate.
+The lineage filesystem must support same-directory atomic hard-link publication for immutable
+materialization files; failed publication leaves no selected partial manifest. Retention handles
+interrupted staging files together with their calculation directory.
+
+Source publication is supported on Linux filesystems/volumes that honor file and directory
+`fsync` and same-directory atomic hard links. The storage parent is flushed after calculation
+directory creation (also on retry); capture flushes its file entries before selecting the frozen
+root. Materialization flushes published entries before selecting the complete manifest, including
+when a retry finds an existing matching file. A failed barrier cannot establish that authority.
+Native Windows and other unsupported platforms refuse source publication with an explicit custody
+failure while preserving arithmetic success. Read-only verification of existing evidence does not
+require a publication barrier. Portable test fixtures simulate these barriers; they do not prove
+native Linux Docker-volume or power-loss durability. Qualify the deployed filesystem, mount and
+storage configuration independently. Preprovision the storage root durably before admitting work;
+the lineage directory must be owned by trusted service roles.
+
+An exceptional dual enqueue/failure-state persistence outage can leave frozen custody without a
+payload after arithmetic completes. Each ordinary lineage-worker poll uses its existing batch bound
+to terminalize only frozen, pending custody without a payload when matching retained execution and
+any compute job are terminal. It locks execution, optional compute and lineage in that order and
+rechecks identity and payload absence. Active work, missing/foreign authority, queued or leased
+payloads, replaced roots and already terminal custody are protected. Database failures roll back and
+emit a structured retryable worker warning; a later pass retries after metadata recovery.
+
+The transition records failed custody with the reason "Source materialization was not queued before
+arithmetic became terminal." It retains the root, originating attempt, tenant and successful arithmetic;
+it does not recover producer evidence or establish complete custody. Its new terminal timestamp starts
+the existing retention eligibility check, subject to whole-group cutoffs and holds. Do not manually reset
+the originating identity or treat this terminalization as source authority qualification.
+
 ## First Response
 
 1. Capture support-safe identifiers: `calculation_id`, endpoint path, response status, `correlation_id`, `request_id`, `trace_id`, and the bounded diagnostics fields. Do not copy portfolio names, client names, request payloads, or raw source rows into tickets.

@@ -23,6 +23,15 @@ endpoint-specific async result routes.
 
 ## Request Contract
 
+Portfolio ReturnsSeries adds nullable `source_custody_state` to the lineage response. Historical
+nulls mean unavailable. Complete source custody additionally requires a tenant-bound retained
+execution, immutable root, current leased materializer selection, and hash-verified manifest and
+artifacts. New `source-*` files are operator-only raw-sensitive evidence. Legacy non-source lineage
+remains on its existing manifest contract. A successful arithmetic result, pending queue row, or
+parsed fingerprint alone is not complete raw-source evidence. See the
+[source verification runbook](../runbooks/returns-series-operator-triage.md#retained-portfolio-source-evidence)
+for supported families and source-off limits.
+
 `GET /performance/lineage/{calculation_id}`:
 
 | Path parameter | Meaning |
