@@ -25,7 +25,7 @@ from app.models.responses import (
     TWRBenchmarkContext,
     TWRDailyCalculationEvidence,
 )
-from app.models.twr_requests import TWRInputMode
+from app.models.twr_requests import TWRInputMode, TWRResolvedExecutionRequest
 from app.services.analytics_numeric import numeric_value
 from app.services.analytics_observation_dates import (
     normalize_observation_date,
@@ -860,15 +860,15 @@ def _run_twr_execution_calculation(
     performance_request: PerformanceRequest,
     benchmark_request: BenchmarkPerformanceRequest | None,
     input_mode: TWRInputMode = TWRInputMode.STATELESS,
+    ending_value_basis: EndingValueBasis | None = None,
 ) -> _TWRExecutionCalculation:
     period_scope = _resolve_twr_execution_period_scope(performance_request)
     engine_config = create_engine_config(
         performance_request,
         period_scope.master_start_date,
         period_scope.master_end_date,
-        ending_value_basis=(
-            EndingValueBasis.AFTER_FEES if input_mode == TWRInputMode.STATEFUL else EndingValueBasis.FEE_EXCLUSIVE
-        ),
+        ending_value_basis=ending_value_basis
+        or (EndingValueBasis.AFTER_FEES if input_mode == TWRInputMode.STATEFUL else EndingValueBasis.FEE_EXCLUSIVE),
     )
     engine_df = create_engine_dataframe([item.model_dump() for item in performance_request.valuation_points])
     daily_results_df, engine_diagnostics = run_calculations(engine_df, engine_config)
@@ -1381,6 +1381,7 @@ def _run_twr_execution_stage(
     performance_request: PerformanceRequest,
     benchmark_request: BenchmarkPerformanceRequest | None,
     input_mode: TWRInputMode = TWRInputMode.STATELESS,
+    ending_value_basis: EndingValueBasis | None = None,
 ) -> _TWRExecutionCalculation:
     execution_registry.start_stage(performance_request.calculation_id, EXECUTION_STAGE_EXECUTION)
     try:
@@ -1388,6 +1389,7 @@ def _run_twr_execution_stage(
             performance_request=performance_request,
             benchmark_request=benchmark_request,
             input_mode=input_mode,
+            ending_value_basis=ending_value_basis,
         )
     except Exception as exc:
         execution_registry.fail_stage(performance_request.calculation_id, EXECUTION_STAGE_EXECUTION, str(exc))
@@ -1403,6 +1405,7 @@ def _build_twr_execution_period_results(
     resolved_benchmark_id: str | None,
     benchmark_return_source: BenchmarkReturnSource,
     input_mode: TWRInputMode = TWRInputMode.STATELESS,
+    ending_value_basis: EndingValueBasis | None = None,
 ) -> dict[str, SinglePeriodPerformanceResult]:
     return _build_twr_results_by_period(
         performance_request=performance_request,
@@ -1416,9 +1419,8 @@ def _build_twr_execution_period_results(
         resolved_benchmark_id=resolved_benchmark_id,
         benchmark_return_source=benchmark_return_source,
         master_start_date=calculation.master_start_date,
-        ending_value_basis=(
-            EndingValueBasis.AFTER_FEES if input_mode == TWRInputMode.STATEFUL else EndingValueBasis.FEE_EXCLUSIVE
-        ),
+        ending_value_basis=ending_value_basis
+        or (EndingValueBasis.AFTER_FEES if input_mode == TWRInputMode.STATEFUL else EndingValueBasis.FEE_EXCLUSIVE),
     )
 
 
@@ -1437,10 +1439,16 @@ def calculate_twr_response(
     benchmark_return_source: BenchmarkReturnSource | str = BenchmarkReturnSource.CALCULATED,
 ) -> PerformanceResponse:
     normalized_benchmark_return_source = _normalize_benchmark_return_source(benchmark_return_source)
+    ending_value_basis = (
+        request_artifact_model.ending_value_basis
+        if isinstance(request_artifact_model, TWRResolvedExecutionRequest)
+        else None
+    )
     calculation = _run_twr_execution_stage(
         performance_request=performance_request,
         benchmark_request=benchmark_request,
         input_mode=input_mode,
+        ending_value_basis=ending_value_basis,
     )
     results_by_period = _build_twr_execution_period_results(
         performance_request=performance_request,
@@ -1450,6 +1458,7 @@ def calculate_twr_response(
         resolved_benchmark_id=resolved_benchmark_id,
         benchmark_return_source=normalized_benchmark_return_source,
         input_mode=input_mode,
+        ending_value_basis=ending_value_basis,
     )
 
     return _assemble_completed_twr_response(

@@ -19,9 +19,9 @@ snapshots are written under ignored `output/quality-baseline/`; curated source r
 | --- | ---: | --- |
 | Python files | 1024 | `rg --files -g '*.py'` equivalent excluding local caches |
 | Python package markers | 35 | recursive `__init__.py` count |
-| Python LOC | 298,504 | recursive `.py` line count |
+| Python LOC | 298,559 | recursive `.py` line count |
 | Test modules | 459 | `tests/**/test_*.py` |
-| Collected tests | 9070 tests | `python -m pytest --collect-only -q` |
+| Collected tests | 9094 tests | `python -m pytest --collect-only -q` |
 | Configured CI workflows | 8 | `.github/workflows/*.yml` |
 | Repo-native baseline command | 1 | `make quality-baseline` |
 

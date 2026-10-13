@@ -58,6 +58,9 @@ TWR and workspace restore source assets at their presentation boundary; the engi
 fee-exclusive output remains available to contribution's monetary allocation, including
 zero-capital fee-only positions. Raw async and synchronous stateful TWR retain the same
 `AFTER_FEES` basis in their resolved request and calculation hash.
+Queued resolved TWR jobs execute the basis retained in that request, including its daily PnL
+evidence. Pre-v17 queued payloads without the field retain the historical `FEE_EXCLUSIVE`
+default; stateful mode does not reinterpret their persisted valuation semantics.
 Calculation identity v17 applies to new calculations; retained historical results are unchanged.
 
 Preferred local defaults for `CORE_CONTROL_PLANE_BASE_URL` are:
