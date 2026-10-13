@@ -1238,7 +1238,7 @@ def _resolved_async_attribution_job_request_from_payload(
     resolved_benchmark_return_source = payload.get("resolved_benchmark_return_source")
     if isinstance(resolved_request_payload, dict) and isinstance(source_input_mode, str):
         return (
-            AttributionRequest.model_validate(resolved_request_payload),
+            validate_calculated_money_model(AttributionRequest, resolved_request_payload),
             AttributionInputMode(source_input_mode),
             resolved_benchmark_id if isinstance(resolved_benchmark_id, str) else None,
             resolved_benchmark_return_source if isinstance(resolved_benchmark_return_source, str) else None,

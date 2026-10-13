@@ -10,7 +10,7 @@ from fastapi.testclient import TestClient
 from sqlalchemy import text
 
 from app.core.config import get_settings
-from app.models.attribution_analytics_requests import AttributionAnalyticsRequest
+from app.models.attribution_analytics_requests import AttributionAnalyticsRequest, build_calculated_attribution_request
 from app.models.benchmark_requests import BenchmarkComponentObservation
 from app.observability_contracts import PERFORMANCE_CALCULATION_SUPPORTABILITY_METRIC_LABELS
 from app.services.async_result_store import async_result_store
@@ -20,7 +20,13 @@ from app.services.compute_job_store import compute_job_store
 from app.services.execution_registry import ExecutionStageStatus, ExecutionStatus, execution_registry
 from app.services.execution_stage_names import EXECUTION_STAGE_SUBMISSION
 from app.services.lineage_metadata_store import lineage_metadata_store
+from app.services.stateful_attribution_input_service import (
+    StatefulAttributionSourceInput,
+    build_stateful_attribution_input,
+)
 from app.services.stateful_benchmark_input_service import StatefulBenchmarkNormalizedInput
+from app.services.stateful_input_service import RetrievalMetadata
+from app.services.stateful_performance_input_service import StatefulPortfolioInput
 from core.periods import ResolvedPeriod
 from core.repro import generate_canonical_hash
 from engine.exceptions import EngineCalculationError, InvalidEngineInputError
@@ -28,6 +34,192 @@ from main import app
 from tests.conftest import drain_compute_queue, drain_lineage_queue
 
 settings = get_settings()
+
+
+@pytest.mark.parametrize("offload", [False, True])
+@pytest.mark.parametrize(
+    "begin,end,bod,eod",
+    [
+        ("1000.0000000000", "1010.00000000000000000000", "0.0000000000", "-0.00000000000000000000"),
+        ("1000.12345678901234567890", "1010.98765432109876543210", "2.123456789012", "-1.987654321098"),
+        ("1000.12345678901234567890", "1010.98765432109876543210", "-2.123456789012", "1.987654321098"),
+    ],
+)
+def test_stateful_attribution_preserves_calculated_money_through_registered_execution(
+    client, monkeypatch, offload, begin, end, bod, eod
+):
+    flows = [
+        {"amount": bod, "timing": "bod", "cash_flow_type": "external_flow"},
+        {"amount": eod, "timing": "eod", "cash_flow_type": "external_flow"},
+    ]
+    source = StatefulAttributionSourceInput(
+        portfolio_input=StatefulPortfolioInput(
+            performance_start_date=date(2025, 1, 1),
+            observations=[
+                {
+                    "valuation_date": "2025-01-01",
+                    "beginning_market_value": begin,
+                    "ending_market_value": end,
+                    "cash_flows": flows,
+                }
+            ],
+        ),
+        position_rows=[
+            {
+                "position_id": "POS_1",
+                "security_id": "SEC_1",
+                "valuation_date": "2025-01-01",
+                "beginning_market_value_portfolio_currency": begin,
+                "ending_market_value_portfolio_currency": end,
+                "cash_flows": flows,
+                "dimensions": {"sector": "Technology"},
+            }
+        ],
+        position_retrieval_metadata=RetrievalMetadata(chunk_count=1, page_count=1),
+        benchmark_id="BMK_1",
+        benchmark_component_observations=[
+            BenchmarkComponentObservation(
+                component_id="IDX_1",
+                perf_date=date(2025, 1, 1),
+                weight_bop=1.0,
+                component_return=0.01,
+            )
+        ],
+        benchmark_source_details={"benchmark_components": 1},
+        benchmark_retrieval_metadata=RetrievalMetadata(chunk_count=1, page_count=1),
+        index_records=[{"index_id": "IDX_1", "classification_labels": {"sector": "Technology"}}],
+        index_retrieval_metadata=RetrievalMetadata(chunk_count=1, page_count=1),
+    )
+
+    async def retrieve(**kwargs):
+        return source
+
+    monkeypatch.setattr("app.services.attribution_mode_service._retrieve_attribution_source_input", retrieve)
+    monkeypatch.setattr(settings, "ATTRIBUTION_EXECUTOR_WINDOW_DAYS", 30)
+    monkeypatch.setattr(settings, "ATTRIBUTION_EXECUTOR_INPUT_COUNT", 2 if offload else 100)
+    payload = {
+        "portfolio_id": "ATTRIB_CALCULATED_MONEY",
+        "mode": "by_instrument",
+        "group_by": ["sector"],
+        "linking": "none",
+        "frequency": "daily",
+        "report_start_date": "2025-01-01",
+        "report_end_date": "2025-01-01",
+        "analyses": [{"period": "SI", "frequencies": ["daily"]}],
+        "input_mode": "stateful",
+        "stateful_input": {},
+    }
+    # Inspect the actual normalized and reconstructed request, then execute the registered path.
+    normalized = build_stateful_attribution_input(
+        source_input=source,
+        mode="by_instrument",
+        group_by=["sector"],
+        metric_basis="NET",
+        currency_mode="BASE_ONLY",
+        fx=None,
+        reporting_currency=None,
+    )
+    resolved = build_calculated_attribution_request(
+        request=AttributionAnalyticsRequest.model_validate(payload),
+        portfolio_data=normalized.portfolio_data,
+        instruments_data=normalized.instruments_data,
+        benchmark_groups_data=normalized.benchmark_groups_data,
+    )
+    points = [
+        normalized.portfolio_data.valuation_points[0],
+        normalized.instruments_data[0].valuation_points[0],
+        resolved.portfolio_data.valuation_points[0],
+        resolved.instruments_data[0].valuation_points[0],
+    ]
+    for point in points:
+        for field, value in (("begin_mv", begin), ("end_mv", end), ("bod_cf", bod), ("eod_cf", eod)):
+            assert getattr(point, field) == Decimal(value)
+        assert point.model_dump(mode="json")["begin_mv"] == begin
+        assert point.model_dump(mode="json")["end_mv"] == end
+
+    response = client.post("/performance/attribution", json=payload)
+    assert response.status_code == (202 if offload else 200), response.text
+    if offload:
+        job = compute_job_store.get_job(UUID(response.json()["calculation_id"]))
+        retained = job.request_payload["resolved_request"]
+        assert retained["portfolio_data"]["valuation_points"][0]["begin_mv"] == begin
+        assert retained["instruments_data"][0]["valuation_points"][0]["end_mv"] == end
+        assert drain_compute_queue() == 1
+        response = client.get(response.json()["result_path"])
+        assert response.status_code == 200, response.text
+    assert response.json()["input_mode"] == "stateful"
+    assert response.json()["meta"]["precision_mode"] == "FLOAT64"
+    # Existing FLOAT64 daily return output rounds percentages to four places;
+    # calculated-money admission must preserve this separate effects contract.
+    expected_portfolio_return = ((Decimal(end) - Decimal(eod)) / (Decimal(begin) + Decimal(bod)) - 1) * 100
+    expected_active_return = round(float(expected_portfolio_return), 4) - 1
+    reconciliation = response.json()["results_by_period"]["SI"]["reconciliation"]
+    assert reconciliation["total_active_return"] == pytest.approx(float(expected_active_return), abs=1e-10)
+    assert reconciliation["sum_of_effects"] == pytest.approx(float(expected_active_return), abs=1e-10)
+
+
+@pytest.mark.parametrize("opt_in", ["body", "header"])
+@pytest.mark.parametrize("shape", ["legacy", "nested"])
+def test_stateless_attribution_cannot_opt_into_calculated_money(client, opt_in, shape):
+    payload = {
+        "portfolio_id": "ATTRIB_RAW_MONEY",
+        "mode": "by_instrument",
+        "group_by": ["sector"],
+        "report_start_date": "2025-01-01",
+        "report_end_date": "2025-01-01",
+        "analyses": [{"period": "SI", "frequencies": ["daily"]}],
+        "portfolio_data": {
+            "metric_basis": "NET",
+            "valuation_points": [
+                {
+                    "perf_date": "2025-01-01",
+                    "begin_mv": "1000.12345678901234567890",
+                    "end_mv": "1010",
+                }
+            ],
+        },
+        "instruments_data": [
+            {
+                "instrument_id": "SEC_1",
+                "valuation_points": [
+                    {
+                        "perf_date": "2025-01-01",
+                        "begin_mv": "1000.12345678901234567890",
+                        "end_mv": "1010",
+                    }
+                ],
+            }
+        ],
+        "benchmark_groups_data": [
+            {
+                "key": {"sector": "Technology"},
+                "observations": [
+                    {
+                        "date": "2025-01-01",
+                        "weight_bop": 1.0,
+                        "return_base": 0.01,
+                    }
+                ],
+            }
+        ],
+    }
+    if shape == "nested":
+        payload["stateless_input"] = {
+            key: payload.pop(key)
+            for key in (
+                "portfolio_data",
+                "instruments_data",
+                "benchmark_groups_data",
+            )
+        }
+    headers = {}
+    if opt_in == "body":
+        payload["calculated_money"] = True
+    else:
+        headers["X-Calculated-Money-Origin"] = "source_calculated_money"
+    response = client.post("/performance/attribution", json=payload, headers=headers)
+    assert response.status_code == 422
+    assert "scale" in response.text.lower()
 
 
 @pytest.mark.parametrize("shape", ["legacy", "nested", "stateful"])

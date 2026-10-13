@@ -1,4 +1,6 @@
 # tests/unit/models/test_attribution_models.py
+from decimal import Decimal
+
 import pytest
 from pydantic import ValidationError
 
@@ -9,8 +11,15 @@ from app.models.attribution_analytics_requests import (
     _has_exactly_one_stateless_input_shape,
     _resolve_attribution_stateless_input,
     _stateless_input_envelope_issue,
+    build_calculated_attribution_request,
 )
-from app.models.attribution_requests import AttributionRequest, BenchmarkGroup, PortfolioGroup
+from app.models.attribution_requests import (
+    AttributionPortfolioData,
+    AttributionRequest,
+    BenchmarkGroup,
+    InstrumentData,
+    PortfolioGroup,
+)
 from app.models.attribution_responses import (
     AttributionLevelResult,
     AttributionLevelTotals,
@@ -18,6 +27,77 @@ from app.models.attribution_responses import (
     _attribution_level_totals_payload,
 )
 from common.enums import PeriodType
+from core.errors import APIUnprocessableEntityError
+from core.monetary_input import validate_calculated_money_model
+
+
+@pytest.mark.parametrize("model", [AttributionPortfolioData, InstrumentData])
+@pytest.mark.parametrize("amount", [True, False, None, "NaN", "Infinity", "-Infinity", float(2**53)])
+def test_calculated_attribution_nested_money_preserves_admission_refusals(model, amount):
+    payload = {"valuation_points": [{"perf_date": "2025-01-01", "begin_mv": "100", "end_mv": amount}]}
+    if model is InstrumentData:
+        payload["instrument_id"] = "SEC_1"
+        payload["meta"] = {"sector": "Technology"}
+    else:
+        payload["metric_basis"] = "NET"
+    with pytest.raises(APIUnprocessableEntityError) as failure:
+        validate_calculated_money_model(model, payload)
+    assert failure.value.error_code == "CALCULATED_FINANCIAL_INPUT_INVALID"
+    assert failure.value.__cause__.errors()[0]["loc"] == ("valuation_points", 0, "end_mv")
+
+
+@pytest.mark.parametrize("end", ["101.0000000000", "-0.00000000000000000000"])
+def test_stateless_reconstruction_cannot_inherit_calculated_origin_from_nested_models(end):
+    request = AttributionAnalyticsRequest.model_validate(
+        {
+            "portfolio_id": "ATTRIB_INTERNAL",
+            "mode": "by_instrument",
+            "group_by": ["sector"],
+            "report_start_date": "2025-01-01",
+            "report_end_date": "2025-01-01",
+            "analyses": [{"period": "SI", "frequencies": ["daily"]}],
+            "input_mode": "stateful",
+            "stateful_input": {},
+        }
+    )
+    point = {"perf_date": "2025-01-01", "begin_mv": "100.123456789012", "end_mv": end}
+    portfolio = validate_calculated_money_model(
+        AttributionPortfolioData, {"metric_basis": "NET", "valuation_points": [point]}
+    )
+    instrument = validate_calculated_money_model(
+        InstrumentData, {"instrument_id": "SEC_1", "meta": {"sector": "Technology"}, "valuation_points": [point]}
+    )
+    benchmark = BenchmarkGroup.model_validate(
+        {
+            "key": {"sector": "Technology"},
+            "observations": [
+                {
+                    "date": "2025-01-01",
+                    "weight_bop": 1.0,
+                    "return_base": 0.01,
+                }
+            ],
+        }
+    )
+    inputs = {"portfolio_data": portfolio, "instruments_data": [instrument], "benchmark_groups_data": [benchmark]}
+    with pytest.raises(ValidationError, match="scale"):
+        request.to_stateless_attribution_request(**inputs)
+    calculated = build_calculated_attribution_request(request=request, **inputs)
+    assert calculated.portfolio_data.valuation_points[0].model_dump(mode="json")["begin_mv"] == point["begin_mv"]
+    for nested in (calculated.portfolio_data, calculated.instruments_data[0]):
+        assert nested.valuation_points[0].end_mv.as_tuple() == Decimal(end).as_tuple()
+        assert nested.valuation_points[0].model_dump(mode="json")["end_mv"] == str(Decimal(end))
+    # Reconstruct and revalidate rather than trusting possibly altered typed instances.
+    altered = portfolio.model_copy(
+        update={
+            "valuation_points": [
+                portfolio.valuation_points[0].model_copy(update={"end_mv": True}),
+            ]
+        }
+    )
+    with pytest.raises(APIUnprocessableEntityError) as failure:
+        build_calculated_attribution_request(request=request, **{**inputs, "portfolio_data": altered})
+    assert failure.value.error_code == "CALCULATED_FINANCIAL_INPUT_INVALID"
 
 
 @pytest.fixture

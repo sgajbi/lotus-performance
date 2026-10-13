@@ -7,6 +7,7 @@ from app.models.attribution_analytics_requests import (
     AttributionAnalyticsRequest,
     AttributionInputMode,
     AttributionStatefulInput,
+    build_calculated_attribution_request,
 )
 from app.models.attribution_requests import AttributionRequest
 from app.models.benchmark_analytics_requests import BenchmarkReturnSource
@@ -110,7 +111,8 @@ def _resolved_stateful_attribution_request(
     source_input: StatefulAttributionSourceInput,
     normalized_input: StatefulAttributionNormalizedInput,
 ) -> ResolvedAttributionRequest:
-    attribution_request = request.to_stateless_attribution_request(
+    attribution_request = build_calculated_attribution_request(
+        request=request,
         portfolio_data=normalized_input.portfolio_data,
         instruments_data=normalized_input.instruments_data,
         benchmark_groups_data=normalized_input.benchmark_groups_data,
