@@ -8,7 +8,7 @@ from adapters.api_adapter import create_engine_config
 from app.models.benchmark_analytics_requests import BenchmarkReturnSource
 from app.models.requests import DailyInputData, PerformanceRequest
 from app.models.returns_series import ResolvedWindow
-from app.models.twr_requests import TWRInputMode
+from app.models.twr_requests import TWRInputMode, TWRResolvedExecutionRequest
 from app.models.workspace_summary_requests import WorkspaceSummaryRequest
 from app.services import returns_series_service, twr_service, workspace_summary_service
 from app.services.calculation_engine_version import CALCULATION_ENGINE_VERSION
@@ -20,6 +20,52 @@ from common.enums import Frequency
 from engine.config import EndingValueBasis
 
 DAY = date(2026, 3, 12)
+
+
+@pytest.mark.parametrize("retained_basis", [None, "FEE_EXCLUSIVE", "AFTER_FEES"])
+@pytest.mark.parametrize("fee", ["-10", "10"])
+@pytest.mark.parametrize("metric_basis", ["NET", "GROSS"])
+@pytest.mark.parametrize("precision_mode", ["FLOAT64", "DECIMAL_STRICT"])
+def test_persisted_twr_worker_executes_retained_basis(monkeypatch, retained_basis, fee, metric_basis, precision_mode):
+    request = _performance_request(
+        [{"perf_date": DAY.isoformat(), "begin_mv": "1000", "end_mv": "1090", "mgmt_fees": fee}],
+        metric_basis,
+        precision_mode,
+    )
+    payload = {"portfolio": request.model_dump(mode="json"), "benchmark": None}
+    if retained_basis is not None:
+        payload["ending_value_basis"] = retained_basis
+    artifact = TWRResolvedExecutionRequest.model_validate(payload)
+    expected_identity = generate_value_fingerprint(artifact, CALCULATION_ENGINE_VERSION)
+    observed = []
+    monkeypatch.setattr(twr_service.execution_registry, "start_stage", lambda *args: None)
+    monkeypatch.setattr(twr_service, "_assemble_completed_twr_response", lambda **kwargs: kwargs)
+    context = SimpleNamespace(
+        settings=SimpleNamespace(CALCULATION_ENGINE_VERSION=CALCULATION_ENGINE_VERSION),
+        execution_store=SimpleNamespace(update_execution_identity=lambda *args, **kwargs: observed.append(kwargs)),
+        twr_calculator=twr_service.calculate_twr_response,
+    )
+    result = compute_executor_worker._execute_twr_job(
+        SimpleNamespace(
+            request_payload={"resolved_request": payload, "source_input_mode": "stateful"},
+            calculation_id=request.calculation_id,
+        ),
+        context,
+    )
+    # Legacy payloads default to fee-exclusive; explicit retained semantics own execution.
+    expected_pnl = Decimal("90")
+    if artifact.ending_value_basis == EndingValueBasis.FEE_EXCLUSIVE and metric_basis == "NET":
+        expected_pnl += Decimal(fee)
+    elif artifact.ending_value_basis == EndingValueBasis.AFTER_FEES and metric_basis == "GROSS":
+        expected_pnl -= Decimal(fee)
+    assert result["calculation"].daily_results_df.iloc[0]["daily_ror"] == expected_pnl / 10
+    evidence = (
+        next(iter(result["results_by_period"].values())).portfolio.breakdowns[Frequency.DAILY][0].calculation_evidence
+    )
+    assert evidence.performance_pnl == expected_pnl
+    assert evidence.management_fees == Decimal(fee)
+    assert result["request_artifact_model"] == artifact
+    assert observed == [{"input_fingerprint": expected_identity[0], "calculation_hash": expected_identity[1]}]
 
 
 def _source_observation(*, fee: str, bod: str, eod: str) -> dict:

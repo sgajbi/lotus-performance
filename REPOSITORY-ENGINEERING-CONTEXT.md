@@ -933,6 +933,9 @@ engine output to calculate monetary PnL. Stateful TWR/workspace restore after-fe
 only at their presentation boundary, after engine execution; daily TWR evidence respects
 the declared basis. Identity v17 separates new calculations from immutable historical results.
 The focused regression pack is `tests/unit/services/test_twr_stateful_fee_basis.py`.
+Persisted resolved TWR jobs execute their retained `ending_value_basis`, also used for daily PnL
+evidence. Missing legacy fields default to `FEE_EXCLUSIVE`; never derive a different execution
+basis from the persisted source mode while hashing the retained request.
 
 Monetary request admission is owned by `core/monetary_input.py`. Daily and position valuation
 values, cash flows, fees, MWR amounts and shared FX rates retain Decimal inputs; exact JSON

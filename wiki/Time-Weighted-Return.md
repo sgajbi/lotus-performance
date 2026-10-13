@@ -14,6 +14,8 @@ ending-value semantics. A Core `1000 -> 1090` observation with fee `-10` returns
 workspace TWR and Composite member facts. TWR/workspace restore reported source assets after
 engine execution, preserving contribution's fee-exclusive monetary workspace and zero-capital
 fee allocation. Synchronous and raw async stateful identities both bind `AFTER_FEES`.
+Queued resolved jobs execute their retained basis. Legacy queued payloads without a basis retain
+the historical fee-exclusive default in both arithmetic and daily PnL evidence.
 Calculation identity v17 distinguishes corrected new
 computations from immutable historical results; installed/live acceptance is a separate proof.
 
