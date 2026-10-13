@@ -23,8 +23,8 @@ python scripts/python_test_taxonomy_inventory.py --limit 30 --min-api-runtime-te
 | Metric | Value |
 | --- | ---: |
 | Test modules inventoried | 459 |
-| Test functions inventoried | 5384 |
-| Integration/API/runtime test functions | 1089 |
+| Test functions inventoried | 5388 |
+| Integration/API/runtime test functions | 1091 |
 | Contract/governance test functions | 248 |
 
 ## Test Functions By Suite
@@ -33,8 +33,8 @@ python scripts/python_test_taxonomy_inventory.py --limit 30 --min-api-runtime-te
 | --- | ---: | ---: |
 | benchmarks | 20 | 200 |
 | e2e | 1 | 21 |
-| integration | 55 | 623 |
-| unit | 383 | 4540 |
+| integration | 55 | 625 |
+| unit | 383 | 4542 |
 
 ## Test Functions By Family
 
@@ -44,8 +44,8 @@ above does sum to it, because a module belongs to exactly one suite.
 
 | Family | Test functions |
 | --- | ---: |
-| analytics_domain | 3113 |
-| api_or_runtime | 1089 |
+| analytics_domain | 3117 |
+| api_or_runtime | 1091 |
 | contract_or_governance | 248 |
 | observability_or_readiness | 781 |
 | quality_or_security | 385 |
@@ -84,10 +84,10 @@ acceptance or calculation/source readiness certification.
 | 20 | `tests/unit/test_observability.py` | unit | 46 | observability_or_readiness |
 | 21 | `tests/unit/services/test_stateful_benchmark_input_service.py` | unit | 44 | analytics_domain |
 | 22 | `tests/unit/engine/test_contribution.py` | unit | 43 | analytics_domain |
-| 23 | `tests/unit/services/test_benchmark_exposure_context_service.py` | unit | 41 | analytics_domain |
-| 24 | `tests/unit/services/test_stateful_contribution_input_service.py` | unit | 41 | analytics_domain |
-| 25 | `tests/unit/services/test_operator_action_lease_service.py` | unit | 40 | uncategorized |
-| 26 | `tests/integration/test_attribution_api.py` | integration | 39 | analytics_domain, api_or_runtime |
+| 23 | `tests/integration/test_attribution_api.py` | integration | 41 | analytics_domain, api_or_runtime |
+| 24 | `tests/unit/services/test_benchmark_exposure_context_service.py` | unit | 41 | analytics_domain |
+| 25 | `tests/unit/services/test_stateful_contribution_input_service.py` | unit | 41 | analytics_domain |
+| 26 | `tests/unit/services/test_operator_action_lease_service.py` | unit | 40 | uncategorized |
 | 27 | `tests/unit/models/test_twr_requests.py` | unit | 38 | analytics_domain |
 | 28 | `tests/unit/engine/test_ror.py` | unit | 37 | analytics_domain |
 | 29 | `tests/benchmarks/test_postgres_composite_materialization.py` | benchmarks | 36 | analytics_domain |
