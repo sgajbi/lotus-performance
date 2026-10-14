@@ -542,8 +542,18 @@ def test_compute_retry_reuses_frozen_source_after_provider_is_unavailable(
     source_runtime, monkeypatch, publication_unavailable
 ):
     import app.services.returns_series_service as calculator
+    from app.services.compute_job_store import ComputeJobStore
 
     settings, calls = source_runtime
+    select_root = ComputeJobStore.select_returns_series_source_root
+    claims = []
+
+    def observe_claim(store, *, claim, **kwargs):
+        assert claim.attempt_number == store.get_job(claim.calculation_id).attempt_count
+        claims.append(claim)
+        return select_root(store, claim=claim, **kwargs)
+
+    monkeypatch.setattr(ComputeJobStore, "select_returns_series_source_root", observe_claim)
     monkeypatch.setattr(settings, "RETURNS_SERIES_EXECUTOR_WINDOW_DAYS", 1)
     request = source_request()
     asyncio.run(calculate_returns_series_workflow(ReturnsSeriesWorkflowCommand(request)))
@@ -571,6 +581,8 @@ def test_compute_retry_reuses_frozen_source_after_provider_is_unavailable(
     current = lineage_metadata_store.get_record(request.calculation_id)
     assert current.source_root_digest == frozen.source_root_digest
     assert current.source_attempt_id == frozen.source_attempt_id
+    assert current.source_attempt_number == frozen.source_attempt_number == 1
+    assert {claim.attempt_number for claim in claims} == {1, 2}
     assert current.source_custody_state == ("failed" if publication_unavailable else "pending_materialization")
     assert execution_registry.get_execution(request.calculation_id).status.value == "complete"
     assert lineage_jobs(limit=1) == (0 if publication_unavailable else 1) and len(calls) == 2

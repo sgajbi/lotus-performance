@@ -17,6 +17,10 @@ From the repository root in PowerShell or Bash, use `python scripts/generate_qua
 `python scripts/python_architecture_boundary_inventory.py --limit 1`.
 These measurements supersede older scanner snapshots for the refreshed rows; historical columns,
 coverage results and execution failures remain unchanged. Collection is not a test pass or release acceptance.
+Current measurement refresh (2026-10-14, #662 worker-attempt correction): the native commands
+above measure 1,040 Python files, 36 package markers, 302,866 Python lines, 9,325 collected
+tests and average maintainability 55.23. Current taxonomy is measured by the native AST inventory.
+Historical columns and coverage evidence remain unchanged; these figures do not establish live acceptance.
 Historical #540 exact main `39aec74c` passed all ten jobs in run `37136810103`; its candidate
 coverage was raw 98.5068273355382% (30,539 statements/456 missing), passing the unchanged configured
 99% gate at zero-decimal precision. Earlier failures remain historical. #473's locked source
@@ -59,9 +63,9 @@ link the commit, command, or CI artifact that proves the change.
 
 | Metric | Baseline | Current | Status | Evidence |
 | --- | ---: | ---: | --- | --- |
-| Python files | 480 | 1024 | measured | `quality/baseline_report.md` |
-| Python package markers | 18 | 35 | measured | recursive `__init__.py` count |
-| Python LOC | 104,454 | 298,856 | measured | `quality/baseline_report.md` |
+| Python files | 480 | 1040 | measured | `quality/baseline_report.md` |
+| Python package markers | 18 | 36 | measured | recursive `__init__.py` count |
+| Python LOC | 104,454 | 302,866 | measured | `quality/baseline_report.md` |
 | Largest Python file LOC | 2,399 | 4,447 | measured | largest-file inventory on this branch |
 | Largest production file LOC | 1,156 | 3,271 | measured | `app/services/composite_metadata_store.py` |
 | Duplicate code hotspots | 0 | 0 | enforced | `quality/duplicate_code_inventory.md`; `make quality-duplicate-code-gate` with `--min-lines 12 --max-groups 0`; duplicated LOC reduced from `24` to `0` in LP-CR-1407 |
@@ -75,7 +79,7 @@ link the commit, command, or CI artifact that proves the change.
 | --- | ---: | ---: | --- | --- |
 | Max cyclomatic complexity | unknown | 8 | enforced | `quality/complexity_inventory.md` via `scripts/python_complexity_inventory.py`; `make quality-complexity-gate` |
 | High-complexity functions | unknown | 0 | enforced | rank D-F functions in `quality/complexity_inventory.md`; `make quality-complexity-gate` |
-| Average maintainability index | unknown | 55.24 | measured | `quality/complexity_inventory.md` via `scripts/python_complexity_inventory.py` |
+| Average maintainability index | unknown | 55.23 | measured | `python scripts/python_complexity_inventory.py --limit 1` |
 | Largest functions by LOC | unknown | 169 | measured | `quality/function_size_inventory.md` via `scripts/python_function_size_inventory.py`; `_create_sqlite_composite_fact_validation_guards(...)` remains the largest production function at `169` lines |
 
 ## Architecture
@@ -107,10 +111,10 @@ link the commit, command, or CI artifact that proves the change.
 | Metric | Baseline | Current | Status | Evidence |
 | --- | ---: | ---: | --- | --- |
 | Test modules | 228 | 465 | measured | `rg --files tests -g 'test_*.py'` |
-| Collected tests | 2,035 | 9,322 | measured | `python -m pytest --collect-only -q` |
+| Collected tests | 2,035 | 9,325 | measured | `python -m pytest --collect-only -q` |
 | Line coverage | unknown | 99.58% | measured | `quality/coverage_inventory.md` via `make branch-coverage-baseline` (`3,013` unit, `308` integration, and `21` e2e tests under branch coverage; `21,154` covered lines of `21,244` statements) |
 | Branch coverage | unknown | 98.00% | measured | `quality/coverage_inventory.md` via `make branch-coverage-baseline` (`3,013` unit, `308` integration, and `21` e2e tests under branch coverage; `4,318` covered branches of `4,406`, `88` missing branches, `88` partial branches) |
-| Integration/API/runtime test functions | unknown | 1108 | enforced | `quality/test_taxonomy_inventory.md`; `make quality-test-taxonomy-gate` |
+| Integration/API/runtime test functions | unknown | 1109 | enforced | `quality/test_taxonomy_inventory.md`; `make quality-test-taxonomy-gate` |
 | Contract/governance test functions | unknown | 248 | enforced | `quality/test_taxonomy_inventory.md`; `make quality-test-taxonomy-gate` |
 | Uncategorized test functions | unknown | 558 | enforced ceiling | `quality/test_taxonomy_inventory.md`; `make quality-test-taxonomy-gate`; #619 classifies the precise source/error adapter module; observed 558, separately banked policy 558. |
 

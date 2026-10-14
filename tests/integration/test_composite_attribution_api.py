@@ -122,6 +122,42 @@ def test_registered_or17_all_effect_cells_original_replay(attribution_runtime):
     assert (source.metadata_reads, source.financial_reads) == reads
 
 
+def test_registered_attribution_retry_reuses_snapshot_after_transient_calculation_failure(
+    attribution_runtime, monkeypatch
+):
+    from app.services.composite_attribution import application
+
+    client, request, source, _, headers, *_ = attribution_runtime
+    calculate = application.calculate_attribution
+    attempts = []
+
+    def interrupted(request, observation):
+        attempts.append(observation)
+        if len(attempts) == 1:
+            raise RuntimeError("controlled interruption after attribution snapshot custody")
+        return calculate(request, observation)
+
+    monkeypatch.setattr(application, "calculate_attribution", interrupted)
+    accepted = client.post(PATH, json=request.model_dump(mode="json"), headers=headers)
+    assert accepted.status_code == 202, accepted.text
+    jobs = get_compute_job_store()
+    assert jobs.get_job(request.calculation_id).attempt_count == 0
+    assert process_pending_jobs(limit=1) == 1
+    pending = jobs.get_job(request.calculation_id)
+    assert pending.job_status == ComputeJobStatus.PENDING and pending.attempt_count == 1
+    assert _input_count(attribution_runtime) == 1
+    reads = source.financial_reads
+    source.available = False
+    assert process_pending_jobs(limit=1) == 1
+    completed = jobs.get_job(request.calculation_id)
+    assert completed.job_status == ComputeJobStatus.COMPLETE and completed.attempt_count == 2
+    result = client.get(accepted.json()["result_path"], headers=headers)
+    assert result.status_code == 200, result.text
+    # Failed execution, retry execution and independent publication verification.
+    assert len(attempts) == 3 and all(observation == attempts[0] for observation in attempts)
+    assert source.financial_reads == reads and _input_count(attribution_runtime) == 1
+
+
 def test_registered_replay_does_not_recalculate_or_reapprove(attribution_runtime, monkeypatch):
     from app.services.composite_attribution import application
 

@@ -315,6 +315,65 @@ def test_compute_executor_worker_process_leased_job_records_success_before_compl
     ]
 
 
+@pytest.mark.parametrize("family", ["attribution", "pooled_mwr"])
+def test_compute_acquisition_preserves_composite_queued_claim_across_retry(tmp_path, monkeypatch, family):
+    from app.services.composite_attribution.application import attribution_claim
+    from app.services.composite_pooled_mwr.application import pooled_claim
+
+    claim_for = attribution_claim if family == "attribution" else pooled_claim
+    store = ComputeJobStore("sqlite:///" + (tmp_path / "attempts.db").as_posix())
+    try:
+        store.create_schema()
+        identifier = uuid4()
+        prototype = SimpleNamespace(
+            calculation_id=identifier, tenant_id="tenant-test", worker_id="queue", attempt_count=0
+        )
+        store.register_job(
+            calculation_id=identifier,
+            tenant_id=prototype.tenant_id,
+            analytics_type=claim_for(prototype)["analytics_type"],
+            request_payload={},
+            max_attempts=3,
+        )
+        claims = []
+
+        def validate_acquired_claim(job, context):
+            assert job.attempt_count == len(claims)
+            claim = claim_for(job)
+            assert store.get_job(identifier).attempt_count == claim["expected_attempt_count"] == len(claims) + 1
+            if claims:
+                called = []
+                with pytest.raises(ComputeJobLeaseOwnershipError):
+                    store.run_with_active_lease_transaction(
+                        **claims[0], operation=lambda connection: called.append(True)
+                    )
+                assert not called
+            store.run_with_active_lease_transaction(**claim, operation=lambda connection: None)
+            claims.append(claim)
+            raise APIServiceUnavailableError("controlled interruption after current-claim admission")
+
+        monkeypatch.setattr(compute_executor_worker, "_execute_compute_job", validate_acquired_claim)
+        runtime = compute_executor_worker._ComputeJobRuntime(
+            job_store=store,
+            execution_store=SimpleNamespace(),
+            result_store=SimpleNamespace(),
+            worker_id="queue",
+            lease_seconds=60,
+            batch_size=1,
+            execution_context=SimpleNamespace(),
+        )
+        for previous_count in (0, 1):
+            leased = store.lease_pending_jobs(worker_id="queue", limit=1, lease_seconds=60)
+            assert len(leased) == 1 and leased[0].attempt_count == previous_count
+            assert compute_executor_worker._process_leased_compute_job(leased[0], runtime)
+            pending = store.get_job(identifier)
+            assert pending.job_status == ComputeJobStatus.PENDING and pending.attempt_count == previous_count + 1
+        assert [claim["expected_attempt_count"] for claim in claims] == [1, 2]
+        assert claims[0]["worker_id"] != claims[1]["worker_id"]
+    finally:
+        store._engine.dispose()
+
+
 def test_compute_executor_worker_skips_expired_batch_entry_without_terminating_worker(monkeypatch):
     first_calculation_id = uuid4()
     expired_calculation_id = uuid4()

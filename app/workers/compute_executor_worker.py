@@ -234,7 +234,7 @@ def _process_leased_compute_job(job: ComputeJobRecord, runtime: _ComputeJobRunti
         _log_stale_compute_acquisition_skipped(job, exc)
         return False
     active_runtime = replace(runtime, worker_id=acquisition_worker_id)
-    active_job = replace(job, worker_id=acquisition_worker_id, attempt_count=job.attempt_count + 1)
+    active_job = replace(job, worker_id=acquisition_worker_id)
     try:
         response = _execute_compute_job(active_job, active_runtime.execution_context)
         _materialize_workspace_summary_lineage_before_success_publication(active_job, active_runtime)
@@ -570,7 +570,7 @@ def _execute_returns_series_job(job: ComputeJobRecord, context: _ComputeJobExecu
     from app.services.returns_series_source.custody import SourceCustodyClaim
     from app.services.returns_series_source.workflow import active_compute_source_claim
 
-    claim = SourceCustodyClaim(job.calculation_id, job.tenant_id or "", job.worker_id or "", job.attempt_count)
+    claim = SourceCustodyClaim(job.calculation_id, job.tenant_id or "", job.worker_id or "", job.attempt_count + 1)
     token = active_compute_source_claim.set((context.job_store, claim))
     try:
         return _execute_returns_series_job_with_source_claim(job, context)
