@@ -138,13 +138,32 @@ uploads and proof-before-combine ordering across both lanes, including represent
 
 Image consumers first run separate no-service admission prerequisites in their owning workflow.
 Each checks out the qualified Platform governance revision
-`386b40e13e76e60e761c6c4068fbe7a11256ca29` and runs its existing technology-policy validator
+`386b40e13e76e60e761c6c4068fbe7a11256ca29` for PostgreSQL/Trivy and runs its existing technology-policy validator
 with exact source/distribution digests, `linux/amd64`, live manifest verification and bounded
 429 recovery. Failed public responses are retained as distinct artifacts. A failed admission
 emits no usable image output and cannot initialize its dependent service/build/scan.
-PostgreSQL 16 services consume the validated output directly. Recovery and container jobs run
-`scripts/ci_image_bindings_gate.py` before Make to bind the admitted Python image to the fixed
-Dockerfile; recovery also checks the resolved fixed Compose files and PostgreSQL 17 platform.
+Python admission uses qualified Platform `df4da3bda773e9d0103b3a396d58110f49489ebc` with explicit
+original-source opt-in. It admits only the identical linux/amd64 child at the governed ECR or
+original supplier reference; availability selection remains central. PostgreSQL 16 services
+consume their validated output directly. Recovery and container jobs run
+`scripts/ci_image_bindings_gate.py` before Make and pass that same Python output as
+`RUNTIME_BASE_IMAGE` into actual native builds. Dockerfile FROM and distribution provenance
+consume `PYTHON_BASE_IMAGE`; the shared Compose anchor receives it from `RUNTIME_BASE_IMAGE`.
+Recovery accepts `--runtime-image` explicitly into its bounded environment, discarding inherited
+base/configuration overrides. Its binding check also verifies resolved Compose build inputs and
+the separate PostgreSQL 17 image/platform. Native build/up targets refuse unqualified selections
+before Docker. This binding proof does not establish a successful registry pull or runtime version.
+Each hosted consumer then checks out the same qualified central revision and runs
+`scripts/verify_runtime_image_acquisition.py` before its native build/recovery command. The helper
+uses the central verifier for the already selected source, verifies fresh manifest/config linkage,
+records pre-pull digest presence, pulls once, and hashes exported config and uncompressed RootFS
+layer bytes against config/inspect evidence. Docker's image ID is not treated as config identity:
+containerd may expose an index. Evidence under `output/image-acquisition/` records the Python
+version declared in the verified config, not an executed version probe. It makes no cold-cache,
+compressed-transfer, application-build, security, PostgreSQL-readiness or recovery claim.
+Consumer jobs explicitly prepare the host interpreter and install the existing lock-backed
+`PyYAML==6.0.2` parser without dependencies before binding checks. That host setup does not
+identify the admitted container's Python version.
 The scanner command consumes only its admitted Trivy output. No credentials or mutable fallback
 are needed. Main uses the same PostgreSQL 16 admission as PR before initializing its contract
 database, alongside the existing Python/PG17/scanner prerequisites.
@@ -158,6 +177,26 @@ Issue #641 retains the observed PR640 integration baseline of 2692 seconds (44m5
 the unchanged 45-minute budget: full tests 1388 seconds, then PG proof 1245 seconds. Compare
 actual after-run job/step timing and total runner minutes with that baseline; parallel placement
 alone is not an observed speedup. Issue #617 operating-envelope qualification remains separate.
+
+Run selection checks from the `lotus-performance` repository root (no Docker):
+
+```powershell
+make runtime-image-bindings
+$env:RUNTIME_BASE_IMAGE = 'docker.io/library/python@sha256:e529028263dbe6910a2d96f7d2b8f5266385e917fd45d286ef166977c094a51e'
+make runtime-image-bindings
+Remove-Item Env:RUNTIME_BASE_IMAGE
+```
+
+```bash
+make runtime-image-bindings
+RUNTIME_BASE_IMAGE='docker.io/library/python@sha256:e529028263dbe6910a2d96f7d2b8f5266385e917fd45d286ef166977c094a51e' make runtime-image-bindings
+```
+
+Hosted selection comes from the admission job output, not an operator override. Issue #664
+requires fresh manifest/config and actual pull/cache/layer, final build/provenance/security,
+separate PostgreSQL readiness and behavioral recovery evidence. Read the Python runtime version
+from actual admitted config/image evidence; hosted `setup-python` is unrelated to the container
+runtime. Source tests or descriptor-only evidence do not close these runtime obligations.
 
 Performance characterization evidence is produced by the dedicated Performance Characterization
 Evidence workflow on pull requests to `main`, pushes to `main`, weekly schedule, and manual

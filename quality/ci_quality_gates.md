@@ -18,6 +18,18 @@ developers or GitHub Actions.
 
 ## Current Blocking CI Lanes
 
+The #664 Python admission prerequisite uses qualified Platform
+`df4da3bda773e9d0103b3a396d58110f49489ebc` with explicit identical-original-source opt-in.
+Recovery and supply-chain consumers install the lock-backed PyYAML6.0.2 host parser, bind the
+trusted selection to actual Dockerfile/Compose inputs, verify fresh central manifest linkage
+and one selected pull/config/RootFS export, then pass the same selection to native Make/recovery.
+Acquisition artifacts preserve source/config/layer provenance without cold-cache or executed
+Python-version claims. Source/mock controls are accepted at that boundary; actual hosted
+build/security, separate PG16/17 readiness, recovery and main/wiki proof remain required.
+The #664 measured tree has 9,219 collected cases and 5,419 AST test functions, including 416
+quality/security functions. Existing coverage, taxonomy breadth, uncategorized and scanner
+policies are unchanged. These measurements exclude unmerged #662 feature truth.
+
 The PR and main PostgreSQL contracts jobs run thirteen default targets alongside the
 ordinary unit/integration/e2e matrix, using its own PostgreSQL 16 service and database.
 The repo-native gate appends all thirteen subprocess measurements for `app`, `engine`,
@@ -120,7 +132,7 @@ No gate should move from one phase to the next until it has:
 | mypy typecheck | Blocking in feature, PR, and main lanes | Keep blocking; expand typed boundary cleanup through normal refactor slices. |
 | Unit tests | Blocking in feature, PR, and main lanes | Keep blocking; add focused tests when refactoring hotspots. |
 | Integration and e2e tests | Blocking in PR and main lanes | Keep blocking at merge/release lanes; use targeted local subsets during slices. |
-| Test taxonomy | `make quality-test-taxonomy-gate` blocks loss of API/runtime and contract/governance breadth or growth above the declared 558 uncategorized ceiling. Current AST inventory: 459 modules, 5,388 source test functions, 1091 API/runtime, 248 contract/governance, 3,117 analytics-domain, and 558 uncategorized. | Daily-interval and MWR source-admission controls cover native APIs, retained materialization and source conflicts. Observed count and declared policy are separately sourced; breadth floors and uncategorized ceiling remain unchanged. |
+| Test taxonomy | `make quality-test-taxonomy-gate` blocks loss of API/runtime and contract/governance breadth or growth above the declared 558 uncategorized ceiling. Current AST inventory: 460 modules, 5,419 source test functions, 1091 API/runtime, 248 contract/governance, 3,117 analytics-domain, and 558 uncategorized. | Daily-interval and MWR source-admission controls cover native APIs, retained materialization and source conflicts. Observed count and declared policy are separately sourced; breadth floors and uncategorized ceiling remain unchanged. |
 | PostgreSQL behavioral contracts | Blocking in PR and main through combined coverage, which always requires successful matrix and isolated PostgreSQL job results. The native runner executes all thirteen DEFAULT_TARGETS with dynamic nonempty/no-skip/no-failure/error JUnit proof and neutralized inherited pytest selectors. Its separate shard joins the ordinary three only after exact inventory, revision/run-attempt and hash verification. Local proof: `make postgres-concurrency-contracts-local` from the repository root provisions the owned database; an explicit LOTUS_POSTGRES_PLAN_DATABASE_URL still wins. | Keep blocking. Missing or non-success proof cannot qualify coverage or downstream containers. Main repeats its own real database proof on the merged SHA; the per-revision dispatcher remains unchanged. |
 | License compliance | Blocking through `make license-compliance-gate`, which validates `contracts/license-compliance-policy.v1.json` against `quality/license_compliance_inventory.md`; current inventory covers 51 runtime, development and image packages, with 49 allowed packages, 2 review-required packages covered by active exceptions, 0 blocked packages, and 0 missing-exception findings. The image source is `requirements-image.txt`, a single governed manifest the Dockerfile and the development environment both install from, so a package the image ships cannot be absent from the inventory | Keep blocking. Regenerate with `python scripts/license_compliance_inventory.py --write` after dependency changes, and keep exceptions owner-bound and time-bound before release. |
 | Combined line coverage | Blocking at 99 percent in PR and main lanes; local full coverage runs use `make test-coverage`, split CI test jobs use `make test-coverage-shard`, and artifact aggregation uses `make coverage-combine-gate`; branch coverage is preserved separately by `make branch-coverage-baseline` evidence | Keep blocking and preserve the local coverage inventory as scorecard evidence. Do not embed raw pytest or coverage commands in workflow YAML for governed test lanes. |
@@ -159,8 +171,8 @@ checked by `test_current_inventory_prose_carries_no_stale_totals`, which normali
 compares every total the present-tense paragraph states. Historical baselines elsewhere in this
 document are intentionally outside that check.
 
-Current governed inventory: `quality/test_taxonomy_inventory.md` records 459 test modules, 5,388 source test functions, 1091 API/runtime test functions, 248 contract/governance test functions, and 558 uncategorized test functions.
-The full family summary is 459 modules, 5,388 source test functions, 1091 integration/API/runtime test functions, 248 contract/governance test functions, 781 observability/readiness test functions, 385 quality/security test functions, 3,117 analytics-domain test functions, and 558 uncategorized test functions.
+Current governed inventory: `quality/test_taxonomy_inventory.md` records 460 test modules, 5,419 source test functions, 1091 API/runtime test functions, 248 contract/governance test functions, and 558 uncategorized test functions.
+The full family summary is 460 modules, 5,419 source test functions, 1091 integration/API/runtime test functions, 248 contract/governance test functions, 781 observability/readiness test functions, 416 quality/security test functions, 3,117 analytics-domain test functions, and 558 uncategorized test functions.
 
 Composite boundary hardening adds controlled unit evidence for retained authority receipt custody,
 exact selector and revision binding, source-time arithmetic refusal, immutable publication retries,

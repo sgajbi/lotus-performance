@@ -5,6 +5,10 @@ TEST_PATH ?= tests/unit
 COVERAGE_FAIL_UNDER ?= 99
 COVERAGE_INPUTS ?= .coverage.unit .coverage.integration .coverage.e2e
 CONTAINER_IMAGE ?= lotus-performance:ci
+RUNTIME_BASE_IMAGE ?= public.ecr.aws/docker/library/python@sha256:e529028263dbe6910a2d96f7d2b8f5266385e917fd45d286ef166977c094a51e
+# Capture before any $(shell ...) can export recursive command-line values.
+# Override is required: a normal assignment loses to the command-line origin.
+override RUNTIME_BASE_IMAGE := $(value RUNTIME_BASE_IMAGE)
 CONTAINER_SECURITY_OUTPUT_DIR ?= output/container-security
 TRIVY_IMAGE ?= ghcr.io/aquasecurity/trivy@sha256:f5d0e600ecda7449e2a9b272805aef698631d3bb3f3a739a750de2c6819acdc9
 TRIVY_SEVERITY ?= HIGH,CRITICAL
@@ -171,7 +175,7 @@ runtime-retention-smoke:
 	python -m scripts.runtime_retention_cleanup --scheduled
 
 lineage-volume-recovery-smoke:
-	python scripts/validate_lineage_volume_recovery.py
+	python scripts/validate_lineage_volume_recovery.py --runtime-image $(call shellquote,$(RUNTIME_BASE_IMAGE))
 
 performance-characterization:
 	python scripts/run_performance_characterization.py --mode full
@@ -301,8 +305,13 @@ check-deps:
 security-audit:
 	python scripts/dependency_health_check.py --skip-outdated --requirement requirements.txt --requirement requirements-dev.txt
 
-docker-up:
-	APP_VERSION=$(call shellquote,$(CONTAINER_SERVICE_VERSION)) \
+.PHONY: runtime-image-bindings
+runtime-image-bindings:
+	python scripts/ci_image_bindings_gate.py --runtime-image $(call shellquote,$(RUNTIME_BASE_IMAGE))
+
+docker-up: runtime-image-bindings
+	RUNTIME_BASE_IMAGE=$(call shellquote,$(RUNTIME_BASE_IMAGE)) \
+	  APP_VERSION=$(call shellquote,$(CONTAINER_SERVICE_VERSION)) \
 	  APP_GIT_COMMIT_SHA=$(call shellquote,$(CONTAINER_GIT_SHA)) \
 	  APP_GIT_BRANCH=$(call shellquote,$(CONTAINER_GIT_BRANCH)) \
 	  APP_BUILD_TIMESTAMP=$(call shellquote,$(CONTAINER_BUILD_TIMESTAMP)) \
@@ -315,8 +324,9 @@ docker-down:
 	docker compose down
 
 
-docker-build:
+docker-build: runtime-image-bindings
 	docker build --platform linux/amd64 -f Dockerfile --target $(CONTAINER_BUILD_TARGET) -t $(CONTAINER_IMAGE) \
+		--build-arg PYTHON_BASE_IMAGE=$(call shellquote,$(RUNTIME_BASE_IMAGE)) \
 		--build-arg APP_VERSION=$(call shellquote,$(CONTAINER_SERVICE_VERSION)) \
 		--build-arg APP_GIT_COMMIT_SHA=$(call shellquote,$(CONTAINER_GIT_SHA)) \
 		--build-arg APP_GIT_BRANCH=$(call shellquote,$(CONTAINER_GIT_BRANCH)) \

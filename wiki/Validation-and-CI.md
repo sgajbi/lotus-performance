@@ -65,6 +65,18 @@ branch `main` at the exact merged SHA, while manual dispatch retains its selecte
   Git/build metadata, refreshes published Debian security packages, installs only runtime dependencies, runs as non-root user `lotus`, writes a
   CycloneDX SBOM, and writes a high/critical Trivy vulnerability report under
   `output/container-security/`
+- `make runtime-image-bindings`
+  validates either qualified exact-source Python reference against Dockerfile FROM/provenance
+  and the shared Compose build input before Docker. Hosted Python admission is pinned to
+  Platform `df4da3bda773e9d0103b3a396d58110f49489ebc` with explicit original-source opt-in;
+  PostgreSQL and Trivy retain their separately governed pins. The admitted output is carried as
+  `RUNTIME_BASE_IMAGE` into Make, Compose and explicit bounded recovery input. Fresh actual
+  config/layer acquisition, runtime-version, final-image security and recovery evidence remain
+  required by #664; a selected reference alone is not runtime certification.
+  Hosted consumers retain `output/image-acquisition/` evidence from one selected pull, verified
+  config bytes and exported RootFS layers. Config-declared Python version is distinct from an
+  execution probe; Docker image IDs can be index identities. Digest cache inventory does not
+  prove cold acquisition. This helper leaves final build/security/PG/recovery proof separate.
 - `make ci-local`
   local Docker-parity coverage run
 - `make lineage-volume-recovery-smoke`
