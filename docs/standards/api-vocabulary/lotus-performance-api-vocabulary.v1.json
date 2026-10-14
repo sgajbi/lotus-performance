@@ -8,7 +8,7 @@
       "openApiVersion": "3.1.0"
     }
   ],
-  "generatedAt": "2026-10-12T22:54:43.562987+00:00",
+  "generatedAt": "2026-10-13T13:25:14.808860+00:00",
   "attributeCatalog": [
     {
       "semanticId": "lotus.access_classification",
@@ -11380,6 +11380,20 @@
       "observedTypes": [
         "PooledSourceBundle",
         "AttributionSourceBundle"
+      ]
+    },
+    {
+      "semanticId": "lotus.source_custody_state",
+      "canonicalTerm": "source_custody_state",
+      "preferredName": "source_custody_state",
+      "description": "Canonical source custody state used by lotus-performance APIs.",
+      "example": "capturing",
+      "type": "string",
+      "locations": [
+        "body"
+      ],
+      "observedTypes": [
+        "string"
       ]
     },
     {
@@ -29288,6 +29302,14 @@
       },
       "response": {
         "fields": [
+          {
+            "name": "source_custody_state",
+            "location": "body",
+            "required": false,
+            "type": "string",
+            "semanticId": "lotus.source_custody_state",
+            "attributeRef": "#/attributeCatalog/lotus.source_custody_state"
+          },
           {
             "name": "calculation_id",
             "location": "body",

@@ -43,6 +43,7 @@ from app.services.execution_registry import ExecutionRegistry
 from app.services.execution_stage_names import EXECUTION_STAGE_LINEAGE_MATERIALIZATION
 from app.services.lineage_metadata_store import LineageMetadataStore
 from app.services.lineage_service import LineageService
+from app.services.returns_series_source import workflow as returns_series_source_workflow
 from app.workers import compute_executor_worker
 from core.errors import APIError, APIServiceUnavailableError
 from core.repro import generate_canonical_hash
@@ -313,6 +314,65 @@ def test_compute_executor_worker_process_leased_job_records_success_before_compl
         ("record_success", calculation_id, ANALYTICS_WORKFLOW_RETURNS_SERIES, response_payload),
         ("mark_complete", calculation_id, response_payload, acquisition_owner),
     ]
+
+
+@pytest.mark.parametrize("family", ["attribution", "pooled_mwr"])
+def test_compute_acquisition_preserves_composite_queued_claim_across_retry(tmp_path, monkeypatch, family):
+    from app.services.composite_attribution.application import attribution_claim
+    from app.services.composite_pooled_mwr.application import pooled_claim
+
+    claim_for = attribution_claim if family == "attribution" else pooled_claim
+    store = ComputeJobStore("sqlite:///" + (tmp_path / "attempts.db").as_posix())
+    try:
+        store.create_schema()
+        identifier = uuid4()
+        prototype = SimpleNamespace(
+            calculation_id=identifier, tenant_id="tenant-test", worker_id="queue", attempt_count=0
+        )
+        store.register_job(
+            calculation_id=identifier,
+            tenant_id=prototype.tenant_id,
+            analytics_type=claim_for(prototype)["analytics_type"],
+            request_payload={},
+            max_attempts=3,
+        )
+        claims = []
+
+        def validate_acquired_claim(job, context):
+            assert job.attempt_count == len(claims)
+            claim = claim_for(job)
+            assert store.get_job(identifier).attempt_count == claim["expected_attempt_count"] == len(claims) + 1
+            if claims:
+                called = []
+                with pytest.raises(ComputeJobLeaseOwnershipError):
+                    store.run_with_active_lease_transaction(
+                        **claims[0], operation=lambda connection: called.append(True)
+                    )
+                assert not called
+            store.run_with_active_lease_transaction(**claim, operation=lambda connection: None)
+            claims.append(claim)
+            raise APIServiceUnavailableError("controlled interruption after current-claim admission")
+
+        monkeypatch.setattr(compute_executor_worker, "_execute_compute_job", validate_acquired_claim)
+        runtime = compute_executor_worker._ComputeJobRuntime(
+            job_store=store,
+            execution_store=SimpleNamespace(),
+            result_store=SimpleNamespace(),
+            worker_id="queue",
+            lease_seconds=60,
+            batch_size=1,
+            execution_context=SimpleNamespace(),
+        )
+        for previous_count in (0, 1):
+            leased = store.lease_pending_jobs(worker_id="queue", limit=1, lease_seconds=60)
+            assert len(leased) == 1 and leased[0].attempt_count == previous_count
+            assert compute_executor_worker._process_leased_compute_job(leased[0], runtime)
+            pending = store.get_job(identifier)
+            assert pending.job_status == ComputeJobStatus.PENDING and pending.attempt_count == previous_count + 1
+        assert [claim["expected_attempt_count"] for claim in claims] == [1, 2]
+        assert claims[0]["worker_id"] != claims[1]["worker_id"]
+    finally:
+        store._engine.dispose()
 
 
 def test_compute_executor_worker_skips_expired_batch_entry_without_terminating_worker(monkeypatch):
@@ -1130,7 +1190,7 @@ def test_compute_executor_worker_dispatches_benchmark_job_and_updates_execution_
     assert execution.calculation_hash
 
 
-def test_compute_executor_worker_processes_resolved_stateful_returns_series_job(tmp_path, monkeypatch):
+def test_compute_executor_worker_processes_resolved_stateful_returns_series_job(tmp_path, monkeypatch, request):
     execution_store = ExecutionRegistry(f"sqlite:///{tmp_path / 'execution.db'}")
     execution_store.create_schema()
     monkeypatch.setattr(compute_executor_worker, "execution_registry", execution_store)
@@ -1142,6 +1202,11 @@ def test_compute_executor_worker_processes_resolved_stateful_returns_series_job(
     job_store = ComputeJobStore(f"sqlite:///{tmp_path / 'jobs.db'}")
     job_store.create_schema()
     monkeypatch.setattr(compute_executor_worker, "compute_job_store", job_store)
+
+    lineage_store = LineageMetadataStore(f"sqlite:///{tmp_path / 'lineage.db'}")
+    request.addfinalizer(lineage_store._engine.dispose)
+    lineage_store.create_schema()
+    monkeypatch.setattr(returns_series_source_workflow, "lineage_metadata_store", lineage_store)
 
     calculation_id = uuid4()
     resolved_request = ReturnsSeriesRequest.model_validate(
@@ -1186,6 +1251,11 @@ def test_compute_executor_worker_processes_resolved_stateful_returns_series_job(
     assert result is not None
     assert result.result_status == AsyncResultStatus.COMPLETE
     assert result.response_payload["provenance"]["input_mode"] == "stateful"
+
+    job = job_store.get_job_for_tenant(calculation_id, tenant_id="tenant-test")
+    assert job is not None
+    assert job.job_status == ComputeJobStatus.COMPLETE
+    assert lineage_store.get_record(calculation_id) is None
 
 
 def test_resolve_async_returns_series_job_request_preserves_risk_free_source_quality():

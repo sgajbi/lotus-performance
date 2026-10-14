@@ -51,6 +51,7 @@ from app.services.durable_store_time import (
     format_timestamp,
     normalize_filter_datetime,
 )
+from app.services.lineage_source_evidence_schema import apply_source_custody_columns
 
 logger = logging.getLogger(__name__)
 
@@ -98,6 +99,13 @@ class LineageRecordModel(Base):
     timestamp_utc: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
     artifact_names: Mapped[str] = mapped_column(Text, nullable=False, default="")
     error_message: Mapped[str | None] = mapped_column(Text, nullable=True)
+    # NULL denotes historical/unavailable custody, never an invented source root.
+    source_tenant_id: Mapped[str | None] = mapped_column(String(128), nullable=True)
+    source_attempt_id: Mapped[str | None] = mapped_column(String(128), nullable=True)
+    source_attempt_number: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    source_custody_state: Mapped[str | None] = mapped_column(String(32), nullable=True)
+    source_root_digest: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    source_manifest_digest: Mapped[str | None] = mapped_column(String(64), nullable=True)
 
 
 class LineagePayloadModel(Base):
@@ -135,6 +143,12 @@ class LineageRecord:
     timestamp_utc: str
     artifact_names: list[str]
     error_message: str | None = None
+    source_tenant_id: str | None = None
+    source_attempt_id: str | None = None
+    source_attempt_number: int | None = None
+    source_custody_state: str | None = None
+    source_root_digest: str | None = None
+    source_manifest_digest: str | None = None
 
 
 @dataclass(frozen=True)
@@ -228,7 +242,10 @@ class LineageMetadataStore:
             self._engine,
             Base.metadata,
             schema_preflights=(lambda connection: upgrade_sqlite_primary_key_nullability(connection, Base.metadata),),
-            schema_upgrades=(self._ensure_payload_lease_columns,),
+            schema_upgrades=(
+                self._ensure_payload_lease_columns,
+                lambda connection: apply_source_custody_columns(connection, Base.metadata),
+            ),
         )
 
     def verify_schema(self) -> None:
@@ -251,6 +268,7 @@ class LineageMetadataStore:
     def create_pending_record(self, calculation_id: UUID, calculation_type: str) -> None:
         now = datetime.now(timezone.utc)
         with self._session() as session:
+            _refuse_generic_source_reset(session, calculation_id)
             record = LineageRecordModel(
                 calculation_id=str(calculation_id),
                 calculation_type=calculation_type,
@@ -261,6 +279,32 @@ class LineageMetadataStore:
             )
             session.merge(record)
 
+    def reconcile_stranded_source_custody(self, *, limit: int) -> int:
+        """Terminalize missing producer evidence; never reconstruct or complete it."""
+        if limit < 1:
+            raise ValueError("Source custody reconciliation requires a positive batch limit.")
+        with self._session() as session:
+            # Historical standalone lineage stores have no source authority.
+            if not session.scalar(select(exists().where(*_stranded_source_state_filters()))):
+                return 0
+            tables = inspect(session.connection()).get_table_names()
+            if not {"analytics_execution", "analytics_compute_job"}.issubset(tables):
+                return 0
+            candidates = session.execute(
+                select(*_stranded_source_identity_columns())
+                .where(*_stranded_source_filters())
+                .order_by(LineageRecordModel.timestamp_utc, LineageRecordModel.calculation_id)
+                .limit(limit)
+            ).all()
+        reconciled = 0
+        for candidate in candidates:
+            with self._session() as session:
+                if session.get_bind().dialect.name == "sqlite":
+                    session.connection().exec_driver_sql("BEGIN IMMEDIATE")
+                if _lock_stranded_source_owners(session, candidate.calculation_id):
+                    reconciled += _terminalize_stranded_source(session, tuple(candidate))
+        return reconciled
+
     def mark_complete(
         self,
         calculation_id: UUID,
@@ -268,6 +312,10 @@ class LineageMetadataStore:
         *,
         timestamp_utc: datetime | None = None,
         worker_id: str | None = None,
+        source_root_digest: str | None = None,
+        source_manifest_digest: str | None = None,
+        source_tenant_id: str | None = None,
+        expected_attempt_count: int | None = None,
     ) -> None:
         with self._session() as session:
             record = session.execute(
@@ -284,6 +332,18 @@ class LineageMetadataStore:
 
             now = datetime.now(timezone.utc)
             payload = session.get(LineagePayloadModel, str(calculation_id))
+            from app.services.returns_series_source.custody import source_completion_values
+
+            source_values = source_completion_values(
+                session,
+                record=record,
+                payload=payload,
+                root_digest=source_root_digest,
+                manifest_digest=source_manifest_digest,
+                tenant_id=source_tenant_id,
+                worker_id=worker_id,
+                attempt_count=expected_attempt_count,
+            )
             _ensure_lineage_payload_active_lease_owner(
                 payload,
                 calculation_id=calculation_id,
@@ -303,6 +363,7 @@ class LineageMetadataStore:
                             LineagePayloadModel.worker_id == worker_id,
                             LineagePayloadModel.leased_at_utc.is_not(None),
                             _payload_lease_active_filter(_lease_transition_database_time(session)),
+                            *([LineagePayloadModel.attempt_count == expected_attempt_count] if source_values else []),
                         )
                     )
                 )
@@ -314,6 +375,7 @@ class LineageMetadataStore:
                     status=LineageStatus.COMPLETE.value,
                     artifact_names="\n".join(sorted(artifact_names)),
                     error_message=None,
+                    **source_values,
                 )
             )
             if completion.rowcount == 1:
@@ -351,10 +413,15 @@ class LineageMetadataStore:
         failed = session.execute(
             update(LineageRecordModel)
             .where(LineageRecordModel.calculation_id == str(calculation_id))
+            .where(
+                LineageRecordModel.source_custody_state.is_(None)
+                | (LineageRecordModel.source_custody_state != "complete")
+            )
             .values(
                 timestamp_utc=datetime.now(timezone.utc),
                 status=LineageStatus.FAILED.value,
                 error_message=error_message,
+                source_custody_state=case((LineageRecordModel.source_custody_state.is_not(None), "failed"), else_=None),
             )
         )
         if failed.rowcount != 1:
@@ -368,6 +435,7 @@ class LineageMetadataStore:
 
     def mark_pending(self, calculation_id: UUID) -> None:
         with self._session() as session:
+            _refuse_generic_source_reset(session, calculation_id)
             record = session.get(LineageRecordModel, str(calculation_id))
             if record is None:
                 raise KeyError(f"Lineage record not found: {calculation_id}")
@@ -379,6 +447,45 @@ class LineageMetadataStore:
                 payload.worker_id = None
                 payload.leased_at_utc = None
                 payload.lease_expires_at_utc = None
+
+    def retry_source_materialization(
+        self, calculation_id: UUID, *, worker_id: str | None, expected_attempt_count: int, max_attempts: int
+    ) -> None:
+        """Custody failure is independent of the already published arithmetic result."""
+        from app.services.returns_series_source.custody import require_source_retry_record
+
+        with self._session() as session:
+            record = session.execute(
+                select(LineageRecordModel)
+                .where(LineageRecordModel.calculation_id == str(calculation_id))
+                .with_for_update()
+            ).scalar_one_or_none()
+            require_source_retry_record(session, record)
+            released = session.execute(
+                update(LineagePayloadModel)
+                .where(
+                    LineagePayloadModel.calculation_id == str(calculation_id),
+                    LineagePayloadModel.worker_id == worker_id,
+                    LineagePayloadModel.worker_id.is_not(None),
+                    LineagePayloadModel.attempt_count == expected_attempt_count,
+                    LineagePayloadModel.leased_at_utc.is_not(None),
+                    _payload_lease_active_filter(_lease_transition_database_time(session)),
+                )
+                .values(worker_id=None, leased_at_utc=None, lease_expires_at_utc=None)
+            )
+            if released.rowcount != 1:
+                raise LineagePayloadLeaseOwnershipError("Source retry requires the exact active lineage attempt.")
+            if expected_attempt_count >= max_attempts:
+                session.execute(
+                    update(LineageRecordModel)
+                    .where(LineageRecordModel.calculation_id == str(calculation_id))
+                    .values(
+                        status=LineageStatus.FAILED.value,
+                        source_custody_state="failed",
+                        error_message="Source materialization failed after exhausting retry budget.",
+                        timestamp_utc=datetime.now(timezone.utc),
+                    )
+                )
 
     def get_record(self, calculation_id: UUID) -> LineageRecord | None:
         with self._session() as session:
@@ -393,6 +500,12 @@ class LineageMetadataStore:
                 timestamp_utc=format_timestamp(row.timestamp_utc) or "",
                 artifact_names=[name for name in row.artifact_names.splitlines() if name],
                 error_message=row.error_message,
+                source_tenant_id=row.source_tenant_id,
+                source_attempt_id=row.source_attempt_id,
+                source_attempt_number=row.source_attempt_number,
+                source_custody_state=row.source_custody_state,
+                source_root_digest=row.source_root_digest,
+                source_manifest_digest=row.source_manifest_digest,
             )
 
     def clear_all_records(self) -> None:
@@ -413,6 +526,45 @@ class LineageMetadataStore:
                 .order_by(LineageRecordModel.timestamp_utc.asc(), LineageRecordModel.calculation_id.asc())
             )
             return [row[0] for row in session.execute(statement).all()]
+
+    def source_retention_protection(
+        self, *, execution_ids: set[str], lineage_ids: set[str], compute_ids: set[str], result_ids: set[str]
+    ) -> set[str]:
+        """Protect the whole authority group until each extant member is eligible."""
+        from app.services.async_result_store import AsyncResultModel
+        from app.services.compute_job_store import ComputeJobModel
+        from app.services.execution_registry import AnalyticsExecutionModel
+
+        with self._session() as session:
+            source_ids = set(
+                session.execute(
+                    select(LineageRecordModel.calculation_id).where(
+                        LineageRecordModel.source_custody_state.is_not(None)
+                    )
+                ).scalars()
+            )
+            if not source_ids:
+                return set()
+            protected = source_ids - lineage_ids
+            for model, eligible in (
+                (AnalyticsExecutionModel, execution_ids),
+                (ComputeJobModel, compute_ids),
+                (AsyncResultModel, result_ids),
+            ):
+                present = set(
+                    session.execute(select(model.calculation_id).where(model.calculation_id.in_(source_ids))).scalars()
+                )
+                protected.update(present - eligible)
+            protected.update(
+                session.execute(
+                    select(LineagePayloadModel.calculation_id).where(
+                        LineagePayloadModel.calculation_id.in_(source_ids),
+                        LineagePayloadModel.worker_id.is_not(None),
+                        _payload_lease_active_filter(_lease_transition_database_time(session)),
+                    )
+                ).scalars()
+            )
+            return protected
 
     def delete_calculation_ids(self, calculation_ids: list[str]) -> int:
         if not calculation_ids:
@@ -435,6 +587,7 @@ class LineageMetadataStore:
     ) -> None:
         now = datetime.now(timezone.utc)
         with self._session() as session:
+            _refuse_generic_source_reset(session, calculation_id)
             record = LineageRecordModel(
                 calculation_id=str(calculation_id),
                 calculation_type=calculation_type,
@@ -1319,6 +1472,14 @@ class LineageMetadataStore:
         )
 
 
+def _refuse_generic_source_reset(session: Session, calculation_id: UUID) -> None:
+    record = session.execute(
+        select(LineageRecordModel).where(LineageRecordModel.calculation_id == str(calculation_id)).with_for_update()
+    ).scalar_one_or_none()
+    if record is not None and record.source_custody_state is not None:
+        raise LineagePayloadLeaseOwnershipError("Retained source custody requires its conditional producer.")
+
+
 _store_cache: dict[str, LineageMetadataStore] = {}
 
 
@@ -1390,6 +1551,101 @@ def _ensure_lineage_payload_active_lease_owner(
         raise LineagePayloadLeaseOwnershipError(
             f"Cannot {transition} lineage payload after lease expiry: {calculation_id}"
         )
+
+
+def _stranded_source_identity_columns():
+    return (
+        LineageRecordModel.calculation_id,
+        LineageRecordModel.source_tenant_id,
+        LineageRecordModel.source_attempt_id,
+        LineageRecordModel.source_attempt_number,
+        LineageRecordModel.source_root_digest,
+    )
+
+
+def _stranded_source_state_filters():
+    return (
+        LineageRecordModel.calculation_type == "ReturnsSeries",
+        LineageRecordModel.status == LineageStatus.PENDING.value,
+        LineageRecordModel.source_custody_state == "frozen",
+        LineageRecordModel.source_tenant_id.is_not(None),
+        LineageRecordModel.source_attempt_id.is_not(None),
+        LineageRecordModel.source_attempt_number.is_not(None),
+        LineageRecordModel.source_root_digest.is_not(None),
+        LineageRecordModel.source_manifest_digest.is_(None),
+        ~exists().where(LineagePayloadModel.calculation_id == LineageRecordModel.calculation_id),
+    )
+
+
+def _stranded_source_filters():
+    from app.services.compute_job_store import COMPUTE_TERMINAL_JOB_STATUSES, ComputeJobModel
+    from app.services.execution_registry import AnalyticsExecutionModel, ExecutionStatus
+
+    execution = exists().where(
+        AnalyticsExecutionModel.calculation_id == LineageRecordModel.calculation_id,
+        AnalyticsExecutionModel.tenant_id == LineageRecordModel.source_tenant_id,
+        AnalyticsExecutionModel.analytics_type == "ReturnsSeries",
+        AnalyticsExecutionModel.status.in_((ExecutionStatus.COMPLETE.value, ExecutionStatus.FAILED.value)),
+    )
+    compute_exists = exists().where(ComputeJobModel.calculation_id == LineageRecordModel.calculation_id)
+    terminal_compute = exists().where(
+        ComputeJobModel.calculation_id == LineageRecordModel.calculation_id,
+        ComputeJobModel.tenant_id == LineageRecordModel.source_tenant_id,
+        ComputeJobModel.analytics_type == "ReturnsSeries",
+        ComputeJobModel.job_status.in_(COMPUTE_TERMINAL_JOB_STATUSES),
+    )
+    return (*_stranded_source_state_filters(), execution, ~compute_exists | terminal_compute)
+
+
+def _lock_stranded_source_owners(session: Session, calculation_id: str) -> bool:
+    from app.services.compute_job_store import ComputeJobModel
+    from app.services.execution_registry import AnalyticsExecutionModel
+
+    execution = session.scalar(
+        select(AnalyticsExecutionModel.calculation_id)
+        .where(AnalyticsExecutionModel.calculation_id == calculation_id)
+        .with_for_update(skip_locked=True)
+    )
+    if execution is None:
+        return False
+    # A locked compute row must never be mistaken for an absent optional job.
+    compute_exists = session.scalar(select(exists().where(ComputeJobModel.calculation_id == calculation_id)))
+    if (
+        compute_exists
+        and session.scalar(
+            select(ComputeJobModel.calculation_id)
+            .where(ComputeJobModel.calculation_id == calculation_id)
+            .with_for_update(skip_locked=True)
+        )
+        is None
+    ):
+        return False
+    return (
+        session.scalar(
+            select(LineageRecordModel.calculation_id)
+            .where(LineageRecordModel.calculation_id == calculation_id)
+            .with_for_update(skip_locked=True)
+        )
+        is not None
+    )
+
+
+def _terminalize_stranded_source(session: Session, identity: tuple) -> int:
+    identity_filters = [
+        column == value for column, value in zip(_stranded_source_identity_columns(), identity, strict=True)
+    ]
+    result = session.execute(
+        update(LineageRecordModel)
+        .where(*identity_filters, *_stranded_source_filters())
+        .values(
+            status=LineageStatus.FAILED.value,
+            source_custody_state="failed",
+            timestamp_utc=datetime.now(timezone.utc),
+            error_message="Source materialization was not queued before arithmetic became terminal.",
+        )
+        .execution_options(synchronize_session=False)
+    )
+    return result.rowcount
 
 
 def _pending_lineage_payload_filter():
@@ -1545,10 +1801,12 @@ def _load_payload_details(details_json: str, *, calculation_id: str) -> dict[str
 
 def _mark_invalid_payload_details(session: Session, calculation_id: str, *, now: datetime) -> None:
     record = session.get(LineageRecordModel, calculation_id)
-    if record is not None:
+    if record is not None and record.source_custody_state != "complete":
         record.status = LineageStatus.FAILED.value
         record.timestamp_utc = now
         record.error_message = INVALID_LINEAGE_PAYLOAD_DETAILS_MESSAGE
+        if record.source_custody_state is not None:
+            record.source_custody_state = "failed"
     payload = session.get(LineagePayloadModel, calculation_id)
     if payload is not None:
         payload.worker_id = None

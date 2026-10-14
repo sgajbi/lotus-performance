@@ -4,6 +4,7 @@ from typing import Any
 from app.observability import propagation_headers
 from app.services.core_tenant_authority import TenantAuthority, require_tenant_authority
 from app.services.http_resilience import get_with_retry, post_with_retry
+from app.services.returns_series_source.capture import active_source_capture
 
 PERFORMANCE_COMPONENT_ECONOMICS_PAGE_SIZE = 1000
 
@@ -40,6 +41,7 @@ class CoreIntegrationService:
         return {**propagation_headers(), **authority.headers()}
 
     async def _post_json(self, *, path: str, payload: dict[str, Any]) -> tuple[int, dict[str, Any]]:
+        capture = active_source_capture.get() if path.endswith("/analytics/portfolio-timeseries") else None
         return await post_with_retry(
             url=self._url(path),
             timeout_seconds=self._timeout,
@@ -47,6 +49,7 @@ class CoreIntegrationService:
             headers=self._core_headers(operation=f"POST {path}"),
             max_retries=self._max_retries,
             backoff_seconds=self._retry_backoff_seconds,
+            **({"response_decoder": lambda response: capture.decode(payload, response)} if capture is not None else {}),
         )
 
     async def _get_json(self, *, path: str, query_params: dict[str, Any]) -> tuple[int, dict[str, Any]]:

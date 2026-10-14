@@ -157,6 +157,26 @@ Current repository posture:
     evidence for underperformance and missing-benchmark readiness archetypes; it must preserve Core
     benchmark-assignment, Gateway, Workbench, data-mesh, client-publication, deployment, and
     supported-feature blockers until those systems provide their own evidence.
+    New stateful portfolio NET/GROSS source custody is owned by the internal
+    `app/services/returns_series_source/` package and the existing execution/lineage stores.
+    Preserve the generic compute SELECT/INSERT callback guard: source-root updates use narrow
+    store-owned transactions with exact attempt/tenant/lease fencing. Source materialization failure
+    is independent of arithmetic completion. Historical null custody stays unavailable, and optional
+    benchmark/risk-free raw custody is not supported by this slice. Follow
+    `docs/runbooks/returns-series-operator-triage.md` for read-only source-off verification and
+    `docs/standards/migration-contract.md` for the bounded all-role cutover. No runtime split is added.
+    Share portfolio pagination token precedence with the pure source-pagination leaf; derive an
+    observation count only when absent and retain malformed/traversal refusals and exact raw bytes.
+    Treat blank response tokens as absent before nested fallback; requested tokens stay strict.
+    A completed stateful async publication retry reads the exact retained response before calculator
+    entry only under current execution/compute/frozen-custody locks and statement-time lease fences.
+    Do not widen the ordinary inline/terminal execution guard or recalculate a completed envelope.
+    Bind that envelope to the immutable queued response or selected materialized response digest;
+    calculation/portfolio identifiers and a frozen input root alone are insufficient response proof.
+    Lineage inventory/download enforces the code-owned operator-only artifact floor even when the
+    general privileged-read flag is off; tenant admission and enabled middleware policy remain intact.
+    Apply each metadata field floor and preserve stricter manifest restrictions on direct downloads,
+    including customer-named artifacts; inventory omission alone is not download authorization.
 16. Active `lotus-core` route-level dependency coverage is governed by
     `contracts/domain-data-products/lotus-performance-upstream-dependency-inventory.v1.json` and
     validated by `make domain-product-validate`. Benchmark composition-window, benchmark
@@ -523,10 +543,16 @@ Important validation expectations:
     Python admission uses qualified Platform `df4da3bda773e9d0103b3a396d58110f49489ebc` with
     explicit original-source opt-in. The current ECR default and identical original supplier
     reference select the same immutable linux/amd64 child. Original supplier and distribution
-    labels remain separate; there is no mutable or alternate-content fallback. PostgreSQL and
-    Trivy retain their separately governed `386b40e13e76e60e761c6c4068fbe7a11256ca29` policy pin.
+    labels remain separate; there is no mutable or alternate-content fallback. PG16 uses qualified
+    Platform `f12dade6f294b8df5e236f4f49c117b81bed4cd6` with explicit original selection;
+    PG17 and Trivy retain their `386b40e13e76e60e761c6c4068fbe7a11256ca29` policy pin.
     Hosted build/SBOM/vulnerability proof is still required.
-    PR and characterization PG16 services consume its exact image output before initialization;
+    PR, Main and characterization PG16 services consume their exact admitted original image output
+    before initialization. On that consuming runner, the same qualified f12 checkout verifies the
+    existing workflow service ID, immutable image, actual exported config and ordered RootFS before
+    install/workloads. Mandatory unique proof artifacts retain checked-helper-produced hashes;
+    raw inspect/export bytes are removed. This is no cold-cache/compressed-transfer/runtime probe
+    or capacity claim. Existing readiness and complete non-skipped PostgreSQL/workload gates remain;
     recovery/build jobs validate selected Dockerfile/Compose bindings before Make, and the scanner
     receives its admitted GHCR image output. Native build/scanner and recovery database select
     linux/amd64. Compose PG17 is a newly pinned selection, not claimed equivalent to the unknown
@@ -929,6 +955,28 @@ Important validation expectations:
 ### Repository practice for current quality reports
 
 When editing current quality reports, run `python -m pytest tests/unit/docs/test_public_docs_contract.py -q --no-cov` from the repository root using the governed Performance virtual-environment interpreter.
+
+### Repository practice for isolated returns-series worker tests
+
+The resolved-stateful returns-series worker fixture owns a schema-created `LineageMetadataStore`
+at `returns_series_source.workflow.lineage_metadata_store`, alongside its execution, result and
+job stores. The source-publication lookup uses that module binding. Dispose the fixture-owned
+engine during teardown; an ambient runtime database is not part of this isolated test's evidence.
+
+### Repository practice for CI workflow preflight
+
+After changing CI workflow bindings or proof steps, run the complete existing three-module family
+from the repository root using the governed Performance virtual-environment interpreter, in
+PowerShell or Bash:
+
+```text
+python -m pytest tests/unit/scripts/test_ci_coverage_evidence.py tests/unit/scripts/test_ci_image_bindings_gate.py tests/unit/scripts/test_ci_quality_gate_wiring.py -q
+```
+
+PR/Main parity requires the exact distinct `pr-pg16-service-content` and
+`main-pg16-service-content` artifact names before comparing all remaining execution/proof fields.
+This exception does not permit arbitrary name normalization. These offline controls do not establish
+hosted workload, registry, PostgreSQL or live acceptance.
 
 ## Standards And RFCs That Govern This Repository
 

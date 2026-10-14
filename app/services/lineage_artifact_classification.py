@@ -16,7 +16,7 @@ def lineage_artifact_metadata(*, artifact_name: str) -> LineageArtifactMetadata:
             retention_category="lineage_support_pack",
             redaction_required_before_external_sharing=False,
         )
-    if artifact_name in _RAW_PAYLOAD_ARTIFACTS:
+    if artifact_name in _RAW_PAYLOAD_ARTIFACTS or artifact_name.startswith("source-"):
         return LineageArtifactMetadata(
             access_classification="operator_only",
             intended_audience="operations",

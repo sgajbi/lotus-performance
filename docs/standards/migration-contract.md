@@ -31,6 +31,20 @@
 
 ## Deterministic Checks
 
+The portfolio ReturnsSeries source-custody extension adds six nullable columns to `lineage_records`
+through `app/services/lineage_source_evidence_schema.py` and the existing explicit schema owner.
+Existing pending, leased, retryable, failed, and complete lineage rows retain their status, payload,
+lease, and attempt state. All six source fields remain null for historical rows; a hash or old
+request is never promoted into invented raw-source custody. Ordinary startup remains verify-only.
+
+Deploy the schema and matching API, compute, lineage, and retention binaries as one bounded cutover.
+Drain/pause old workers before enabling new source-producing executions. Mixed old/new lineage or
+retention workers are unsupported: old workers do not enforce the new independent custody state.
+Rollback to old writers requires draining new custody work first; preserve the nullable columns and
+retained bytes and use forward repair for failed evidence. Removing columns or reconstructing
+historical source evidence is not an automated downgrade. SQLite fixture tests establish additive
+preservation and restart behavior; PostgreSQL locking and deployed cutover require their own proof.
+
 Run commands from the repository root with `LINEAGE_METADATA_DATABASE_URL` set to the same
 database for the owner and every workload. Direct local startup requires successful
 `make migration-apply` before `make run`. Compose runs `performance-schema-apply` from the same

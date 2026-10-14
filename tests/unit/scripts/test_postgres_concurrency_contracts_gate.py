@@ -48,14 +48,21 @@ def test_default_invocation_executes_fee_pooled_and_result_authority_targets(mon
         "tests/benchmarks/test_postgres_composite_authority_extended.py",
         "tests/benchmarks/test_postgres_composite_attribution.py",
         "tests/benchmarks/test_postgres_composite_arithmetic_capture.py",
+        "tests/benchmarks/test_postgres_returns_series_source_custody.py",
     } <= set(selected)
-    assert len(selected) == len(set(selected)) == 13
+    assert len(selected) == len(set(selected)) == 14
 
 
 @pytest.mark.parametrize("outcome", ["passed", "absent", "empty", "failed", "skipped", "nonzero"])
-def test_new_precision_target_must_supply_its_own_completed_proof(tmp_path, monkeypatch, outcome):
-    """Twelve green legacy targets cannot compensate for missing capsule proof."""
-    precision_target = "tests/benchmarks/test_postgres_composite_arithmetic_capture.py"
+@pytest.mark.parametrize(
+    "precision_target",
+    [
+        "tests/benchmarks/test_postgres_composite_arithmetic_capture.py",
+        "tests/benchmarks/test_postgres_returns_series_source_custody.py",
+    ],
+)
+def test_new_precision_target_must_supply_its_own_completed_proof(tmp_path, monkeypatch, outcome, precision_target):
+    """Green legacy targets cannot compensate for missing custody proof."""
     selected = []
 
     def child(command, **kwargs):

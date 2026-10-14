@@ -10,6 +10,7 @@ from uuid import UUID, uuid4
 import pytest
 
 from app.services.execution_registry import ExecutionRegistry
+from app.services.returns_series_source.pagination import next_page_token
 from app.services.stateful_input_service import (
     STATEFUL_UPSTREAM_PAGE_LIMIT_EXCEEDED_REASON,
     STATEFUL_UPSTREAM_REPEATED_PAGE_CURSOR_REASON,
@@ -2824,3 +2825,10 @@ def test_stateful_input_service_helper_contracts_cover_page_tokens_failures_and_
     assert snapshot_batch[1]["upstream_endpoint"] == "position_timeseries"
     assert snapshot_batch[1]["source_identifier"] == "PORT_1"
     assert snapshot_batch[1]["paging_metadata"] == position_request_payload
+
+
+def test_shared_pagination_preserves_existing_token_precedence():
+    assert next_page_token({"next_page_token": "top", "page": {"next_page_token": "nested"}}) == "top"
+    assert next_page_token({"next_page_token": "", "page": {"next_page_token": "nested"}}) == "nested"
+    assert next_page_token({"page": {"next_page_token": None}}) is None
+    assert next_page_token({"observations": []}) is None

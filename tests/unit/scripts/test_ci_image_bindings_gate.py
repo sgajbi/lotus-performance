@@ -244,6 +244,191 @@ def test_admission_uses_qualified_policy_before_emitting_output():
     assert job["outputs"]["image"] == "${{ steps.admission.outputs.image }}"
 
 
+PG16_POLICY_REVISION = "f12dade6f294b8df5e236f4f49c117b81bed4cd6"
+PG16_DIGEST = "sha256:ca0bd484cb98bf4b24eb1010e73fb3fcbd6714d240fbc1a10eea5b7dbecb641d"
+PG16_WORKFLOWS = [
+    ("pr-merge-gate.yml", "postgres-contracts", "pr-pg16-service-content"),
+    ("main-releasability.yml", "postgres-contracts", "main-pg16-service-content"),
+    ("performance-characterization.yml", "characterization", "characterization-pg16-service-content"),
+]
+
+
+def _pg16_policy_checkout(steps):
+    matches = [step for step in steps if step.get("with", {}).get("repository") == "sgajbi/lotus-platform"]
+    assert len(matches) == 1
+    checkout = matches[0]
+    assert checkout["uses"] == "actions/checkout@v6"
+    assert checkout["with"] == {
+        "repository": "sgajbi/lotus-platform",
+        "ref": PG16_POLICY_REVISION,
+        "persist-credentials": False,
+        "path": ".image-policy",
+    }
+    return steps.index(checkout)
+
+
+def _assert_pg16_service_proof(jobs, consumer, artifact):
+    import shlex
+
+    admission = jobs["postgres16-admission"]
+    assert "services" not in admission
+    _pg16_policy_checkout(admission["steps"])
+    selected = next(step for step in admission["steps"] if step.get("id") == "admission")
+    assert selected["env"] == {
+        "SOURCE_IMAGE": "docker.io/library/postgres@" + PG16_DIGEST,
+        "DISTRIBUTION_IMAGE": "public.ecr.aws/docker/library/postgres@" + PG16_DIGEST,
+    }
+    assert shlex.split(selected["run"]) == [
+        "python",
+        ".image-policy/automation/validate_technology_governance_policy.py",
+        "--source-image",
+        "$SOURCE_IMAGE",
+        "--distribution-image",
+        "$DISTRIBUTION_IMAGE",
+        "--platform",
+        "linux/amd64",
+        "--verify-distribution",
+        "--github-output",
+        "$GITHUB_OUTPUT",
+        "--acquisition-source",
+        "original",
+        "--acquisition-evidence",
+        "$RUNNER_TEMP/image-acquisition-evidence",
+    ]
+    assert admission["outputs"]["image"] == "${{ steps.admission.outputs.image }}"
+    job = jobs[consumer]
+    assert "postgres16-admission" in job["needs"]
+    assert not job.get("continue-on-error") and "if" not in job
+    service = job["services"]["postgres"]
+    assert service["image"] == "${{ needs.postgres16-admission.outputs.image }}"
+    assert service["env"] == {
+        "POSTGRES_DB": "lotus_performance",
+        "POSTGRES_PASSWORD": "lotus",
+        "POSTGRES_USER": "lotus",
+    }
+    assert service["ports"] == ["5432:5432"]
+    assert shlex.split(service["options"]) == [
+        "--platform",
+        "linux/amd64",
+        "--health-cmd",
+        "pg_isready -U lotus -d lotus_performance",
+        "--health-interval",
+        "10s",
+        "--health-timeout",
+        "5s",
+        "--health-retries",
+        "10",
+    ]
+    steps = job["steps"]
+    checkout_index = _pg16_policy_checkout(steps)
+    setup_index = next(i for i, step in enumerate(steps) if step.get("uses") == "actions/setup-python@v6")
+    proof = next(step for step in steps if step.get("name") == "Verify existing PG16 service content")
+    proof_index = steps.index(proof)
+    assert max(checkout_index, setup_index) < proof_index
+    assert not proof.get("continue-on-error") and "if" not in proof
+    assert proof["env"] == {
+        "SERVICE_ID": "${{ job.services.postgres.id }}",
+        "SELECTED_IMAGE": "${{ needs.postgres16-admission.outputs.image }}",
+        "POLICY_COMMIT": PG16_POLICY_REVISION,
+    }
+    assert shlex.split(proof["run"]) == [
+        "python",
+        ".image-policy/automation/verify_acquired_service_image.py",
+        "--container-id",
+        "$SERVICE_ID",
+        "--expected-image",
+        "$SELECTED_IMAGE",
+        "--expected-policy-commit",
+        "$POLICY_COMMIT",
+        "--output",
+        "$RUNNER_TEMP/pg16-service-content.json",
+    ]
+    upload = next(step for step in steps if step.get("with", {}).get("name") == artifact)
+    assert steps.index(upload) == proof_index + 1 and upload["uses"] == "actions/upload-artifact@v7"
+    assert upload["with"]["path"] == "${{ runner.temp }}/pg16-service-content.json"
+    assert upload["with"]["if-no-files-found"] == "error"
+    assert not upload.get("continue-on-error") and "if" not in upload
+    workloads = (
+        ["make postgres-concurrency-contracts-gate"]
+        if consumer == "postgres-contracts"
+        else [
+            "make performance-characterization",
+            "python scripts/run_performance_characterization.py --mode postgres --require-non-skipped",
+        ]
+    )
+    for command in ["make install-ci", *workloads]:
+        step = next(step for step in steps if step.get("run") == command)
+        assert steps.index(upload) < steps.index(step)
+        assert not step.get("continue-on-error") and "if" not in step
+
+
+@pytest.mark.parametrize("workflow,consumer,artifact", PG16_WORKFLOWS)
+def test_pg16_original_selection_and_same_runner_proof_are_blocking(workflow, consumer, artifact):
+    jobs = yaml.safe_load((ROOT / ".github/workflows" / workflow).read_text())["jobs"]
+    _assert_pg16_service_proof(jobs, consumer, artifact)
+
+
+@pytest.mark.parametrize("workflow,consumer,artifact", PG16_WORKFLOWS)
+@pytest.mark.parametrize(
+    "damage",
+    [
+        "policy",
+        "selection",
+        "dependency",
+        "service-image",
+        "service-id",
+        "helper-commit",
+        "late-proof",
+        "soft-proof",
+        "optional-artifact",
+        "health",
+        "workload",
+        "fallback",
+    ],
+)
+def test_pg16_wiring_guard_refuses_mutated_effective_contract(workflow, consumer, artifact, damage):
+    jobs = yaml.safe_load((ROOT / ".github/workflows" / workflow).read_text())["jobs"]
+    admission = jobs["postgres16-admission"]
+    job = jobs[consumer]
+    steps = job["steps"]
+    proof = next(step for step in steps if step.get("name") == "Verify existing PG16 service content")
+    upload = next(step for step in steps if step.get("with", {}).get("name") == artifact)
+    if damage == "policy":
+        admission["steps"][0]["with"]["ref"] = "df4da3bda773e9d0103b3a396d58110f49489ebc"
+    elif damage == "selection":
+        selected = next(step for step in admission["steps"] if step.get("id") == "admission")
+        selected["run"] = selected["run"].replace("--acquisition-source original", "")
+    elif damage == "dependency":
+        job["needs"].remove("postgres16-admission")
+    elif damage == "service-image":
+        job["services"]["postgres"]["image"] = "postgres:16"
+    elif damage == "service-id":
+        proof["env"]["SERVICE_ID"] = "${{ job.services.unrelated.id }}"
+    elif damage == "helper-commit":
+        proof["env"]["POLICY_COMMIT"] = "main"
+    elif damage == "late-proof":
+        steps.remove(proof)
+        steps.append(proof)
+    elif damage == "soft-proof":
+        proof["continue-on-error"] = True
+    elif damage == "optional-artifact":
+        upload["with"]["if-no-files-found"] = "ignore"
+    elif damage == "health":
+        job["services"]["postgres"]["options"] = "--platform linux/amd64"
+    elif damage == "workload":
+        command = (
+            "make postgres-concurrency-contracts-gate"
+            if consumer == "postgres-contracts"
+            else ("python scripts/run_performance_characterization.py --mode postgres --require-non-skipped")
+        )
+        next(step for step in steps if step.get("run") == command)["continue-on-error"] = True
+    else:
+        selected = next(step for step in admission["steps"] if step.get("id") == "admission")
+        selected["run"] += " --allow-original-source-fallback"
+    with pytest.raises((AssertionError, StopIteration)):
+        _assert_pg16_service_proof(jobs, consumer, artifact)
+
+
 @pytest.mark.parametrize("runtime", [RUNTIME, gate.ORIGINAL_RUNTIME_IMAGE])
 def test_resolved_recovery_binds_same_selection_and_discards_hostile_overrides(
     fixed_files, mocker, monkeypatch, runtime

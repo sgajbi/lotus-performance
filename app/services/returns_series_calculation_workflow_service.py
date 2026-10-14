@@ -254,6 +254,7 @@ async def _calculate_promoted_stateful_returns_series(
             freshness_portfolio_df_override=resolved.freshness_portfolio_df,
             freshness_benchmark_df_override=resolved.freshness_benchmark_df,
             freshness_risk_free_df_override=resolved.freshness_risk_free_df,
+            source_custody_claim_override=resolved.source_custody_claim,
         )
     except Exception as exc:
         message = _execution_failure_message(exc)

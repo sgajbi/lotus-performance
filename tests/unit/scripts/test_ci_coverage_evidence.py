@@ -122,7 +122,7 @@ def test_pg_and_matrix_are_independent_jobs_preserving_baseline_and_authority_pr
         "integration",
         "e2e",
     }
-    assert len(DEFAULT_TARGETS) == 13 and len(set(DEFAULT_TARGETS)) == 13
+    assert len(DEFAULT_TARGETS) == 14 and len(set(DEFAULT_TARGETS)) == 14
     # Immutable baseline target-manifest digest from main e67ef6db. Works in the
     # shallow CI checkout, without creating a second editable selection list.
     assert sha256(json.dumps(DEFAULT_TARGETS[:9]).encode()).hexdigest() == (
@@ -133,6 +133,7 @@ def test_pg_and_matrix_are_independent_jobs_preserving_baseline_and_authority_pr
         "tests/benchmarks/test_postgres_composite_authority_extended.py",
         "tests/benchmarks/test_postgres_composite_attribution.py",
         "tests/benchmarks/test_postgres_composite_arithmetic_capture.py",
+        "tests/benchmarks/test_postgres_returns_series_source_custody.py",
     )
 
 
@@ -145,12 +146,35 @@ def _execution_contract(job: dict) -> dict:
     return contract
 
 
+def _pg16_execution_contract(job: dict, artifact_name: str) -> dict:
+    """Validate the one lane-specific name before comparing every other field."""
+    contract = _execution_contract(job)
+    steps = contract["steps"]
+    uploads = [
+        step for step in steps if step.get("with", {}).get("path") == "${{ runner.temp }}/pg16-service-content.json"
+    ]
+    assert len(uploads) == 1
+    upload = uploads[0]
+    assert upload["uses"] == "actions/upload-artifact@v7"
+    assert upload["with"]["name"] == artifact_name
+    assert sum(step.get("with", {}).get("name") == artifact_name for step in steps) == 1
+    assert upload["with"]["if-no-files-found"] == "error"
+    assert "if" not in upload and "continue-on-error" not in upload
+    upload["with"].pop("name")
+    return contract
+
+
 def _assert_coverage_parity(pr: dict, main: dict) -> None:
     for key in ("COVERAGE_FAIL_UNDER", "CI_EVIDENCE_SHA", "CI_EVIDENCE_RUN"):
         assert main["env"][key] == pr["env"][key]
     for name in ("test-suites", "postgres-contracts"):
         assert name in main["jobs"]
-        assert _execution_contract(main["jobs"][name]) == _execution_contract(pr["jobs"][name])
+        if name == "postgres-contracts":
+            assert _pg16_execution_contract(
+                main["jobs"][name], "main-pg16-service-content"
+            ) == _pg16_execution_contract(pr["jobs"][name], "pr-pg16-service-content")
+        else:
+            assert _execution_contract(main["jobs"][name]) == _execution_contract(pr["jobs"][name])
     admission = deepcopy(main["jobs"]["postgres16-admission"])
     assert admission.pop("needs") == ["exact-revision-assertion"]
     assert admission == pr["jobs"]["postgres16-admission"]
@@ -168,6 +192,77 @@ def test_main_and_pr_execute_identical_coverage_cohorts_and_provenance() -> None
     pr = yaml.safe_load((ROOT / ".github/workflows/pr-merge-gate.yml").read_text())
     main = yaml.safe_load((ROOT / ".github/workflows/main-releasability.yml").read_text())
     _assert_coverage_parity(pr, main)
+
+
+@pytest.mark.parametrize("lane", ["pr", "main"])
+@pytest.mark.parametrize(
+    "fault",
+    [
+        "missing",
+        "duplicate",
+        "misnamed",
+        "collision",
+        "path",
+        "optional",
+        "missing-files",
+        "action",
+        "retention",
+        "command",
+        "policy",
+        "service",
+        "workload",
+    ],
+)
+def test_coverage_parity_refuses_pg16_artifact_and_execution_regressions(lane: str, fault: str) -> None:
+    pr = yaml.safe_load((ROOT / ".github/workflows/pr-merge-gate.yml").read_text())
+    main = yaml.safe_load((ROOT / ".github/workflows/main-releasability.yml").read_text())
+    steps = (pr if lane == "pr" else main)["jobs"]["postgres-contracts"]["steps"]
+    upload = next(step for step in steps if step.get("with", {}).get("name") == f"{lane}-pg16-service-content")
+    proof = next(step for step in steps if "verify_acquired_service_image.py" in step.get("run", ""))
+    if fault == "missing":
+        steps.remove(upload)
+    elif fault == "duplicate":
+        steps.append(deepcopy(upload))
+    elif fault == "misnamed":
+        upload["with"]["name"] = "wrong-pg16-service-content"
+    elif fault == "collision":
+        coverage = next(step for step in steps if step.get("with", {}).get("name") == "coverage-data-postgres")
+        coverage["with"]["name"] = upload["with"]["name"]
+    elif fault == "path":
+        upload["with"]["path"] = "wrong.json"
+    elif fault == "optional":
+        upload["continue-on-error"] = True
+    elif fault == "missing-files":
+        upload["with"]["if-no-files-found"] = "warn"
+    elif fault == "action":
+        upload["uses"] = "actions/upload-artifact@v6"
+    elif fault == "retention":
+        upload["with"]["retention-days"] = 1
+    elif fault == "command":
+        proof["run"] += " --allow-unverified"
+    elif fault == "policy":
+        proof["env"]["POLICY_COMMIT"] = "a" * 40
+    elif fault == "service":
+        proof["env"]["SERVICE_ID"] = "unowned-container"
+    else:
+        workload = next(step for step in steps if "make postgres-concurrency-contracts-gate" in step.get("run", ""))
+        workload["run"] = "echo skipped"
+    with pytest.raises(AssertionError):
+        _assert_coverage_parity(pr, main)
+
+
+@pytest.mark.parametrize("name", ["wrong-pg16-service-content", "pr-pg16-service-content", "main-pg16-service-content"])
+def test_coverage_parity_refuses_matching_bad_pg16_artifact_names(name: str) -> None:
+    pr = yaml.safe_load((ROOT / ".github/workflows/pr-merge-gate.yml").read_text())
+    main = yaml.safe_load((ROOT / ".github/workflows/main-releasability.yml").read_text())
+    for workflow in (pr, main):
+        steps = workflow["jobs"]["postgres-contracts"]["steps"]
+        upload = next(
+            step for step in steps if step.get("with", {}).get("path") == "${{ runner.temp }}/pg16-service-content.json"
+        )
+        upload["with"]["name"] = name
+    with pytest.raises(AssertionError):
+        _assert_coverage_parity(pr, main)
 
 
 @pytest.mark.parametrize(
