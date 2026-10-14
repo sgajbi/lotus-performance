@@ -16,6 +16,93 @@ from tests.conftest import drain_lineage_queue
 settings = get_settings()
 
 
+@pytest.mark.parametrize("enforced", [False, True])
+@pytest.mark.parametrize("variant", ["canonical", "class_downgrade", "fields_downgrade", "strict_brief"])
+def test_operator_artifact_floor_and_customer_inventory(client, monkeypatch, enforced, variant):
+    monkeypatch.setenv("ENTERPRISE_ENFORCE_PRIVILEGED_READ_AUTHZ", str(enforced).lower())
+    calculation_id = uuid4()
+    execution_registry.create_execution(
+        calculation_id=calculation_id,
+        analytics_type="TWR",
+        portfolio_id="VISIBLE_PORTFOLIO",
+        tenant_id="tenant-lineage-test",
+    )
+    lineage_metadata_store.create_pending_record(calculation_id=calculation_id, calculation_type="TWR")
+    names = ["source-fixture.bin", "support_brief.md"]
+    lineage_metadata_store.mark_complete(calculation_id=calculation_id, artifact_names=names)
+    record = lineage_metadata_store.get_record(calculation_id)
+    folder = os.path.join(settings.LINEAGE_STORAGE_PATH, str(calculation_id))
+    os.makedirs(folder)
+    for name, content in zip(names, ["SENSITIVE_SOURCE_MARKER", "customer-safe brief"], strict=True):
+        with open(os.path.join(folder, name), "w", encoding="utf-8") as target:
+            target.write(content)
+    metadata = {name: _lineage_artifact_metadata(name) for name in names}
+    if variant in {"class_downgrade", "fields_downgrade"}:
+        metadata[names[0]] = _lineage_artifact_metadata("support_brief.md")
+        if variant == "fields_downgrade":
+            metadata[names[0]]["access_classification"] = "operator_only"
+    if variant == "strict_brief":
+        metadata[names[1]] = _lineage_artifact_metadata("request.json")
+    with open(os.path.join(folder, "manifest.json"), "w", encoding="utf-8") as target:
+        target.write(
+            _lineage_manifest_json(timestamp_utc=record.timestamp_utc, artifact_names=names, artifacts=metadata)
+        )
+    headers = {
+        "X-Actor-Id": "advisor",
+        "X-Service-Identity": "lotus-gateway",
+        "X-Role": "advisor",
+        "X-Correlation-Id": "artifact-floor",
+        "X-Tenant-Id": "tenant-lineage-test",
+        "X-Portfolio-Id": "VISIBLE_PORTFOLIO",
+        "X-Capabilities": "",
+    }
+    base = f"/performance/lineage/{calculation_id}"
+    initial_download = client.get(f"{base}/artifacts/source-fixture.bin", headers=headers)
+    assert initial_download.status_code == 403
+    inventory = client.get(base, headers=headers)
+    if enforced:
+        assert inventory.status_code == 403
+    else:
+        assert inventory.status_code == 200
+        assert set(inventory.json()["artifacts"]) == (set() if variant == "strict_brief" else {"support_brief.md"})
+    from app.api.endpoints import lineage as endpoint
+
+    resolved = []
+    original = endpoint.resolve_lineage_artifact_file
+
+    def observe(**kwargs):
+        resolved.append(kwargs["artifact_name"])
+        return original(**kwargs)
+
+    monkeypatch.setattr(endpoint, "resolve_lineage_artifact_file", observe)
+    denied = client.get(f"{base}/artifacts/source-fixture.bin", headers=headers)
+    assert denied.status_code == 403 and "SENSITIVE_SOURCE_MARKER" not in denied.text
+    assert resolved == []
+    safe = client.get(f"{base}/artifacts/support_brief.md", headers=headers)
+    assert safe.status_code == (403 if enforced or variant == "strict_brief" else 200)
+    if not enforced and variant != "strict_brief":
+        assert safe.text == "customer-safe brief"
+    operator = {**headers, "X-Capabilities": "operations.runtime.read"}
+    inventory = client.get(base, headers=operator)
+    assert inventory.status_code == 200 and set(inventory.json()["artifacts"]) == set(names)
+    raw_metadata = inventory.json()["artifacts"]["source-fixture.bin"]
+    assert {key: value for key, value in raw_metadata.items() if key != "url"} == _lineage_artifact_metadata(
+        "request.json"
+    )
+    if variant == "strict_brief":
+        brief_metadata = inventory.json()["artifacts"]["support_brief.md"]
+        assert {key: value for key, value in brief_metadata.items() if key != "url"} == metadata[names[1]]
+    operator_brief = client.get(f"{base}/artifacts/support_brief.md", headers=operator)
+    assert operator_brief.status_code == 200 and operator_brief.text == "customer-safe brief"
+    raw = client.get(f"{base}/artifacts/source-fixture.bin", headers=operator)
+    assert raw.status_code == 200 and raw.text == "SENSITIVE_SOURCE_MARKER"
+    resolved.clear()
+    for path in [base, f"{base}/artifacts/source-fixture.bin", f"{base}/artifacts/support_brief.md"]:
+        foreign = client.get(path, headers={**operator, "X-Tenant-Id": "foreign"})
+        assert foreign.status_code == 403 and "SENSITIVE_SOURCE_MARKER" not in foreign.text
+    assert resolved == []
+
+
 def _lineage_artifact_metadata(artifact_name: str) -> dict[str, object]:
     if artifact_name == "support_brief.md":
         return {
@@ -77,7 +164,17 @@ def client():
     lineage_metadata_store.create_schema()
     lineage_metadata_store.clear_all_records()
 
-    with TestClient(app, headers={"X-Tenant-Id": "tenant-lineage-test"}) as c:
+    with TestClient(
+        app,
+        headers={
+            "X-Tenant-Id": "tenant-lineage-test",
+            "X-Actor-Id": "lineage-operator",
+            "X-Role": "operator",
+            "X-Correlation-Id": "lineage-fixture",
+            "X-Service-Identity": "lotus-gateway",
+            "X-Capabilities": "operations.runtime.read",
+        },
+    ) as c:
         yield c
 
     # Clean up after tests
@@ -149,7 +246,17 @@ def test_lineage_end_to_end_flow(client, monkeypatch):
         assert foreign_response.json()["reason"] == "result_tenant_authority_mismatch"
         assert "LINEAGE_TEST" not in foreign_response.text
 
-        missing_identity_response = client.get(path, headers={"X-Tenant-Id": "tenant-lineage-test"})
+        missing_identity_response = client.get(
+            path,
+            headers={
+                "X-Tenant-Id": "tenant-lineage-test",
+                "X-Actor-Id": "",
+                "X-Role": "",
+                "X-Service-Identity": "",
+                "X-Correlation-Id": "",
+                "X-Capabilities": "",
+            },
+        )
         assert missing_identity_response.status_code == 403
         assert "LINEAGE_TEST" not in missing_identity_response.text
 

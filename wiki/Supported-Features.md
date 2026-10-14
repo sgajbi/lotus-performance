@@ -17,6 +17,16 @@ Complete source publication requires a qualified Linux lineage volume. Unsupport
 retain arithmetic functionality but report custody failure; portable fixtures do not establish
 native storage durability or automatic recovery from a dual persistence outage.
 
+Source custody accepts the same top-level/nested/terminal pagination selection as arithmetic and
+derives a returned count only when absent. Completed stateful async publication resumes the original
+retained response under current lease and immutable frozen-custody fences, without recalculation.
+Operator-only artifacts are omitted from unauthorized inventories and refused before file download,
+even when general privileged-read enforcement is disabled. Customer-safe evidence and enabled
+middleware admission remain unchanged. These corrections do not establish merged-main/live-source,
+native Linux filesystem, production-driver, retention or capacity acceptance for the full programme.
+Stricter manifest restrictions also protect known direct URLs. Raw/source inventory metadata cannot
+claim customer-safe sharing, and blank response tokens follow the existing nested/terminal precedence.
+
 Use this page as the current-state product evidence map:
 
 - business users can see which performance analytics capabilities are implemented and where each

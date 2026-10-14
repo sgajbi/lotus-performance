@@ -1,5 +1,6 @@
 """Real PostgreSQL source custody contracts; no filesystem durability claims."""
 
+import json
 from concurrent.futures import ThreadPoolExecutor
 from contextlib import ExitStack
 from threading import Event
@@ -67,6 +68,47 @@ def queue_source(owner, claim):
     owner.select_returns_series_source_root(
         claim=claim, root_digest=None, materialization=SourceMaterializationPayload("{}", '{"return":"0.09"}')
     )
+
+
+@pytest.mark.parametrize("refusal", [None, "root", "owner", "expiry", "inline", "response"])
+def test_postgres_completed_publication_requires_current_frozen_owner(stores, refusal):
+    execution, jobs, lineage = stores
+    claim = frozen(stores, compute=True)
+    response = {
+        "calculation_id": str(claim.calculation_id),
+        "portfolio_id": "portfolio",
+        "metadata": {"generated_at": "retained"},
+    }
+    jobs.select_returns_series_source_root(
+        claim=claim, root_digest="a" * 64, materialization=SourceMaterializationPayload("{}", json.dumps(response))
+    )
+    execution.retain_response_payload(claim.calculation_id, response_payload=response)
+    execution.mark_complete(claim.calculation_id)
+    changes = {
+        "root": "UPDATE lineage_records SET source_root_digest=NULL WHERE calculation_id=:id",
+        "owner": "UPDATE analytics_compute_job SET lease_owner_id='stale' WHERE calculation_id=:id",
+        "expiry": "UPDATE analytics_compute_job SET lease_expires_at_utc='2000-01-01' WHERE calculation_id=:id",
+        "inline": "UPDATE analytics_execution SET execution_mode='sync' WHERE calculation_id=:id",
+    }
+    if refusal is not None:
+        with jobs._engine.begin() as connection:
+            if refusal == "response":
+                connection.execute(
+                    text("UPDATE analytics_execution SET response_json=:response WHERE calculation_id=:id"),
+                    {
+                        "id": str(claim.calculation_id),
+                        "response": json.dumps({**response, "metadata": {"generated_at": "replaced"}}),
+                    },
+                )
+            else:
+                connection.execute(text(changes[refusal]), {"id": str(claim.calculation_id)})
+    before = execution.get_execution(claim.calculation_id), lineage.get_record(claim.calculation_id)
+    if refusal is None:
+        assert jobs.load_completed_returns_series_publication(claim=claim) == response
+    else:
+        with pytest.raises((SourceCustodyConflict, ComputeJobLeaseOwnershipError)):
+            jobs.load_completed_returns_series_publication(claim=claim)
+    assert before == (execution.get_execution(claim.calculation_id), lineage.get_record(claim.calculation_id))
 
 
 def complete_manifest(lineage, claim, payload, *, digest="b" * 64):

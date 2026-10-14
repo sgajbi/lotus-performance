@@ -23,18 +23,18 @@ python scripts/python_test_taxonomy_inventory.py --limit 30 --min-api-runtime-te
 | Metric | Value |
 | --- | ---: |
 | Test modules inventoried | 465 |
-| Test functions inventoried | 5459 |
-| Integration/API/runtime test functions | 1109 |
+| Test functions inventoried | 5475 |
+| Integration/API/runtime test functions | 1115 |
 | Contract/governance test functions | 248 |
 
 ## Test Functions By Suite
 
 | Suite | Modules | Test functions |
 | --- | ---: | ---: |
-| benchmarks | 21 | 205 |
+| benchmarks | 21 | 206 |
 | e2e | 1 | 21 |
-| integration | 56 | 643 |
-| unit | 387 | 4590 |
+| integration | 56 | 646 |
+| unit | 387 | 4602 |
 
 ## Test Functions By Family
 
@@ -44,8 +44,8 @@ above does sum to it, because a module belongs to exactly one suite.
 
 | Family | Test functions |
 | --- | ---: |
-| analytics_domain | 3187 |
-| api_or_runtime | 1109 |
+| analytics_domain | 3199 |
+| api_or_runtime | 1115 |
 | contract_or_governance | 248 |
 | observability_or_readiness | 782 |
 | quality_or_security | 385 |
@@ -75,7 +75,7 @@ acceptance or calculation/source readiness certification.
 | 11 | `tests/unit/app/test_openapi_enrichment.py` | unit | 61 | api_or_runtime |
 | 12 | `tests/unit/services/test_twr_inspection_source_economics.py` | unit | 58 | analytics_domain |
 | 13 | `tests/unit/services/test_compute_executor_worker.py` | unit | 57 | observability_or_readiness |
-| 14 | `tests/unit/services/test_stateful_input_service.py` | unit | 56 | analytics_domain |
+| 14 | `tests/unit/services/test_stateful_input_service.py` | unit | 57 | analytics_domain |
 | 15 | `tests/unit/app/test_contribution_endpoint_helpers.py` | unit | 55 | analytics_domain, api_or_runtime |
 | 16 | `tests/unit/engine/test_mwr.py` | unit | 54 | analytics_domain |
 | 17 | `tests/unit/services/test_twr_inspection_calculation_consistency.py` | unit | 53 | analytics_domain |

@@ -24,6 +24,7 @@ from core.errors import APINotFoundError, APIServiceUnavailableError
 class LineageArtifactFileReference:
     path: str
     filename: str
+    metadata: LineageArtifactMetadata
 
 
 def lineage_artifact_path(*, calculation_id: UUID, artifact_name: str) -> str:
@@ -137,6 +138,7 @@ def resolve_lineage_response(
     *,
     calculation_id: UUID,
     artifact_url_factory: Callable[[str], str],
+    include_operator_artifacts: bool = True,
 ) -> LineageResponse:
     record = lineage_metadata_store.get_record(calculation_id)
     if record is None:
@@ -158,6 +160,7 @@ def resolve_lineage_response(
         record=record,
         manifest=manifest,
         artifact_url_factory=artifact_url_factory,
+        include_operator_artifacts=include_operator_artifacts,
     )
 
 
@@ -167,6 +170,7 @@ def completed_lineage_response(
     record: LineageRecord,
     manifest: LineageManifest,
     artifact_url_factory: Callable[[str], str],
+    include_operator_artifacts: bool = True,
 ) -> LineageResponse:
     return LineageResponse(
         calculation_id=calculation_id,
@@ -178,8 +182,38 @@ def completed_lineage_response(
             artifact_names=record.artifact_names,
             artifact_metadata=manifest.artifacts,
             artifact_url_factory=artifact_url_factory,
+            include_operator_artifacts=include_operator_artifacts,
         ),
         error_message=record.error_message,
+    )
+
+
+def effective_lineage_artifact_metadata(*, filename: str, metadata: LineageArtifactMetadata) -> LineageArtifactMetadata:
+    """Apply filename-owned field floors without weakening stricter manifest labels."""
+    canonical = lineage_artifact_metadata_by_name(artifact_names=[filename])[filename]
+    if canonical.access_classification == "customer_consumable":
+        return metadata
+    return metadata.model_copy(
+        update={
+            "access_classification": "operator_only",
+            "intended_audience": "operations",
+            "sensitivity": (
+                "raw_sensitive_payload"
+                if "raw_sensitive_payload" in (canonical.sensitivity, metadata.sensitivity)
+                else "derived_evidence"
+            ),
+            "minimization_posture": (
+                "raw_payload_full_fidelity"
+                if "raw_payload_full_fidelity" in (canonical.minimization_posture, metadata.minimization_posture)
+                else "derived_detail_minimized"
+            ),
+            "retention_category": (
+                "lineage_raw_payload"
+                if "lineage_raw_payload" in (canonical.retention_category, metadata.retention_category)
+                else "lineage_detail_evidence"
+            ),
+            "redaction_required_before_external_sharing": True,
+        }
     )
 
 
@@ -188,12 +222,15 @@ def lineage_artifact_links(
     artifact_names: list[str],
     artifact_metadata: dict[str, LineageArtifactMetadata],
     artifact_url_factory: Callable[[str], str],
+    include_operator_artifacts: bool = True,
 ) -> dict[str, ArtifactLink]:
     artifacts: dict[str, ArtifactLink] = {}
     for filename in artifact_names:
         if filename == "manifest.json":
             continue
-        metadata = artifact_metadata[filename]
+        metadata = effective_lineage_artifact_metadata(filename=filename, metadata=artifact_metadata[filename])
+        if not include_operator_artifacts and metadata.access_classification == "operator_only":
+            continue
         artifacts[filename] = ArtifactLink(
             url=artifact_url_factory(filename),
             **metadata.model_dump(mode="json"),
@@ -215,10 +252,11 @@ def resolve_lineage_artifact_file(*, calculation_id: UUID, artifact_name: str) -
     manifest_path = _manifest_path(calculation_id, record)
     if not os.path.exists(manifest_path):
         raise APIServiceUnavailableError("Lineage manifest not found.")
-    load_and_validate_manifest(manifest_path=manifest_path, record=record)
+    manifest = load_and_validate_manifest(manifest_path=manifest_path, record=record)
+    metadata = effective_lineage_artifact_metadata(filename=artifact_name, metadata=manifest.artifacts[artifact_name])
 
     artifact_path = lineage_artifact_path(calculation_id=calculation_id, artifact_name=artifact_name)
     if not os.path.exists(artifact_path):
         raise APIServiceUnavailableError("Lineage artifact is missing from storage.")
 
-    return LineageArtifactFileReference(path=artifact_path, filename=artifact_name)
+    return LineageArtifactFileReference(path=artifact_path, filename=artifact_name, metadata=metadata)

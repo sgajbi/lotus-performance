@@ -7,8 +7,12 @@ from fastapi.responses import FileResponse
 from app.api.http_response_adapter import to_fastapi_response
 from app.models.lineage_responses import LineageResponse
 from app.models.platform_surfaces import ErrorDetailResponse
-from app.services.calculation_result_access import authorize_persisted_calculation_resource_access
+from app.services.calculation_result_access import (
+    authorize_persisted_calculation_resource_access,
+    lineage_operator_access_denial,
+)
 from app.services.execution_stage_errors import safe_unexpected_failure_message
+from app.services.lineage_artifact_classification import lineage_artifact_metadata
 from app.services.lineage_artifact_service import resolve_lineage_artifact_file, resolve_lineage_response
 
 router = APIRouter(tags=["Performance"])
@@ -32,7 +36,8 @@ def _public_http_detail(*, status_code: int, detail: str):
     description=(
         "Returns durable lineage materialization status and controlled download URLs for artifacts associated "
         "with a calculation. Complete lineage requires a manifest that matches durable metadata and every "
-        "declared artifact to exist on disk before URLs are returned."
+        "declared artifact to exist on disk before URLs are returned. Inventory exposes only caller-authorized links; "
+        "operator-only evidence requires operations.runtime.read, independently of general privileged-read enforcement."
     ),
     responses={
         404: {
@@ -68,6 +73,7 @@ async def get_lineage_data(
             return to_fastapi_response(access_denial)
         return resolve_lineage_response(
             calculation_id=calculation_id,
+            include_operator_artifacts=lineage_operator_access_denial(request.headers) is None,
             artifact_url_factory=lambda artifact_name: str(
                 request.url_for(
                     "lineage_artifact_file",
@@ -99,7 +105,8 @@ async def get_lineage_data(
     description=(
         "Downloads a lineage artifact through the controlled calculation/artifact route. Only artifacts declared "
         "by durable lineage metadata are downloadable, and the manifest must still match durable metadata before "
-        "the file is served."
+        "the file is served. Operator-only artifacts require operations.runtime.read even when general privileged-read "
+        "enforcement is disabled; matching portfolio entitlement alone never admits these bytes."
     ),
     responses={
         200: {
@@ -137,7 +144,15 @@ async def get_lineage_artifact(
         )
         if access_denial is not None:
             return to_fastapi_response(access_denial)
+        if lineage_artifact_metadata(artifact_name=artifact_name).access_classification == "operator_only":
+            operator_denial = lineage_operator_access_denial(request.headers)
+            if operator_denial is not None:
+                return to_fastapi_response(operator_denial)
         artifact = resolve_lineage_artifact_file(calculation_id=calculation_id, artifact_name=artifact_name)
+        if artifact.metadata.access_classification == "operator_only":
+            operator_denial = lineage_operator_access_denial(request.headers)
+            if operator_denial is not None:
+                return to_fastapi_response(operator_denial)
     except Exception as exc:
         if not _is_application_http_error(exc):
             raise

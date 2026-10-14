@@ -63,6 +63,19 @@ def authorize_persisted_calculation_resource_access(
     return authorize_calculation_result_access(execution=execution, headers=headers)
 
 
+def lineage_operator_access_denial(headers: Mapping[str, Any]) -> ApplicationHttpResponse | None:
+    """Artifact classification is an authorization floor in every runtime profile."""
+    normalized = _normalized_headers(headers)
+    missing = _missing_required_headers(normalized)
+    if missing:
+        return _authorization_denied_application_response(_missing_headers_reason(missing))
+    if not _has_service_identity(normalized):
+        return _authorization_denied_application_response("missing_service_identity")
+    if not _has_privileged_result_read(normalized):
+        return _authorization_denied_application_response("missing_lineage_artifact_access:operations.runtime.read")
+    return None
+
+
 def _calculation_result_access_denial_reason(
     *,
     execution: ExecutionRecord,

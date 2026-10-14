@@ -1,3 +1,4 @@
+import json
 from contextlib import contextmanager
 from uuid import uuid4
 
@@ -318,6 +319,111 @@ def test_compute_selects_frozen_root_and_retry_reuses_original_identity(stores):
     assert jobs.select_returns_series_source_root(claim=retry, root_digest=None) == selected
     with pytest.raises(ComputeJobLeaseOwnershipError):
         jobs.select_returns_series_source_root(claim=claim, root_digest="a" * 64)
+
+
+def completed_publication(stores):
+    execution, jobs, _ = stores
+    claim = running_claim(stores)
+    jobs.select_returns_series_source_root(claim=claim, root_digest="a" * 64)
+    response = {
+        "calculation_id": str(claim.calculation_id),
+        "portfolio_id": "portfolio-a",
+        "metadata": {"generated_at": "original"},
+    }
+    jobs.select_returns_series_source_root(
+        claim=claim, root_digest="a" * 64, materialization=SourceMaterializationPayload("{}", json.dumps(response))
+    )
+    execution.retain_response_payload(claim.calculation_id, response_payload=response)
+    execution.mark_complete(claim.calculation_id)
+    return claim, response
+
+
+def test_completed_publication_is_read_only_and_active_execution_has_no_resume(stores):
+    execution, jobs, lineage = stores
+    claim = running_claim(stores)
+    assert jobs.load_completed_returns_series_publication(claim=claim) is None
+    assert lineage.get_record(claim.calculation_id) is None
+    jobs.select_returns_series_source_root(claim=claim, root_digest="a" * 64)
+    response = {"calculation_id": str(claim.calculation_id), "portfolio_id": "portfolio-a"}
+    jobs.select_returns_series_source_root(
+        claim=claim, root_digest="a" * 64, materialization=SourceMaterializationPayload("{}", json.dumps(response))
+    )
+    execution.retain_response_payload(claim.calculation_id, response_payload=response)
+    execution.mark_complete(claim.calculation_id)
+    before = execution.get_execution(claim.calculation_id), lineage.get_record(claim.calculation_id)
+    assert jobs.load_completed_returns_series_publication(claim=claim) == response
+    assert before == (execution.get_execution(claim.calculation_id), lineage.get_record(claim.calculation_id))
+
+
+@pytest.mark.parametrize(
+    "mutation",
+    [
+        "DELETE FROM lineage_records",
+        "DELETE FROM lineage_payloads",
+        "UPDATE lineage_records SET source_root_digest=NULL",
+        "UPDATE lineage_records SET source_root_digest='bad'",
+        "UPDATE lineage_records SET source_custody_state='capturing'",
+        "UPDATE lineage_records SET status='failed',source_custody_state='failed'",
+        "UPDATE lineage_records SET source_tenant_id='foreign'",
+        "UPDATE lineage_records SET calculation_type='TWR'",
+        "UPDATE lineage_records SET source_attempt_id=NULL",
+        "UPDATE lineage_records SET source_attempt_number=NULL",
+        "UPDATE analytics_execution SET execution_mode='sync'",
+        "UPDATE analytics_execution SET tenant_id='foreign'",
+        "UPDATE analytics_execution SET analytics_type='TWR'",
+        "UPDATE analytics_execution SET status='failed'",
+        "UPDATE analytics_execution SET response_json=NULL",
+        "UPDATE analytics_execution SET response_json='{}'",
+        "replace_response",
+        "DELETE FROM analytics_execution",
+        "UPDATE analytics_compute_job SET lease_owner_id='stale'",
+        "UPDATE analytics_compute_job SET attempt_count=2",
+        "UPDATE analytics_compute_job SET lease_expires_at_utc='2000-01-01'",
+        "UPDATE analytics_compute_job SET tenant_id='foreign'",
+        "UPDATE analytics_compute_job SET analytics_type='TWR'",
+        "UPDATE analytics_compute_job SET job_status='complete'",
+    ],
+)
+def test_completed_publication_refuses_unqualified_authority_without_mutation(stores, mutation):
+    execution, jobs, lineage = stores
+    claim, response = completed_publication(stores)
+    with jobs._engine.begin() as connection:
+        if mutation == "replace_response":
+            connection.execute(
+                text("UPDATE analytics_execution SET response_json=:response"),
+                {"response": json.dumps({**response, "metadata": {"generated_at": "replaced"}})},
+            )
+        else:
+            connection.execute(text(mutation))
+    before = (
+        execution.get_execution(claim.calculation_id),
+        lineage.get_record(claim.calculation_id),
+        jobs.get_job(claim.calculation_id),
+    )
+    with pytest.raises((SourceCustodyConflict, ComputeJobLeaseOwnershipError)):
+        jobs.load_completed_returns_series_publication(claim=claim)
+    assert before == (
+        execution.get_execution(claim.calculation_id),
+        lineage.get_record(claim.calculation_id),
+        jobs.get_job(claim.calculation_id),
+    )
+
+
+def test_completed_publication_rechecks_statement_time_after_frozen_read(stores, monkeypatch):
+    import app.services.compute_job_store as module
+
+    _, jobs, _ = stores
+    claim, _ = completed_publication(stores)
+    original = module.require_existing_frozen_source
+
+    def expire(session, **kwargs):
+        selected = original(session, **kwargs)
+        session.execute(text("UPDATE analytics_compute_job SET lease_expires_at_utc='2000-01-01'"))
+        return selected
+
+    monkeypatch.setattr(module, "require_existing_frozen_source", expire)
+    with pytest.raises(SourceCustodyConflict, match="expired during"):
+        jobs.load_completed_returns_series_publication(claim=claim)
 
 
 @pytest.mark.parametrize(

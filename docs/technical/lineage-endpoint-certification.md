@@ -74,6 +74,18 @@ The lineage inventory response model is `app.models.lineage_responses.LineageRes
 The artifact download route returns file content with a `Content-Disposition` filename for successful
 downloads. JSON error payloads are returned for missing, undeclared, or degraded artifacts.
 
+The calculation tenant fence applies before artifact admission. Code-classified `operator_only`
+artifacts require governed `operations.runtime.read`, including when general privileged-read
+enforcement is disabled. A matching portfolio entitlement cannot admit source/raw bytes. Inventory
+projects only authorized artifacts before minting links; manifest labels cannot downgrade the code
+classification, audience, sensitivity, minimization, retention, or external-sharing redaction floors.
+Stricter manifest labels remain in force, including operator-only `support_brief.md` downloads by
+known URL. Customer-safe evidence follows existing calculation admission. When general
+privileged-read middleware is enabled, its existing lineage route-level operator requirement remains
+in force, including customer-safe routes. Denied downloads return the governed authorization envelope
+before resolving code-known raw files; validated manifest restrictions are checked before constructing
+the file response. No denied artifact bytes are served. No response schema or tenant policy is relaxed.
+
 ## Integrity And Error Behavior
 
 Certified behavior:

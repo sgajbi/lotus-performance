@@ -81,7 +81,8 @@ class LineageResponse(BaseModel):
     artifacts: dict[str, ArtifactLink] = Field(
         description=(
             "Download links keyed by artifact filename. Empty while lineage is pending or failed, "
-            "and populated only after manifest and on-disk artifact integrity checks pass."
+            "and populated only after manifest and on-disk artifact integrity checks pass. "
+            "Inventory includes only caller-authorized artifacts; operator_only evidence requires operations.runtime.read."
         ),
         examples=[
             {

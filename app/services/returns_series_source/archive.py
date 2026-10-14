@@ -16,6 +16,8 @@ from dataclasses import asdict, dataclass, field
 from typing import Any, BinaryIO
 from uuid import UUID
 
+from app.services.returns_series_source.pagination import next_page_token
+
 _SCHEMA = "lotus-performance.portfolio-source-archive.v1"
 _BUFFER_SIZE = 64 * 1024  # IO buffer, not a financial admission limit.
 
@@ -108,6 +110,12 @@ def _token(value: object) -> str | None:
     raise SourceArchiveError("Opaque page token must be null or nonempty string.")
 
 
+def _validate_response_token(value: object) -> None:
+    """Blank response strings are absent to the shared selector; request tokens stay strict."""
+    if value is not None and not isinstance(value, str):
+        raise SourceArchiveError("Response page token must be null or string.")
+
+
 @dataclass
 class _Traversal:
     scope: SourceArchiveScope
@@ -168,9 +176,14 @@ def _source_page_details(source: SourcePage) -> tuple[dict[str, Any], str | None
     try:
         requested_token = _token(source.request_payload["page"]["page_token"])
         payload = _decode(source.response_body)
-        returned_token = _token(payload["page"]["next_page_token"])
-        count = payload["page"]["returned_row_count"]
         observations = payload["observations"]
+        page_metadata = payload.get("page", {})
+        if not isinstance(page_metadata, dict):
+            raise SourceArchiveError("Malformed source page metadata.")
+        for metadata in (payload, page_metadata):
+            _validate_response_token(metadata.get("next_page_token"))
+        returned_token = _token(next_page_token(payload))
+        count = page_metadata.get("returned_row_count", len(observations))
     except (KeyError, TypeError) as exc:
         raise SourceArchiveError("Required source page fields missing.") from exc
     if type(count) is not int or not isinstance(observations, list) or count != len(observations):

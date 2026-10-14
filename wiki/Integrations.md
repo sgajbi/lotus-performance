@@ -20,6 +20,15 @@ atomic hard links. Unsupported native platforms expose failed custody without ch
 Originating inline attempt authority persists after freeze; active compute retries retain their
 existing lease-fenced reuse. Native volume acceptance remains separate from simulated fixtures.
 
+Accepted top-level/nested/terminal pagination shapes share one selector; an absent returned count
+is derived from observations while supplied malformed metadata still refuses custody. Async publication
+retries reuse the exact completed response under current owner/frozen-source fences before calculation.
+Operator-only source links and bytes require `operations.runtime.read` plus tenant/identity admission
+even when general privileged-read enforcement is off. Enabled middleware policy is unchanged.
+Blank response tokens fall back to nested continuation or terminate; non-string tokens still refuse.
+Direct downloads honor stricter manifest restrictions, including operator-only support briefs.
+Raw/source sharing metadata retains every code-owned field floor without weakening stricter labels.
+
 - use **Upstream dependencies** and **Contract grouping** for system boundaries;
 - use the TWR, MWR, contribution, and attribution source-flow sections for analytics ownership;
 - use the operator sections for execution, lineage, recovery, and runtime evidence.

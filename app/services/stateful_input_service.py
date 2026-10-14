@@ -13,6 +13,7 @@ from uuid import UUID
 from app.services.core_integration_service import CoreIntegrationService
 from app.services.execution_registry import ExecutionRegistry, execution_registry
 from app.services.returns_series_source.capture import active_source_capture
+from app.services.returns_series_source.pagination import next_page_token
 from app.services.stateful_portfolio_source_port import (
     CoreStatefulPortfolioSourceAdapter,
     StatefulPortfolioSourcePort,
@@ -1666,15 +1667,7 @@ class StatefulInputService:
         }
 
     def _next_page_token(self, payload: dict[str, Any]) -> str | None:
-        next_page_token = payload.get("next_page_token")
-        if _non_empty_string(next_page_token):
-            return next_page_token
-        page_block = payload.get("page")
-        if isinstance(page_block, dict):
-            nested_token = page_block.get("next_page_token")
-            if _non_empty_string(nested_token):
-                return nested_token
-        return None
+        return next_page_token(payload)
 
     def _page_traversal_failure_payload(
         self,

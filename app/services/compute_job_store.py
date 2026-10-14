@@ -6,7 +6,7 @@ from contextlib import contextmanager
 from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
 from enum import StrEnum
-from typing import Any, Callable, Iterable, Iterator, TypeVar, cast
+from typing import TYPE_CHECKING, Any, Callable, Iterable, Iterator, TypeVar, cast
 from uuid import UUID
 
 from sqlalchemy import DateTime, Index, Integer, String, Text, case, delete, event, func, inspect, select, text, update
@@ -47,8 +47,13 @@ from app.services.returns_series_source.custody import (
     SourceCustodySelection,
     SourceMaterializationPayload,
     fail_terminal_source_custody,
+    require_existing_frozen_source,
+    require_immutable_source_response,
     select_source_root,
 )
+
+if TYPE_CHECKING:
+    from app.services.execution_registry import AnalyticsExecutionModel
 
 logger = logging.getLogger(__name__)
 
@@ -986,8 +991,46 @@ class ComputeJobStore:
         materialization: SourceMaterializationPayload | None = None,
     ) -> SourceCustodySelection:
         """Store-owned root CAS; deliberately outside the read/insert callback guard."""
-        from app.services.execution_registry import AnalyticsExecutionModel, require_returns_source_execution
+        from app.services.execution_registry import require_returns_source_execution
 
+        with self._returns_source_owner_session(claim) as (session, execution):
+            require_returns_source_execution(execution, claim=claim, execution_mode="async")
+            return select_source_root(
+                session, claim=claim, root_digest=root_digest, failure=failure, materialization=materialization
+            )
+
+    def load_completed_returns_series_publication(self, *, claim: SourceCustodyClaim) -> dict[str, Any] | None:
+        """Resume an exact completed response, without recalculation or custody mutation."""
+        from app.services.execution_registry import require_returns_source_execution
+
+        with self._returns_source_owner_session(claim) as (session, execution):
+            if execution is None or execution.status != "complete":
+                require_returns_source_execution(execution, claim=claim, execution_mode="async")
+                return None
+            if (execution.tenant_id, execution.analytics_type, execution.execution_mode) != (
+                claim.tenant_id,
+                "ReturnsSeries",
+                "async",
+            ):
+                raise SourceCustodyConflict("Completed publication requires the matching async execution.")
+            require_existing_frozen_source(session, claim=claim)
+            response = json.loads(execution.response_json or "null")
+            if (
+                not isinstance(response, dict)
+                or response.get("calculation_id") != str(claim.calculation_id)
+                or response.get("portfolio_id") != execution.portfolio_id
+            ):
+                raise SourceCustodyConflict("Completed publication response identity is unavailable.")
+            require_immutable_source_response(session, claim=claim, response=response)
+            return response
+
+    @contextmanager
+    def _returns_source_owner_session(
+        self, claim: SourceCustodyClaim
+    ) -> Iterator[tuple[Session, AnalyticsExecutionModel | None]]:
+        from app.services.execution_registry import AnalyticsExecutionModel
+
+        claim.validate()
         with self._session() as session:
             connection = session.connection()
             if connection.dialect.name == "sqlite":
@@ -997,7 +1040,6 @@ class ComputeJobStore:
                 .where(AnalyticsExecutionModel.calculation_id == str(claim.calculation_id))
                 .with_for_update()
             ).scalar_one_or_none()
-            require_returns_source_execution(execution, claim=claim, execution_mode="async")
             row = session.execute(
                 select(ComputeJobModel)
                 .where(ComputeJobModel.calculation_id == str(claim.calculation_id))
@@ -1024,12 +1066,9 @@ class ComputeJobStore:
             )
             if session.execute(validity).scalar_one_or_none() is None:
                 raise SourceCustodyConflict("Source custody compute lease has expired.")
-            selected = select_source_root(
-                session, claim=claim, root_digest=root_digest, failure=failure, materialization=materialization
-            )
+            yield session, execution
             if session.execute(validity).scalar_one_or_none() is None:
                 raise SourceCustodyConflict("Source custody compute lease expired during selection.")
-            return selected
 
     def mark_complete(
         self, calculation_id: UUID, *, response_payload: dict[str, Any], worker_id: str | None = None

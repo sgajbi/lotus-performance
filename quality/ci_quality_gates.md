@@ -159,8 +159,8 @@ checked by `test_current_inventory_prose_carries_no_stale_totals`, which normali
 compares every total the present-tense paragraph states. Historical baselines elsewhere in this
 document are intentionally outside that check.
 
-Current governed inventory: `quality/test_taxonomy_inventory.md` records 465 test modules, 5,459 source test functions, 1109 API/runtime test functions, 248 contract/governance test functions, and 558 uncategorized test functions.
-The full family summary is 465 modules, 5,459 source test functions, 1109 integration/API/runtime test functions, 248 contract/governance test functions, 782 observability/readiness test functions, 385 quality/security test functions, 3,187 analytics-domain test functions, and 558 uncategorized test functions.
+Current governed inventory: `quality/test_taxonomy_inventory.md` records 465 test modules, 5,475 source test functions, 1115 API/runtime test functions, 248 contract/governance test functions, and 558 uncategorized test functions.
+The full family summary is 465 modules, 5,475 source test functions, 1115 integration/API/runtime test functions, 248 contract/governance test functions, 782 observability/readiness test functions, 385 quality/security test functions, 3,199 analytics-domain test functions, and 558 uncategorized test functions.
 
 Composite boundary hardening adds controlled unit evidence for retained authority receipt custody,
 exact selector and revision binding, source-time arithmetic refusal, immutable publication retries,

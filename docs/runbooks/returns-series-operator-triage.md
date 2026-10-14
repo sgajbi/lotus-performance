@@ -27,12 +27,27 @@ The originating inline attempt remains the mutation owner after freeze. A differ
 cannot enqueue or fail it; an admitted current compute retry can reuse the frozen identity under
 the compute store's existing tenant, attempt and live-lease checks.
 
+After a retryable async result-publication outage, a current fenced async owner resumes the exact
+retained completed response before calculator entry. The owning store locks execution, compute and
+existing frozen custody in that order and checks the statement-time lease before and after the read.
+The original response envelope, root and capture attempt remain unchanged. Inline, absent/unfrozen,
+failed, foreign and stale custody cannot authorize this read; active executions use ordinary calculation.
+The cached envelope must match the immutable queued response or the selected materialized response
+digest inside that transaction. A matching calculation/portfolio id or frozen input root alone cannot
+authorize a replaced completed response. Missing response authority refuses publication reuse.
+This does not establish native storage durability or live-source acceptance.
+
 The first slice retains the exact successful portfolio-timeseries JSON entity bytes, opaque page
 tokens, ordered chunk/page index, separately named legacy parsed fingerprints, and the consumed
 normalized inputs. It covers inline, queued, and API-resolved promotion. The fixed archive/index
 format streams pages rather than publishing an unbounded page list. Financial decimals encoded as
 strings retain their lexemes; normalized JSON preserves the representation the existing engine
 consumed. No new financial limits, truncation, currency aliases, or missing-value fills are added.
+
+Traversal and archive verification share the established nonempty top-level token, then nested token,
+then terminal-page precedence. Optional page metadata and returned count may be absent; only an absent
+count is derived from observations. Supplied malformed metadata/counts, token loops, ordering errors
+and incomplete traversal still refuse custody. Captured entity bytes are never rewritten.
 
 Benchmark and risk-free raw-source custody remains unavailable. Their existing arithmetic options
 continue to work; a retained normalized side series is not complete upstream source custody. This
@@ -42,6 +57,17 @@ or a multi-provider coherent snapshot.
 Raw artifacts remain operator-only under the existing lineage policy. Reads require a matching
 retained execution tenant even when local privileged-read enforcement is disabled. Every read
 verifies the selected manifest, artifact hashes, source bundle, and complete page traversal.
+
+Operator-only HTTP inventory links and downloads additionally require `operations.runtime.read`
+with the governed actor, tenant, role, correlation and service identity. This floor also applies when
+general privileged-read enforcement is disabled. Portfolio entitlement alone cannot expose source/raw
+links or bytes; customer-safe evidence follows existing admission. Enabled privileged-read middleware
+keeps its existing route-level operator requirement, including for customer-safe lineage routes.
+The same effective filename-plus-manifest policy governs links and direct downloads: a stricter
+operator-only support brief stays restricted even at a known URL. Raw/source metadata always carries
+the code-owned sensitivity, audience, minimization, retention and redaction floors; stricter manifest
+labels are preserved. Blank response continuation tokens are absent for top-level/nested precedence,
+while malformed supplied token types and invalid requested page tokens remain refused.
 Missing execution authority, corruption, and path escape fail closed. The queue can retire after
 successful materialization; it is not the permanent evidence owner.
 

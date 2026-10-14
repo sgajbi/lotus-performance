@@ -40,6 +40,20 @@ defines controlled reads, source-off verification, retained authority, disk requ
 Use the explicit schema owner and bounded matching API/worker/retention cutover; mixed old/new
 custody writers are unsupported. Fixture proof does not establish live-source or capacity readiness.
 
+An admitted current async owner resumes an exact completed publication only with existing matching
+frozen custody and statement-time lease fencing. It preserves response bytes/envelope and capture
+identity without calculator entry or a fresh source read; inline/foreign/stale/unfrozen/failed cases
+refuse. Accepted pagination may omit page/count metadata; explicitly malformed metadata still refuses.
+Publication reuse additionally binds the exact cached envelope to its immutable queue payload or
+selected materialized response digest; replaced or unqualified response data is refused.
+Operator-only artifact inventory and download require governed `operations.runtime.read` even with
+general privileged-read enforcement off. Portfolio entitlement alone cannot expose source/raw links
+or bytes. Customer-safe evidence and enabled middleware route admission keep their existing policy.
+Known direct URLs remain subject to stricter manifest restrictions, including operator-only support
+briefs. Raw/source metadata carries the code-owned sharing floors while preserving stricter labels.
+Blank response continuation tokens use nested fallback or terminate; requested tokens and supplied
+non-string response tokens remain subject to the existing malformed/traversal refusals.
+
 The runtime image removes shipped `/usr` setuid/setgid privilege bits. API, lineage, compute and
 retention Compose services drop all capabilities and set `no-new-privileges:true`. Keep their
 existing writable volumes; this does not impose a new read-only runtime filesystem. The root

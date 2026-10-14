@@ -58,6 +58,64 @@ def test_roundtrip_preserves_exact_source_bytes_and_existing_parsed_fingerprint(
     assert expected.observation_count == 1
 
 
+@pytest.mark.parametrize("metadata", [{}, {"page": {}}, {"next_page_token": None}, {"page": {"next_page_token": None}}])
+def test_optional_page_metadata_preserves_raw_bytes(metadata):
+    payload = {"observations": [{"amount": "123456789.123456789"}], **metadata}
+    raw = json.dumps(payload, indent=2).encode()
+    body, index, expected = archive([replace(page(), response_body=raw)])
+    assert body.getvalue() == raw and expected.observation_count == 1
+    assert verify_source_archive(body, index, scope=scope(), expected=expected) == expected
+
+
+def test_archive_selects_top_level_token_before_nested_token():
+    first = json.loads(page().response_body)
+    first["next_page_token"] = "top"
+    first["page"]["next_page_token"] = "nested"
+    body, index, expected = archive(
+        [replace(page(), response_body=json.dumps(first).encode()), page(number=1, token="top")]
+    )
+    assert expected.page_count == 2
+    assert verify_source_archive(body, index, scope=scope(), expected=expected) == expected
+
+
+@pytest.mark.parametrize("blank", ["", " \t"])
+def test_blank_response_tokens_use_nested_continuation_and_preserve_exact_bytes(blank):
+    first = json.loads(page(next_token="nested").response_body)
+    first["next_page_token"] = blank
+    terminal = json.loads(page().response_body)
+    terminal["next_page_token"] = blank
+    terminal["page"]["next_page_token"] = blank
+    pages = [
+        replace(page(), response_body=json.dumps(first, indent=2).encode()),
+        replace(page(number=1, token="nested"), response_body=json.dumps(terminal, indent=2).encode()),
+    ]
+    body, index, expected = archive(pages)
+    assert body.getvalue() == b"".join(source.response_body for source in pages)
+    assert expected.page_count == 2 and expected.observation_count == 2
+    assert verify_source_archive(body, index, scope=scope(), expected=expected) == expected
+
+
+@pytest.mark.parametrize(
+    "metadata",
+    [
+        {"page": None},
+        {"page": []},
+        {"page": {"returned_row_count": None}},
+        {"page": {"returned_row_count": True}},
+        {"page": {"returned_row_count": -1}},
+        {"page": {"returned_row_count": 2}},
+        {"next_page_token": 3},
+        {"page": {"next_page_token": []}},
+        {"next_page_token": "", "page": {"next_page_token": False}},
+        {"next_page_token": "valid", "page": {"next_page_token": {}}},
+        {"next_page_token": " padded "},
+    ],
+)
+def test_supplied_malformed_pagination_still_refuses(metadata):
+    with pytest.raises(SourceArchiveError):
+        archive([replace(page(), response_body=json.dumps({"observations": [{}], **metadata}).encode())])
+
+
 def test_complete_multi_chunk_traversal_and_duplicate_source_rows_preserved():
     pages = [page(next_token="opaque"), page(number=1, token="opaque"), page(chunk=1)]
     capture_scope = replace(scope(), chunk_count=2)
@@ -158,6 +216,8 @@ def test_invalid_capture_identity_refuses(capture_scope):
         replace(page(), response_body=b"{}"),
         replace(page(), response_body=b'{"a":1,"a":2}'),
         replace(page(), request_payload={"page": {"page_token": ""}}),
+        replace(page(), request_payload={"page": {"page_token": " \t"}}),
+        replace(page(), request_payload={"page": {"page_token": False}}),
         replace(page(), number=True),
         replace(
             page(),

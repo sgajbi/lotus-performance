@@ -40,7 +40,7 @@ from core.errors import APINotFoundError, APIServiceUnavailableError
 
 
 @pytest.fixture
-def source_runtime(tmp_path, monkeypatch):
+def source_runtime(tmp_path, monkeypatch, request):
     # These Windows-capable fixtures simulate publication barriers. Native Linux
     # filesystem/volume crash durability is a separate deployment acceptance gate.
     monkeypatch.setattr("app.services.returns_series_source.capture.sync_directory", lambda path: None, raising=False)
@@ -54,6 +54,7 @@ def source_runtime(tmp_path, monkeypatch):
     bootstrap_durable_metadata_stores()
     token = tenant_id_var.set("tenant-source")
     calls = []
+    shape = getattr(request, "param", "nested")
 
     async def post(**kwargs):
         request = kwargs["json_body"]
@@ -74,6 +75,12 @@ def source_runtime(tmp_path, monkeypatch):
             ],
             "page": {"returned_row_count": 1, "next_page_token": "opaque-page-two" if number == 0 else None},
         }
+        if shape == "top_level":
+            payload["next_page_token"] = payload.pop("page")["next_page_token"]
+        elif shape == "optional_count":
+            del payload["page"]["returned_row_count"]
+        elif shape == "terminal_page_absent" and number == 1:
+            del payload["page"]
         response = httpx.Response(200, content=json.dumps(payload, indent=1).encode())
         from app.services.http_resilience import response_payload
 
@@ -169,6 +176,103 @@ def completed_source():
     asyncio.run(calculate_returns_series_workflow(ReturnsSeriesWorkflowCommand(request)))
     assert lineage_jobs(limit=1) == 1
     return request, lineage_metadata_store.get_record(request.calculation_id)
+
+
+@pytest.mark.parametrize("source_runtime", ["top_level", "optional_count", "terminal_page_absent"], indirect=True)
+def test_accepted_pagination_retains_complete_source(source_runtime, monkeypatch):
+    settings, calls = source_runtime
+    monkeypatch.setattr(settings, "RETURNS_SERIES_EXECUTOR_WINDOW_DAYS", 1)
+    request = source_request()
+    asyncio.run(calculate_returns_series_workflow(ReturnsSeriesWorkflowCommand(request)))
+    assert compute_jobs(limit=1) == 1
+    execution = execution_registry.get_execution(request.calculation_id)
+    assert execution.status.value == "complete"
+    assert {Decimal(p["return_value"]) for p in execution.response_payload["series"]["portfolio_returns"]} == {
+        Decimal("0.09")
+    }
+    assert lineage_metadata_store.get_record(request.calculation_id).source_custody_state == "pending_materialization"
+    assert lineage_jobs(limit=1) == 1
+    assert replay_retained_portfolio_source(
+        database_url=settings.LINEAGE_METADATA_DATABASE_URL,
+        storage_path=settings.LINEAGE_STORAGE_PATH,
+        calculation_id=request.calculation_id,
+        tenant_id="tenant-source",
+    )["matched"]
+    assert len(calls) == 2
+
+
+@pytest.mark.parametrize("basis,expected", [("NET", "0.09"), ("GROSS", "0.10")])
+@pytest.mark.parametrize("materialized", [False, True])
+@pytest.mark.parametrize("replaced_response", [False, True])
+def test_completed_execution_publication_retry_reuses_frozen_source(
+    source_runtime, monkeypatch, basis, expected, materialized, replaced_response
+):
+    from app.services.async_result_store import AsyncResultStore, async_result_store
+
+    settings, calls = source_runtime
+    monkeypatch.setattr(settings, "RETURNS_SERIES_EXECUTOR_WINDOW_DAYS", 1)
+    request = source_request(basis)
+    asyncio.run(calculate_returns_series_workflow(ReturnsSeriesWorkflowCommand(request)))
+    with monkeypatch.context() as fault:
+
+        def unavailable(self, **kwargs):
+            assert execution_registry.get_execution(request.calculation_id).status.value == "complete"
+            raise OSError("owned result publication outage")
+
+        fault.setattr(AsyncResultStore, "record_success", unavailable)
+        assert compute_jobs(limit=1) == 1
+    assert compute_job_store.get_job(request.calculation_id).job_status.value == "pending"
+    original_result = execution_registry.get_execution(request.calculation_id).response_payload
+    frozen = lineage_metadata_store.get_record(request.calculation_id)
+    assert frozen.source_root_digest and frozen.source_custody_state == "pending_materialization"
+    if materialized:
+        assert lineage_jobs(limit=1) == 1
+    if replaced_response:
+        execution_registry.retain_response_payload(
+            request.calculation_id,
+            response_payload={
+                **original_result,
+                "metadata": {**original_result["metadata"], "generated_at": "2026-01-01T00:00:00Z"},
+            },
+        )
+    before = {
+        p.name: hashlib.sha256(p.read_bytes()).hexdigest()
+        for p in (settings.LINEAGE_STORAGE_PATH / str(request.calculation_id)).iterdir()
+        if p.is_file()
+    }
+
+    def source_off(**kwargs):
+        raise AssertionError("Publication retry cannot retrieve Core")
+
+    monkeypatch.setattr("app.services.core_integration_service.post_with_retry", source_off)
+    assert compute_jobs(limit=1) == 1
+    result = async_result_store.get_result(request.calculation_id)
+    current = lineage_metadata_store.get_record(request.calculation_id)
+    assert (current.source_root_digest, current.source_attempt_id, current.source_attempt_number) == (
+        frozen.source_root_digest,
+        frozen.source_attempt_id,
+        1,
+    )
+    assert compute_job_store.get_job(request.calculation_id).attempt_count == 2
+    assert len(calls) == 2
+    after = {
+        p.name: hashlib.sha256(p.read_bytes()).hexdigest()
+        for p in (settings.LINEAGE_STORAGE_PATH / str(request.calculation_id)).iterdir()
+        if p.is_file()
+    }
+    assert before == after
+    if replaced_response:
+        assert result.result_status.value == "failed" and result.response_payload is None
+        return
+    assert result.result_status.value == "complete", result
+    assert current.source_custody_state == ("complete" if materialized else "pending_materialization")
+    assert result.response_payload == original_result
+    assert {Decimal(p["return_value"]) for p in result.response_payload["series"]["portfolio_returns"]} == {
+        Decimal(expected)
+    }
+    if not materialized:
+        assert lineage_jobs(limit=1) == 1
+    assert lineage_metadata_store.get_record(request.calculation_id).source_custody_state == "complete"
 
 
 @pytest.mark.parametrize("barrier", ["parent", "root", "request", "response", "manifest"])

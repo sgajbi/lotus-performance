@@ -1,8 +1,11 @@
 """Portfolio source-root selection inside the execution owner's transaction."""
 
+import hashlib
+import json
 import re
 from dataclasses import dataclass
 from datetime import datetime, timezone
+from typing import Any
 from uuid import UUID
 
 from sqlalchemy import inspect, select, update
@@ -89,6 +92,61 @@ def select_source_root(
         _enqueue_selected_source(session, row=row, payload=materialization)
     session.flush()
     return _selection(row)
+
+
+def require_existing_frozen_source(session: Session, *, claim: SourceCustodyClaim) -> SourceCustodySelection:
+    """Read only: the caller has already locked execution and the current compute owner."""
+    row = session.execute(
+        select(LineageRecordModel)
+        .where(LineageRecordModel.calculation_id == str(claim.calculation_id))
+        .with_for_update()
+    ).scalar_one_or_none()
+    if row is None:
+        raise SourceCustodyConflict("Completed publication requires existing frozen custody.")
+    _require_source_record_scope(row, claim)
+    expected_status = {
+        "frozen": LineageStatus.PENDING.value,
+        "pending_materialization": LineageStatus.PENDING.value,
+        "complete": LineageStatus.COMPLETE.value,
+    }.get(row.source_custody_state)
+    if expected_status is None or row.status != expected_status:
+        raise SourceCustodyConflict("Completed publication requires immutable frozen custody.")
+    _require_frozen_source_identity(row)
+    return _selection(row)
+
+
+def _require_frozen_source_identity(row: LineageRecordModel) -> None:
+    if (
+        re.fullmatch(r"[0-9a-f]{64}", row.source_root_digest or "") is None
+        or not row.source_attempt_id
+        or row.source_attempt_number is None
+        or row.source_attempt_number < 0
+    ):
+        raise SourceCustodyConflict("Completed publication requires immutable frozen identity.")
+
+
+def require_immutable_source_response(session: Session, *, claim: SourceCustodyClaim, response: dict[str, Any]) -> None:
+    """Bind the cached envelope to the immutable queued or materialized original."""
+    payload = session.get(LineagePayloadModel, str(claim.calculation_id))
+    if payload is not None:
+        if json.loads(payload.response_json) != response:
+            raise SourceCustodyConflict("Completed publication differs from its immutable source response.")
+        return
+    row = session.get(LineageRecordModel, str(claim.calculation_id))
+    if row is None or row.source_custody_state != "complete":
+        raise SourceCustodyConflict("Immutable completed publication response authority is unavailable.")
+    from app.models.returns_series import ReturnsSeriesResponse
+
+    try:
+        original = ReturnsSeriesResponse.model_validate(response)
+    except ValueError:
+        raise SourceCustodyConflict("Completed publication response is invalid.") from None
+    digest = hashlib.sha256(original.model_dump_json().encode()).hexdigest()
+    if (
+        original.model_dump(mode="json") != response
+        or f"source-{digest}.response.json" not in row.artifact_names.splitlines()
+    ):
+        raise SourceCustodyConflict("Completed publication differs from its selected immutable response digest.")
 
 
 def _apply_root_selection(
