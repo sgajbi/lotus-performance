@@ -66,6 +66,7 @@ from app.services.lotus_reference_market_calendar import (
 from app.services.portfolio_source_service import (
     build_stateful_input_service,
 )
+from app.services.returns_series_source.custody import SourceCustodyClaim
 from app.services.service_identity import LOTUS_PERFORMANCE_CONSUMER_SYSTEM
 from app.services.stateful_benchmark_input_service import build_stateful_benchmark_input
 from app.services.stateful_performance_input_service import StatefulPortfolioInput, retrieve_stateful_portfolio_input
@@ -116,6 +117,7 @@ class ResolvedStatefulReturnsSeriesRequest:
     freshness_benchmark_df: pd.DataFrame | None = None
     freshness_risk_free_df: pd.DataFrame | None = None
     risk_free_source_quality: RiskFreeSourceQuality | None = None
+    source_custody_claim: SourceCustodyClaim | None = None
 
 
 @dataclass(frozen=True)
@@ -156,6 +158,7 @@ class _ReturnsSeriesExecutionContext:
     freshness_benchmark_df: pd.DataFrame | None = None
     freshness_risk_free_df: pd.DataFrame | None = None
     risk_free_source_quality: RiskFreeSourceQuality | None = None
+    source_custody_claim: SourceCustodyClaim | None = None
 
 
 @dataclass(frozen=True)
@@ -1923,6 +1926,7 @@ async def calculate_returns_series(
     freshness_portfolio_df_override: pd.DataFrame | None = None,
     freshness_benchmark_df_override: pd.DataFrame | None = None,
     freshness_risk_free_df_override: pd.DataFrame | None = None,
+    source_custody_claim_override: SourceCustodyClaim | None = None,
 ) -> ReturnsSeriesResponse:
     return await _calculate_returns_series(
         request,
@@ -1933,6 +1937,7 @@ async def calculate_returns_series(
         freshness_portfolio_df_override=freshness_portfolio_df_override,
         freshness_benchmark_df_override=freshness_benchmark_df_override,
         freshness_risk_free_df_override=freshness_risk_free_df_override,
+        source_custody_claim_override=source_custody_claim_override,
     )
 
 
@@ -2016,6 +2021,7 @@ async def _resolve_returns_series_execution_context(
         freshness_benchmark_df=resolved_stateful_request.freshness_benchmark_df,
         freshness_risk_free_df=resolved_stateful_request.freshness_risk_free_df,
         risk_free_source_quality=resolved_stateful_request.risk_free_source_quality,
+        source_custody_claim=resolved_stateful_request.source_custody_claim,
     )
 
 
@@ -2136,6 +2142,7 @@ async def _calculate_returns_series(
     freshness_portfolio_df_override: pd.DataFrame | None = None,
     freshness_benchmark_df_override: pd.DataFrame | None = None,
     freshness_risk_free_df_override: pd.DataFrame | None = None,
+    source_custody_claim_override: SourceCustodyClaim | None = None,
 ) -> ReturnsSeriesResponse:
     execution_registry.mark_running(request.calculation_id)
     active_stage: str | None = None
@@ -2193,6 +2200,14 @@ async def _calculate_returns_series(
             request.calculation_id,
             response_payload=result.response.model_dump(mode="json"),
         )
+        from app.services.returns_series_source.workflow import enqueue_source_response
+
+        enqueue_source_response(
+            calculation_id=request.calculation_id,
+            response_json=result.response.model_dump_json(),
+            inline_claim=source_custody_claim_override or context.source_custody_claim,
+            stateful=context.effective_input_mode == InputMode.STATEFUL,
+        )
         execution_registry.mark_complete(request.calculation_id)
         return result.response
     except APIError as exc:
@@ -2211,10 +2226,27 @@ async def _calculate_returns_series(
 async def resolve_stateful_returns_series_request(
     request: ReturnsSeriesRequest,
 ) -> ResolvedStatefulReturnsSeriesRequest:
+    from app.services.returns_series_source.workflow import resolve_with_source_custody
+
+    return await resolve_with_source_custody(request, _resolve_stateful_returns_series_request)
+
+
+async def _resolve_stateful_returns_series_request(
+    request: ReturnsSeriesRequest,
+) -> ResolvedStatefulReturnsSeriesRequest:
     context = _stateful_returns_series_resolution_context(request)
     sources = await _retrieve_stateful_returns_series_sources(request=request, context=context)
 
     observations = sources.portfolio_source.observations
+    from app.services.returns_series_source.capture import active_source_capture
+
+    capture = active_source_capture.get()
+    if capture is not None:
+        capture.normalized_sources = {
+            "observations": observations,
+            "performance_start_date": sources.portfolio_source.performance_start_date.isoformat(),
+            "resolved_window": context.resolved_window.model_dump(mode="json"),
+        }
     benchmark_resolution = sources.benchmark_resolution
     resolved_benchmark_id = benchmark_resolution.benchmark_id
     resolved_benchmark_return_source = sources.resolved_benchmark_return_source

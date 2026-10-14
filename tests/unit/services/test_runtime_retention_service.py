@@ -83,6 +83,9 @@ class _ExecutionIdStore:
 
 
 class _LineageIdStore:
+    def source_retention_protection(self, **kwargs) -> set[str]:
+        return set()
+
     def __init__(self, ids: list[str]):
         self.ids = set(ids)
 

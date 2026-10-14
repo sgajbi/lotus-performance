@@ -18,6 +18,16 @@ from core.repro import generate_canonical_hash
 from main import app
 from tests.conftest import drain_lineage_queue
 
+_LINEAGE_CALLER_HEADERS = {
+    "X-Tenant-Id": "tenant-mwr-lineage",
+    "X-Actor-Id": "mwr-lineage-reader",
+    "X-Role": "operator",
+    "X-Correlation-Id": "mwr-lineage-integration",
+    "X-Service-Identity": "lotus-gateway",
+    "X-Capabilities": "",
+}
+_LINEAGE_OPERATOR_HEADERS = {**_LINEAGE_CALLER_HEADERS, "X-Capabilities": "operations.runtime.read"}
+
 
 @pytest.mark.parametrize("method", ["XIRR", "MODIFIED_DIETZ"])
 @pytest.mark.parametrize("transport", ["same-page", "pages", "chunks"])
@@ -115,6 +125,7 @@ def test_stateful_mwr_admits_identical_overlap_and_refuses_daily_conflicts(
     calculation_id = str(uuid4())
     response = client.post(
         "/performance/mwr",
+        headers=_LINEAGE_CALLER_HEADERS,
         json={
             "calculation_id": calculation_id,
             "portfolio_id": "MWR_DAILY_CONFLICT_CONTROL",
@@ -134,14 +145,24 @@ def test_stateful_mwr_admits_identical_overlap_and_refuses_daily_conflicts(
             assert "Stateful source returned no observations" in response.text
         else:
             assert "Conflicting stateful MWR observations" in response.text
-        execution = client.get(f"/performance/executions/{calculation_id}")
+        execution = client.get(f"/performance/executions/{calculation_id}", headers=_LINEAGE_CALLER_HEADERS)
         assert execution.status_code == 200, execution.text
         assert execution.json()["status"] == "failed"
         stages = {stage["stage_name"]: stage for stage in execution.json()["stages"]}
         if not fault.endswith("-only"):
             assert stages["normalization"]["status"] == "failed"
         assert lineage_metadata_store.get_record(UUID(calculation_id)) is None
-        assert client.get(f"/performance/lineage/{calculation_id}/artifacts/response.json").status_code == 404
+        denied = client.get(
+            f"/performance/lineage/{calculation_id}/artifacts/response.json", headers=_LINEAGE_CALLER_HEADERS
+        )
+        assert denied.status_code == 403
+        assert denied.json()["reason"] == "missing_lineage_artifact_access:operations.runtime.read"
+        assert (
+            client.get(
+                f"/performance/lineage/{calculation_id}/artifacts/response.json", headers=_LINEAGE_OPERATOR_HEADERS
+            ).status_code
+            == 404
+        )
         return
     assert response.status_code == 200, response.text
     body = response.json()
@@ -189,13 +210,13 @@ def test_mwr_http_retains_exact_cashflow_and_small_profit(client, nested, monkey
         "mwr_method": "MODIFIED_DIETZ",
     }
     payload.update({"input_mode": "stateless", "stateless_input": monetary_input} if nested else monetary_input)
-    response = client.post("/performance/mwr", json=payload)
+    response = client.post("/performance/mwr", json=payload, headers=_LINEAGE_CALLER_HEADERS)
     assert response.status_code == 200, response.text
     body = response.json()
     # End-date investment has zero Dietz weight; 0.01 profit / 100 capital = 0.01%.
     assert body["money_weighted_return"] == pytest.approx(0.01, abs=1e-14)
     assert body["cashflows_used"] == [{"amount": "9007199254740993.01", "date": "2025-01-01"}]
-    duplicate = client.post("/performance/mwr", json=payload)
+    duplicate = client.post("/performance/mwr", json=payload, headers=_LINEAGE_CALLER_HEADERS)
     # Synchronous commands retain their existing duplicate-ID refusal contract.
     assert duplicate.status_code == 409, duplicate.text
     assert drain_lineage_queue() == 100
@@ -203,7 +224,14 @@ def test_mwr_http_retains_exact_cashflow_and_small_profit(client, nested, monkey
     assert lineage_metadata_store.get_record(target_id).status == LineageStatus.PENDING
     assert process_pending_calculation(target_id, wait_seconds=0)
     assert lineage_metadata_store.get_record(older_ids[-1]).status == LineageStatus.PENDING
-    retained = client.get(f"/performance/lineage/{payload['calculation_id']}/artifacts/response.json")
+    denied = client.get(
+        f"/performance/lineage/{payload['calculation_id']}/artifacts/response.json", headers=_LINEAGE_CALLER_HEADERS
+    )
+    assert denied.status_code == 403
+    assert denied.json()["reason"] == "missing_lineage_artifact_access:operations.runtime.read"
+    retained = client.get(
+        f"/performance/lineage/{payload['calculation_id']}/artifacts/response.json", headers=_LINEAGE_OPERATOR_HEADERS
+    )
     assert retained.status_code == 200, retained.text
     assert retained.json() == body
 
@@ -222,14 +250,24 @@ def test_mwr_http_refuses_unrepresentable_numerical_domain(client, method, end_m
         "cash_flows": [],
         "mwr_method": method,
     }
-    response = client.post("/performance/mwr", json=payload)
+    response = client.post("/performance/mwr", json=payload, headers=_LINEAGE_CALLER_HEADERS)
     assert response.status_code == 400, response.text
     assert response.json()["retryable"] is False
     assert "finite float64 numerical domain" in response.json()["detail"]
-    execution = client.get(f"/performance/executions/{calculation_id}")
+    execution = client.get(f"/performance/executions/{calculation_id}", headers=_LINEAGE_CALLER_HEADERS)
     assert execution.status_code == 200
     assert execution.json()["status"] == "failed"
-    assert client.get(f"/performance/lineage/{calculation_id}/artifacts/response.json").status_code == 404
+    denied = client.get(
+        f"/performance/lineage/{calculation_id}/artifacts/response.json", headers=_LINEAGE_CALLER_HEADERS
+    )
+    assert denied.status_code == 403
+    assert denied.json()["reason"] == "missing_lineage_artifact_access:operations.runtime.read"
+    assert (
+        client.get(
+            f"/performance/lineage/{calculation_id}/artifacts/response.json", headers=_LINEAGE_OPERATOR_HEADERS
+        ).status_code
+        == 404
+    )
 
 
 def test_calculate_mwr_endpoint_xirr_happy_path(client):
@@ -391,7 +429,7 @@ def test_calculate_mwr_endpoint_does_not_publish_budget_exhausted_midpoint(clien
         "annualization": {"enabled": False, "basis": "ACT/365"},
     }
     direct = calculate_mwr_result(MoneyWeightedReturnRequest.model_validate(payload))
-    response = client.post("/performance/mwr", json=payload)
+    response = client.post("/performance/mwr", json=payload, headers=_LINEAGE_CALLER_HEADERS)
 
     assert response.status_code == 200
     body = response.json()
@@ -415,12 +453,19 @@ def test_calculate_mwr_endpoint_does_not_publish_budget_exhausted_midpoint(clien
         'lotus_performance_mwr_solver_outcome_total{fallback_used="true",input_mode="stateless",'
         'method="MODIFIED_DIETZ",reason_code="SOLVER_ITERATION_LIMIT_REACHED",status="FALLBACK_USED"}' in metrics.text
     )
-    execution = client.get(f"/performance/executions/{calculation_id}")
+    execution = client.get(f"/performance/executions/{calculation_id}", headers=_LINEAGE_CALLER_HEADERS)
     assert execution.status_code == 200
     stages = {stage["stage_name"]: stage for stage in execution.json()["stages"]}
     assert stages["execution"]["status"] == "complete"
     assert process_pending_calculation(UUID(calculation_id), wait_seconds=0)
-    persisted_response = client.get(f"/performance/lineage/{calculation_id}/artifacts/response.json")
+    denied = client.get(
+        f"/performance/lineage/{calculation_id}/artifacts/response.json", headers=_LINEAGE_CALLER_HEADERS
+    )
+    assert denied.status_code == 403
+    assert denied.json()["reason"] == "missing_lineage_artifact_access:operations.runtime.read"
+    persisted_response = client.get(
+        f"/performance/lineage/{calculation_id}/artifacts/response.json", headers=_LINEAGE_OPERATOR_HEADERS
+    )
     assert persisted_response.status_code == 200
     persisted_body = persisted_response.json()
     assert persisted_body["method"] == body["method"]
@@ -963,7 +1008,7 @@ def test_calculate_mwr_endpoint_rejects_inconsistent_stateless_fx_evidence(clien
         },
     }
 
-    response = client.post("/performance/mwr", json=payload)
+    response = client.post("/performance/mwr", json=payload, headers=_LINEAGE_CALLER_HEADERS)
 
     assert response.status_code == 422
     assert "reporting_amount must match the MWR input amount" in response.json()["detail"]
@@ -1009,14 +1054,23 @@ def test_calculate_mwr_endpoint_rejects_inconsistent_stateless_fx_evidence(clien
         if component_group == "cash_flows" and "reporting_amount" in overrides:
             contradictory_payload["cash_flows"][component_index]["amount"] = overrides["reporting_amount"]
 
-        contradictory_response = client.post("/performance/mwr", json=contradictory_payload)
+        contradictory_response = client.post(
+            "/performance/mwr", json=contradictory_payload, headers=_LINEAGE_CALLER_HEADERS
+        )
 
         assert contradictory_response.status_code == 422
         assert expected_detail in contradictory_response.json()["detail"]
-        execution = client.get(f"/performance/executions/{calculation_id}")
+        execution = client.get(f"/performance/executions/{calculation_id}", headers=_LINEAGE_CALLER_HEADERS)
         assert execution.status_code == 200
         assert execution.json()["status"] == "failed"
-        persisted_response = client.get(f"/performance/lineage/{calculation_id}/artifacts/response.json")
+        denied = client.get(
+            f"/performance/lineage/{calculation_id}/artifacts/response.json", headers=_LINEAGE_CALLER_HEADERS
+        )
+        assert denied.status_code == 403
+        assert denied.json()["reason"] == "missing_lineage_artifact_access:operations.runtime.read"
+        persisted_response = client.get(
+            f"/performance/lineage/{calculation_id}/artifacts/response.json", headers=_LINEAGE_OPERATOR_HEADERS
+        )
         assert persisted_response.status_code == 404
 
     invalid_currency_tokens = (
@@ -1039,12 +1093,19 @@ def test_calculate_mwr_endpoint_rejects_inconsistent_stateless_fx_evidence(clien
             target = target[path_part]
         target[invalid_path[-1]] = invalid_value
 
-        invalid_response = client.post("/performance/mwr", json=invalid_payload)
+        invalid_response = client.post("/performance/mwr", json=invalid_payload, headers=_LINEAGE_CALLER_HEADERS)
 
         assert invalid_response.status_code == 422
-        execution = client.get(f"/performance/executions/{calculation_id}")
+        execution = client.get(f"/performance/executions/{calculation_id}", headers=_LINEAGE_CALLER_HEADERS)
         assert execution.status_code == 404
-        persisted_response = client.get(f"/performance/lineage/{calculation_id}/artifacts/response.json")
+        denied = client.get(
+            f"/performance/lineage/{calculation_id}/artifacts/response.json", headers=_LINEAGE_CALLER_HEADERS
+        )
+        assert denied.status_code == 403
+        assert denied.json()["reason"] == "missing_lineage_artifact_access:operations.runtime.read"
+        persisted_response = client.get(
+            f"/performance/lineage/{calculation_id}/artifacts/response.json", headers=_LINEAGE_OPERATOR_HEADERS
+        )
         assert persisted_response.status_code == 404
 
     no_evidence_lowercase_payload = {
@@ -1058,7 +1119,9 @@ def test_calculate_mwr_endpoint_rejects_inconsistent_stateless_fx_evidence(clien
         "cash_flows": [],
         "mwr_method": "DIETZ",
     }
-    no_evidence_response = client.post("/performance/mwr", json=no_evidence_lowercase_payload)
+    no_evidence_response = client.post(
+        "/performance/mwr", json=no_evidence_lowercase_payload, headers=_LINEAGE_CALLER_HEADERS
+    )
     assert no_evidence_response.status_code == 200
 
 
@@ -1204,12 +1267,15 @@ def test_mwr_lineage_flow(client):
         "cash_flows": [{"amount": 100.0, "date": "2025-03-01"}],
         "mwr_method": "XIRR",
     }
-    mwr_response = client.post("/performance/mwr", json=payload)
+    mwr_response = client.post("/performance/mwr", json=payload, headers=_LINEAGE_CALLER_HEADERS)
     assert mwr_response.status_code == 200
     calculation_id = mwr_response.json()["calculation_id"]
     assert process_pending_calculation(UUID(calculation_id), wait_seconds=0)
 
-    lineage_response = client.get(f"/performance/lineage/{calculation_id}")
+    limited_inventory = client.get(f"/performance/lineage/{calculation_id}", headers=_LINEAGE_CALLER_HEADERS)
+    assert limited_inventory.status_code == 200
+    assert limited_inventory.json()["artifacts"] == {}
+    lineage_response = client.get(f"/performance/lineage/{calculation_id}", headers=_LINEAGE_OPERATOR_HEADERS)
     assert lineage_response.status_code == 200
     lineage_data = lineage_response.json()
 

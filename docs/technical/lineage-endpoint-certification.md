@@ -23,6 +23,15 @@ endpoint-specific async result routes.
 
 ## Request Contract
 
+Portfolio ReturnsSeries adds nullable `source_custody_state` to the lineage response. Historical
+nulls mean unavailable. Complete source custody additionally requires a tenant-bound retained
+execution, immutable root, current leased materializer selection, and hash-verified manifest and
+artifacts. New `source-*` files are operator-only raw-sensitive evidence. Legacy non-source lineage
+remains on its existing manifest contract. A successful arithmetic result, pending queue row, or
+parsed fingerprint alone is not complete raw-source evidence. See the
+[source verification runbook](../runbooks/returns-series-operator-triage.md#retained-portfolio-source-evidence)
+for supported families and source-off limits.
+
 `GET /performance/lineage/{calculation_id}`:
 
 | Path parameter | Meaning |
@@ -64,6 +73,18 @@ The lineage inventory response model is `app.models.lineage_responses.LineageRes
 
 The artifact download route returns file content with a `Content-Disposition` filename for successful
 downloads. JSON error payloads are returned for missing, undeclared, or degraded artifacts.
+
+The calculation tenant fence applies before artifact admission. Code-classified `operator_only`
+artifacts require governed `operations.runtime.read`, including when general privileged-read
+enforcement is disabled. A matching portfolio entitlement cannot admit source/raw bytes. Inventory
+projects only authorized artifacts before minting links; manifest labels cannot downgrade the code
+classification, audience, sensitivity, minimization, retention, or external-sharing redaction floors.
+Stricter manifest labels remain in force, including operator-only `support_brief.md` downloads by
+known URL. Customer-safe evidence follows existing calculation admission. When general
+privileged-read middleware is enabled, its existing lineage route-level operator requirement remains
+in force, including customer-safe routes. Denied downloads return the governed authorization envelope
+before resolving code-known raw files; validated manifest restrictions are checked before constructing
+the file response. No denied artifact bytes are served. No response schema or tenant policy is relaxed.
 
 ## Integrity And Error Behavior
 

@@ -5,7 +5,7 @@ Branch: `feat/performance-architecture-boundary-refactor`
 Baseline source: `quality/baseline_report.md`
 Testing inventory refresh: 2026-10-10, result authority (#610), PR/main coverage parity (#641/#645), and single-period BF (#633).
 Other phase-zero measurements, including coverage percentages, remain historical.
-CI acquisition refresh (2026-10-14, #664): native current-main-based adopter generation measures
+Historical CI acquisition refresh (2026-10-14, #664): native current-main-based adopter generation measures
 1,026 Python files, 300,029 Python LOC, 460 test modules and 9,219 collected tests. AST taxonomy
 measures 5,419 functions with 416 quality/security functions; other family counts and all banked
 floors/ceilings are unchanged. The 99 added collected cases and 31 source functions support
@@ -23,6 +23,14 @@ From the repository root in PowerShell or Bash, use `python scripts/generate_qua
 `python scripts/python_architecture_boundary_inventory.py --limit 1`.
 These measurements supersede older scanner snapshots for the refreshed rows; historical columns,
 coverage results and execution failures remain unchanged. Collection is not a test pass or release acceptance.
+Current measurement refresh (2026-10-14, #662 integration of qualified #666 base 8a0ee425): the native commands
+above measure 1,043 Python files, 36 package markers, 304,832 Python lines, 9,504 collected
+tests and average maintainability 55.22, including the three peer-review variants and unchanged #664 acquisition controls. Current taxonomy is measured by the native AST inventory.
+Historical columns and coverage evidence remain unchanged; these figures do not establish live acceptance.
+Native architecture inventory records 93 report-only import occurrences and zero enforced findings.
+At signed `68c99853` it recorded 90; three additional occurrences reference the same existing
+execution-registry dependency in the typed owning-store publication read. No new concrete-store dependency edge
+or blocking-policy exception is introduced. The current native command supersedes the older snapshot.
 Historical #540 exact main `39aec74c` passed all ten jobs in run `37136810103`; its candidate
 coverage was raw 98.5068273355382% (30,539 statements/456 missing), passing the unchanged configured
 99% gate at zero-decimal precision. Earlier failures remain historical. #473's locked source
@@ -65,9 +73,9 @@ link the commit, command, or CI artifact that proves the change.
 
 | Metric | Baseline | Current | Status | Evidence |
 | --- | ---: | ---: | --- | --- |
-| Python files | 480 | 1026 | measured | `quality/baseline_report.md` |
-| Python package markers | 18 | 35 | measured | recursive `__init__.py` count |
-| Python LOC | 104,454 | 300,029 | measured | `quality/baseline_report.md` |
+| Python files | 480 | 1043 | measured | `quality/baseline_report.md` |
+| Python package markers | 18 | 36 | measured | recursive `__init__.py` count |
+| Python LOC | 104,454 | 304,832 | measured | `quality/baseline_report.md` |
 | Largest Python file LOC | 2,399 | 4,447 | measured | largest-file inventory on this branch |
 | Largest production file LOC | 1,156 | 3,271 | measured | `app/services/composite_metadata_store.py` |
 | Duplicate code hotspots | 0 | 0 | enforced | `quality/duplicate_code_inventory.md`; `make quality-duplicate-code-gate` with `--min-lines 12 --max-groups 0`; duplicated LOC reduced from `24` to `0` in LP-CR-1407 |
@@ -81,7 +89,7 @@ link the commit, command, or CI artifact that proves the change.
 | --- | ---: | ---: | --- | --- |
 | Max cyclomatic complexity | unknown | 8 | enforced | `quality/complexity_inventory.md` via `scripts/python_complexity_inventory.py`; `make quality-complexity-gate` |
 | High-complexity functions | unknown | 0 | enforced | rank D-F functions in `quality/complexity_inventory.md`; `make quality-complexity-gate` |
-| Average maintainability index | unknown | 55.24 | measured | `quality/complexity_inventory.md` via `scripts/python_complexity_inventory.py` |
+| Average maintainability index | unknown | 55.22 | measured | `python scripts/python_complexity_inventory.py --limit 1` |
 | Largest functions by LOC | unknown | 169 | measured | `quality/function_size_inventory.md` via `scripts/python_function_size_inventory.py`; `_create_sqlite_composite_fact_validation_guards(...)` remains the largest production function at `169` lines |
 
 ## Architecture
@@ -92,7 +100,7 @@ link the commit, command, or CI artifact that proves the change.
 | Routers importing infrastructure directly | unknown | 0 | enforced | `ROUTER_DIRECT_BOUNDARY_IMPORT` absent from `quality/architecture_boundary_inventory.md`; `make quality-architecture-gate` |
 | Engine/core importing framework or infra code | unknown | 0 | enforced | `DOMAIN_INFRA_OR_FRAMEWORK_IMPORT` absent from `quality/architecture_boundary_inventory.md`; `make quality-architecture-gate` |
 | Route workflow direct DTO calls | unknown | 0 | enforced | `ROUTE_WORKFLOW_DTO_DIRECT_CALL` absent from `quality/architecture_boundary_inventory.md`; `make quality-architecture-gate` |
-| Application-service concrete-store imports | unknown | 73 | measured | `APPLICATION_SERVICE_CONCRETE_STORE_IMPORT` in `quality/architecture_boundary_inventory.md`; report-only after execution polling pilot moved behind `ExecutionPollingStore` |
+| Application-service concrete-store imports | unknown | 93 | measured | `APPLICATION_SERVICE_CONCRETE_STORE_IMPORT` in `quality/architecture_boundary_inventory.md`; report-only after execution polling pilot moved behind `ExecutionPollingStore` |
 | Large production service hotspots | 3 | 14 | measured | `scripts/generate_quality_baseline.py` native file inventory; 14 app/services files exceed 1,000 LOC, led by composite_metadata_store.py (3,271) |
 | Router/middleware oversized function findings (`--threshold 80`) | unknown | 0 | enforced | `quality/router_middleware_thinness_inventory.md`; `make quality-router-thinness-gate` |
 
@@ -112,11 +120,11 @@ link the commit, command, or CI artifact that proves the change.
 
 | Metric | Baseline | Current | Status | Evidence |
 | --- | ---: | ---: | --- | --- |
-| Test modules | 228 | 460 | measured | `rg --files tests -g 'test_*.py'` |
-| Collected tests | 2,035 | 9,219 | measured | `python -m pytest --collect-only -q` |
+| Test modules | 228 | 466 | measured | `rg --files tests -g 'test_*.py'` |
+| Collected tests | 2,035 | 9,504 | measured | `python -m pytest --collect-only -q` |
 | Line coverage | unknown | 99.58% | measured | `quality/coverage_inventory.md` via `make branch-coverage-baseline` (`3,013` unit, `308` integration, and `21` e2e tests under branch coverage; `21,154` covered lines of `21,244` statements) |
 | Branch coverage | unknown | 98.00% | measured | `quality/coverage_inventory.md` via `make branch-coverage-baseline` (`3,013` unit, `308` integration, and `21` e2e tests under branch coverage; `4,318` covered branches of `4,406`, `88` missing branches, `88` partial branches) |
-| Integration/API/runtime test functions | unknown | 1091 | enforced | `quality/test_taxonomy_inventory.md`; `make quality-test-taxonomy-gate` |
+| Integration/API/runtime test functions | unknown | 1115 | enforced | `quality/test_taxonomy_inventory.md`; `make quality-test-taxonomy-gate` |
 | Contract/governance test functions | unknown | 248 | enforced | `quality/test_taxonomy_inventory.md`; `make quality-test-taxonomy-gate` |
 | Uncategorized test functions | unknown | 558 | enforced ceiling | `quality/test_taxonomy_inventory.md`; `make quality-test-taxonomy-gate`; #619 classifies the precise source/error adapter module; observed 558, separately banked policy 558. |
 

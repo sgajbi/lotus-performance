@@ -21,6 +21,11 @@ def test_lineage_openapi_documents_inventory_and_artifact_routes() -> None:
 
     assert "Downloads a lineage artifact" in artifact_get["description"]
     assert "Only artifacts declared by durable lineage metadata" in artifact_get["description"]
+    assert "Operator-only artifacts require operations.runtime.read" in artifact_get["description"]
+    assert (
+        "caller-authorized"
+        in spec["components"]["schemas"]["LineageResponse"]["properties"]["artifacts"]["description"]
+    )
     assert "200" in artifact_get["responses"]
     assert "404" in artifact_get["responses"]
     assert "503" in artifact_get["responses"]

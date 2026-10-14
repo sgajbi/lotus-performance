@@ -157,6 +157,26 @@ Current repository posture:
     evidence for underperformance and missing-benchmark readiness archetypes; it must preserve Core
     benchmark-assignment, Gateway, Workbench, data-mesh, client-publication, deployment, and
     supported-feature blockers until those systems provide their own evidence.
+    New stateful portfolio NET/GROSS source custody is owned by the internal
+    `app/services/returns_series_source/` package and the existing execution/lineage stores.
+    Preserve the generic compute SELECT/INSERT callback guard: source-root updates use narrow
+    store-owned transactions with exact attempt/tenant/lease fencing. Source materialization failure
+    is independent of arithmetic completion. Historical null custody stays unavailable, and optional
+    benchmark/risk-free raw custody is not supported by this slice. Follow
+    `docs/runbooks/returns-series-operator-triage.md` for read-only source-off verification and
+    `docs/standards/migration-contract.md` for the bounded all-role cutover. No runtime split is added.
+    Share portfolio pagination token precedence with the pure source-pagination leaf; derive an
+    observation count only when absent and retain malformed/traversal refusals and exact raw bytes.
+    Treat blank response tokens as absent before nested fallback; requested tokens stay strict.
+    A completed stateful async publication retry reads the exact retained response before calculator
+    entry only under current execution/compute/frozen-custody locks and statement-time lease fences.
+    Do not widen the ordinary inline/terminal execution guard or recalculate a completed envelope.
+    Bind that envelope to the immutable queued response or selected materialized response digest;
+    calculation/portfolio identifiers and a frozen input root alone are insufficient response proof.
+    Lineage inventory/download enforces the code-owned operator-only artifact floor even when the
+    general privileged-read flag is off; tenant admission and enabled middleware policy remain intact.
+    Apply each metadata field floor and preserve stricter manifest restrictions on direct downloads,
+    including customer-named artifacts; inventory omission alone is not download authorization.
 16. Active `lotus-core` route-level dependency coverage is governed by
     `contracts/domain-data-products/lotus-performance-upstream-dependency-inventory.v1.json` and
     validated by `make domain-product-validate`. Benchmark composition-window, benchmark

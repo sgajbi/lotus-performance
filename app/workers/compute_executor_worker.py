@@ -22,7 +22,13 @@ from app.models.composite_pooled_mwr import CompositePooledMWRRequest, Composite
 from app.models.contribution_analytics_requests import ContributionAnalyticsRequest, ContributionInputMode
 from app.models.contribution_requests import ContributionRequest
 from app.models.inspection_requests import TWRInspectionRequest
-from app.models.returns_series import InputMode, ReturnPoint, ReturnsSeriesRequest, RiskFreeSourceQuality
+from app.models.returns_series import (
+    InputMode,
+    ReturnPoint,
+    ReturnsSeriesRequest,
+    ReturnsSeriesResponse,
+    RiskFreeSourceQuality,
+)
 from app.models.twr_requests import TWRAnalyticsRequest, TWRInputMode, TWRResolvedExecutionRequest
 from app.models.workspace_summary_requests import WorkspaceSummaryRequest
 from app.observability import (
@@ -84,6 +90,7 @@ from app.services.execution_registry import ExecutionRegistry, execution_registr
 from app.services.execution_stage_names import EXECUTION_STAGE_EXECUTION
 from app.services.inspection import run_twr_inspection
 from app.services.returns_series_service import calculate_returns_series, to_dataframe
+from app.services.returns_series_source.custody import SourceCustodyClaim
 from app.services.twr_calculation_service import build_resolved_twr_identity_payload
 from app.services.twr_mode_service import resolve_twr_request
 from app.services.twr_service import calculate_twr_response
@@ -567,6 +574,19 @@ def _compute_job_executor_for(analytics_type: str) -> _ComputeJobExecutor:
 
 
 def _execute_returns_series_job(job: ComputeJobRecord, context: _ComputeJobExecutionContext) -> Any:
+    from app.services.returns_series_source.workflow import active_compute_source_claim
+
+    claim = SourceCustodyClaim(job.calculation_id, job.tenant_id or "", job.worker_id or "", job.attempt_count + 1)
+    token = active_compute_source_claim.set((context.job_store, claim))
+    try:
+        return _execute_returns_series_job_with_source_claim(job, context, claim)
+    finally:
+        active_compute_source_claim.reset(token)
+
+
+def _execute_returns_series_job_with_source_claim(
+    job: ComputeJobRecord, context: _ComputeJobExecutionContext, claim: SourceCustodyClaim
+) -> Any:
     (
         request,
         source_input_mode,
@@ -577,6 +597,14 @@ def _execute_returns_series_job(job: ComputeJobRecord, context: _ComputeJobExecu
         freshness_benchmark_df_override,
         freshness_risk_free_df_override,
     ) = _resolve_async_returns_series_job_request(job.request_payload)
+    if source_input_mode == InputMode.STATEFUL:
+        execution = context.execution_store.get_execution(job.calculation_id)
+        if execution is not None and execution.status == "complete":
+            # This read only selects the resume path. The store rechecks all authority
+            # and the completed response inside its owning transaction before return.
+            retained = context.job_store.load_completed_returns_series_publication(claim=claim)
+            if retained is not None:
+                return ReturnsSeriesResponse.model_validate(retained)
     if source_input_mode == request.input_mode:
         return asyncio.run(context.returns_series_calculator(request))
     return asyncio.run(

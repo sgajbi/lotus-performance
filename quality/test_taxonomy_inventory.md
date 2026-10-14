@@ -1,7 +1,7 @@
 # Lotus Performance Test Taxonomy Inventory
 
 Report date: 2026-10-14
-Branch: `fix/664-exact-source-acquisition`
+Branch: `fix/662-consumed-source-evidence`
 Mode: regression-blocking test taxonomy inventory; `make quality-test-taxonomy-gate` enforces
 minimum API/runtime and contract/governance breadth plus the current uncategorized-test ceiling.
 
@@ -22,19 +22,19 @@ python scripts/python_test_taxonomy_inventory.py --limit 30 --min-api-runtime-te
 
 | Metric | Value |
 | --- | ---: |
-| Test modules inventoried | 460 |
-| Test functions inventoried | 5419 |
-| Integration/API/runtime test functions | 1091 |
+| Test modules inventoried | 466 |
+| Test functions inventoried | 5506 |
+| Integration/API/runtime test functions | 1115 |
 | Contract/governance test functions | 248 |
 
 ## Test Functions By Suite
 
 | Suite | Modules | Test functions |
 | --- | ---: | ---: |
-| benchmarks | 20 | 200 |
+| benchmarks | 21 | 206 |
 | e2e | 1 | 21 |
-| integration | 55 | 625 |
-| unit | 384 | 4573 |
+| integration | 56 | 646 |
+| unit | 388 | 4633 |
 
 ## Test Functions By Family
 
@@ -44,10 +44,10 @@ above does sum to it, because a module belongs to exactly one suite.
 
 | Family | Test functions |
 | --- | ---: |
-| analytics_domain | 3117 |
-| api_or_runtime | 1091 |
+| analytics_domain | 3199 |
+| api_or_runtime | 1115 |
 | contract_or_governance | 248 |
-| observability_or_readiness | 781 |
+| observability_or_readiness | 782 |
 | quality_or_security | 416 |
 | uncategorized | 558 |
 
@@ -67,8 +67,8 @@ above does sum to it, because a module belongs to exactly one suite.
 | 10 | `tests/unit/services/test_workspace_summary_service.py` | unit | 62 | analytics_domain |
 | 11 | `tests/unit/app/test_openapi_enrichment.py` | unit | 61 | api_or_runtime |
 | 12 | `tests/unit/services/test_twr_inspection_source_economics.py` | unit | 58 | analytics_domain |
-| 13 | `tests/unit/services/test_compute_executor_worker.py` | unit | 56 | observability_or_readiness |
-| 14 | `tests/unit/services/test_stateful_input_service.py` | unit | 56 | analytics_domain |
+| 13 | `tests/unit/services/test_compute_executor_worker.py` | unit | 57 | observability_or_readiness |
+| 14 | `tests/unit/services/test_stateful_input_service.py` | unit | 57 | analytics_domain |
 | 15 | `tests/unit/app/test_contribution_endpoint_helpers.py` | unit | 55 | analytics_domain, api_or_runtime |
 | 16 | `tests/unit/engine/test_mwr.py` | unit | 54 | analytics_domain |
 | 17 | `tests/unit/services/test_twr_inspection_calculation_consistency.py` | unit | 53 | analytics_domain |

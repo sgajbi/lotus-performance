@@ -35,6 +35,16 @@ from tests.conftest import drain_compute_queue, drain_lineage_queue
 
 settings = get_settings()
 
+_LINEAGE_CALLER_HEADERS = {
+    "X-Tenant-Id": "tenant-a",
+    "X-Actor-Id": "attribution-lineage-reader",
+    "X-Role": "operator",
+    "X-Correlation-Id": "attribution-lineage-integration",
+    "X-Service-Identity": "lotus-gateway",
+    "X-Capabilities": "",
+}
+_LINEAGE_OPERATOR_HEADERS = {**_LINEAGE_CALLER_HEADERS, "X-Capabilities": "operations.runtime.read"}
+
 
 @pytest.mark.parametrize("offload", [False, True])
 @pytest.mark.parametrize(
@@ -751,12 +761,15 @@ def test_attribution_lineage_flow(client):
             }
         ],
     }
-    attrib_response = client.post("/performance/attribution", json=payload)
+    attrib_response = client.post("/performance/attribution", json=payload, headers=_LINEAGE_CALLER_HEADERS)
     assert attrib_response.status_code == 200
     calculation_id = attrib_response.json()["calculation_id"]
     assert drain_lineage_queue() >= 1
 
-    lineage_response = client.get(f"/performance/lineage/{calculation_id}")
+    limited_inventory = client.get(f"/performance/lineage/{calculation_id}", headers=_LINEAGE_CALLER_HEADERS)
+    assert limited_inventory.status_code == 200
+    assert limited_inventory.json()["artifacts"] == {}
+    lineage_response = client.get(f"/performance/lineage/{calculation_id}", headers=_LINEAGE_OPERATOR_HEADERS)
     assert lineage_response.status_code == 200
     lineage_data = lineage_response.json()
 
@@ -798,7 +811,7 @@ def test_attribution_endpoint_emits_controlled_status_reason_and_supportability_
         ],
     }
 
-    response = client.post("/performance/attribution", json=payload)
+    response = client.post("/performance/attribution", json=payload, headers=_LINEAGE_CALLER_HEADERS)
 
     assert response.status_code == 200
     body = response.json()
@@ -828,7 +841,10 @@ def test_attribution_endpoint_emits_controlled_status_reason_and_supportability_
     assert all(reason["message"] for reason in period["reasons"])
 
     assert drain_lineage_queue() >= 1
-    lineage = client.get(f"/performance/lineage/{body['calculation_id']}").json()
+    limited_inventory = client.get(f"/performance/lineage/{body['calculation_id']}", headers=_LINEAGE_CALLER_HEADERS)
+    assert limited_inventory.status_code == 200
+    assert limited_inventory.json()["artifacts"] == {}
+    lineage = client.get(f"/performance/lineage/{body['calculation_id']}", headers=_LINEAGE_OPERATOR_HEADERS).json()
     assert "SI_attribution_supportability_evidence.csv" in lineage["artifacts"]
 
 
@@ -987,7 +1003,7 @@ def test_attribution_endpoint_currency_attribution(client, decimal_strings):
     if decimal_strings:
         for rate in payload["fx"]["rates"]:
             rate["rate"] = str(rate["rate"])
-    response = client.post("/performance/attribution", json=payload)
+    response = client.post("/performance/attribution", json=payload, headers=_LINEAGE_CALLER_HEADERS)
     assert response.status_code == 200
     data = response.json()["results_by_period"]["SI"]
 
@@ -1010,7 +1026,10 @@ def test_attribution_endpoint_currency_attribution(client, decimal_strings):
 
     calculation_id = response.json()["calculation_id"]
     assert drain_lineage_queue() >= 1
-    lineage_response = client.get(f"/performance/lineage/{calculation_id}")
+    limited_inventory = client.get(f"/performance/lineage/{calculation_id}", headers=_LINEAGE_CALLER_HEADERS)
+    assert limited_inventory.status_code == 200
+    assert limited_inventory.json()["artifacts"] == {}
+    lineage_response = client.get(f"/performance/lineage/{calculation_id}", headers=_LINEAGE_OPERATOR_HEADERS)
     assert lineage_response.status_code == 200
     lineage_data = lineage_response.json()
     assert "SI_currency_attribution_effects.csv" in lineage_data["artifacts"]

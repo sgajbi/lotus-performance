@@ -84,10 +84,25 @@ class LineageService:
         response_json: str,
         calculation_details: dict[str, str],
         worker_id: str | None = None,
+        expected_attempt_count: int | None = None,
     ) -> bool:
         """Materializes lineage artifacts from a previously enqueued payload."""
         try:
             self._metadata_store.ensure_active_payload_lease_owner(calculation_id, worker_id=worker_id)
+            record = self._metadata_store.get_record(calculation_id)
+            if record is not None and record.source_custody_state is not None:
+                from app.services.returns_series_source.materialization import materialize_retained_source
+
+                materialize_retained_source(
+                    record=record,
+                    store=self._metadata_store,
+                    storage_path=self.storage_path,
+                    request_json=request_json,
+                    response_json=response_json,
+                    worker_id=worker_id,
+                    expected_attempt_count=expected_attempt_count,
+                )
+                return True
             self._ensure_storage_directory()
             target_dir, artifact_names = self._materialize_artifact_files(
                 calculation_id=calculation_id,
