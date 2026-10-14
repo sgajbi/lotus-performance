@@ -15,6 +15,7 @@ from app.services.calculation_result_access import (
     _RESULT_TENANT_AUTHORITY_UNAVAILABLE_REASON,
     authorize_calculation_result_access,
     authorize_persisted_calculation_resource_access,
+    lineage_operator_access_denial,
 )
 from app.services.execution_registry import ExecutionRecord, ExecutionStatus
 from core.errors import APINotFoundError
@@ -51,6 +52,17 @@ def _identity_headers(**extra_headers: str) -> dict[str, str]:
         "X-Service-Identity": "lotus-gateway",
         **extra_headers,
     }
+
+
+@pytest.mark.parametrize("enforced", [False, True])
+def test_lineage_operator_floor_is_independent_of_generic_read_flag(monkeypatch, enforced):
+    monkeypatch.setenv("ENTERPRISE_ENFORCE_PRIVILEGED_READ_AUTHZ", str(enforced).lower())
+    portfolio = _identity_headers(**{"X-Portfolio-Id": "portfolio"})
+    assert lineage_operator_access_denial(portfolio) is not None
+    operator = {**portfolio, "X-Capabilities": "operations.runtime.read"}
+    assert lineage_operator_access_denial(operator) is None
+    assert lineage_operator_access_denial({**operator, "X-Service-Identity": ""}) is not None
+    assert lineage_operator_access_denial({**operator, "X-Tenant-Id": ""}) is not None
 
 
 def _response_body(response) -> dict[str, str | None]:

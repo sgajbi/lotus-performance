@@ -55,6 +55,13 @@ class ArtifactLink(LineageArtifactMetadata):
 
 
 class LineageResponse(BaseModel):
+    source_custody_state: Literal["capturing", "frozen", "pending_materialization", "complete", "failed"] | None = (
+        Field(
+            default=None,
+            description="Independent retained source custody state. Null means unavailable, including historical records.",
+            examples=["pending_materialization"],
+        )
+    )
     calculation_id: UUID = Field(
         description="Durable calculation identifier whose lineage is being inspected.",
         examples=["2f4f3e0e-6e0e-4e0e-8e0e-2f4f3e0e6e0e"],
@@ -74,7 +81,8 @@ class LineageResponse(BaseModel):
     artifacts: dict[str, ArtifactLink] = Field(
         description=(
             "Download links keyed by artifact filename. Empty while lineage is pending or failed, "
-            "and populated only after manifest and on-disk artifact integrity checks pass."
+            "and populated only after manifest and on-disk artifact integrity checks pass. "
+            "Inventory includes only caller-authorized artifacts; operator_only evidence requires operations.runtime.read."
         ),
         examples=[
             {

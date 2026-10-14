@@ -138,14 +138,17 @@ uploads and proof-before-combine ordering across both lanes, including represent
 
 Image consumers first run separate no-service admission prerequisites in their owning workflow.
 Each checks out the qualified Platform governance revision
-`386b40e13e76e60e761c6c4068fbe7a11256ca29` for PostgreSQL/Trivy and runs its existing technology-policy validator
+`386b40e13e76e60e761c6c4068fbe7a11256ca29` for PG17/Trivy and runs its existing technology-policy validator
 with exact source/distribution digests, `linux/amd64`, live manifest verification and bounded
 429 recovery. Failed public responses are retained as distinct artifacts. A failed admission
 emits no usable image output and cannot initialize its dependent service/build/scan.
 Python admission uses qualified Platform `df4da3bda773e9d0103b3a396d58110f49489ebc` with explicit
 original-source opt-in. It admits only the identical linux/amd64 child at the governed ECR or
-original supplier reference; availability selection remains central. PostgreSQL 16 services
-consume their validated output directly. Recovery and container jobs run
+original supplier reference; availability selection remains central. PostgreSQL 16 admission uses
+qualified Platform `f12dade6f294b8df5e236f4f49c117b81bed4cd6` and explicit
+`--acquisition-source original` before any ECR request, retaining the same source/distribution
+mapping and Linux/amd64 content. It is distinct from conditional Python fallback. PG16 services
+consume that validated original output directly. Recovery and container jobs run
 `scripts/ci_image_bindings_gate.py` before Make and pass that same Python output as
 `RUNTIME_BASE_IMAGE` into actual native builds. Dockerfile FROM and distribution provenance
 consume `PYTHON_BASE_IMAGE`; the shared Compose anchor receives it from `RUNTIME_BASE_IMAGE`.
@@ -167,6 +170,40 @@ identify the admitted container's Python version.
 The scanner command consumes only its admitted Trivy output. No credentials or mutable fallback
 are needed. Main uses the same PostgreSQL 16 admission as PR before initializing its contract
 database, alongside the existing Python/PG17/scanner prerequisites.
+
+PG16's [explicit source approval](https://github.com/sgajbi/lotus-platform/issues/945#issuecomment-6169318701)
+binds root index `sha256:ca0bd484cb98bf4b24eb1010e73fb3fcbd6714d240fbc1a10eea5b7dbecb641d`,
+Linux/amd64 child `sha256:75adc2a65806c96bc0e59030230bfe3f1c1b0d6d8f8181a8913e2b8b53bdc166`
+and config `sha256:275447c94b11b151decd1f29877965301d5a77032037c46de93d990f739f00a9`.
+Preflight on one runner establishes manifest identity, not another runner's actual pull.
+The PR/Main PostgreSQL contract jobs and characterization job retain declarative service startup,
+the existing `pg_isready` health check and complete non-skipped contract/workload commands.
+After host Python setup, each consuming runner checks out the same f12 policy at `.image-policy`
+and runs its `automation/verify_acquired_service_image.py` against `job.services.postgres.id`,
+the selected admission output and exact f12 commit before install/workloads.
+The helper inspects/saves only that existing immutable service image; it never pulls, starts,
+publishes or deletes images/containers. It verifies actual config/ordered RootFS bytes and service
+identity under finite command/capture/archive/decompression bounds, then re-inspects the service.
+Admitted child/config linkage remains central policy authority. Raw inspect/export bytes are
+removed; the JSON contains checked-helper-produced hashes, not retained raw or cold/compressed
+transfer proof. Successful JSON upload is mandatory under unique PR/Main/characterization
+`*-pg16-service-content` artifact names; proof or upload failure prevents subsequent workloads.
+No new credentials, cache, alternate-content selection or generic pull-error fallback is provided.
+Actual original pull/readiness, full financial/characterization behavior and current protected/main
+evidence still require the new natural adopter cohort. Earlier failed ECR cohorts remain failed.
+From the repository root, run the complete existing coverage/binding/wiring family after changes
+to CI workflow bindings or proof steps, using the governed Performance virtual-environment
+interpreter. The command is identical in PowerShell and Bash:
+
+```text
+python -m pytest tests/unit/scripts/test_ci_coverage_evidence.py tests/unit/scripts/test_ci_image_bindings_gate.py tests/unit/scripts/test_ci_quality_gate_wiring.py -q
+```
+
+PR/Main parity first requires the exact distinct `pr-pg16-service-content` and
+`main-pg16-service-content` artifact names, then compares every remaining execution/proof field;
+arbitrary artifact-name normalization is not permitted.
+These controls do not execute registry/Docker/SQL or establish hosted or live acceptance. Keep the existing
+coverage, readiness, native PostgreSQL target set and full characterization requirements unchanged.
 
 The PG16 and Trivy digests preserve the retained successful baseline content. PostgreSQL 17 is
 a newly pinned, admitted selection replacing a mutable tag; its historical recovery binary was

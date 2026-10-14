@@ -21,6 +21,39 @@ this repository and published after merge; unpublished drift is expected on feat
 
 ## Operator surface summary
 
+Portfolio source publication requires a qualified Linux volume with file/directory `fsync` and
+atomic hard-link support. Barriers precede root/manifest authority, including retries. Native
+Windows refuses custody publication while preserving arithmetic; simulated fixture barriers are
+not native durability evidence. After a dual enqueue/failure-write outage, bounded lineage-worker
+maintenance marks frozen custody without a payload failed only when matching execution and optional
+compute work are terminal. It preserves roots and arithmetic; active work and queued evidence remain
+protected. Failed custody follows existing cutoff and hold rules and is not recovered complete evidence. See the source
+verification runbook below before recovery or deployment claims.
+
+Portfolio ReturnsSeries source custody is inspected separately from arithmetic completion through
+the lineage response's `source_custody_state`. New NET/GROSS executions retain portfolio pages,
+normalized inputs and immutable verified artifacts across inline and async paths. Historical nulls
+and optional benchmark/risk-free raw custody remain unavailable. Storage or lineage exhaustion does
+not change a successful arithmetic result into a failure. The
+[source verification runbook](https://github.com/sgajbi/lotus-performance/blob/main/docs/runbooks/returns-series-operator-triage.md#retained-portfolio-source-evidence)
+defines controlled reads, source-off verification, retained authority, disk requirements, and limits.
+Use the explicit schema owner and bounded matching API/worker/retention cutover; mixed old/new
+custody writers are unsupported. Fixture proof does not establish live-source or capacity readiness.
+
+An admitted current async owner resumes an exact completed publication only with existing matching
+frozen custody and statement-time lease fencing. It preserves response bytes/envelope and capture
+identity without calculator entry or a fresh source read; inline/foreign/stale/unfrozen/failed cases
+refuse. Accepted pagination may omit page/count metadata; explicitly malformed metadata still refuses.
+Publication reuse additionally binds the exact cached envelope to its immutable queue payload or
+selected materialized response digest; replaced or unqualified response data is refused.
+Operator-only artifact inventory and download require governed `operations.runtime.read` even with
+general privileged-read enforcement off. Portfolio entitlement alone cannot expose source/raw links
+or bytes. Customer-safe evidence and enabled middleware route admission keep their existing policy.
+Known direct URLs remain subject to stricter manifest restrictions, including operator-only support
+briefs. Raw/source metadata carries the code-owned sharing floors while preserving stricter labels.
+Blank response continuation tokens use nested fallback or terminate; requested tokens and supplied
+non-string response tokens remain subject to the existing malformed/traversal refusals.
+
 The runtime image removes shipped `/usr` setuid/setgid privilege bits. API, lineage, compute and
 retention Compose services drop all capabilities and set `no-new-privileges:true`. Keep their
 existing writable volumes; this does not impose a new read-only runtime filesystem. The root

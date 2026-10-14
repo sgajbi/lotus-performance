@@ -128,6 +128,11 @@ current sources. See [the BF caller guide](../guides/composite_attribution.md).
 - Owner: `app/services/lineage_metadata_store.py`
 - Purpose: durable lineage job status, artifact registry, and terminal error state
 - Recovery role: source of truth for lineage status APIs and worker retry visibility
+- Portfolio ReturnsSeries custody: nullable `source_tenant_id`, `source_attempt_id`,
+  `source_attempt_number`, `source_custody_state`, `source_root_digest`, and
+  `source_manifest_digest`. Historical nulls remain unavailable; there is no source backfill.
+  The execution/compute owner selects roots transactionally, and the current lineage lease
+  selects the immutable final manifest. Artifact bytes stay under the existing lineage root.
 
 ### `lineage_payloads`
 

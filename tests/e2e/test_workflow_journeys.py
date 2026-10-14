@@ -15,6 +15,15 @@ from tests.conftest import drain_compute_queue, drain_lineage_queue
 
 settings = get_settings()
 
+_LINEAGE_OPERATOR_HEADERS = {
+    "X-Tenant-Id": "tenant-e2e-lineage",
+    "X-Actor-Id": "e2e-lineage-operator",
+    "X-Role": "operator",
+    "X-Correlation-Id": "e2e-lineage-roundtrip",
+    "X-Service-Identity": "lotus-gateway",
+    "X-Capabilities": "operations.runtime.read",
+}
+
 
 @pytest.fixture(autouse=True)
 def isolated_workflow_runtime(monkeypatch, tmp_path):
@@ -1329,10 +1338,14 @@ def test_e2e_contribution_lineage_roundtrip() -> None:
         "emit": {"timeseries": True},
     }
 
-    with TestClient(app) as client:
+    with TestClient(app, headers=_LINEAGE_OPERATOR_HEADERS) as client:
         contribution_response = client.post("/performance/contribution", json=contribution_payload)
         assert drain_lineage_queue() >= 1
-        lineage_response = client.get(f"/performance/lineage/{contribution_response.json()['calculation_id']}")
+        lineage_url = f"/performance/lineage/{contribution_response.json()['calculation_id']}"
+        limited_inventory = client.get(lineage_url, headers={"X-Capabilities": ""})
+        assert limited_inventory.status_code == 200
+        assert limited_inventory.json()["artifacts"] == {}
+        lineage_response = client.get(lineage_url)
 
     assert contribution_response.status_code == 200
     assert lineage_response.status_code == 200
@@ -1363,10 +1376,14 @@ def test_e2e_attribution_lineage_roundtrip() -> None:
         ],
     }
 
-    with TestClient(app) as client:
+    with TestClient(app, headers=_LINEAGE_OPERATOR_HEADERS) as client:
         attribution_response = client.post("/performance/attribution", json=attribution_payload)
         assert drain_lineage_queue() >= 1
-        lineage_response = client.get(f"/performance/lineage/{attribution_response.json()['calculation_id']}")
+        lineage_url = f"/performance/lineage/{attribution_response.json()['calculation_id']}"
+        limited_inventory = client.get(lineage_url, headers={"X-Capabilities": ""})
+        assert limited_inventory.status_code == 200
+        assert limited_inventory.json()["artifacts"] == {}
+        lineage_response = client.get(lineage_url)
 
     assert attribution_response.status_code == 200
     assert lineage_response.status_code == 200
@@ -1383,10 +1400,14 @@ def test_e2e_mwr_lineage_roundtrip() -> None:
         "annualization": {"enabled": True, "basis": "ACT/365"},
     }
 
-    with TestClient(app) as client:
+    with TestClient(app, headers=_LINEAGE_OPERATOR_HEADERS) as client:
         mwr_response = client.post("/performance/mwr", json=mwr_payload)
         assert drain_lineage_queue() >= 1
-        lineage_response = client.get(f"/performance/lineage/{mwr_response.json()['calculation_id']}")
+        lineage_url = f"/performance/lineage/{mwr_response.json()['calculation_id']}"
+        limited_inventory = client.get(lineage_url, headers={"X-Capabilities": ""})
+        assert limited_inventory.status_code == 200
+        assert limited_inventory.json()["artifacts"] == {}
+        lineage_response = client.get(lineage_url)
 
     assert mwr_response.status_code == 200
     assert lineage_response.status_code == 200

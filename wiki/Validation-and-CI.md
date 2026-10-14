@@ -300,15 +300,26 @@ supplier content are unchanged and bound by byte-identical manifests. Hosted bui
 vulnerability acceptance remain required; the distribution mapping has no mutable fallback
 and does not itself qualify a release.
 
-PR/Main image consumers use separate no-service admission prerequisites pinned to qualified
-Platform revision `386b40e13e76e60e761c6c4068fbe7a11256ca29`. PG16 services consume admitted
-image outputs directly; fixed Dockerfile/Compose bindings are checked before recovery/build,
+PR/Main image consumers use separate no-service admission prerequisites. PG16 explicitly selects
+the approved original source using qualified Platform `f12dade6f294b8df5e236f4f49c117b81bed4cd6`;
+Python retains df4da3bd and its existing conditional fallback, while PG17/Trivy retain 386b40e1.
+PG16 services consume admitted image outputs directly; fixed Dockerfile/Compose bindings are checked before recovery/build,
 and the scanner command consumes its admitted Trivy output. All use linux/amd64, with bounded
 429 recovery and retained failed public responses. Failed admission cannot start a consumer.
 PG16 and Trivy retain baseline digest content. PG17 is a newly pinned admitted selection
 replacing the mutable tag; its historical binary digest is unknown, so final hosted recovery
 must qualify the new selection. Source supplier identity remains separate from distribution
 identity in provenance. No coverage, scan acceptance or financial assertion is relaxed.
+
+On each consuming PG16 runner, the same f12 checkout verifies the already running workflow-bound
+service's exact requested original image, actual config and ordered RootFS hashes before install
+or workloads. The mandatory unique `*-pg16-service-content` artifact contains checked-helper-produced
+provenance and hashes; raw inspect/export bytes are removed. Proof or artifact failure blocks
+consumer execution. This provides no image picker, pull/start operation, credentials/cache or
+generic daemon-error fallback. Existing readiness and full non-skipped contract/characterization
+gates remain required; actual original availability/financial evidence comes only from the new
+natural adopter cohort. Earlier ECR failures remain failed, with no cold/compressed-transfer claim.
+See [exact bindings and evidence limits](https://github.com/sgajbi/lotus-performance/blob/main/docs/operations/development-workflow-and-ci-strategy.md).
 
 The bounded [#624 application qualification](https://github.com/sgajbi/lotus-performance/issues/624#issuecomment-6041708068)
 verified Python 3.11.17, bundled Expat 2.8.5, API/worker imports and isolated hardening for committed

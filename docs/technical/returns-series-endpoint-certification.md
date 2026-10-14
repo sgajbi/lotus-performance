@@ -24,6 +24,14 @@ local/FX/base decomposition.
 
 ## Supported Options
 
+New stateful portfolio NET/GROSS executions retain consumed source through the existing lineage
+surface across inline, queued, and API-resolved promotion. Custody is independent of arithmetic
+success. See [operator source verification](../runbooks/returns-series-operator-triage.md#retained-portfolio-source-evidence).
+`tests/integration/test_returns_series_source_custody.py` covers fixture workflow, source-off replay,
+fee-once behavior, corrupt evidence, tenant/authority refusal, restart, and custody failure. These
+fixtures do not certify shared runtime, live source authority, PostgreSQL concurrency, or capacity.
+Benchmark/risk-free raw custody and historical reconstruction remain outside this first slice.
+
 | Option | Certified behavior |
 | --- | --- |
 | `input_mode=stateless` | Caller supplies portfolio returns and, when selected, benchmark/risk-free returns. |

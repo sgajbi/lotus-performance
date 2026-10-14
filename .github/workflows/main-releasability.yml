@@ -42,7 +42,7 @@ jobs:
       - uses: actions/checkout@v6
         with:
           repository: sgajbi/lotus-platform
-          ref: 386b40e13e76e60e761c6c4068fbe7a11256ca29
+          ref: f12dade6f294b8df5e236f4f49c117b81bed4cd6
           persist-credentials: false
           path: .image-policy
       - uses: actions/setup-python@v6
@@ -57,6 +57,7 @@ jobs:
           python .image-policy/automation/validate_technology_governance_policy.py
           --source-image "$SOURCE_IMAGE" --distribution-image "$DISTRIBUTION_IMAGE"
           --platform linux/amd64 --verify-distribution --github-output "$GITHUB_OUTPUT"
+          --acquisition-source original
           --acquisition-evidence "$RUNNER_TEMP/image-acquisition-evidence"
       - name: Preserve failed public manifest responses
         if: always()
@@ -393,6 +394,30 @@ jobs:
         with:
           python-version: ${{ env.PYTHON_VERSION }}
           cache: "pip"
+      - name: Checkout qualified PG16 content policy
+        uses: actions/checkout@v6
+        with:
+          repository: sgajbi/lotus-platform
+          ref: f12dade6f294b8df5e236f4f49c117b81bed4cd6
+          persist-credentials: false
+          path: .image-policy
+      - name: Verify existing PG16 service content
+        env:
+          SERVICE_ID: ${{ job.services.postgres.id }}
+          SELECTED_IMAGE: ${{ needs.postgres16-admission.outputs.image }}
+          POLICY_COMMIT: f12dade6f294b8df5e236f4f49c117b81bed4cd6
+        run: >-
+          python .image-policy/automation/verify_acquired_service_image.py
+          --container-id "$SERVICE_ID" --expected-image "$SELECTED_IMAGE"
+          --expected-policy-commit "$POLICY_COMMIT"
+          --output "$RUNNER_TEMP/pg16-service-content.json"
+      - name: Preserve verified PG16 service content
+        uses: actions/upload-artifact@v7
+        with:
+          name: main-pg16-service-content
+          path: ${{ runner.temp }}/pg16-service-content.json
+          if-no-files-found: error
+          retention-days: 14
       - name: Install
         run: make install-ci
       - name: Prove all governed PostgreSQL contract targets

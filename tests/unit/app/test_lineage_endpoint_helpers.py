@@ -18,6 +18,48 @@ from app.services.lineage_metadata_store import LineageRecord, LineageStatus
 from core.errors import APIError
 
 
+@pytest.mark.parametrize("downgrade", [False, True])
+def test_inventory_projection_checks_operator_floor_before_minting_urls(downgrade):
+    names = ["source-raw.bin", "request.json", "support_brief.md"]
+    metadata = lineage_artifact_metadata_by_name(artifact_names=names)
+    if downgrade:
+        metadata["source-raw.bin"] = metadata["support_brief.md"]
+    minted = []
+
+    def url(name):
+        minted.append(name)
+        return f"https://example.test/{name}"
+
+    links = lineage_artifact_links(
+        artifact_names=names, artifact_metadata=metadata, artifact_url_factory=url, include_operator_artifacts=False
+    )
+    assert set(links) == {"support_brief.md"} and minted == ["support_brief.md"]
+    operator_links = lineage_artifact_links(artifact_names=names, artifact_metadata=metadata, artifact_url_factory=url)
+    assert operator_links["source-raw.bin"].access_classification == "operator_only"
+    assert operator_links["source-raw.bin"].redaction_required_before_external_sharing is True
+
+
+@pytest.mark.parametrize("name", ["source-raw.bin", "request.json", "daily_results.csv"])
+def test_inventory_enforces_every_canonical_metadata_field(name):
+    canonical = lineage_artifact_metadata_by_name(artifact_names=[name])[name]
+    unsafe = lineage_artifact_metadata_by_name(artifact_names=["support_brief.md"])["support_brief.md"]
+    unsafe = unsafe.model_copy(update={"access_classification": "operator_only"})
+    links = lineage_artifact_links(
+        artifact_names=[name], artifact_metadata={name: unsafe}, artifact_url_factory=lambda filename: filename
+    )
+    assert links[name].model_dump(exclude={"url"}) == canonical.model_dump()
+
+
+def test_inventory_preserves_manifest_policy_stricter_than_derived_filename():
+    strict = lineage_artifact_metadata_by_name(artifact_names=["request.json"])["request.json"]
+    links = lineage_artifact_links(
+        artifact_names=["daily_results.csv"],
+        artifact_metadata={"daily_results.csv": strict},
+        artifact_url_factory=lambda filename: filename,
+    )
+    assert links["daily_results.csv"].model_dump(exclude={"url"}) == strict.model_dump()
+
+
 def test_lineage_terminal_response_projects_pending_and_failed_records():
     calculation_id = uuid4()
     pending_record = LineageRecord(

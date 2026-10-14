@@ -6,13 +6,13 @@ from contextlib import contextmanager
 from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
 from enum import StrEnum
-from typing import Any, Callable, Iterable, Iterator, TypeVar, cast
+from typing import TYPE_CHECKING, Any, Callable, Iterable, Iterator, TypeVar, cast
 from uuid import UUID
 
 from sqlalchemy import DateTime, Index, Integer, String, Text, case, delete, event, func, inspect, select, text, update
 from sqlalchemy.engine import Connection
 from sqlalchemy.exc import IntegrityError, OperationalError, ProgrammingError
-from sqlalchemy.orm import DeclarativeBase, Mapped, Session, mapped_column, sessionmaker
+from sqlalchemy.orm import DeclarativeBase, Mapped, Session, mapped_column, object_session, sessionmaker
 
 from app.core.config import get_settings
 from app.services.calculation_id_filtering import apply_calculation_id_prefix_filter
@@ -41,6 +41,19 @@ from app.services.durable_store_time import (
     format_timestamp,
     normalize_filter_datetime,
 )
+from app.services.returns_series_source.custody import (
+    SourceCustodyClaim,
+    SourceCustodyConflict,
+    SourceCustodySelection,
+    SourceMaterializationPayload,
+    fail_terminal_source_custody,
+    require_existing_frozen_source,
+    require_immutable_source_response,
+    select_source_root,
+)
+
+if TYPE_CHECKING:
+    from app.services.execution_registry import AnalyticsExecutionModel
 
 logger = logging.getLogger(__name__)
 
@@ -969,6 +982,94 @@ class ComputeJobStore:
                 now=datetime.now(timezone.utc),
             )
 
+    def select_returns_series_source_root(
+        self,
+        *,
+        claim: SourceCustodyClaim,
+        root_digest: str | None,
+        failure: str | None = None,
+        materialization: SourceMaterializationPayload | None = None,
+    ) -> SourceCustodySelection:
+        """Store-owned root CAS; deliberately outside the read/insert callback guard."""
+        from app.services.execution_registry import require_returns_source_execution
+
+        with self._returns_source_owner_session(claim) as (session, execution):
+            require_returns_source_execution(execution, claim=claim, execution_mode="async")
+            return select_source_root(
+                session, claim=claim, root_digest=root_digest, failure=failure, materialization=materialization
+            )
+
+    def load_completed_returns_series_publication(self, *, claim: SourceCustodyClaim) -> dict[str, Any] | None:
+        """Resume an exact completed response, without recalculation or custody mutation."""
+        from app.services.execution_registry import require_returns_source_execution
+
+        with self._returns_source_owner_session(claim) as (session, execution):
+            if execution is None or execution.status != "complete":
+                require_returns_source_execution(execution, claim=claim, execution_mode="async")
+                return None
+            if (execution.tenant_id, execution.analytics_type, execution.execution_mode) != (
+                claim.tenant_id,
+                "ReturnsSeries",
+                "async",
+            ):
+                raise SourceCustodyConflict("Completed publication requires the matching async execution.")
+            require_existing_frozen_source(session, claim=claim)
+            response = json.loads(execution.response_json or "null")
+            if (
+                not isinstance(response, dict)
+                or response.get("calculation_id") != str(claim.calculation_id)
+                or response.get("portfolio_id") != execution.portfolio_id
+            ):
+                raise SourceCustodyConflict("Completed publication response identity is unavailable.")
+            require_immutable_source_response(session, claim=claim, response=response)
+            return response
+
+    @contextmanager
+    def _returns_source_owner_session(
+        self, claim: SourceCustodyClaim
+    ) -> Iterator[tuple[Session, AnalyticsExecutionModel | None]]:
+        from app.services.execution_registry import AnalyticsExecutionModel
+
+        claim.validate()
+        with self._session() as session:
+            connection = session.connection()
+            if connection.dialect.name == "sqlite":
+                connection.exec_driver_sql("BEGIN IMMEDIATE")
+            execution = session.execute(
+                select(AnalyticsExecutionModel)
+                .where(AnalyticsExecutionModel.calculation_id == str(claim.calculation_id))
+                .with_for_update()
+            ).scalar_one_or_none()
+            row = session.execute(
+                select(ComputeJobModel)
+                .where(ComputeJobModel.calculation_id == str(claim.calculation_id))
+                .with_for_update()
+            ).scalar_one_or_none()
+            if row is None:
+                raise SourceCustodyConflict("Source custody compute claim was not found.")
+            _require_input_custody_claim(
+                row,
+                calculation_id=claim.calculation_id,
+                tenant_id=claim.tenant_id,
+                analytics_type="ReturnsSeries",
+                worker_id=claim.attempt_id,
+                expected_attempt_count=claim.attempt_number,
+            )
+            # PostgreSQL transaction time is fixed: clock_timestamp is required
+            # to reject a claim that expires while waiting for a row lock.
+            database_now = (
+                func.clock_timestamp() if connection.dialect.name == "postgresql" else func.current_timestamp()
+            )
+            validity = select(ComputeJobModel.calculation_id).where(
+                ComputeJobModel.calculation_id == str(claim.calculation_id),
+                ComputeJobModel.lease_expires_at_utc > database_now,
+            )
+            if session.execute(validity).scalar_one_or_none() is None:
+                raise SourceCustodyConflict("Source custody compute lease has expired.")
+            yield session, execution
+            if session.execute(validity).scalar_one_or_none() is None:
+                raise SourceCustodyConflict("Source custody compute lease expired during selection.")
+
     def mark_complete(
         self, calculation_id: UUID, *, response_payload: dict[str, Any], worker_id: str | None = None
     ) -> None:
@@ -1022,6 +1123,12 @@ class ComputeJobStore:
             row.lease_owner_id = None
             row.leased_at_utc = None
             row.lease_expires_at_utc = None
+            fail_terminal_source_custody(
+                session,
+                calculation_ids=[row.calculation_id],
+                tenant_id=row.tenant_id,
+                analytics_type=row.analytics_type,
+            )
 
     def cancel_pending_job(self, calculation_id: UUID, *, tenant_id: str, reason: str) -> bool:
         """Cancel only work that no worker has leased; running ownership is never stolen."""
@@ -1058,6 +1165,9 @@ class ComputeJobStore:
             if result.rowcount != len(calculation_id_values):
                 session.rollback()
                 return False
+            fail_terminal_source_custody(
+                session, calculation_ids=calculation_id_values, tenant_id=tenant_id, analytics_type="ReturnsSeries"
+            )
             return True
 
     def mark_retryable_failure(
@@ -1092,6 +1202,12 @@ class ComputeJobStore:
                 return True
             row.job_status = ComputeJobStatus.FAILED.value
             row.completed_at_utc = now
+            fail_terminal_source_custody(
+                session,
+                calculation_ids=[row.calculation_id],
+                tenant_id=row.tenant_id,
+                analytics_type=row.analytics_type,
+            )
             return False
 
     def reconcile_stale_jobs(self, *, now: datetime | None = None) -> list[ReconciledJobRecord]:
@@ -1125,6 +1241,12 @@ class ComputeJobStore:
         row.completed_at_utc = outcome.completed_at_utc
         row.job_status = outcome.job_status.value
         row.failure_json = generic_durable_failure(retryable=outcome.job_status == ComputeJobStatus.PENDING).to_json()
+        fail_terminal_source_custody(
+            object_session(row),
+            calculation_ids=[row.calculation_id],
+            tenant_id=row.tenant_id,
+            analytics_type=row.analytics_type if outcome.job_status == ComputeJobStatus.FAILED else None,
+        )
         return ReconciledJobRecord(
             calculation_id=UUID(row.calculation_id),
             analytics_type=row.analytics_type,

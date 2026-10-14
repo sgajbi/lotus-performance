@@ -20,6 +20,14 @@ from app.services.durable_schema_creation import create_durable_schema
 from app.services.durable_store_json import load_json_object_or_none
 from app.services.durable_store_runtime import RuntimeStoreProxy, resolve_runtime_store
 from app.services.durable_store_time import format_timestamp, normalize_filter_datetime
+from app.services.returns_series_source.custody import (
+    SourceCustodyClaim,
+    SourceCustodyConflict,
+    SourceCustodySelection,
+    SourceMaterializationPayload,
+    fail_terminal_source_custody,
+    select_source_root,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -458,6 +466,30 @@ class ExecutionRegistry:
             session.query(AnalyticsExecutionStageModel).delete()
             session.query(AnalyticsExecutionModel).delete()
 
+    def select_returns_series_source_root(
+        self,
+        *,
+        claim: SourceCustodyClaim,
+        root_digest: str | None,
+        failure: str | None = None,
+        materialization: SourceMaterializationPayload | None = None,
+    ) -> SourceCustodySelection:
+        """Select inline custody under the same lock as execution authority."""
+        with self._session() as session:
+            if session.connection().dialect.name == "sqlite":
+                session.connection().exec_driver_sql("BEGIN IMMEDIATE")
+            row = session.execute(
+                select(AnalyticsExecutionModel)
+                .where(AnalyticsExecutionModel.calculation_id == str(claim.calculation_id))
+                .with_for_update()
+            ).scalar_one_or_none()
+            require_returns_source_execution(row, claim=claim, execution_mode="sync")
+            if claim.attempt_number != 0:
+                raise SourceCustodyConflict("Inline source custody requires the existing active tenant execution.")
+            return select_source_root(
+                session, claim=claim, root_digest=root_digest, failure=failure, materialization=materialization
+            )
+
     def delete_execution(self, calculation_id: UUID) -> None:
         with self._session() as session:
             execution = session.get(AnalyticsExecutionModel, str(calculation_id))
@@ -631,6 +663,12 @@ class ExecutionRegistry:
             execution.completed_at_utc = now
             execution.error_message = error_message
             execution.failure_json = None if failure is None else failure.to_json()
+            fail_terminal_source_custody(
+                session,
+                calculation_ids=[execution.calculation_id],
+                tenant_id=execution.tenant_id,
+                analytics_type=execution.analytics_type if execution.execution_mode == "sync" else None,
+            )
 
     def update_execution_identity(
         self,
@@ -1126,6 +1164,19 @@ class ExecutionRegistry:
         if "failure_json" in {column["name"] for column in inspector.get_columns("analytics_execution")}:
             return
         connection.execute(text("ALTER TABLE analytics_execution ADD COLUMN failure_json TEXT"))
+
+
+def require_returns_source_execution(
+    row: AnalyticsExecutionModel | None, *, claim: SourceCustodyClaim, execution_mode: str
+) -> None:
+    if (
+        row is None
+        or row.tenant_id != claim.tenant_id
+        or row.analytics_type != "ReturnsSeries"
+        or row.execution_mode != execution_mode
+        or row.status not in {ExecutionStatus.PENDING.value, ExecutionStatus.RUNNING.value}
+    ):
+        raise SourceCustodyConflict("Source custody requires the existing active tenant execution.")
 
 
 _store_cache: dict[str, ExecutionRegistry] = {}
