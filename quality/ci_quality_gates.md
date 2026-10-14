@@ -18,6 +18,18 @@ developers or GitHub Actions.
 
 ## Current Blocking CI Lanes
 
+The #664 Python admission prerequisite uses qualified Platform
+`df4da3bda773e9d0103b3a396d58110f49489ebc` with explicit identical-original-source opt-in.
+Recovery and supply-chain consumers install the lock-backed PyYAML6.0.2 host parser, bind the
+trusted selection to actual Dockerfile/Compose inputs, verify fresh central manifest linkage
+and one selected pull/config/RootFS export, then pass the same selection to native Make/recovery.
+Acquisition artifacts preserve source/config/layer provenance without cold-cache or executed
+Python-version claims. Source/mock controls are accepted at that boundary; actual hosted
+build/security, separate PG16/17 readiness, recovery and main/wiki proof remain required.
+The #664 measured tree has 9,219 collected cases and 5,419 AST test functions, including 416
+quality/security functions. Existing coverage, taxonomy breadth, uncategorized and scanner
+policies are unchanged. These measurements exclude unmerged #662 feature truth.
+
 The PR and main PostgreSQL contracts jobs run thirteen default targets alongside the
 ordinary unit/integration/e2e matrix, using its own PostgreSQL 16 service and database.
 The repo-native gate appends all thirteen subprocess measurements for `app`, `engine`,

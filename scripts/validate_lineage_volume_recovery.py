@@ -10,6 +10,11 @@ import time
 from pathlib import Path
 from typing import NoReturn
 
+if __package__:
+    from . import ci_image_bindings_gate as image_bindings
+else:
+    import ci_image_bindings_gate as image_bindings
+
 REPOSITORY_ROOT = Path(__file__).resolve().parents[1]
 PROJECT_PREFIX = "lotus-performance-lineage-recovery-"
 RECOVERY_COMPOSE_FILE = REPOSITORY_ROOT / "docker-compose.lineage-recovery.yml"
@@ -88,7 +93,9 @@ def new_project_name() -> str:
     return f"{PROJECT_PREFIX}{secrets.token_hex(12)}"
 
 
-def build_runtime_environment(project_name: str) -> dict[str, str]:
+def build_runtime_environment(
+    project_name: str, runtime_image: str = image_bindings.DEFAULT_RUNTIME_IMAGE
+) -> dict[str, str]:
     """Build the bounded host and container configuration for one owned recovery run.
 
     Docker only receives the host variables it needs to start locally. Compose interpolation is
@@ -97,8 +104,10 @@ def build_runtime_environment(project_name: str) -> dict[str, str]:
     Every command also selects Docker's built-in ``default`` context explicitly, so a persisted
     caller-selected context cannot redirect the validator to a remote daemon.
     """
+    image_bindings.require_runtime_image(runtime_image)
     return {
         **_host_command_environment(),
+        "RUNTIME_BASE_IMAGE": runtime_image,
         "LINEAGE_METADATA_DATABASE_URL": _LINEAGE_DATABASE_URL,
         "PA_LINEAGE_DB_CONTAINER_NAME": f"{project_name}-db",
         "PA_LINEAGE_VOLUME_INIT_CONTAINER_NAME": f"{project_name}-volume-init",
@@ -132,14 +141,15 @@ def docker_command(*arguments: str) -> list[str]:
     return ["docker", "--context", _LOCAL_DOCKER_CONTEXT, *arguments]
 
 
-def run_validation() -> dict[str, object]:
+def run_validation(runtime_image: str = image_bindings.DEFAULT_RUNTIME_IMAGE) -> dict[str, object]:
     """Run one recovery proof in a freshly allocated, invocation-owned namespace.
 
     The project identity is intentionally not caller-configurable. A same-prefix value does not
     establish ownership, and cleanup includes destructive volume removal.
     """
+    image_bindings.verify_runtime_build_files(runtime_image)
     project_name = validate_project_name(new_project_name())
-    runtime_environment = build_runtime_environment(project_name)
+    runtime_environment = build_runtime_environment(project_name, runtime_image)
     container_names = {
         "initializer": runtime_environment["PA_LINEAGE_VOLUME_INIT_CONTAINER_NAME"],
         "schema_apply": runtime_environment["PA_SCHEMA_APPLY_CONTAINER_NAME"],
@@ -192,6 +202,7 @@ def run_validation() -> dict[str, object]:
         return {
             "status": "passed",
             "project_name": project_name,
+            "runtime_image": runtime_image,
             "initializer_exit_code": 0,
             "schema_apply_exit_code": 0,
             "root_owned_volume_repaired": True,
@@ -415,9 +426,10 @@ def _fail(message: str) -> NoReturn:
 
 def main() -> int:
     parser = argparse.ArgumentParser(description="Prove non-root lineage volume recovery and restart health.")
-    parser.parse_args()
+    parser.add_argument("--runtime-image", default=image_bindings.DEFAULT_RUNTIME_IMAGE)
+    args = parser.parse_args()
     try:
-        summary = run_validation()
+        summary = run_validation(args.runtime_image)
     except (OSError, subprocess.CalledProcessError, RecoveryValidationError, RuntimeError, ValueError) as exc:
         _fail(f"lineage volume recovery validation failed: {exc}")
     print(json.dumps(summary, indent=2, sort_keys=True))

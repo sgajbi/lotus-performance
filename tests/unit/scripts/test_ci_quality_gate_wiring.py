@@ -1,9 +1,16 @@
 from __future__ import annotations
 
+import os
 import re
+import shlex
+import subprocess
+import tomllib
 from pathlib import Path
 
+import pytest
 import yaml
+
+from scripts import ci_image_bindings_gate as image_bindings
 
 ROOT = Path(__file__).resolve().parents[3]
 
@@ -133,11 +140,6 @@ def test_test_and_coverage_workflows_use_repo_native_make_targets() -> None:
 
 def test_container_supply_chain_evidence_is_repo_native_and_published() -> None:
     docker_build_target = _makefile_target_definition("docker-build")
-    evidence_target = _makefile_target_definition("container-supply-chain-evidence")
-    sbom_target = _makefile_target_definition("container-sbom")
-    vulnerability_report_target = _makefile_target_definition("container-vulnerability-report")
-    vulnerability_gate_target = _makefile_target_definition("container-vulnerability-gate")
-    dockerfile = (ROOT / "Dockerfile").read_text(encoding="utf-8")
 
     assert "$(CONTAINER_IMAGE)" in docker_build_target
     assert "--target $(CONTAINER_BUILD_TARGET)" in docker_build_target
@@ -148,6 +150,7 @@ def test_container_supply_chain_evidence_is_repo_native_and_published() -> None:
     # (#511). Requiring `$(call shellquote,...)` makes the pin state the property it
     # was standing in for.
     for build_arg, variable in (
+        ("PYTHON_BASE_IMAGE", "RUNTIME_BASE_IMAGE"),
         ("APP_VERSION", "CONTAINER_SERVICE_VERSION"),
         ("APP_GIT_COMMIT_SHA", "CONTAINER_GIT_SHA"),
         ("APP_GIT_BRANCH", "CONTAINER_GIT_BRANCH"),
@@ -158,6 +161,128 @@ def test_container_supply_chain_evidence_is_repo_native_and_published() -> None:
     ):
         expected = f"--build-arg {build_arg}=$(call shellquote,$({variable}))"
         assert expected in docker_build_target, f"{build_arg} is not passed shell-quoted"
+
+
+@pytest.mark.parametrize("runtime", [image_bindings.DEFAULT_RUNTIME_IMAGE, image_bindings.ORIGINAL_RUNTIME_IMAGE])
+@pytest.mark.parametrize("target", ["docker-build", "docker-up", "lineage-volume-recovery-smoke"])
+def test_native_build_and_recovery_commands_carry_the_selected_image(runtime, target):
+    result = subprocess.run(
+        ["make", "--no-print-directory", "-n", target],
+        cwd=ROOT,
+        env=dict(os.environ, RUNTIME_BASE_IMAGE=runtime),
+        capture_output=True,
+        text=True,
+        check=True,
+    )
+    tokens = shlex.split(result.stdout.replace("\\\n", " "))
+    if target == "docker-build":
+        assert "PYTHON_BASE_IMAGE=" + runtime in tokens
+    elif target == "docker-up":
+        assert "RUNTIME_BASE_IMAGE=" + runtime in tokens
+    else:
+        assert tokens[tokens.index("--runtime-image") + 1] == runtime
+    if target != "lineage-volume-recovery-smoke":
+        assert result.stdout.index("ci_image_bindings_gate.py") < result.stdout.index("docker ")
+
+
+@pytest.mark.parametrize("origin", ["environment", "command-line"])
+def test_native_binding_refuses_raw_hostile_values_before_build(tmp_path, origin):
+    marker = tmp_path / "must-not-exist"
+    hostile = f"$(shell echo expanded > {marker.as_posix()}); `echo injected`; '"
+    arguments = ["make", "--no-print-directory", "runtime-image-bindings"]
+    environment = dict(os.environ)
+    environment.pop("RUNTIME_BASE_IMAGE", None)
+    if origin == "environment":
+        environment["RUNTIME_BASE_IMAGE"] = hostile
+    else:
+        arguments.append("RUNTIME_BASE_IMAGE=" + hostile)
+    result = subprocess.run(
+        arguments,
+        cwd=ROOT,
+        env=environment,
+        capture_output=True,
+        text=True,
+    )
+    assert result.returncode != 0
+    assert "qualified exact-source" in result.stderr
+    assert not marker.exists()
+
+
+@pytest.mark.parametrize("origin", ["environment", "command-line"])
+def test_make_info_macro_is_not_expanded_before_guard_refusal(origin):
+    marker = "ROOT664_RAW_EXPANSION_MARKER"
+    hostile = f"$(info {marker})unapproved"
+    arguments = ["make", "--no-print-directory", "runtime-image-bindings"]
+    environment = dict(os.environ)
+    environment.pop("RUNTIME_BASE_IMAGE", None)
+    if origin == "environment":
+        environment["RUNTIME_BASE_IMAGE"] = hostile
+    else:
+        arguments.append("RUNTIME_BASE_IMAGE=" + hostile)
+    result = subprocess.run(arguments, cwd=ROOT, env=environment, capture_output=True, text=True)
+    assert result.returncode != 0
+    assert "qualified exact-source" in result.stderr
+    assert marker not in result.stdout.splitlines()
+    assert hostile in result.stdout
+
+
+@pytest.mark.parametrize("origin", ["default", "environment", "command-line"])
+@pytest.mark.parametrize("runtime", [image_bindings.DEFAULT_RUNTIME_IMAGE, image_bindings.ORIGINAL_RUNTIME_IMAGE])
+def test_native_binding_valid_controls_for_each_input_origin(origin, runtime):
+    arguments = ["make", "--no-print-directory", "runtime-image-bindings"]
+    environment = dict(os.environ)
+    environment.pop("RUNTIME_BASE_IMAGE", None)
+    expected = runtime
+    if origin == "environment":
+        environment["RUNTIME_BASE_IMAGE"] = runtime
+    elif origin == "command-line":
+        arguments.append("RUNTIME_BASE_IMAGE=" + runtime)
+    else:
+        expected = image_bindings.DEFAULT_RUNTIME_IMAGE
+    result = subprocess.run(arguments, cwd=ROOT, env=environment, capture_output=True, text=True)
+    assert result.returncode == 0, result.stderr
+    assert f'"runtime_image": "{expected}"' in result.stdout
+
+
+def test_hosted_build_and_recovery_pass_trusted_admission_to_native_commands():
+    for name in ("pr-merge-gate.yml", "main-releasability.yml"):
+        jobs = yaml.safe_load(_workflow_text(name))["jobs"]
+        for job, step_name in (
+            ("container-supply-chain-evidence", "Build image and generate container evidence"),
+            ("lineage-volume-recovery", "Prove non-root restart recovery"),
+        ):
+            step = next(step for step in jobs[job]["steps"] if step.get("name") == step_name)
+            assert step["env"]["RUNTIME_BASE_IMAGE"] == "${{ needs.python-admission.outputs.image }}"
+            steps = jobs[job]["steps"]
+            parser = next(step for step in steps if step.get("name") == "Install binding parser")
+            packages = tomllib.loads((ROOT / "poetry.lock").read_text())["package"]
+            pinned = next(package["version"] for package in packages if package["name"] == "pyyaml")
+            assert f"PyYAML=={pinned}" in parser["run"] and "--no-deps" in parser["run"]
+            assert steps.index(parser) < next(
+                i for i, candidate in enumerate(steps) if "ci_image_bindings_gate.py" in candidate.get("run", "")
+            )
+            acquisition = next(
+                step for step in steps if step.get("name") == "Acquire selected runtime config and layers"
+            )
+            checkout = next(step for step in steps if step.get("name") == "Checkout qualified acquisition policy")
+            assert checkout["with"]["ref"] == "df4da3bda773e9d0103b3a396d58110f49489ebc"
+            assert checkout["with"]["persist-credentials"] is False
+            assert acquisition["env"]["RUNTIME_IMAGE"] == "${{ needs.python-admission.outputs.image }}"
+            assert acquisition["env"]["EXPECTED_SOURCE"] == "${{ github.sha }}"
+            assert steps.index(checkout) < steps.index(acquisition) < steps.index(step)
+            assert "--policy-root .image-policy" in acquisition["run"]
+            artifact = next(step for step in steps if step.get("name") == "Preserve runtime acquisition evidence")
+            assert artifact["if"] == "always()"
+            assert artifact["with"]["path"] == "output/image-acquisition"
+
+
+def test_container_supply_chain_preserves_provenance_and_scan_artifacts():
+    docker_build_target = _makefile_target_definition("docker-build")
+    evidence_target = _makefile_target_definition("container-supply-chain-evidence")
+    sbom_target = _makefile_target_definition("container-sbom")
+    vulnerability_report_target = _makefile_target_definition("container-vulnerability-report")
+    vulnerability_gate_target = _makefile_target_definition("container-vulnerability-gate")
+    dockerfile = (ROOT / "Dockerfile").read_text(encoding="utf-8")
     for label in (
         "org.opencontainers.image.source",
         "org.opencontainers.image.revision",

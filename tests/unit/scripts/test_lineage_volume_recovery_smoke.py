@@ -72,6 +72,7 @@ def test_recovery_environment_rejects_hostile_compose_and_database_configuration
             "DOCKER_CONTEXT": "remote-shared-daemon",
             "COMPOSE_PROJECT_NAME": "hostile-project",
             "CORE_CONTROL_PLANE_BASE_URL": "https://hostile.example",
+            "RUNTIME_BASE_IMAGE": "unapproved.example/python:latest",
         },
     )
 
@@ -84,6 +85,7 @@ def test_recovery_environment_rejects_hostile_compose_and_database_configuration
     assert environment["SystemRoot"] == "C:\\Windows"
     assert environment["ProgramFiles"] == "C:\\Program Files"
     assert environment["USERPROFILE"] == "C:\\Users\\lotus"
+    assert environment["RUNTIME_BASE_IMAGE"] == recovery.image_bindings.DEFAULT_RUNTIME_IMAGE
     assert not {
         "PA_LINEAGE_DB_PORT",
         "PA_HOST_PORT",
@@ -92,6 +94,46 @@ def test_recovery_environment_rejects_hostile_compose_and_database_configuration
         "COMPOSE_PROJECT_NAME",
         "CORE_CONTROL_PLANE_BASE_URL",
     }.intersection(environment)
+
+
+@pytest.mark.parametrize(
+    "runtime",
+    [
+        recovery.image_bindings.DEFAULT_RUNTIME_IMAGE,
+        recovery.image_bindings.ORIGINAL_RUNTIME_IMAGE,
+    ],
+)
+def test_recovery_carries_explicit_selection_to_every_command_and_cleanup(monkeypatch, runtime):
+    monkeypatch.setenv("RUNTIME_BASE_IMAGE", "hostile")
+    commands = []
+    monkeypatch.setattr(recovery, "_run", lambda command, **kwargs: commands.append((command, kwargs["env"])))
+    monkeypatch.setattr(recovery, "_assert_initializer_succeeded", lambda *_args: None)
+    monkeypatch.setattr(recovery, "_assert_schema_apply_succeeded", lambda *_args: None)
+    monkeypatch.setattr(recovery, "_wait_for_healthy_runtime", lambda *_args: None)
+    monkeypatch.setattr(recovery, "_assert_non_root_volume_access", lambda *_args: None)
+    monkeypatch.setattr(
+        recovery, "_cleanup_owned_project", lambda project, env: commands.append((["cleanup", project], env))
+    )
+    summary = run_validation(runtime)
+    assert summary["runtime_image"] == runtime
+    assert all(env["RUNTIME_BASE_IMAGE"] == runtime for _, env in commands)
+    assert commands[0][0][-2:] == ["build", "performance-lineage-volume-init"]
+    assert any("--build" in command for command, _ in commands)
+    assert any("restart" in command for command, _ in commands)
+    assert commands[-1][0][0] == "cleanup"
+
+
+@pytest.mark.parametrize(
+    "runtime", ["", "python:3.11", "$(shell echo injected)", recovery.image_bindings.ORIGINAL_RUNTIME_IMAGE[:-1] + "0"]
+)
+def test_recovery_refuses_invalid_selection_before_all_docker_and_cleanup(monkeypatch, runtime):
+    calls = []
+    monkeypatch.setattr(recovery, "_run", lambda *_args, **_kwargs: calls.append("run"))
+    monkeypatch.setattr(recovery, "_capture", lambda *_args, **_kwargs: calls.append("capture"))
+    monkeypatch.setattr(recovery, "_cleanup_owned_project", lambda *_args: calls.append("cleanup"))
+    with pytest.raises(ValueError, match="qualified exact-source"):
+        run_validation(runtime)
+    assert calls == []
 
 
 def test_recovery_project_name_is_random_and_cleanup_keeps_shared_images(

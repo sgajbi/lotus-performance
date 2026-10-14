@@ -6,6 +6,12 @@ Baseline source: `quality/baseline_report.md`
 Current source: `quality/refactor_health_report.md`
 Testing inventory refresh: 2026-10-10, result authority (#610), PR proof controls (#641) and main coverage parity (#645).
 Other phase-zero measurements below remain historical, not current acceptance evidence.
+CI acquisition refresh (2026-10-14, #664): native generation measures 1,026 Python files,
+300,029 Python LOC, 460 test modules and 9,219 collected tests on the isolated current-main-based
+adopter tree. AST taxonomy measures 5,419 functions, including 416 quality/security functions;
+API/runtime and contract/governance breadth and the uncategorized ceiling are unchanged.
+The added 99 collected cases and 31 source test functions are source/mock controls, not hosted
+pull/build/security/PostgreSQL/recovery acceptance. No unmerged #662 feature truth is included.
 PostgreSQL regression authoring refresh (2026-10-12): file, LOC, collection and
 taxonomy rows include the precision capture target and focused gate controls.
 The new PostgreSQL cases are collected only; no database execution is claimed.
@@ -35,13 +41,13 @@ metrics in each section are updated with each meaningful slice.
 
 | Metric | Baseline | Current | Delta | Status | Evidence |
 | --- | ---: | ---: | ---: | --- | --- |
-| Python files | 480 | 1024 | 544 | measured | `quality/baseline_report.md`; `quality/refactor_health_report.md` |
+| Python files | 480 | 1026 | 546 | measured | `quality/baseline_report.md`; `quality/refactor_health_report.md` |
 | Python package markers | 18 | 35 | 17 | measured | `quality/baseline_report.md`; `quality/refactor_health_report.md` |
-| Python LOC | 104,454 | 298,856 | 194,402 | measured | `quality/baseline_report.md`; `quality/refactor_health_report.md` |
+| Python LOC | 104,454 | 300,029 | 195,575 | measured | `quality/baseline_report.md`; `quality/refactor_health_report.md` |
 | Largest Python file LOC | 2,399 | 4,447 | 2,048 | measured | `quality/baseline_report.md`; `quality/refactor_health_report.md` |
 | Largest production file LOC | 1,156 | 3,271 | 2,115 | measured | `quality/refactor_health_report.md`; `quality/architecture_boundary_inventory.md` |
-| Python test modules | 228 | 459 | 231 | measured | `quality/baseline_report.md`; `quality/refactor_health_report.md` |
-| Collected tests | 2,035 | 9,120 | 7,085 | measured | `quality/baseline_report.md`; `quality/refactor_health_report.md` |
+| Python test modules | 228 | 460 | 232 | measured | `quality/baseline_report.md`; `quality/refactor_health_report.md` |
+| Collected tests | 2,035 | 9,219 | 7,184 | measured | `quality/baseline_report.md`; `quality/refactor_health_report.md` |
 | Duplicate code hotspots | 0 | 0 | 0 | enforced | `quality/duplicate_code_inventory.md`; `quality/refactor_health_report.md`; `make quality-duplicate-code-gate` |
 | Tracked local byproduct findings | unknown | 0 | n/a | enforced | `scripts/repository_hygiene_gate.py`; `make repository-hygiene-gate`; `quality/refactor_health_report.md` |
 

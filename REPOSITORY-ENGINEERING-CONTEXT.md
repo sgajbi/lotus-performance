@@ -520,17 +520,27 @@ Important validation expectations:
     evidenced by #613. Evaluate the acceptance script against the single retained scan.
     The supported runtime base is official Python `3.11.17-slim-trixie`, pinned to linux/amd64
     child `docker.io/library/python@sha256:e529028263dbe6910a2d96f7d2b8f5266385e917fd45d286ef166977c094a51e`.
-    Dockerfile acquires that exact child through `public.ecr.aws/docker/library/python` under
-    Platform #945. Original supplier identity, digest and linux/amd64 platform are unchanged;
-    byte-identical public manifests bind the distribution mapping. There is no mutable or
-    alternate-content fallback. Hosted build/SBOM/vulnerability proof is still required.
-    Image admission uses the existing Platform technology-policy validator pinned to qualified
-    revision `386b40e13e76e60e761c6c4068fbe7a11256ca29` in a no-service prerequisite.
+    Python admission uses qualified Platform `df4da3bda773e9d0103b3a396d58110f49489ebc` with
+    explicit original-source opt-in. The current ECR default and identical original supplier
+    reference select the same immutable linux/amd64 child. Original supplier and distribution
+    labels remain separate; there is no mutable or alternate-content fallback. PostgreSQL and
+    Trivy retain their separately governed `386b40e13e76e60e761c6c4068fbe7a11256ca29` policy pin.
+    Hosted build/SBOM/vulnerability proof is still required.
     PR and characterization PG16 services consume its exact image output before initialization;
-    recovery/build jobs verify fixed Dockerfile/Compose bindings before Make, and the scanner
+    recovery/build jobs validate selected Dockerfile/Compose bindings before Make, and the scanner
     receives its admitted GHCR image output. Native build/scanner and recovery database select
     linux/amd64. Compose PG17 is a newly pinned selection, not claimed equivalent to the unknown
     historical mutable-tag binary. Original supplier and distribution labels remain separate.
+    `make runtime-image-bindings`, from the repository root, validates either qualified Python
+    reference against actual FROM/distribution provenance and shared Compose build inputs without
+    Docker. Make captures `RUNTIME_BASE_IMAGE` raw before subprocess evaluation, quotes it for
+    native builds and passes it explicitly into bounded recovery; inherited base/config overrides
+    cannot redirect that proof. Hosted consumers verify the clean exact source and qualified
+    nested policy checkout, then fresh central manifest/config linkage, one selected pull and
+    exported config/RootFS layers. Docker image IDs may be index identities, not config digests.
+    Config-declared Python version is not an execution probe; digest inventory cannot prove cold
+    acquisition. Final application build/security, separate PostgreSQL readiness and behavioral
+    recovery remain required by #664. Container Python version never follows hosted setup-python.
     This pin selects one architecture, not the supplier multi-architecture index. Retain the
     existing apt refresh and dependency resolution; they make final builds time-dependent even
     with an immutable base. Bind actual source/image/config/inventory evidence for each build.
