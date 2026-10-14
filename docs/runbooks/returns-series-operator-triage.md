@@ -50,9 +50,32 @@ count is derived from observations. Supplied malformed metadata/counts, token lo
 and incomplete traversal still refuse custody. Captured entity bytes are never rewritten.
 
 Benchmark and risk-free raw-source custody remains unavailable. Their existing arithmetic options
-continue to work; a retained normalized side series is not complete upstream source custody. This
-slice does not close issue #662 or certify source authority, historical evidence, production capacity,
-or a multi-provider coherent snapshot.
+continue to work; a retained normalized side series is not complete upstream source custody.
+
+### Bounded Acceptance Evidence
+
+The six source-custody criteria in [issue #662](https://github.com/sgajbi/lotus-performance/issues/662)
+are supported for new stateful portfolio NET/GROSS executions on merged main
+`f2f698df886ccceb2360416447f77e6f605ac03b` ([PR #668](https://github.com/sgajbi/lotus-performance/pull/668)).
+The accepted evidence separates actual PostgreSQL custody tests (15 passed, no skips), main CI,
+[independent financial verification](https://github.com/sgajbi/lotus-performance/issues/662#issuecomment-6179838422)
+and [R5 physical source-off acceptance](https://github.com/sgajbi/lotus-performance/issues/662#issuecomment-6180367662).
+Financial verification binds all 540 daily NET/GROSS figures to exact consumed source and actual
+responses; each original retains five ordered chunks/pages and 270 observations.
+
+R5 ran the unchanged replay CLI in fresh processes with the original lineage volume read-only and
+the same PostgreSQL authority verified. Physical Core internal/host IPv4 and host IPv6 access was
+denied. Both bases matched all 270 retained portfolio points; wrong-tenant authority and a mutated
+diagnostic archive copy were refused. Archive, authority/job state, network, names and volumes were
+preserved, owned test resources removed, and final canonical-47 continuity verified. The finite Unix
+socket relay was a QA-only arrangement, not production topology or a prerequisite for ordinary replay.
+
+This acceptance does not reconstruct historical evidence or certify optional benchmark/risk-free
+raw custody, upstream tenant attestation, official source authority, a multi-provider coherent
+snapshot, nontrivial FX, production authentication, capacity, disaster recovery, power-loss recovery
+or full Composite readiness. The replay CLI verifies source through normalized portfolio points;
+optional families and final aligned response replay remain excluded. The financial response binding
+above is separate evidence. Issue closure requires this documentation on main and published wiki parity.
 
 Raw artifacts remain operator-only under the existing lineage policy. Reads require a matching
 retained execution tenant even when local privileged-read enforcement is disabled. Every read

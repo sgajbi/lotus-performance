@@ -40,6 +40,17 @@ defines controlled reads, source-off verification, retained authority, disk requ
 Use the explicit schema owner and bounded matching API/worker/retention cutover; mixed old/new
 custody writers are unsupported. Fixture proof does not establish live-source or capacity readiness.
 
+The [bounded source-custody acceptance](https://github.com/sgajbi/lotus-performance/blob/main/docs/runbooks/returns-series-operator-triage.md#bounded-acceptance-evidence)
+records merged-main PostgreSQL custody tests (15 passed, no skips), main CI,
+[540 independent daily NET/GROSS financial checks](https://github.com/sgajbi/lotus-performance/issues/662#issuecomment-6179838422)
+and [R5 physical source-off replay](https://github.com/sgajbi/lotus-performance/issues/662#issuecomment-6180367662).
+R5 verified fresh CLI processes, read-only original artifacts, same PostgreSQL authority, physical
+Core denial, tenant/tamper refusal, preserved resources and owned cleanup. Its finite relay was a
+QA-only arrangement, not production topology or an ordinary replay requirement. CLI proof ends at
+normalized portfolio points; actual-response binding is separate financial evidence. Historical and
+optional raw custody, upstream attestation/official authority/coherent cuts, nontrivial FX, production
+authentication, capacity, disaster recovery and power-loss recovery remain outside this acceptance.
+
 An admitted current async owner resumes an exact completed publication only with existing matching
 frozen custody and statement-time lease fencing. It preserves response bytes/envelope and capture
 identity without calculator entry or a fresh source read; inline/foreign/stale/unfrozen/failed cases

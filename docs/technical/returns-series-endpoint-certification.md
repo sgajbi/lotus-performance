@@ -1,6 +1,6 @@
 # Returns-Series Endpoint Certification
 
-Last reviewed: 2026-07-06
+Last reviewed: 2026-10-15
 
 Endpoint:
 
@@ -31,6 +31,17 @@ success. See [operator source verification](../runbooks/returns-series-operator-
 fee-once behavior, corrupt evidence, tenant/authority refusal, restart, and custody failure. These
 fixtures do not certify shared runtime, live source authority, PostgreSQL concurrency, or capacity.
 Benchmark/risk-free raw custody and historical reconstruction remain outside this first slice.
+
+Bounded source-custody acceptance on merged main `f2f698df886ccceb2360416447f77e6f605ac03b`
+is documented in the [operator acceptance evidence](../runbooks/returns-series-operator-triage.md#bounded-acceptance-evidence).
+Actual PostgreSQL custody tests (15 passed, no skips) and main CI are distinct from the fixture
+coverage above. [Independent financial verification](https://github.com/sgajbi/lotus-performance/issues/662#issuecomment-6179838422)
+binds 540 daily NET/GROSS figures to consumed source and actual responses;
+[R5 acceptance](https://github.com/sgajbi/lotus-performance/issues/662#issuecomment-6180367662)
+proves physical source-off replay, tenant/tamper refusal and resource preservation for those originals.
+The CLI verifies source through normalized portfolio points, excluding optional families and final
+aligned response replay. These proofs do not qualify upstream tenant attestation, official authority,
+coherent cuts, nontrivial FX, production authentication, capacity, disaster recovery or power-loss recovery.
 
 | Option | Certified behavior |
 | --- | --- |
