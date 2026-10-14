@@ -1,7 +1,7 @@
 # Lotus Performance Test Taxonomy Inventory
 
-Report date: 2026-10-12
-Branch: `fix/659-stateful-fee-basis`
+Report date: 2026-10-14
+Branch: `fix/664-exact-source-acquisition`
 Mode: regression-blocking test taxonomy inventory; `make quality-test-taxonomy-gate` enforces
 minimum API/runtime and contract/governance breadth plus the current uncategorized-test ceiling.
 
@@ -22,8 +22,8 @@ python scripts/python_test_taxonomy_inventory.py --limit 30 --min-api-runtime-te
 
 | Metric | Value |
 | --- | ---: |
-| Test modules inventoried | 459 |
-| Test functions inventoried | 5388 |
+| Test modules inventoried | 460 |
+| Test functions inventoried | 5419 |
 | Integration/API/runtime test functions | 1091 |
 | Contract/governance test functions | 248 |
 
@@ -34,7 +34,7 @@ python scripts/python_test_taxonomy_inventory.py --limit 30 --min-api-runtime-te
 | benchmarks | 20 | 200 |
 | e2e | 1 | 21 |
 | integration | 55 | 625 |
-| unit | 383 | 4542 |
+| unit | 384 | 4573 |
 
 ## Test Functions By Family
 
@@ -48,15 +48,8 @@ above does sum to it, because a module belongs to exactly one suite.
 | api_or_runtime | 1091 |
 | contract_or_governance | 248 |
 | observability_or_readiness | 781 |
-| quality_or_security | 385 |
+| quality_or_security | 416 |
 | uncategorized | 558 |
-
-The #619 source-refusal slice classifies the exact existing stateful upstream error adapter
-module as API/runtime and readiness evidence. Ten actual source functions move from
-uncategorized; unrelated stateful/error paths remain unclassified. The observed count is 558;
-the separately declared Make policy ceiling is tightened from 563 to 558, consistent with the
-existing banked-ratchet guard. Breadth floors remain unchanged. This inventory is not live Core
-acceptance or calculation/source readiness certification.
 
 ## Largest Test Modules
 
@@ -92,6 +85,15 @@ acceptance or calculation/source readiness certification.
 | 28 | `tests/unit/engine/test_ror.py` | unit | 37 | analytics_domain |
 | 29 | `tests/benchmarks/test_postgres_composite_materialization.py` | benchmarks | 36 | analytics_domain |
 | 30 | `tests/unit/models/test_workspace_summary_models.py` | unit | 36 | analytics_domain |
+
+## Historical Measurement Notes
+
+The #619 source-refusal slice classifies the exact existing stateful upstream error adapter
+module as API/runtime and readiness evidence. Ten actual source functions move from
+uncategorized; unrelated stateful/error paths remain unclassified. The observed count is 558;
+the separately declared Make policy ceiling is tightened from 563 to 558, consistent with the
+existing banked-ratchet guard. Breadth floors remain unchanged. This inventory is not live Core
+acceptance or calculation/source readiness certification.
 
 The #502 request-path proof added a module driving the real application over HTTP for tenant admission - admitted, absent, blank and concurrent two-tenant requests, each asserting the outbound Core call - raising inventoried modules to `317`, source test functions to `3634`, and API/runtime tests to `699`. Later review fixes in the same PR added the padded-tenant refusals and the returns-series authority regression, which are counted in those figures. Uncategorized tests are unchanged at `876`: every added module classifies as api_or_runtime, so the ceiling this gate governs was neither approached nor raised.
 

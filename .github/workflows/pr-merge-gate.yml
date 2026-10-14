@@ -32,7 +32,7 @@ jobs:
       - uses: actions/checkout@v6
         with:
           repository: sgajbi/lotus-platform
-          ref: 386b40e13e76e60e761c6c4068fbe7a11256ca29
+          ref: df4da3bda773e9d0103b3a396d58110f49489ebc
           persist-credentials: false
           path: .image-policy
       - uses: actions/setup-python@v6
@@ -47,6 +47,7 @@ jobs:
           python .image-policy/automation/validate_technology_governance_policy.py
           --source-image "$SOURCE_IMAGE" --distribution-image "$DISTRIBUTION_IMAGE"
           --platform linux/amd64 --verify-distribution --github-output "$GITHUB_OUTPUT"
+          --allow-original-source-fallback
           --acquisition-evidence "$RUNNER_TEMP/image-acquisition-evidence"
       - name: Preserve failed public manifest responses
         if: always()
@@ -248,12 +249,40 @@ jobs:
       - name: Configure Git Default Branch
         run: git config --global init.defaultBranch main
       - uses: actions/checkout@v6
+      - uses: actions/setup-python@v6
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+      - name: Install binding parser
+        run: python -m pip install --disable-pip-version-check --no-deps 'PyYAML==6.0.2'
       - name: Bind admitted images to the recovery files
         env:
           RUNTIME_IMAGE: ${{ needs.python-admission.outputs.image }}
           POSTGRES_IMAGE: ${{ needs.postgres17-admission.outputs.image }}
         run: python scripts/ci_image_bindings_gate.py --runtime-image "$RUNTIME_IMAGE" --postgres-image "$POSTGRES_IMAGE"
+      - name: Checkout qualified acquisition policy
+        uses: actions/checkout@v6
+        with:
+          repository: sgajbi/lotus-platform
+          ref: df4da3bda773e9d0103b3a396d58110f49489ebc
+          persist-credentials: false
+          path: .image-policy
+      - name: Acquire selected runtime config and layers
+        env:
+          RUNTIME_IMAGE: ${{ needs.python-admission.outputs.image }}
+          EXPECTED_SOURCE: ${{ github.sha }}
+        run: >-
+          python scripts/verify_runtime_image_acquisition.py --runtime-image "$RUNTIME_IMAGE"
+          --expected-source "$EXPECTED_SOURCE" --policy-root .image-policy --output output/image-acquisition
+      - name: Preserve runtime acquisition evidence
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: pr-recovery-runtime-acquisition
+          path: output/image-acquisition
+          if-no-files-found: ignore
       - name: Prove non-root restart recovery
+        env:
+          RUNTIME_BASE_IMAGE: ${{ needs.python-admission.outputs.image }}
         run: make lineage-volume-recovery-smoke
 
   lint-typecheck-security:
@@ -403,12 +432,39 @@ jobs:
       - name: Configure Git Default Branch
         run: git config --global init.defaultBranch main
       - uses: actions/checkout@v6
+      - uses: actions/setup-python@v6
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+      - name: Install binding parser
+        run: python -m pip install --disable-pip-version-check --no-deps 'PyYAML==6.0.2'
       - name: Bind admitted image to the fixed Dockerfile
         env:
           RUNTIME_IMAGE: ${{ needs.python-admission.outputs.image }}
         run: python scripts/ci_image_bindings_gate.py --runtime-image "$RUNTIME_IMAGE"
+      - name: Checkout qualified acquisition policy
+        uses: actions/checkout@v6
+        with:
+          repository: sgajbi/lotus-platform
+          ref: df4da3bda773e9d0103b3a396d58110f49489ebc
+          persist-credentials: false
+          path: .image-policy
+      - name: Acquire selected runtime config and layers
+        env:
+          RUNTIME_IMAGE: ${{ needs.python-admission.outputs.image }}
+          EXPECTED_SOURCE: ${{ github.sha }}
+        run: >-
+          python scripts/verify_runtime_image_acquisition.py --runtime-image "$RUNTIME_IMAGE"
+          --expected-source "$EXPECTED_SOURCE" --policy-root .image-policy --output output/image-acquisition
+      - name: Preserve runtime acquisition evidence
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: pr-container-runtime-acquisition
+          path: output/image-acquisition
+          if-no-files-found: ignore
       - name: Build image and generate container evidence
         env:
+          RUNTIME_BASE_IMAGE: ${{ needs.python-admission.outputs.image }}
           CONTAINER_GIT_SHA: ${{ github.sha }}
           CONTAINER_GIT_BRANCH: ${{ github.ref_name }}
           CONTAINER_REPOSITORY_URL: ${{ github.server_url }}/${{ github.repository }}

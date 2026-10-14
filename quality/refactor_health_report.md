@@ -5,6 +5,12 @@ Branch: `feat/performance-architecture-boundary-refactor`
 Baseline source: `quality/baseline_report.md`
 Testing inventory refresh: 2026-10-10, result authority (#610), PR/main coverage parity (#641/#645), and single-period BF (#633).
 Other phase-zero measurements, including coverage percentages, remain historical.
+CI acquisition refresh (2026-10-14, #664): native current-main-based adopter generation measures
+1,026 Python files, 300,029 Python LOC, 460 test modules and 9,219 collected tests. AST taxonomy
+measures 5,419 functions with 416 quality/security functions; other family counts and all banked
+floors/ceilings are unchanged. The 99 added collected cases and 31 source functions support
+selected-image source/mock guards; they are not hosted/live acquisition or recovery acceptance.
+No unmerged #662 feature truth is copied into this measurement.
 PostgreSQL regression authoring refresh (2026-10-12): file, LOC, collection and
 taxonomy rows include the precision capture target and focused gate controls.
 The new PostgreSQL cases are collected only; no database execution is claimed.
@@ -59,9 +65,9 @@ link the commit, command, or CI artifact that proves the change.
 
 | Metric | Baseline | Current | Status | Evidence |
 | --- | ---: | ---: | --- | --- |
-| Python files | 480 | 1024 | measured | `quality/baseline_report.md` |
+| Python files | 480 | 1026 | measured | `quality/baseline_report.md` |
 | Python package markers | 18 | 35 | measured | recursive `__init__.py` count |
-| Python LOC | 104,454 | 298,856 | measured | `quality/baseline_report.md` |
+| Python LOC | 104,454 | 300,029 | measured | `quality/baseline_report.md` |
 | Largest Python file LOC | 2,399 | 4,447 | measured | largest-file inventory on this branch |
 | Largest production file LOC | 1,156 | 3,271 | measured | `app/services/composite_metadata_store.py` |
 | Duplicate code hotspots | 0 | 0 | enforced | `quality/duplicate_code_inventory.md`; `make quality-duplicate-code-gate` with `--min-lines 12 --max-groups 0`; duplicated LOC reduced from `24` to `0` in LP-CR-1407 |
@@ -106,8 +112,8 @@ link the commit, command, or CI artifact that proves the change.
 
 | Metric | Baseline | Current | Status | Evidence |
 | --- | ---: | ---: | --- | --- |
-| Test modules | 228 | 459 | measured | `rg --files tests -g 'test_*.py'` |
-| Collected tests | 2,035 | 9,120 | measured | `python -m pytest --collect-only -q` |
+| Test modules | 228 | 460 | measured | `rg --files tests -g 'test_*.py'` |
+| Collected tests | 2,035 | 9,219 | measured | `python -m pytest --collect-only -q` |
 | Line coverage | unknown | 99.58% | measured | `quality/coverage_inventory.md` via `make branch-coverage-baseline` (`3,013` unit, `308` integration, and `21` e2e tests under branch coverage; `21,154` covered lines of `21,244` statements) |
 | Branch coverage | unknown | 98.00% | measured | `quality/coverage_inventory.md` via `make branch-coverage-baseline` (`3,013` unit, `308` integration, and `21` e2e tests under branch coverage; `4,318` covered branches of `4,406`, `88` missing branches, `88` partial branches) |
 | Integration/API/runtime test functions | unknown | 1091 | enforced | `quality/test_taxonomy_inventory.md`; `make quality-test-taxonomy-gate` |
