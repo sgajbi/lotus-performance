@@ -1,7 +1,7 @@
 # Lotus Performance Test Taxonomy Inventory
 
 Report date: 2026-10-15
-Branch: `fix/945-performance-pg16-original-adoption`
+Branch: `fix/669-worker-shutdown`
 Mode: regression-blocking test taxonomy inventory; `make quality-test-taxonomy-gate` enforces
 minimum API/runtime and contract/governance breadth plus the current uncategorized-test ceiling.
 
@@ -22,8 +22,8 @@ python scripts/python_test_taxonomy_inventory.py --limit 30 --min-api-runtime-te
 
 | Metric | Value |
 | --- | ---: |
-| Test modules inventoried | 466 |
-| Test functions inventoried | 5510 |
+| Test modules inventoried | 467 |
+| Test functions inventoried | 5547 |
 | Integration/API/runtime test functions | 1115 |
 | Contract/governance test functions | 248 |
 
@@ -34,7 +34,7 @@ python scripts/python_test_taxonomy_inventory.py --limit 30 --min-api-runtime-te
 | benchmarks | 21 | 206 |
 | e2e | 1 | 21 |
 | integration | 56 | 646 |
-| unit | 388 | 4637 |
+| unit | 389 | 4674 |
 
 ## Test Functions By Family
 
@@ -47,8 +47,8 @@ above does sum to it, because a module belongs to exactly one suite.
 | analytics_domain | 3199 |
 | api_or_runtime | 1115 |
 | contract_or_governance | 248 |
-| observability_or_readiness | 782 |
-| quality_or_security | 420 |
+| observability_or_readiness | 787 |
+| quality_or_security | 452 |
 | uncategorized | 558 |
 
 ## Largest Test Modules
@@ -86,7 +86,23 @@ above does sum to it, because a module belongs to exactly one suite.
 | 29 | `tests/benchmarks/test_postgres_composite_materialization.py` | benchmarks | 36 | analytics_domain |
 | 30 | `tests/unit/models/test_workspace_summary_models.py` | unit | 36 | analytics_domain |
 
+## Current Adopter Measurement
+
+The #669/#945 original-selection and PG17 content-proof slice measures 5,547 source test
+functions across 467 modules, including 452 quality/security functions. The 21 added functions
+cover explicit Python/PG17 selection, raw Make propagation, excluded policy custody, verified
+owned checkout removal, DB-first identity/content proof and refusal/cleanup ordering. Other
+families and all banked thresholds are unchanged. Native collection measures 9,693 cases;
+collection and offline controls do not establish registry, Docker, PostgreSQL or worker acceptance.
+
 ## Historical Measurement Notes
+
+The bounded #669 acquisition-failure evidence addition measures 5,526 source functions across
+467 modules, including 431 quality/security functions. Eleven added source functions prove safe
+phase/status diagnostics, unchanged valid evidence, existing-output refusal, secret exclusion and
+atomic successful-proof publication. All other families and existing policy thresholds are
+unchanged. These offline controls do not establish a registry cause, hosted acquisition or worker
+recovery acceptance.
 
 The #619 source-refusal slice classifies the exact existing stateful upstream error adapter
 module as API/runtime and readiness evidence. Ten actual source functions move from

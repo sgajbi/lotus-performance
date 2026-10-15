@@ -32,7 +32,7 @@ jobs:
       - uses: actions/checkout@v6
         with:
           repository: sgajbi/lotus-platform
-          ref: df4da3bda773e9d0103b3a396d58110f49489ebc
+          ref: cd7563c52008fffee8a37b1b6c3235480823a5cd
           persist-credentials: false
           path: .image-policy
       - uses: actions/setup-python@v6
@@ -47,7 +47,7 @@ jobs:
           python .image-policy/automation/validate_technology_governance_policy.py
           --source-image "$SOURCE_IMAGE" --distribution-image "$DISTRIBUTION_IMAGE"
           --platform linux/amd64 --verify-distribution --github-output "$GITHUB_OUTPUT"
-          --allow-original-source-fallback
+          --acquisition-source original
           --acquisition-evidence "$RUNNER_TEMP/image-acquisition-evidence"
       - name: Preserve failed public manifest responses
         if: always()
@@ -102,7 +102,7 @@ jobs:
       - uses: actions/checkout@v6
         with:
           repository: sgajbi/lotus-platform
-          ref: 386b40e13e76e60e761c6c4068fbe7a11256ca29
+          ref: cd7563c52008fffee8a37b1b6c3235480823a5cd
           persist-credentials: false
           path: .image-policy
       - uses: actions/setup-python@v6
@@ -117,6 +117,7 @@ jobs:
           python .image-policy/automation/validate_technology_governance_policy.py
           --source-image "$SOURCE_IMAGE" --distribution-image "$DISTRIBUTION_IMAGE"
           --platform linux/amd64 --verify-distribution --github-output "$GITHUB_OUTPUT"
+          --acquisition-source original
           --acquisition-evidence "$RUNNER_TEMP/image-acquisition-evidence"
       - name: Preserve failed public manifest responses
         if: always()
@@ -281,10 +282,29 @@ jobs:
           name: pr-recovery-runtime-acquisition
           path: output/image-acquisition
           if-no-files-found: ignore
+      - name: Remove verified runtime policy before build
+        env:
+          RUNTIME_IMAGE: ${{ needs.python-admission.outputs.image }}
+        run: python scripts/ci_image_bindings_gate.py --runtime-image "$RUNTIME_IMAGE" --remove-runtime-policy
+      - name: Checkout qualified PG17 content policy
+        uses: actions/checkout@v6
+        with:
+          repository: sgajbi/lotus-platform
+          ref: cd7563c52008fffee8a37b1b6c3235480823a5cd
+          persist-credentials: false
+          path: output/pg17-image-policy
       - name: Prove non-root restart recovery
         env:
           RUNTIME_BASE_IMAGE: ${{ needs.python-admission.outputs.image }}
+          RECOVERY_POSTGRES_IMAGE: ${{ needs.postgres17-admission.outputs.image }}
         run: make lineage-volume-recovery-smoke
+      - name: Preserve PG17 service content proof
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: pr-pg17-service-content
+          path: output/pg17-service-content.json
+          if-no-files-found: error
 
   lint-typecheck-security:
     name: PR Merge Gate / Lint Typecheck Security
@@ -487,6 +507,10 @@ jobs:
           name: pr-container-runtime-acquisition
           path: output/image-acquisition
           if-no-files-found: ignore
+      - name: Remove verified runtime policy before build
+        env:
+          RUNTIME_IMAGE: ${{ needs.python-admission.outputs.image }}
+        run: python scripts/ci_image_bindings_gate.py --runtime-image "$RUNTIME_IMAGE" --remove-runtime-policy
       - name: Build image and generate container evidence
         env:
           RUNTIME_BASE_IMAGE: ${{ needs.python-admission.outputs.image }}

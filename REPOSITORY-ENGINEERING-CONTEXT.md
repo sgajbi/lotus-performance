@@ -540,12 +540,12 @@ Important validation expectations:
     evidenced by #613. Evaluate the acceptance script against the single retained scan.
     The supported runtime base is official Python `3.11.17-slim-trixie`, pinned to linux/amd64
     child `docker.io/library/python@sha256:e529028263dbe6910a2d96f7d2b8f5266385e917fd45d286ef166977c094a51e`.
-    Python admission uses qualified Platform `df4da3bda773e9d0103b3a396d58110f49489ebc` with
-    explicit original-source opt-in. The current ECR default and identical original supplier
-    reference select the same immutable linux/amd64 child. Original supplier and distribution
+    Python and PG17 admission use qualified Platform `cd7563c52008fffee8a37b1b6c3235480823a5cd`
+    with explicit original selection before an ECR request. Python's e529 child/config5410 and
+    PG17's root2d2b/child3cec/config327d content remain unchanged. Original supplier and distribution
     labels remain separate; there is no mutable or alternate-content fallback. PG16 uses qualified
     Platform `f12dade6f294b8df5e236f4f49c117b81bed4cd6` with explicit original selection;
-    PG17 and Trivy retain their `386b40e13e76e60e761c6c4068fbe7a11256ca29` policy pin.
+    Trivy retains its `386b40e13e76e60e761c6c4068fbe7a11256ca29` policy pin.
     Hosted build/SBOM/vulnerability proof is still required.
     PR, Main and characterization PG16 services consume their exact admitted original image output
     before initialization. On that consuming runner, the same qualified f12 checkout verifies the
@@ -567,6 +567,16 @@ Important validation expectations:
     Config-declared Python version is not an execution probe; digest inventory cannot prove cold
     acquisition. Final application build/security, separate PostgreSQL readiness and behavioral
     recovery remain required by #664. Container Python version never follows hosted setup-python.
+    A fresh acquisition directory is reserved before checks. Refusals retain `failure.json` with
+    fixed phase/reason/class and bounded HTTP/command status, projecting image/source/policy
+    identity only after validation. Qualified df4 HTTP failure diagnostics remain under its
+    `http/` child with central byte/time/request limits and token redaction; subprocess streams
+    and arbitrary exception text are never retained. Existing output paths are refused untouched,
+    successful proof is published atomically only after all checks, and failure remains exit 1.
+    Always-upload evidence diagnoses the failed phase without establishing a registry cause or
+    replacing hosted build/security, PostgreSQL or recovery acceptance. Selection and retry
+    budgets are unchanged. Explicit admission selects only the separately approved originals;
+    the Python content helper and its df4 checkout remain unchanged.
     This pin selects one architecture, not the supplier multi-architecture index. Retain the
     existing apt refresh and dependency resolution; they make final builds time-dependent even
     with an immutable base. Bind actual source/image/config/inventory evidence for each build.
@@ -977,6 +987,28 @@ PR/Main parity requires the exact distinct `pr-pg16-service-content` and
 `main-pg16-service-content` artifact names before comparing all remaining execution/proof fields.
 This exception does not permit arbitrary name normalization. These offline controls do not establish
 hosted workload, registry, PostgreSQL or live acceptance.
+
+### Repository practice for image-proof build custody
+
+The runtime acquisition helper and its `.image-policy` checkout remain qualified at df4. Run
+the helper and retain its always-upload evidence before the binding gate removes that owned
+checkout. Removal requires the exact resolved path, clean expected df4 identity and committed
+helper/policy blobs; symlink/reparse, foreign, dirty or wrong-revision targets refuse before
+recursive action. A clean Git working tree alone is insufficient: Dockerfile `COPY . .` includes
+the nested policy checkout unless it is removed before each recovery/supply-chain build.
+The separate PG17 policy checkout belongs at fixed `output/pg17-image-policy`, excluded by
+existing Docker ignore rules. Authenticate its exact admission revision and blobs before use.
+
+From the repository root in Bash or PowerShell, `make lineage-volume-recovery-smoke` accepts
+only the approved original PG17 index through raw-captured `RECOVERY_POSTGRES_IMAGE` and the
+explicit recovery argument. The recovery-only Compose override leaves ordinary base Compose
+unchanged. Start only the owned database first, verify its full ID, project/service labels and
+requested image, then require central config/ordered RootFS proof and reinspection before any
+initializer build, schema or application work. Require the unique PR/Main PG17 proof artifact;
+readiness, restart, non-root volume access and exact cleanup remain separate obligations.
+Run changed binding/recovery/wiring controls plus the immutable acquisition-helper and existing
+recovery contract regressions. Refresh native current reports and run `make quality-baseline-check`
+before handoff; collection and source/mock results do not establish hosted or live acceptance.
 
 ## Standards And RFCs That Govern This Repository
 

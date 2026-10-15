@@ -11,7 +11,7 @@ import yaml
 from scripts import ci_image_bindings_gate as gate
 
 RUNTIME = gate.DEFAULT_RUNTIME_IMAGE
-POSTGRES = "public.ecr.aws/docker/library/postgres@sha256:" + "b" * 64
+POSTGRES = gate.RECOVERY_POSTGRES_IMAGE
 ROOT = Path(__file__).resolve().parents[3]
 
 
@@ -175,6 +175,7 @@ def test_recovery_binding_checks_resolved_fixed_compose_files(fixed_files, mocke
     ]
     assert run.call_args.kwargs["check"] is True
     assert run.call_args.kwargs["env"]["RUNTIME_BASE_IMAGE"] == RUNTIME
+    assert run.call_args.kwargs["env"]["RECOVERY_POSTGRES_IMAGE"] == POSTGRES
 
 
 @pytest.mark.parametrize(
@@ -232,16 +233,49 @@ def test_image_consumers_depend_on_their_admission_outputs():
         assert "--platform linux/amd64" in service["options"]
 
 
-def test_admission_uses_qualified_policy_before_emitting_output():
-    workflow = yaml.safe_load((ROOT / ".github/workflows/pr-merge-gate.yml").read_text())
-    job = workflow["jobs"]["python-admission"]
+def _assert_explicit_python_admission(job):
     assert "services" not in job
     checkout = next(step for step in job["steps"] if step.get("uses") == "actions/checkout@v6")
-    assert checkout["with"]["ref"] == "df4da3bda773e9d0103b3a396d58110f49489ebc"
+    assert checkout["with"] == {
+        "repository": "sgajbi/lotus-platform",
+        "ref": gate.RECOVERY_POLICY_REVISION,
+        "persist-credentials": False,
+        "path": ".image-policy",
+    }
     admission = next(step for step in job["steps"] if step.get("id") == "admission")
     assert "--verify-distribution" in admission["run"] and "--github-output" in admission["run"]
-    assert "--allow-original-source-fallback" in admission["run"]
+    assert "--acquisition-source original" in admission["run"]
+    assert "--allow-original-source-fallback" not in admission["run"]
+    assert admission["env"] == {"SOURCE_IMAGE": gate.ORIGINAL_RUNTIME_IMAGE, "DISTRIBUTION_IMAGE": RUNTIME}
+    assert "--platform linux/amd64" in admission["run"]
+    assert not admission.get("continue-on-error") and "if" not in admission
     assert job["outputs"]["image"] == "${{ steps.admission.outputs.image }}"
+
+
+@pytest.mark.parametrize("workflow", ["pr-merge-gate.yml", "main-releasability.yml"])
+def test_admission_uses_qualified_policy_before_emitting_output(workflow):
+    job = yaml.safe_load((ROOT / ".github/workflows" / workflow).read_text())["jobs"]["python-admission"]
+    _assert_explicit_python_admission(job)
+
+
+@pytest.mark.parametrize("damage", ["pin", "selection", "fallback", "source", "platform", "optional"])
+def test_explicit_python_selection_refuses_contract_mutations(damage):
+    job = yaml.safe_load((ROOT / ".github/workflows/pr-merge-gate.yml").read_text())["jobs"]["python-admission"]
+    admission = next(step for step in job["steps"] if step.get("id") == "admission")
+    if damage == "pin":
+        job["steps"][0]["with"]["ref"] = "df4da3bda773e9d0103b3a396d58110f49489ebc"
+    elif damage == "selection":
+        admission["run"] = admission["run"].replace("--acquisition-source original", "")
+    elif damage == "fallback":
+        admission["run"] += " --allow-original-source-fallback"
+    elif damage == "source":
+        admission["env"]["SOURCE_IMAGE"] = RUNTIME
+    elif damage == "platform":
+        admission["run"] = admission["run"].replace("--platform linux/amd64", "--platform linux/arm64")
+    else:
+        admission["continue-on-error"] = True
+    with pytest.raises(AssertionError):
+        _assert_explicit_python_admission(job)
 
 
 PG16_POLICY_REVISION = "f12dade6f294b8df5e236f4f49c117b81bed4cd6"
@@ -465,3 +499,110 @@ def test_source_compose_refuses_selection_or_platform_drift_before_docker(fixed_
     run = mocker.patch.object(gate.subprocess, "run")
     assert gate.main(["--runtime-image", RUNTIME, "--postgres-image", POSTGRES]) == 1
     run.assert_not_called()
+
+
+@pytest.mark.parametrize(
+    "image", ["", "postgres:17", POSTGRES.replace("docker.io", "public.ecr.aws/docker"), POSTGRES[:-1] + "0", RUNTIME]
+)
+def test_recovery_postgres_selection_refuses_unapproved_sources_before_docker(fixed_files, mocker, image):
+    run = mocker.patch.object(gate.subprocess, "run")
+    assert gate.main(["--runtime-image", RUNTIME, "--postgres-image", image]) == 1
+    run.assert_not_called()
+
+
+@pytest.fixture
+def runtime_policy_checkout(fixed_files, monkeypatch):
+    acquisition = gate.runtime_acquisition_module()
+    monkeypatch.setattr(acquisition, "ROOT", fixed_files)
+    policy = fixed_files / ".image-policy"
+    policy.mkdir()
+    (policy / "owned-marker").write_text("owned")
+    state = {
+        "root": str(policy),
+        "head": acquisition.POLICY_REVISION,
+        "policy_status": "",
+        "source_status": "",
+        "blob": "a" * 40,
+    }
+
+    def command(argv, **_kwargs):
+        if "-C" not in argv:
+            return state["source_status"]
+        if "--show-toplevel" in argv:
+            return state["root"]
+        if "status" in argv:
+            return state["policy_status"]
+        if "hash-object" in argv:
+            return state["blob"]
+        if any(argument.startswith("HEAD:") for argument in argv):
+            return "a" * 40
+        return state["head"]
+
+    monkeypatch.setattr(acquisition, "command", command)
+    return policy, state
+
+
+def test_verified_policy_cleanup_removes_only_owned_checkout_and_preserves_foreign_files(runtime_policy_checkout):
+    policy, _ = runtime_policy_checkout
+    foreign = policy.parent / "foreign-policy"
+    foreign.mkdir()
+    (foreign / "marker").write_bytes(b"foreign bytes")
+    gate.remove_owned_runtime_policy()
+    assert not policy.exists()
+    assert (foreign / "marker").read_bytes() == b"foreign bytes"
+
+
+@pytest.mark.parametrize("damage", ["root", "head", "policy_status", "blob"])
+def test_policy_cleanup_refuses_foreign_wrong_dirty_or_modified_identity(runtime_policy_checkout, damage):
+    policy, state = runtime_policy_checkout
+    state[damage] = str(policy.parent) if damage == "root" else "untrusted"
+    with pytest.raises(ValueError):
+        gate.remove_owned_runtime_policy()
+    assert (policy / "owned-marker").read_text() == "owned"
+
+
+@pytest.mark.parametrize("kind", ["symlink", "reparse"])
+def test_policy_cleanup_refuses_reparse_targets_before_recursive_action(runtime_policy_checkout, monkeypatch, kind):
+    policy, _ = runtime_policy_checkout
+    foreign = policy.parent / "foreign"
+    foreign.mkdir()
+    (foreign / "marker").write_bytes(b"foreign")
+    if kind == "symlink":
+        (policy / "owned-marker").unlink()
+        policy.rmdir()
+        policy.symlink_to(foreign, target_is_directory=True)
+    else:
+        original = Path.lstat
+
+        def lstat(path, *args, **kwargs):
+            observed = original(path, *args, **kwargs)
+            return SimpleNamespace(st_mode=observed.st_mode, st_file_attributes=0x400) if path == policy else observed
+
+        monkeypatch.setattr(Path, "lstat", lstat)
+    with pytest.raises(ValueError, match="reparse"):
+        gate.remove_owned_runtime_policy()
+    assert (foreign / "marker").read_bytes() == b"foreign"
+    assert policy.exists()
+
+
+@pytest.mark.parametrize("key", ["GIT_DIR", "GIT_WORK_TREE", "GIT_INDEX_FILE", "GIT_CONFIG_COUNT"])
+def test_policy_cleanup_refuses_inherited_git_redirection(runtime_policy_checkout, monkeypatch, key):
+    policy, _ = runtime_policy_checkout
+    monkeypatch.setenv(key, "untrusted")
+    with pytest.raises(ValueError, match="Git overrides"):
+        gate.remove_owned_runtime_policy()
+    assert (policy / "owned-marker").read_text() == "owned"
+
+
+def test_policy_cleanup_fails_build_custody_when_other_source_is_dirty(runtime_policy_checkout):
+    policy, state = runtime_policy_checkout
+    state["source_status"] = " M app/foreign.py\x00"
+    with pytest.raises(ValueError, match="Build source is not clean"):
+        gate.remove_owned_runtime_policy()
+    assert not policy.exists()
+
+
+def test_policy_owner_path_refuses_arbitrary_relative_or_absolute_roots(fixed_files):
+    for relative in ("../foreign", str(fixed_files), "foreign-policy"):
+        with pytest.raises(ValueError, match="not an owned checkout"):
+            gate.owned_policy_directory(relative)

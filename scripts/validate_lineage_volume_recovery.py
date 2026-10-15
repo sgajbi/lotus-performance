@@ -6,6 +6,8 @@ import os
 import re
 import secrets
 import subprocess
+import sys
+import tempfile
 import time
 from pathlib import Path
 from typing import NoReturn
@@ -18,6 +20,11 @@ else:
 REPOSITORY_ROOT = Path(__file__).resolve().parents[1]
 PROJECT_PREFIX = "lotus-performance-lineage-recovery-"
 RECOVERY_COMPOSE_FILE = REPOSITORY_ROOT / "docker-compose.lineage-recovery.yml"
+POSTGRES_PROOF = REPOSITORY_ROOT / "output" / "pg17-service-content.json"
+POSTGRES_CHILD = "sha256:3cec7eb015ba8adb28139fa5c83b8489cdf0e666e53dfdf20f598ae0cc8739e3"
+POSTGRES_CONFIG = "sha256:327daa8fae7178d61f93142f146b098467b345e10997b9eb79f63bd58e5c8f3c"
+DATABASE_SERVICE = "performance-lineage-db"
+MAX_METADATA_BYTES = 2 * 1024 * 1024
 RUNTIME_SERVICES = (
     "performance-analytics",
     "performance-lineage-worker",
@@ -94,7 +101,9 @@ def new_project_name() -> str:
 
 
 def build_runtime_environment(
-    project_name: str, runtime_image: str = image_bindings.DEFAULT_RUNTIME_IMAGE
+    project_name: str,
+    runtime_image: str = image_bindings.DEFAULT_RUNTIME_IMAGE,
+    postgres_image: str = image_bindings.RECOVERY_POSTGRES_IMAGE,
 ) -> dict[str, str]:
     """Build the bounded host and container configuration for one owned recovery run.
 
@@ -105,9 +114,11 @@ def build_runtime_environment(
     caller-selected context cannot redirect the validator to a remote daemon.
     """
     image_bindings.require_runtime_image(runtime_image)
+    image_bindings.require_recovery_postgres_image(postgres_image)
     return {
         **_host_command_environment(),
         "RUNTIME_BASE_IMAGE": runtime_image,
+        "RECOVERY_POSTGRES_IMAGE": postgres_image,
         "LINEAGE_METADATA_DATABASE_URL": _LINEAGE_DATABASE_URL,
         "PA_LINEAGE_DB_CONTAINER_NAME": f"{project_name}-db",
         "PA_LINEAGE_VOLUME_INIT_CONTAINER_NAME": f"{project_name}-volume-init",
@@ -141,15 +152,22 @@ def docker_command(*arguments: str) -> list[str]:
     return ["docker", "--context", _LOCAL_DOCKER_CONTEXT, *arguments]
 
 
-def run_validation(runtime_image: str = image_bindings.DEFAULT_RUNTIME_IMAGE) -> dict[str, object]:
+def run_validation(
+    runtime_image: str = image_bindings.DEFAULT_RUNTIME_IMAGE,
+    postgres_image: str = image_bindings.RECOVERY_POSTGRES_IMAGE,
+) -> dict[str, object]:
     """Run one recovery proof in a freshly allocated, invocation-owned namespace.
 
     The project identity is intentionally not caller-configurable. A same-prefix value does not
     establish ownership, and cleanup includes destructive volume removal.
     """
     image_bindings.verify_runtime_build_files(runtime_image)
+    image_bindings.require_recovery_postgres_image(postgres_image)
+    policy_root = qualified_postgres_policy()
+    if os.path.lexists(POSTGRES_PROOF):
+        raise ValueError("PostgreSQL proof output must be unused")
     project_name = validate_project_name(new_project_name())
-    runtime_environment = build_runtime_environment(project_name, runtime_image)
+    runtime_environment = build_runtime_environment(project_name, runtime_image, postgres_image)
     container_names = {
         "initializer": runtime_environment["PA_LINEAGE_VOLUME_INIT_CONTAINER_NAME"],
         "schema_apply": runtime_environment["PA_SCHEMA_APPLY_CONTAINER_NAME"],
@@ -159,6 +177,8 @@ def run_validation(runtime_image: str = image_bindings.DEFAULT_RUNTIME_IMAGE) ->
     }
     validation_error: Exception | None = None
     try:
+        _run(compose_command(project_name, "up", "-d", "--no-deps", DATABASE_SERVICE), env=runtime_environment)
+        postgres_proof = prove_owned_database(project_name, runtime_environment, policy_root)
         _run(
             compose_command(project_name, "build", "performance-lineage-volume-init"),
             env=runtime_environment,
@@ -203,6 +223,8 @@ def run_validation(runtime_image: str = image_bindings.DEFAULT_RUNTIME_IMAGE) ->
             "status": "passed",
             "project_name": project_name,
             "runtime_image": runtime_image,
+            "postgres_image": postgres_image,
+            "postgres_content_proof": postgres_proof,
             "initializer_exit_code": 0,
             "schema_apply_exit_code": 0,
             "root_owned_volume_repaired": True,
@@ -219,6 +241,159 @@ def run_validation(runtime_image: str = image_bindings.DEFAULT_RUNTIME_IMAGE) ->
             if validation_error is not None:
                 raise RecoveryValidationError(validation_error, cleanup_error) from validation_error
             raise
+
+
+def qualified_postgres_policy() -> Path:
+    """Authenticate the fixed excluded checkout before executing its helper."""
+    if os.path.lexists(REPOSITORY_ROOT / ".image-policy"):
+        raise ValueError("Runtime policy must be removed before recovery builds")
+    path = image_bindings.owned_policy_directory("output/pg17-image-policy")
+
+    def command(arguments):
+        return bounded_command_metadata(arguments, _host_command_environment())
+
+    prefix = ["git", "-C", str(path)]
+    actual_root = command(prefix + ["rev-parse", "--show-toplevel"]).strip()
+    actual_head = command(prefix + ["rev-parse", "HEAD"]).strip()
+    if Path(actual_root).resolve() != path or actual_head != image_bindings.RECOVERY_POLICY_REVISION:
+        raise ValueError("PostgreSQL policy is not the exact qualified checkout")
+    if command(prefix + ["status", "--porcelain=v1", "-z", "--untracked-files=all"]):
+        raise ValueError("PostgreSQL policy checkout must be clean")
+    for relative in (
+        "automation/verify_acquired_service_image.py",
+        "automation/validate_technology_governance_policy.py",
+        "platform-contracts/technology-governance/lotus-technology-governance-policy.v1.json",
+        "platform-contracts/technology-governance/technology-governance-policy.schema.json",
+    ):
+        expected = command(prefix + ["rev-parse", "HEAD:" + relative]).strip()
+        actual = command(prefix + ["hash-object", "--path=" + relative, relative]).strip()
+        if actual != expected:
+            raise ValueError("PostgreSQL policy/helper differs from its committed blob")
+    if command(["git", "status", "--porcelain=v1", "-z", "--untracked-files=all"]):
+        raise ValueError("Recovery build source must be clean")
+    return path
+
+
+def bounded_command_metadata(command: list[str], env: dict[str, str]) -> str:
+    """Bound policy and owned-service metadata without retaining child streams."""
+    with tempfile.TemporaryFile() as stdout, tempfile.TemporaryFile() as stderr:
+        with subprocess.Popen(command, cwd=REPOSITORY_ROOT, env=env, stdout=stdout, stderr=stderr) as process:
+            deadline = time.monotonic() + 30
+            try:
+                while process.poll() is None:
+                    if time.monotonic() >= deadline or max(stdout.tell(), stderr.tell()) > MAX_METADATA_BYTES:
+                        raise ValueError("Recovery metadata exceeded time/byte budget")
+                    time.sleep(0.05)
+                if process.returncode or max(stdout.tell(), stderr.tell()) > MAX_METADATA_BYTES:
+                    raise ValueError("Recovery metadata command refused")
+            finally:
+                if process.poll() is None:
+                    process.kill()
+                    process.wait(timeout=5)
+        stdout.seek(0)
+        return stdout.read().decode("utf-8")
+
+
+def owned_database_id(project: str, env: dict[str, str]) -> str:
+    container_id = bounded_command_metadata(
+        compose_command(project, "ps", "--quiet", "--all", DATABASE_SERVICE), env
+    ).strip()
+    if re.fullmatch(r"[0-9a-f]{64}", container_id) is None:
+        raise ValueError("Recovery database must resolve exactly one full owned ID")
+    metadata = json.loads(bounded_command_metadata(docker_command("container", "inspect", container_id), env))
+    if not isinstance(metadata, list) or len(metadata) != 1:
+        raise ValueError("Recovery database inspect must resolve exactly one container")
+    container = metadata[0]
+    if not isinstance(container, dict) or not isinstance(container.get("Config"), dict):
+        raise ValueError("Recovery database inspect has invalid metadata shape")
+    labels = container.get("Config", {}).get("Labels", {})
+    if not isinstance(labels, dict) or not isinstance(container.get("State"), dict):
+        raise ValueError("Recovery database inspect has invalid ownership/state shape")
+    if (
+        container.get("Id") != container_id
+        or labels.get("com.docker.compose.project") != project
+        or labels.get("com.docker.compose.service") != DATABASE_SERVICE
+        or container.get("Config", {}).get("Image") != env["RECOVERY_POSTGRES_IMAGE"]
+        or container.get("State", {}).get("Running") is not True
+    ):
+        raise ValueError("Recovery database identity/ownership differs from selected service")
+    return container_id
+
+
+def prove_owned_database(project: str, env: dict[str, str], policy_root: Path) -> dict:
+    container_id = owned_database_id(project, env)
+    subprocess.run(
+        [
+            sys.executable,
+            "-B",
+            str(policy_root / "automation/verify_acquired_service_image.py"),
+            "--container-id",
+            container_id,
+            "--expected-image",
+            env["RECOVERY_POSTGRES_IMAGE"],
+            "--expected-policy-commit",
+            image_bindings.RECOVERY_POLICY_REVISION,
+            "--output",
+            str(POSTGRES_PROOF),
+        ],
+        cwd=REPOSITORY_ROOT,
+        env=env,
+        check=True,
+        timeout=250,
+    )
+    if owned_database_id(project, env) != container_id:
+        raise ValueError("Recovery database was replaced during content verification")
+    if (
+        POSTGRES_PROOF.is_symlink()
+        or not POSTGRES_PROOF.is_file()
+        or POSTGRES_PROOF.stat().st_size > MAX_METADATA_BYTES
+    ):
+        raise ValueError("PostgreSQL content proof must be a bounded regular file")
+    proof = json.loads(POSTGRES_PROOF.read_text(encoding="utf-8"))
+    if (
+        not isinstance(proof, dict)
+        or not isinstance(proof.get("policy_source"), dict)
+        or type(proof.get("schema_version")) is not int
+    ):
+        raise ValueError("PostgreSQL content proof has invalid metadata shape")
+    expected = {
+        "schema_version": 1,
+        "proof_type": "local-existing-service-content",
+        "requested_image": env["RECOVERY_POSTGRES_IMAGE"],
+        "service_container_id": container_id,
+        "admitted_index_digest": image_bindings.RECOVERY_POSTGRES_IMAGE.partition("@")[2],
+        "admitted_child_digest": POSTGRES_CHILD,
+        "config_digest": POSTGRES_CONFIG,
+        "platform": "linux/amd64",
+    }
+    if (
+        any(proof.get(key) != value for key, value in expected.items())
+        or proof.get("policy_source", {}).get("commit") != image_bindings.RECOVERY_POLICY_REVISION
+        or any(
+            proof.get(key) is not False
+            for key in (
+                "cold_acquisition_proven",
+                "compressed_transfer_verified",
+                "runtime_execution_verified",
+                "raw_export_retained",
+                "raw_inspect_retained",
+            )
+        )
+    ):
+        raise ValueError("PostgreSQL content proof differs from qualified service/policy binding")
+    diff_ids = proof.get("rootfs_diff_ids")
+    if (
+        not isinstance(diff_ids, list)
+        or not 1 <= len(diff_ids) <= 128
+        or any(not isinstance(value, str) or re.fullmatch(r"sha256:[0-9a-f]{64}", value) is None for value in diff_ids)
+        or re.fullmatch(r"sha256:[0-9a-f]{64}", str(proof.get("service_image_id", ""))) is None
+    ):
+        raise ValueError("PostgreSQL content proof lacks checked image/RootFS identities")
+    return {
+        "path": "output/pg17-service-content.json",
+        "service_container_id": container_id,
+        "policy_commit": image_bindings.RECOVERY_POLICY_REVISION,
+    }
 
 
 def cleanup_command(project_name: str) -> list[str]:
@@ -427,10 +602,11 @@ def _fail(message: str) -> NoReturn:
 def main() -> int:
     parser = argparse.ArgumentParser(description="Prove non-root lineage volume recovery and restart health.")
     parser.add_argument("--runtime-image", default=image_bindings.DEFAULT_RUNTIME_IMAGE)
+    parser.add_argument("--postgres-image", default=image_bindings.RECOVERY_POSTGRES_IMAGE)
     args = parser.parse_args()
     try:
-        summary = run_validation(args.runtime_image)
-    except (OSError, subprocess.CalledProcessError, RecoveryValidationError, RuntimeError, ValueError) as exc:
+        summary = run_validation(args.runtime_image, args.postgres_image)
+    except (OSError, subprocess.SubprocessError, RecoveryValidationError, RuntimeError, ValueError) as exc:
         _fail(f"lineage volume recovery validation failed: {exc}")
     print(json.dumps(summary, indent=2, sort_keys=True))
     return 0

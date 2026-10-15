@@ -311,6 +311,20 @@ def test_legal_hold_source_projects_governed_retention_exclusions():
     assert analytics_workflow_types_module.suite == "unit"
     assert "analytics_domain" in analytics_workflow_types_module.families
 
+    shutdown_file = service_dir / "test_worker_shutdown.py"
+    shutdown_file.write_text("def test_admitted_batch_drains_on_signal():\n    pass\n", encoding="utf-8")
+    shutdown_modules = collect_test_modules((str(shutdown_file),))
+    assert shutdown_modules[0].families == ("observability_or_readiness",)
+    assert evaluate_taxonomy_thresholds(summarize_test_taxonomy(shutdown_modules), max_uncategorized_tests=0) == []
+
+    unrelated_shutdown_file = service_dir / "test_worker_shutdown_unrelated.py"
+    unrelated_shutdown_file.write_text("def test_unrelated_shutdown():\n    pass\n", encoding="utf-8")
+    unrelated_modules = collect_test_modules((str(unrelated_shutdown_file),))
+    assert unrelated_modules[0].families == ("uncategorized",)
+    assert evaluate_taxonomy_thresholds(
+        summarize_test_taxonomy([*shutdown_modules, *unrelated_modules]), max_uncategorized_tests=0
+    ) == ["Uncategorized test functions 1 above allowed ceiling 0."]
+
 
 def test_render_markdown_summarizes_test_taxonomy() -> None:
     modules = collect_test_modules(("tests/unit/scripts/test_python_test_taxonomy_inventory.py",))

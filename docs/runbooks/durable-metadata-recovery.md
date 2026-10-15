@@ -16,6 +16,25 @@ Use this runbook when any of the following occurs:
 - schema-upgrade rollback or forward-fix recovery
 - worker restart after metadata recovery
 
+## Worker shutdown before recovery
+
+The `python -m app.workers.compute_executor_worker` and
+`python -m app.workers.lineage_worker` entrypoints translate `SIGTERM` and `SIGINT`
+into their existing stop event. An idle poll wakes immediately. An admitted leased
+batch finishes through its existing execution, lease and publication paths before
+the loop exits; no next batch is claimed. Shutdown does not cancel an in-flight
+source request or impose a new execution deadline. Existing batch failures retain
+their normal behavior; an exception escaping the loop still fails the process.
+
+Before schema recovery or replacement, stop admission at the upstream operator
+boundary and allow enough container stop grace for the admitted batch and its
+dependency timeouts. Confirm both workers exited before changing durable schema.
+Do not infer graceful completion from a known-empty queue or a forced container
+termination. Retain actual signal, elapsed time, native exit, job/lease state,
+restart and absence of `SIGKILL`/OOM evidence for both roles; idle and controlled
+active-work proof are required by [issue669](https://github.com/sgajbi/lotus-performance/issues/669).
+The optional retention-worker entrypoint is outside this signal-bridge change.
+
 ## Owned Durable Tables
 
 Recovery must include:
