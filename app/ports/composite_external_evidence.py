@@ -8,6 +8,7 @@ from pydantic import StrictInt
 from app.models.composite_authority import (
     AuthoritySelection,
     EvidenceBinding,
+    HistoricalSubjectApprovalBinding,
     ManageCompositeDefinitionV2,
     MemberIdentity,
 )
@@ -17,6 +18,7 @@ from app.models.composite_eligibility_evidence import (
     VerificationRequest,
     decode_eligibility_receipt,
 )
+from app.models.composite_historical_subject_evidence import HistoricalSubjectFinalizationReceipt
 from app.models.composite_materialization import CompositeMaterializationCommand
 from app.models.composite_monthly_eligibility_evidence import CompositeMonthlyEligibilityPublicationReceipt
 
@@ -53,14 +55,26 @@ class UnavailableApprovalVerification:
 
 
 def authority_approval_verifier() -> CompositeApprovalVerificationPort:
+    from app.adapters.composite_source_authority_deployment import configured_source_authorities
+
+    if configured := configured_source_authorities():
+        return configured
     return UnavailableApprovalVerification()
 
 
 def eligibility_approval_verifier() -> CompositeApprovalVerificationPort:
+    from app.adapters.composite_source_authority_deployment import configured_source_authorities
+
+    if configured := configured_source_authorities():
+        return configured
     return UnavailableApprovalVerification()
 
 
 def method_approval_verifier() -> CompositeApprovalVerificationPort:
+    from app.adapters.composite_source_authority_deployment import configured_source_authorities
+
+    if configured := configured_source_authorities():
+        return configured
     return UnavailableApprovalVerification()
 
 
@@ -77,7 +91,7 @@ class EligibilityResolutionRequest:
     tenant_id: str
     composite_id: str
     definition_version: str
-    evaluation_binding: EvidenceBinding
+    evaluation_binding: EvidenceBinding | HistoricalSubjectApprovalBinding
     membership_binding: EvidenceBinding
     universe_binding: EvidenceBinding
     source_cut_id: str
@@ -95,7 +109,11 @@ class PublishedEligibilityEvidence:
     This port result is not an additional persisted lifecycle product.
     """
 
-    receipt: SubjectFinalizationReceipt | CompositeMonthlyEligibilityPublicationReceipt
+    receipt: (
+        SubjectFinalizationReceipt
+        | HistoricalSubjectFinalizationReceipt
+        | CompositeMonthlyEligibilityPublicationReceipt
+    )
     membership_binding: EvidenceBinding
     universe_binding: EvidenceBinding
     source_cut_id: str
@@ -147,6 +165,10 @@ def composite_eligibility_resolver() -> CompositeEligibilityResolutionPort:
 
 
 def composite_receipt_verifier() -> CompositeReceiptVerificationPort:
+    from app.adapters.composite_source_authority_deployment import configured_source_authorities
+
+    if configured := configured_source_authorities():
+        return configured
     from app.core.config import get_settings
 
     wire = get_settings().COMPOSITE_RECEIPT_VERIFIER_CONFIG_JSON
@@ -169,7 +191,7 @@ def _evidence_require(condition: bool, code: str) -> None:
 def admit_resolved_eligibility(
     request: EligibilityResolutionRequest,
     result: PublishedEligibilityEvidence | UnavailableCompositeEvidence,
-) -> SubjectFinalizationReceipt | CompositeMonthlyEligibilityPublicationReceipt:
+) -> SubjectFinalizationReceipt | HistoricalSubjectFinalizationReceipt | CompositeMonthlyEligibilityPublicationReceipt:
     """Validate a typed resolver result against consumer-owned immutable pins."""
     if not isinstance(result, PublishedEligibilityEvidence):
         raise ValueError("COMPOSITE_ELIGIBILITY_PUBLISHED_CUSTODY_UNAVAILABLE")
@@ -247,7 +269,7 @@ def _admit_monthly_resolution(request, result, receipt: CompositeMonthlyEligibil
 def _published_pins(
     request: EligibilityResolutionRequest,
     result: PublishedEligibilityEvidence,
-    receipt: SubjectFinalizationReceipt,
+    receipt: SubjectFinalizationReceipt | HistoricalSubjectFinalizationReceipt,
 ) -> None:
     approval = receipt.finalization.evaluation_approval
     _evidence_require(

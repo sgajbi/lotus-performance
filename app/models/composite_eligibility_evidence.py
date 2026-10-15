@@ -19,6 +19,7 @@ from app.models.composite_authority import (
     BusinessDate,
     Digest,
     EvidenceBinding,
+    HistoricalSubjectApprovalBinding,
     Identifier,
     Instant,
     ManageCompositeDefinitionV2,
@@ -28,6 +29,7 @@ from app.models.composite_authority import (
 )
 
 if TYPE_CHECKING:
+    from app.models.composite_historical_subject_evidence import HistoricalSubjectFinalizationReceipt
     from app.models.composite_monthly_eligibility_evidence import CompositeMonthlyEligibilityPublicationReceipt
 
 _SCOPE = ("tenant_id", "composite_id", "definition_version")
@@ -548,35 +550,7 @@ class SubjectEvaluationProposal(HashedEligibilityWire):
 
     @model_validator(mode="after")
     def evaluation_links(self) -> Self:
-        self.source_assembly_evidence = retained_monthly_source_assembly(
-            self.source_assembly_evidence, self.observations
-        )
-        subject = self.policy_approval.proposal.subject
-        _equal(
-            subject,
-            self.observations,
-            _SCOPE + ("month", "reporting_currency"),
-            "COMPOSITE_SUBJECT_OBSERVATION_SCOPE_MISMATCH",
-        )
-        _equal(subject, self.evaluation, _SCOPE + ("month",), "COMPOSITE_SUBJECT_EVALUATION_SCOPE_MISMATCH")
-        _observation_links(self, subject)
-        _evaluation_members(self, subject)
-        _require(
-            self.evaluation.resolved_policy == self.policy_approval.approval.proposal.policy,
-            "COMPOSITE_SUBJECT_POLICY_BINDING_MISMATCH",
-        )
-        _require(
-            self.evaluation.universe_content_hash == subject.universe.content_hash,
-            "COMPOSITE_SUBJECT_UNIVERSE_BINDING_MISMATCH",
-        )
-        _require(
-            self.proposed_at >= self.evaluation.evaluated_at >= self.observations.source_generated_at,
-            "COMPOSITE_ELIGIBILITY_CLOCK_MISMATCH",
-        )
-        _require(
-            self.observations.source_generated_at[:10] > _month_window(subject.month)[1],
-            "COMPOSITE_ELIGIBILITY_CLOCK_MISMATCH",
-        )
+        require_subject_evaluation(self)
         return self
 
 
@@ -596,20 +570,7 @@ class SubjectEvaluationApproval(HashedEligibilityWire):
 
     @model_validator(mode="after")
     def approval_links(self) -> Self:
-        _require(self.approved_by != self.proposal.proposed_by, "COMPOSITE_ELIGIBILITY_SELF_APPROVAL_FORBIDDEN")
-        _require(self.approved_at >= self.proposal.proposed_at, "COMPOSITE_ELIGIBILITY_CLOCK_MISMATCH")
-        _verification_subject(
-            self.verification.request, self.proposal.policy_approval.proposal.subject, "ELIGIBILITY_POLICY_EVALUATION"
-        )
-        _require(
-            self.verification.request.claims_digest == self.claims_digest, "COMPOSITE_VERIFICATION_CLAIMS_MISMATCH"
-        )
-        _require(
-            self.verification.request.binding is None and self.verification.request.source_product is None,
-            "COMPOSITE_VERIFICATION_BINDING_MISMATCH",
-        )
-        expected = "SYNTHETIC_NON_CERTIFYING" if self.evidence_kind == "SYNTHETIC_UNSIGNED" else "QUALIFIED_RECEIPT"
-        _require(self.verification.posture == expected, "COMPOSITE_VERIFICATION_POSTURE_MISMATCH")
+        require_subject_evaluation_approval(self)
         return self
 
 
@@ -624,29 +585,7 @@ class SubjectFinalization(HashedEligibilityWire):
 
     @model_validator(mode="after")
     def finalization_links(self) -> Self:
-        _require(
-            self.subject == self.evaluation_approval.proposal.policy_approval.proposal.subject,
-            "COMPOSITE_SUBJECT_FINALIZATION_SCOPE_MISMATCH",
-        )
-        _equal(
-            self.subject,
-            self.definition,
-            _SCOPE
-            + (
-                "display_name",
-                "strategy_code",
-                "reporting_currency",
-                "inception_date",
-                "termination_date",
-                "eligibility_policy_version",
-                "created_by",
-                "created_at",
-                "correlation_id",
-            ),
-            "COMPOSITE_SUBJECT_FINALIZATION_SCOPE_MISMATCH",
-        )
-        _definition_links(self)
-        _finalization_verifications(self)
+        require_subject_finalization(self)
         return self
 
 
@@ -680,7 +619,7 @@ def _verification_subject(request: VerificationRequest, subject: EligibilitySubj
     )
 
 
-def _observation_links(proposal: SubjectEvaluationProposal, subject: EligibilitySubject) -> None:
+def _observation_links(proposal: Any, subject: EligibilitySubject) -> None:
     observations, binding, evaluation = proposal.observations, proposal.observation_binding, proposal.evaluation
     digest = authority_digest(observations.model_dump())
     _require(
@@ -713,7 +652,7 @@ def _observation_links(proposal: SubjectEvaluationProposal, subject: Eligibility
     _require(evaluation.input_content_hash == digest, "COMPOSITE_SUBJECT_SOURCE_BINDING_MISMATCH")
 
 
-def _evaluation_members(proposal: SubjectEvaluationProposal, subject: EligibilitySubject) -> None:
+def _evaluation_members(proposal: Any, subject: EligibilitySubject) -> None:
     expected = [member.member_id for member in subject.universe.members]
     observations, evaluation = proposal.observations, proposal.evaluation
     _require(observations.expected_portfolio_ids == expected, "COMPOSITE_SUBJECT_MEMBER_MAP_MISMATCH")
@@ -751,13 +690,13 @@ def _evaluation_outcomes(evaluation: MonthlyEligibilityEvaluation, observed: set
         )
 
 
-def _definition_links(finalization: SubjectFinalization) -> None:
+def _definition_links(finalization: Any) -> None:
     definition, approval = finalization.definition, finalization.evaluation_approval
     profile = definition.source_authority
     binding = profile.payload.eligibility_evaluation_binding
     _require(
         binding
-        == EvidenceBinding(
+        == (EvidenceBinding if approval.product_version == "v1" else HistoricalSubjectApprovalBinding)(
             product_name=approval.product_name,
             product_version=approval.product_version,
             revision=approval.proposal.evaluation_revision,
@@ -784,7 +723,7 @@ def _definition_links(finalization: SubjectFinalization) -> None:
     _authority_claim_links(finalization)
 
 
-def _authority_claim_links(finalization: SubjectFinalization) -> None:
+def _authority_claim_links(finalization: Any) -> None:
     definition = finalization.definition
     payload = definition.source_authority.payload
     claims = definition.authority_approval.claims
@@ -808,7 +747,7 @@ def _authority_claim_links(finalization: SubjectFinalization) -> None:
     _require(claims.approved_at >= finalization.evaluation_approval.approved_at, "COMPOSITE_ELIGIBILITY_CLOCK_MISMATCH")
 
 
-def _finalization_verifications(finalization: SubjectFinalization) -> None:
+def _finalization_verifications(finalization: Any) -> None:
     requests = [receipt.request for receipt in finalization.verifications]
     _unique_verification_purposes(requests)
     for request in requests:
@@ -852,7 +791,24 @@ def _provider_verifications(definition: ManageCompositeDefinitionV2, requests: l
     expected = set()
     for selection in profiles.selections:
         provider = providers[selection.provider_id]
-        expected.add((selection.source_product, provider.registry_revision, provider.registry_digest))
+        claims_digest = authority_digest(
+            {
+                "provider": provider.model_dump(mode="json"),
+                "source_product": selection.source_product,
+                "effective_from": selection.effective_from,
+                "effective_to": selection.effective_to,
+            }
+        )
+        expected.add(
+            (
+                selection.source_product,
+                provider.registry_revision,
+                provider.registry_digest,
+                selection.effective_from,
+                selection.effective_to,
+                claims_digest,
+            )
+        )
     actual = set()
     for request in requests:
         if request.purpose == "PROVIDER_REGISTRATION" and request.binding is not None:
@@ -860,17 +816,108 @@ def _provider_verifications(definition: ManageCompositeDefinitionV2, requests: l
                 request.binding.product_name == "CompositeProviderRegistration",
                 "COMPOSITE_VERIFICATION_PROVIDER_BINDING_MISMATCH",
             )
-            actual.add((request.source_product, request.binding.revision, request.binding.digest))
+            actual.add(
+                (
+                    request.source_product,
+                    request.binding.revision,
+                    request.binding.digest,
+                    request.effective_from,
+                    request.effective_to,
+                    request.claims_digest,
+                )
+            )
     _require(
         actual == expected and len(requests) == len(expected) + 2, "COMPOSITE_VERIFICATION_PROVIDER_BINDING_MISMATCH"
     )
 
 
-def decode_eligibility_receipt(wire: str) -> SubjectFinalizationReceipt | CompositeMonthlyEligibilityPublicationReceipt:
+def decode_eligibility_receipt(
+    wire: str,
+) -> SubjectFinalizationReceipt | HistoricalSubjectFinalizationReceipt | CompositeMonthlyEligibilityPublicationReceipt:
     """Decode exact wire strings; this is neither verification nor a custody join."""
     payload = decode_authority_json(wire)
+    if (payload.get("product_name"), payload.get("product_version")) == (
+        "CompositeEligibilityFinalizationReceipt",
+        "v3",
+    ):
+        from app.models.composite_historical_subject_evidence import HistoricalSubjectFinalizationReceipt
+
+        return HistoricalSubjectFinalizationReceipt.model_validate(payload)
     if payload.get("product_name") == "CompositeMonthlyEligibilityPublicationReceipt":
         from app.models.composite_monthly_eligibility_evidence import CompositeMonthlyEligibilityPublicationReceipt
 
         return CompositeMonthlyEligibilityPublicationReceipt.model_validate(payload)
     return SubjectFinalizationReceipt.model_validate(payload)
+
+
+def require_subject_evaluation(value: Any) -> None:
+    value.source_assembly_evidence = retained_monthly_source_assembly(
+        value.source_assembly_evidence, value.observations
+    )
+    subject = value.policy_approval.proposal.subject
+    _equal(
+        subject,
+        value.observations,
+        _SCOPE + ("month", "reporting_currency"),
+        "COMPOSITE_SUBJECT_OBSERVATION_SCOPE_MISMATCH",
+    )
+    _equal(subject, value.evaluation, _SCOPE + ("month",), "COMPOSITE_SUBJECT_EVALUATION_SCOPE_MISMATCH")
+    _observation_links(value, subject)
+    _evaluation_members(value, subject)
+    _require(
+        value.evaluation.resolved_policy == value.policy_approval.approval.proposal.policy,
+        "COMPOSITE_SUBJECT_POLICY_BINDING_MISMATCH",
+    )
+    _require(
+        value.evaluation.universe_content_hash == subject.universe.content_hash,
+        "COMPOSITE_SUBJECT_UNIVERSE_BINDING_MISMATCH",
+    )
+    _require(
+        value.proposed_at >= value.evaluation.evaluated_at >= value.observations.source_generated_at,
+        "COMPOSITE_ELIGIBILITY_CLOCK_MISMATCH",
+    )
+    _require(
+        value.observations.source_generated_at[:10] > _month_window(subject.month)[1],
+        "COMPOSITE_ELIGIBILITY_CLOCK_MISMATCH",
+    )
+
+
+def require_subject_evaluation_approval(value: Any) -> None:
+    _require(value.approved_by != value.proposal.proposed_by, "COMPOSITE_ELIGIBILITY_SELF_APPROVAL_FORBIDDEN")
+    _require(value.approved_at >= value.proposal.proposed_at, "COMPOSITE_ELIGIBILITY_CLOCK_MISMATCH")
+    _verification_subject(
+        value.verification.request, value.proposal.policy_approval.proposal.subject, "ELIGIBILITY_POLICY_EVALUATION"
+    )
+    _require(value.verification.request.claims_digest == value.claims_digest, "COMPOSITE_VERIFICATION_CLAIMS_MISMATCH")
+    _require(
+        value.verification.request.binding is None and value.verification.request.source_product is None,
+        "COMPOSITE_VERIFICATION_BINDING_MISMATCH",
+    )
+    expected = "SYNTHETIC_NON_CERTIFYING" if value.evidence_kind == "SYNTHETIC_UNSIGNED" else "QUALIFIED_RECEIPT"
+    _require(value.verification.posture == expected, "COMPOSITE_VERIFICATION_POSTURE_MISMATCH")
+
+
+def require_subject_finalization(value: Any) -> None:
+    _require(
+        value.subject == value.evaluation_approval.proposal.policy_approval.proposal.subject,
+        "COMPOSITE_SUBJECT_FINALIZATION_SCOPE_MISMATCH",
+    )
+    _equal(
+        value.subject,
+        value.definition,
+        _SCOPE
+        + (
+            "display_name",
+            "strategy_code",
+            "reporting_currency",
+            "inception_date",
+            "termination_date",
+            "eligibility_policy_version",
+            "created_by",
+            "created_at",
+            "correlation_id",
+        ),
+        "COMPOSITE_SUBJECT_FINALIZATION_SCOPE_MISMATCH",
+    )
+    _definition_links(value)
+    _finalization_verifications(value)

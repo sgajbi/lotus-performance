@@ -1,0 +1,37 @@
+{
+  "canonical_content_digests": {
+    "CompositeEligibilityFinalization.v3.controlled.json": "sha256:67fce6ee10eb47dad9b4cdc117d7e62644c7067a160aa84f928de1c3248e1a9a",
+    "CompositeEligibilityFinalization.v3.schema.json": "sha256:e93ddb53f9d040c895c532fa804e90002b3355535dd85a34da46545c70ad3c3b",
+    "CompositeEligibilityFinalizationReceipt.v3.controlled.json": "sha256:40f114df98268da55bb21d772946b01e703cd5c6df345ed8c3df07f718c25964",
+    "CompositeEligibilityFinalizationReceipt.v3.schema.json": "sha256:ce05a7a6a7fa43ee2977a7fbdbde310b194065dad2c6cfc609cd0ddd8f92c365",
+    "CompositeSubjectEvaluationApproval.v2.controlled.json": "sha256:f05b4db381a8f13e174b14115e21ff96b5b15213771af191f81463e492f8429c",
+    "CompositeSubjectEvaluationApproval.v2.schema.json": "sha256:5c4716b09b3211475d4478c7500c4256ec5645d8b1956f2662a787d923fc32dd",
+    "CompositeSubjectEvaluationProposal.v2.controlled.json": "sha256:f7ac4796c01883c86ff4bb200bad5bc19de22ff4a37d35e329efb488bba54eeb",
+    "CompositeSubjectEvaluationProposal.v2.schema.json": "sha256:6fda9f7e514e5b80d6b8c70d56a7cf0aff045a29d36979e00f741f28e4af2774",
+    "CompositeSubjectPolicyApproval.v2.controlled.json": "sha256:a2cfb9b91e600f7d615876e92fb7e594e881e794c6cd9851845cab2eafa1dfd1",
+    "CompositeSubjectPolicyApproval.v2.schema.json": "sha256:abcc9b5f6b2113929dc8081bb76a84eb364f88b30defa1c459d294387d4fd292",
+    "CompositeSubjectPolicyProposal.v2.controlled.json": "sha256:4ac316e6269f8a5c436264f1c0cf82ff6d864ece2923b98b581992afac663cda",
+    "CompositeSubjectPolicyProposal.v2.schema.json": "sha256:8a5006b9e8c344c6f8dcfa87c47158a5339f5d7078cc25a9f1b5946bc43ff5c8",
+    "refusal-vectors.json": "sha256:020be006ff3e267f808c14eb0ecd7873d14ad06c11fc03e87e15d9ba25a69ce7"
+  },
+  "consumer_enablement": "NOT_ADMITTED",
+  "official_activation": "UNAVAILABLE",
+  "posture": "CONTROLLED_SYNTHETIC_ONLY_CURRENT_IN_PROCESS_ADMISSION",
+  "production_adapter": "UNAVAILABLE",
+  "raw_file_sha256": {
+    "CompositeEligibilityFinalization.v3.controlled.json": "d57385feca5dcf5fc973bc34f521b5e8f52b27791e5cc01d6c885f434bc44b7c",
+    "CompositeEligibilityFinalization.v3.schema.json": "e7e5a901c17c18885bf0870db80e5b5e7618f3d243dfde25951442161f933670",
+    "CompositeEligibilityFinalizationReceipt.v3.controlled.json": "7c65e66b05d55d8abc60a79e5c865ea134b973185addbad9e6aa57e3a16f3055",
+    "CompositeEligibilityFinalizationReceipt.v3.schema.json": "3f7ab64073c4e4159b4e2c97b4a2bb6af9ddd0964b13881f97aef2bcc4c864e4",
+    "CompositeSubjectEvaluationApproval.v2.controlled.json": "eb5be607ed77c05af072e075bd27c7fdbeea3ea5f69df3552c4fc1454317e058",
+    "CompositeSubjectEvaluationApproval.v2.schema.json": "ea6b5b47898f02d90da1e524cdd99b3a2a5972fbcc18d95f9e34b9526a6806ba",
+    "CompositeSubjectEvaluationProposal.v2.controlled.json": "72cd0859a125a2c4e6bd2f7a43e6147627dcb35182e08ca795030613159e7202",
+    "CompositeSubjectEvaluationProposal.v2.schema.json": "042582fda402bb1db37fd718f1f4227f987a6c3ea6ca82b75a80087ef6003ba3",
+    "CompositeSubjectPolicyApproval.v2.controlled.json": "8d8a27f8b2ec7727672cb721932b8db976c0e293c9ffe7c656257c99f256255b",
+    "CompositeSubjectPolicyApproval.v2.schema.json": "b7421fe2416728263670fdaadba53267467941a943669823f2f3d49eb33130f5",
+    "CompositeSubjectPolicyProposal.v2.controlled.json": "b00c34c9033793d5e0b8a1716c3858b34437c66c866ac767bde0127fcd7aedcc",
+    "CompositeSubjectPolicyProposal.v2.schema.json": "64087b10ac4c666a8e34bee52106b99cbdfdb6eb093ffb7fecd98474a094e385",
+    "refusal-vectors.json": "c1bf0a7bc7c753d09d4eb1663e021acea1c595098b8c3ae4b495407a33aba8f0"
+  },
+  "source_base": "e02bfd8ae8c31bb76f93125212da6c4693caf00e"
+}

@@ -346,6 +346,7 @@ def test_input_resource_guards_accept_complete_small_input_and_refuse_bad_inputs
 def test_installed_source_mutation_is_rejected_without_path_or_line_ending_dependence(monkeypatch):
     from app.adapters.composite_arithmetic_capture import bundle
 
+    assert bundle.installed_source_digest().startswith("sha256:")
     before = bundle.source_manifest
     changed = before()
     changed["files"][0]["sha256"] = "0" * 64

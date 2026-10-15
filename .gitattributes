@@ -3,3 +3,4 @@
 *.yml text eol=lf
 *.yaml text eol=lf
 Makefile text eol=lf
+tests/fixtures/composite_historical_subject/*.json text eol=lf

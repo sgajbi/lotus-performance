@@ -18,6 +18,7 @@ from app.models.composite_authority import (
     legacy_composite_product_digest,
 )
 from app.models.composite_eligibility_evidence import SubjectFinalizationReceipt
+from app.models.composite_historical_subject_evidence import HistoricalSubjectFinalizationReceipt
 from app.models.composite_materialization import CompositeMaterializationCommand
 from app.models.composite_monthly_eligibility_evidence import (
     CompositeMonthlyEligibilityPublicationReceipt,
@@ -253,7 +254,9 @@ def published_eligibility_from_wire(
     definition: dict[str, Any],
     membership: dict[str, Any],
     attestation: dict[str, Any],
-    receipt: SubjectFinalizationReceipt | CompositeMonthlyEligibilityPublicationReceipt,
+    receipt: SubjectFinalizationReceipt
+    | HistoricalSubjectFinalizationReceipt
+    | CompositeMonthlyEligibilityPublicationReceipt,
 ) -> evidence_ports.PublishedEligibilityEvidence:
     """Join the configured resolver's published graph with separately fetched canonical products."""
     verify_source_wire_hashes(command, definition, membership, attestation)
@@ -336,7 +339,9 @@ def _admit_published_eligibility(source: PinnedCompositeSource, *, command: Comp
         _admit_eligibility_graph(source, receipt)
 
 
-def _admit_eligibility_graph(source: PinnedCompositeSource, receipt: SubjectFinalizationReceipt) -> None:
+def _admit_eligibility_graph(
+    source: PinnedCompositeSource, receipt: SubjectFinalizationReceipt | HistoricalSubjectFinalizationReceipt
+) -> None:
     finalization = receipt.finalization
     if finalization.definition.model_dump() != source.wire_evidence.definition:
         raise source_refusal("COMPOSITE_ELIGIBILITY_FINAL_DEFINITION_MISMATCH")
@@ -351,7 +356,9 @@ def _admit_eligibility_graph(source: PinnedCompositeSource, receipt: SubjectFina
     _admit_evaluation_publication(source, receipt)
 
 
-def _admit_evaluation_publication(source: PinnedCompositeSource, receipt: SubjectFinalizationReceipt) -> None:
+def _admit_evaluation_publication(
+    source: PinnedCompositeSource, receipt: SubjectFinalizationReceipt | HistoricalSubjectFinalizationReceipt
+) -> None:
     finalization = receipt.finalization
     evaluation = finalization.evaluation_approval.proposal.evaluation
     if source.attestation.observed_portfolio_count != evaluation.observed_count:
