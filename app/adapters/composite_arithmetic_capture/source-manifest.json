@@ -22,9 +22,9 @@
       "sha256": "1b1e98e7a5716cae26920e3740560d50e26e55350d27c71d2ea45844ecd77034"
     },
     {
-      "normalized_length": 9400,
+      "normalized_length": 9635,
       "path": "app/models/composite_authority.py",
-      "sha256": "31ccec4b12d8d804cf0e4c3d27225937f89534acb8366bd2ba128f63b6531776"
+      "sha256": "505d3be660c3ec8eba48c23dcc05a0fccd3b34dd1b87de0ba163d62f24df0c47"
     },
     {
       "normalized_length": 29215,

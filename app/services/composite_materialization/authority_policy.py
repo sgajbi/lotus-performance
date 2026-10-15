@@ -47,7 +47,11 @@ class UnavailableProviderTrustResolver:
 
 
 def provider_trust_resolver() -> CompositeProviderTrustPort:
-    """Production has no qualified resolver. Owning tests inject a dependency."""
+    """Only an explicitly installed non-certifying deployment can resolve trust."""
+    from app.adapters.composite_source_authority_deployment import configured_source_authorities
+
+    if configured := configured_source_authorities():
+        return configured
     return UnavailableProviderTrustResolver()
 
 
@@ -255,6 +259,8 @@ def _verify_lifecycle_approvals(published_eligibility) -> None:
         finalization.evaluation_approval.verification,
         *finalization.verifications,
     ]
+    if proposal.policy_approval.proposal.product_version == "v2":
+        receipts.insert(0, proposal.policy_approval.proposal.verification)
     if proposal.source_assembly_evidence is not None:
         receipts.append(proposal.source_assembly_evidence.verification)
     verifier = approval_ports.composite_receipt_verifier()

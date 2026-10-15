@@ -70,6 +70,13 @@ class EvidenceBinding(AuthorityWire):
     digest: Digest
 
 
+class HistoricalSubjectApprovalBinding(AuthorityWire):
+    product_name: Literal["CompositeSubjectEvaluationApproval"]
+    product_version: Literal["v2"]
+    revision: Identifier
+    digest: Digest
+
+
 class MemberIdentity(AuthorityWire):
     identity_kind: Literal["CORE_PORTFOLIO", "EXTERNAL_MEMBER"]
     member_id: Identifier
@@ -130,7 +137,7 @@ class CompositeAuthorityPayload(AuthorityWire):
     member_identities: list[MemberIdentity] = Field(min_length=1, max_length=1000)
     providers: list[AuthorityProvider] = Field(min_length=1, max_length=16)
     selections: list[AuthoritySelection] = Field(min_length=2, max_length=256)
-    eligibility_evaluation_binding: EvidenceBinding
+    eligibility_evaluation_binding: EvidenceBinding | HistoricalSubjectApprovalBinding
     return_method_binding: EvidenceBinding
 
     @model_validator(mode="after")

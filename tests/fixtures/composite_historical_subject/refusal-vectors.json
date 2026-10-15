@@ -1,0 +1,32 @@
+[
+  {
+    "case": "nested_hash",
+    "expected": "REFUSE",
+    "pointer": "/finalization/evaluation_approval/proposal/policy_approval/approval/content_hash",
+    "replacement": "sha256:0000000000000000000000000000000000000000000000000000000000000000"
+  },
+  {
+    "case": "mixed_policy",
+    "expected": "REFUSE",
+    "pointer": "/finalization/evaluation_approval/proposal/policy_approval/product_version",
+    "replacement": "v1"
+  },
+  {
+    "case": "mixed_evaluation",
+    "expected": "REFUSE",
+    "pointer": "/finalization/evaluation_approval/product_version",
+    "replacement": "v1"
+  },
+  {
+    "case": "mixed_receipt",
+    "expected": "REFUSE",
+    "pointer": "/product_version",
+    "replacement": "v1"
+  },
+  {
+    "case": "intent",
+    "expected": "REFUSE",
+    "pointer": "/finalization/evaluation_approval/operation_verification/request/intent_digest",
+    "replacement": "sha256:0000000000000000000000000000000000000000000000000000000000000000"
+  }
+]

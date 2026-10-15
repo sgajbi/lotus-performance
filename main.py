@@ -6,6 +6,7 @@ from fastapi import FastAPI, HTTPException
 from fastapi.exceptions import RequestValidationError
 from fastapi.openapi.utils import get_openapi
 
+from app.adapters.composite_attribution_bootstrap import bootstrap_composite_attribution
 from app.api.endpoints import (
     benchmark,
     benchmark_exposure_context,
@@ -58,6 +59,7 @@ settings = get_settings()
 @asynccontextmanager
 async def _app_lifespan(application: FastAPI) -> AsyncIterator[None]:
     application.state.is_draining = False
+    bootstrap_composite_attribution(application=application)
     verify_durable_metadata_stores(
         execution_store=execution_registry,
         compute_store=compute_job_store,

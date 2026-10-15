@@ -8,6 +8,13 @@ The deployed source reader and financial-purpose verifier default to unavailable
 signed synthetic tests establish software behavior only. Genuine supplier applicability,
 institutional methodology approval and downstream publication acceptance remain separate.
 
+The [deployment guide](../operations/composite-attribution-deployment.md) describes the bounded
+configuration-driven synthetic source/BF-purpose and original-source verification adapters.
+API and existing compute-worker startup share the same bootstrap; configured worker startup
+logs the installation digest, revision, profile and qualification before claims. Actual container
+receipts, native Manage publication, historical producer/consumer deployment and a READY captured
+candidate remain explicit prerequisites. This composition does not qualify a real source.
+
 ## Reader paths
 
 - Callers: request, polling and refusal behavior below.

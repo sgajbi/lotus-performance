@@ -1,7 +1,7 @@
 # Lotus Performance Test Taxonomy Inventory
 
 Report date: 2026-10-15
-Branch: `fix/669-worker-shutdown`
+Source: #633 integration onto protected main `9dcba09a14053ba2979c38c2204a6a5b6cde7871`; collection and AST counts do not establish live acceptance.
 Mode: regression-blocking test taxonomy inventory; `make quality-test-taxonomy-gate` enforces
 minimum API/runtime and contract/governance breadth plus the current uncategorized-test ceiling.
 
@@ -22,19 +22,19 @@ python scripts/python_test_taxonomy_inventory.py --limit 30 --min-api-runtime-te
 
 | Metric | Value |
 | --- | ---: |
-| Test modules inventoried | 467 |
-| Test functions inventoried | 5547 |
-| Integration/API/runtime test functions | 1115 |
-| Contract/governance test functions | 248 |
+| Test modules inventoried | 471 |
+| Test functions inventoried | 5577 |
+| Integration/API/runtime test functions | 1117 |
+| Contract/governance test functions | 258 |
 
 ## Test Functions By Suite
 
 | Suite | Modules | Test functions |
 | --- | ---: | ---: |
-| benchmarks | 21 | 206 |
+| benchmarks | 22 | 208 |
 | e2e | 1 | 21 |
-| integration | 56 | 646 |
-| unit | 389 | 4674 |
+| integration | 57 | 648 |
+| unit | 391 | 4700 |
 
 ## Test Functions By Family
 
@@ -44,11 +44,11 @@ above does sum to it, because a module belongs to exactly one suite.
 
 | Family | Test functions |
 | --- | ---: |
-| analytics_domain | 3199 |
-| api_or_runtime | 1115 |
-| contract_or_governance | 248 |
+| analytics_domain | 3229 |
+| api_or_runtime | 1117 |
+| contract_or_governance | 258 |
 | observability_or_readiness | 787 |
-| quality_or_security | 452 |
+| quality_or_security | 468 |
 | uncategorized | 558 |
 
 ## Largest Test Modules
@@ -86,7 +86,16 @@ above does sum to it, because a module belongs to exactly one suite.
 | 29 | `tests/benchmarks/test_postgres_composite_materialization.py` | benchmarks | 36 | analytics_domain |
 | 30 | `tests/unit/models/test_workspace_summary_models.py` | unit | 36 | analytics_domain |
 
-## Current Adopter Measurement
+## Current Protected-Main Integration Measurement
+
+The #633 integration onto exact protected main `9dcba09a` measures 5,577 source functions
+across 471 modules, including 468 quality/security functions. API/runtime1117, contract/governance258,
+observability/readiness787, analytics-domain3229 and uncategorized558 retain unchanged policy bounds.
+Native collection measures 9,755 cases. The reviewed synthetic deployment/worker bootstrap and
+final #669 shutdown/acquisition controls are combined; collection is not native candidate,
+PostgreSQL, container, financial or operational acceptance.
+
+## Historical Adopter Measurement
 
 The #669/#945 original-selection and PG17 content-proof slice measures 5,547 source test
 functions across 467 modules, including 452 quality/security functions. The 21 added functions

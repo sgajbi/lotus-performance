@@ -11,6 +11,7 @@ from uuid import UUID, uuid4
 
 from pydantic import ValidationError
 
+from app.adapters.composite_attribution_bootstrap import bootstrap_composite_attribution
 from app.core.config import get_settings
 from app.models.attribution_analytics_requests import AttributionAnalyticsRequest, AttributionInputMode
 from app.models.attribution_requests import AttributionRequest
@@ -1435,6 +1436,20 @@ def _record_terminal_failure(
 def run_forever(*, stop_event: Event | None = None, settings=None) -> None:
     active_settings = settings or get_settings()
     setup_worker_logging(active_settings.LOG_LEVEL)
+    installation = bootstrap_composite_attribution()
+    if installation is not None:
+        logger.info(
+            "Composite attribution deployment installed",
+            extra=worker_log_extra(
+                worker_name=_WORKER_NAME,
+                worker_id=active_settings.COMPUTE_EXECUTOR_WORKER_ID,
+                queue=_QUEUE_NAME,
+                configuration_digest=installation.configuration_digest,
+                revision=installation.revision,
+                profile=installation.profile,
+                qualification="SYNTHETIC_NON_CERTIFYING",
+            ),
+        )
     logger.info(
         "Starting compute executor poller",
         extra=worker_log_extra(

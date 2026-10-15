@@ -1443,6 +1443,30 @@ original domain-owner binding and verify alias separation alongside structural e
 
 ## Single-period Composite BF Practice
 
+The configuration-driven controlled deployment uses
+`app/adapters/composite_attribution_bootstrap.py` from API lifespan and existing compute-worker
+`run_forever`, before any claims. Configured worker startup logs the installation digest,
+revision, profile and qualification; actual container receipts remain a live qualification gate.
+`LOTUS_COMPOSITE_ATTRIBUTION_DEPLOYMENT` names one
+sealed read-only configuration shared across processes. Default ports stay unavailable.
+The initial profile is explicitly CONTROLLED_SYNTHETIC_ONLY/SYNTHETIC_NON_CERTIFYING;
+public Ed25519 trust, canonical independent identities, expiring grants and exact source/purpose
+registrations cannot activate institutional authority. Keep the existing v2 institutional refusal.
+Source adapters own original bytes and return fresh nested projections. Population metadata
+admission never opens financial artifacts. Reader bootstrap never rereads BF source or reapproves
+BF; retained originals still require their own source-authority registrations and caller access.
+Original approval request hashes use `command.immutable_payload()` so operational attempt IDs
+cannot invalidate retained financial custody. Manage #714/#778 publication, #540 population
+acceptance, historical deployed-consumer qualification and actual native READY candidate provisioning
+remain dependencies. See `docs/operations/composite-attribution-deployment.md`; test fixture
+originals and fresh-interpreter SQLite replay are software evidence, not live source qualification.
+The additive historical decoder uses explicit policy/evaluation v2 and finalization/receipt v3;
+generic EvidenceBinding remains v1 with only the exact historical subject-approval eligibility
+binding added. Legacy concrete fields, versions and hashes remain unchanged. The repo-native
+fixture pack pins source manifest `2a0ed5df7ec2d3431d9db5d9c1983f64495d3cee96c9f369d3f2caee9d01bd99`;
+all six source model wires roundtrip and tampered/mixed graphs refuse after outer rehash.
+Historical original policy dates remain distinct from current signed operation admission times.
+
 `SINGLE_PERIOD_BRINSON_FACHLER` reuses the registered Composite analytics route, verified
 principal admission, existing compute worker, shared calculation-engine version and async result
 owner. Its full immutable input lives in `composite_attribution_inputs`, subordinate to

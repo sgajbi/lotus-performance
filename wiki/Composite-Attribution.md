@@ -1,5 +1,11 @@
 # Composite Attribution
 
+Operators: [deployment composition and source dependencies](https://github.com/sgajbi/lotus-performance/blob/main/docs/operations/composite-attribution-deployment.md)
+cover the initial controlled synthetic profile. API and existing compute-worker startup share
+one bootstrap, with configured worker installation logging before claims. Actual container
+receipts, Manage historical publication/deployed consumer admission and a retained
+READY candidate are still required. Configuration does not supply institutional approval.
+
 Single-period Composite Brinson-Fachler analysis explains the arithmetic difference between
 one retained READY Composite return and its historical benchmark through allocation,
 selection and interaction effects. Output is calculated analysis with original source evidence.
