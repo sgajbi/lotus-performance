@@ -322,13 +322,26 @@ def test_unregistered_request_scope_refuses_before_transport(monkeypatch, field,
     assert isinstance(verifier.verify(request), UnavailableCompositeEvidence) and not calls
 
 
-def test_revoked_and_missing_outbound_credentials_refuse(monkeypatch):
+def test_revoked_receipt_credentials_refuse(monkeypatch):
     _, registration, _, _ = verifier_case()
     registration["revoked_credential_ids"] = ["synthetic.token.1"]
     request, verifier, _ = configured(monkeypatch, registration=registration)
     assert isinstance(verifier.verify(request), UnavailableCompositeEvidence)
-    monkeypatch.delenv(registration["credential_env"])
+
+
+@pytest.mark.parametrize("credential", [None, "", "bad\rcredential", "bad\ncredential", "x" * 8193])
+def test_missing_or_invalid_outbound_credentials_refuse_before_transport(monkeypatch, credential):
+    _, registration, _, _ = verifier_case()
+    registration["credential_env"] = "LOTUS_COMPOSITE_RECEIPT_CREDENTIAL"
+    request, verifier, calls = configured(monkeypatch, registration=registration)
+    assert isinstance(verifier.verify(request), VerifiedCompositeEvidence)
+    calls.clear()
+    if credential is None:
+        monkeypatch.delenv(registration["credential_env"])
+    else:
+        monkeypatch.setenv(registration["credential_env"], credential)
     assert isinstance(verifier.verify(request), UnavailableCompositeEvidence)
+    assert not calls
 
 
 @pytest.mark.parametrize(

@@ -217,6 +217,23 @@ def test_bootstrap_shared_once_only_installation_and_default_unavailable(control
         bootstrap_composite_attribution()
 
 
+@pytest.mark.parametrize("bad_path", ["relative", "missing", "directory"])
+def test_enabled_bootstrap_refuses_unreadable_operator_configuration_before_installation(
+    control, monkeypatch, bad_path
+):
+    reset_installation(monkeypatch)
+    paths = {
+        "relative": "relative-composite-attribution.json",
+        "missing": str(control.config_path.parent / "absent-composite-attribution.json"),
+        "directory": str(control.config_path.parent),
+    }
+    monkeypatch.setenv(CONFIG_ENV, paths[bad_path])
+    with pytest.raises((ValueError, OSError)):
+        bootstrap_composite_attribution()
+    monkeypatch.delenv(CONFIG_ENV)
+    assert bootstrap_composite_attribution() is None
+
+
 def original_request(control):
     packet = shared_packet("original")
     packet["definition"]["created_by"] = "maker"
