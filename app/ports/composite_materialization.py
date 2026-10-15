@@ -5,13 +5,14 @@ from datetime import date
 from typing import Protocol
 from uuid import UUID
 
+from app.models.composite_controlled_scenario_definition import RetainedCompositeDefinition
 from app.models.composite_materialization import (
     CompositeMaterializationCommand,
     CompositeMaterializationState,
     CompositeMemberCalculationReference,
     CompositeMemberMaterializationOutcome,
 )
-from app.models.composites import CompositeDefinition, CompositeMemberReturnFact, CompositeReturnView
+from app.models.composites import CompositeMemberReturnFact, CompositeReturnView
 from app.services.composite_materialization.records import MaterializationRecord
 from app.services.composite_materialization.source_contract import PinnedCompositeSource
 from app.services.compute_job_store import ComputeJobLeaseOwnershipError, ComputeJobRecord, ComputeJobStatus
@@ -50,7 +51,7 @@ class CompositeMaterializationRepository(Protocol):
 
 
 class CompositeFactsRepository(Protocol):
-    def upsert_definition(self, definition: CompositeDefinition, *, tenant_id: str) -> None: ...
+    def upsert_definition(self, definition: RetainedCompositeDefinition, *, tenant_id: str) -> None: ...
 
     def upsert_member_return_fact(self, fact: CompositeMemberReturnFact, *, tenant_id: str) -> None: ...
 

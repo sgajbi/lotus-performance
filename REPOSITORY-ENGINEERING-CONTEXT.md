@@ -1478,6 +1478,27 @@ fixture pack pins source manifest `2a0ed5df7ec2d3431d9db5d9c1983f64495d3cee96c9f
 all six source model wires roundtrip and tampered/mixed graphs refuse after outer rehash.
 Historical original policy dates remain distinct from current signed operation admission times.
 
+### Repository practice for controlled scenario custody
+
+The additive controlled scenario family has dedicated definition/authority v3 and subject
+policy/evaluation v3 types, actual-issued verification v2 and finalization/receipt v4. Its exact
+subject-approval binding v3 is excluded from legacy exported schemas. Reuse existing hash,
+signature, operation, source-scope and independent trust algorithms; do not broaden legacy wire
+unions or reinterpret scenario approval dates as historical signature verification. Only synthetic
+non-certifying authority is admitted; institutional qualification and official activation refuse.
+
+Normal configured Manage reads and materialization use the same version dispatch and retain raw
+definition/membership/universe wires plus the full approval graph. Dedicated retained-definition
+decoding must preserve the v3 authority through metadata writes/reads without changing legacy
+`CompositeDefinition`. Retained proof validates its original admission interval, not today's clock.
+Original companion products must come from the producer: hashes do not establish their bodies.
+The exact fixture directory has an LF-only Git attribute because Windows checkout conversion
+otherwise destroys pinned raw identities. Preserve all legacy fixture bytes and all 71 exported
+schema digests when changing this consumer. Offline mock-transport/owned-SQLite checks are software
+evidence; absent provider observations must refuse without publishing facts. Live source, full
+financial candidate, container and institutional acceptance remain separate owner gates. Read
+`docs/guides/composite_materialization.md` and the deployment runbook for the owning commands.
+
 `SINGLE_PERIOD_BRINSON_FACHLER` reuses the registered Composite analytics route, verified
 principal admission, existing compute worker, shared calculation-engine version and async result
 owner. Its full immutable input lives in `composite_attribution_inputs`, subordinate to

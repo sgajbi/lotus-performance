@@ -1,0 +1,48 @@
+{
+  "attestation_version": "historical.evaluation.r1",
+  "attested_at": "2026-10-15T08:58:00.170641Z",
+  "attested_by": "synthetic-checker",
+  "composite_id": "synthetic-composite",
+  "content_hash": "sha256:77878f617ce19a117063b02ffcab3df81d56dccdd806893cbb10900802a25611",
+  "correlation_id": "synthetic-subject",
+  "coverage_from": "2026-09-01",
+  "coverage_gap_portfolio_ids": [],
+  "coverage_to": "2026-09-30",
+  "definition_version": "synthetic-definition",
+  "expected_portfolio_count": 1,
+  "expected_portfolio_ids": [
+    "synthetic-member"
+  ],
+  "membership_content_hash": "sha256:6f657d69bbf3236f1d5b4d85071b261b0e753e96ca52ddd69acc33e4c7614009",
+  "membership_revision": "historical.membership.r1",
+  "missing_portfolio_ids": [],
+  "observed_portfolio_count": 1,
+  "policy_version": "synthetic-policy",
+  "posture": "COMPLETE",
+  "product_name": "CompositeUniverseAttestation",
+  "product_version": "v1",
+  "reason_code": null,
+  "source_cut_id": "synthetic-universe-cut",
+  "source_products": [
+    {
+      "authority_scope": "AUTHORITATIVE_UNIVERSE",
+      "content_hash": "sha256:c11ab00f970295602eb6d9259678529500088676cc3c77b8ba802b484c14a9b2",
+      "contract_version": "v1",
+      "owner_service": "synthetic-provider",
+      "product_name": "SyntheticCandidateRegistry",
+      "source_cut_id": "synthetic-universe-cut",
+      "source_watermark": "synthetic.registry.r1"
+    },
+    {
+      "authority_scope": "POLICY_INPUT",
+      "content_hash": "sha256:1b58b821e49031e484341e9353bb5111b9d54a2f4ec9d319a2156a20675fa5b7",
+      "contract_version": "v1",
+      "owner_service": "synthetic-source",
+      "product_name": "CompositeMonthlyEligibilityObservations",
+      "source_cut_id": "synthetic-monthly-cut",
+      "source_watermark": "synthetic-source-r1"
+    }
+  ],
+  "tenant_id": "synthetic-tenant",
+  "unexpected_portfolio_ids": []
+}

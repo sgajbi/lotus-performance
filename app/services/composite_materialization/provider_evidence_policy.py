@@ -1,7 +1,7 @@
 """Recheck retained provider receipts after writes and repository reload."""
 
 from app.adapters.composite_provider_member_source import AuthorityCompositeMemberResultSource
-from app.models.composite_authority import ManageCompositeDefinitionV2, authority_digest
+from app.models.composite_authority import GovernedCompositeDefinition, authority_digest
 from app.models.composite_materialization import CompositeMemberMaterializationOutcome, CompositeProviderMemberEvidence
 from app.models.composites import CompositeMemberReturnFact
 from app.services.composite_materialization.member_evidence_policy import require_member_source_evidence
@@ -69,7 +69,7 @@ class RetainedInternalMemberSource:
 def require_provider_member_evidence(source, command, outcome) -> None:
     evidence, fact = outcome.source_evidence, outcome.fact
     if (
-        not isinstance(source.definition, ManageCompositeDefinitionV2)
+        not isinstance(source.definition, GovernedCompositeDefinition)
         or not isinstance(evidence, CompositeProviderMemberEvidence)
         or fact is None
     ):

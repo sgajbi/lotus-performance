@@ -52,8 +52,8 @@ from app.adapters.composite_schema_policy import (
 )
 from app.adapters.durable_schema.predicates import predicate_identity
 from app.adapters.durable_schema.statements import SchemaStatements, SchemaStatementWriter
+from app.models.composite_controlled_scenario_definition import RetainedCompositeDefinition, decode_retained_definition
 from app.models.composites import (
-    CompositeDefinition,
     CompositeMemberReturnFact,
     CompositeMembership,
     CompositeReturnView,
@@ -2815,7 +2815,7 @@ class CompositeMetadataStore:
                 )
             )
 
-    def upsert_definition(self, definition: CompositeDefinition, *, tenant_id: str | None = None) -> None:
+    def upsert_definition(self, definition: RetainedCompositeDefinition, *, tenant_id: str | None = None) -> None:
         tenant_id = _admitted_composite_tenant_id(tenant_id)
         definition_key = _definition_key(tenant_id=tenant_id, composite_id=definition.composite_id)
         with self._session() as session:
@@ -2848,7 +2848,7 @@ class CompositeMetadataStore:
                 )
             )
 
-    def get_definition(self, composite_id: str, *, tenant_id: str | None = None) -> CompositeDefinition | None:
+    def get_definition(self, composite_id: str, *, tenant_id: str | None = None) -> RetainedCompositeDefinition | None:
         tenant_id = _admitted_composite_tenant_id(tenant_id)
         with self._session() as session:
             definition_key = _definition_key(tenant_id=tenant_id, composite_id=composite_id)
@@ -2868,7 +2868,7 @@ class CompositeMetadataStore:
             )
             if source_authority is None:
                 return None
-            return CompositeDefinition.model_validate(
+            return decode_retained_definition(
                 {
                     "composite_id": row.composite_id,
                     "display_name": row.display_name,

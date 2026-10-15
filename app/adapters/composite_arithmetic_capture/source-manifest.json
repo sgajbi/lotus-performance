@@ -22,9 +22,9 @@
       "sha256": "1b1e98e7a5716cae26920e3740560d50e26e55350d27c71d2ea45844ecd77034"
     },
     {
-      "normalized_length": 9635,
+      "normalized_length": 13568,
       "path": "app/models/composite_authority.py",
-      "sha256": "505d3be660c3ec8eba48c23dcc05a0fccd3b34dd1b87de0ba163d62f24df0c47"
+      "sha256": "d477515ddf974f441aeecdcf23acb16514032f721a46799993ba4728a3f41e95"
     },
     {
       "normalized_length": 29215,
@@ -64,7 +64,7 @@
     {
       "normalized_length": 12494,
       "path": "app/services/composite_calculation_service.py",
-      "sha256": "12ef43acb2fda043c1ab32a69df89abcd3429984dafc3773a03e55f862a4ebaa"
+      "sha256": "e36f0bedab9a94012139a715cc47f0290cee3c086f9aa45b9d2e298d66daed90"
     },
     {
       "normalized_length": 3184,

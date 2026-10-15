@@ -7,7 +7,7 @@ from uuid import UUID
 from app.adapters.composite_materialization_repository import get_composite_materialization_store
 from app.adapters.composite_principal_credentials import VerifiedCompositePrincipal
 from app.adapters.composite_result_candidate_scope import require_candidate_member_scope, require_composite_member_scope
-from app.models.composite_authority import ManageCompositeDefinitionV2
+from app.models.composite_authority import GovernedCompositeDefinition
 from app.models.composite_materialization import CompositeMaterializationCommand, CompositeMaterializationState
 from app.models.composites import (
     CompositeMemberReturnFact,
@@ -132,7 +132,7 @@ def _require_vector_order(records: list[MaterializationRecord]) -> None:
 
 def _complete_window_definition(
     record: MaterializationRecord,
-) -> ManageCompositeDefinition | ManageCompositeDefinitionV2:
+) -> ManageCompositeDefinition | GovernedCompositeDefinition:
     if record.state != CompositeMaterializationState.COMPLETE or record.source is None:
         raise APIConflictError("A required retained window is unavailable.", error_code="REQUIRED_PERIOD_UNAVAILABLE")
     definition = record.source.definition
@@ -141,7 +141,7 @@ def _complete_window_definition(
 
 def retained_return_method(record: MaterializationRecord, currency_method):
     definition = _complete_window_definition(record)
-    if isinstance(definition, ManageCompositeDefinitionV2):
+    if isinstance(definition, GovernedCompositeDefinition):
         return definition.source_authority.payload.return_method_binding.model_dump(mode="json")
     if currency_method is None:
         from app.services.composite_materialization.internal_return_method import retained_internal_return_method

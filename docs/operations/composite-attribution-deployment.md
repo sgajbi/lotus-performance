@@ -11,6 +11,23 @@ digest, revision, profile and qualification when configured. Local startup contr
 ordering and refusal behavior; actual PID1/container receipts and positive-control release
 qualification remain unearned.
 
+## Controlled scenario dependency
+
+The normal Manage consumer has a separate typed controlled scenario family: definition/authority
+v3, policy/evaluation v3, actual-issued proof v2 and finalization/receipt v4, with the dedicated
+subject-approval binding v3. See the [materialization guide](../guides/composite_materialization.md#controlled-scenario-source-family)
+for exact semantics, fixture provenance and offline commands. Legacy authority schemas stay
+unchanged and refuse the new binding.
+
+Scenario financial dates and actual signed issuance are distinct. The new proof cannot assert
+historical signature approval, institutional qualification or official activation. The existing
+independent source-registration/verifier ports still control trust; merely enabling this deployment
+or receiving a structurally valid graph supplies no authority. Exact original definition,
+membership, universe, approval graph and provider observations must be delivered by their owners.
+Current fixture-backed checks retain original source custody and refuse absent observations;
+they do not establish a COMPLETE candidate or deployed upstream acceptance. No observation body,
+credential or approval may be reconstructed from a digest to satisfy that dependency.
+
 ## Deployment inputs
 
 `LOTUS_COMPOSITE_ATTRIBUTION_DEPLOYMENT` names an operator-resolved absolute path to a sealed,

@@ -9,7 +9,7 @@ from decimal import Decimal
 from typing import Any
 
 from app.adapters.composite_member_result_source import RetainedCompositeMemberResultSource, member_outcome
-from app.models.composite_authority import ManageCompositeDefinitionV2, authority_digest
+from app.models.composite_authority import GovernedCompositeDefinition, authority_digest
 from app.models.composite_external_facts import CompositeExternalMemberFacts, SyntheticMonthlyMemberFacts
 from app.models.composite_materialization import (
     CompositeMemberMaterializationOutcome,
@@ -105,7 +105,7 @@ def observation_member_row(wire, definition, member_id):
 
 class AuthorityCompositeMemberResultSource:
     def __init__(
-        self, definition: ManageCompositeDefinitionV2, *, observations=None, internal_source=None, admitted_source=None
+        self, definition: GovernedCompositeDefinition, *, observations=None, internal_source=None, admitted_source=None
     ):
         self.definition = definition
         self.observations = observations or provider_observation_source()

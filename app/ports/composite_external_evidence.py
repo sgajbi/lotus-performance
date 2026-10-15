@@ -7,11 +7,13 @@ from pydantic import StrictInt
 
 from app.models.composite_authority import (
     AuthoritySelection,
+    ControlledScenarioSubjectApprovalBinding,
     EvidenceBinding,
+    GovernedCompositeDefinition,
     HistoricalSubjectApprovalBinding,
-    ManageCompositeDefinitionV2,
     MemberIdentity,
 )
+from app.models.composite_controlled_scenario_evidence import ControlledScenarioSubjectFinalizationReceipt
 from app.models.composite_eligibility_evidence import (
     SubjectFinalizationReceipt,
     VerificationReceipt,
@@ -32,7 +34,7 @@ class CompositeApprovalRequest:
     binding: EvidenceBinding | None
     effective_from: str
     effective_to: str
-    definition: ManageCompositeDefinitionV2
+    definition: GovernedCompositeDefinition
     command: CompositeMaterializationCommand
     universe_digest: str
     expected_members: tuple[str, ...]
@@ -91,7 +93,7 @@ class EligibilityResolutionRequest:
     tenant_id: str
     composite_id: str
     definition_version: str
-    evaluation_binding: EvidenceBinding | HistoricalSubjectApprovalBinding
+    evaluation_binding: EvidenceBinding | HistoricalSubjectApprovalBinding | ControlledScenarioSubjectApprovalBinding
     membership_binding: EvidenceBinding
     universe_binding: EvidenceBinding
     source_cut_id: str
@@ -112,6 +114,7 @@ class PublishedEligibilityEvidence:
     receipt: (
         SubjectFinalizationReceipt
         | HistoricalSubjectFinalizationReceipt
+        | ControlledScenarioSubjectFinalizationReceipt
         | CompositeMonthlyEligibilityPublicationReceipt
     )
     membership_binding: EvidenceBinding
@@ -191,7 +194,12 @@ def _evidence_require(condition: bool, code: str) -> None:
 def admit_resolved_eligibility(
     request: EligibilityResolutionRequest,
     result: PublishedEligibilityEvidence | UnavailableCompositeEvidence,
-) -> SubjectFinalizationReceipt | HistoricalSubjectFinalizationReceipt | CompositeMonthlyEligibilityPublicationReceipt:
+) -> (
+    SubjectFinalizationReceipt
+    | HistoricalSubjectFinalizationReceipt
+    | ControlledScenarioSubjectFinalizationReceipt
+    | CompositeMonthlyEligibilityPublicationReceipt
+):
     """Validate a typed resolver result against consumer-owned immutable pins."""
     if not isinstance(result, PublishedEligibilityEvidence):
         raise ValueError("COMPOSITE_ELIGIBILITY_PUBLISHED_CUSTODY_UNAVAILABLE")
@@ -269,7 +277,9 @@ def _admit_monthly_resolution(request, result, receipt: CompositeMonthlyEligibil
 def _published_pins(
     request: EligibilityResolutionRequest,
     result: PublishedEligibilityEvidence,
-    receipt: SubjectFinalizationReceipt | HistoricalSubjectFinalizationReceipt,
+    receipt: SubjectFinalizationReceipt
+    | HistoricalSubjectFinalizationReceipt
+    | ControlledScenarioSubjectFinalizationReceipt,
 ) -> None:
     approval = receipt.finalization.evaluation_approval
     _evidence_require(

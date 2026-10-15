@@ -9,7 +9,7 @@ from dataclasses import dataclass
 from datetime import date
 from typing import Literal, Protocol
 
-from app.models.composite_authority import AuthoritySelection, ManageCompositeDefinitionV2, authority_digest
+from app.models.composite_authority import AuthoritySelection, GovernedCompositeDefinition, authority_digest
 from app.models.composite_materialization import CompositeMaterializationCommand
 from app.ports import composite_external_evidence as approval_ports
 from core.errors import APIUnprocessableEntityError
@@ -55,7 +55,7 @@ def provider_trust_resolver() -> CompositeProviderTrustPort:
     return UnavailableProviderTrustResolver()
 
 
-def verify_definition_digests(definition: ManageCompositeDefinitionV2) -> None:
+def verify_definition_digests(definition: GovernedCompositeDefinition) -> None:
     wire = definition.model_dump(mode="json")
     profile = definition.source_authority
     if authority_digest(profile.payload.model_dump(mode="json")) != profile.profile_digest:
@@ -73,7 +73,7 @@ def verify_definition_digests(definition: ManageCompositeDefinitionV2) -> None:
     _verify_approval_binding(definition)
 
 
-def _verify_approval_binding(definition: ManageCompositeDefinitionV2) -> None:
+def _verify_approval_binding(definition: GovernedCompositeDefinition) -> None:
     payload = definition.source_authority.payload
     claims = definition.authority_approval.claims
     if claims.approving_identity == definition.created_by:
@@ -116,7 +116,7 @@ def _verify_approval_binding(definition: ManageCompositeDefinitionV2) -> None:
 
 
 def selection_for_window(
-    definition: ManageCompositeDefinitionV2,
+    definition: GovernedCompositeDefinition,
     *,
     member_id: str,
     fact: str,
@@ -151,7 +151,7 @@ def _selection_intersects(selection, member_id, fact, period_start, period_end):
 
 
 def admit_authority_profile(
-    definition: ManageCompositeDefinitionV2,
+    definition: GovernedCompositeDefinition,
     *,
     command: CompositeMaterializationCommand,
     tenant_id: str,
@@ -259,7 +259,7 @@ def _verify_lifecycle_approvals(published_eligibility) -> None:
         finalization.evaluation_approval.verification,
         *finalization.verifications,
     ]
-    if proposal.policy_approval.proposal.product_version == "v2":
+    if proposal.policy_approval.proposal.product_version in {"v2", "v3"}:
         receipts.insert(0, proposal.policy_approval.proposal.verification)
     if proposal.source_assembly_evidence is not None:
         receipts.append(proposal.source_assembly_evidence.verification)

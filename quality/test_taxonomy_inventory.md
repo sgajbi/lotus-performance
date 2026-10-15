@@ -1,7 +1,7 @@
 # Lotus Performance Test Taxonomy Inventory
 
 Report date: 2026-10-15
-Source: #633 opt-in Docker delivery on qualified main `3cf37781c9583d4568f2308363110e97e204478b`; collection and AST counts do not establish live acceptance.
+Source: #633 dedicated controlled scenario consumer on qualified main `6b70e75e798110d20e8ab29a9a8adffbbcb0bf56`; collection and AST counts do not establish live acceptance.
 Mode: regression-blocking test taxonomy inventory; `make quality-test-taxonomy-gate` enforces
 minimum API/runtime and contract/governance breadth plus the current uncategorized-test ceiling.
 
@@ -22,10 +22,10 @@ python scripts/python_test_taxonomy_inventory.py --limit 30 --min-api-runtime-te
 
 | Metric | Value |
 | --- | ---: |
-| Test modules inventoried | 471 |
-| Test functions inventoried | 5581 |
+| Test modules inventoried | 474 |
+| Test functions inventoried | 5605 |
 | Integration/API/runtime test functions | 1117 |
-| Contract/governance test functions | 260 |
+| Contract/governance test functions | 272 |
 
 ## Test Functions By Suite
 
@@ -34,7 +34,7 @@ python scripts/python_test_taxonomy_inventory.py --limit 30 --min-api-runtime-te
 | benchmarks | 22 | 208 |
 | e2e | 1 | 21 |
 | integration | 57 | 648 |
-| unit | 391 | 4704 |
+| unit | 394 | 4728 |
 
 ## Test Functions By Family
 
@@ -44,9 +44,9 @@ above does sum to it, because a module belongs to exactly one suite.
 
 | Family | Test functions |
 | --- | ---: |
-| analytics_domain | 3231 |
+| analytics_domain | 3255 |
 | api_or_runtime | 1117 |
-| contract_or_governance | 260 |
+| contract_or_governance | 272 |
 | observability_or_readiness | 787 |
 | quality_or_security | 469 |
 | uncategorized | 558 |
@@ -73,7 +73,7 @@ above does sum to it, because a module belongs to exactly one suite.
 | 16 | `tests/unit/engine/test_mwr.py` | unit | 54 | analytics_domain |
 | 17 | `tests/unit/services/test_twr_inspection_calculation_consistency.py` | unit | 53 | analytics_domain |
 | 18 | `tests/unit/services/test_twr_mode_service.py` | unit | 49 | analytics_domain |
-| 19 | `tests/unit/services/test_composite_metadata_store.py` | unit | 46 | analytics_domain |
+| 19 | `tests/unit/services/test_composite_metadata_store.py` | unit | 47 | analytics_domain |
 | 20 | `tests/unit/test_observability.py` | unit | 46 | observability_or_readiness |
 | 21 | `tests/unit/services/test_stateful_benchmark_input_service.py` | unit | 44 | analytics_domain |
 | 22 | `tests/unit/engine/test_contribution.py` | unit | 43 | analytics_domain |
@@ -86,7 +86,19 @@ above does sum to it, because a module belongs to exactly one suite.
 | 29 | `tests/benchmarks/test_postgres_composite_materialization.py` | benchmarks | 36 | analytics_domain |
 | 30 | `tests/unit/models/test_workspace_summary_models.py` | unit | 36 | analytics_domain |
 
-## Current Docker Delivery Measurement
+## Current Controlled Scenario Consumer Measurement
+
+Current controlled scenario consumer measurement (2026-10-15, #633, exact base `6b70e75e`):
+native baseline generation records 1,062 Python files, 36 package markers, 309,933 Python lines,
+474 test modules and 9,838 collected cases. AST inventory records 5,605 functions, including
+1,117 API/runtime, 272 contract/governance, 787 observability/readiness, 469 quality/security,
+3,255 analytics-domain and 558 uncategorized functions. Native complexity remains max8/zero D-F
+with average maintainability55.08; shared validators remove five duplicate groups without changing
+legacy schemas. Family counts overlap and policy bounds remain unchanged. These are source and
+offline collection measurements; the actual adapter/ledger refusal and replay proof supplies no
+missing provider observations, COMPLETE financial candidate or live source qualification.
+
+## Historical Docker Delivery Measurement
 
 The #633 opt-in Docker overlay on qualified main `3cf37781` measures 5,581 source functions
 across 471 modules, including 469 quality/security functions. API/runtime1117,

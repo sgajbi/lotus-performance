@@ -1,0 +1,34 @@
+[
+  {
+    "pointer": "/product_version",
+    "replacement": "v3"
+  },
+  {
+    "pointer": "/finalization/evaluation_approval/proposal/policy_approval/product_version",
+    "replacement": "v2"
+  },
+  {
+    "pointer": "/finalization/evaluation_approval/operation_verification/original_signature_status",
+    "replacement": "VERIFIED_AT_ORIGINAL_APPROVAL"
+  },
+  {
+    "pointer": "/finalization/evaluation_approval/operation_verification/request/purpose",
+    "replacement": "COMPOSITE_HISTORICAL_MONTHLY_POLICY_ADMISSION"
+  },
+  {
+    "pointer": "/finalization/evaluation_approval/operation_verification/posture",
+    "replacement": "QUALIFIED_RECEIPT"
+  },
+  {
+    "pointer": "/finalization/evaluation_approval/operation_verification/mapping/actual_issued_at",
+    "replacement": "2099-01-01T00:00:00.000000Z"
+  },
+  {
+    "pointer": "/finalization/definition/product_version",
+    "replacement": "v2"
+  },
+  {
+    "pointer": "/finalization/definition/source_authority/payload/product_version",
+    "replacement": "v2"
+  }
+]

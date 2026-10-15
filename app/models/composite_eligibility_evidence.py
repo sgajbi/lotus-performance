@@ -17,6 +17,8 @@ from pydantic import Field, ValidationInfo, field_validator, model_serializer, m
 from app.models.composite_authority import (
     AuthorityWire,
     BusinessDate,
+    ControlledScenarioDefinitionV3,
+    ControlledScenarioSubjectApprovalBinding,
     Digest,
     EvidenceBinding,
     HistoricalSubjectApprovalBinding,
@@ -29,6 +31,7 @@ from app.models.composite_authority import (
 )
 
 if TYPE_CHECKING:
+    from app.models.composite_controlled_scenario_evidence import ControlledScenarioSubjectFinalizationReceipt
     from app.models.composite_historical_subject_evidence import HistoricalSubjectFinalizationReceipt
     from app.models.composite_monthly_eligibility_evidence import CompositeMonthlyEligibilityPublicationReceipt
 
@@ -694,9 +697,13 @@ def _definition_links(finalization: Any) -> None:
     definition, approval = finalization.definition, finalization.evaluation_approval
     profile = definition.source_authority
     binding = profile.payload.eligibility_evaluation_binding
+    if isinstance(definition, ControlledScenarioDefinitionV3):
+        binding_type = ControlledScenarioSubjectApprovalBinding
+    else:
+        binding_type = EvidenceBinding if approval.product_version == "v1" else HistoricalSubjectApprovalBinding
     _require(
         binding
-        == (EvidenceBinding if approval.product_version == "v1" else HistoricalSubjectApprovalBinding)(
+        == binding_type(
             product_name=approval.product_name,
             product_version=approval.product_version,
             revision=approval.proposal.evaluation_revision,
@@ -833,9 +840,21 @@ def _provider_verifications(definition: ManageCompositeDefinitionV2, requests: l
 
 def decode_eligibility_receipt(
     wire: str,
-) -> SubjectFinalizationReceipt | HistoricalSubjectFinalizationReceipt | CompositeMonthlyEligibilityPublicationReceipt:
+) -> (
+    SubjectFinalizationReceipt
+    | HistoricalSubjectFinalizationReceipt
+    | ControlledScenarioSubjectFinalizationReceipt
+    | CompositeMonthlyEligibilityPublicationReceipt
+):
     """Decode exact wire strings; this is neither verification nor a custody join."""
     payload = decode_authority_json(wire)
+    if (payload.get("product_name"), payload.get("product_version")) == (
+        "CompositeEligibilityFinalizationReceipt",
+        "v4",
+    ):
+        from app.models.composite_controlled_scenario_evidence import ControlledScenarioSubjectFinalizationReceipt
+
+        return ControlledScenarioSubjectFinalizationReceipt.model_validate(payload)
     if (payload.get("product_name"), payload.get("product_version")) == (
         "CompositeEligibilityFinalizationReceipt",
         "v3",

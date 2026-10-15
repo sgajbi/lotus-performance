@@ -13,10 +13,11 @@ from pydantic import BaseModel, ConfigDict, Field, model_serializer
 
 from app.models.composite_authority import (
     EvidenceBinding,
-    ManageCompositeDefinitionV2,
+    GovernedCompositeDefinition,
     authority_digest,
     legacy_composite_product_digest,
 )
+from app.models.composite_controlled_scenario_evidence import ControlledScenarioSubjectFinalizationReceipt
 from app.models.composite_eligibility_evidence import SubjectFinalizationReceipt
 from app.models.composite_historical_subject_evidence import HistoricalSubjectFinalizationReceipt
 from app.models.composite_materialization import CompositeMaterializationCommand
@@ -157,7 +158,7 @@ class CompositeSourceWireEvidence(BaseModel):
 
 class PinnedCompositeSource(BaseModel):
     model_config = ConfigDict(extra="forbid")
-    definition: ManageCompositeDefinition | ManageCompositeDefinitionV2
+    definition: ManageCompositeDefinition | GovernedCompositeDefinition
     membership: ManageMembershipRevision
     attestation: ManageUniverseAttestation
     wire_evidence: CompositeSourceWireEvidence
@@ -198,7 +199,7 @@ def verify_source_wire_hashes(command, definition, membership, attestation) -> N
     ):
         digest = (
             authority_digest({key: value for key, value in payload.items() if key != "content_hash"})
-            if payload.get("product_name") == "CompositeDefinition" and payload.get("product_version") == "v2"
+            if payload.get("product_name") == "CompositeDefinition" and payload.get("product_version") in {"v2", "v3"}
             else source_digest(payload)
         )
         if payload.get("content_hash") != expected_hash or digest != expected_hash:
@@ -230,7 +231,7 @@ def require_pinned_source_scope(
     _admit_identity(source, command=command, tenant_id=tenant_id)
     _admit_definition(source.definition, command=command)
     _admit_universe(source, command=command)
-    if isinstance(source.definition, ManageCompositeDefinitionV2):
+    if isinstance(source.definition, GovernedCompositeDefinition):
         _admit_published_eligibility(source, command=command)
         admit_authority_profile(
             source.definition,
@@ -256,6 +257,7 @@ def published_eligibility_from_wire(
     attestation: dict[str, Any],
     receipt: SubjectFinalizationReceipt
     | HistoricalSubjectFinalizationReceipt
+    | ControlledScenarioSubjectFinalizationReceipt
     | CompositeMonthlyEligibilityPublicationReceipt,
 ) -> evidence_ports.PublishedEligibilityEvidence:
     """Join the configured resolver's published graph with separately fetched canonical products."""
@@ -265,7 +267,7 @@ def published_eligibility_from_wire(
     _admit_definition(source.definition, command=command)
     _admit_universe(source, command=command)
     _admit_membership_coverage(source, command=command)
-    if not isinstance(source.definition, ManageCompositeDefinitionV2):
+    if not isinstance(source.definition, GovernedCompositeDefinition):
         raise source_refusal("COMPOSITE_ELIGIBILITY_RESOLUTION_BINDING_MISMATCH")
     result = evidence_ports.PublishedEligibilityEvidence(
         receipt=receipt,
@@ -292,7 +294,7 @@ def published_eligibility_from_wire(
 
 def _admit_published_eligibility(source: PinnedCompositeSource, *, command: CompositeMaterializationCommand) -> None:
     definition = source.definition
-    if not isinstance(definition, ManageCompositeDefinitionV2):
+    if not isinstance(definition, GovernedCompositeDefinition):
         return
     try:
         binding = monthly_publication_binding(
@@ -340,7 +342,10 @@ def _admit_published_eligibility(source: PinnedCompositeSource, *, command: Comp
 
 
 def _admit_eligibility_graph(
-    source: PinnedCompositeSource, receipt: SubjectFinalizationReceipt | HistoricalSubjectFinalizationReceipt
+    source: PinnedCompositeSource,
+    receipt: SubjectFinalizationReceipt
+    | HistoricalSubjectFinalizationReceipt
+    | ControlledScenarioSubjectFinalizationReceipt,
 ) -> None:
     finalization = receipt.finalization
     if finalization.definition.model_dump() != source.wire_evidence.definition:
@@ -357,7 +362,10 @@ def _admit_eligibility_graph(
 
 
 def _admit_evaluation_publication(
-    source: PinnedCompositeSource, receipt: SubjectFinalizationReceipt | HistoricalSubjectFinalizationReceipt
+    source: PinnedCompositeSource,
+    receipt: SubjectFinalizationReceipt
+    | HistoricalSubjectFinalizationReceipt
+    | ControlledScenarioSubjectFinalizationReceipt,
 ) -> None:
     finalization = receipt.finalization
     evaluation = finalization.evaluation_approval.proposal.evaluation
@@ -393,7 +401,7 @@ def _require_retained_wire_evidence(source: PinnedCompositeSource) -> None:
     ):
         digest = (
             authority_digest({key: value for key, value in raw.items() if key != "content_hash"})
-            if isinstance(typed, ManageCompositeDefinitionV2)
+            if isinstance(typed, GovernedCompositeDefinition)
             else source_digest(raw)
         )
         if digest != typed.content_hash or type(typed).model_validate(raw) != typed:
@@ -429,10 +437,10 @@ def _admit_identity(source: PinnedCompositeSource, *, command: CompositeMaterial
 
 
 def _admit_definition(
-    definition: ManageCompositeDefinition | ManageCompositeDefinitionV2, *, command: CompositeMaterializationCommand
+    definition: ManageCompositeDefinition | GovernedCompositeDefinition, *, command: CompositeMaterializationCommand
 ) -> None:
-    if isinstance(definition, ManageCompositeDefinitionV2):
-        _admit_v2_definition_scope(definition, command)
+    if isinstance(definition, GovernedCompositeDefinition):
+        _admit_authority_definition_scope(definition, command)
         return
     ownership = definition.source_authority
     if (
@@ -458,8 +466,8 @@ def _admit_definition(
         raise source_refusal("COMPOSITE_SOURCE_DEFINITION_WINDOW_MISMATCH")
 
 
-def _admit_v2_definition_scope(
-    definition: ManageCompositeDefinitionV2, command: CompositeMaterializationCommand
+def _admit_authority_definition_scope(
+    definition: GovernedCompositeDefinition, command: CompositeMaterializationCommand
 ) -> None:
     if (
         not _definition_currency_admissible(definition, command)
