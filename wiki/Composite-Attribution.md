@@ -5,6 +5,13 @@ cover the initial controlled synthetic profile. API and existing compute-worker 
 one bootstrap, with configured worker installation logging before claims. Actual container
 receipts, Manage historical publication/deployed consumer admission and a retained
 READY candidate are still required. Configuration does not supply institutional approval.
+Docker operators opt in with the tracked base Compose file plus
+`docker-compose.composite-attribution.yml`. Both API and compute receive one sealed read-only
+configuration at a fixed container path; the base stack remains unavailable. The overlay admits
+one explicit outbound receipt credential alias and no host env_file. The linked deployment guide
+owns absolute file custody, before/after hash verification and exact canonical model admission.
+Compose rendering is model evidence; actual mount/startup and source qualification remain
+separate gates.
 
 Single-period Composite Brinson-Fachler analysis explains the arithmetic difference between
 one retained READY Composite return and its historical benchmark through allocation,

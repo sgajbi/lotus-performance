@@ -188,3 +188,89 @@ def test_ci_local_compose_project_name_is_stable_and_checkout_specific(tmp_path:
     assert compose_project_name(first) == compose_project_name(first)
     assert compose_project_name(first) != compose_project_name(second)
     assert compose_project_name(first).startswith("lotus-performance-ci-local-checkout-")
+
+
+COMPOSITE_CONSUMERS = {"performance-analytics", "performance-compute-executor"}
+COMPOSITE_CONFIG_PATH = "/run/lotus/composite-attribution.json"
+
+
+def _assert_composite_delivery_boundary(services: dict) -> None:
+    assert set(services) == COMPOSITE_CONSUMERS, "Only API and compute consume the opt-in configuration"
+    for service in services.values():
+        assert set(service) == {"environment", "volumes"}, "No other runtime or env_file override is admitted"
+        assert service["environment"] == {
+            "LOTUS_COMPOSITE_ATTRIBUTION_DEPLOYMENT": COMPOSITE_CONFIG_PATH,
+            "COMPOSITE_RECEIPT_VERIFIER_CONFIG_JSON": "${COMPOSITE_RECEIPT_VERIFIER_CONFIG_JSON:-}",
+            "LOTUS_COMPOSITE_RECEIPT_CREDENTIAL": "${LOTUS_COMPOSITE_RECEIPT_CREDENTIAL:-}",
+        }, "Only the fixed container path and explicit receipt settings may be delivered"
+        assert service["volumes"] == [
+            {
+                "type": "bind",
+                "source": (
+                    "${LOTUS_COMPOSITE_ATTRIBUTION_DEPLOYMENT_FILE:"
+                    "?An absolute sealed operator configuration file is required}"
+                ),
+                "target": COMPOSITE_CONFIG_PATH,
+                "read_only": True,
+                "bind": {"create_host_path": False},
+            }
+        ], "The required operator file must use one fixed read-only bind without directory creation"
+
+
+def _composite_overlay_services() -> dict:
+    return yaml.safe_load(Path("docker-compose.composite-attribution.yml").read_text(encoding="utf-8"))["services"]
+
+
+def test_composite_overlay_delivers_only_to_every_bootstrap_consumer() -> None:
+    _assert_composite_delivery_boundary(_composite_overlay_services())
+    # A host variable must not implicitly enable the ordinary stack.
+    base = yaml.safe_load(Path("docker-compose.yml").read_text(encoding="utf-8"))["services"]
+    for service in base.values():
+        assert not set(service.get("environment", {})) & {
+            "LOTUS_COMPOSITE_ATTRIBUTION_DEPLOYMENT",
+            "COMPOSITE_RECEIPT_VERIFIER_CONFIG_JSON",
+            "LOTUS_COMPOSITE_RECEIPT_CREDENTIAL",
+        }
+        assert not any(
+            isinstance(volume, dict) and volume.get("target") == COMPOSITE_CONFIG_PATH
+            for volume in service.get("volumes", [])
+        )
+
+
+@pytest.mark.parametrize(
+    "regression,reason",
+    [
+        ("missing-consumer", "Only API and compute"),
+        ("lineage-consumer", "Only API and compute"),
+        ("env-file", "No other runtime or env_file"),
+        ("arbitrary-credential", "explicit receipt settings"),
+        ("host-path-in-container", "explicit receipt settings"),
+        ("optional-host-file", "required operator file"),
+        ("writable", "read-only bind"),
+        ("auto-create-directory", "without directory creation"),
+        ("foreign-target", "fixed read-only bind"),
+    ],
+)
+def test_composite_delivery_guard_refuses_boundary_regressions(regression, reason) -> None:
+    services = deepcopy(_composite_overlay_services())
+    service = services["performance-analytics"]
+    if regression == "missing-consumer":
+        services.pop("performance-compute-executor")
+    elif regression == "lineage-consumer":
+        services["performance-lineage-worker"] = service
+    elif regression == "env-file":
+        service["env_file"] = ["operator.env"]
+    elif regression == "arbitrary-credential":
+        service["environment"]["ARBITRARY_HOST_CREDENTIAL"] = "${ARBITRARY_HOST_CREDENTIAL}"
+    elif regression == "host-path-in-container":
+        service["environment"]["LOTUS_COMPOSITE_ATTRIBUTION_DEPLOYMENT"] = "${HOST_FILE}"
+    elif regression == "optional-host-file":
+        service["volumes"][0]["source"] = "${LOTUS_COMPOSITE_ATTRIBUTION_DEPLOYMENT_FILE:-}"
+    elif regression == "writable":
+        service["volumes"][0]["read_only"] = False
+    elif regression == "auto-create-directory":
+        service["volumes"][0]["bind"]["create_host_path"] = True
+    else:
+        service["volumes"][0]["target"] = "/app/foreign.json"
+    with pytest.raises(AssertionError, match=reason):
+        _assert_composite_delivery_boundary(services)

@@ -93,7 +93,7 @@ Python and PG17 select their separately approved exact originals through qualifi
 `cd7563c52008fffee8a37b1b6c3235480823a5cd`; the df4 Python helper is unchanged. Offline controls
 and collection do not qualify hosted build/security, database readiness, recovery or live workers.
 
-Current protected-main integration measurement (2026-10-15, #633, exact base `9dcba09a`):
+Historical protected-main integration measurement (2026-10-15, #633, exact base `9dcba09a`):
 native baseline generation records 1,056 Python files, 36 package markers, 308,702 Python lines,
 471 test modules and 9,755 collected cases. AST inventory records 5,577 source functions,
 including 1,117 API/runtime, 258 contract/governance, 787 observability/readiness, 468 quality/security,
@@ -101,6 +101,14 @@ including 1,117 API/runtime, 258 contract/governance, 787 observability/readines
 unchanged. Native complexity remains max8/zero D-F with average maintainability55.15.
 These combined source/collection measurements preserve final #669 truth and the reviewed #633
 synthetic deployment; they do not establish native candidate, PostgreSQL, container or financial acceptance.
+
+Current Docker delivery measurement (2026-10-15, #633, exact base `3cf37781`): native baseline
+generation records 1,056 Python files, 36 package markers, 308,818 Python lines, 471 test modules
+and 9,773 collected cases. AST inventory records 5,581 source functions, including 1,117 API/runtime,
+260 contract/governance, 787 observability/readiness, 469 quality/security, 3,231 analytics-domain
+and 558 uncategorized functions. Family counts overlap; policy bounds and production code are
+unchanged. The opt-in overlay, model and loader/credential controls do not establish Docker
+mount/startup, upstream source, READY candidate or financial acceptance.
 
 This report turns the report-only baseline into the durable before/current scorecard for the
 hardening stream. At phase zero, the baseline and current values are intentionally the same unless a
@@ -122,7 +130,7 @@ link the commit, command, or CI artifact that proves the change.
 | --- | ---: | ---: | --- | --- |
 | Python files | 480 | 1056 | measured | `quality/baseline_report.md` |
 | Python package markers | 18 | 36 | measured | recursive `__init__.py` count |
-| Python LOC | 104,454 | 308,702 | measured | `quality/baseline_report.md` |
+| Python LOC | 104,454 | 308,818 | measured | `quality/baseline_report.md` |
 | Largest Python file LOC | 2,399 | 4,447 | measured | largest-file inventory on this branch |
 | Largest production file LOC | 1,156 | 3,271 | measured | `app/services/composite_metadata_store.py` |
 | Duplicate code hotspots | 0 | 0 | enforced | `quality/duplicate_code_inventory.md`; `make quality-duplicate-code-gate` with `--min-lines 12 --max-groups 0`; duplicated LOC reduced from `24` to `0` in LP-CR-1407 |
@@ -168,11 +176,11 @@ link the commit, command, or CI artifact that proves the change.
 | Metric | Baseline | Current | Status | Evidence |
 | --- | ---: | ---: | --- | --- |
 | Test modules | 228 | 471 | measured | `rg --files tests -g 'test_*.py'` |
-| Collected tests | 2,035 | 9,755 | measured | `quality/baseline_report.md`; `python -m pytest --collect-only -q` |
+| Collected tests | 2,035 | 9,773 | measured | `quality/baseline_report.md`; `python -m pytest --collect-only -q` |
 | Line coverage | unknown | 99.58% | measured | `quality/coverage_inventory.md` via `make branch-coverage-baseline` (`3,013` unit, `308` integration, and `21` e2e tests under branch coverage; `21,154` covered lines of `21,244` statements) |
 | Branch coverage | unknown | 98.00% | measured | `quality/coverage_inventory.md` via `make branch-coverage-baseline` (`3,013` unit, `308` integration, and `21` e2e tests under branch coverage; `4,318` covered branches of `4,406`, `88` missing branches, `88` partial branches) |
 | Integration/API/runtime test functions | unknown | 1117 | enforced | `quality/test_taxonomy_inventory.md`; `make quality-test-taxonomy-gate` |
-| Contract/governance test functions | unknown | 258 | enforced | `quality/test_taxonomy_inventory.md`; `make quality-test-taxonomy-gate` |
+| Contract/governance test functions | unknown | 260 | enforced | `quality/test_taxonomy_inventory.md`; `make quality-test-taxonomy-gate` |
 | Uncategorized test functions | unknown | 558 | enforced ceiling | `quality/test_taxonomy_inventory.md`; `make quality-test-taxonomy-gate`; #619 classifies the precise source/error adapter module; observed 558, separately banked policy 558. |
 
 ## Security And Dependencies

@@ -1449,6 +1449,17 @@ The configuration-driven controlled deployment uses
 revision, profile and qualification; actual container receipts remain a live qualification gate.
 `LOTUS_COMPOSITE_ATTRIBUTION_DEPLOYMENT` names one
 sealed read-only configuration shared across processes. Default ports stay unavailable.
+Docker delivery is opt-in through the tracked `docker-compose.composite-attribution.yml` overlay
+with the base Compose file. Only API and compute consume its required absolute operator file,
+bound read-only at `/run/lotus/composite-attribution.json` without host-directory auto-creation.
+The only forwarded outbound receipt alias is `LOTUS_COMPOSITE_RECEIPT_CREDENTIAL`, paired with
+the existing strict `COMPOSITE_RECEIPT_VERIFIER_CONFIG_JSON`; both default empty. Never forward
+arbitrary credential names or a host env_file. Canonical Service-Refresh admits both committed
+files and the exact complete model digest. Its freeze binds the mount path, not file bytes:
+verify regular sealed operator-file identity and SHA256 before/after admission and prevent host
+mutation during runtime. Native rendering does not stat paths or earn container activation.
+The owning runbook distinguishes structural/model, loader and eventual actual Docker proof;
+financial artifact paths require separately reviewed container delivery.
 The initial profile is explicitly CONTROLLED_SYNTHETIC_ONLY/SYNTHETIC_NON_CERTIFYING;
 public Ed25519 trust, canonical independent identities, expiring grants and exact source/purpose
 registrations cannot activate institutional authority. Keep the existing v2 institutional refusal.

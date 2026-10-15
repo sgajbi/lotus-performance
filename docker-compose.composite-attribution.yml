@@ -1,0 +1,19 @@
+# Opt in with both tracked Compose files; the base stack remains unavailable.
+x-composite-attribution-delivery: &composite-attribution-delivery
+  environment:
+    LOTUS_COMPOSITE_ATTRIBUTION_DEPLOYMENT: /run/lotus/composite-attribution.json
+    COMPOSITE_RECEIPT_VERIFIER_CONFIG_JSON: ${COMPOSITE_RECEIPT_VERIFIER_CONFIG_JSON:-}
+    LOTUS_COMPOSITE_RECEIPT_CREDENTIAL: ${LOTUS_COMPOSITE_RECEIPT_CREDENTIAL:-}
+  volumes:
+    - type: bind
+      source: ${LOTUS_COMPOSITE_ATTRIBUTION_DEPLOYMENT_FILE:?An absolute sealed operator configuration file is required}
+      target: /run/lotus/composite-attribution.json
+      read_only: true
+      bind:
+        create_host_path: false
+
+services:
+  performance-analytics:
+    <<: *composite-attribution-delivery
+  performance-compute-executor:
+    <<: *composite-attribution-delivery

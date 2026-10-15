@@ -112,6 +112,72 @@ verification. The once-only installer prohibits changing configuration inside th
 
 ## Startup and retained reads
 
+### Docker delivery
+
+The ordinary `docker-compose.yml` leaves attribution unavailable even when the host sets the
+configuration variable. Opt in with the tracked `docker-compose.composite-attribution.yml`
+overlay. It delivers configuration to both true consumers, `performance-analytics` and
+`performance-compute-executor`; lineage, PostgreSQL, schema and retention roles are unchanged.
+The required host setting `LOTUS_COMPOSITE_ATTRIBUTION_DEPLOYMENT_FILE` names an absolute,
+caller-resolved regular sealed operator file. Both containers receive that file read-only at
+`/run/lotus/composite-attribution.json`, and their `LOTUS_COMPOSITE_ATTRIBUTION_DEPLOYMENT`
+is fixed to that container path. `bind.create_host_path: false` prevents a missing file from
+being silently replaced by an automatically created directory. Configuration must be readable
+by the existing non-root runtime user; do not broaden privileges to make a mount work.
+
+From the `lotus-performance` root, these commands render the selected model without starting
+containers. The supplied deployment directory must already be absolute.
+
+PowerShell:
+
+```powershell
+Set-Location "$env:LOTUS_WORKSPACE_ROOT/lotus-performance"
+$env:LOTUS_COMPOSITE_ATTRIBUTION_DEPLOYMENT_FILE = (Resolve-Path -LiteralPath "$env:LOTUS_DEPLOYMENT_ROOT/composite-attribution.json").Path
+docker compose -f docker-compose.yml -f docker-compose.composite-attribution.yml config --quiet
+```
+
+Bash:
+
+```bash
+cd "$LOTUS_WORKSPACE_ROOT/lotus-performance"
+export LOTUS_COMPOSITE_ATTRIBUTION_DEPLOYMENT_FILE="$(realpath -e "$LOTUS_DEPLOYMENT_ROOT/composite-attribution.json")"
+docker compose -f docker-compose.yml -f docker-compose.composite-attribution.yml config --quiet
+```
+
+An omitted or empty host setting refuses model interpolation. Rendering does not stat the host
+path, prove that it is a regular readable file, or install the profile. Relative input may be
+normalized by Compose; it is not operator admission. Independently verify the resolved regular
+file, owner-controlled permissions and SHA256 before and after admission, retain the digest
+privately, and prohibit file mutation for the runtime lifetime. A read-only container bind does
+not prevent the host from replacing bytes. The existing loader refuses relative container paths,
+missing files, directories and malformed configuration; actual missing-mount and process startup
+proof must be collected in the separately admitted Docker lane.
+
+The overlay also explicitly delivers `COMPOSITE_RECEIPT_VERIFIER_CONFIG_JSON` and the single
+supported outbound alias `LOTUS_COMPOSITE_RECEIPT_CREDENTIAL`. They default to empty, leaving
+the independent receipt verifier unavailable. If that verifier is separately admitted, an
+operator supplies its existing strict JSON registration and secret through these exact host
+settings; every registration must name `credential_env=LOTUS_COMPOSITE_RECEIPT_CREDENTIAL`.
+Other dynamic credential names are not forwarded. Missing, empty, oversized or multiline
+credentials refuse before transport. There is no host `env_file`, arbitrary environment copy,
+embedded credential or signing key in the overlay. Protect rendered models: the evaluated
+environment can contain the outbound secret. Retain only approved digests/redacted evidence.
+Installed sealed `source_authorities` retain the existing factory precedence; forwarding receipt
+settings does not replace them or add a new provider.
+
+For governed canonical Service-Refresh, select both tracked files explicitly through its
+`ComposeFiles` input. Each must be committed and match the reviewed clean checkout; an external
+override or untracked file is not an admitted input. Review the exact complete evaluated model
+digest, including the mount path and explicit environment. The frozen model preserves an operator
+bind path, not mounted file bytes, so file custody checks above remain required before/after
+admission. The overlay mounts configuration only. Any absolute financial artifact paths inside
+the sealed configuration must separately resolve inside the consuming container through reviewed
+delivery; a matching host filename does not make them available. The initial `sources=[]` stage
+does not require a financial artifact mount. Root owns canonical model admission, refresh and
+actual API/compute digest and refusal evidence; these renderer commands do not authorize refresh.
+
+### Process-local checks
+
 Resolve all paths outside public requests. From the `lotus-performance` root, the following
 read-only process-local composition check uses an already supplied deployment file. It creates
 no candidate, job or financial result. Do not treat it as source qualification or worker proof.
@@ -163,6 +229,16 @@ From the `lotus-performance` root in PowerShell or Bash, the focused local check
 ```text
 python -m pytest tests/unit/adapters/test_composite_attribution_deployment_configuration.py tests/integration/test_composite_attribution_deployment.py -q --no-cov
 ```
+
+Docker delivery and outbound credential controls use the existing native test modules:
+
+```text
+python -m pytest tests/unit/test_docker_compose_runtime_contract.py tests/unit/adapters/test_composite_receipt_verifier.py -q --no-cov
+```
+
+Structural guards prove the fixed opt-in consumer/mount/environment boundary and representative
+regressions. Native Compose model rendering, loader refusals and actual container activation are
+distinct evidence; none substitutes for a READY candidate or original source qualification.
 
 The registered tests reuse an existing synthetic retained original for software coverage, then
 use supported configuration, real source-authority factory delegation, the existing worker and

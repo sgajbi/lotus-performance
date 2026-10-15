@@ -1,7 +1,7 @@
 # Lotus Performance Test Taxonomy Inventory
 
 Report date: 2026-10-15
-Source: #633 integration onto protected main `9dcba09a14053ba2979c38c2204a6a5b6cde7871`; collection and AST counts do not establish live acceptance.
+Source: #633 opt-in Docker delivery on qualified main `3cf37781c9583d4568f2308363110e97e204478b`; collection and AST counts do not establish live acceptance.
 Mode: regression-blocking test taxonomy inventory; `make quality-test-taxonomy-gate` enforces
 minimum API/runtime and contract/governance breadth plus the current uncategorized-test ceiling.
 
@@ -23,9 +23,9 @@ python scripts/python_test_taxonomy_inventory.py --limit 30 --min-api-runtime-te
 | Metric | Value |
 | --- | ---: |
 | Test modules inventoried | 471 |
-| Test functions inventoried | 5577 |
+| Test functions inventoried | 5581 |
 | Integration/API/runtime test functions | 1117 |
-| Contract/governance test functions | 258 |
+| Contract/governance test functions | 260 |
 
 ## Test Functions By Suite
 
@@ -34,7 +34,7 @@ python scripts/python_test_taxonomy_inventory.py --limit 30 --min-api-runtime-te
 | benchmarks | 22 | 208 |
 | e2e | 1 | 21 |
 | integration | 57 | 648 |
-| unit | 391 | 4700 |
+| unit | 391 | 4704 |
 
 ## Test Functions By Family
 
@@ -44,11 +44,11 @@ above does sum to it, because a module belongs to exactly one suite.
 
 | Family | Test functions |
 | --- | ---: |
-| analytics_domain | 3229 |
+| analytics_domain | 3231 |
 | api_or_runtime | 1117 |
-| contract_or_governance | 258 |
+| contract_or_governance | 260 |
 | observability_or_readiness | 787 |
-| quality_or_security | 468 |
+| quality_or_security | 469 |
 | uncategorized | 558 |
 
 ## Largest Test Modules
@@ -86,7 +86,17 @@ above does sum to it, because a module belongs to exactly one suite.
 | 29 | `tests/benchmarks/test_postgres_composite_materialization.py` | benchmarks | 36 | analytics_domain |
 | 30 | `tests/unit/models/test_workspace_summary_models.py` | unit | 36 | analytics_domain |
 
-## Current Protected-Main Integration Measurement
+## Current Docker Delivery Measurement
+
+The #633 opt-in Docker overlay on qualified main `3cf37781` measures 5,581 source functions
+across 471 modules, including 469 quality/security functions. API/runtime1117,
+contract/governance260, observability/readiness787, analytics-domain3231 and uncategorized558
+retain unchanged policy bounds. Native collection measures 9,773 cases. Added controls cover
+the finite consumer/mount/environment boundary, existing loader paths and outbound credential
+refusal before transport. Model and software evidence are distinct from actual Docker mounts,
+startup, source/READY candidate or financial acceptance.
+
+## Historical Protected-Main Integration Measurement
 
 The #633 integration onto exact protected main `9dcba09a` measures 5,577 source functions
 across 471 modules, including 468 quality/security functions. API/runtime1117, contract/governance258,
