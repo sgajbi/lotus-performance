@@ -96,6 +96,7 @@ from app.services.twr_mode_service import resolve_twr_request
 from app.services.twr_service import calculate_twr_response
 from app.services.workspace_summary_service import calculate_workspace_summary
 from app.workers.lineage_worker import process_pending_calculation as process_pending_lineage_calculation
+from app.workers.shutdown import shutdown_signals
 from core.errors import APIError
 from core.monetary_input import validate_calculated_money_model
 from core.repro import generate_canonical_hash, generate_canonical_hash_from_value
@@ -1464,5 +1465,10 @@ def _wait_for_next_poll(stop_event: Event | None, poll_seconds: float) -> bool:
     return stop_event.wait(timeout=poll_seconds)
 
 
+def main() -> None:
+    with shutdown_signals() as stop_event:
+        run_forever(stop_event=stop_event)
+
+
 if __name__ == "__main__":
-    run_forever()
+    main()

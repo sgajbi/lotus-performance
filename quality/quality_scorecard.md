@@ -49,6 +49,26 @@ compliance, and container supply-chain evidence.
 
 ## Purpose
 
+Historical bounded acquisition-failure evidence measurement (2026-10-15, #669, frozen base `cf44e05b`):
+native AST inventory measures 467 modules and 5,526 source test functions, including 431
+quality/security functions, eleven more than the frozen base. Other families and policy bounds
+are unchanged. Native production complexity remains max 8, zero D-F findings and average
+maintainability 55.31 (`python scripts/python_complexity_inventory.py --limit 25`); this helper change is outside that default
+production scope. At signed `74889776`, the native generated baseline recorded
+9,613 collected cases and 305,718 Python lines. Collection is not test execution.
+Only bounded offline evidence is claimed: fixed failure diagnostics, confidential data exclusion,
+untouched existing paths and atomic successful-proof publication. Hosted capture and actual worker
+Docker acceptance remain Root-owned gates; no selection, retry or budget policy changes.
+
+Current original-selection/PG17 proof measurement (2026-10-15, #669/#945, base `74889776`):
+native generation records 306,522 Python lines and 9,693 collected cases. AST inventory records
+5,547 functions, including 452 quality/security functions across the same 467 modules. The
+21 added functions cover explicit admission and binding, policy/build custody, DB-first content
+verification and refusal/cleanup behavior. Other family counts and policy floors remain unchanged.
+Python and PG17 select their separately approved exact originals through qualified central
+`cd7563c52008fffee8a37b1b6c3235480823a5cd`; the df4 Python helper is unchanged. Offline controls
+and collection do not qualify hosted build/security, database readiness, recovery or live workers.
+
 This document is the first before/after quality scorecard for the performance hardening stream.
 It is intended to track measurable quality posture change over refactor phases, where the same
 metrics in each section are updated with each meaningful slice.
@@ -59,13 +79,13 @@ metrics in each section are updated with each meaningful slice.
 
 | Metric | Baseline | Current | Delta | Status | Evidence |
 | --- | ---: | ---: | ---: | --- | --- |
-| Python files | 480 | 1043 | 563 | measured | `quality/baseline_report.md`; `quality/refactor_health_report.md` |
+| Python files | 480 | 1045 | 565 | measured | `quality/baseline_report.md`; `quality/refactor_health_report.md` |
 | Python package markers | 18 | 36 | 18 | measured | `quality/baseline_report.md`; `quality/refactor_health_report.md` |
-| Python LOC | 104,454 | 305,122 | 200,668 | measured | `quality/baseline_report.md`; `quality/refactor_health_report.md` |
+| Python LOC | 104,454 | 306,522 | 202,068 | measured | `quality/baseline_report.md`; `quality/refactor_health_report.md` |
 | Largest Python file LOC | 2,399 | 4,447 | 2,048 | measured | `quality/baseline_report.md`; `quality/refactor_health_report.md` |
 | Largest production file LOC | 1,156 | 3,271 | 2,115 | measured | `quality/refactor_health_report.md`; `quality/architecture_boundary_inventory.md` |
-| Python test modules | 228 | 466 | 238 | measured | `quality/baseline_report.md`; `quality/refactor_health_report.md` |
-| Collected tests | 2,035 | 9,572 | 7,537 | measured | `quality/baseline_report.md`; `quality/refactor_health_report.md` |
+| Python test modules | 228 | 467 | 239 | measured | `quality/baseline_report.md`; `quality/refactor_health_report.md` |
+| Collected tests | 2,035 | 9,693 | 7,658 | measured | `quality/baseline_report.md`; `quality/refactor_health_report.md` |
 | Duplicate code hotspots | 0 | 0 | 0 | enforced | `quality/duplicate_code_inventory.md`; `quality/refactor_health_report.md`; `make quality-duplicate-code-gate` |
 | Tracked local byproduct findings | unknown | 0 | n/a | enforced | `scripts/repository_hygiene_gate.py`; `make repository-hygiene-gate`; `quality/refactor_health_report.md` |
 
@@ -75,7 +95,7 @@ metrics in each section are updated with each meaningful slice.
 | --- | ---: | ---: | ---: | --- | --- |
 | Max cyclomatic complexity | unknown | 8 | n/a | enforced | `quality/complexity_inventory.md`; `quality/refactor_health_report.md`; `make quality-complexity-gate` |
 | High-complexity functions (D-F) | unknown | 0 | n/a | enforced | `quality/complexity_inventory.md`; `quality/refactor_health_report.md`; `make quality-complexity-gate` |
-| Average maintainability index | unknown | 55.22 | n/a | measured | `python scripts/python_complexity_inventory.py --limit 1`; `quality/refactor_health_report.md` |
+| Average maintainability index | unknown | 55.31 | n/a | measured | `python scripts/python_complexity_inventory.py --limit 25`; `quality/refactor_health_report.md` |
 | Largest functions by LOC | unknown | 169 | n/a | measured | `quality/function_size_inventory.md`; `quality/refactor_health_report.md`; `_create_sqlite_composite_fact_validation_guards(...)` remains the largest production function at `169` lines |
 
 ### Architecture

@@ -65,6 +65,27 @@ evidence are enforced or produced separately by CI.
 
 ## Purpose
 
+Historical bounded acquisition-failure evidence measurement (2026-10-15, #669, frozen base `cf44e05b`):
+the native AST command records 467 modules and 5,526 source test functions, including 431
+quality/security functions, an increase of eleven source functions. API/runtime 1115,
+contract/governance 248, observability/readiness 787, analytics-domain 3199 and uncategorized 558
+remain unchanged. Native production complexity remains max 8 and zero D-F findings, with average
+maintainability 55.31 (`python scripts/python_complexity_inventory.py --limit 25`). The changed helper is outside that native
+production inventory scope. At signed `74889776`, the native generated baseline recorded
+9,613 collected cases and 305,718 Python lines. Collection is not execution; no hosted
+registry, Docker, database or worker acceptance is claimed.
+Source-safe failure diagnostics and atomic successful-proof publication improve CI operability
+without changing image selection, content checks or retry/budget policy.
+
+Current original-selection/PG17 proof measurement (2026-10-15, #669/#945, base `74889776`):
+native generation records 306,522 Python lines and 9,693 collected cases. AST inventory records
+5,547 functions, including 452 quality/security functions across the same 467 modules. The
+21 added functions cover explicit admission and binding, policy/build custody, DB-first content
+verification and refusal/cleanup behavior. Other family counts and policy floors remain unchanged.
+Python and PG17 select their separately approved exact originals through qualified central
+`cd7563c52008fffee8a37b1b6c3235480823a5cd`; the df4 Python helper is unchanged. Offline controls
+and collection do not qualify hosted build/security, database readiness, recovery or live workers.
+
 This report turns the report-only baseline into the durable before/current scorecard for the
 hardening stream. At phase zero, the baseline and current values are intentionally the same unless a
 metric has already been remeasured. Future refactor phases should update the `Current` column and
@@ -83,9 +104,9 @@ link the commit, command, or CI artifact that proves the change.
 
 | Metric | Baseline | Current | Status | Evidence |
 | --- | ---: | ---: | --- | --- |
-| Python files | 480 | 1043 | measured | `quality/baseline_report.md` |
+| Python files | 480 | 1045 | measured | `quality/baseline_report.md` |
 | Python package markers | 18 | 36 | measured | recursive `__init__.py` count |
-| Python LOC | 104,454 | 305,122 | measured | `quality/baseline_report.md` |
+| Python LOC | 104,454 | 306,522 | measured | `quality/baseline_report.md` |
 | Largest Python file LOC | 2,399 | 4,447 | measured | largest-file inventory on this branch |
 | Largest production file LOC | 1,156 | 3,271 | measured | `app/services/composite_metadata_store.py` |
 | Duplicate code hotspots | 0 | 0 | enforced | `quality/duplicate_code_inventory.md`; `make quality-duplicate-code-gate` with `--min-lines 12 --max-groups 0`; duplicated LOC reduced from `24` to `0` in LP-CR-1407 |
@@ -99,7 +120,7 @@ link the commit, command, or CI artifact that proves the change.
 | --- | ---: | ---: | --- | --- |
 | Max cyclomatic complexity | unknown | 8 | enforced | `quality/complexity_inventory.md` via `scripts/python_complexity_inventory.py`; `make quality-complexity-gate` |
 | High-complexity functions | unknown | 0 | enforced | rank D-F functions in `quality/complexity_inventory.md`; `make quality-complexity-gate` |
-| Average maintainability index | unknown | 55.22 | measured | `python scripts/python_complexity_inventory.py --limit 1` |
+| Average maintainability index | unknown | 55.31 | measured | `python scripts/python_complexity_inventory.py --limit 25` |
 | Largest functions by LOC | unknown | 169 | measured | `quality/function_size_inventory.md` via `scripts/python_function_size_inventory.py`; `_create_sqlite_composite_fact_validation_guards(...)` remains the largest production function at `169` lines |
 
 ## Architecture
@@ -130,8 +151,8 @@ link the commit, command, or CI artifact that proves the change.
 
 | Metric | Baseline | Current | Status | Evidence |
 | --- | ---: | ---: | --- | --- |
-| Test modules | 228 | 466 | measured | `rg --files tests -g 'test_*.py'` |
-| Collected tests | 2,035 | 9,572 | measured | `python -m pytest --collect-only -q` |
+| Test modules | 228 | 467 | measured | `rg --files tests -g 'test_*.py'` |
+| Collected tests | 2,035 | 9,693 | measured | `quality/baseline_report.md`; `python -m pytest --collect-only -q` |
 | Line coverage | unknown | 99.58% | measured | `quality/coverage_inventory.md` via `make branch-coverage-baseline` (`3,013` unit, `308` integration, and `21` e2e tests under branch coverage; `21,154` covered lines of `21,244` statements) |
 | Branch coverage | unknown | 98.00% | measured | `quality/coverage_inventory.md` via `make branch-coverage-baseline` (`3,013` unit, `308` integration, and `21` e2e tests under branch coverage; `4,318` covered branches of `4,406`, `88` missing branches, `88` partial branches) |
 | Integration/API/runtime test functions | unknown | 1115 | enforced | `quality/test_taxonomy_inventory.md`; `make quality-test-taxonomy-gate` |

@@ -9,6 +9,8 @@ RUNTIME_BASE_IMAGE ?= public.ecr.aws/docker/library/python@sha256:e529028263dbe6
 # Capture before any $(shell ...) can export recursive command-line values.
 # Override is required: a normal assignment loses to the command-line origin.
 override RUNTIME_BASE_IMAGE := $(value RUNTIME_BASE_IMAGE)
+RECOVERY_POSTGRES_IMAGE ?= docker.io/library/postgres@sha256:2d2b8998d31037bf721cfdf764d76ba74171b4fab3431b7f72c27c56ddbdf9e3
+override RECOVERY_POSTGRES_IMAGE := $(value RECOVERY_POSTGRES_IMAGE)
 CONTAINER_SECURITY_OUTPUT_DIR ?= output/container-security
 TRIVY_IMAGE ?= ghcr.io/aquasecurity/trivy@sha256:f5d0e600ecda7449e2a9b272805aef698631d3bb3f3a739a750de2c6819acdc9
 TRIVY_SEVERITY ?= HIGH,CRITICAL
@@ -175,7 +177,7 @@ runtime-retention-smoke:
 	python -m scripts.runtime_retention_cleanup --scheduled
 
 lineage-volume-recovery-smoke:
-	python scripts/validate_lineage_volume_recovery.py --runtime-image $(call shellquote,$(RUNTIME_BASE_IMAGE))
+	python scripts/validate_lineage_volume_recovery.py --runtime-image $(call shellquote,$(RUNTIME_BASE_IMAGE)) --postgres-image $(call shellquote,$(RECOVERY_POSTGRES_IMAGE))
 
 performance-characterization:
 	python scripts/run_performance_characterization.py --mode full

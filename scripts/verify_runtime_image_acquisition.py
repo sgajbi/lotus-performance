@@ -7,12 +7,15 @@ import gzip
 import hashlib
 import importlib.util
 import json
+import os
 import re
 import subprocess
 import sys
 import tarfile
 import tempfile
 import time
+import urllib.error
+from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from pathlib import Path
 from urllib.parse import urlsplit
@@ -26,6 +29,92 @@ POLICY_REVISION = "df4da3bda773e9d0103b3a396d58110f49489ebc"
 ROOT = Path(__file__).resolve().parents[1]
 MAX_JSON_BYTES = 2 * 1024 * 1024
 MAX_ARCHIVE_BYTES = 2 * 1024 * 1024 * 1024
+ACQUISITION_ERRORS = (
+    ValueError,
+    OSError,
+    KeyError,
+    TypeError,
+    AttributeError,
+    IndexError,
+    EOFError,
+    tarfile.TarError,
+    subprocess.SubprocessError,
+)
+
+
+class AcquisitionCommandError(ValueError):
+    """Fixed command failure vocabulary; never retain argv or captured streams."""
+
+    def __init__(self, reason: str, returncode: int | None = None):
+        super().__init__("Acquisition command refused: " + reason)
+        self.reason = reason
+        self.returncode = returncode
+
+
+@dataclass
+class AcquisitionAttempt:
+    output: Path
+    phase: str = "runtime-bindings"
+    identities: dict = field(default_factory=dict)
+
+    def record_failure(self, error: Exception) -> None:
+        evidence = {
+            "schema_version": 1,
+            "proof_type": "selected-python-base-acquisition-failure",
+            "repository": "lotus-performance",
+            "generated_at": datetime.now(timezone.utc).isoformat(),
+            "phase": self.phase,
+            **failure_details(error),
+            **self.identities,
+            "successful_acquisition_proven": False,
+        }
+        try:
+            with (self.output / "failure.json").open("x", encoding="utf-8") as stream:
+                stream.write(json.dumps(evidence, indent=2) + "\n")
+        except OSError:
+            # An evidence write failure must never replace the original refusal.
+            pass
+
+
+def failure_details(error: Exception) -> dict:
+    error_class = next((kind.__name__ for kind in ACQUISITION_ERRORS if isinstance(error, kind)), "Exception")
+    details = {"reason": "validation-refused", "error_class": error_class, "http_status": None, "command_status": None}
+    if isinstance(error, AcquisitionCommandError):
+        reason = (
+            error.reason
+            if error.reason in {"time-budget-exceeded", "output-budget-exceeded", "command-failed"}
+            else "command-refused"
+        )
+        status = error.returncode
+        details.update(
+            reason=reason,
+            error_class="AcquisitionCommandError",
+            command_status=status if type(status) is int and -255 <= status <= 255 else None,
+        )
+    elif isinstance(error, subprocess.SubprocessError):
+        details.update(reason="subprocess-refused", error_class="SubprocessError")
+    elif isinstance(error, OSError):
+        details.update(reason="io-refused")
+    cause = error
+    for _ in range(8):
+        if isinstance(cause, urllib.error.HTTPError) and type(cause.code) is int and 100 <= cause.code <= 599:
+            details.update(reason="http-refused", http_status=cause.code)
+            if cause is error:
+                details["error_class"] = "HTTPError"
+            break
+        cause = cause.__cause__
+        if cause is None:
+            break
+    return details
+
+
+def validated_source_identity(source: dict) -> dict:
+    """Failure diagnostics only project validated hashes, never arbitrary source data."""
+    return {
+        key: value
+        for key in ("commit", "tree", "policy_commit", "policy_module_blob")
+        if isinstance(value := source.get(key), str) and re.fullmatch(r"[0-9a-f]{40}", value)
+    }
 
 
 def command(arguments: list[str], *, timeout: int = 30, artifact: Path | None = None) -> str:
@@ -35,11 +124,15 @@ def command(arguments: list[str], *, timeout: int = 30, artifact: Path | None = 
             deadline = time.monotonic() + timeout
             try:
                 while process.poll() is None:
-                    if time.monotonic() >= deadline or output_exceeded(stdout, stderr, artifact):
-                        raise ValueError("Acquisition command exceeded time/output budget")
+                    if time.monotonic() >= deadline:
+                        raise AcquisitionCommandError("time-budget-exceeded")
+                    if output_exceeded(stdout, stderr, artifact):
+                        raise AcquisitionCommandError("output-budget-exceeded")
                     time.sleep(0.05)
-                if process.returncode or output_exceeded(stdout, stderr, artifact):
-                    raise ValueError("Required acquisition command failed or exceeded output budget")
+                if output_exceeded(stdout, stderr, artifact):
+                    raise AcquisitionCommandError("output-budget-exceeded")
+                if process.returncode:
+                    raise AcquisitionCommandError("command-failed", process.returncode)
             finally:
                 if process.poll() is None:
                     process.kill()
@@ -105,7 +198,7 @@ def central_admission(policy_root: Path):
     return module, mapping
 
 
-def fresh_manifest(module, mapping: dict, runtime_image: str) -> tuple[dict, bytes]:
+def fresh_manifest(module, mapping: dict, runtime_image: str, evidence_dir: Path | None = None) -> tuple[dict, bytes]:
     """Verify the already selected source through df4's bounded public verifier."""
     manifests = []
 
@@ -116,7 +209,7 @@ def fresh_manifest(module, mapping: dict, runtime_image: str) -> tuple[dict, byt
                 manifests.append(body)
             return body, response_headers
 
-    budget = EvidenceBudget(None)
+    budget = EvidenceBudget(evidence_dir)
     if runtime_image == bindings.ORIGINAL_RUNTIME_IMAGE:
         module._verify_original_source(mapping, budget)
     else:
@@ -220,21 +313,52 @@ def config_python_version(config: dict) -> str:
 
 
 def acquire(runtime_image: str, expected_source: str, policy_root: Path, output: Path) -> dict:
-    bindings.verify_runtime_build_files(runtime_image)
-    if output.exists():
+    if output.exists() or output.is_symlink():
         raise ValueError("Fresh acquisition requires an unused evidence directory")
-    source = source_identity(expected_source, policy_root)
-    module, mapping = central_admission(policy_root)
-    manifest, raw_manifest = fresh_manifest(module, mapping, runtime_image)
-    preexisting = cache_digest_present(mapping["image_digest"])
-    exported = pull_and_verify_export(runtime_image, mapping["platform_config_digest"])
-    if len(manifest["layers"]) != len(exported["rootfs_diff_ids"]):
-        raise ValueError("Acquired RootFS count differs from fresh manifest layers")
-    evidence = acquisition_evidence(runtime_image, source, mapping, manifest, preexisting, exported)
-    output.mkdir(parents=True, exist_ok=True)
-    (output / "manifest.json").write_bytes(raw_manifest)
-    (output / "acquisition.json").write_text(json.dumps(evidence, indent=2) + "\n", encoding="utf-8")
-    return evidence
+    output.mkdir(parents=True, exist_ok=False)
+    attempt = AcquisitionAttempt(output)
+    try:
+        bindings.verify_runtime_build_files(runtime_image)
+        attempt.identities["selected_image"] = runtime_image
+        attempt.phase = "source-policy-identity"
+        source = source_identity(expected_source, policy_root)
+        attempt.identities["source"] = validated_source_identity(source)
+        attempt.phase = "central-admission"
+        module, mapping = central_admission(policy_root)
+        attempt.phase = "fresh-manifest"
+        manifest, raw_manifest = fresh_manifest(module, mapping, runtime_image, output / "http")
+        attempt.phase = "cache-inventory"
+        preexisting = cache_digest_present(mapping["image_digest"])
+        exported = pull_and_verify_export(runtime_image, mapping["platform_config_digest"], attempt)
+        attempt.phase = "manifest-rootfs-linkage"
+        if len(manifest["layers"]) != len(exported["rootfs_diff_ids"]):
+            raise ValueError("Acquired RootFS count differs from fresh manifest layers")
+        evidence = acquisition_evidence(runtime_image, source, mapping, manifest, preexisting, exported)
+        attempt.phase = "evidence-publication"
+        (output / "manifest.json").write_bytes(raw_manifest)
+        write_success_evidence(output / "acquisition.json", evidence)
+        return evidence
+    except ACQUISITION_ERRORS as error:
+        attempt.record_failure(error)
+        raise
+
+
+def write_success_evidence(path: Path, evidence: dict) -> None:
+    temporary = None
+    try:
+        with tempfile.NamedTemporaryFile(
+            mode="w", encoding="utf-8", dir=path.parent, prefix=".acquisition-", delete=False
+        ) as stream:
+            temporary = Path(stream.name)
+            stream.write(json.dumps(evidence, indent=2) + "\n")
+        # Link complete bytes atomically; an existing proof is never overwritten.
+        os.link(temporary, path)
+    finally:
+        if temporary is not None:
+            try:
+                temporary.unlink()
+            except OSError:
+                pass
 
 
 def cache_digest_present(image_digest: str) -> bool:
@@ -246,8 +370,10 @@ def cache_digest_present(image_digest: str) -> bool:
     return any(row.get("Digest") == image_digest for row in rows)
 
 
-def pull_and_verify_export(runtime_image: str, config_digest: str) -> dict:
+def pull_and_verify_export(runtime_image: str, config_digest: str, attempt: AcquisitionAttempt) -> dict:
+    attempt.phase = "selected-pull"
     command(["docker", "--context", "default", "pull", "--platform", "linux/amd64", runtime_image], timeout=180)
+    attempt.phase = "selected-inspect"
     inspected = json.loads(command(["docker", "--context", "default", "image", "inspect", runtime_image]))
     if len(inspected) != 1:
         raise ValueError("Inspect must resolve exactly one selected image")
@@ -258,6 +384,7 @@ def pull_and_verify_export(runtime_image: str, config_digest: str) -> dict:
         raise ValueError("Pulled image platform differs from admission")
     with tempfile.TemporaryDirectory(prefix="lotus-base-export-") as temporary:
         archive = Path(temporary) / "image.tar"
+        attempt.phase = "selected-export"
         command(
             [
                 "docker",
@@ -274,6 +401,7 @@ def pull_and_verify_export(runtime_image: str, config_digest: str) -> dict:
             timeout=180,
             artifact=archive,
         )
+        attempt.phase = "export-content-verification"
         return verify_export(archive, config_digest, inspect)
 
 
@@ -321,17 +449,7 @@ def main(argv: list[str] | None = None) -> int:
     args = parser.parse_args(argv)
     try:
         acquire(args.runtime_image, args.expected_source, args.policy_root.resolve(), args.output)
-    except (
-        ValueError,
-        OSError,
-        KeyError,
-        TypeError,
-        AttributeError,
-        IndexError,
-        EOFError,
-        tarfile.TarError,
-        subprocess.SubprocessError,
-    ):
+    except ACQUISITION_ERRORS:
         print("Selected runtime acquisition refused; no successful proof was written", file=sys.stderr)
         return 1
     print("Selected runtime config and exported RootFS acquisition verified")

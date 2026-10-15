@@ -77,6 +77,14 @@ branch `main` at the exact merged SHA, while manual dispatch retains its selecte
   config bytes and exported RootFS layers. Config-declared Python version is distinct from an
   execution probe; Docker image IDs can be index identities. Digest cache inventory does not
   prove cold acquisition. This helper leaves final build/security/PG/recovery proof separate.
+  When a fresh output directory can be reserved, refusals retain `failure.json` with fixed
+  phase/reason/class, bounded HTTP/command status and only validated image/source/policy identities.
+  Qualified central HTTP diagnostics are retained in its `http/` child with existing limits and
+  token redaction; raw subprocess streams and exception messages are omitted. Existing output
+  paths remain untouched, failed jobs retain exit 1 and successful `acquisition.json` is published
+  atomically only after validation. HTTP challenge evidence alone is not a failed acquisition or
+  successful proof. The existing always-upload steps preserve diagnostics; root cause and actual
+  hosted build/security/PostgreSQL/recovery acceptance still require their own evidence.
 - `make ci-local`
   local Docker-parity coverage run
 - `make lineage-volume-recovery-smoke`
@@ -302,7 +310,8 @@ and does not itself qualify a release.
 
 PR/Main image consumers use separate no-service admission prerequisites. PG16 explicitly selects
 the approved original source using qualified Platform `f12dade6f294b8df5e236f4f49c117b81bed4cd6`;
-Python retains df4da3bd and its existing conditional fallback, while PG17/Trivy retain 386b40e1.
+Python and PG17 use qualified Platform `cd7563c52008fffee8a37b1b6c3235480823a5cd` with
+explicit original selection before ECR requests; Trivy retains 386b40e1.
 PG16 services consume admitted image outputs directly; fixed Dockerfile/Compose bindings are checked before recovery/build,
 and the scanner command consumes its admitted Trivy output. All use linux/amd64, with bounded
 429 recovery and retained failed public responses. Failed admission cannot start a consumer.
@@ -320,6 +329,25 @@ generic daemon-error fallback. Existing readiness and full non-skipped contract/
 gates remain required; actual original availability/financial evidence comes only from the new
 natural adopter cohort. Earlier ECR failures remain failed, with no cold/compressed-transfer claim.
 See [exact bindings and evidence limits](https://github.com/sgajbi/lotus-performance/blob/main/docs/operations/development-workflow-and-ci-strategy.md).
+
+Recovery uses the exact admitted original PG17 index through a recovery-only Compose override;
+ordinary base Compose retains its distribution binding. The isolated target refuses other
+registries, arbitrary digests and tags before Docker. Only the owned database starts first.
+Its full container ID, project/service labels and requested image must match before the clean,
+exact-revision central PG17 helper verifies config and ordered RootFS content and reinspects it.
+This proof precedes initializer build, schema/application work, volume repair and restart/readiness.
+The unique `pr-pg17-service-content` and `main-pg17-service-content` artifacts are mandatory;
+missing or refused proof prevents acceptance. Raw inspect/export bytes are removed, and the
+content JSON makes no cold acquisition, compressed-transfer or runtime-execution claim.
+
+Python content verification retains the unchanged df4 helper and `.image-policy` checkout.
+After verification and always-upload evidence, an exact-path/clean-revision binding check removes
+only that owned checkout before each Docker build. Foreign, dirty, wrong-revision, symlink or
+reparse paths refuse removal. The later PG17 policy checkout uses `output/pg17-image-policy`,
+excluded from the build context by existing Docker ignore rules. This preserves clean-source
+custody despite Dockerfile `COPY . .`. Validation and cleanup failures retain their original
+precedence. Source controls do not replace hosted build/security, PostgreSQL readiness, recovery
+or Root's live worker acceptance; previous failed cohorts remain failed.
 
 The bounded [#624 application qualification](https://github.com/sgajbi/lotus-performance/issues/624#issuecomment-6041708068)
 verified Python 3.11.17, bundled Expat 2.8.5, API/worker imports and isolated hardening for committed

@@ -4,8 +4,10 @@ import gzip
 import hashlib
 import io
 import json
+import subprocess
 import sys
 import tarfile
+import urllib.error
 from pathlib import Path
 from types import SimpleNamespace
 
@@ -122,6 +124,9 @@ def test_actual_pull_export_sequence_retains_only_source_safe_evidence(acquisiti
     assert result["source"]["commit"] == "a" * 40
     evidence = (output / "acquisition.json").read_text()
     assert "DO_NOT_EXPORT" not in evidence and "sensitive" not in evidence
+    assert json.loads(evidence) == result
+    assert json.loads((output / "manifest.json").read_bytes())["config"]["digest"] == result["config_digest"]
+    assert not (output / "failure.json").exists()
 
 
 @pytest.mark.parametrize("damage", ["wrong-repo-digest", "wrong-platform", "cache-failure", "pull-failure"])
@@ -142,7 +147,16 @@ def test_failed_actual_acquisition_produces_no_success_artifact(acquisition, mon
     output = tmp_path / "proof"
     with pytest.raises(ValueError):
         proof.acquire(proof.bindings.ORIGINAL_RUNTIME_IMAGE, "a" * 40, tmp_path, output)
-    assert not output.exists()
+    failure = json.loads((output / "failure.json").read_text())
+    assert failure["phase"] == (
+        "cache-inventory"
+        if damage == "cache-failure"
+        else "selected-pull"
+        if damage == "pull-failure"
+        else "selected-inspect"
+    )
+    assert failure["successful_acquisition_proven"] is False
+    assert not (output / "acquisition.json").exists()
     assert sum("pull" in argv for argv, _ in calls) <= 1
 
 
@@ -228,9 +242,9 @@ def test_fresh_manifest_identity_refuses_before_acquisition_io(damage):
 
 def test_command_limits_output_and_time_without_echoing_raw_data(monkeypatch):
     monkeypatch.setattr(proof, "MAX_JSON_BYTES", 32)
-    with pytest.raises(ValueError, match="output budget"):
+    with pytest.raises(proof.AcquisitionCommandError, match="output-budget-exceeded"):
         proof.command([sys.executable, "-c", "print('private-data' * 100)"])
-    with pytest.raises(ValueError, match="time/output budget"):
+    with pytest.raises(proof.AcquisitionCommandError, match="time-budget-exceeded"):
         proof.command([sys.executable, "-c", "import time; time.sleep(5)"], timeout=0)
 
 
@@ -358,3 +372,250 @@ def test_archive_member_and_expansion_guards_with_bounded_fixtures(tmp_path, mon
     with tarfile.open(path) as archive, pytest.raises((ValueError, OSError, EOFError)):
         operation = proof.archive_bytes if kind.startswith("metadata") else proof.layer_digest
         operation(archive, "member")
+
+
+@pytest.mark.parametrize(
+    ("operation", "phase", "identity_keys"),
+    [
+        ("bindings", "runtime-bindings", set()),
+        ("source_identity", "source-policy-identity", {"selected_image"}),
+        ("central_admission", "central-admission", {"selected_image", "source"}),
+        ("fresh_manifest", "fresh-manifest", {"selected_image", "source"}),
+        ("verify_export", "export-content-verification", {"selected_image", "source"}),
+        ("write_success_evidence", "evidence-publication", {"selected_image", "source"}),
+    ],
+)
+def test_refusals_keep_actionable_phase_validated_identity_and_original_error(
+    acquisition, monkeypatch, operation, phase, identity_keys
+):
+    tmp_path, _, _ = acquisition
+    output = tmp_path / "proof"
+    original = ValueError("Authorization: Bearer secret-marker" * 10000)
+
+    def refuse(*_args):
+        raise original
+
+    owner = proof.bindings if operation == "bindings" else proof
+    monkeypatch.setattr(owner, "verify_runtime_build_files" if operation == "bindings" else operation, refuse)
+    with pytest.raises(ValueError) as raised:
+        proof.acquire(proof.bindings.ORIGINAL_RUNTIME_IMAGE, "a" * 40, tmp_path, output)
+    assert raised.value is original
+    raw = (output / "failure.json").read_bytes()
+    failure = json.loads(raw)
+    assert failure["phase"] == phase
+    assert failure["reason"] == "validation-refused"
+    assert failure["error_class"] == "ValueError"
+    assert failure["http_status"] is None and failure["command_status"] is None
+    assert {key for key in ("selected_image", "source") if key in failure} == identity_keys
+    assert len(raw) < 2048
+    assert b"secret-marker" not in raw and b"Authorization" not in raw
+    assert not (output / "acquisition.json").exists()
+
+
+@pytest.mark.parametrize(
+    ("word", "phase"),
+    [
+        ("ls", "cache-inventory"),
+        ("pull", "selected-pull"),
+        ("inspect", "selected-inspect"),
+        ("save", "selected-export"),
+    ],
+)
+def test_command_refusals_keep_phase_status_and_native_cli_exit(acquisition, monkeypatch, capsys, word, phase):
+    tmp_path, _, _ = acquisition
+    original_command = proof.command
+    original_error = proof.AcquisitionCommandError("command-failed", 7)
+
+    def command(argv, **kwargs):
+        if word in argv:
+            raise original_error
+        return original_command(argv, **kwargs)
+
+    monkeypatch.setattr(proof, "command", command)
+    output = tmp_path / "proof"
+    result = proof.main(
+        [
+            "--runtime-image",
+            proof.bindings.ORIGINAL_RUNTIME_IMAGE,
+            "--expected-source",
+            "a" * 40,
+            "--policy-root",
+            str(tmp_path),
+            "--output",
+            str(output),
+        ]
+    )
+    assert result == 1
+    failure = json.loads((output / "failure.json").read_text())
+    assert failure["phase"] == phase and failure["command_status"] == 7
+    assert failure["reason"] == "command-failed"
+    assert capsys.readouterr().err == "Selected runtime acquisition refused; no successful proof was written\n"
+    assert not (output / "acquisition.json").exists()
+
+
+@pytest.mark.parametrize("kind", ["directory", "successful-proof", "file", "dangling-symlink"])
+def test_existing_evidence_paths_are_untouched_and_never_consumed(acquisition, kind):
+    tmp_path, _, calls = acquisition
+    output = tmp_path / "proof"
+    if kind == "file":
+        output.write_bytes(b"existing marker")
+    elif kind == "dangling-symlink":
+        try:
+            output.symlink_to(tmp_path / "absent", target_is_directory=True)
+        except OSError:
+            pytest.skip("Windows symlink creation requires developer mode or elevation")
+    else:
+        output.mkdir()
+        (output / ("acquisition.json" if kind == "successful-proof" else "marker")).write_bytes(b"existing marker")
+    before = list(output.iterdir()) if output.is_dir() else []
+    with pytest.raises(ValueError, match="unused evidence directory"):
+        proof.acquire(proof.bindings.ORIGINAL_RUNTIME_IMAGE, "a" * 40, tmp_path, output)
+    assert calls == []
+    if before:
+        assert list(output.iterdir()) == before and before[0].read_bytes() == b"existing marker"
+    elif kind == "file":
+        assert output.read_bytes() == b"existing marker"
+    else:
+        assert output.is_symlink() and not (tmp_path / "absent").exists()
+
+
+def test_fresh_manifest_passes_owned_diagnostic_directory_to_central_budget(tmp_path):
+    output = tmp_path / "http"
+    original = urllib.error.HTTPError(
+        "https://admitted/manifest", 503, "private reason", {}, io.BytesIO(b"private body")
+    )
+
+    class Budget:
+        def __init__(self, evidence_dir):
+            assert evidence_dir == output
+
+        def request(self, _url, _headers):
+            raise original
+
+    def verify(_mapping, budget):
+        budget.request("https://admitted/v2/python/manifests/fixed", {})
+
+    module = SimpleNamespace(_AcquisitionBudget=Budget, _verify_publisher_distribution=verify)
+    with pytest.raises(urllib.error.HTTPError) as raised:
+        proof.fresh_manifest(module, {}, proof.bindings.DEFAULT_RUNTIME_IMAGE, output)
+    assert raised.value is original
+    assert proof.failure_details(original) == {
+        "reason": "http-refused",
+        "error_class": "HTTPError",
+        "http_status": 503,
+        "command_status": None,
+    }
+
+
+@pytest.mark.parametrize("status", [401, 429, 503, 600, "secret-marker"])
+def test_causal_http_status_is_finite_without_copying_exception_or_headers(acquisition, monkeypatch, status):
+    tmp_path, _, _ = acquisition
+    http = urllib.error.HTTPError(
+        "https://private/secret-marker",
+        status,
+        "secret-marker",
+        {"Authorization": "secret-marker"},
+        io.BytesIO(b"secret-marker"),
+    )
+
+    def refuse(*_args):
+        raise ValueError("secret-marker") from http
+
+    monkeypatch.setattr(proof, "fresh_manifest", refuse)
+    output = tmp_path / "proof"
+    with pytest.raises(ValueError):
+        proof.acquire(proof.bindings.ORIGINAL_RUNTIME_IMAGE, "a" * 40, tmp_path, output)
+    raw = (output / "failure.json").read_text()
+    failure = json.loads(raw)
+    assert failure["http_status"] == (status if type(status) is int and 100 <= status <= 599 else None)
+    assert "secret-marker" not in raw and "Authorization" not in raw
+    assert not (output / "acquisition.json").exists()
+
+
+def test_real_subprocess_failure_keeps_only_fixed_reason_and_status(tmp_path, capsys):
+    with pytest.raises(proof.AcquisitionCommandError) as raised:
+        proof.command(
+            [
+                sys.executable,
+                "-c",
+                "import sys; print('secret-marker'); print('Authorization: secret-marker', file=sys.stderr); sys.exit(7)",
+            ]
+        )
+    attempt = proof.AcquisitionAttempt(tmp_path, phase="selected-pull")
+    attempt.record_failure(raised.value)
+    raw = (tmp_path / "failure.json").read_text()
+    assert json.loads(raw)["command_status"] == 7
+    assert "secret-marker" not in raw and "Authorization" not in raw
+    assert capsys.readouterr() == ("", "")
+
+
+@pytest.mark.parametrize(
+    "error",
+    [
+        subprocess.CalledProcessError(7, "secret-marker", output="secret-marker", stderr="secret-marker"),
+        proof.AcquisitionCommandError("secret-marker", "secret-marker"),
+    ],
+)
+def test_subprocess_and_untrusted_failure_metadata_do_not_escape(error):
+    details = proof.failure_details(error)
+    assert "secret-marker" not in json.dumps(details)
+    assert details["command_status"] is None
+
+
+def test_failure_writer_does_not_mask_original_error_or_overwrite_existing_diagnostics(acquisition, monkeypatch):
+    tmp_path, _, _ = acquisition
+    original = ValueError("private failure")
+
+    def refuse(*_args):
+        (tmp_path / "proof" / "failure.json").write_bytes(b"existing diagnostic")
+        raise original
+
+    monkeypatch.setattr(proof, "fresh_manifest", refuse)
+    with pytest.raises(ValueError) as raised:
+        proof.acquire(proof.bindings.ORIGINAL_RUNTIME_IMAGE, "a" * 40, tmp_path, tmp_path / "proof")
+    assert raised.value is original
+    assert (tmp_path / "proof" / "failure.json").read_bytes() == b"existing diagnostic"
+    assert not (tmp_path / "proof" / "acquisition.json").exists()
+
+
+def test_failure_identity_projection_excludes_unknown_and_malformed_source_values():
+    source = {
+        "commit": "a" * 40,
+        "tree": "secret-marker",
+        "policy_commit": proof.POLICY_REVISION,
+        "policy_module_blob": "secret-marker",
+        "Authorization": "secret-marker",
+    }
+    assert proof.validated_source_identity(source) == {"commit": "a" * 40, "policy_commit": proof.POLICY_REVISION}
+
+
+@pytest.mark.parametrize("existing", [False, True])
+def test_success_evidence_publication_is_complete_exclusive_and_cleans_pending_files(tmp_path, existing):
+    path = tmp_path / "acquisition.json"
+    if existing:
+        path.write_bytes(b"existing successful proof")
+        with pytest.raises(FileExistsError):
+            proof.write_success_evidence(path, {"validated": True})
+        assert path.read_bytes() == b"existing successful proof"
+    else:
+        proof.write_success_evidence(path, {"validated": True})
+        assert json.loads(path.read_text()) == {"validated": True}
+    assert list(tmp_path.iterdir()) == [path]
+
+
+def test_publication_failure_preserves_native_refusal_and_never_exposes_success(acquisition, monkeypatch):
+    tmp_path, _, _ = acquisition
+    original = OSError("secret-marker")
+
+    def refuse(*_args):
+        raise original
+
+    monkeypatch.setattr(proof.os, "link", refuse)
+    output = tmp_path / "proof"
+    with pytest.raises(OSError) as raised:
+        proof.acquire(proof.bindings.ORIGINAL_RUNTIME_IMAGE, "a" * 40, tmp_path, output)
+    assert raised.value is original
+    assert {path.name for path in output.iterdir()} == {"manifest.json", "failure.json"}
+    failure = json.loads((output / "failure.json").read_text())
+    assert failure["phase"] == "evidence-publication" and failure["reason"] == "io-refused"
+    assert "secret-marker" not in json.dumps(failure)

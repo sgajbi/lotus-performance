@@ -68,6 +68,10 @@ def _families_for_path(path: str) -> tuple[str, ...]:
     # retryability. Classify its exact module, not every stateful/source test.
     if lower_path == "tests/unit/services/test_stateful_upstream_errors.py":
         families.update({"api_or_runtime", "observability_or_readiness"})
+    # This shared suite exercises process admission, batch drain and signal restoration
+    # for both worker roles; unrelated shutdown tests do not inherit readiness evidence.
+    if lower_path == "tests/unit/services/test_worker_shutdown.py":
+        families.add("observability_or_readiness")
     if lower_path.startswith("tests/integration/") or lower_path.startswith("tests/e2e/"):
         families.add("api_or_runtime")
     if any(

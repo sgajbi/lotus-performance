@@ -138,16 +138,22 @@ uploads and proof-before-combine ordering across both lanes, including represent
 
 Image consumers first run separate no-service admission prerequisites in their owning workflow.
 Each checks out the qualified Platform governance revision
-`386b40e13e76e60e761c6c4068fbe7a11256ca29` for PG17/Trivy and runs its existing technology-policy validator
+`386b40e13e76e60e761c6c4068fbe7a11256ca29` for Trivy and runs its existing technology-policy validator
 with exact source/distribution digests, `linux/amd64`, live manifest verification and bounded
 429 recovery. Failed public responses are retained as distinct artifacts. A failed admission
 emits no usable image output and cannot initialize its dependent service/build/scan.
-Python admission uses qualified Platform `df4da3bda773e9d0103b3a396d58110f49489ebc` with explicit
-original-source opt-in. It admits only the identical linux/amd64 child at the governed ECR or
-original supplier reference; availability selection remains central. PostgreSQL 16 admission uses
+Python and PG17 admission use qualified Platform `cd7563c52008fffee8a37b1b6c3235480823a5cd`
+with explicit `--acquisition-source original`, before an ECR request. Python's exact e529 child/
+5410 config and PG17's 2d2b root/3cec child/327d config remain unchanged. Their separate approvals
+authorize selection of those exact originals; source/distribution identity remains central.
+The [Python selection approval](https://github.com/sgajbi/lotus-platform/issues/945#issuecomment-6182750862),
+[PG17 selection approval](https://github.com/sgajbi/lotus-platform/issues/945#issuecomment-6181948743)
+and [exact central qualification](https://github.com/sgajbi/lotus-platform/issues/945#issuecomment-6183616680)
+are separate from the later hosted/runtime acceptance.
+PostgreSQL 16 admission uses
 qualified Platform `f12dade6f294b8df5e236f4f49c117b81bed4cd6` and explicit
 `--acquisition-source original` before any ECR request, retaining the same source/distribution
-mapping and Linux/amd64 content. It is distinct from conditional Python fallback. PG16 services
+mapping and Linux/amd64 content. PG16 services
 consume that validated original output directly. Recovery and container jobs run
 `scripts/ci_image_bindings_gate.py` before Make and pass that same Python output as
 `RUNTIME_BASE_IMAGE` into actual native builds. Dockerfile FROM and distribution provenance
@@ -156,7 +162,8 @@ Recovery accepts `--runtime-image` explicitly into its bounded environment, disc
 base/configuration overrides. Its binding check also verifies resolved Compose build inputs and
 the separate PostgreSQL 17 image/platform. Native build/up targets refuse unqualified selections
 before Docker. This binding proof does not establish a successful registry pull or runtime version.
-Each hosted consumer then checks out the same qualified central revision and runs
+Each hosted Python consumer checks out the unchanged qualified Platform
+`df4da3bda773e9d0103b3a396d58110f49489ebc` and runs
 `scripts/verify_runtime_image_acquisition.py` before its native build/recovery command. The helper
 uses the central verifier for the already selected source, verifies fresh manifest/config linkage,
 records pre-pull digest presence, pulls once, and hashes exported config and uncompressed RootFS
@@ -164,6 +171,61 @@ layer bytes against config/inspect evidence. Docker's image ID is not treated as
 containerd may expose an index. Evidence under `output/image-acquisition/` records the Python
 version declared in the verified config, not an executed version probe. It makes no cold-cache,
 compressed-transfer, application-build, security, PostgreSQL-readiness or recovery claim.
+The helper reserves an unused evidence directory before validation. On refusal, `failure.json`
+retains a fixed phase, reason, exception class and available bounded HTTP/command status, plus
+only identities whose checks already passed. No exception message, command arguments or captured
+subprocess stream is retained. The same qualified central budget writes bounded HTTP failure
+diagnostics under `output/image-acquisition/http/`, omitting token response bodies and authorization
+headers and redacting acquired tokens. An expected original-source authentication challenge can
+also appear there during a successful acquisition; `acquisition.json` alone marks success.
+The existing always-upload steps retain these files. Failures preserve exit status 1 and never
+publish `acquisition.json`; its complete bytes are published atomically without replacing an
+existing proof. Existing directories, files or symlink output paths are refused untouched. If
+a fresh directory cannot be reserved or diagnostics cannot be written, the original refusal
+still fails the job. A failure artifact diagnoses a phase; it does not establish a registry root
+cause or clear any build, PostgreSQL or recovery gate. No image selection or retry budget changes.
+
+After the Python helper and its always-upload step, each recovery/supply-chain job removes only
+its authenticated `.image-policy` checkout before any Docker build. The binding gate requires
+the exact owned path, clean df4 checkout and committed helper/policy identities; it refuses
+symlinks/reparse points, foreign paths, dirty checkouts and wrong revisions before recursive removal.
+It also requires clean build source after removal.
+This ordering matters because Dockerfile `COPY . .` includes an otherwise ignored-by-Git policy
+checkout in the build context. The later PG17 checkout uses fixed `output/pg17-image-policy`,
+which is excluded by the existing Docker ignore rules. It cannot replace the Python helper or
+contaminate its earlier clean-source proof. Cleanup failure blocks the build.
+
+The isolated `make lineage-volume-recovery-smoke` interface requires the exact approved PG17
+original index. `RECOVERY_POSTGRES_IMAGE` is captured raw, quoted and passed as `--postgres-image`
+to every bounded Compose operation. ECR, arbitrary and tagged selections refuse before Docker;
+ordinary base Compose retains its existing distribution image. The recovery override binds the
+selected image and linux/amd64 platform. Recovery authenticates the separate clean PG17 policy
+checkout against its exact admission revision and committed blobs, then starts only the owned
+database with `up -d --no-deps`. It resolves one full container ID and verifies the project/service
+labels, exact requested image and running state before invoking the central existing-service
+verifier. Config and ordered RootFS verification plus reinspection must pass before initializer
+build, schema/application work, non-root volume repair and restart/readiness checks.
+The mandatory unique `pr-pg17-service-content` or `main-pg17-service-content` artifact retains
+`output/pg17-service-content.json`; missing proof fails publication. No raw inspect/export,
+cold-cache, compressed-transfer or runtime-execution claim is made by this content proof.
+Every started-project refusal retains project-scoped cleanup and the original validation error
+when cleanup also fails. Failed manifest/acquisition cohorts remain failed; offline controls do
+not replace the natural changed-source hosted cohort or Root's live worker acceptance.
+
+For a local recovery run from a clean `lotus-performance` repository root, first obtain the
+fixed clean policy checkout. The commands are identical in PowerShell and Bash and require an
+unused `output/pg17-image-policy` path; do not replace another checkout. The runtime-helper
+`.image-policy` checkout must already have been verified and removed as described above.
+
+```text
+git clone --no-checkout https://github.com/sgajbi/lotus-platform.git output/pg17-image-policy
+git -C output/pg17-image-policy checkout --detach cd7563c52008fffee8a37b1b6c3235480823a5cd
+make lineage-volume-recovery-smoke
+```
+
+This target uses the approved PG17 original by default and requires an unused
+`output/pg17-service-content.json`. Its successful live execution must be recorded separately;
+the offline source/wiring checks do not execute these Docker commands.
 Consumer jobs explicitly prepare the host interpreter and install the existing lock-backed
 `PyYAML==6.0.2` parser without dependencies before binding checks. That host setup does not
 identify the admitted container's Python version.

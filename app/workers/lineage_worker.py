@@ -20,6 +20,7 @@ from app.services.lineage_metadata_store import (
     lineage_metadata_store,
 )
 from app.services.lineage_service import LineageService, lineage_service, resolve_artifact_stage_name
+from app.workers.shutdown import shutdown_signals
 
 logger = logging.getLogger(__name__)
 _T = TypeVar("_T")
@@ -459,5 +460,10 @@ def _mark_lineage_materialization_failed(
             )
 
 
+def main() -> None:
+    with shutdown_signals() as stop_event:
+        run_forever(stop_event=stop_event)
+
+
 if __name__ == "__main__":
-    run_forever()
+    main()

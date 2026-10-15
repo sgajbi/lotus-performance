@@ -3,6 +3,7 @@
 # that could collide with, expose, or accidentally validate another local runtime.
 services:
   performance-lineage-db:
+    image: ${RECOVERY_POSTGRES_IMAGE:-docker.io/library/postgres@sha256:2d2b8998d31037bf721cfdf764d76ba74171b4fab3431b7f72c27c56ddbdf9e3}
     ports: !reset []
   performance-analytics:
     ports: !reset []

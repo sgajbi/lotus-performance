@@ -7,6 +7,7 @@ import json
 import os
 import re
 import shlex
+import shutil
 import subprocess
 import sys
 from pathlib import Path
@@ -18,6 +19,10 @@ IMMUTABLE_IMAGE = re.compile(r"[a-z0-9./_-]+@sha256:[0-9a-f]{64}")
 RUNTIME_DIGEST = "sha256:e529028263dbe6910a2d96f7d2b8f5266385e917fd45d286ef166977c094a51e"
 DEFAULT_RUNTIME_IMAGE = f"public.ecr.aws/docker/library/python@{RUNTIME_DIGEST}"
 ORIGINAL_RUNTIME_IMAGE = f"docker.io/library/python@{RUNTIME_DIGEST}"
+RECOVERY_POSTGRES_IMAGE = (
+    "docker.io/library/postgres@sha256:2d2b8998d31037bf721cfdf764d76ba74171b4fab3431b7f72c27c56ddbdf9e3"
+)
+RECOVERY_POLICY_REVISION = "cd7563c52008fffee8a37b1b6c3235480823a5cd"
 
 
 def require_runtime_image(image: str) -> None:
@@ -29,6 +34,59 @@ def require_runtime_image(image: str) -> None:
 def require_immutable(image: str) -> None:
     if IMMUTABLE_IMAGE.fullmatch(image) is None:
         raise ValueError("Admission output must be a nonempty immutable image reference")
+
+
+def require_recovery_postgres_image(image: str) -> None:
+    if image != RECOVERY_POSTGRES_IMAGE:
+        raise ValueError("Recovery PostgreSQL must be the qualified exact original PG17 reference")
+
+
+def owned_policy_directory(relative: str) -> Path:
+    """Reject symlinks, Windows reparse points and foreign resolved checkout paths."""
+    if relative not in {".image-policy", "output/pg17-image-policy"}:
+        raise ValueError("Qualified policy path is not an owned checkout")
+    root = ROOT.resolve()
+    path = root
+    for part in Path(relative).parts:
+        path = path / part
+        if path.is_symlink() or getattr(path.lstat(), "st_file_attributes", 0) & 0x400:
+            raise ValueError("Qualified policy path must not contain a reparse point")
+        if not path.is_dir():
+            raise ValueError("Qualified policy path must be an owned directory")
+    if path.resolve() != root / relative:
+        raise ValueError("Qualified policy path resolves outside its exact owner")
+    return path
+
+
+def runtime_acquisition_module():
+    if __package__:
+        from . import verify_runtime_image_acquisition
+    else:
+        import verify_runtime_image_acquisition
+    return verify_runtime_image_acquisition
+
+
+def remove_owned_runtime_policy() -> None:
+    if any(
+        key in os.environ
+        for key in (
+            "GIT_DIR",
+            "GIT_WORK_TREE",
+            "GIT_INDEX_FILE",
+            "GIT_OBJECT_DIRECTORY",
+            "GIT_ALTERNATE_OBJECT_DIRECTORIES",
+            "GIT_COMMON_DIR",
+            "GIT_CONFIG_COUNT",
+            "GIT_CONFIG_PARAMETERS",
+        )
+    ):
+        raise ValueError("Runtime policy cleanup refuses inherited Git overrides")
+    path = owned_policy_directory(".image-policy")
+    acquisition = runtime_acquisition_module()
+    acquisition.qualified_policy_identity(path)
+    shutil.rmtree(path)
+    if acquisition.command(["git", "status", "--porcelain=v1", "-z", "--untracked-files=all"]):
+        raise ValueError("Build source is not clean after qualified policy removal")
 
 
 def verify_runtime_build_files(runtime_image: str) -> None:
@@ -150,8 +208,8 @@ def verify_bindings(runtime_image: str, postgres_image: str | None = None) -> di
     verify_runtime_build_files(runtime_image)
     bindings = {"runtime_image": runtime_image, "platform": "linux/amd64"}
     if postgres_image is not None:
-        require_immutable(postgres_image)
-        environment = dict(os.environ, RUNTIME_BASE_IMAGE=runtime_image)
+        require_recovery_postgres_image(postgres_image)
+        environment = dict(os.environ, RUNTIME_BASE_IMAGE=runtime_image, RECOVERY_POSTGRES_IMAGE=postgres_image)
         for key in (
             "COMPOSE_FILE",
             "COMPOSE_PROFILES",
@@ -190,9 +248,12 @@ def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--runtime-image", required=True)
     parser.add_argument("--postgres-image")
+    parser.add_argument("--remove-runtime-policy", action="store_true")
     args = parser.parse_args(argv)
     try:
         bindings = verify_bindings(args.runtime_image, args.postgres_image)
+        if args.remove_runtime_policy:
+            remove_owned_runtime_policy()
     except (
         ValueError,
         OSError,

@@ -19,6 +19,18 @@ claims are backed by repo-native checks including `make check`, API/docs contrac
 status tests, resilience tests, and wiki source synchronization checks. Wiki source is authored in
 this repository and published after merge; unpublished drift is expected on feature branches.
 
+## Worker shutdown
+
+Compute and lineage module entrypoints handle `SIGTERM`/`SIGINT` through their existing stop
+event: wake an idle poll, finish the admitted leased batch, then exit before claiming another
+batch. Existing failures and lease/publication rules remain authoritative. Allow container stop
+grace for batch execution and dependency timeouts; the signal does not cancel in-flight work.
+Follow [worker shutdown before recovery](https://github.com/sgajbi/lotus-performance/blob/main/docs/runbooks/durable-metadata-recovery.md#worker-shutdown-before-recovery)
+before schema changes. Actual idle and controlled active-work Docker proof for both roles remains
+required under [issue669](https://github.com/sgajbi/lotus-performance/issues/669); unit evidence and
+known-idle forced termination do not establish deployed graceful shutdown. The optional retention
+worker is outside this change.
+
 ## Operator surface summary
 
 Portfolio source publication requires a qualified Linux volume with file/directory `fsync` and

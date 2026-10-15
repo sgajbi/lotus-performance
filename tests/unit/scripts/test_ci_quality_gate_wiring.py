@@ -276,6 +276,165 @@ def test_hosted_build_and_recovery_pass_trusted_admission_to_native_commands():
             assert artifact["with"]["path"] == "output/image-acquisition"
 
 
+def _assert_original_pg17_recovery(jobs, artifact_name):
+    admission = jobs["postgres17-admission"]
+    assert admission["steps"][0]["with"]["ref"] == image_bindings.RECOVERY_POLICY_REVISION
+    selected = next(step for step in admission["steps"] if step.get("id") == "admission")
+    assert (
+        "--acquisition-source original" in selected["run"] and "--allow-original-source-fallback" not in selected["run"]
+    )
+    assert selected["env"]["SOURCE_IMAGE"] == image_bindings.RECOVERY_POSTGRES_IMAGE
+    assert selected["env"]["DISTRIBUTION_IMAGE"] == image_bindings.RECOVERY_POSTGRES_IMAGE.replace(
+        "docker.io", "public.ecr.aws/docker"
+    )
+    job = jobs["lineage-volume-recovery"]
+    assert {"python-admission", "postgres17-admission"} <= set(job["needs"])
+    assert not job.get("continue-on-error")
+    steps = job["steps"]
+    runtime_checkout = next(step for step in steps if step.get("name") == "Checkout qualified acquisition policy")
+    assert runtime_checkout["with"]["ref"] == "df4da3bda773e9d0103b3a396d58110f49489ebc"
+    assert runtime_checkout["with"]["path"] == ".image-policy"
+    acquire = next(step for step in steps if step.get("name") == "Acquire selected runtime config and layers")
+    runtime_upload = next(step for step in steps if step.get("name") == "Preserve runtime acquisition evidence")
+    cleanup = next(step for step in steps if step.get("name") == "Remove verified runtime policy before build")
+    policy = next(step for step in steps if step.get("name") == "Checkout qualified PG17 content policy")
+    workload = next(step for step in steps if step.get("run") == "make lineage-volume-recovery-smoke")
+    proof_upload = next(step for step in steps if step.get("with", {}).get("name") == artifact_name)
+    assert [steps.index(step) for step in (acquire, runtime_upload, cleanup, policy, workload, proof_upload)] == sorted(
+        steps.index(step) for step in (acquire, runtime_upload, cleanup, policy, workload, proof_upload)
+    )
+    assert (
+        cleanup["run"]
+        == 'python scripts/ci_image_bindings_gate.py --runtime-image "$RUNTIME_IMAGE" --remove-runtime-policy'
+    )
+    assert not cleanup.get("continue-on-error") and "if" not in cleanup
+    assert policy["with"] == {
+        "repository": "sgajbi/lotus-platform",
+        "ref": image_bindings.RECOVERY_POLICY_REVISION,
+        "persist-credentials": False,
+        "path": "output/pg17-image-policy",
+    }
+    assert workload["env"] == {
+        "RUNTIME_BASE_IMAGE": "${{ needs.python-admission.outputs.image }}",
+        "RECOVERY_POSTGRES_IMAGE": "${{ needs.postgres17-admission.outputs.image }}",
+    }
+    assert not workload.get("continue-on-error") and "if" not in workload
+    assert proof_upload["if"] == "always()" and proof_upload["with"]["path"] == "output/pg17-service-content.json"
+    assert proof_upload["with"]["if-no-files-found"] == "error" and not proof_upload.get("continue-on-error")
+
+
+@pytest.mark.parametrize(
+    "workflow,artifact",
+    [("pr-merge-gate.yml", "pr-pg17-service-content"), ("main-releasability.yml", "main-pg17-service-content")],
+)
+def test_original_pg17_recovery_wiring_preserves_policy_order_selection_and_mandatory_artifact(workflow, artifact):
+    _assert_original_pg17_recovery(yaml.safe_load(_workflow_text(workflow))["jobs"], artifact)
+
+
+@pytest.mark.parametrize(
+    "damage",
+    [
+        "pin",
+        "selection",
+        "dependency",
+        "df4",
+        "early-checkout",
+        "late-checkout",
+        "cleanup",
+        "soft-cleanup",
+        "policy-path",
+        "dropped-selection",
+        "optional-artifact",
+        "missing-artifact",
+    ],
+)
+def test_original_pg17_wiring_control_refuses_effective_contract_mutations(damage):
+    jobs = yaml.safe_load(_workflow_text("pr-merge-gate.yml"))["jobs"]
+    admission = jobs["postgres17-admission"]
+    job = jobs["lineage-volume-recovery"]
+    steps = job["steps"]
+    policy = next(step for step in steps if step.get("name") == "Checkout qualified PG17 content policy")
+    cleanup = next(step for step in steps if step.get("name") == "Remove verified runtime policy before build")
+    upload = next(step for step in steps if step.get("with", {}).get("name") == "pr-pg17-service-content")
+    if damage == "pin":
+        admission["steps"][0]["with"]["ref"] = "main"
+    elif damage == "selection":
+        selected = next(step for step in admission["steps"] if step.get("id") == "admission")
+        selected["run"] = selected["run"].replace("--acquisition-source original", "")
+    elif damage == "dependency":
+        job["needs"].remove("postgres17-admission")
+    elif damage == "df4":
+        next(step for step in steps if step.get("name") == "Checkout qualified acquisition policy")["with"]["ref"] = (
+            image_bindings.RECOVERY_POLICY_REVISION
+        )
+    elif damage in {"early-checkout", "late-checkout"}:
+        steps.remove(policy)
+        steps.insert(0, policy) if damage == "early-checkout" else steps.append(policy)
+    elif damage == "cleanup":
+        steps.remove(cleanup)
+    elif damage == "soft-cleanup":
+        cleanup["continue-on-error"] = True
+    elif damage == "policy-path":
+        policy["with"]["path"] = ".pg17-image-policy"
+    elif damage == "dropped-selection":
+        next(step for step in steps if step.get("run") == "make lineage-volume-recovery-smoke")["env"].pop(
+            "RECOVERY_POSTGRES_IMAGE"
+        )
+    elif damage == "optional-artifact":
+        upload["with"]["if-no-files-found"] = "ignore"
+    else:
+        steps.remove(upload)
+    with pytest.raises((AssertionError, StopIteration)):
+        _assert_original_pg17_recovery(jobs, "pr-pg17-service-content")
+
+
+def test_late_policy_checkout_is_excluded_from_git_and_docker_build_custody():
+    assert "output/" in (ROOT / ".gitignore").read_text().splitlines()
+    assert "output" in (ROOT / ".dockerignore").read_text().splitlines()
+    for workflow in ("pr-merge-gate.yml", "main-releasability.yml"):
+        jobs = yaml.safe_load(_workflow_text(workflow))["jobs"]
+        for name in ("lineage-volume-recovery", "container-supply-chain-evidence"):
+            steps = jobs[name]["steps"]
+            upload = next(step for step in steps if step.get("name") == "Preserve runtime acquisition evidence")
+            cleanup = next(step for step in steps if step.get("name") == "Remove verified runtime policy before build")
+            build = next(
+                step
+                for step in steps
+                if step.get("name")
+                in {"Prove non-root restart recovery", "Build image and generate container evidence"}
+            )
+            assert steps.index(upload) < steps.index(cleanup) < steps.index(build)
+
+
+@pytest.mark.parametrize("origin", ["environment", "command-line"])
+def test_recovery_make_preserves_raw_postgres_values_until_pre_docker_refusal(origin):
+    marker = "RECOVERY_RAW_EXPANSION_MUST_NOT_RUN"
+    hostile = f"$(info {marker})unapproved"
+    env = dict(os.environ)
+    argv = ["make", "--no-print-directory", "lineage-volume-recovery-smoke"]
+    if origin == "environment":
+        env["RECOVERY_POSTGRES_IMAGE"] = hostile
+    else:
+        argv.append("RECOVERY_POSTGRES_IMAGE=" + hostile)
+    result = subprocess.run(argv, cwd=ROOT, env=env, capture_output=True, text=True)
+    assert result.returncode != 0 and "exact original PG17" in result.stderr
+    assert marker not in result.stdout.splitlines() and hostile in result.stdout
+
+
+@pytest.mark.parametrize("origin", ["default", "environment", "command-line"])
+def test_recovery_make_passes_exact_original_postgres_argument_without_docker(origin):
+    env = dict(os.environ)
+    env.pop("RECOVERY_POSTGRES_IMAGE", None)
+    argv = ["make", "--no-print-directory", "-n", "lineage-volume-recovery-smoke"]
+    if origin == "environment":
+        env["RECOVERY_POSTGRES_IMAGE"] = image_bindings.RECOVERY_POSTGRES_IMAGE
+    elif origin == "command-line":
+        argv.append("RECOVERY_POSTGRES_IMAGE=" + image_bindings.RECOVERY_POSTGRES_IMAGE)
+    result = subprocess.run(argv, cwd=ROOT, env=env, capture_output=True, text=True, check=True)
+    tokens = shlex.split(result.stdout)
+    assert tokens[tokens.index("--postgres-image") + 1] == image_bindings.RECOVERY_POSTGRES_IMAGE
+
+
 def test_container_supply_chain_preserves_provenance_and_scan_artifacts():
     docker_build_target = _makefile_target_definition("docker-build")
     evidence_target = _makefile_target_definition("container-supply-chain-evidence")
