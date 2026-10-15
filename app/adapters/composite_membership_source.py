@@ -9,7 +9,7 @@ from pydantic import ValidationError
 
 from app.adapters.manage_composite_eligibility_evidence import ManageCompositeEligibilityEvidence, manage_read_headers
 from app.core.config import get_settings
-from app.models.composite_authority import ManageCompositeDefinitionV2, decode_authority_json
+from app.models.composite_authority import decode_authority_json, decode_governed_definition
 from app.models.composite_materialization import CompositeMaterializationCommand
 from app.services.composite_materialization.source_contract import (
     PinnedCompositeSource,
@@ -33,7 +33,7 @@ def composite_response_payload(response):
         json.loads(response.text, object_pairs_hook=observe_versions)
     except ValueError:
         return payload
-    if payload.get("product_name") == "CompositeDefinition" and "v2" in versions:
+    if payload.get("product_name") == "CompositeDefinition" and any(version in {"v2", "v3"} for version in versions):
         try:
             return decode_authority_json(response.text)
         except ValueError as exc:
@@ -101,7 +101,7 @@ class ManageCompositeMembershipSource:
             return payload
 
         definition = await read(prefix)
-        strict_wire = definition.get("product_version") == "v2"
+        strict_wire = definition.get("product_version") in {"v2", "v3"}
         membership = await read(
             prefix + "/membership/" + quote(command.membership_revision, safe=""), strict_wire=strict_wire
         )
@@ -115,8 +115,8 @@ class ManageCompositeMembershipSource:
         )
         try:
             published_eligibility = None
-            if definition.get("product_version") == "v2":
-                typed = ManageCompositeDefinitionV2.model_validate(definition)
+            if definition.get("product_version") in {"v2", "v3"}:
+                typed = decode_governed_definition(definition)
                 if (
                     typed.source_authority.payload.eligibility_evaluation_binding.product_name
                     == "CompositeSubjectEvaluationApproval"

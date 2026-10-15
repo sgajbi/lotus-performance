@@ -142,16 +142,7 @@ class CompositeAuthorityPayload(AuthorityWire):
 
     @model_validator(mode="after")
     def canonical_collections(self) -> CompositeAuthorityPayload:
-        if date.fromisoformat(self.effective_to) < date.fromisoformat(self.effective_from):
-            raise ValueError("Profile interval is inverted")
-        for values, key in (
-            (self.member_identities, "member_id"),
-            (self.providers, "provider_id"),
-            (self.selections, "selection_id"),
-        ):
-            ids = [getattr(value, key) for value in values]
-            if ids != sorted(set(ids)):
-                raise ValueError("Authority identities must be sorted and unique")
+        _require_canonical_authority_collections(self)
         return self
 
 
@@ -234,11 +225,7 @@ class ManageCompositeDefinitionV2(AuthorityWire):
 
     @model_validator(mode="after")
     def canonical_dates(self) -> ManageCompositeDefinitionV2:
-        start = date.fromisoformat(self.inception_date)
-        if self.termination_date is not None and date.fromisoformat(self.termination_date) < start:
-            raise ValueError("Definition interval is inverted")
-        datetime.strptime(self.created_at, "%Y-%m-%dT%H:%M:%S.%fZ")
-        datetime.strptime(self.authority_approval.claims.approved_at, "%Y-%m-%dT%H:%M:%S.%fZ")
+        _require_canonical_definition_dates(self)
         return self
 
     def performance_definition(self):
@@ -258,3 +245,121 @@ class ManageCompositeDefinitionV2(AuthorityWire):
                 }
             )
         )
+
+
+class ControlledScenarioSubjectApprovalBinding(AuthorityWire):
+    product_name: Literal["CompositeSubjectEvaluationApproval"]
+    product_version: Literal["v3"]
+    revision: Identifier
+    digest: Digest
+
+
+class ControlledScenarioAuthorityPayloadV3(AuthorityWire):
+    """Separate scenario wire: legacy authority payloads never admit this binding."""
+
+    product_name: Literal["CompositeSourceAuthority"]
+    product_version: Literal["v3"]
+    profile_id: Identifier
+    profile_revision: Identifier
+    tenant_id: Identifier
+    composite_id: Identifier
+    effective_from: BusinessDate
+    effective_to: BusinessDate
+    mode: Literal["INTERNAL", "EXTERNAL", "HYBRID"]
+    definition_owner: Literal["lotus-manage"]
+    membership_owner: Literal["lotus-manage"]
+    publisher: Literal["lotus-manage"]
+    materialization_owner: Literal["lotus-performance"]
+    calculation_owner: Literal["lotus-performance"]
+    member_identities: list[MemberIdentity] = Field(min_length=1, max_length=1000)
+    providers: list[AuthorityProvider] = Field(min_length=1, max_length=16)
+    selections: list[AuthoritySelection] = Field(min_length=2, max_length=256)
+    eligibility_evaluation_binding: ControlledScenarioSubjectApprovalBinding
+    return_method_binding: EvidenceBinding
+
+    @model_validator(mode="after")
+    def canonical_collections(self) -> ControlledScenarioAuthorityPayloadV3:
+        _require_canonical_authority_collections(self)
+        return self
+
+
+class ControlledScenarioAuthorityProfileV3(AuthorityWire):
+    payload: ControlledScenarioAuthorityPayloadV3
+    profile_digest: Digest
+
+
+class ControlledScenarioDefinitionV3(AuthorityWire):
+    """Controlled definition version, with no institutional approval alternative."""
+
+    product_name: Literal["CompositeDefinition"]
+    product_version: Literal["v3"]
+    tenant_id: Identifier
+    composite_id: Identifier
+    definition_version: Identifier
+    display_name: Annotated[str, Field(strict=True, min_length=1, max_length=256)]
+    strategy_code: Identifier
+    reporting_currency: Annotated[str, Field(strict=True, pattern=r"^[A-Z]{3}$")]
+    inception_date: BusinessDate
+    termination_date: BusinessDate | None
+    calculation_method: Literal["ASSET_WEIGHTED"]
+    eligibility_policy_version: Identifier
+    source_authority: ControlledScenarioAuthorityProfileV3
+    created_at: Instant
+    created_by: Identifier
+    correlation_id: Identifier
+    definition_payload_digest: Digest
+    authority_approval: SyntheticAuthorityApproval
+    content_hash: Digest
+
+    @model_validator(mode="after")
+    def canonical_dates(self) -> ControlledScenarioDefinitionV3:
+        _require_canonical_definition_dates(self)
+        return self
+
+    def performance_definition(self):
+        from app.models.composite_controlled_scenario_definition import ControlledScenarioCompositeDefinition
+
+        return ControlledScenarioCompositeDefinition.model_validate(
+            self.model_dump(
+                include={
+                    "composite_id",
+                    "display_name",
+                    "strategy_code",
+                    "reporting_currency",
+                    "inception_date",
+                    "termination_date",
+                    "calculation_method",
+                    "source_authority",
+                }
+            )
+        )
+
+
+GovernedCompositeDefinition = ManageCompositeDefinitionV2 | ControlledScenarioDefinitionV3
+
+
+def decode_governed_definition(payload: dict[str, Any]) -> GovernedCompositeDefinition:
+    if (payload.get("product_name"), payload.get("product_version")) == ("CompositeDefinition", "v3"):
+        return ControlledScenarioDefinitionV3.model_validate(payload)
+    return ManageCompositeDefinitionV2.model_validate(payload)
+
+
+def _require_canonical_authority_collections(value: Any) -> None:
+    if date.fromisoformat(value.effective_to) < date.fromisoformat(value.effective_from):
+        raise ValueError("Profile interval is inverted")
+    for values, key in (
+        (value.member_identities, "member_id"),
+        (value.providers, "provider_id"),
+        (value.selections, "selection_id"),
+    ):
+        ids = [getattr(item, key) for item in values]
+        if ids != sorted(set(ids)):
+            raise ValueError("Authority identities must be sorted and unique")
+
+
+def _require_canonical_definition_dates(value: Any) -> None:
+    start = date.fromisoformat(value.inception_date)
+    if value.termination_date is not None and date.fromisoformat(value.termination_date) < start:
+        raise ValueError("Definition interval is inverted")
+    datetime.strptime(value.created_at, "%Y-%m-%dT%H:%M:%S.%fZ")
+    datetime.strptime(value.authority_approval.claims.approved_at, "%Y-%m-%dT%H:%M:%S.%fZ")

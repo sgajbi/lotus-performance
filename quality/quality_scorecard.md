@@ -85,13 +85,23 @@ unchanged. Native complexity remains max8/zero D-F with average maintainability5
 These combined source/collection measurements preserve final #669 truth and the reviewed #633
 synthetic deployment; they do not establish native candidate, PostgreSQL, container or financial acceptance.
 
-Current Docker delivery measurement (2026-10-15, #633, exact base `3cf37781`): native baseline
+Historical Docker delivery measurement (2026-10-15, #633, exact base `3cf37781`): native baseline
 generation records 1,056 Python files, 36 package markers, 308,818 Python lines, 471 test modules
 and 9,773 collected cases. AST inventory records 5,581 source functions, including 1,117 API/runtime,
 260 contract/governance, 787 observability/readiness, 469 quality/security, 3,231 analytics-domain
 and 558 uncategorized functions. Family counts overlap; policy bounds and production code are
 unchanged. The opt-in overlay, model and loader/credential controls do not establish Docker
 mount/startup, upstream source, READY candidate or financial acceptance.
+
+Current controlled scenario consumer measurement (2026-10-15, #633, exact base `6b70e75e`):
+native baseline generation records 1,062 Python files, 36 package markers, 309,933 Python lines,
+474 test modules and 9,838 collected cases. AST inventory records 5,605 functions, including
+1,117 API/runtime, 272 contract/governance, 787 observability/readiness, 469 quality/security,
+3,255 analytics-domain and 558 uncategorized functions. Native complexity remains max8/zero D-F
+with average maintainability55.08; shared validators remove five duplicate groups without changing
+legacy schemas. Family counts overlap and policy bounds remain unchanged. These are source and
+offline collection measurements; the actual adapter/ledger refusal and replay proof supplies no
+missing provider observations, COMPLETE financial candidate or live source qualification.
 
 This document is the first before/after quality scorecard for the performance hardening stream.
 It is intended to track measurable quality posture change over refactor phases, where the same
@@ -103,13 +113,13 @@ metrics in each section are updated with each meaningful slice.
 
 | Metric | Baseline | Current | Delta | Status | Evidence |
 | --- | ---: | ---: | ---: | --- | --- |
-| Python files | 480 | 1056 | 576 | measured | `quality/baseline_report.md`; `quality/refactor_health_report.md` |
+| Python files | 480 | 1062 | 582 | measured | `quality/baseline_report.md`; `quality/refactor_health_report.md` |
 | Python package markers | 18 | 36 | 18 | measured | `quality/baseline_report.md`; `quality/refactor_health_report.md` |
-| Python LOC | 104,454 | 308,818 | 204,364 | measured | `quality/baseline_report.md`; `quality/refactor_health_report.md` |
+| Python LOC | 104,454 | 309,933 | 205,479 | measured | `quality/baseline_report.md`; `quality/refactor_health_report.md` |
 | Largest Python file LOC | 2,399 | 4,447 | 2,048 | measured | `quality/baseline_report.md`; `quality/refactor_health_report.md` |
 | Largest production file LOC | 1,156 | 3,271 | 2,115 | measured | `quality/refactor_health_report.md`; `quality/architecture_boundary_inventory.md` |
-| Python test modules | 228 | 471 | 243 | measured | `quality/baseline_report.md`; `quality/refactor_health_report.md` |
-| Collected tests | 2,035 | 9,773 | 7,738 | measured | `quality/baseline_report.md`; `quality/refactor_health_report.md` |
+| Python test modules | 228 | 474 | 246 | measured | `quality/baseline_report.md`; `quality/refactor_health_report.md` |
+| Collected tests | 2,035 | 9,838 | 7,803 | measured | `quality/baseline_report.md`; `quality/refactor_health_report.md` |
 | Duplicate code hotspots | 0 | 0 | 0 | enforced | `quality/duplicate_code_inventory.md`; `quality/refactor_health_report.md`; `make quality-duplicate-code-gate` |
 | Tracked local byproduct findings | unknown | 0 | n/a | enforced | `scripts/repository_hygiene_gate.py`; `make repository-hygiene-gate`; `quality/refactor_health_report.md` |
 
@@ -119,7 +129,7 @@ metrics in each section are updated with each meaningful slice.
 | --- | ---: | ---: | ---: | --- | --- |
 | Max cyclomatic complexity | unknown | 8 | n/a | enforced | `quality/complexity_inventory.md`; `quality/refactor_health_report.md`; `make quality-complexity-gate` |
 | High-complexity functions (D-F) | unknown | 0 | n/a | enforced | `quality/complexity_inventory.md`; `quality/refactor_health_report.md`; `make quality-complexity-gate` |
-| Average maintainability index | unknown | 55.15 | n/a | measured | `python scripts/python_complexity_inventory.py --limit 25`; `quality/refactor_health_report.md` |
+| Average maintainability index | unknown | 55.08 | n/a | measured | `python scripts/python_complexity_inventory.py --limit 25`; `quality/refactor_health_report.md` |
 | Largest functions by LOC | unknown | 169 | n/a | measured | `quality/function_size_inventory.md`; `quality/refactor_health_report.md`; `_create_sqlite_composite_fact_validation_guards(...)` remains the largest production function at `169` lines |
 
 ### Architecture
@@ -151,7 +161,7 @@ metrics in each section are updated with each meaningful slice.
 | Line coverage | unknown | 99.58% | n/a | measured | `quality/coverage_inventory.md`; `quality/refactor_health_report.md` |
 | Branch coverage | unknown | 98.00% | n/a | measured | `quality/coverage_inventory.md`; `quality/refactor_health_report.md`; `make branch-coverage-baseline` |
 | Integration/API/runtime test functions | unknown | 1117 | n/a | enforced | `quality/test_taxonomy_inventory.md`; `quality/refactor_health_report.md`; `make quality-test-taxonomy-gate` |
-| Contract/governance test functions | unknown | 260 | n/a | enforced | `quality/test_taxonomy_inventory.md`; `quality/refactor_health_report.md`; `make quality-test-taxonomy-gate` |
+| Contract/governance test functions | unknown | 272 | n/a | enforced | `quality/test_taxonomy_inventory.md`; `quality/refactor_health_report.md`; `make quality-test-taxonomy-gate` |
 | Uncategorized test functions | unknown | 558 | n/a | enforced ceiling | `quality/test_taxonomy_inventory.md`; `make quality-test-taxonomy-gate`; #619 exact adapter classification measures 558 and separately banks policy 558. |
 
 ### Security and Dependencies

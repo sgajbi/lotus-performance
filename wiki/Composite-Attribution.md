@@ -1,5 +1,7 @@
 # Composite Attribution
 
+## Current support posture
+
 Operators: [deployment composition and source dependencies](https://github.com/sgajbi/lotus-performance/blob/main/docs/operations/composite-attribution-deployment.md)
 cover the initial controlled synthetic profile. API and existing compute-worker startup share
 one bootstrap, with configured worker installation logging before claims. Actual container
@@ -17,9 +19,23 @@ Single-period Composite Brinson-Fachler analysis explains the arithmetic differe
 one retained READY Composite return and its historical benchmark through allocation,
 selection and interaction effects. Output is calculated analysis with original source evidence.
 
-**Availability:** source and financial-purpose authority defaults are unavailable. Signed
+**Current support posture:** source and financial-purpose authority defaults are unavailable. Signed
 controlled synthetic examples establish software behavior, not institutional approval, live
 supplier readiness or permission to publish an official result.
+
+## Controlled scenario source status
+
+The separate controlled scenario consumer uses definition/authority v3, policy/evaluation v3,
+actual-issued proof v2 and finalization/receipt v4 with dedicated subject-approval binding v3.
+Legacy exported schemas and hashes stay unchanged and reject that binding. Scenario dates are
+declared financial history; the proof verifies a scenario declaration at actual issuance and
+cannot certify an historical signature or institutional authority. The normal Manage adapter and
+materialization ledger retain the original typed graph and source products. Missing financial
+observations remain unavailable; source hashes do not manufacture returns or assets.
+The [materialization guide](https://github.com/sgajbi/lotus-performance/blob/main/docs/guides/composite_materialization.md#controlled-scenario-source-family)
+records the pinned, not-admitted producer candidate and offline admission/refusal/replay checks.
+Actual deployed-source qualification, COMPLETE financial candidate and live acceptance remain
+separate dependencies.
 
 ## Choose a reader path
 

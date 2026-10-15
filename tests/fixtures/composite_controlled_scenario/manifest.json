@@ -1,0 +1,31 @@
+{
+  "canonical_content_digests": {
+    "CompositeMembership.v1.controlled.json": "sha256:1b6b1080e95714058bfab655f04931d17f7664792e4017010356d7d95c5699b4",
+    "CompositeUniverseAttestation.v1.controlled.json": "sha256:ea3bad2b93d23d5a9e17a76ccb77341c0cb2643c8a2bc3bc1db4ce426d7a21de",
+    "refusal-vectors.json": "sha256:2eecf67a6be371a65e3fc64e0b359f66c8ef27b5d4fa92b2ef166d9feae09c82",
+    "schemas.json": "sha256:02b0e9f236f19ec96d47ebc6d60da88cb6cbf43cd63d26c9e99ee8815d27920a",
+    "valid-graph.json": "sha256:c334914aab282a494cfa6fe81cc537b75f306fdcf76e62a23605dbc3f1462afb"
+  },
+  "consumer_enablement": "NOT_ADMITTED",
+  "graph_content_hashes": {
+    "CompositeDefinition.v3": "sha256:ce1a6c94421bc706998af9a95197b023f97764cea5584dac21e2028de6daaf85",
+    "CompositeEligibilityFinalization.v4": "sha256:71444681e9c226928418216bfcaad5270155e9df456bb77216463117ac0c4983",
+    "CompositeEligibilityFinalizationReceipt.v4": "sha256:586e63585e4a5e64249acc7c271ff425a9032154e29d107a5553a641c32812ff",
+    "CompositeMembership.v1": "sha256:6f657d69bbf3236f1d5b4d85071b261b0e753e96ca52ddd69acc33e4c7614009",
+    "CompositeSubjectEvaluationApproval.v3": "sha256:5e92312a22b94fe42302a9688ed2308e1b97b3b23612e0d639e6c2aa2f331370",
+    "CompositeSubjectEvaluationProposal.v3": "sha256:9fbbf6e7240b06d21e93c71bce67bac365fe2763e5170714673f72abdfbbe266",
+    "CompositeSubjectPolicyApproval.v3": "sha256:c5fc036537586dfd4f9cf8a558a60025d8ae76b36ddf1955e375836b36ef0a7f",
+    "CompositeSubjectPolicyProposal.v3": "sha256:1691b93e774afabbe014ca2104b9a55e8f6c8583600e9f69ed58985f76beab8a",
+    "CompositeUniverseAttestation.v1": "sha256:77878f617ce19a117063b02ffcab3df81d56dccdd806893cbb10900802a25611"
+  },
+  "official_activation": "UNAVAILABLE",
+  "posture": "SYNTHETIC_NON_CERTIFYING",
+  "raw_file_sha256": {
+    "CompositeMembership.v1.controlled.json": "02b98d025c324a4e65d3258055b6675608bef5bb200a6ca9ba62811e03d184e5",
+    "CompositeUniverseAttestation.v1.controlled.json": "aed1cb15d22ad9b098f19b746dad91bc911bdf010e639771acfe02cb6dc83307",
+    "refusal-vectors.json": "067e9afb4d6b62ca800e32bd698add870e8a7e85bcce5c34a126edb1d27b66f3",
+    "schemas.json": "452e2e104eb2b01c8a7ece9ee9d23db081d45e82ea155fbd28e81865df956024",
+    "valid-graph.json": "0828e66f3bfb73b1671ebb9a5ef4e74822aa5f2f70a3d130c3cd3f835eed899f"
+  },
+  "source_base": "b3cd6411017bea22d5e21cfbb60de25ebd5431ba"
+}

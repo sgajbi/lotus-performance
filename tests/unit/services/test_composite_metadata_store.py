@@ -1834,6 +1834,35 @@ def test_composite_metadata_store_round_trips_definition_membership_and_fact(tmp
     assert counts.member_return_facts == 1
 
 
+def test_controlled_scenario_definition_roundtrips_without_broadening_legacy_dto(tmp_path):
+    from app.models.composite_authority import ControlledScenarioDefinitionV3
+    from app.models.composite_controlled_scenario_definition import ControlledScenarioCompositeDefinition
+    from tests.composite_controlled_scenario_helpers import graph
+
+    definition = ControlledScenarioDefinitionV3.model_validate(graph()["finalization"]["definition"])
+    retained = definition.performance_definition()
+    assert isinstance(retained, ControlledScenarioCompositeDefinition)
+    with pytest.raises(ValueError):
+        CompositeDefinition.model_validate(retained.model_dump(mode="json"))
+    store = _store(tmp_path)
+    try:
+        store.upsert_definition(retained, tenant_id="synthetic-tenant")
+        assert store.get_definition(retained.composite_id, tenant_id="test-tenant") is None
+        assert store.get_definition(_definition().composite_id) == _definition()
+        reopened = CompositeMetadataStore(str(store._engine.url))
+        try:
+            restored = reopened.get_definition(retained.composite_id, tenant_id="synthetic-tenant")
+            assert isinstance(restored, ControlledScenarioCompositeDefinition)
+            assert restored.model_dump(mode="json") == retained.model_dump(mode="json")
+            assert restored.source_authority.payload.product_version == "v3"
+            assert restored.source_authority.payload.eligibility_evaluation_binding.product_version == "v3"
+            assert reopened.count_records(tenant_id="synthetic-tenant").member_return_facts == 0
+        finally:
+            reopened.close()
+    finally:
+        store.close()
+
+
 def test_composite_metadata_store_retains_immutable_versions_and_selects_latest_sequence(tmp_path):
     store = _store(tmp_path)
     first_fact = CompositeMemberReturnFact.model_validate(

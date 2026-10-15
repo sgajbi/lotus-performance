@@ -11,6 +11,44 @@ standard routing. `MANAGE_TIMEOUT_SECONDS` defaults to 10; source HTTP retries u
 need this source configuration. An absent URL retains source-unavailable progress; it is not
 successful live-source acceptance.
 
+## Controlled scenario source family
+
+The configured Manage adapter also recognizes the dedicated controlled scenario family:
+`CompositeDefinition:v3`, `CompositeSourceAuthority:v3`, subject policy/evaluation products
+at v3, `CompositeHistoricalPolicyVerificationRequest:v2` and its v2 proof, and
+`CompositeEligibilityFinalization:v4` / `CompositeEligibilityFinalizationReceipt:v4`.
+Its eligibility binding is exactly `CompositeSubjectEvaluationApproval:v3`. Existing v1/v2
+definitions and historical v2/v3 graphs keep their original schemas and hashes; their authority
+types cannot admit this new binding. Version labels cannot substitute for the complete typed graph.
+
+This family is synthetic and non-certifying. Scenario proposal/approval dates describe the
+declared financial scenario; `actual_issued_at` describes the current issuance of that declaration.
+`VERIFIED_AT_ACTUAL_ISSUANCE` / `SCENARIO_DECLARATION_AT_ACTUAL_ISSUANCE` do not attest an
+historical signature. The signed operation request, independent principals/keys, mapping, bounded
+admission interval and independently verified outer source receipts must all agree. Institutional
+qualification and official activation remain unavailable. Original retained proof is checked
+against its original admission interval, rather than reissued at replay time.
+
+The ordinary adapter reads the exact definition, membership and universe products and resolves
+the exact approval binding. Materialization retains their original wires, full receipt and
+dedicated definition type through the existing ledger and metadata store. Missing provider
+observations still refuse; pinned hashes alone cannot create member returns or assets. Model-fee
+and FX extensions retain their existing supported-family boundaries.
+
+The pinned producer candidate in `tests/fixtures/composite_controlled_scenario/` has receipt raw
+SHA256 `0828e66f3bfb73b1671ebb9a5ef4e74822aa5f2f70a3d130c3cd3f835eed899f`, with separately pinned
+original membership and universe companions. Its manifest says `NOT_ADMITTED`; test trust is
+explicit software-only registration. From this repository root, PowerShell or Bash can run:
+
+```text
+python -m pytest tests/unit/models/test_composite_controlled_scenario_contract.py tests/unit/adapters/test_composite_controlled_scenario_consumer.py tests/unit/services/test_composite_controlled_scenario_materialization.py -q
+```
+
+These offline checks execute the real HTTP adapter through a socket-free mock transport and
+test-owned SQLite stores. They prove typed admission, refusal and durable replay; they do not
+establish deployed Manage acceptance, observation availability, a COMPLETE financial candidate,
+container startup or live qualification. Independent source integration remains a separate gate.
+
 ## API And Authority
 
 ### Periodic Model-Fee Materialization

@@ -203,24 +203,7 @@ class HistoricalMonthlyPolicyProposal(HashedEligibilityWire):
 
     @model_validator(mode="after")
     def present_admission(self) -> Self:
-        mapping = self.verification.mapping
-        _require(
-            (self.policy, self.attachments, self.eligibility_policy_version)
-            == (mapping.policy, mapping.attachments, mapping.eligibility_policy_version),
-            "COMPOSITE_HISTORICAL_POLICY_MAPPING_MISMATCH",
-        )
-        intent = authority_digest(
-            {"reference": mapping.reference.model_dump(mode="json"), "proposal_revision": self.proposal_revision}
-        )
-        _operation_binding(
-            self.verification,
-            operation="POLICY_PROPOSAL",
-            revision=self.proposal_revision,
-            actor=self.proposed_by,
-            instant=self.proposed_at,
-            intent=intent,
-            mapping=mapping,
-        )
+        require_mapped_policy_proposal(self)
         return self
 
 
@@ -236,17 +219,7 @@ class HistoricalMonthlyPolicyApproval(HashedEligibilityWire):
 
     @model_validator(mode="after")
     def current_independent_approval(self) -> Self:
-        _require(self.approved_by != self.proposal.proposed_by, "COMPOSITE_ELIGIBILITY_SELF_APPROVAL_FORBIDDEN")
-        _require(self.approved_at >= self.proposal.proposed_at, "COMPOSITE_ELIGIBILITY_CLOCK_MISMATCH")
-        _operation_binding(
-            self.verification,
-            operation="POLICY_APPROVAL",
-            revision=self.proposal.proposal_revision,
-            actor=self.approved_by,
-            instant=self.approved_at,
-            intent=self.proposal.content_hash,
-            mapping=self.proposal.verification.mapping,
-        )
+        require_mapped_policy_approval(self)
         return self
 
 
@@ -259,29 +232,7 @@ class HistoricalSubjectPolicyProposal(HashedEligibilityWire):
 
     @model_validator(mode="after")
     def historical_policy_links(self) -> Self:
-        policy = self.proposal.policy
-        _equal(
-            self.subject,
-            policy.scope,
-            ("tenant_id", "composite_id", "definition_version", "strategy_code"),
-            "COMPOSITE_SUBJECT_POLICY_SCOPE_MISMATCH",
-        )
-        _require(
-            (policy.month, self.proposal.eligibility_policy_version)
-            == (self.subject.month, self.subject.eligibility_policy_version),
-            "COMPOSITE_SUBJECT_POLICY_SCOPE_MISMATCH",
-        )
-        _require(
-            self.subject.universe.registry_binding in self.proposal.attachments,
-            "COMPOSITE_SUBJECT_REGISTRY_BINDING_MISMATCH",
-        )
-        _require(self.subject.created_at <= self.proposal.proposed_at, "COMPOSITE_ELIGIBILITY_CLOCK_MISMATCH")
-        _require(self.proposal.proposed_by == self.subject.created_by, "COMPOSITE_SUBJECT_MAKER_MISMATCH")
-        _require(
-            self.proposal.verification.mapping.reporting_currency == self.subject.reporting_currency,
-            "COMPOSITE_SUBJECT_POLICY_SCOPE_MISMATCH",
-        )
-        _outer_policy_verification(self.verification, self.subject, "proposal_content_hash", self.proposal.content_hash)
+        require_mapped_subject_policy(self)
         return self
 
 
@@ -341,23 +292,7 @@ class HistoricalSubjectEvaluationProposal(HashedEligibilityWire):
 
     @model_validator(mode="after")
     def historical_evaluation_links(self) -> Self:
-        require_subject_evaluation(self)
-        _require(self.proposed_at == self.evaluation.evaluated_at, "COMPOSITE_SUBJECT_EVALUATION_BINDING_MISMATCH")
-        _require(self.proposed_at >= self.policy_approval.approval.approved_at, "COMPOSITE_ELIGIBILITY_CLOCK_MISMATCH")
-        _require(
-            self.observations.evidence_class == "SYNTHETIC_UNQUALIFIED",
-            "COMPOSITE_SUBJECT_HISTORICAL_POLICY_POSTURE_UNAVAILABLE",
-        )
-        intent = authority_digest(self.model_dump(mode="json", exclude={"content_hash", "operation_verification"}))
-        _operation_binding(
-            self.operation_verification,
-            operation="EVALUATION_PROPOSAL",
-            revision=self.evaluation_revision,
-            actor=self.proposed_by,
-            instant=self.proposed_at,
-            intent=intent,
-            mapping=self.policy_approval.approval.proposal.verification.mapping,
-        )
+        require_mapped_subject_evaluation(self)
         return self
 
 
@@ -378,26 +313,7 @@ class HistoricalSubjectEvaluationApproval(HashedEligibilityWire):
 
     @model_validator(mode="after")
     def historical_evaluation_approval(self) -> Self:
-        require_subject_evaluation_approval(self)
-        expected_claims = authority_digest(
-            {
-                "purpose": "ELIGIBILITY_POLICY_EVALUATION",
-                "subject_content_hash": self.proposal.policy_approval.proposal.subject.content_hash,
-                "proposal_content_hash": self.proposal.content_hash,
-                "approved_by": self.approved_by,
-                "approved_at": self.approved_at,
-            }
-        )
-        _require(self.claims_digest == expected_claims, "COMPOSITE_SUBJECT_APPROVAL_CLAIMS_MISMATCH")
-        _operation_binding(
-            self.operation_verification,
-            operation="EVALUATION_APPROVAL",
-            revision=self.proposal.evaluation_revision,
-            actor=self.approved_by,
-            instant=self.approved_at,
-            intent=self.proposal.content_hash,
-            mapping=self.proposal.policy_approval.approval.proposal.verification.mapping,
-        )
+        require_mapped_subject_evaluation_approval(self)
         return self
 
 
@@ -442,3 +358,107 @@ class HistoricalSubjectFinalizationReceipt(HashedEligibilityWire):
             "COMPOSITE_SUBJECT_PUBLICATION_HASH_MISMATCH",
         )
         return self
+
+
+def require_mapped_policy_proposal(value):
+    mapping = value.verification.mapping
+    _require(
+        (value.policy, value.attachments, value.eligibility_policy_version)
+        == (mapping.policy, mapping.attachments, mapping.eligibility_policy_version),
+        "COMPOSITE_HISTORICAL_POLICY_MAPPING_MISMATCH",
+    )
+    intent = authority_digest(
+        {"reference": mapping.reference.model_dump(mode="json"), "proposal_revision": value.proposal_revision}
+    )
+    _operation_binding(
+        value.verification,
+        operation="POLICY_PROPOSAL",
+        revision=value.proposal_revision,
+        actor=value.proposed_by,
+        instant=value.proposed_at,
+        intent=intent,
+        mapping=mapping,
+    )
+
+
+def require_mapped_policy_approval(value):
+    _require(value.approved_by != value.proposal.proposed_by, "COMPOSITE_ELIGIBILITY_SELF_APPROVAL_FORBIDDEN")
+    _require(value.approved_at >= value.proposal.proposed_at, "COMPOSITE_ELIGIBILITY_CLOCK_MISMATCH")
+    _operation_binding(
+        value.verification,
+        operation="POLICY_APPROVAL",
+        revision=value.proposal.proposal_revision,
+        actor=value.approved_by,
+        instant=value.approved_at,
+        intent=value.proposal.content_hash,
+        mapping=value.proposal.verification.mapping,
+    )
+
+
+def require_mapped_subject_policy(value):
+    policy = value.proposal.policy
+    _equal(
+        value.subject,
+        policy.scope,
+        ("tenant_id", "composite_id", "definition_version", "strategy_code"),
+        "COMPOSITE_SUBJECT_POLICY_SCOPE_MISMATCH",
+    )
+    _require(
+        (policy.month, value.proposal.eligibility_policy_version)
+        == (value.subject.month, value.subject.eligibility_policy_version),
+        "COMPOSITE_SUBJECT_POLICY_SCOPE_MISMATCH",
+    )
+    _require(
+        value.subject.universe.registry_binding in value.proposal.attachments,
+        "COMPOSITE_SUBJECT_REGISTRY_BINDING_MISMATCH",
+    )
+    _require(value.subject.created_at <= value.proposal.proposed_at, "COMPOSITE_ELIGIBILITY_CLOCK_MISMATCH")
+    _require(value.proposal.proposed_by == value.subject.created_by, "COMPOSITE_SUBJECT_MAKER_MISMATCH")
+    _require(
+        value.proposal.verification.mapping.reporting_currency == value.subject.reporting_currency,
+        "COMPOSITE_SUBJECT_POLICY_SCOPE_MISMATCH",
+    )
+    _outer_policy_verification(value.verification, value.subject, "proposal_content_hash", value.proposal.content_hash)
+
+
+def require_mapped_subject_evaluation(value):
+    require_subject_evaluation(value)
+    _require(value.proposed_at == value.evaluation.evaluated_at, "COMPOSITE_SUBJECT_EVALUATION_BINDING_MISMATCH")
+    _require(value.proposed_at >= value.policy_approval.approval.approved_at, "COMPOSITE_ELIGIBILITY_CLOCK_MISMATCH")
+    _require(
+        value.observations.evidence_class == "SYNTHETIC_UNQUALIFIED",
+        "COMPOSITE_SUBJECT_HISTORICAL_POLICY_POSTURE_UNAVAILABLE",
+    )
+    intent = authority_digest(value.model_dump(mode="json", exclude={"content_hash", "operation_verification"}))
+    _operation_binding(
+        value.operation_verification,
+        operation="EVALUATION_PROPOSAL",
+        revision=value.evaluation_revision,
+        actor=value.proposed_by,
+        instant=value.proposed_at,
+        intent=intent,
+        mapping=value.policy_approval.approval.proposal.verification.mapping,
+    )
+
+
+def require_mapped_subject_evaluation_approval(value):
+    require_subject_evaluation_approval(value)
+    expected_claims = authority_digest(
+        {
+            "purpose": "ELIGIBILITY_POLICY_EVALUATION",
+            "subject_content_hash": value.proposal.policy_approval.proposal.subject.content_hash,
+            "proposal_content_hash": value.proposal.content_hash,
+            "approved_by": value.approved_by,
+            "approved_at": value.approved_at,
+        }
+    )
+    _require(value.claims_digest == expected_claims, "COMPOSITE_SUBJECT_APPROVAL_CLAIMS_MISMATCH")
+    _operation_binding(
+        value.operation_verification,
+        operation="EVALUATION_APPROVAL",
+        revision=value.proposal.evaluation_revision,
+        actor=value.approved_by,
+        instant=value.approved_at,
+        intent=value.proposal.content_hash,
+        mapping=value.proposal.policy_approval.approval.proposal.verification.mapping,
+    )

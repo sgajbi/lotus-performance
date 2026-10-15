@@ -14,7 +14,7 @@ import httpx
 from pydantic import ValidationError
 
 from app.core.config import get_settings
-from app.models.composite_authority import ManageCompositeDefinitionV2, decode_authority_json
+from app.models.composite_authority import decode_authority_json, decode_governed_definition
 from app.models.composite_eligibility_evidence import decode_eligibility_receipt
 from app.models.composite_materialization import CompositeMaterializationCommand
 from app.models.composite_monthly_eligibility_evidence import monthly_publication_binding
@@ -66,7 +66,7 @@ class ManageCompositeEligibilityEvidence:
             )
         try:
             verify_source_wire_hashes(command, definition, membership, attestation)
-            typed = ManageCompositeDefinitionV2.model_validate(definition)
+            typed = decode_governed_definition(definition)
             universe = ManageUniverseAttestation.model_validate(attestation)
             binding = monthly_publication_binding(
                 [item.model_dump() for item in universe.source_products], universe.source_cut_id

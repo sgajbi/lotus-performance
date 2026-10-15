@@ -1,0 +1,29 @@
+{
+  "affected_from": null,
+  "affected_to": null,
+  "composite_id": "synthetic-composite",
+  "content_hash": "sha256:6f657d69bbf3236f1d5b4d85071b261b0e753e96ca52ddd69acc33e4c7614009",
+  "correlation_id": "synthetic-subject",
+  "decided_at": "2026-10-15T08:58:00.170641Z",
+  "decided_by": "synthetic-checker",
+  "decisions": [
+    {
+      "approval_ref": "sha256:8711b8632a1756b8bce40061558c5bf41e2691cd88815227c3b560c463472418",
+      "discretionary": true,
+      "effective_from": "2026-09-01",
+      "effective_to": "2026-09-30",
+      "portfolio_id": "synthetic-member",
+      "reason_code": null,
+      "source_snapshot_id": "sha256:f6052a380116991f781046dec8d34c092f61039c62db00a2940e861023b373cc",
+      "status": "INCLUDED"
+    }
+  ],
+  "definition_version": "synthetic-definition",
+  "membership_revision": "historical.membership.r1",
+  "policy_version": "synthetic-policy",
+  "product_name": "CompositeMembership",
+  "product_version": "v1",
+  "source_cut_id": "synthetic-universe-cut",
+  "supersedes_membership_revision": null,
+  "tenant_id": "synthetic-tenant"
+}

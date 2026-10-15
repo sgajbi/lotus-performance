@@ -6,7 +6,7 @@ from typing import Any, NoReturn
 
 from pydantic import ValidationError
 
-from app.models.composite_authority import ManageCompositeDefinitionV2, authority_digest
+from app.models.composite_authority import GovernedCompositeDefinition, authority_digest
 from app.models.composite_currency_normalization import CompositeFXNormalizationSource, CompositeFXVerificationReceipt
 from app.ports import composite_currency_normalization as ports
 from core.errors import APIUnprocessableEntityError
@@ -40,7 +40,7 @@ def verification_request_digest(request: ports.CompositeFXVerificationRequest) -
 
 
 def require_fx_normalization_route(definition) -> None:
-    if isinstance(definition, ManageCompositeDefinitionV2) and definition.source_authority.payload.mode != "INTERNAL":
+    if isinstance(definition, GovernedCompositeDefinition) and definition.source_authority.payload.mode != "INTERNAL":
         _refuse("COMPOSITE_FX_AGGREGATE_METHOD_UNAVAILABLE")
 
 

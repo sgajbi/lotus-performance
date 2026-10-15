@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import NoReturn
 
-from app.models.composite_authority import ManageCompositeDefinitionV2
+from app.models.composite_authority import GovernedCompositeDefinition
 from app.models.composite_materialization import (
     CompositeMaterializationCommand,
     CompositeMaterializationState,
@@ -247,7 +247,7 @@ def _require_outcome_evidence(source, command, outcome, *, admitted_fx_source=No
 
         require_provider_member_evidence(source, command, outcome)
         return
-    if isinstance(source.definition, ManageCompositeDefinitionV2):
+    if isinstance(source.definition, GovernedCompositeDefinition):
         from app.services.composite_materialization.internal_authority_policy import require_internal_selection_bindings
 
         reference = next((ref for ref in command.member_calculations if ref.portfolio_id == outcome.portfolio_id), None)

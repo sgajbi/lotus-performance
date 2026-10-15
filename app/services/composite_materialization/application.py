@@ -14,7 +14,7 @@ from app.adapters.composite_membership_source import ManageCompositeMembershipSo
 from app.adapters.composite_provider_member_source import AuthorityCompositeMemberResultSource
 from app.core.application_responses import ApplicationHttpResponse
 from app.enterprise_authorization import authorize_privileged_read_request, authorize_write_request
-from app.models.composite_authority import ManageCompositeDefinitionV2
+from app.models.composite_authority import GovernedCompositeDefinition
 from app.models.composite_materialization import (
     CompositeMaterializationAcceptedResponse,
     CompositeMaterializationCommand,
@@ -260,7 +260,7 @@ def _default_member_source(source, command):
     # independently rechecks every v2 internal selection against that receipt.
     if command.model_fee_binding is not None:
         return RetainedCompositeMemberResultSource(currency_normalization_wire=source.currency_normalization_wire)
-    if source is not None and isinstance(source.definition, ManageCompositeDefinitionV2):
+    if source is not None and isinstance(source.definition, GovernedCompositeDefinition):
         return AuthorityCompositeMemberResultSource(
             source.definition,
             admitted_source=source,
