@@ -20,9 +20,10 @@ this assessment does not authorize production or qualify financial results.
 make container-supply-chain-evidence
 ```
 
-The target builds `lotus-performance:ci` from Dockerfile target `runtime` with non-secret Git SHA,
-branch, build timestamp, repository URL, CI run id, and image-digest metadata fields, generates a
-CycloneDX SBOM, and writes a high/critical container vulnerability report under
+Run the command from the repository root (on Windows, use the existing Git Bash Make setup with
+`MSYS_NO_PATHCONV=1`). The target builds `lotus-performance:ci` from Dockerfile target `runtime` with non-secret Git SHA,
+branch, build timestamp, repository URL, CI run id, and image-digest metadata fields, generates an
+inventory-only CycloneDX SBOM, and writes one retained high/critical container vulnerability report under
 `output/container-security/`. Runtime `GET /version` exposes the same support-safe metadata shape
 so operators can correlate a live service to OCI labels, SBOM, vulnerability, and provenance
 evidence.
@@ -76,7 +77,9 @@ recovery binary digest was not recoverable, so historical equivalence is unprove
 binds the actual child/config digests. Final hosted acquisition, recovery and release-image
 checks must qualify the new cohort; prior failed cohorts remain failed. The base supplier name
 and digest use OCI provenance labels separately from `lotus.image.base.distribution`.
-The existing Trivy vulnerability-database acquisition and acceptance behavior are preserved.
+Scanner/base pins and acceptance behavior are preserved. The report producer acquires the actual
+vulnerability DB into a unique ignored cache, captures its raw metadata and hashes, then uses that
+same DB read-only with `--skip-db-update` for the one vulnerability analysis.
 
 The retained bounded application evidence in
 [#624](https://github.com/sgajbi/lotus-performance/issues/624#issuecomment-6041708068) covers committed
@@ -102,9 +105,13 @@ not financial source qualification or production certification.
 Pinning the base does not make the final build deterministic: the existing `apt-get upgrade`
 refresh and dependency resolution still depend on package repositories at build time. Bind each
 final image/config, source tree, dependency inventory, SBOM and verdict report to that actual build.
-The existing native SBOM command explicitly enables vulnerability analysis, so one SBOM plus one
-HIGH/CRITICAL report performs two analyses. The acceptance verdict reads the retained report;
-this base change does not repair scan-count orchestration or create readiness evidence.
+Historical Main `b7de3b30dfa37fd66c027720d530d1cc18c11bbe` ran two vulnerability-enabled analyses:
+CycloneDX plus HIGH/CRITICAL JSON. Its accepted Main run `38858467603` judged the retained JSON,
+but did not capture a DB binary hash or metadata artifact. Do not relabel that DB as the assessed
+`bf1f…` DB or present its SBOM as inventory-only. The successor producer removes the SBOM scanner
+override, as supported by [Trivy 0.71.2](https://github.com/aquasecurity/trivy/blob/v0.71.2/pkg/flag/options.go#L456-L473),
+and records one HIGH/CRITICAL analysis with its actual before/after DB hashes. Its own native and
+hosted image proof is required; the completed b7 release is not rerun or reinterpreted.
 
 Build identity fields:
 
@@ -128,6 +135,20 @@ Generated artifacts:
 | --- | --- | --- |
 | `output/container-security/lotus-performance-image-sbom.cdx.json` | CycloneDX SBOM for the production `runtime` image stage. | Ignored generated evidence; uploaded by PR/Main workflows. |
 | `output/container-security/lotus-performance-image-vulnerabilities.json` | Trivy vulnerability report scoped to `HIGH,CRITICAL`, **unfiltered**, so it contains the findings the blocking gate acts on. Fixability is read from each finding's own `FixedVersion` rather than a second filtered scan, so the gate cannot be told two different things about one image. | Ignored generated evidence; uploaded by PR/Main workflows. |
+| `output/container-security/lotus-performance-trivy-db-metadata.json` | Raw metadata from the actual DB used for that report: schema, UpdatedAt, NextUpdate and DownloadedAt. | Ignored generated evidence; uploaded by the existing JSON glob. |
+| `output/container-security/lotus-performance-scan-provenance.json` | Actual scanner/image/source/run identity, report hash, native operation exits and equal before/after DB binary/metadata hashes. A failed producer records failure rather than success. | Ignored generated evidence; uploaded by the existing JSON glob. |
+
+Here **unfiltered** means no advisory/package/suppression filtering within the existing
+HIGH/CRITICAL policy; the severity filter and acceptance gate are unchanged. Inventory extraction,
+DB download-only and vulnerability analysis are three operations, with only the last enabling
+vulnerability analysis. `scripts/container_scan_evidence.py` records producer completion separately
+from the acceptance verdict. Missing/malformed inputs, native failure, wrong source/run/platform
+or scanner identity, and changed DB bytes fail the producer. It invalidates only its fixed prior
+report/metadata/provenance outputs and uses a fresh cache; other output files are preserved.
+The ignored cache remains until runner teardown or owned output cleanup. The JSON upload does not
+archive the DB binary, establish replayability, invent its OCI digest or impose a new freshness
+threshold. Root operates local Docker proof; focused producer tests use synthetic files and mocked
+native operations. Each successor PR/Main build must qualify its own actual artifacts and gate.
 
 The PR Merge Gate and Main Releasability Gate publish those artifacts. Main Releasability also
 attests SBOM provenance through GitHub artifact attestations using

@@ -342,17 +342,21 @@ container-supply-chain-evidence: container-sbom container-vulnerability-report
 
 container-sbom: docker-build
 	python -c "from pathlib import Path; Path('$(CONTAINER_SECURITY_OUTPUT_DIR)').mkdir(parents=True, exist_ok=True)"
-	docker run --rm --platform linux/amd64 -v /var/run/docker.sock:/var/run/docker.sock -v "$(CURDIR)/$(CONTAINER_SECURITY_OUTPUT_DIR):/output" $(call shellquote,$(TRIVY_IMAGE)) image --scanners vuln --format cyclonedx --output /output/lotus-performance-image-sbom.cdx.json $(CONTAINER_IMAGE)
+	docker run --rm --platform linux/amd64 -v /var/run/docker.sock:/var/run/docker.sock -v "$(CURDIR)/$(CONTAINER_SECURITY_OUTPUT_DIR):/output" $(call shellquote,$(TRIVY_IMAGE)) image --format cyclonedx --output /output/lotus-performance-image-sbom.cdx.json $(CONTAINER_IMAGE)
 
 container-vulnerability-report: docker-build
-	python -c "from pathlib import Path; Path('$(CONTAINER_SECURITY_OUTPUT_DIR)').mkdir(parents=True, exist_ok=True)"
-	docker run --rm --platform linux/amd64 -v /var/run/docker.sock:/var/run/docker.sock -v "$(CURDIR)/$(CONTAINER_SECURITY_OUTPUT_DIR):/output" $(call shellquote,$(TRIVY_IMAGE)) image --scanners vuln --severity $(TRIVY_SEVERITY) --format json --output /output/lotus-performance-image-vulnerabilities.json --exit-code 0 $(CONTAINER_IMAGE)
+	python scripts/container_scan_evidence.py --image $(call shellquote,$(CONTAINER_IMAGE)) \
+		--scanner $(call shellquote,$(TRIVY_IMAGE)) --severity $(call shellquote,$(TRIVY_SEVERITY)) \
+		--output-dir $(call shellquote,$(CONTAINER_SECURITY_OUTPUT_DIR)) \
+		--source $(call shellquote,$(CONTAINER_GIT_SHA)) --run-id $(call shellquote,$(CONTAINER_CI_PIPELINE_RUN_ID))
 
-# One scan decides everything. The evidence artifact, the acceptance validation and the
+# One vulnerability analysis decides everything. Inventory-only SBOM and DB download
+# are separate operations; the report producer binds the actual DB before/after hashes.
+# The evidence artifact, the acceptance validation and the
 # blocking verdict previously ran three separate `docker run --rm` invocations with no
 # shared cache, so a vulnerability-database update between them could make the uploaded
 # artifact omit the finding that failed the job. The report target produces the single
-# unfiltered snapshot; this gate reads it and decides.
+# HIGH/CRITICAL snapshot without advisory/package/suppression filtering; this gate reads it and decides.
 #
 # --ignore-unfixed is deliberately absent: unfixable advisories are accepted explicitly
 # in quality/container_vulnerability_acceptances.v1.json, with owner, expiry, package

@@ -585,8 +585,23 @@ Important validation expectations:
     It does not qualify pending composite changes or prove four-role readiness. Its unchanged
     report still has 44 HIGH findings across eight expired Debian OS advisory acceptances,
     zero CRITICAL findings and a failing native acceptance verdict. No acceptance or expiry
-    change follows from the interpreter fix. The existing SBOM recipe enables vulnerability
-    analysis too; SBOM plus report means two analyses, with acceptance reading the retained report.
+    change follows from the interpreter fix. Historical Main b7/run38858467603 enabled vulnerability
+    analysis for both SBOM and report and did not capture DB metadata/hash. Preserve that boundary.
+    The successor SBOM is inventory-only, with no explicit scanner override. The report delegates
+    to `scripts/container_scan_evidence.py`: a fresh ignored cache, DB download-only, raw metadata
+    and binary/metadata hashes, then one HIGH/CRITICAL analysis with `--skip-db-update` and a
+    read-only DB bind. Before/after hashes must match. Existing severity, report path, build
+    prerequisites, workflows and direct same-report acceptance remain unchanged. Missing/malformed
+    input, native failure or mismatched scanner/platform/source/run identity fails the producer;
+    producer completion is not acceptance. Two extra JSON artifacts retain actual metadata and
+    scan provenance through the existing upload glob, without archiving the DB binary or claiming
+    replayability/OCI DB identity. Caches remain ignored until runner teardown or owned cleanup.
+    Producer tests use synthetic DB/report files and mocked subprocesses. Composition checks group
+    all explicit goals per Make invocation, count direct command segments and fail clearly on
+    unsupported Make/shell forms. Their native GNU Make oracle executes harmless markers only;
+    neither test family runs Docker or scanners.
+    Root owns local Docker proof; each successor's native and natural PR/Main artifacts must bind
+    its own actual image/source/DB. Do not relabel assessed bf1f or b7's uncaptured DB as that DB.
     The [October 16 #624 individual technical decisions](https://github.com/sgajbi/lotus-performance/issues/624#issuecomment-6208242609)
     bind clean signed source `5af5f3cafff55a8baf3ed42ae9033ebb0256dcdf` and exact image/index
     `sha256:903d0ba002dd1bc2160ab7fd9c0e44455690bf36d08c8d2ac32b9a152bbe3880` to all 44 unchanged
