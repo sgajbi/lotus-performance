@@ -987,6 +987,16 @@ Important validation expectations:
 
 When editing current quality reports, run `python -m pytest tests/unit/docs/test_public_docs_contract.py -q --no-cov` from the repository root using the governed Performance virtual-environment interpreter.
 
+### Repository practice for container-producer changes
+
+After final producer/Make wiring or test edits, run `make quality-baseline` and bare
+`make quality-baseline-check` from the repository root, then synchronize current curated baseline
+restatements. The check set includes both complete legacy modules
+`tests/unit/scripts/test_blocking_gates_are_invoked.py` and
+`tests/unit/scripts/test_ci_quality_gate_wiring.py`, alongside the owning producer/composition,
+acceptance, public-doc and curated-report tests. Assert moved arguments at their actual producer
+boundary; passing focused new tests does not establish legacy wiring or baseline freshness.
+
 ### Repository practice for isolated returns-series worker tests
 
 The resolved-stateful returns-series worker fixture owns a schema-created `LineageMetadataStore`

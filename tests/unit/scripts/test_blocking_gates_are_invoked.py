@@ -17,6 +17,8 @@ evidence that anything was enforced.
 
 from __future__ import annotations
 
+import ast
+from contextlib import nullcontext
 from pathlib import Path
 
 import pytest
@@ -103,7 +105,23 @@ def test_the_license_gate_runs_in_a_governed_lane(workflow_name: str) -> None:
     )
 
 
-def test_one_scan_produces_the_evidence_and_the_verdict() -> None:
+@pytest.mark.parametrize(
+    "bad",
+    [
+        None,
+        "exit",
+        "format",
+        "output",
+        "severity",
+        "scanner",
+        "filter",
+        "filter-file",
+        "filter-file-joined",
+        "scanner-duplicate-joined",
+        "format-duplicate-joined",
+    ],
+)
+def test_one_scan_produces_the_evidence_and_the_verdict(bad: str | None) -> None:
     """The evidence and the verdict must come from the same snapshot.
 
     Three separate `docker run --rm` invocations previously stood behind one
@@ -120,8 +138,79 @@ def test_one_scan_produces_the_evidence_and_the_verdict() -> None:
     report = _makefile_target("container-vulnerability-report")
     gate = _makefile_target("container-vulnerability-gate")
 
-    assert "--exit-code 0" in report, "the scan itself must not decide; the gate does"
-    assert "lotus-performance-image-vulnerabilities.json" in report
+    assert "python scripts/container_scan_evidence.py" in report
+    # Make delegates the scanner arguments. Inspect the producer's actual argument
+    # list, with no imports, scanner execution or general Make/shell interpretation.
+    source = (ROOT / "scripts" / "container_scan_evidence.py").read_text(encoding="utf-8")
+    mutations = {
+        "exit": ('"--exit-code",\n            "0"', '"--exit-code",\n            "1"'),
+        "format": ('"--format",\n            "json"', '"--format",\n            "cyclonedx"'),
+        "output": ('REPORT_NAME = "lotus-performance-image-vulnerabilities.json"', 'REPORT_NAME = "other.json"'),
+        "severity": ('"--severity",\n            severity', '"--severity",\n            "LOW"'),
+        "scanner": ('"--scanners",\n            "vuln"', '"--scanners",\n            "secret"'),
+        "filter": ('"--skip-db-update",', '"--ignore-unfixed", "--skip-db-update",'),
+        "filter-file": ('"--skip-db-update",', '"--ignorefile", "/tmp/ignore", "--skip-db-update",'),
+        "filter-file-joined": ('"--skip-db-update",', '"--ignorefile=/tmp/ignore", "--skip-db-update",'),
+        "scanner-duplicate-joined": ('"--skip-db-update",', '"--scanners=secret", "--skip-db-update",'),
+        "format-duplicate-joined": ('"--skip-db-update",', '"--format=cyclonedx", "--skip-db-update",'),
+    }
+    if bad:
+        original, replacement = mutations[bad]
+        assert original in source, "the bad control must change the actual producer source"
+        source = source.replace(original, replacement, 1)
+
+    with pytest.raises(AssertionError) if bad else nullcontext():
+        module = ast.parse(source)
+        report_name = next(
+            node.value.value
+            for node in module.body
+            if isinstance(node, ast.Assign)
+            and any(isinstance(target, ast.Name) and target.id == "REPORT_NAME" for target in node.targets)
+        )
+        assert report_name == "lotus-performance-image-vulnerabilities.json"
+        produce = next(node for node in module.body if isinstance(node, ast.FunctionDef) and node.name == "produce")
+        assignments = [
+            node
+            for node in ast.walk(produce)
+            if isinstance(node, ast.Assign)
+            and any(isinstance(target, ast.Name) and target.id == "command" for target in node.targets)
+        ]
+        assert len(assignments) == 1
+        expression = assignments[0].value
+        assert isinstance(expression, ast.BinOp) and isinstance(expression.op, ast.Add)
+        assert isinstance(expression.right, ast.List)
+        bindings = {"severity": "HIGH,CRITICAL", "image": "contract:ci"}
+        arguments = []
+        for item in expression.right.elts:
+            if isinstance(item, ast.Constant):
+                assert isinstance(item.value, str)
+                arguments.append(item.value)
+            elif isinstance(item, ast.Name):
+                assert item.id in bindings
+                arguments.append(bindings[item.id])
+            else:
+                assert isinstance(item, ast.JoinedStr) and len(item.values) == 2
+                prefix, value = item.values
+                assert isinstance(prefix, ast.Constant) and prefix.value == "/output/"
+                assert isinstance(value, ast.FormattedValue) and isinstance(value.value, ast.Name)
+                assert value.value.id == "REPORT_NAME"
+                arguments.append(prefix.value + report_name)
+        # Joined long options must not hide suppression or duplicate scanner flags.
+        option_names = [argument.split("=", 1)[0] for argument in arguments if argument.startswith("--")]
+        for flag, value in {
+            "--exit-code": "0",  # The producer retains findings; the gate decides.
+            "--format": "json",
+            "--output": f"/output/{report_name}",
+            "--scanners": "vuln",
+            "--severity": "HIGH,CRITICAL",
+        }.items():
+            assert option_names.count(flag) == 1 and flag in arguments and arguments[arguments.index(flag) + 1] == value
+        assert "--skip-db-update" in arguments and arguments[-1] == "contract:ci"
+        assert not {"--ignore-unfixed", "--ignore-status", "--ignorefile", "--ignore-policy", "--vex"} & set(
+            option_names
+        )
+
+    assert "lotus-performance-image-vulnerabilities.json" in gate
     assert "container-vulnerability-report" in gate, (
         "the gate must consume the scan the report produced, or it judges the current image "
         "by whatever report happens to be on disk"
