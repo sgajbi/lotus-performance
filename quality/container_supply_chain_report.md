@@ -145,10 +145,13 @@ vulnerability analysis. `scripts/container_scan_evidence.py` records producer co
 from the acceptance verdict. Missing/malformed inputs, native failure, wrong source/run/platform
 or scanner identity, and changed DB bytes fail the producer. It invalidates only its fixed prior
 report/metadata/provenance outputs and uses a fresh cache; other output files are preserved.
-The ignored cache remains until runner teardown or owned output cleanup. The JSON upload does not
-archive the DB binary, establish replayability, invent its OCI digest or impose a new freshness
-threshold. Root operates local Docker proof; focused producer tests use synthetic files and mocked
-native operations. Each successor PR/Main build must qualify its own actual artifacts and gate.
+On success or failure, it attempts to remove only the newly allocated cache and records
+`cache_cleanup` in provenance. Cleanup failure makes an otherwise successful scan fail; an earlier
+primary error retains precedence. The report, raw DB metadata and provenance remain available when
+produced. The JSON upload does not archive the DB binary, establish replayability, invent its OCI
+digest or impose a new freshness threshold. Root operates local Docker proof; focused producer
+tests use synthetic files and mocked native operations. Each successor PR/Main build must qualify
+its own actual artifacts and gate.
 
 The PR Merge Gate and Main Releasability Gate publish those artifacts. Main Releasability also
 attests SBOM provenance through GitHub artifact attestations using
