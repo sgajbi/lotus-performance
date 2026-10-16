@@ -5,6 +5,7 @@ import re
 import shlex
 import subprocess
 import tomllib
+from contextlib import nullcontext
 from pathlib import Path
 
 import pytest
@@ -435,7 +436,22 @@ def test_recovery_make_passes_exact_original_postgres_argument_without_docker(or
     assert tokens[tokens.index("--postgres-image") + 1] == image_bindings.RECOVERY_POSTGRES_IMAGE
 
 
-def test_container_supply_chain_preserves_provenance_and_scan_artifacts():
+@pytest.mark.parametrize(
+    "bad",
+    [
+        None,
+        "delegate",
+        "duplicate",
+        "image",
+        "scanner",
+        "severity",
+        "output",
+        "filter",
+        "filter-file",
+        "filter-file-joined",
+    ],
+)
+def test_container_supply_chain_preserves_provenance_and_scan_artifacts(bad: str | None):
     docker_build_target = _makefile_target_definition("docker-build")
     evidence_target = _makefile_target_definition("container-supply-chain-evidence")
     sbom_target = _makefile_target_definition("container-sbom")
@@ -471,9 +487,42 @@ def test_container_supply_chain_preserves_provenance_and_scan_artifacts():
     assert "--platform linux/amd64" in docker_build_target
     assert "--format cyclonedx" in sbom_target
     assert "lotus-performance-image-sbom.cdx.json" in sbom_target
-    assert "--format json" in vulnerability_report_target
-    assert "lotus-performance-image-vulnerabilities.json" in vulnerability_report_target
-    assert "--exit-code 0" in vulnerability_report_target
+    # The scanner format/exit/report contract belongs to the producer and is
+    # exercised by the blocking-gate and producer tests. This boundary must pass
+    # the selected image, scanner, severity, output and build identity intact.
+    producer = "python scripts/container_scan_evidence.py"
+    mutations = {
+        "delegate": (producer, "python scripts/other.py"),
+        "duplicate": (producer, producer + " && " + producer),
+        "image": ("$(CONTAINER_IMAGE)", "other:ci"),
+        "scanner": ("$(TRIVY_IMAGE)", "other:scanner"),
+        "severity": ("$(TRIVY_SEVERITY)", "LOW"),
+        "output": ("$(CONTAINER_SECURITY_OUTPUT_DIR)", "other-output"),
+        "filter": (producer, producer + " --ignore-unfixed"),
+        "filter-file": (producer, producer + " --ignorefile /tmp/ignore"),
+        "filter-file-joined": (producer, producer + " --ignorefile=/tmp/ignore"),
+    }
+    candidate_report_target = vulnerability_report_target
+    if bad:
+        original, replacement = mutations[bad]
+        assert original in candidate_report_target
+        candidate_report_target = candidate_report_target.replace(original, replacement, 1)
+    with pytest.raises(AssertionError) if bad else nullcontext():
+        assert candidate_report_target.count(producer) == 1
+        assert "docker run" not in candidate_report_target
+        for flag, variable in {
+            "--image": "CONTAINER_IMAGE",
+            "--scanner": "TRIVY_IMAGE",
+            "--severity": "TRIVY_SEVERITY",
+            "--output-dir": "CONTAINER_SECURITY_OUTPUT_DIR",
+            "--source": "CONTAINER_GIT_SHA",
+            "--run-id": "CONTAINER_CI_PIPELINE_RUN_ID",
+        }.items():
+            assert f"{flag} $(call shellquote,$({variable}))" in candidate_report_target
+        assert not re.search(
+            r"--(?:ignore-unfixed|ignore-status|ignorefile|ignore-policy|vex)\b", candidate_report_target
+        )
+    assert "lotus-performance-image-vulnerabilities.json" in vulnerability_gate_target
     # The verdict is no longer a Trivy exit code. Three separate scans previously stood
     # behind one answer -- the uploaded evidence, the acceptance validation and the
     # blocking decision -- so a database update between them could make the artifact omit
