@@ -1,7 +1,7 @@
 # Lotus Performance Test Taxonomy Inventory
 
 Report date: 2026-10-16
-Source: #608 unbound annual-profile candidate on exact base `53a50182694893ea799c450b07b28150a3bc4881`; collection and AST counts do not establish live acceptance.
+Source: #624 single-analysis candidate on exact base `b7de3b30dfa37fd66c027720d530d1cc18c11bbe`; AST counts do not establish test execution or live acceptance.
 Mode: regression-blocking test taxonomy inventory; `make quality-test-taxonomy-gate` enforces
 minimum API/runtime and contract/governance breadth plus the current uncategorized-test ceiling.
 
@@ -22,8 +22,8 @@ python scripts/python_test_taxonomy_inventory.py --limit 30 --min-api-runtime-te
 
 | Metric | Value |
 | --- | ---: |
-| Test modules inventoried | 474 |
-| Test functions inventoried | 5615 |
+| Test modules inventoried | 475 |
+| Test functions inventoried | 5627 |
 | Integration/API/runtime test functions | 1121 |
 | Contract/governance test functions | 273 |
 
@@ -34,7 +34,7 @@ python scripts/python_test_taxonomy_inventory.py --limit 30 --min-api-runtime-te
 | benchmarks | 22 | 208 |
 | e2e | 1 | 21 |
 | integration | 57 | 651 |
-| unit | 394 | 4735 |
+| unit | 395 | 4747 |
 
 ## Test Functions By Family
 
@@ -48,7 +48,7 @@ above does sum to it, because a module belongs to exactly one suite.
 | api_or_runtime | 1121 |
 | contract_or_governance | 273 |
 | observability_or_readiness | 787 |
-| quality_or_security | 469 |
+| quality_or_security | 481 |
 | uncategorized | 558 |
 
 ## Largest Test Modules
@@ -86,7 +86,16 @@ above does sum to it, because a module belongs to exactly one suite.
 | 29 | `tests/benchmarks/test_postgres_composite_materialization.py` | benchmarks | 36 | analytics_domain |
 | 30 | `tests/unit/models/test_workspace_summary_models.py` | unit | 36 | analytics_domain |
 
-## Current Annual Reporting-Review Measurement
+## Current Single-Analysis Measurement
+
+The #624 candidate on exact base `b7de3b30` measures 475 modules and 5,627 source test
+functions with `python scripts/python_test_taxonomy_inventory.py --limit 30`: 1,121 API/runtime,
+273 contract/governance, 787 observability/readiness, 481 quality/security, 3,265 analytics-domain
+and 558 uncategorized functions. The unit suite measures 395 modules and 4,747 functions.
+Family counts overlap; all policy bounds remain unchanged. These are AST measurements,
+separate from collected parametrized cases, executed tests and actual container evidence.
+
+## Historical Annual Reporting-Review Measurement
 
 The bounded #608 candidate on exact base `53a50182` records 1,062 Python files, 36 package markers,
 310,135 Python lines, 474 test modules and 9,855 collected cases. Native AST inventory records

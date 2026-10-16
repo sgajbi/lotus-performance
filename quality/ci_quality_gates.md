@@ -114,6 +114,19 @@ identity and bounded actual four-role evidence. The later acceptance/documentati
 requires its own protected final-image PR/Main evidence; maintenance accountability and synthetic
 runtime proof do not establish independent human review, institutional or financial approval.
 
+The #624 successor produces an inventory-only CycloneDX SBOM and exactly one retained
+HIGH/CRITICAL vulnerability analysis. `scripts/container_scan_evidence.py` first acquires an
+isolated DB, retains raw metadata and actual binary/metadata hashes, then analyses with the DB
+read-only and updates disabled. Equal before/after hashes, native exits and actual report/image/
+source/run/scanner identity are recorded in two additional JSON artifacts covered by existing
+uploads. Acquisition and inventory are not vulnerability analyses. The severity filter and
+acceptance gate/records remain unchanged; no advisory/package/suppression filtering is introduced.
+Missing/malformed evidence, native failure or changed DB inputs blocks production of complete
+provenance. The DB binary is not archived by the JSON glob, and no replayability or OCI DB digest
+is inferred. Historical accepted b7/run38858467603 performed two analyses and omitted DB metadata/
+hash; successor native and hosted proof must bind its own actual DB. Focused composition and
+producer tests include representative bad inputs without Docker; Root owns local Docker proof.
+
 | Phase | CI posture | Promotion standard |
 | --- | --- | --- |
 | Phase 0 - Inventory | Report-only artifacts track current facts and gaps | Measurement source is documented and reproducible locally. |
@@ -143,7 +156,7 @@ No gate should move from one phase to the next until it has:
 | mypy typecheck | Blocking in feature, PR, and main lanes | Keep blocking; expand typed boundary cleanup through normal refactor slices. |
 | Unit tests | Blocking in feature, PR, and main lanes | Keep blocking; add focused tests when refactoring hotspots. |
 | Integration and e2e tests | Blocking in PR and main lanes | Keep blocking at merge/release lanes; use targeted local subsets during slices. |
-| Test taxonomy | `make quality-test-taxonomy-gate` blocks loss of API/runtime and contract/governance breadth or growth above the declared 558 uncategorized ceiling. Current AST inventory: 474 modules, 5,615 source test functions, 1121 API/runtime, 273 contract/governance, 3,265 analytics-domain, and 558 uncategorized. | Daily-interval, MWR and annual reporting-review controls cover native APIs, retained materialization, source conflicts and separate reporting authority. Observed count and declared policy are separately sourced; breadth floors and uncategorized ceiling remain unchanged. |
+| Test taxonomy | `make quality-test-taxonomy-gate` blocks loss of API/runtime and contract/governance breadth or growth above the declared 558 uncategorized ceiling. Current AST inventory: 475 modules, 5,627 source test functions, 1121 API/runtime, 273 contract/governance, 3,265 analytics-domain, and 558 uncategorized. | Daily-interval, MWR and annual reporting-review controls cover native APIs, retained materialization, source conflicts and separate reporting authority. Observed count and declared policy are separately sourced; breadth floors and uncategorized ceiling remain unchanged. |
 | PostgreSQL behavioral contracts | Blocking in PR and main through combined coverage, which always requires successful matrix and isolated PostgreSQL job results. The native runner executes all fourteen DEFAULT_TARGETS with dynamic nonempty/no-skip/no-failure/error JUnit proof and neutralized inherited pytest selectors. Its separate shard joins the ordinary three only after exact inventory, revision/run-attempt and hash verification. Local proof: `make postgres-concurrency-contracts-local` from the repository root provisions the owned database; an explicit LOTUS_POSTGRES_PLAN_DATABASE_URL still wins. | Keep blocking. Missing or non-success proof cannot qualify coverage or downstream containers. Main repeats its own real database proof on the merged SHA; the per-revision dispatcher remains unchanged. |
 | License compliance | Blocking through `make license-compliance-gate`, which validates `contracts/license-compliance-policy.v1.json` against `quality/license_compliance_inventory.md`; current inventory covers 51 runtime, development and image packages, with 49 allowed packages, 2 review-required packages covered by active exceptions, 0 blocked packages, and 0 missing-exception findings. The image source is `requirements-image.txt`, a single governed manifest the Dockerfile and the development environment both install from, so a package the image ships cannot be absent from the inventory | Keep blocking. Regenerate with `python scripts/license_compliance_inventory.py --write` after dependency changes, and keep exceptions owner-bound and time-bound before release. |
 | Combined line coverage | Blocking at 99 percent in PR and main lanes; local full coverage runs use `make test-coverage`, split CI test jobs use `make test-coverage-shard`, and artifact aggregation uses `make coverage-combine-gate`; branch coverage is preserved separately by `make branch-coverage-baseline` evidence | Keep blocking and preserve the local coverage inventory as scorecard evidence. Do not embed raw pytest or coverage commands in workflow YAML for governed test lanes. |
@@ -182,10 +195,10 @@ checked by `test_current_inventory_prose_carries_no_stale_totals`, which normali
 compares every total the present-tense paragraph states. Historical baselines elsewhere in this
 document are intentionally outside that check.
 
-Current governed inventory: `quality/test_taxonomy_inventory.md` records 474 test modules, 5,615 source test functions, 1121 API/runtime test functions, 273 contract/governance test functions, and 558 uncategorized test functions.
-The full family summary is 474 modules, 5,615 source test functions, 1121 integration/API/runtime test functions, 273 contract/governance test functions, 787 observability/readiness test functions, 469 quality/security test functions, 3,265 analytics-domain test functions, and 558 uncategorized test functions.
-Measured source: #608 annual reporting-review candidate on exact base
-`53a50182694893ea799c450b07b28150a3bc4881`. The native
+Current governed inventory: `quality/test_taxonomy_inventory.md` records 475 test modules, 5,627 source test functions, 1121 API/runtime test functions, 273 contract/governance test functions, and 558 uncategorized test functions.
+The full family summary is 475 modules, 5,627 source test functions, 1121 integration/API/runtime test functions, 273 contract/governance test functions, 787 observability/readiness test functions, 481 quality/security test functions, 3,265 analytics-domain test functions, and 558 uncategorized test functions.
+Measured source: #624 single-analysis candidate on exact base
+`b7de3b30dfa37fd66c027720d530d1cc18c11bbe`. The native
 `python scripts/python_test_taxonomy_inventory.py --limit 30` inventory supplies these source-function
 counts; `make quality-test-taxonomy-gate` accepts them under the unchanged breadth floors and
 558 uncategorized ceiling. Source inventory and offline collection do not establish executed-test,

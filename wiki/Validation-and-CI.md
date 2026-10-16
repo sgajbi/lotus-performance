@@ -378,10 +378,21 @@ and creates `output/container-security/lotus-performance-image-vulnerabilities.j
 `GET /version` exposes the same support-safe metadata shape for release audit. PR Merge Gate and
 Main Releasability upload those artifacts. Main Releasability also attests SBOM provenance.
 
-The existing SBOM recipe explicitly enables vulnerability analysis, so the SBOM and HIGH/CRITICAL
-report perform two analyses. Acceptance consumes the retained HIGH/CRITICAL report; the base pin
-does not change this producer behavior or justify rerunning a report-producing target to judge
-previous evidence.
+The SBOM recipe is inventory-only: Trivy 0.71.2 disables security scanning for CycloneDX when the
+scanner option is unset. The report producer acquires an isolated DB, retains raw metadata and
+before/after DB hashes, and performs one HIGH/CRITICAL analysis using that read-only DB with
+`--skip-db-update`. Its additional `lotus-performance-trivy-db-metadata.json` and
+`lotus-performance-scan-provenance.json` artifacts are covered by the existing JSON upload glob.
+Producer completion is distinct from the acceptance verdict; native failure, missing/malformed
+inputs, image/source/run mismatch or changed DB bytes fail. The cache is ignored and ephemeral;
+the artifact retains a DB hash, not a DB binary archive or replayability claim.
+
+Historical Main b7 and run `38858467603` performed two vulnerability-enabled analyses and did not
+capture DB metadata/hash. That completed release remains historical evidence; neither its DB nor
+the assessed bf1f DB may be substituted for a successor's actual DB. New native/hosted proof is
+required for this producer. Acceptance still consumes the one retained HIGH/CRITICAL report,
+without advisory/package/suppression filtering. Preserve the severity, acceptance and expiry
+rules; do not rerun a report-producing target merely to judge previously uploaded evidence.
 
 `make container-vulnerability-gate` is blocking. It ran report-only until the first artifacts were
 reviewed,
