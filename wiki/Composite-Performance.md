@@ -438,8 +438,12 @@ Common blocked reasons:
 COMPLETE calendar-month materialization receipts. It links each historical full-year member's
 returns before measuring their cross-sectional spread. Select `EQUAL_WEIGHT_SAMPLE_STDDEV` or
 `YEAR_BEGIN_ASSET_WEIGHTED_POPULATION_STDDEV`; the weighted method uses positive January assets.
-Full-year member count and December member count are separate. Five or fewer full-year members
-can have an available number while presentation is not required for that small population.
+Full-year member count and December member count are separate. Five full-year members can have
+an available number. Generic analysis has no approved reporting-profile/provision binding, so
+every population requires profile review with `APPROVED_REPORTING_PROFILE_NOT_BOUND` as a separate
+reporting reason. Count alone grants no reporting exemption and does not change financial availability.
+Legacy applicability values remain readable; preserve captured original bodies/fingerprints.
+Fresh corrected reporting metadata creates a new result identity without changing the financial method.
 
 The synthetic six-member sample yields decimal dispersion `0.018708286934`; this is a tested
 example, not a qualified live portfolio. An original receipt vector remains replayable after a

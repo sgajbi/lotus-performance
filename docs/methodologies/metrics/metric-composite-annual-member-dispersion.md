@@ -48,7 +48,7 @@ Returns are decimal ratios: `0.01` means 1%. `value` is a decimal return ratio q
 
 `YEAR_BEGIN_ASSET_WEIGHTED_POPULATION_STDDEV`: `W = sum(A_i)`; `R_A = sum(A_i * R_i) / W`; `sigma_A = sqrt(sum(A_i * (R_i - R_A)^2) / W)`. Every selected member's assets must be finite and strictly positive. The registered method requires at least two members. No sample correction is applied to this named weighted population estimator.
 
-The [GIPS Standards Handbook for Firms](https://www.gipsstandards.org/standards/gips-standards-for-firms/gips-standards-handbook-for-firms/) distinguishes annual full-year-member internal dispersion (4.A.1.i), year-end portfolio count (4.A.1.f), and 36-month annualized time-series standard deviation (4.A.1.j). A full-year population of five or fewer gives `NOT_REQUIRED_SMALL_POPULATION`, independently of numerical computability. The response does not establish GIPS compliance, institutional methodology approval, or official publication eligibility.
+The [GIPS Standards Handbook for Firms](https://www.gipsstandards.org/standards/gips-standards-for-firms/gips-standards-handbook-for-firms/) distinguishes annual full-year-member internal dispersion (4.A.1.i), year-end portfolio count (4.A.1.f), and 36-month annualized time-series standard deviation (4.A.1.j). Reporting applicability requires the selected approved provision/profile context; the generic analytic request does not supply that authority. Every population therefore returns `REQUIRES_PROFILE_REVIEW` with the separate reason `APPROVED_REPORTING_PROFILE_NOT_BOUND`, independently of numerical computability. The response does not establish GIPS compliance, institutional methodology approval, an exemption or official publication eligibility. Legacy response values remain readable without conferring current authority; captured originals must not be rewritten.
 
 ## Step-by-Step Computation
 
@@ -96,7 +96,7 @@ The request selects either named estimator. Precision, quantum, complete-year re
 
 ## Outputs
 
-`value`, `unit=DECIMAL_RETURN`, `status`, and `reason_codes` express numerical computation. `full_year_member_count` and `year_end_member_count` express different populations. `reporting_applicability` signals presentation review. `publication_state=CALCULATED_ANALYSIS` and `qualification=RETAINED_SOURCE_ATTESTATION_NOT_LIVE_QUALIFIED` limit the evidence claim. `months`, `members`, `method_version`, and `result_fingerprint` provide replay provenance.
+`value`, `unit=DECIMAL_RETURN`, `status`, and `reason_codes` express numerical computation. `full_year_member_count` and `year_end_member_count` express different populations. `reporting_applicability` and its separate `reporting_applicability_reason` express reporting review without changing financial availability. `publication_state=CALCULATED_ANALYSIS` and `qualification=RETAINED_SOURCE_ATTESTATION_NOT_LIVE_QUALIFIED` limit the evidence claim. `months`, `members`, `method_version`, and `result_fingerprint` provide replay provenance. Corrected new reporting metadata participates in a new response fingerprint; unchanged financial method v1 does not authorize backfilling previously captured bodies or fingerprints.
 
 ## Worked Example
 
@@ -113,7 +113,7 @@ Synthetic OR11: six historical full-year members have January returns 1%, 2%, 3%
 
 Output mapping: `R_bar=0.035`; sum of squared deviations `=0.00175`; sample variance `=0.00175/5=7/20000`; response `value=0.018708286934` (about 1.8708286934 percentage points), `status=AVAILABLE`, `full_year_member_count=6`, `year_end_member_count=6`, and `reporting_applicability=REQUIRES_PROFILE_REVIEW`.
 
-If member 6 has an explicit June exclusion but returns in December, full-year count is five and December count is six. The valid population's `value=0.015811388301`, with `NOT_REQUIRED_SMALL_POPULATION`; the exclusion does not create a source failure.
+If member 6 has an explicit June exclusion but returns in December, full-year count is five and December count is six. The valid population's `value=0.015811388301`, with `status=AVAILABLE`, empty financial `reason_codes`, `REQUIRES_PROFILE_REVIEW` and reporting reason `APPROVED_REPORTING_PROFILE_NOT_BOUND`; the exclusion does not create a source failure or a reporting exemption.
 
 Weighted example: annual returns `0.01` and `0.06`, January assets `100` and `300`. `W=400`, `R_A=0.0475`; weighted squared-deviation sum `=0.1875`; variance `=0.1875/400=3/6400`; `value=0.021650635095`.
 

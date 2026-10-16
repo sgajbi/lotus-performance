@@ -106,8 +106,13 @@ issue-backed review. Unknown principals and repository-name placeholders fail. T
 does not replace package, severity, fixability, stale-record or expiry checks, or approve risk.
 Each exception also requires a decision reference, exposure, compensating controls and removal
 trigger. A nonfuture review date and a period of at most seven days bind expiry to reassessment;
-malformed dates and unsupported time bounds fail. See the October 8 #624 technical disposition
-for the current exact-image evidence and the limits of delegated delivery authority.
+malformed dates and unsupported time bounds fail. The
+[October 16 #624 individual technical decisions](https://github.com/sgajbi/lotus-performance/issues/624#issuecomment-6208242609)
+expire October 23 and bind assessed signed source `5af5f3c` and image `903d0ba` to 44 unchanged
+HIGH tuples across eight advisories, zero CRITICAL and no reported FixedVersion. The report retains exact scanner/DB/image
+identity and bounded actual four-role evidence. The later acceptance/documentation successor
+requires its own protected final-image PR/Main evidence; maintenance accountability and synthetic
+runtime proof do not establish independent human review, institutional or financial approval.
 
 | Phase | CI posture | Promotion standard |
 | --- | --- | --- |
@@ -138,7 +143,7 @@ No gate should move from one phase to the next until it has:
 | mypy typecheck | Blocking in feature, PR, and main lanes | Keep blocking; expand typed boundary cleanup through normal refactor slices. |
 | Unit tests | Blocking in feature, PR, and main lanes | Keep blocking; add focused tests when refactoring hotspots. |
 | Integration and e2e tests | Blocking in PR and main lanes | Keep blocking at merge/release lanes; use targeted local subsets during slices. |
-| Test taxonomy | `make quality-test-taxonomy-gate` blocks loss of API/runtime and contract/governance breadth or growth above the declared 558 uncategorized ceiling. Current AST inventory: 474 modules, 5,605 source test functions, 1117 API/runtime, 272 contract/governance, 3,255 analytics-domain, and 558 uncategorized. | Daily-interval and MWR source-admission controls cover native APIs, retained materialization and source conflicts. Observed count and declared policy are separately sourced; breadth floors and uncategorized ceiling remain unchanged. |
+| Test taxonomy | `make quality-test-taxonomy-gate` blocks loss of API/runtime and contract/governance breadth or growth above the declared 558 uncategorized ceiling. Current AST inventory: 474 modules, 5,615 source test functions, 1121 API/runtime, 273 contract/governance, 3,265 analytics-domain, and 558 uncategorized. | Daily-interval, MWR and annual reporting-review controls cover native APIs, retained materialization, source conflicts and separate reporting authority. Observed count and declared policy are separately sourced; breadth floors and uncategorized ceiling remain unchanged. |
 | PostgreSQL behavioral contracts | Blocking in PR and main through combined coverage, which always requires successful matrix and isolated PostgreSQL job results. The native runner executes all fourteen DEFAULT_TARGETS with dynamic nonempty/no-skip/no-failure/error JUnit proof and neutralized inherited pytest selectors. Its separate shard joins the ordinary three only after exact inventory, revision/run-attempt and hash verification. Local proof: `make postgres-concurrency-contracts-local` from the repository root provisions the owned database; an explicit LOTUS_POSTGRES_PLAN_DATABASE_URL still wins. | Keep blocking. Missing or non-success proof cannot qualify coverage or downstream containers. Main repeats its own real database proof on the merged SHA; the per-revision dispatcher remains unchanged. |
 | License compliance | Blocking through `make license-compliance-gate`, which validates `contracts/license-compliance-policy.v1.json` against `quality/license_compliance_inventory.md`; current inventory covers 51 runtime, development and image packages, with 49 allowed packages, 2 review-required packages covered by active exceptions, 0 blocked packages, and 0 missing-exception findings. The image source is `requirements-image.txt`, a single governed manifest the Dockerfile and the development environment both install from, so a package the image ships cannot be absent from the inventory | Keep blocking. Regenerate with `python scripts/license_compliance_inventory.py --write` after dependency changes, and keep exceptions owner-bound and time-bound before release. |
 | Combined line coverage | Blocking at 99 percent in PR and main lanes; local full coverage runs use `make test-coverage`, split CI test jobs use `make test-coverage-shard`, and artifact aggregation uses `make coverage-combine-gate`; branch coverage is preserved separately by `make branch-coverage-baseline` evidence | Keep blocking and preserve the local coverage inventory as scorecard evidence. Do not embed raw pytest or coverage commands in workflow YAML for governed test lanes. |
@@ -177,12 +182,19 @@ checked by `test_current_inventory_prose_carries_no_stale_totals`, which normali
 compares every total the present-tense paragraph states. Historical baselines elsewhere in this
 document are intentionally outside that check.
 
-Current governed inventory: `quality/test_taxonomy_inventory.md` records 474 test modules, 5,605 source test functions, 1117 API/runtime test functions, 272 contract/governance test functions, and 558 uncategorized test functions.
-The full family summary is 474 modules, 5,605 source test functions, 1117 integration/API/runtime test functions, 272 contract/governance test functions, 787 observability/readiness test functions, 469 quality/security test functions, 3,255 analytics-domain test functions, and 558 uncategorized test functions.
-Measured source: #633 controlled scenario consumer on exact base `6b70e75e`; thresholds and qualification claims are unchanged.
-The #633 opt-in Docker delivery measurement on qualified main `3cf37781` adds structural,
-loader and outbound-credential controls. These current counts do not qualify actual mounts,
-startup, native sources, a READY candidate or financial results; enforcement thresholds are unchanged.
+Current governed inventory: `quality/test_taxonomy_inventory.md` records 474 test modules, 5,615 source test functions, 1121 API/runtime test functions, 273 contract/governance test functions, and 558 uncategorized test functions.
+The full family summary is 474 modules, 5,615 source test functions, 1121 integration/API/runtime test functions, 273 contract/governance test functions, 787 observability/readiness test functions, 469 quality/security test functions, 3,265 analytics-domain test functions, and 558 uncategorized test functions.
+Measured source: #608 annual reporting-review candidate on exact base
+`53a50182694893ea799c450b07b28150a3bc4881`. The native
+`python scripts/python_test_taxonomy_inventory.py --limit 30` inventory supplies these source-function
+counts; `make quality-test-taxonomy-gate` accepts them under the unchanged breadth floors and
+558 uncategorized ceiling. Source inventory and offline collection do not establish executed-test,
+reporting-profile authority or live acceptance; qualification claims are unchanged.
+
+Historical #633 controlled scenario consumer provenance is exact base `6b70e75e`.
+The historical #633 opt-in Docker delivery measurement on qualified main `3cf37781` adds structural,
+loader and outbound-credential controls. Those historical source/mock controls do not qualify actual
+mounts, startup, native sources, a READY candidate or financial results; enforcement thresholds are unchanged.
 
 The historical bounded #669 addition retains fixed acquisition failure phases/reasons/classes/status and
 validated identities in fresh output, alongside qualified df4 HTTP diagnostics. Existing
@@ -207,7 +219,7 @@ establish a fresh remote 99% pass, supply-chain qualification, or installed-runt
 | --- | --- |
 | Baseline | GitHub Security settings show secret scanning and push protection enabled, but Dependabot alerts/security updates are disabled and CodeQL has no analysis. Repo scans showed Docker build gates without SBOM, image vulnerability, or attestation evidence. |
 | Failure mode addressed | A release lane could prove only image buildability while leaving buyers and operators without package inventory, high/critical vulnerability evidence, or provenance for the container image. |
-| Determinism | `make container-supply-chain-evidence` builds the pinned CI image name from Dockerfile target `runtime` and runs a pinned Trivy container image (`aquasec/trivy:0.71.2`) against Docker's local image store. Generated evidence is ignored source and uploaded as workflow artifacts. |
+| Determinism | `make container-supply-chain-evidence` builds the CI image from Dockerfile target `runtime` with the admitted immutable Python base and runs Trivy 0.71.2 at `ghcr.io/aquasecurity/trivy@sha256:f5d0e600ecda7449e2a9b272805aef698631d3bb3f3a739a750de2c6819acdc9` against Docker's local image store. Existing apt/dependency resolution remains time-dependent; bind each actual final source/image/report. Generated evidence is ignored source and uploaded as workflow artifacts. |
 | Lane placement | PR Merge Gate and Main Releasability after coverage, replacing raw `make docker-build` with `make container-supply-chain-evidence`. Main Releasability also attests the SBOM artifact. |
 | Exception policy | `make container-vulnerability-gate` is blocking with no `continue-on-error`. Exceptions are narrow, owner-bound and time-bound, recorded in `quality/container_vulnerability_acceptances.v1.json` with package identity, affected version, severity and remediation path, and validated against the same scan by `scripts/container_acceptance_gate.py`, which `make container-vulnerability-gate` runs, which refuses anything fixable, drifted, or expired. |
 | Focused tests | `tests/unit/scripts/test_ci_quality_gate_wiring.py` and `tests/unit/scripts/test_container_runtime_contract.py` prove Make targets, production runtime Dockerfile posture, Compose API/worker healthchecks, workflow artifact publication, and Main Releasability attestation wiring. |

@@ -30,6 +30,7 @@ def month_record(
     tenant="tenant-a",
     definition_label="Balanced composite",
     policy_version="policy.v1",
+    assets=None,
 ):
     start, end = date(2026, month, 1), date(2026, month, monthrange(2026, month)[1])
     products = deepcopy(source_products(tenant_id=tenant))
@@ -80,6 +81,7 @@ def month_record(
     for identity in identities:
         if identity in excluded:
             continue
+        beginning = Decimal((assets or {}).get(identity, "100"))
         calculation_id = uuid5(NAMESPACE_URL, f"annual-example/{tenant}/{membership['membership_revision']}/{identity}")
         ret = Decimal(identity) / 100 if month == 1 else Decimal(0)
         if corrected and identity == "1" and month == 1:
@@ -95,8 +97,8 @@ def month_record(
                     "metric_basis": "NET",
                     "analyses": [{"period": "EXPLICIT", "frequencies": ["daily"]}],
                     "valuation_points": [
-                        {"perf_date": start, "begin_mv": "100", "end_mv": "100"},
-                        {"perf_date": end, "begin_mv": "100", "end_mv": str(100 * (1 + ret))},
+                        {"perf_date": start, "begin_mv": str(beginning), "end_mv": str(beginning)},
+                        {"perf_date": end, "begin_mv": str(beginning), "end_mv": str(beginning * (1 + ret))},
                     ],
                 }
             )
@@ -113,6 +115,7 @@ def month_record(
                     "input_fingerprint": fingerprint,
                     "calculation_hash": calculation_hash,
                 },
+                beginning,
             )
         )
     command = type(command).model_validate(
@@ -126,12 +129,16 @@ def month_record(
                 portfolio_id=identity, state="EXCLUDED", reason_code="POLICY_EXCLUDED", retryable=False
             )
         )
-    for identity, ret, request, reference in prepared:
+    for identity, ret, request, reference, beginning in prepared:
         assets = PortfolioSourceAssetEvidence(
             portfolio_currency="USD",
             observations=[
-                {"valuation_date": start, "beginning_market_value": "100", "ending_market_value": "100"},
-                {"valuation_date": end, "beginning_market_value": "100", "ending_market_value": str(100 * (1 + ret))},
+                {"valuation_date": start, "beginning_market_value": beginning, "ending_market_value": beginning},
+                {
+                    "valuation_date": end,
+                    "beginning_market_value": beginning,
+                    "ending_market_value": beginning * (1 + ret),
+                },
             ],
         )
         evidence = CompositeMemberSourceEvidence.model_validate(
@@ -163,8 +170,8 @@ def month_record(
             period_start=start,
             period_end=end,
             return_value=ret,
-            beginning_market_value=100,
-            ending_market_value=100 * (1 + ret),
+            beginning_market_value=beginning,
+            ending_market_value=beginning * (1 + ret),
             reporting_currency="USD",
             calculation_id=str(reference["calculation_id"]),
             source_snapshot_id=generate_value_fingerprint(evidence, "composite-member-source.v1")[0],
@@ -234,7 +241,8 @@ def test_normal_partial_year_membership_changes_population_without_data_failure(
     assert result.status == "AVAILABLE"
     assert (result.year_end_member_count, result.full_year_member_count) == (6, 5)
     assert result.value == Decimal(".015811388301")
-    assert result.reporting_applicability == "NOT_REQUIRED_SMALL_POPULATION"
+    assert result.reporting_applicability == "REQUIRES_PROFILE_REVIEW"
+    assert result.reporting_applicability_reason == "APPROVED_REPORTING_PROFILE_NOT_BOUND"
 
 
 @pytest.mark.parametrize("count", [1, 2, 5, 6])
@@ -245,9 +253,8 @@ def test_population_computability_and_presentation_thresholds_are_separate(count
     )
     assert result.full_year_member_count == count
     assert result.year_end_member_count == count
-    assert result.reporting_applicability == (
-        "NOT_REQUIRED_SMALL_POPULATION" if count <= 5 else "REQUIRES_PROFILE_REVIEW"
-    )
+    assert result.reporting_applicability == "REQUIRES_PROFILE_REVIEW"
+    assert result.reporting_applicability_reason == "APPROVED_REPORTING_PROFILE_NOT_BOUND"
     if count == 1:
         assert result.value is None
         assert result.status == "UNAVAILABLE"
@@ -256,6 +263,46 @@ def test_population_computability_and_presentation_thresholds_are_separate(count
         assert result.value is not None
         assert result.status == "AVAILABLE"
         assert result.reason_codes == []
+
+
+def test_empty_full_year_population_keeps_financial_unavailability_separate_from_reporting_review():
+    records = year_records(count=2)
+    records[0] = month_record(1, count=2, excluded=("1",))
+    records[1] = month_record(2, count=2, excluded=("2",))
+    result = calculate_annual_member_dispersion(
+        annual_request(records), tenant_id="tenant-a", reader=MemoryReader(records)
+    )
+    assert result.value is None and result.status == "UNAVAILABLE"
+    assert result.reason_codes == ["ANNUAL_DISPERSION_INSUFFICIENT_MEMBERS"]
+    assert result.full_year_member_count == 0 and result.year_end_member_count == 2
+    assert result.members == []
+    assert result.reporting_applicability == "REQUIRES_PROFILE_REVIEW"
+    assert result.reporting_applicability_reason == "APPROVED_REPORTING_PROFILE_NOT_BOUND"
+
+
+def test_empty_monthly_release_remains_refused_without_annual_analysis():
+    records = year_records(count=1, excluded=("1",))
+    with pytest.raises(APIError) as refused:
+        calculate_annual_member_dispersion(annual_request(records), tenant_id="tenant-a", reader=MemoryReader(records))
+    assert refused.value.error_code == "COMPOSITE_MATERIALIZATION_RELEASE_EMPTY"
+
+
+def test_unequal_assets_preserve_weighted_financial_method_without_reporting_exemption():
+    records = year_records(count=3, excluded=("2",), assets={"1": "1", "3": "3"})
+    result = calculate_annual_member_dispersion(
+        annual_request(records, method="YEAR_BEGIN_ASSET_WEIGHTED_POPULATION_STDDEV"),
+        tenant_id="tenant-a",
+        reader=MemoryReader(records),
+    )
+    # Independently: mean=.025, variance=.25*(.01-.025)^2+.75*(.03-.025)^2=.000075.
+    assert result.value == Decimal("0.008660254038")
+    assert result.status == "AVAILABLE" and result.reason_codes == []
+    assert [(item.annual_return, item.year_begin_assets) for item in result.members] == [
+        (Decimal(".01"), Decimal(1)),
+        (Decimal(".03"), Decimal(3)),
+    ]
+    assert result.reporting_applicability == "REQUIRES_PROFILE_REVIEW"
+    assert result.reporting_applicability_reason == "APPROVED_REPORTING_PROFILE_NOT_BOUND"
 
 
 @pytest.mark.parametrize(

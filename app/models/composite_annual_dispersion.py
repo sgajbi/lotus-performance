@@ -2,7 +2,7 @@
 
 from datetime import date
 from decimal import Decimal
-from typing import Literal
+from typing import Annotated, Literal
 from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
@@ -99,7 +99,22 @@ class CompositeAnnualDispersionResponse(BaseModel):
     )
     full_year_member_count: int = Field(description="Member count included for every complete calendar month.")
     reporting_applicability: Literal["NOT_REQUIRED_SMALL_POPULATION", "REQUIRES_PROFILE_REVIEW"] = Field(
-        description="Provision-level presentation review signal, never methodology approval."
+        description="Reporting review signal; legacy small-population values remain readable and are not fresh approval.",
+        json_schema_extra={"example": "REQUIRES_PROFILE_REVIEW"},
+    )
+    reporting_applicability_reason: (
+        Annotated[
+            Literal["APPROVED_REPORTING_PROFILE_NOT_BOUND"],
+            Field(
+                description="Missing approved reporting-profile binding, separate from financial unavailability.",
+                json_schema_extra={"example": "APPROVED_REPORTING_PROFILE_NOT_BOUND"},
+            ),
+        ]
+        | None
+    ) = Field(
+        default=None,
+        description="Separate reporting-review reason. Absent on legacy responses; never a financial unavailability reason.",
+        examples=["APPROVED_REPORTING_PROFILE_NOT_BOUND"],
     )
     publication_state: Literal["CALCULATED_ANALYSIS"] = Field(
         default="CALCULATED_ANALYSIS", description="Analysis result requiring separate official publication controls."
@@ -117,3 +132,12 @@ class CompositeAnnualDispersionResponse(BaseModel):
     members: list[AnnualDispersionMember] = Field(
         description="Sorted qualifying annual member economics and evidence references."
     )
+
+    @model_validator(mode="after")
+    def reporting_review_reason_requires_review(self) -> "CompositeAnnualDispersionResponse":
+        if (
+            self.reporting_applicability_reason is not None
+            and self.reporting_applicability != "REQUIRES_PROFILE_REVIEW"
+        ):
+            raise ValueError("An unbound reporting profile requires profile review, not a reporting exemption")
+        return self

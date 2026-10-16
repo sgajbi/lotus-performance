@@ -3,11 +3,17 @@
 ## Current scope and decision evidence
 
 Container exceptions are reassessed against an exact image and retained scan. The
-[October 8 technical disposition](https://github.com/sgajbi/lotus-performance/issues/624#issuecomment-6058552287)
-expires October 15 and records per-advisory exposure, actual four-role privilege controls and
-release-block/removal triggers. The same-scan gate requires decision evidence and rejects
-future reviews or periods exceeding seven days. Repository accountability does not imply
-institutional approval or financial source qualification.
+[October 16 individual technical decisions](https://github.com/sgajbi/lotus-performance/issues/624#issuecomment-6208242609)
+expire October 23 and retain all 44 HIGH findings across eight advisories, with zero CRITICAL
+and no reported FixedVersion. They bind signed source `5af5f3cafff55a8baf3ed42ae9033ebb0256dcdf`
+and image/index `sha256:903d0ba002dd1bc2160ab7fd9c0e44455690bf36d08c8d2ac32b9a152bbe3880` to
+per-advisory exposure, actual four-role privilege controls and release-hold/removal triggers.
+The [live evidence review](https://github.com/sgajbi/lotus-performance/issues/624#issuecomment-6208259087)
+confirms synthetic startup/restart and storage access; it does not qualify graceful drain,
+financial processing or production readiness. The same-scan gate rejects future reviews or
+periods exceeding seven days. The later acceptance/documentation successor requires its own
+protected final-image PR/Main evidence. Repository accountability does not imply independent
+human review, institutional approval or financial source qualification.
 
 Use this page to map local proof, PR proof, and main-branch releasability evidence. The goal is to
 make quality measurable and repeatable, not to treat CI as a ceremonial final step.
@@ -349,12 +355,14 @@ custody despite Dockerfile `COPY . .`. Validation and cleanup failures retain th
 precedence. Source controls do not replace hosted build/security, PostgreSQL readiness, recovery
 or Root's live worker acceptance; previous failed cohorts remain failed.
 
-The bounded [#624 application qualification](https://github.com/sgajbi/lotus-performance/issues/624#issuecomment-6041708068)
+The historical bounded [#624 application qualification](https://github.com/sgajbi/lotus-performance/issues/624#issuecomment-6041708068)
 verified Python 3.11.17, bundled Expat 2.8.5, API/worker imports and isolated hardening for committed
 application `8292151fce69fd3b289492d8f1698561b32e3b53` plus an external FROM-only change. It does not
 qualify pending composite changes or prove four-role readiness. Its retained report still has
 44 HIGH Debian findings across eight expired advisory acceptances, zero CRITICAL findings, and
-a failing native acceptance verdict. No acceptance or expiry changes accompany the base pin.
+a failing native acceptance verdict. No acceptance or expiry changes accompanied that base pin.
+The October 16 assessment and individual decisions above use clean source `5af5f3c` and image `903d0ba`;
+the historical diagnostic does not supply their provenance or final-successor image evidence.
 See the [container supply-chain report](https://github.com/sgajbi/lotus-performance/blob/main/quality/container_supply_chain_report.md)
 for supplier provenance, exact image identity and proof limits.
 

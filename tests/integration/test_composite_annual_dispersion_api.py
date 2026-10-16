@@ -236,4 +236,67 @@ def test_registered_api_normal_exclusion_retains_computable_five_member_dispersi
     )
     assert response.status_code == 200
     assert response.json()["value"] == "0.015811388301"
-    assert response.json()["reporting_applicability"] == "NOT_REQUIRED_SMALL_POPULATION"
+    assert response.json()["reporting_applicability"] == "REQUIRES_PROFILE_REVIEW"
+    assert response.json()["reporting_applicability_reason"] == "APPROVED_REPORTING_PROFILE_NOT_BOUND"
+    assert response.json()["reason_codes"] == []
+
+
+@pytest.mark.parametrize("field", ["reporting_profile", "approved_reporting_profile", "reporting_applicability"])
+def test_registered_annual_api_refuses_caller_supplied_reporting_authority(annual_client, field):
+    client, records = annual_client
+    payload = {**annual_request(records).model_dump(mode="json"), field: "APPROVED"}
+    response = client.post("/performance/composites/analytics", json=payload, headers={"X-Tenant-Id": "tenant-a"})
+    assert response.status_code == 422
+    assert "value" not in response.json() and "members" not in response.json()
+
+
+@pytest.mark.parametrize("count,value", [(1, None), (5, "0.015811388301"), (6, "0.018708286934")])
+def test_registered_annual_api_reports_unbound_profile_separately_from_financial_availability(
+    annual_client, count, value
+):
+    client, records = annual_client
+    records[:] = year_records(count=count)
+    response = client.post(
+        "/performance/composites/analytics",
+        json=annual_request(records).model_dump(mode="json"),
+        headers={"X-Tenant-Id": "tenant-a"},
+    )
+    assert response.status_code == 200
+    data = response.json()
+    assert data["value"] == value
+    assert data["status"] == ("UNAVAILABLE" if count == 1 else "AVAILABLE")
+    assert data["reason_codes"] == (["ANNUAL_DISPERSION_INSUFFICIENT_MEMBERS"] if count == 1 else [])
+    assert data["full_year_member_count"] == data["year_end_member_count"] == count
+    assert data["reporting_applicability"] == "REQUIRES_PROFILE_REVIEW"
+    assert data["reporting_applicability_reason"] == "APPROVED_REPORTING_PROFILE_NOT_BOUND"
+
+
+def test_registered_retained_weighted_analysis_preserves_economics_without_reporting_authority(tmp_path):
+    records = year_records(count=3, excluded=("2",), assets={"1": "1", "3": "3"})
+    url = "sqlite:///" + (tmp_path / "weighted-unbound.db").as_posix()
+    persist_records(url, records)
+    previous = app.dependency_overrides.copy()
+    store = CompositeMaterializationStore(url)
+    app.dependency_overrides[get_annual_dispersion_receipt_reader] = lambda: RetainedAnnualDispersionReceiptReader(
+        store
+    )
+    try:
+        with TestClient(app) as client:
+            response = client.post(
+                "/performance/composites/analytics",
+                json=annual_request(records, method="YEAR_BEGIN_ASSET_WEIGHTED_POPULATION_STDDEV").model_dump(
+                    mode="json"
+                ),
+                headers={"X-Tenant-Id": "tenant-a"},
+            )
+        assert response.status_code == 200, response.text
+        data = response.json()
+        assert data["value"] == "0.008660254038" and data["status"] == "AVAILABLE"
+        assert data["reason_codes"] == []
+        assert data["full_year_member_count"] == data["year_end_member_count"] == 2
+        assert data["reporting_applicability"] == "REQUIRES_PROFILE_REVIEW"
+        assert data["reporting_applicability_reason"] == "APPROVED_REPORTING_PROFILE_NOT_BOUND"
+    finally:
+        app.dependency_overrides.clear()
+        app.dependency_overrides.update(previous)
+        store.close()

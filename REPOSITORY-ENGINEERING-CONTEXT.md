@@ -587,14 +587,20 @@ Important validation expectations:
     zero CRITICAL findings and a failing native acceptance verdict. No acceptance or expiry
     change follows from the interpreter fix. The existing SBOM recipe enables vulnerability
     analysis too; SBOM plus report means two analyses, with acceptance reading the retained report.
-    The October 8 #624 technical disposition supersedes that historical runtime gap: clean
-    source `40a5507b` and exact image `sha256:719a30aab0f8b004244eb76dfb5e998adbbe7e75af95d2a5c045b20e2a047045`
-    passed isolated PostgreSQL-backed API/lineage/compute/retention readiness, restart and
-    volume recovery with actual non-root/no-capability/no-new-privileges controls. The eight
-    existing HIGH package tuples were re-decided through October 15 under delegated delivery
-    authority, with per-advisory exposure and removal triggers. The gate requires decision
-    evidence and enforces a nonfuture review and at most seven days. Neither repository
-    accountability nor runtime proof supplies institutional or financial source authority.
+    The [October 16 #624 individual technical decisions](https://github.com/sgajbi/lotus-performance/issues/624#issuecomment-6208242609)
+    bind clean signed source `5af5f3cafff55a8baf3ed42ae9033ebb0256dcdf` and exact image/index
+    `sha256:903d0ba002dd1bc2160ab7fd9c0e44455690bf36d08c8d2ac32b9a152bbe3880` to all 44 unchanged
+    HIGH tuples across eight advisories, zero CRITICAL and no reported FixedVersion. Actual
+    API/lineage/compute/retention PID1 and exec controls, startup/restart and retained-volume
+    access passed in the isolated synthetic topology; initializer/schema completed exit 0.
+    Known-path/default-module absence is bounded, and network bindings/empty gateways do not
+    establish universal egress isolation. The eight decisions expire October 23, with explicit
+    exposure, controls and removal/release-hold triggers under standing delivery authority.
+    The gate requires decision evidence and enforces a nonfuture review and at most seven days.
+    The later acceptance/documentation successor needs its own protected final-image CI evidence;
+    keep assessed source provenance at `5af5f3c` rather than inventing a circular successor SHA.
+    Neither repository accountability nor this runtime proof supplies independent human review,
+    institutional approval, financial source authority or production certification.
 16. `make performance-characterization` now writes benchmark JUnit, log, and summary artifacts under
     ignored `output/performance-characterization/`. The Performance Characterization Evidence
     workflow runs it on pull requests to `main`, pushes to `main`, weekly schedule, and manual
@@ -1285,6 +1291,12 @@ financial admission; the operation does not accept arbitrary metric names or for
 Admit twelve exact tenant-owned COMPLETE calendar-month receipts with compatible composite,
 currency, actual fee view, definition digest, and policy. Historical READY intersection determines
 full-year members; December population determines the separately reported year-end count.
+Generic annual requests bind no approved reporting profile/provision. Produce
+`REQUIRES_PROFILE_REVIEW` with the distinct `APPROVED_REPORTING_PROFILE_NOT_BOUND` reporting reason
+for every population; financial availability and its `reason_codes` remain separate. Legacy response
+values and absent reasons remain readable. Preserve captured original bodies/fingerprints; fresh
+corrected metadata belongs in new response identities, including paired comparison fingerprints.
+Do not invent caller-controlled approval or an authority registry to interpret a small population.
 Explicit historical exclusions remain valid; missing source evidence is refused. Reuse existing
 retained-progress and completed-publication guards. Replay selects immutable UUIDs, never latest
 revisions. Result fingerprints bind the method, tenant, source vector, and financial output.

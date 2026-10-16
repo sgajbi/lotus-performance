@@ -8,7 +8,7 @@
       "openApiVersion": "3.1.0"
     }
   ],
-  "generatedAt": "2026-10-13T13:25:14.808860+00:00",
+  "generatedAt": "2026-10-16T00:39:05.098415+00:00",
   "attributeCatalog": [
     {
       "semanticId": "lotus.access_classification",
@@ -9818,8 +9818,22 @@
       "semanticId": "lotus.reporting_applicability",
       "canonicalTerm": "reporting_applicability",
       "preferredName": "reporting_applicability",
-      "description": "Provision-level presentation review signal, never methodology approval.",
-      "example": "NOT_REQUIRED_SMALL_POPULATION",
+      "description": "Reporting review signal; legacy small-population values remain readable and are not fresh approval.",
+      "example": "REQUIRES_PROFILE_REVIEW",
+      "type": "string",
+      "locations": [
+        "body"
+      ],
+      "observedTypes": [
+        "string"
+      ]
+    },
+    {
+      "semanticId": "lotus.reporting_applicability_reason",
+      "canonicalTerm": "reporting_applicability_reason",
+      "preferredName": "reporting_applicability_reason",
+      "description": "Missing approved reporting-profile binding, separate from financial unavailability.",
+      "example": "APPROVED_REPORTING_PROFILE_NOT_BOUND",
       "type": "string",
       "locations": [
         "body"
@@ -19411,6 +19425,15 @@
             "schemaVariant": "CompositeAnnualDispersionResponse"
           },
           {
+            "name": "reporting_applicability_reason",
+            "location": "body",
+            "required": false,
+            "type": "string",
+            "semanticId": "lotus.reporting_applicability_reason",
+            "attributeRef": "#/attributeCatalog/lotus.reporting_applicability_reason",
+            "schemaVariant": "CompositeAnnualDispersionResponse"
+          },
+          {
             "name": "publication_state",
             "location": "body",
             "required": false,
@@ -23244,6 +23267,14 @@
             "attributeRef": "#/attributeCatalog/lotus.reporting_applicability"
           },
           {
+            "name": "baseline.reporting_applicability_reason",
+            "location": "body",
+            "required": false,
+            "type": "string",
+            "semanticId": "lotus.reporting_applicability_reason",
+            "attributeRef": "#/attributeCatalog/lotus.reporting_applicability_reason"
+          },
+          {
             "name": "baseline.publication_state",
             "location": "body",
             "required": false,
@@ -23546,6 +23577,14 @@
             "type": "string",
             "semanticId": "lotus.reporting_applicability",
             "attributeRef": "#/attributeCatalog/lotus.reporting_applicability"
+          },
+          {
+            "name": "candidate.reporting_applicability_reason",
+            "location": "body",
+            "required": false,
+            "type": "string",
+            "semanticId": "lotus.reporting_applicability_reason",
+            "attributeRef": "#/attributeCatalog/lotus.reporting_applicability_reason"
           },
           {
             "name": "candidate.publication_state",
