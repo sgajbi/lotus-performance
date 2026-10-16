@@ -105,7 +105,7 @@ branch `main` at the exact merged SHA, while manual dispatch retains its selecte
   `pytest --cov-branch`, writes raw JSON under `output/branch-coverage/`, and refreshes
   `quality/coverage_inventory.md` without enforcing a branch threshold
 - `make postgres-concurrency-contracts-gate`
-  required isolated PostgreSQL proof in PR and main over all eleven governed targets.
+  required isolated PostgreSQL proof in PR and main over all fourteen governed targets.
   It appends every subprocess's four-source coverage to separate `.coverage.postgres`,
   preserving the ordinary integration shard and every PostgreSQL measurement.
   Each target independently requires nonempty, passed, skip-free JUnit evidence.
@@ -235,10 +235,11 @@ evidence, false-positive policy, remediation guidance, and lane placement are ag
 ## Performance characterization evidence
 
 From the `lotus-performance` repository root, `make postgres-concurrency-contracts-gate`
-runs in an isolated PostgreSQL job in both PR and main, concurrently with the ordinary test matrix. Its eleven default
+runs in an isolated PostgreSQL job in both PR and main, concurrently with the ordinary test matrix. Its fourteen default
 targets cover concurrency/locking, immutable facts, materialization, monthly eligibility,
 periodic model fees, scheduled and component model fees (including component API proof),
-pooled monetary custody and result authority. Every target must collect and pass without
+pooled monetary custody, result authority, attribution, arithmetic capture and returns-series source custody.
+Every target must collect and pass without
 skips; characterization discovery alone does not satisfy this required custody proof.
 For a local database bring-up, run `make postgres-concurrency-contracts-local` from that
 same root in Bash or PowerShell with Make installed, or supply
@@ -384,8 +385,17 @@ before/after DB hashes, and performs one HIGH/CRITICAL analysis using that read-
 `--skip-db-update`. Its additional `lotus-performance-trivy-db-metadata.json` and
 `lotus-performance-scan-provenance.json` artifacts are covered by the existing JSON upload glob.
 Producer completion is distinct from the acceptance verdict; native failure, missing/malformed
-inputs, image/source/run mismatch or changed DB bytes fail. The cache is ignored and ephemeral;
-the artifact retains a DB hash, not a DB binary archive or replayability claim.
+inputs, image/source/run mismatch or changed DB bytes fail. On success or failure, the producer
+attempts to remove only its freshly allocated cache, retaining the report, raw metadata and
+provenance. Cleanup failure is recorded and fails the producer without replacing a primary scan
+failure. The artifact retains a DB hash, not a DB binary archive or replayability claim.
+On Linux, both scanner containers write as the caller's effective UID:GID; analysis also receives
+the verified Unix Docker socket's numeric group to retain image access. Windows uses Docker
+Desktop's existing bind/identity handling without POSIX probes. Other host platforms, unavailable
+identity APIs or a missing/unstatable/non-socket Linux Docker socket refuse before scanner
+execution, with the same owned-cache cleanup and retained failure provenance.
+Socket preflight checks statability, type and group; inability to connect is a scanner failure
+with the same owned-cache cleanup and retained failure provenance.
 
 Historical Main b7 and run `38858467603` performed two vulnerability-enabled analyses and did not
 capture DB metadata/hash. That completed release remains historical evidence; neither its DB nor
