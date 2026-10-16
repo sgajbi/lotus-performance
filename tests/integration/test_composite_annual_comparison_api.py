@@ -108,6 +108,10 @@ def test_real_registered_positive_population_delta_reverse_tenant_and_reopen_rep
         assert data["baseline"]["value"] == "0.018708286934"
         assert data["candidate"]["value"] == "0.021602468995"
         assert data["value"] == "0.002894182061"
+        for side in (data["baseline"], data["candidate"]):
+            assert side["reporting_applicability"] == "REQUIRES_PROFILE_REVIEW"
+            assert side["reporting_applicability_reason"] == "APPROVED_REPORTING_PROFILE_NOT_BOUND"
+            assert side["reason_codes"] == []
         assert data["full_year_members_added"] == ["7"] and data["full_year_members_removed"] == ["6"]
         reverse = client.post(PATH, json=pair_request(candidate, baseline).model_dump(mode="json"), headers=HEADERS)
         assert reverse.status_code == 200 and reverse.json()["value"] == "-0.002894182061"

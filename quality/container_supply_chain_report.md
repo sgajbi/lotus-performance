@@ -1,10 +1,17 @@
 # Container Supply-Chain Evidence
 
-Report date: 2026-10-08
+Report date: 2026-10-16
 Mode: PR/Main release evidence; the vulnerability gate is blocking, with unfixable base-image
 advisories accepted individually and validated against the live scan.
 
 ## Current Posture
+
+The [October 16 individual technical decisions](https://github.com/sgajbi/lotus-performance/issues/624#issuecomment-6208242609)
+reassess the eight advisories through October 23 against signed source `5af5f3cafff55a8baf3ed42ae9033ebb0256dcdf`
+and application image/index `sha256:903d0ba002dd1bc2160ab7fd9c0e44455690bf36d08c8d2ac32b9a152bbe3880`.
+All 44 HIGH package findings remain present, with zero CRITICAL and no reported FixedVersion.
+The later acceptance/documentation successor needs its own protected final-image CI evidence;
+this assessment does not authorize production or qualify financial results.
 
 `lotus-performance` now has repo-native container supply-chain evidence for the production
 `runtime` image stage:
@@ -49,8 +56,12 @@ the official supplier, Python version and linux/amd64 content remain fixed. Mani
 is not a hosted build qualification. Unavailable acquisition fails closed; no mutable fallback
 or vulnerability acceptance change is authorized by the mapping.
 
-The complete admitted acquisition set is enforced by the existing Platform validator at qualified
-revision `386b40e13e76e60e761c6c4068fbe7a11256ca29`, before service initialization or build/scan:
+The admitted acquisition set is enforced before service initialization or build/scan by the
+existing Platform validators at their qualified revisions: Python and PG17 use
+`cd7563c52008fffee8a37b1b6c3235480823a5cd`, PG16 uses
+`f12dade6f294b8df5e236f4f49c117b81bed4cd6`, and Trivy retains
+`386b40e13e76e60e761c6c4068fbe7a11256ca29`. Python/PG17/PG16 require explicit original
+selection before distribution requests; supplier and admitted content identities remain fixed.
 
 | Consumer | Original supplier reference | Distribution reference |
 | --- | --- | --- |
@@ -78,7 +89,7 @@ The same retained HIGH/CRITICAL report still contains 44 HIGH findings across ei
 OS advisory IDs, zero CRITICAL findings, and expired acceptances; native acceptance failed.
 The interpreter fix does not remediate those OS packages or authorize expiry renewal.
 
-Current clean signed source `40a5507b24233e2b35fd7f3137f3bc0ad01e21b2` produced image/index
+Historical October 8 clean signed source `40a5507b24233e2b35fd7f3137f3bc0ad01e21b2` produced image/index
 `sha256:719a30aab0f8b004244eb76dfb5e998adbbe7e75af95d2a5c045b20e2a047045`.
 The [October 8 disposition](https://github.com/sgajbi/lotus-performance/issues/624#issuecomment-6058552287)
 binds its platform manifest/config, inventory-only SBOM, unfiltered report, actual scanner DB,
@@ -126,7 +137,7 @@ attests SBOM provenance through GitHub artifact attestations using
 
 ### Current Reassessment And Bounded Decision
 
-Issue [#624](https://github.com/sgajbi/lotus-performance/issues/624) records the 2026-10-07
+Issue [#624](https://github.com/sgajbi/lotus-performance/issues/624) retains the historical 2026-10-07
 reassessment of eight acceptances that expired on 2026-10-05. The exact pre-hardening source
 `8605dec396edccd99ccd4da262235cbfcf58bd7a` produced runtime image
 `sha256:50f20f38afbf55f22812adede17bd67d2b6c45940e0d9677474c605604fa74dd`, Debian 13.7.
@@ -135,7 +146,8 @@ eight advisory IDs and no published stable-package fixes. All eight remain prese
 acceptance gate failed on their expired records; the scan itself succeeded. Hardening privilege
 boundaries does not fix these advisories or authorize renewal.
 
-The official Debian tracker still lists bookworm/trixie as vulnerable for
+The dated October 16 official Debian tracker evidence identifies the reviewed trixie source
+versions as vulnerable for
 [ncurses](https://security-tracker.debian.org/tracker/CVE-2025-69720),
 [systemd](https://security-tracker.debian.org/tracker/CVE-2026-16742),
 [ACL](https://security-tracker.debian.org/tracker/CVE-2026-54369),
@@ -149,14 +161,14 @@ fail dependency resolution or warn about essential packages; this slice does not
 
 | Finding | Observed reachability and residual decision |
 | --- | --- |
-| CVE-2025-69720 | `infocmp` is present. Its CLI parser is the affected surface; avoid untrusted terminal-description execution. Package presence remains a scanner finding. |
-| CVE-2026-16742 | Libraries are present; `systemd-homed` executable/service is absent. Do not infer that a future image or mounted service has the same reachability. |
-| CVE-2026-54369 | `libacl` is present. Privileged pathname/ACL callers and attacker-controlled symlinks are the relevant preconditions; keep the root volume initializer narrowly scoped. |
-| CVE-2026-76642 | `mount` is present. Deny runtime privilege elevation/capabilities and external privileged mount helpers. |
-| CVE-2026-78408 | `nsenter` is present. No privileged operator may join attacker-controlled cgroups through this image. |
-| CVE-2026-78409 | `mount` is present. Do not authorize attacker-controlled `X-mount.subdir` paths or mount namespaces. |
-| CVE-2026-78410 | `mount` is present. Deny elevated mount helpers and attacker-controlled authorized source paths. |
-| CVE-2026-9538 | `perl-base` is present; the exact-image `Archive::Tar` module probe fails because that module is absent. No runtime contract invokes Perl archive parsing. |
+| CVE-2025-69720 | `infocmp` remains present. Untrusted terminal-description execution is unsupported. Same-user parsing/availability exposure remains; UID/capabilities/NNP do not fix parsing or prove every input-to-helper path unreachable. |
+| CVE-2026-16742 | Libraries remain present; five checked homed binary/unit paths are absent and actual PID1 commands are Python. This is not global service/executable absence. Do not introduce homed or mounted service paths under this decision. |
+| CVE-2026-54369 | `libacl1` remains present. Privileged pathname/ACL and attacker-controlled symlink callers remain relevant. Restrict the fixed initializer to owned volumes and its three measured capabilities; no arbitrary privileged ACL/path operation is authorized or complete call-path absence proven. |
+| CVE-2026-76642 | `mount` remains present. The four roles have CapEff=0 and NoNewPrivs=1; the initializer lacks SYS_ADMIN. External privileged mount helpers/post-hooks remain prohibited; universal absence was not measured. |
+| CVE-2026-78408 | `nsenter` remains present. No privileged operator may join attacker-controlled cgroups/namespaces through this image. Join-cgroup and inherited-descriptor exploit behavior was not tested. |
+| CVE-2026-78409 | `mount` remains present. Elevated attacker-controlled `X-mount.subdir` paths/namespaces are prohibited. Kernel fast-path applicability and fstab contents were not measured. |
+| CVE-2026-78410 | `mount` remains present. Elevated bind helpers and attacker-controlled authorized source paths are prohibited. The scoped `/usr` regular-file inventory found no setuid/setgid files or traversal errors; it does not audit all filesystem paths or external privilege policy. |
+| CVE-2026-9538 | `perl-base` remains present; default module lookup exited 2 because `Archive/Tar.pm` was absent. This does not prove absence from every possible mounted module path. Perl archive parsing remains unsupported. |
 
 The long-running roles retain their existing writable volumes and root filesystem behavior.
 The root volume initializer retains only CHOWN, DAC_OVERRIDE and FOWNER, its read-only filesystem,
@@ -164,28 +176,60 @@ and no-new-privileges. Schema application retains its existing restricted bounda
 diagnostic's cap-drop settings are not evidence that a deployed workload uses these controls;
 validate the actual rendered Compose and running container configuration.
 
-On October 8, Codex authored the
-[bounded technical disposition](https://github.com/sgajbi/lotus-performance/issues/624#issuecomment-6058552287)
-under the human user's standing authorization for autonomous Composite delivery and
-policy-supported residual-risk decisions. Verified repository owner `sgajbi` is accountable for
-maintenance. This does not assert independent human review, institutional approval, production
-authorization or bank-buyable certification. The new exact-image report still has 44 HIGH,
-zero CRITICAL findings and no FixedVersion. The
-[scanner refresh confirmation](https://github.com/sgajbi/lotus-performance/issues/624#issuecomment-6058665038)
-records a newly downloaded task-owned DB on October 8, with supplier UpdatedAt October 7 and
-NextUpdate October 8. Download time is not publication time or complete current knowledge.
-One additional exact-image analysis retained the same finding tuples; DB hashes before/after
-match. The earlier frozen October 6 DB comparison remains historical. The current report and
-DB hashes are bound in the single acceptance record. The risk-policy successor is not the
-source40a5507b runtime image; final-head protected CI and main evidence remain required.
+On October 16, Codex authored the
+[eight individual bounded technical decisions](https://github.com/sgajbi/lotus-performance/issues/624#issuecomment-6208242609)
+under the human user's standing autonomous-delivery authority and the existing policy.
+Reverified repository User owner `sgajbi`, with maintainer permissions, is accountable for
+maintenance. This does not assert independent human review, institutional risk approval,
+production authorization, financial qualification or bank-buyable certification.
 
-The eight narrowly matched decisions expire October 15, seven days after reassessment. Each
+The assessed clean signed source is `5af5f3cafff55a8baf3ed42ae9033ebb0256dcdf`, tree
+`be7bea5a17ecf67bfbc95d821c68d14d0e580cd9`, application image/index
+`sha256:903d0ba002dd1bc2160ab7fd9c0e44455690bf36d08c8d2ac32b9a152bbe3880`.
+Actual Trivy 0.71.2 used immutable
+`ghcr.io/aquasecurity/trivy@sha256:f5d0e600ecda7449e2a9b272805aef698631d3bb3f3a739a750de2c6819acdc9`.
+The retained unfiltered HIGH/CRITICAL report SHA256 is
+`b18a8b8c969136bc1273d8ac693e95c2cc936a07115bc3ebf27a92d0851b2432`; actual frozen DB SHA256 is
+`bf1f1b29d76cae9ff085d418cb4bfdb3906b6069f837abdef06558b8102dd1db`.
+Supplier DB UpdatedAt is `2026-10-16T01:13:54.947090392Z`, NextUpdate
+`2026-10-17T01:13:54.947090202Z`, and actual DownloadedAt `2026-10-16T03:32:44.639600526Z`.
+Download time is not publication time or complete current knowledge. Both offline analyses
+preserved the same DB hashes. All 44 advisory/package/version/severity/fix tuples match the
+old records across eight advisories and 17 distinct packages, with zero new, absent, drifted or
+duplicate tuples, zero CRITICAL and zero reported FixedVersion. The old-record native verdict
+exited 1 with eight expiry refusals; scanner exit 0 is artifact generation, not gate success.
+
+The [actual live assessment](https://github.com/sgajbi/lotus-performance/issues/624#issuecomment-6208072585)
+and [independent factual review](https://github.com/sgajbi/lotus-performance/issues/624#issuecomment-6208259087)
+bind the same image to four-role startup/restart, actual PID1 and exec UID/GID 10001,
+CapEff=0 and NoNewPrivs=1, expected commands, retained synthetic markers and non-root
+write/read/removal. API live/ready/version returned 200 with source `5af5f3c`; container/image IDs
+were unchanged across restart. The fixed owned-volume initializer completed exit 0 with its
+read-only rootfs, NNP and only CHOWN/DAC_OVERRIDE/FOWNER despite its inherited unhealthy
+health field. Schema application completed exit 0 as configured non-root under its restricted
+boundary; no live schema PID1 probe is claimed. Database plus four long-running roles were healthy.
+Rendered configuration declares an internal network; actual container bindings and empty endpoint
+gateways were observed, but the scoped packet has no network-inspect Internal boolean and does
+not establish universal egress isolation. No ports or host binds were published. Owned temporary
+containers/network/two volumes were removed and all 46 original container bindings preserved.
+This synthetic restart/storage proof does not qualify graceful drain, financial processing,
+scale, trace export, evaluated alerts or financial disaster recovery.
+
+These decisions assess source `5af5f3c` and image `903d0ba`. The later acceptance/documentation
+successor has another source/tree and can produce different image bytes through source copy, labels and
+time-dependent package resolution. Do not substitute a circular successor SHA for the assessed
+source or call image `903d0ba` its final image. Final-head protected CI must independently bind its
+actual image/report and reevaluate the exact tuples; final PR/Main and applicable live evidence
+remain required. The October 7/8 diagnostics and decisions above remain historical.
+
+The eight narrowly matched decisions expire October 23, seven days after reassessment. Each
 record carries its review date, decision reference, exposure, controls and removal trigger.
 The gate rejects future reviews, malformed dates and periods longer than seven days, as well
 as existing fixability, package/version, severity, stale-record, owner and expiry violations.
-Reassess earlier on a stable fix, package/version change, newly reachable helper/module or
-weaker deployment control. Hold release/promotion and stop affected roles until a supported
-verified image is available; do not roll back to the interpreter-vulnerable predecessor.
+Reassess earlier on a supported stable fix, new/fixable finding, package/version/severity drift,
+newly reachable helper/module or weaker role/deployment control. Hold release/promotion and
+stop affected roles until a supported verified image is available; do not roll back to the
+interpreter-vulnerable predecessor.
 The planned fix is a supported stable base/package refresh with an exact-image report and
 four-role proof; remove stale records when findings disappear.
 
@@ -226,8 +270,9 @@ scanner allowlist to hide unknown image risk.
 
 The gate's `ACCOUNTABLE_OWNERS` vocabulary names verified GitHub principals with actual repository
 accountability. Its initial member is `sgajbi`: the GitHub repository API verified this existing
-User owner and admin/maintain/push permissions on 2026-10-08. Repository-name placeholders and
-unknown principals refuse even when every other acceptance field matches. Before changing the
+User owner and admin/maintain/push permissions on 2026-10-08, reverified on 2026-10-16.
+Repository-name placeholders and unknown principals refuse even when every other acceptance
+field matches. Before changing the
 vocabulary, verify current repository ownership or maintainer access, document that evidence in
 [#506](https://github.com/sgajbi/lotus-performance/issues/506), and review the source and acceptance
 records together. CI uses the reviewed source vocabulary without requiring a privileged API token.

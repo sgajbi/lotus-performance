@@ -86,6 +86,9 @@ def test_registered_examples_validate_exact_request_and_response_schemas():
     assert str(result.value) == "0.018708286934"
     assert len(result.months) == 12
     assert result.full_year_member_count == 6
+    assert result.reporting_applicability == "REQUIRES_PROFILE_REVIEW"
+    assert result.reporting_applicability_reason == "APPROVED_REPORTING_PROFILE_NOT_BOUND"
+    assert result.reason_codes == []
     assert result.qualification == "RETAINED_SOURCE_ATTESTATION_NOT_LIVE_QUALIFIED"
     for status, case in [("404", "not_found"), ("409", "incomplete"), ("503", "retained_evidence")]:
         content = operation["responses"][status]["content"]["application/json"]
@@ -100,6 +103,25 @@ def test_registered_examples_validate_exact_request_and_response_schemas():
     assert ErrorDetailResponse.model_validate(content["examples"]["requestValidation"]["value"]).validation_errors
     assert ErrorDetailResponse.model_validate(content["examples"]["domainAdmission"]["value"]).error_code == (
         "ANNUAL_DISPERSION_MONTH_SCOPE_MISMATCH"
+    )
+
+
+def test_unbound_reporting_reason_is_response_only_and_legacy_values_remain_documented():
+    schemas = app.openapi()["components"]["schemas"]
+    request = schemas["CompositeAnnualDispersionRequest"]["properties"]
+    response = schemas["CompositeAnnualDispersionResponse"]["properties"]
+    assert "reporting_applicability" not in request and "reporting_applicability_reason" not in request
+    assert "reporting_profile" not in request
+    assert set(response["reporting_applicability"]["enum"]) == {
+        "NOT_REQUIRED_SMALL_POPULATION",
+        "REQUIRES_PROFILE_REVIEW",
+    }
+    assert response["reporting_applicability"]["example"] == "REQUIRES_PROFILE_REVIEW"
+    assert response["reporting_applicability_reason"]["examples"] == ["APPROVED_REPORTING_PROFILE_NOT_BOUND"]
+    nonnull = next(item for item in response["reporting_applicability_reason"]["anyOf"] if item["type"] != "null")
+    assert nonnull["example"] == "APPROVED_REPORTING_PROFILE_NOT_BOUND"
+    assert nonnull["description"] == (
+        "Missing approved reporting-profile binding, separate from financial unavailability."
     )
 
 

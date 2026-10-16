@@ -62,6 +62,10 @@ def test_independent_exact_oracles_population_reversal_and_reordered_replay(chan
     assert result.value == independent_sample_output(returns) - independent_sample_output([1, 2, 3, 4, 5, 6])
     assert result.full_year_members_added == added
     assert result.full_year_members_removed == removed
+    for side in (result.baseline, result.candidate):
+        assert side.reporting_applicability == "REQUIRES_PROFILE_REVIEW"
+        assert side.reporting_applicability_reason == "APPROVED_REPORTING_PROFILE_NOT_BOUND"
+        assert side.reason_codes == []
     reverse = compare_annual_member_dispersion(pair_request(candidate, baseline), tenant_id="tenant-a", reader=reader)
     assert reverse.value == -result.value
     assert reverse.full_year_members_added == removed

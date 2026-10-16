@@ -66,9 +66,10 @@
       "year_end_member_count": 6,
       "full_year_member_count": 6,
       "reporting_applicability": "REQUIRES_PROFILE_REVIEW",
+      "reporting_applicability_reason": "APPROVED_REPORTING_PROFILE_NOT_BOUND",
       "publication_state": "CALCULATED_ANALYSIS",
       "qualification": "RETAINED_SOURCE_ATTESTATION_NOT_LIVE_QUALIFIED",
-      "result_fingerprint": "sha256:82189257f92a155925fa147ffe4a632a8387820be09e5fdcf8d608f176a4f453",
+      "result_fingerprint": "sha256:2af379d68e579b40f7c9581d588b68a02c3136db4a00290c38d35e01a2f48b69",
       "months": [
         {
           "materialization_id": "3f4f4276-10bc-59d6-83ce-43b2f741370c",
@@ -456,9 +457,10 @@
       "year_end_member_count": 6,
       "full_year_member_count": 6,
       "reporting_applicability": "REQUIRES_PROFILE_REVIEW",
+      "reporting_applicability_reason": "APPROVED_REPORTING_PROFILE_NOT_BOUND",
       "publication_state": "CALCULATED_ANALYSIS",
       "qualification": "RETAINED_SOURCE_ATTESTATION_NOT_LIVE_QUALIFIED",
-      "result_fingerprint": "sha256:fcf6f3ba9feaf85a949551bcb460969f7d03d8335970ede4cbedbe484d8f487c",
+      "result_fingerprint": "sha256:4b6e2a32e71486c5a9811cceb0c4dcdddaadb470e09b277a6ff585d7f2d09b54",
       "months": [
         {
           "materialization_id": "0c0f930f-9f27-5764-832f-55a96ee77d9d",
@@ -835,7 +837,7 @@
     "reason_codes": [],
     "full_year_members_added": [],
     "full_year_members_removed": [],
-    "result_fingerprint": "sha256:e9f7e7b822c133696d7b36a07851391f32fec1f678bd01f06fa094f89f8bc800"
+    "result_fingerprint": "sha256:7fe55431291d90671a9f0dc3609a88eec861822b094ba4c2828298921dc3b691"
   },
   "errors": {
     "not_found": {
