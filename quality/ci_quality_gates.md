@@ -195,8 +195,8 @@ checked by `test_current_inventory_prose_carries_no_stale_totals`, which normali
 compares every total the present-tense paragraph states. Historical baselines elsewhere in this
 document are intentionally outside that check.
 
-Current governed inventory: `quality/test_taxonomy_inventory.md` records 475 test modules, 5,627 source test functions, 1121 API/runtime test functions, 273 contract/governance test functions, and 558 uncategorized test functions.
-The full family summary is 475 modules, 5,627 source test functions, 1121 integration/API/runtime test functions, 273 contract/governance test functions, 787 observability/readiness test functions, 481 quality/security test functions, 3,265 analytics-domain test functions, and 558 uncategorized test functions.
+Current governed inventory: `quality/test_taxonomy_inventory.md` records 475 test modules, 5,633 source test functions, 1121 API/runtime test functions, 273 contract/governance test functions, and 558 uncategorized test functions.
+The full family summary is 475 modules, 5,633 source test functions, 1121 integration/API/runtime test functions, 273 contract/governance test functions, 787 observability/readiness test functions, 487 quality/security test functions, 3,265 analytics-domain test functions, and 558 uncategorized test functions.
 Measured source: #624 single-analysis candidate on exact base
 `b7de3b30dfa37fd66c027720d530d1cc18c11bbe`. The native
 `python scripts/python_test_taxonomy_inventory.py --limit 30` inventory supplies these source-function

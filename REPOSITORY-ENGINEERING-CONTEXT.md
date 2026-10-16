@@ -444,13 +444,13 @@ Important validation expectations:
     so workflow YAML does not become a second source of truth for pytest or coverage behavior.
     Both lanes' PostgreSQL target passes the runner's explicit `--coverage-file .coverage.postgres`
     option in a separate isolated PostgreSQL job, alongside the ordinary three-suite matrix.
-    Each of its eleven pytest processes appends the existing `app`/`engine`/`core`/`adapters`
+    Each of its fourteen pytest processes appends the existing `app`/`engine`/`core`/`adapters`
     coverage sources to that separate shard. Direct runner
     calls without this option remain non-coverage proofs. Do not inherit another pytest-cov
     destination or overwrite the ordinary suite's measurements. Main independently reruns
     the same four coverage cohorts on its exact merged SHA, using the existing admitted
     PostgreSQL 16 image and unchanged runner. `make postgres-concurrency-contracts-gate`
-    retains all eleven `DEFAULT_TARGETS`, including both component-model-fee proof targets,
+    retains all fourteen `DEFAULT_TARGETS`, including both component-model-fee proof targets,
     pooled MWR and the two result-authority targets.
     The existing required combined-coverage context has `always()` plus explicit success
     checks for both the full matrix and the isolated PostgreSQL job; it refuses absent or
@@ -595,7 +595,16 @@ Important validation expectations:
     input, native failure or mismatched scanner/platform/source/run identity fails the producer;
     producer completion is not acceptance. Two extra JSON artifacts retain actual metadata and
     scan provenance through the existing upload glob, without archiving the DB binary or claiming
-    replayability/OCI DB identity. Caches remain ignored until runner teardown or owned cleanup.
+    replayability/OCI DB identity. On success or failure, the producer attempts to remove only its
+    freshly allocated cache, retaining the report, raw metadata and provenance. Cleanup failure
+    records failed cleanup and a nonzero outcome without replacing the primary scanner failure.
+    On Linux, both scanner containers use the caller's effective UID:GID so bind-mounted children
+    remain removable by that caller; analysis additionally receives the verified Unix Docker
+    socket's numeric group. Windows retains Docker Desktop's bind/identity handling without POSIX
+    probes. Unsupported host platforms, unavailable identity APIs or a missing/unstatable/non-socket
+    Linux Docker socket fail before scanner execution and still remove the newly allocated cache.
+    Socket preflight checks statability, type and group; inability to connect is a scanner failure
+    with the same owned-cache cleanup and retained failure provenance.
     Producer tests use synthetic DB/report files and mocked subprocesses. Composition checks group
     all explicit goals per Make invocation, count direct command segments and fail clearly on
     unsupported Make/shell forms. Their native GNU Make oracle executes harmless markers only;

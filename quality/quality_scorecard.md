@@ -113,10 +113,10 @@ unchanged. Native production complexity remains max8/zero D-F with average maint
 measurements do not establish approved reporting profiles, PostgreSQL or live acceptance.
 
 Current #624 single-analysis AST measurement (2026-10-16, exact base `b7de3b30`):
-475 modules and 5,627 source functions, including 1,121 API/runtime, 273 contract/governance,
-787 observability/readiness, 481 quality/security, 3,265 analytics-domain and 558 uncategorized
+475 modules and 5,633 source functions, including 1,121 API/runtime, 273 contract/governance,
+787 observability/readiness, 487 quality/security, 3,265 analytics-domain and 558 uncategorized
 functions. `python scripts/python_test_taxonomy_inventory.py --limit 30` supplies these counts;
-family counts overlap and policy bounds are unchanged. Only taxonomy measurements are refreshed
+family counts overlap and policy bounds are unchanged. Baseline and taxonomy measurements are refreshed
 by this slice; other scorecard measurements retain their cited prior evidence and are not new
 measurements for this candidate. AST inventory does not establish executed tests or live proof.
 
@@ -132,11 +132,11 @@ metrics in each section are updated with each meaningful slice.
 | --- | ---: | ---: | ---: | --- | --- |
 | Python files | 480 | 1064 | 584 | measured | `quality/baseline_report.md`; `quality/refactor_health_report.md` |
 | Python package markers | 18 | 36 | 18 | measured | `quality/baseline_report.md`; `quality/refactor_health_report.md` |
-| Python LOC | 104,454 | 310,942 | 206,488 | measured | `quality/baseline_report.md`; `quality/refactor_health_report.md` |
+| Python LOC | 104,454 | 311,193 | 206,739 | measured | `quality/baseline_report.md`; `quality/refactor_health_report.md` |
 | Largest Python file LOC | 2,399 | 4,447 | 2,048 | measured | `quality/baseline_report.md`; `quality/refactor_health_report.md` |
 | Largest production file LOC | 1,156 | 3,271 | 2,115 | measured | `quality/refactor_health_report.md`; `quality/architecture_boundary_inventory.md` |
 | Python test modules | 228 | 475 | 247 | measured | `quality/test_taxonomy_inventory.md`; `quality/refactor_health_report.md` |
-| Collected tests | 2,035 | 9,937 | 7,902 | measured | `quality/baseline_report.md`; `quality/refactor_health_report.md` |
+| Collected tests | 2,035 | 9,957 | 7,922 | measured | `quality/baseline_report.md`; `quality/refactor_health_report.md` |
 | Duplicate code hotspots | 0 | 0 | 0 | enforced | `quality/duplicate_code_inventory.md`; `quality/refactor_health_report.md`; `make quality-duplicate-code-gate` |
 | Tracked local byproduct findings | unknown | 0 | n/a | enforced | `scripts/repository_hygiene_gate.py`; `make repository-hygiene-gate`; `quality/refactor_health_report.md` |
 

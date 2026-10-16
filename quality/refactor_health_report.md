@@ -130,10 +130,10 @@ unchanged. Native production complexity remains max8/zero D-F with average maint
 measurements do not establish approved reporting profiles, PostgreSQL or live acceptance.
 
 Current #624 single-analysis AST measurement (2026-10-16, exact base `b7de3b30`):
-475 modules and 5,627 source functions, including 1,121 API/runtime, 273 contract/governance,
-787 observability/readiness, 481 quality/security, 3,265 analytics-domain and 558 uncategorized
+475 modules and 5,633 source functions, including 1,121 API/runtime, 273 contract/governance,
+787 observability/readiness, 487 quality/security, 3,265 analytics-domain and 558 uncategorized
 functions. `python scripts/python_test_taxonomy_inventory.py --limit 30` supplies these counts;
-family counts overlap and policy bounds are unchanged. Only the taxonomy measurements below
+family counts overlap and policy bounds are unchanged. Baseline and taxonomy measurements below
 are refreshed by this slice; other measurements retain their cited prior evidence and are not
 remeasured claims for this candidate. AST inventory does not establish executed tests or live proof.
 
@@ -157,7 +157,7 @@ link the commit, command, or CI artifact that proves the change.
 | --- | ---: | ---: | --- | --- |
 | Python files | 480 | 1064 | measured | `quality/baseline_report.md` |
 | Python package markers | 18 | 36 | measured | recursive `__init__.py` count |
-| Python LOC | 104,454 | 310,942 | measured | `quality/baseline_report.md` |
+| Python LOC | 104,454 | 311,193 | measured | `quality/baseline_report.md` |
 | Largest Python file LOC | 2,399 | 4,447 | measured | largest-file inventory on this branch |
 | Largest production file LOC | 1,156 | 3,271 | measured | `app/services/composite_metadata_store.py` |
 | Duplicate code hotspots | 0 | 0 | enforced | `quality/duplicate_code_inventory.md`; `make quality-duplicate-code-gate` with `--min-lines 12 --max-groups 0`; duplicated LOC reduced from `24` to `0` in LP-CR-1407 |
@@ -203,7 +203,7 @@ link the commit, command, or CI artifact that proves the change.
 | Metric | Baseline | Current | Status | Evidence |
 | --- | ---: | ---: | --- | --- |
 | Test modules | 228 | 475 | measured | `quality/test_taxonomy_inventory.md`; native AST inventory for #624 |
-| Collected tests | 2,035 | 9,937 | measured | `quality/baseline_report.md`; `python -m pytest --collect-only -q` |
+| Collected tests | 2,035 | 9,957 | measured | `quality/baseline_report.md`; `python -m pytest --collect-only -q` |
 | Line coverage | unknown | 99.58% | measured | `quality/coverage_inventory.md` via `make branch-coverage-baseline` (`3,013` unit, `308` integration, and `21` e2e tests under branch coverage; `21,154` covered lines of `21,244` statements) |
 | Branch coverage | unknown | 98.00% | measured | `quality/coverage_inventory.md` via `make branch-coverage-baseline` (`3,013` unit, `308` integration, and `21` e2e tests under branch coverage; `4,318` covered branches of `4,406`, `88` missing branches, `88` partial branches) |
 | Integration/API/runtime test functions | unknown | 1121 | enforced | `quality/test_taxonomy_inventory.md`; `make quality-test-taxonomy-gate` |

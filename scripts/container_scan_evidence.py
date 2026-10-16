@@ -10,7 +10,10 @@ import argparse
 import datetime as dt
 import hashlib
 import json
+import os
 import re
+import shutil
+import stat
 import subprocess
 import sys
 import tempfile
@@ -21,6 +24,7 @@ DB_METADATA_NAME = "lotus-performance-trivy-db-metadata.json"
 PROVENANCE_NAME = "lotus-performance-scan-provenance.json"
 SCHEMA = "lotus-performance.container-scan-provenance.v1"
 SCANNER_VERSION = "0.71.2"
+DOCKER_SOCKET = Path("/var/run/docker.sock")
 
 
 def _hash(path: Path) -> str:
@@ -83,10 +87,27 @@ def _execute(command: list[str], operations: list[dict], kind: str) -> None:
         raise ValueError(f"{kind} returned a nonzero native exit")
 
 
-def _command(scanner: str, cache: Path, output: Path, *, analysis: bool) -> list[str]:
-    command = ["docker", "run", "--rm", "--platform", "linux/amd64", "-v", f"{cache.as_posix()}:/cache"]
+def _scanner_access() -> tuple[list[str], list[str]]:
+    if sys.platform == "win32":
+        # Docker Desktop translates Windows bind access; POSIX IDs do not apply.
+        return [], []
+    if sys.platform != "linux":
+        raise ValueError("container evidence supports Linux or Windows Docker hosts")
+    uid, gid = os.geteuid(), os.getegid()
+    socket = DOCKER_SOCKET.stat()
+    if not stat.S_ISSOCK(socket.st_mode):
+        raise ValueError("image analysis requires a Unix Docker socket")
+    # Write bind-mounted children as the caller that will remove them. The socket
+    # can belong to a different group, needed only by the image analysis process.
+    return ["--user", f"{uid}:{gid}"], ["--group-add", str(socket.st_gid)]
+
+
+def _command(
+    scanner: str, cache: Path, output: Path, *, analysis: bool, identity: list[str], socket_group: list[str]
+) -> list[str]:
+    command = ["docker", "run", "--rm", "--platform", "linux/amd64"] + identity + ["-v", f"{cache.as_posix()}:/cache"]
     if analysis:
-        command += [
+        command += socket_group + [
             "-v",
             f"{(cache / 'db').as_posix()}:/cache/db:ro",
             "-v",
@@ -114,13 +135,19 @@ def produce(*, image: str, scanner: str, severity: str, output: Path, source: st
     # These fixed producer-owned names must not retain a previous successful run.
     report_path.unlink(missing_ok=True)
     metadata_path.unlink(missing_ok=True)
-    cache = Path(tempfile.mkdtemp(prefix=".trivy-cache-", dir=output))
+    cache: Path | None = None
+    failure: Exception | None = None
     try:
+        cache = Path(tempfile.mkdtemp(prefix=".trivy-cache-", dir=output))
         if not all((image, scanner, severity, source, run_id)):
             raise ValueError("image, scanner, severity, source and run identity are required")
+        scanner_identity, socket_group = _scanner_access()
         evidence["phase"] = "database-acquisition"
         _execute(
-            _command(scanner, cache, output, analysis=False) + ["--download-db-only"], operations, "db-download-only"
+            _command(scanner, cache, output, analysis=False, identity=scanner_identity, socket_group=socket_group)
+            + ["--download-db-only"],
+            operations,
+            "db-download-only",
         )
         evidence["phase"] = "database-snapshot"
         before = _database(cache)
@@ -128,7 +155,9 @@ def produce(*, image: str, scanner: str, severity: str, output: Path, source: st
         if _hash(metadata_path) != before["metadata_sha256"]:
             raise ValueError("retained database metadata differs from the snapshot")
         evidence["phase"] = "vulnerability-analysis"
-        command = _command(scanner, cache, output, analysis=True) + [
+        command = _command(
+            scanner, cache, output, analysis=True, identity=scanner_identity, socket_group=socket_group
+        ) + [
             "--scanners",
             "vuln",
             "--severity",
@@ -161,12 +190,26 @@ def produce(*, image: str, scanner: str, severity: str, output: Path, source: st
             database_binary_archived=False,
             acceptance_verdict="not-evaluated",
         )
-        _write(provenance_path, evidence)
-        return evidence
     except (OSError, ValueError, TypeError, AttributeError) as exc:
         evidence["failure_type"] = type(exc).__name__
+        failure = exc
+    finally:
+        if cache is None:
+            evidence["cache_cleanup"] = {"status": "not-created"}
+        else:
+            try:
+                shutil.rmtree(cache)
+            except OSError as exc:
+                evidence["cache_cleanup"] = {"status": "failed", "failure_type": type(exc).__name__}
+                if evidence["status"] == "complete":
+                    evidence.update(status="failed", phase="cache-cleanup", failure_type=type(exc).__name__)
+                    failure = exc
+            else:
+                evidence["cache_cleanup"] = {"status": "complete"}
         _write(provenance_path, evidence)
-        raise ValueError(f"container evidence failed during {evidence['phase']}") from exc
+    if failure is not None:
+        raise ValueError(f"container evidence failed during {evidence['phase']}") from failure
+    return evidence
 
 
 def main() -> int:
