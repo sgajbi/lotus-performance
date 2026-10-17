@@ -137,6 +137,12 @@ family counts overlap and policy bounds are unchanged. Baseline and taxonomy mea
 are refreshed by this slice; other measurements retain their cited prior evidence and are not
 remeasured claims for this candidate. AST inventory does not establish executed tests or live proof.
 
+Current #540 digest-correction measurement (2026-10-17, signed source `fa984038cf769d28cfe8f09a36fa074fb2eeb6c3`):
+native baseline measures 313,350 Python lines and 10,036 collected cases; AST taxonomy measures
+478 modules, 5,674 source test functions and 291 contract/governance functions. Current tables
+below carry these measurements; dated historical baselines and all policy thresholds are preserved.
+These counts do not establish executed-test or live financial acceptance.
+
 This report turns the report-only baseline into the durable before/current scorecard for the
 hardening stream. At phase zero, the baseline and current values are intentionally the same unless a
 metric has already been remeasured. Future refactor phases should update the `Current` column and
@@ -157,7 +163,7 @@ link the commit, command, or CI artifact that proves the change.
 | --- | ---: | ---: | --- | --- |
 | Python files | 480 | 1073 | measured | `quality/baseline_report.md` |
 | Python package markers | 18 | 36 | measured | recursive `__init__.py` count |
-| Python LOC | 104,454 | 312,990 | measured | `quality/baseline_report.md` |
+| Python LOC | 104,454 | 313,350 | measured | `quality/baseline_report.md` |
 | Largest Python file LOC | 2,399 | 4,447 | measured | largest-file inventory on this branch |
 | Largest production file LOC | 1,156 | 3,271 | measured | `app/services/composite_metadata_store.py` |
 | Duplicate code hotspots | 0 | 0 | enforced | `quality/duplicate_code_inventory.md`; `make quality-duplicate-code-gate` with `--min-lines 12 --max-groups 0`; duplicated LOC reduced from `24` to `0` in LP-CR-1407 |
@@ -203,11 +209,11 @@ link the commit, command, or CI artifact that proves the change.
 | Metric | Baseline | Current | Status | Evidence |
 | --- | ---: | ---: | --- | --- |
 | Test modules | 228 | 478 | measured | `quality/test_taxonomy_inventory.md`; native AST inventory for #540 |
-| Collected tests | 2,035 | 10,035 | measured | `quality/baseline_report.md`; `python -m pytest --collect-only -q` |
+| Collected tests | 2,035 | 10,036 | measured | `quality/baseline_report.md`; `python -m pytest --collect-only -q` |
 | Line coverage | unknown | 99.58% | measured | `quality/coverage_inventory.md` via `make branch-coverage-baseline` (`3,013` unit, `308` integration, and `21` e2e tests under branch coverage; `21,154` covered lines of `21,244` statements) |
 | Branch coverage | unknown | 98.00% | measured | `quality/coverage_inventory.md` via `make branch-coverage-baseline` (`3,013` unit, `308` integration, and `21` e2e tests under branch coverage; `4,318` covered branches of `4,406`, `88` missing branches, `88` partial branches) |
 | Integration/API/runtime test functions | unknown | 1121 | enforced | `quality/test_taxonomy_inventory.md`; `make quality-test-taxonomy-gate` |
-| Contract/governance test functions | unknown | 290 | enforced | `quality/test_taxonomy_inventory.md`; `make quality-test-taxonomy-gate` |
+| Contract/governance test functions | unknown | 291 | enforced | `quality/test_taxonomy_inventory.md`; `make quality-test-taxonomy-gate` |
 | Uncategorized test functions | unknown | 558 | enforced ceiling | `quality/test_taxonomy_inventory.md`; `make quality-test-taxonomy-gate`; #619 classifies the precise source/error adapter module; observed 558, separately banked policy 558. |
 
 ## Security And Dependencies
