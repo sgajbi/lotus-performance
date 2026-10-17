@@ -3,6 +3,7 @@
 from app.models.composite_controlled_annual_authority import ControlledAnnualDefinitionV4
 from app.models.composite_controlled_annual_basis import year_rules_for_window
 from app.models.composite_controlled_annual_evidence import ControlledAnnualFinalizationReceipt
+from app.models.composite_eligibility_evidence import _month_window
 from app.ports import composite_controlled_annual_evidence as year_ports
 from app.services.composite_materialization.authority_policy import (
     ProviderTrustRequest,
@@ -18,10 +19,10 @@ def admit_annual_authority(definition, command, expected_members, published_elig
         published_eligibility.receipt, ControlledAnnualFinalizationReceipt
     ):
         raise authority_refusal("COMPOSITE_YEAR_EVALUATED_PUBLICATION_REQUIRED")
-    if [item.member_id for item in proof.candidate_evidence[0].members] != expected_members:
+    members = publication_member_identities(definition, command)
+    if [item.member_id for item in members] != expected_members:
         raise authority_refusal("COMPOSITE_AUTHORITY_UNIVERSE_MISMATCH")
-    if not (payload.effective_from <= str(command.period_start) <= str(command.period_end) <= payload.effective_to):
-        raise authority_refusal("COMPOSITE_PROFILE_WINDOW_MISMATCH")
+    _admit_publication_window(published_eligibility.receipt.finalization.subject, command, members)
     try:
         result = year_ports.controlled_year_verifier().verify(proof.request.model_copy(deep=True))
         year_ports.admit_controlled_year_verification(proof, result)
@@ -71,7 +72,54 @@ def require_annual_internal_bindings(definition: ControlledAnnualDefinitionV4, c
             raise authority_refusal("COMPOSITE_YEAR_NATIVE_ENROLLMENT_MISMATCH")
 
 
-def publication_member_identities(definition):
-    if isinstance(definition, ControlledAnnualDefinitionV4):
-        return definition.authority_approval.verification.candidate_evidence[0].members
-    return definition.source_authority.payload.member_identities
+def publication_member_identities(definition, command):
+    """Project a stable period population; this supplies no eligibility publication authority."""
+    if not isinstance(definition, ControlledAnnualDefinitionV4):
+        return definition.source_authority.payload.member_identities
+    candidates = _annual_period_candidates(definition, command)
+    members = candidates[0].members
+    if any(candidate.members != members for candidate in candidates[1:]):
+        raise authority_refusal("COMPOSITE_MEMBERSHIP_WINDOW_MISMATCH")
+    return members
+
+
+def _annual_period_candidates(definition, command):
+    start, end = str(command.period_start), str(command.period_end)
+    _require_annual_profile_window(definition.source_authority.payload, command)
+    months = [
+        f"{command.period_start.year}-{month:02d}"
+        for month in range(command.period_start.month, command.period_end.month + 1)
+    ]
+    candidates = [
+        item
+        for item in definition.authority_approval.verification.candidate_evidence
+        if months[0] <= item.month <= months[-1]
+    ]
+    if [item.month for item in candidates] != months:
+        raise authority_refusal("COMPOSITE_YEAR_MONTH_VECTOR_MISMATCH")
+    for candidate in candidates:
+        _require_candidate_window(candidate, start, end)
+    return candidates
+
+
+def _require_annual_profile_window(payload, command):
+    if command.period_start.year != command.period_end.year:
+        raise authority_refusal("COMPOSITE_PROFILE_WINDOW_MISMATCH")
+    if not (payload.effective_from <= str(command.period_start) <= str(command.period_end) <= payload.effective_to):
+        raise authority_refusal("COMPOSITE_PROFILE_WINDOW_MISMATCH")
+
+
+def _require_candidate_window(candidate, start, end):
+    first, last = _month_window(candidate.month)
+    if candidate.coverage_from > max(start, first) or candidate.coverage_to < min(end, last):
+        raise authority_refusal("COMPOSITE_UNIVERSE_COVERAGE_MISMATCH")
+
+
+def _admit_publication_window(subject, command, members):
+    start, end = str(command.period_start), str(command.period_end)
+    if start[:7] != subject.month or end[:7] != subject.month:
+        raise authority_refusal("COMPOSITE_ELIGIBILITY_RESOLUTION_WINDOW_MISMATCH")
+    if not (subject.universe.coverage_from <= start <= end <= subject.universe.coverage_to):
+        raise authority_refusal("COMPOSITE_ELIGIBILITY_RESOLUTION_WINDOW_MISMATCH")
+    if subject.universe.members != members:
+        raise authority_refusal("COMPOSITE_ELIGIBILITY_PUBLICATION_MEMBER_MISMATCH")

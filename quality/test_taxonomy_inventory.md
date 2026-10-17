@@ -1,7 +1,7 @@
 # Lotus Performance Test Taxonomy Inventory
 
-Report date: 2026-10-16
-Source: #624 single-analysis candidate on exact base `b7de3b30dfa37fd66c027720d530d1cc18c11bbe`; AST counts do not establish test execution or live acceptance.
+Original report date: 2026-10-16. Current measurement date: 2026-10-17 (#540).
+Historical source: #624 single-analysis candidate on exact base `b7de3b30dfa37fd66c027720d530d1cc18c11bbe`; AST counts do not establish test execution or live acceptance.
 Mode: regression-blocking test taxonomy inventory; `make quality-test-taxonomy-gate` enforces
 minimum API/runtime and contract/governance breadth plus the current uncategorized-test ceiling.
 
@@ -18,14 +18,18 @@ python scripts/python_test_taxonomy_inventory.py --limit 30
 python scripts/python_test_taxonomy_inventory.py --limit 30 --min-api-runtime-tests 656 --min-contract-governance-tests 136 --max-uncategorized-tests 558
 ```
 
+Current generated inventory: controlled annual consumer #540 at signed source `927237d3ec50ff4604f17ff5aaede931ab4563ef`.
+The tables below are native AST measurements; dated narrative sections retain their historical source identities.
+Source inventory does not establish executed-test or live acceptance.
+
 ## Summary
 
 | Metric | Value |
 | --- | ---: |
-| Test modules inventoried | 475 |
-| Test functions inventoried | 5633 |
+| Test modules inventoried | 478 |
+| Test functions inventoried | 5660 |
 | Integration/API/runtime test functions | 1121 |
-| Contract/governance test functions | 273 |
+| Contract/governance test functions | 287 |
 
 ## Test Functions By Suite
 
@@ -34,7 +38,7 @@ python scripts/python_test_taxonomy_inventory.py --limit 30 --min-api-runtime-te
 | benchmarks | 22 | 208 |
 | e2e | 1 | 21 |
 | integration | 57 | 651 |
-| unit | 395 | 4753 |
+| unit | 398 | 4780 |
 
 ## Test Functions By Family
 
@@ -44,9 +48,9 @@ above does sum to it, because a module belongs to exactly one suite.
 
 | Family | Test functions |
 | --- | ---: |
-| analytics_domain | 3265 |
+| analytics_domain | 3292 |
 | api_or_runtime | 1121 |
-| contract_or_governance | 273 |
+| contract_or_governance | 287 |
 | observability_or_readiness | 787 |
 | quality_or_security | 487 |
 | uncategorized | 558 |
