@@ -1,6 +1,8 @@
 """Synthetic security authority; no live credentials or sibling runtime dependency."""
 
 import asyncio
+import hashlib
+import hmac
 from pathlib import Path
 from types import SimpleNamespace
 
@@ -11,6 +13,8 @@ from pydantic import ValidationError
 
 from app.core.config import Settings
 from app.observability import tenant_id_var
+from app.services import http_resilience
+from app.services.core_integration_service import CoreIntegrationService
 from app.services.core_request_context import CoreExecutionScopeDenied
 from app.services.core_tenant_authority import MissingTenantAuthorityError, TenantAuthority
 from app.services.http_resilience import close_upstream_http_client_pool, configure_upstream_http_client_pool
@@ -38,6 +42,204 @@ def settings(**overrides):
     )
 
 
+@pytest.mark.asyncio
+@pytest.mark.parametrize("method", ["GET", "POST"])
+@pytest.mark.parametrize("signed", [True, False])
+@pytest.mark.parametrize(
+    "origin",
+    [
+        "https://synthetic-user:synthetic-pass@core.example",
+        "https://synthetic-user@core.example",
+        "https://:synthetic-pass@core.example",
+        "https://%73ynthetic-user:%73ynthetic-pass@core.example",
+        "https://:@core.example",
+        "https://core.example",
+        "https://core.example/path%40segment",
+    ],
+)
+async def test_core_url_identity_refusal_precedes_wire_and_preserves_unsigned_behavior(
+    monkeypatch, caplog, method, signed, origin
+):
+    seen = []
+
+    async def respond(request):
+        seen.append(request)
+        return httpx.Response(200, json={"ok": True})
+
+    client = httpx.AsyncClient(
+        transport=httpx.MockTransport(respond),
+        headers={"X-Caller-Capabilities": "untrusted"},
+        cookies={"session": "shared"},
+    )
+    original_headers, original_auth = dict(client.headers), client.auth
+    original_cookies = [(cookie.name, cookie.value, cookie.domain) for cookie in client.cookies.jar]
+    pool = http_resilience.UpstreamHttpClientPool(http_resilience.UpstreamHttpClientPoolConfig(4, 2, 10))
+    pool._clients_by_timeout[1.0] = client
+    monkeypatch.setattr(http_resilience, "_managed_client_pool", pool)
+    core = CoreIntegrationService(
+        origin,
+        1.0,
+        tenant_authority=TenantAuthority("tenant-a"),
+        request_context_authority=settings().core_request_context_authority() if signed else None,
+    )
+    has_userinfo = bool(httpx.URL(origin).userinfo)
+    try:
+        operation = (
+            core._get_json(path="/test", query_params={})
+            if method == "GET"
+            else core._post_json(path="/test", payload={})
+        )
+        if signed and has_userinfo:
+            with pytest.raises(
+                ValueError, match="^Signed Core request URL must be valid and contain no userinfo\\.$"
+            ) as refusal:
+                await operation
+            assert not seen
+            assert not _is_retryable_exception(refusal.value)
+            assert "synthetic-user" not in str(refusal.value) + repr(refusal.value) + caplog.text
+            assert "synthetic-pass" not in str(refusal.value) + repr(refusal.value) + caplog.text
+        else:
+            assert await operation == (200, {"ok": True})
+            assert len(seen) == 1
+            assert seen[0].headers["x-tenant-id"] == "tenant-a"
+            if signed:
+                assert len(seen[0].headers["x-enterprise-auth-signature"]) == 64
+                assert "authorization" not in seen[0].headers
+                assert "cookie" not in seen[0].headers
+            else:
+                assert "x-enterprise-auth-signature" not in seen[0].headers
+                parsed_url = httpx.URL(origin)
+                assert ("authorization" in seen[0].headers) == bool(parsed_url.username or parsed_url.password)
+                assert seen[0].headers["cookie"] == "session=shared"
+        assert dict(client.headers) == original_headers
+        assert client.auth is original_auth
+        assert [(cookie.name, cookie.value, cookie.domain) for cookie in client.cookies.jar] == original_cookies
+    finally:
+        await close_upstream_http_client_pool()
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("method", ["GET", "POST"])
+async def test_signed_core_invalid_url_diagnostics_never_expose_configuration(monkeypatch, caplog, method):
+    seen = []
+    original_client = httpx.AsyncClient
+
+    async def respond(request):
+        seen.append(request)
+        return httpx.Response(200, json={})
+
+    monkeypatch.setattr(
+        "app.services.http_resilience.httpx.AsyncClient",
+        lambda **kwargs: original_client(transport=httpx.MockTransport(respond), **kwargs),
+    )
+    core = CoreIntegrationService(
+        "https://core.example:synthetic-pass",
+        1.0,
+        tenant_authority=TenantAuthority("tenant-a"),
+        request_context_authority=settings().core_request_context_authority(),
+    )
+    with pytest.raises(
+        ValueError, match="^Signed Core request URL must be valid and contain no userinfo\\.$"
+    ) as refusal:
+        if method == "GET":
+            await core._get_json(path="/test", query_params={})
+        else:
+            await core._post_json(path="/test", payload={})
+    assert not seen
+    assert "synthetic-pass" not in str(refusal.value) + repr(refusal.value) + caplog.text
+    assert refusal.value.__cause__ is None
+    assert not _is_retryable_exception(refusal.value)
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("method", ["GET", "POST"])
+@pytest.mark.parametrize("mode", ["configured_cookie", "cookie_header", "response_cookie", "identity", "auth"])
+@pytest.mark.parametrize("signed", [True, False])
+async def test_core_wire_isolates_signed_identity_from_shared_pool(monkeypatch, method, mode, signed):
+    seen, auth_calls = [], []
+
+    class PoolAuth(httpx.Auth):
+        def auth_flow(self, request):
+            auth_calls.append(True)
+            request.headers["Authorization"] = "Bearer synthetic-pool"
+            yield request
+
+    async def respond(request):
+        seen.append(request)
+        return httpx.Response(200, json={"ok": True}, headers={"Set-Cookie": "session=response-A; Path=/"})
+
+    headers = {"Cookie": "session=header-A"} if mode == "cookie_header" else {}
+    if mode == "identity":
+        headers.update(
+            {
+                "Authorization": "Bearer forged",
+                "Proxy-Authorization": "Basic forged",
+                "X-Caller-Capabilities": "admin",
+                "X-Enterprise-Auth-Unknown": "forged",
+            }
+        )
+    client = httpx.AsyncClient(
+        transport=httpx.MockTransport(respond),
+        headers=headers,
+        cookies={"session": "configured-A"} if mode == "configured_cookie" else None,
+        auth=PoolAuth() if mode == "auth" else None,
+    )
+    original_headers, original_auth = dict(client.headers), client.auth
+    pool = http_resilience.UpstreamHttpClientPool(http_resilience.UpstreamHttpClientPoolConfig(4, 2, 10))
+    pool._clients_by_timeout[1.0] = client
+    monkeypatch.setattr(http_resilience, "_managed_client_pool", pool)
+    try:
+        for tenant in ("tenant-a", "tenant-b"):
+            core = _factory_core(settings() if signed else Settings(_env_file=None))
+            core._tenant_authority = TenantAuthority(tenant)
+            core._timeout = 1.0
+            if method == "GET":
+                result = await core._get_json(path="/test", query_params={"page": "1"})
+            else:
+                result = await core._post_json(path="/test", payload={"page": 1})
+            assert result == (200, {"ok": True})
+        assert dict(client.headers) == original_headers
+        assert client.auth is original_auth
+        assert any(cookie.value == "response-A" for cookie in client.cookies.jar)
+        if mode == "configured_cookie":
+            assert any(cookie.value == "configured-A" for cookie in client.cookies.jar)
+        assert [request.headers["x-tenant-id"] for request in seen] == ["tenant-a", "tenant-b"]
+        if signed:
+            forbidden = {
+                "cookie",
+                "authorization",
+                "proxy-authorization",
+                "x-caller-capabilities",
+                "x-enterprise-auth-unknown",
+            }
+            assert all(forbidden.isdisjoint(request.headers) for request in seen)
+            assert not auth_calls
+            names = (
+                "x-enterprise-auth-key-id",
+                "x-service-identity",
+                "x-actor-id",
+                "x-tenant-id",
+                "x-role",
+                "x-correlation-id",
+                "x-enterprise-auth-timestamp",
+                "x-capabilities",
+            )
+            for request in seen:
+                canonical = "\n".join(["lotus-enterprise-auth-context-v1", *(request.headers[name] for name in names)])
+                expected = hmac.new(b"synthetic-only-key", canonical.encode(), hashlib.sha256).hexdigest()
+                assert request.headers["x-enterprise-auth-signature"] == expected
+                if method == "POST":
+                    assert request.headers["content-type"] == "application/json"
+                    assert int(request.headers["content-length"]) == len(request.content)
+        else:
+            assert "cookie" in seen[1].headers
+            assert bool(auth_calls) == (mode == "auth")
+            if mode == "identity":
+                assert seen[0].headers["x-caller-capabilities"] == "admin"
+    finally:
+        await close_upstream_http_client_pool()
+
+
 def test_known_canonical_vector_and_private_normalized_maps(monkeypatch):
     monkeypatch.setattr("app.services.core_request_context.time.time", lambda: 1700000000)
     authority = settings().core_request_context_authority()
@@ -56,6 +258,44 @@ def test_known_canonical_vector_and_private_normalized_maps(monkeypatch):
     assert "synthetic-only-key" not in repr(authority)
     assert "synthetic-only-key" not in repr(settings())
     assert "secret" not in authority.model_dump()
+
+
+@pytest.mark.asyncio
+async def test_signed_retry_isolates_response_cookie_and_preserves_source_capture(monkeypatch):
+    from app.services.returns_series_source.capture import active_source_capture
+
+    seen, captured = [], []
+
+    async def respond(request):
+        seen.append(request)
+        if len(seen) == 1:
+            return httpx.Response(503, headers={"Set-Cookie": "session=retry; Path=/", "Retry-After": "0"})
+        return httpx.Response(200, content=b'{"amount":"0.10"}')
+
+    def decode(payload, response):
+        captured.append((payload, response.content))
+        return response.json()
+
+    client = httpx.AsyncClient(transport=httpx.MockTransport(respond), cookies={"session": "pool"})
+    pool = http_resilience.UpstreamHttpClientPool(http_resilience.UpstreamHttpClientPoolConfig(4, 2, 10))
+    pool._clients_by_timeout[1.0] = client
+    monkeypatch.setattr(http_resilience, "_managed_client_pool", pool)
+    capture_token = active_source_capture.set(SimpleNamespace(decode=decode))
+    tenant_token = tenant_id_var.set("tenant-a")
+    try:
+        core = _factory_core(settings())
+        core._timeout = 1.0
+        result = await core._post_json(path="/analytics/portfolio-timeseries", payload={"page": 1})
+        assert result == (200, {"amount": "0.10"})
+        assert len(seen) == 2
+        assert all("cookie" not in request.headers for request in seen)
+        assert seen[0].headers == seen[1].headers
+        assert captured == [({"page": 1}, b'{"amount":"0.10"}')]
+        assert any(cookie.value == "retry" for cookie in client.cookies.jar)
+    finally:
+        tenant_id_var.reset(tenant_token)
+        active_source_capture.reset(capture_token)
+        await close_upstream_http_client_pool()
 
 
 @pytest.mark.parametrize(

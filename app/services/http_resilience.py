@@ -115,12 +115,17 @@ async def post_with_retry(
     max_retries: int = 2,
     backoff_seconds: float = 0.2,
     response_decoder: Callable[[httpx.Response], dict[str, Any]] | None = None,
+    request_policy: Callable[[httpx.Request], None] | None = None,
 ) -> tuple[int, dict[str, Any]]:
     return await _request_with_retry(
         timeout_seconds=timeout_seconds,
         max_retries=max_retries,
         backoff_seconds=backoff_seconds,
-        request=lambda client: client.post(url, json=json_body, headers=headers),
+        request=lambda client: (
+            client.post(url, json=json_body, headers=headers)
+            if request_policy is None
+            else _send_with_policy(client, "POST", url, headers=headers, json=json_body, policy=request_policy)
+        ),
         response_decoder=response_decoder,
     )
 
@@ -134,14 +139,33 @@ async def get_with_retry(
     max_retries: int = 2,
     backoff_seconds: float = 0.2,
     response_decoder: Callable[[httpx.Response], dict[str, Any]] | None = None,
+    request_policy: Callable[[httpx.Request], None] | None = None,
 ) -> tuple[int, dict[str, Any]]:
     return await _request_with_retry(
         timeout_seconds=timeout_seconds,
         max_retries=max_retries,
         backoff_seconds=backoff_seconds,
-        request=lambda client: client.get(url, params=query_params, headers=headers),
+        request=lambda client: (
+            client.get(url, params=query_params, headers=headers)
+            if request_policy is None
+            else _send_with_policy(client, "GET", url, headers=headers, params=query_params, policy=request_policy)
+        ),
         response_decoder=response_decoder,
     )
+
+
+async def _send_with_policy(
+    client: httpx.AsyncClient,
+    method: str,
+    url: str,
+    *,
+    policy: Callable[[httpx.Request], None],
+    **kwargs: Any,
+) -> httpx.Response:
+    request = client.build_request(method, url, **kwargs)
+    policy(request)
+    # A policy owns request identity. Do not run a shared auth handler afterwards.
+    return await client.send(request, auth=None, follow_redirects=False)
 
 
 async def _request_with_retry(

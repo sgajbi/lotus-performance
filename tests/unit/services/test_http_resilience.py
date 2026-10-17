@@ -20,6 +20,39 @@ async def _capture_sleep(delay_seconds: float) -> None:
 
 
 @pytest.mark.asyncio
+@pytest.mark.parametrize("method", ["GET", "POST"])
+async def test_generic_requests_keep_pool_auth_headers_and_cookies(monkeypatch, method):
+    from app.services import http_resilience
+
+    seen = []
+
+    async def respond(request):
+        seen.append(request)
+        return httpx.Response(200, json={"ok": True})
+
+    client = httpx.AsyncClient(
+        transport=httpx.MockTransport(respond),
+        auth=("synthetic", "password"),
+        headers={"X-Caller-Capabilities": "pool-grant"},
+        cookies={"session": "pool"},
+    )
+    pool = http_resilience.UpstreamHttpClientPool(http_resilience.UpstreamHttpClientPoolConfig(4, 2, 10))
+    pool._clients_by_timeout[1.0] = client
+    monkeypatch.setattr(http_resilience, "_managed_client_pool", pool)
+    try:
+        options = dict(url="https://non-core.invalid/source", timeout_seconds=1.0, headers={}, max_retries=0)
+        result = await (
+            get_with_retry(query_params={}, **options) if method == "GET" else post_with_retry(json_body={}, **options)
+        )
+        assert result == (200, {"ok": True})
+        assert seen[0].headers["authorization"].startswith("Basic ")
+        assert seen[0].headers["cookie"] == "session=pool"
+        assert seen[0].headers["x-caller-capabilities"] == "pool-grant"
+    finally:
+        await close_upstream_http_client_pool()
+
+
+@pytest.mark.asyncio
 @pytest.mark.parametrize("wire", ['{"a":1,"a":2}', '{"amount":0.10}'])
 async def test_post_optional_decoder_rejects_ambiguous_authority_wire(monkeypatch, wire):
     from app.models.composite_authority import decode_authority_json

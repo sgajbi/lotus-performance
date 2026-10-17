@@ -84,7 +84,7 @@ def source_runtime(tmp_path, monkeypatch, request):
         response = httpx.Response(200, content=json.dumps(payload, indent=1).encode())
         from app.services.http_resilience import response_payload
 
-        return 200, kwargs.get("response_decoder", response_payload)(response)
+        return 200, (kwargs.get("response_decoder") or response_payload)(response)
 
     monkeypatch.setattr("app.services.core_integration_service.post_with_retry", post)
     yield settings, calls

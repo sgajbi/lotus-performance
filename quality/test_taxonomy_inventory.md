@@ -1,6 +1,6 @@
 # Lotus Performance Test Taxonomy Inventory
 
-Original report date: 2026-10-16. Current measurement date: 2026-10-17 (#679); unsigned source inventory on exact base `7f14a080f45bc9b1c28e282c3d1163f889bc5627`.
+Original report date: 2026-10-16. Current measurement date: 2026-10-17 (#679 URL identity refusal); unsigned source inventory on signed base `349d2db5b229fcdcb01e83529dba13efd60a5d95`.
 Historical source: #624 single-analysis candidate on exact base `b7de3b30dfa37fd66c027720d530d1cc18c11bbe`; AST counts do not establish test execution or live acceptance.
 Mode: regression-blocking test taxonomy inventory; `make quality-test-taxonomy-gate` enforces
 minimum API/runtime and contract/governance breadth plus the current uncategorized-test ceiling.
@@ -18,7 +18,7 @@ python scripts/python_test_taxonomy_inventory.py --limit 30
 python scripts/python_test_taxonomy_inventory.py --limit 30 --min-api-runtime-tests 656 --min-contract-governance-tests 136 --max-uncategorized-tests 558
 ```
 
-Current generated inventory: controlled annual retained verifier #540 unsigned Docker activation completion on base `8972b1f58a08076733cded329c59550cd0b8057b`.
+Current generated inventory: bounded #679 signed Core URL identity refusal on signed base `349d2db5b229fcdcb01e83529dba13efd60a5d95`.
 The tables below are native AST measurements; dated narrative sections retain their historical source identities.
 Source inventory does not establish executed-test or live acceptance.
 
@@ -27,7 +27,7 @@ Source inventory does not establish executed-test or live acceptance.
 | Metric | Value |
 | --- | ---: |
 | Test modules inventoried | 481 |
-| Test functions inventoried | 5702 |
+| Test functions inventoried | 5707 |
 | Integration/API/runtime test functions | 1123 |
 | Contract/governance test functions | 291 |
 
@@ -38,7 +38,7 @@ Source inventory does not establish executed-test or live acceptance.
 | benchmarks | 22 | 208 |
 | e2e | 1 | 21 |
 | integration | 58 | 653 |
-| unit | 400 | 4820 |
+| unit | 400 | 4825 |
 
 ## Test Functions By Family
 
@@ -51,8 +51,8 @@ above does sum to it, because a module belongs to exactly one suite.
 | analytics_domain | 3320 |
 | api_or_runtime | 1123 |
 | contract_or_governance | 291 |
-| observability_or_readiness | 787 |
-| quality_or_security | 501 |
+| observability_or_readiness | 788 |
+| quality_or_security | 505 |
 | uncategorized | 558 |
 
 ## Largest Test Modules
