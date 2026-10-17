@@ -120,6 +120,12 @@ family counts overlap and policy bounds are unchanged. Baseline and taxonomy mea
 by this slice; other scorecard measurements retain their cited prior evidence and are not new
 measurements for this candidate. AST inventory does not establish executed tests or live proof.
 
+Current #540 digest-correction measurement (2026-10-17, signed source `fa984038cf769d28cfe8f09a36fa074fb2eeb6c3`):
+native baseline measures 313,350 Python lines and 10,036 collected cases; AST taxonomy measures
+478 modules, 5,674 source test functions and 291 contract/governance functions. Current tables
+below carry these measurements; dated historical baselines and all policy thresholds are preserved.
+These counts do not establish executed-test or live financial acceptance.
+
 This document is the first before/after quality scorecard for the performance hardening stream.
 It is intended to track measurable quality posture change over refactor phases, where the same
 metrics in each section are updated with each meaningful slice.
@@ -132,11 +138,11 @@ metrics in each section are updated with each meaningful slice.
 | --- | ---: | ---: | ---: | --- | --- |
 | Python files | 480 | 1073 | 593 | measured | `quality/baseline_report.md`; `quality/refactor_health_report.md` |
 | Python package markers | 18 | 36 | 18 | measured | `quality/baseline_report.md`; `quality/refactor_health_report.md` |
-| Python LOC | 104,454 | 312,990 | 208,536 | measured | `quality/baseline_report.md`; `quality/refactor_health_report.md` |
+| Python LOC | 104,454 | 313,350 | 208,896 | measured | `quality/baseline_report.md`; `quality/refactor_health_report.md` |
 | Largest Python file LOC | 2,399 | 4,447 | 2,048 | measured | `quality/baseline_report.md`; `quality/refactor_health_report.md` |
 | Largest production file LOC | 1,156 | 3,271 | 2,115 | measured | `quality/refactor_health_report.md`; `quality/architecture_boundary_inventory.md` |
 | Python test modules | 228 | 478 | 250 | measured | `quality/test_taxonomy_inventory.md`; `quality/refactor_health_report.md` |
-| Collected tests | 2,035 | 10,035 | 8,000 | measured | `quality/baseline_report.md`; `quality/refactor_health_report.md` |
+| Collected tests | 2,035 | 10,036 | 8,001 | measured | `quality/baseline_report.md`; `quality/refactor_health_report.md` |
 | Duplicate code hotspots | 0 | 0 | 0 | enforced | `quality/duplicate_code_inventory.md`; `quality/refactor_health_report.md`; `make quality-duplicate-code-gate` |
 | Tracked local byproduct findings | unknown | 0 | n/a | enforced | `scripts/repository_hygiene_gate.py`; `make repository-hygiene-gate`; `quality/refactor_health_report.md` |
 
@@ -178,7 +184,7 @@ metrics in each section are updated with each meaningful slice.
 | Line coverage | unknown | 99.58% | n/a | measured | `quality/coverage_inventory.md`; `quality/refactor_health_report.md` |
 | Branch coverage | unknown | 98.00% | n/a | measured | `quality/coverage_inventory.md`; `quality/refactor_health_report.md`; `make branch-coverage-baseline` |
 | Integration/API/runtime test functions | unknown | 1121 | n/a | enforced | `quality/test_taxonomy_inventory.md`; `quality/refactor_health_report.md`; `make quality-test-taxonomy-gate` |
-| Contract/governance test functions | unknown | 290 | n/a | enforced | `quality/test_taxonomy_inventory.md`; `quality/refactor_health_report.md`; `make quality-test-taxonomy-gate` |
+| Contract/governance test functions | unknown | 291 | n/a | enforced | `quality/test_taxonomy_inventory.md`; `quality/refactor_health_report.md`; `make quality-test-taxonomy-gate` |
 | Uncategorized test functions | unknown | 558 | n/a | enforced ceiling | `quality/test_taxonomy_inventory.md`; `make quality-test-taxonomy-gate`; #619 exact adapter classification measures 558 and separately banks policy 558. |
 
 ### Security and Dependencies

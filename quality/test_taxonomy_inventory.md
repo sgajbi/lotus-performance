@@ -18,7 +18,7 @@ python scripts/python_test_taxonomy_inventory.py --limit 30
 python scripts/python_test_taxonomy_inventory.py --limit 30 --min-api-runtime-tests 656 --min-contract-governance-tests 136 --max-uncategorized-tests 558
 ```
 
-Current generated inventory: controlled annual consumer #540 at signed source `78f92dbb08d15a631debb9fe731827a9dff580a9`.
+Current generated inventory: controlled annual consumer #540 digest correction at signed source `fa984038cf769d28cfe8f09a36fa074fb2eeb6c3`.
 The tables below are native AST measurements; dated narrative sections retain their historical source identities.
 Source inventory does not establish executed-test or live acceptance.
 
@@ -27,9 +27,9 @@ Source inventory does not establish executed-test or live acceptance.
 | Metric | Value |
 | --- | ---: |
 | Test modules inventoried | 478 |
-| Test functions inventoried | 5673 |
+| Test functions inventoried | 5674 |
 | Integration/API/runtime test functions | 1121 |
-| Contract/governance test functions | 290 |
+| Contract/governance test functions | 291 |
 
 ## Test Functions By Suite
 
@@ -38,7 +38,7 @@ Source inventory does not establish executed-test or live acceptance.
 | benchmarks | 22 | 208 |
 | e2e | 1 | 21 |
 | integration | 57 | 651 |
-| unit | 398 | 4793 |
+| unit | 398 | 4794 |
 
 ## Test Functions By Family
 
@@ -48,9 +48,9 @@ above does sum to it, because a module belongs to exactly one suite.
 
 | Family | Test functions |
 | --- | ---: |
-| analytics_domain | 3305 |
+| analytics_domain | 3306 |
 | api_or_runtime | 1121 |
-| contract_or_governance | 290 |
+| contract_or_governance | 291 |
 | observability_or_readiness | 787 |
 | quality_or_security | 487 |
 | uncategorized | 558 |
