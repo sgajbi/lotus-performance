@@ -215,10 +215,10 @@ def _source_wire_digest(payload):
     return source_digest(payload)
 
 
-def _publication_members(definition):
+def _publication_members(definition, command):
     from app.services.composite_materialization.controlled_annual_authority import publication_member_identities
 
-    return publication_member_identities(definition)
+    return publication_member_identities(definition, command)
 
 
 def _project_source(definition, membership, attestation, published_eligibility=None) -> PinnedCompositeSource:
@@ -301,7 +301,7 @@ def published_eligibility_from_wire(
         ),
         source_cut_id=source.attestation.source_cut_id,
         publication_sequence=receipt.publication_sequence,
-        member_identities=tuple(_publication_members(source.definition)),
+        member_identities=tuple(_publication_members(source.definition, command)),
     )
     source.published_eligibility = result
     _admit_published_eligibility(source, command=command)
@@ -341,7 +341,7 @@ def _admit_published_eligibility(source: PinnedCompositeSource, *, command: Comp
         source_cut_id=command.source_cut_id,
         effective_from=source.attestation.coverage_from.isoformat(),
         effective_to=source.attestation.coverage_to.isoformat(),
-        member_identities=tuple(_publication_members(definition)),
+        member_identities=tuple(_publication_members(definition, command)),
     )
     try:
         receipt = evidence_ports.admit_resolved_eligibility(

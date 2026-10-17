@@ -7,7 +7,7 @@ from datetime import datetime, timedelta
 
 import pytest
 
-from app.models.composite_authority import ManageCompositeDefinitionV2, decode_governed_definition
+from app.models.composite_authority import ManageCompositeDefinitionV2, authority_digest, decode_governed_definition
 from app.models.composite_controlled_annual_authority import ControlledAnnualDefinitionV4
 from app.models.composite_controlled_annual_evidence import ControlledAnnualFinalizationReceipt
 from app.models.composite_controlled_scenario_definition import (
@@ -18,6 +18,66 @@ from app.models.composite_controlled_scenario_evidence import ControlledScenario
 from app.models.composite_eligibility_evidence import decode_eligibility_receipt
 from tests.composite_controlled_annual_helpers import CONTRACT_ROOT, competing_receipt, graph, hash_envelope
 from tests.unit.models.test_composite_controlled_scenario_contract import rehash_ancestors
+
+
+def changing_monthly_population_receipt():
+    """Signed software-only variant: February adds a member; March removes a January member."""
+    wire = graph()
+    definition = wire["finalization"]["definition"]
+    payload = definition["source_authority"]["payload"]
+    basis = payload["basis_mapping"]["basis"]
+    original = payload["member_identities"]
+    added = {**original[-1], "member_id": "synthetic-member-8", "source_member_id": "synthetic-member-8"}
+    union = [*original, added]
+    payload["member_identities"] = deepcopy(union)
+    basis["member_identities"] = deepcopy(union)
+    for rules in (payload["authority_rules"], basis["authority_rules"]):
+        for rule in rules:
+            rule["member_ids"] = [member["member_id"] for member in union]
+    for index, candidate in enumerate(definition["authority_approval"]["verification"]["candidate_evidence"]):
+        if index == 0:
+            continue
+        candidate["members"] = deepcopy(union if index == 1 else union[1:])
+        binding = candidate["registry_binding"]
+        binding["digest"] = authority_digest(
+            {
+                "classification": "SOFTWARE_ONLY_SYNTHETIC_NON_CERTIFYING",
+                "month": candidate["month"],
+                "members": candidate["members"],
+            }
+        )
+        candidate["source_products"][0]["content_hash"] = binding["digest"]
+        basis["months"][index]["candidate_registry_binding"] = deepcopy(binding)
+        hash_envelope(candidate)
+    return competing_receipt(wire)
+
+
+def test_annual_union_preserves_distinct_monthly_candidate_addition_and_removal():
+    receipt = decode_eligibility_receipt(json.dumps(changing_monthly_population_receipt()))
+    proof = receipt.finalization.year_authority_verification
+    january, february, march = proof.candidate_evidence[:3]
+    assert [len(item.members) for item in (january, february, march)] == [7, 8, 7]
+    assert february.members[-1].member_id == "synthetic-member-8"
+    assert january.members[0] not in march.members
+    assert proof.basis_mapping.basis.member_identities == february.members
+    assert receipt.finalization.subject.universe == january
+    assert receipt.finalization.official_activation == "UNAVAILABLE" and receipt.completeness == "UNVERIFIED"
+
+
+def test_signed_year_cannot_change_a_source_identity_under_the_same_member_id():
+    wire = changing_monthly_population_receipt()
+    candidate = wire["finalization"]["definition"]["authority_approval"]["verification"]["candidate_evidence"][1]
+    candidate["members"][0]["source_member_id"] = "another-source-member"
+    hash_envelope(candidate)
+    with pytest.raises(ValueError, match="COMPOSITE_YEAR_MEMBER_MAP_MISMATCH"):
+        decode_eligibility_receipt(json.dumps(competing_receipt(wire)))
+
+
+def test_signed_year_cannot_omit_a_month_candidate():
+    wire = changing_monthly_population_receipt()
+    wire["finalization"]["definition"]["authority_approval"]["verification"]["candidate_evidence"].pop(1)
+    with pytest.raises(ValueError):
+        decode_eligibility_receipt(json.dumps(competing_receipt(wire)))
 
 
 def test_complete_producer_graph_roundtrips_with_year_basis_and_actual_january_publication():
