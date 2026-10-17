@@ -1,0 +1,20 @@
+{
+  "classification": "SOFTWARE_ONLY_SYNTHETIC_NON_CERTIFYING",
+  "consumer_enablement": "INDEPENDENT_YEAR_VERIFIER_UNAVAILABLE_BY_DEFAULT",
+  "official_activation": "UNAVAILABLE",
+  "producer_owner": "sgajbi/lotus-manage#714",
+  "producer_contract_seal": "833d9f152610ab007e076711b0e6e608d190491f59b3455e231ed2c181f5cb0f",
+  "producer_export": "manage714-annual-basis-implementation-20261017/producer-contract-fixture.json",
+  "producer_export_sha256": "251872dcc7db06f1c240e7fd56eaf2dabc29526cde2f1bcedf98b660d98520e2",
+  "producer_export_bytes": 336528,
+  "canonical_content_digest": "sha256:ed0675b8f6a0c2b4456eb6d396bfbc420c5874d77672042d55fa24734a98fce1",
+  "representation": "Consumer JSON indentation differs; all parsed producer values, full products and exact inner signed raw bytes remain identical.",
+  "raw_file_sha256": {
+    "valid-graph.json": "0ff401af26059c07fbdd6adea82f51539203d89b5b587e81cd62ddb0a249abb8",
+    "schemas.json": "d74462922c418f546446279c60a46e53a5e1b0efb6462f01b9f823422d58e9d5"
+  },
+  "raw_file_bytes": {"valid-graph.json":331061,"schemas.json":345335},
+  "source_public_key_base64": "JUO5L/EJVRFHatyDadtt3JM2ZaEZeN2hQE7hBmypVZ0=",
+  "key_posture": "Fixed test-only producer source key; no institutional or production authority. Competing-basis unit keys are separate explicitly fixed software fixtures.",
+  "live_boundary": "No canonical Docker, PostgreSQL deployment, actual native financial calculation or twelve COMPLETE month acceptance. Pending preparation and later recurring source families remain unsupported."
+}

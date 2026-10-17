@@ -13,10 +13,13 @@ from pydantic import BaseModel, ConfigDict, Field, model_serializer
 
 from app.models.composite_authority import (
     EvidenceBinding,
-    GovernedCompositeDefinition,
     authority_digest,
     legacy_composite_product_digest,
 )
+from app.models.composite_controlled_annual_authority import (
+    SupportedGovernedCompositeDefinition as GovernedCompositeDefinition,
+)
+from app.models.composite_controlled_annual_evidence import ControlledAnnualFinalizationReceipt
 from app.models.composite_controlled_scenario_evidence import ControlledScenarioSubjectFinalizationReceipt
 from app.models.composite_eligibility_evidence import SubjectFinalizationReceipt
 from app.models.composite_historical_subject_evidence import HistoricalSubjectFinalizationReceipt
@@ -197,13 +200,25 @@ def verify_source_wire_hashes(command, definition, membership, attestation) -> N
         (membership, command.membership_content_hash),
         (attestation, command.attestation_content_hash),
     ):
-        digest = (
-            authority_digest({key: value for key, value in payload.items() if key != "content_hash"})
-            if payload.get("product_name") == "CompositeDefinition" and payload.get("product_version") in {"v2", "v3"}
-            else source_digest(payload)
-        )
+        digest = _source_wire_digest(payload)
         if payload.get("content_hash") != expected_hash or digest != expected_hash:
             raise source_refusal("COMPOSITE_SOURCE_HASH_MISMATCH")
+
+
+def _source_wire_digest(payload):
+    if payload.get("product_name") == "CompositeDefinition":
+        version = payload.get("product_version")
+        if version in {"v2", "v3", "v4"}:
+            return authority_digest({key: value for key, value in payload.items() if key != "content_hash"})
+        if version != "v1":
+            raise source_refusal("COMPOSITE_SOURCE_SCHEMA_INVALID")
+    return source_digest(payload)
+
+
+def _publication_members(definition):
+    from app.services.composite_materialization.controlled_annual_authority import publication_member_identities
+
+    return publication_member_identities(definition)
 
 
 def _project_source(definition, membership, attestation, published_eligibility=None) -> PinnedCompositeSource:
@@ -258,6 +273,7 @@ def published_eligibility_from_wire(
     receipt: SubjectFinalizationReceipt
     | HistoricalSubjectFinalizationReceipt
     | ControlledScenarioSubjectFinalizationReceipt
+    | ControlledAnnualFinalizationReceipt
     | CompositeMonthlyEligibilityPublicationReceipt,
 ) -> evidence_ports.PublishedEligibilityEvidence:
     """Join the configured resolver's published graph with separately fetched canonical products."""
@@ -285,7 +301,7 @@ def published_eligibility_from_wire(
         ),
         source_cut_id=source.attestation.source_cut_id,
         publication_sequence=receipt.publication_sequence,
-        member_identities=tuple(source.definition.source_authority.payload.member_identities),
+        member_identities=tuple(_publication_members(source.definition)),
     )
     source.published_eligibility = result
     _admit_published_eligibility(source, command=command)
@@ -325,7 +341,7 @@ def _admit_published_eligibility(source: PinnedCompositeSource, *, command: Comp
         source_cut_id=command.source_cut_id,
         effective_from=source.attestation.coverage_from.isoformat(),
         effective_to=source.attestation.coverage_to.isoformat(),
-        member_identities=tuple(definition.source_authority.payload.member_identities),
+        member_identities=tuple(_publication_members(definition)),
     )
     try:
         receipt = evidence_ports.admit_resolved_eligibility(
@@ -345,7 +361,8 @@ def _admit_eligibility_graph(
     source: PinnedCompositeSource,
     receipt: SubjectFinalizationReceipt
     | HistoricalSubjectFinalizationReceipt
-    | ControlledScenarioSubjectFinalizationReceipt,
+    | ControlledScenarioSubjectFinalizationReceipt
+    | ControlledAnnualFinalizationReceipt,
 ) -> None:
     finalization = receipt.finalization
     if finalization.definition.model_dump() != source.wire_evidence.definition:
@@ -365,7 +382,8 @@ def _admit_evaluation_publication(
     source: PinnedCompositeSource,
     receipt: SubjectFinalizationReceipt
     | HistoricalSubjectFinalizationReceipt
-    | ControlledScenarioSubjectFinalizationReceipt,
+    | ControlledScenarioSubjectFinalizationReceipt
+    | ControlledAnnualFinalizationReceipt,
 ) -> None:
     finalization = receipt.finalization
     evaluation = finalization.evaluation_approval.proposal.evaluation

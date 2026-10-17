@@ -10,6 +10,7 @@ from datetime import date
 from typing import Literal, Protocol
 
 from app.models.composite_authority import AuthoritySelection, GovernedCompositeDefinition, authority_digest
+from app.models.composite_controlled_annual_authority import ControlledAnnualDefinitionV4
 from app.models.composite_materialization import CompositeMaterializationCommand
 from app.ports import composite_external_evidence as approval_ports
 from core.errors import APIUnprocessableEntityError
@@ -167,15 +168,24 @@ def admit_authority_profile(
         date.fromisoformat(payload.effective_to) < command.period_end
     ):
         raise authority_refusal("COMPOSITE_PROFILE_WINDOW_MISMATCH")
+    if isinstance(definition, ControlledAnnualDefinitionV4):
+        from app.services.composite_materialization.controlled_annual_authority import admit_annual_authority
+
+        admit_annual_authority(definition, command, expected_members, published_eligibility)
+        return
     members = {member.member_id: member for member in payload.member_identities}
     providers = {provider.provider_id: provider for provider in payload.providers}
     if set(members) != set(expected_members):
         raise authority_refusal("COMPOSITE_AUTHORITY_UNIVERSE_MISMATCH")
     _verify_selections(definition, command, members, providers)
-    if definition.authority_approval.evidence_kind == "INSTITUTIONAL_ATTESTATION_REFERENCE":
-        raise authority_refusal("COMPOSITE_INSTITUTIONAL_AUTHORITY_UNAVAILABLE")
+    _require_noninstitutional_approval(definition)
     _verify_registrations(payload, providers, tenant_id)
     _verify_independent_approvals(definition, command, universe_digest, expected_members, published_eligibility)
+
+
+def _require_noninstitutional_approval(definition) -> None:
+    if definition.authority_approval.evidence_kind == "INSTITUTIONAL_ATTESTATION_REFERENCE":
+        raise authority_refusal("COMPOSITE_INSTITUTIONAL_AUTHORITY_UNAVAILABLE")
 
 
 def _verify_registrations(payload, providers, tenant_id):

@@ -9,10 +9,13 @@ from app.models.composite_authority import (
     AuthoritySelection,
     ControlledScenarioSubjectApprovalBinding,
     EvidenceBinding,
-    GovernedCompositeDefinition,
     HistoricalSubjectApprovalBinding,
     MemberIdentity,
 )
+from app.models.composite_controlled_annual_authority import (
+    SupportedGovernedCompositeDefinition as GovernedCompositeDefinition,
+)
+from app.models.composite_controlled_annual_evidence import ControlledAnnualFinalizationReceipt
 from app.models.composite_controlled_scenario_evidence import ControlledScenarioSubjectFinalizationReceipt
 from app.models.composite_eligibility_evidence import (
     SubjectFinalizationReceipt,
@@ -115,6 +118,7 @@ class PublishedEligibilityEvidence:
         SubjectFinalizationReceipt
         | HistoricalSubjectFinalizationReceipt
         | ControlledScenarioSubjectFinalizationReceipt
+        | ControlledAnnualFinalizationReceipt
         | CompositeMonthlyEligibilityPublicationReceipt
     )
     membership_binding: EvidenceBinding
@@ -198,6 +202,7 @@ def admit_resolved_eligibility(
     SubjectFinalizationReceipt
     | HistoricalSubjectFinalizationReceipt
     | ControlledScenarioSubjectFinalizationReceipt
+    | ControlledAnnualFinalizationReceipt
     | CompositeMonthlyEligibilityPublicationReceipt
 ):
     """Validate a typed resolver result against consumer-owned immutable pins."""
@@ -279,7 +284,8 @@ def _published_pins(
     result: PublishedEligibilityEvidence,
     receipt: SubjectFinalizationReceipt
     | HistoricalSubjectFinalizationReceipt
-    | ControlledScenarioSubjectFinalizationReceipt,
+    | ControlledScenarioSubjectFinalizationReceipt
+    | ControlledAnnualFinalizationReceipt,
 ) -> None:
     approval = receipt.finalization.evaluation_approval
     _evidence_require(

@@ -590,6 +590,28 @@ resolver receipts with separately fetched canonical membership and universe resp
 products, changed current locators and fully rehashed decision tampering are refused. The inputs
 remain synthetic and unqualified; publication alone does not satisfy independent financial trust.
 
+## Controlled annual source custody
+
+The dedicated controlled-year reader accepts definition/authority v4 and first
+finalization/receipt v5 while retaining January subject approval v3. It joins the
+original full definition, published membership and universe with independently
+verified year-basis custody. Authority enrollment applies to actual monthly candidates;
+it does not supply financial values or replace native member result fingerprints.
+Native financial publication requests ending assets and requires a declared ending
+rule. A two-rule source fixture does not earn native financial COMPLETE.
+
+Year verification defaults unavailable until a separate source/key/enrollment adapter
+is admitted. Source and population remain UNQUALIFIED/UNVERIFIED; official activation
+is unavailable. Pending inputs are not evaluated eligibility. Prepared membership v2
+and recurring monthly v5 need later consumer delivery. The annual calculator still
+requires twelve distinct COMPLETE months with one unchanged actual definition hash
+and policy, and retains reporting-profile review requirements.
+
+See the [controlled annual contract](https://github.com/sgajbi/lotus-performance/blob/main/docs/contracts/composite-controlled-annual/README.md)
+and [materialization guide](https://github.com/sgajbi/lotus-performance/blob/main/docs/guides/composite_materialization.md).
+Producer software fixtures and local SQLite/source-off replay do not establish live
+Manage/Core financial or institutional acceptance.
+
 ## Retained model-fee drag
 
 The existing analytics operation accepts `MODEL_FEE_DRAG` with an exact complete model-fee

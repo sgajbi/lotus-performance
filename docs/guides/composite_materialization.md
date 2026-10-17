@@ -49,6 +49,35 @@ test-owned SQLite stores. They prove typed admission, refusal and durable replay
 establish deployed Manage acceptance, observation availability, a COMPLETE financial candidate,
 container startup or live qualification. Independent source integration remains a separate gate.
 
+## Controlled annual source family
+
+The separate controlled-year consumer accepts definition/authority v4 and first
+finalization/receipt v5, retaining January's subject approval v3 and actual canonical
+membership/universe v1. It compares the full definition and every publication pin
+against the separately fetched Manage products. Year basis v1 fixes twelve registry
+selections, monthly policy references and native source enrollment applicability;
+monthly financial receipts retain their own actual cuts, calculation IDs and values.
+Source signatures cover exact retained bytes, and new full-envelope hashes retain
+nested hashes. All old wire/hash families remain unchanged.
+
+Independent annual verification defaults unavailable. Even a structurally valid
+signed graph requires separately anchored source/verifier trust, source-key validity,
+revocation and enrollment records. A valid competing basis cannot substitute for the
+retained basis. Pending preparation is not evaluated eligibility; prepared membership
+v2 and recurring monthly v5 are later consumer slices. The existing native member
+reader refuses missing results and preserves zero published facts until genuine
+financial evidence passes the existing checks.
+Native fact publication also requires declared ending-asset authority. A physically
+retained ending value does not supply an undeclared year rule; two-rule source
+fixtures prove source compatibility rather than positive native financial publication.
+
+The source remains synthetic, UNQUALIFIED and UNVERIFIED with official activation
+unavailable. Annual analysis still requires twelve distinct actual COMPLETE monthly
+receipts with one identical actual definition hash and policy. Its calculator and
+reporting-profile review requirements are unchanged. See the
+[controlled annual contract and verification command](../contracts/composite-controlled-annual/README.md)
+for exact types, hashing, provenance and the local software/live proof boundary.
+
 ## API And Authority
 
 ### Periodic Model-Fee Materialization

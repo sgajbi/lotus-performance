@@ -7,7 +7,9 @@ from uuid import UUID
 from app.adapters.composite_materialization_repository import get_composite_materialization_store
 from app.adapters.composite_principal_credentials import VerifiedCompositePrincipal
 from app.adapters.composite_result_candidate_scope import require_candidate_member_scope, require_composite_member_scope
-from app.models.composite_authority import GovernedCompositeDefinition
+from app.models.composite_controlled_annual_authority import (
+    SupportedGovernedCompositeDefinition as GovernedCompositeDefinition,
+)
 from app.models.composite_materialization import CompositeMaterializationCommand, CompositeMaterializationState
 from app.models.composites import (
     CompositeMemberReturnFact,

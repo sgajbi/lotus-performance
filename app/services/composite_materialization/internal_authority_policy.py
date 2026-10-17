@@ -1,5 +1,6 @@
 """Bind v2 selections to the genuine shipped internal member receipt."""
 
+from app.models.composite_controlled_annual_authority import ControlledAnnualDefinitionV4
 from app.models.composite_materialization import (
     CompositeComponentModelFeeMemberEvidence,
     CompositeModelFeeMemberEvidence,
@@ -10,7 +11,7 @@ from app.services.composite_materialization.authority_policy import authority_re
 from app.services.reproducibility_service import generate_value_fingerprint
 
 
-def require_internal_selection_bindings(definition, command, reference, evidence, *, facts):
+def _native_internal_evidence(evidence):
     if isinstance(
         evidence,
         (
@@ -22,6 +23,11 @@ def require_internal_selection_bindings(definition, command, reference, evidence
         evidence = evidence.gross_evidence
     if isinstance(evidence, CompositeNormalizedMemberSourceEvidence):
         evidence = evidence.native_evidence
+    return evidence
+
+
+def require_internal_selection_bindings(definition, command, reference, evidence, *, facts):
+    evidence = _native_internal_evidence(evidence)
     if reference is None or evidence is None:
         raise authority_refusal("COMPOSITE_INTERNAL_RECEIPT_REQUIRED")
     receipt_digest = generate_value_fingerprint(evidence, "composite-member-source.v1")[0]
@@ -30,6 +36,11 @@ def require_internal_selection_bindings(definition, command, reference, evidence
         reference.calculation_hash,
     ):
         raise authority_refusal("COMPOSITE_INTERNAL_RECEIPT_BINDING_MISMATCH")
+    if isinstance(definition, ControlledAnnualDefinitionV4):
+        from app.services.composite_materialization.controlled_annual_authority import require_annual_internal_bindings
+
+        require_annual_internal_bindings(definition, command, reference, evidence, facts)
+        return
     for fact in facts:
         selection = selection_for_window(
             definition,

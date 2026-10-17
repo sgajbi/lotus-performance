@@ -31,6 +31,7 @@ from app.models.composite_authority import (
 )
 
 if TYPE_CHECKING:
+    from app.models.composite_controlled_annual_evidence import ControlledAnnualFinalizationReceipt
     from app.models.composite_controlled_scenario_evidence import ControlledScenarioSubjectFinalizationReceipt
     from app.models.composite_historical_subject_evidence import HistoricalSubjectFinalizationReceipt
     from app.models.composite_monthly_eligibility_evidence import CompositeMonthlyEligibilityPublicationReceipt
@@ -844,10 +845,19 @@ def decode_eligibility_receipt(
     SubjectFinalizationReceipt
     | HistoricalSubjectFinalizationReceipt
     | ControlledScenarioSubjectFinalizationReceipt
+    | ControlledAnnualFinalizationReceipt
     | CompositeMonthlyEligibilityPublicationReceipt
 ):
     """Decode exact wire strings; this is neither verification nor a custody join."""
     payload = decode_authority_json(wire)
+    if (payload.get("product_name"), payload.get("product_version")) == (
+        "CompositeEligibilityFinalizationReceipt",
+        "v5",
+    ):
+        from app.models.composite_controlled_annual_evidence import ControlledAnnualFinalizationReceipt
+
+        _require(len(wire.encode("utf-8")) <= 32000000, "COMPOSITE_YEAR_WIRE_TOO_LARGE")
+        return ControlledAnnualFinalizationReceipt.model_validate(payload)
     if (payload.get("product_name"), payload.get("product_version")) == (
         "CompositeEligibilityFinalizationReceipt",
         "v4",
