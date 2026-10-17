@@ -5,10 +5,11 @@ from functools import lru_cache
 from pathlib import Path
 from typing import Literal
 
-from pydantic import Field
+from pydantic import Field, SecretStr, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 from app.services.calculation_engine_version import CALCULATION_ENGINE_VERSION
+from app.services.core_request_context import CoreRequestContextAuthority
 
 
 class Settings(BaseSettings):
@@ -54,6 +55,14 @@ class Settings(BaseSettings):
     LINEAGE_WORKER_ID: str = "lineage-worker-1"
     CORE_CONTROL_PLANE_BASE_URL: str | None = "http://core-control.dev.lotus"
     CORE_QUERY_BASE_URL: str | None = None
+    CORE_REQUEST_CONTEXT_ENABLED: bool = False
+    CORE_REQUEST_CONTEXT_SERVICE_IDENTITY: str = ""
+    CORE_REQUEST_CONTEXT_KEY_ID: str = ""
+    CORE_REQUEST_CONTEXT_SECRET: SecretStr = Field(default=SecretStr(""), repr=False, exclude=True)
+    CORE_REQUEST_CONTEXT_ACTOR_ID: str = ""
+    CORE_REQUEST_CONTEXT_ROLE: str = ""
+    CORE_REQUEST_CONTEXT_TENANTS: list[str] = Field(default_factory=list)
+    CORE_REQUEST_CONTEXT_CAPABILITIES: list[str] = Field(default_factory=list)
     CORE_TIMEOUT_SECONDS: float = Field(default=10.0, gt=0.0)
     MANAGE_BASE_URL: str | None = None
     MANAGE_TIMEOUT_SECONDS: float = Field(default=10.0, gt=0.0)
@@ -123,7 +132,25 @@ class Settings(BaseSettings):
     RECOVERY_DRILL_MANUAL_RUN_COOLDOWN_SECONDS: float = Field(default=300.0, gt=0.0)
     RECOVERY_DRILL_ACTION_LEASE_STALE_SECONDS: float = Field(default=3600.0, gt=0.0)
 
-    model_config = SettingsConfigDict(env_file=".env", extra="ignore")
+    model_config = SettingsConfigDict(env_file=".env", extra="ignore", hide_input_in_errors=True)
+
+    @model_validator(mode="after")
+    def validate_core_execution_authority(self) -> "Settings":
+        self.core_request_context_authority()
+        return self
+
+    def core_request_context_authority(self) -> CoreRequestContextAuthority | None:
+        if not self.CORE_REQUEST_CONTEXT_ENABLED:
+            return None
+        return CoreRequestContextAuthority(
+            service_identity=self.CORE_REQUEST_CONTEXT_SERVICE_IDENTITY,
+            key_id=self.CORE_REQUEST_CONTEXT_KEY_ID,
+            secret=self.CORE_REQUEST_CONTEXT_SECRET,
+            actor_id=self.CORE_REQUEST_CONTEXT_ACTOR_ID,
+            role=self.CORE_REQUEST_CONTEXT_ROLE,
+            tenants=self.CORE_REQUEST_CONTEXT_TENANTS,
+            capabilities=self.CORE_REQUEST_CONTEXT_CAPABILITIES,
+        )
 
     @property
     def resolved_core_control_plane_base_url(self) -> str:

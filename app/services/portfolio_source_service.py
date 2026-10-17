@@ -35,6 +35,7 @@ def build_stateful_input_service(*, settings: Settings) -> StatefulInputService:
         max_retries=settings.CORE_MAX_RETRIES,
         retry_backoff_seconds=settings.CORE_RETRY_BACKOFF_SECONDS,
         tenant_authority=admitted_authority,
+        request_context_authority=settings.core_request_context_authority(),
     )
     return StatefulInputService(
         core_service=core_service,

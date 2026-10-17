@@ -1,6 +1,6 @@
 # Lotus Performance Test Taxonomy Inventory
 
-Original report date: 2026-10-16. Current measurement date: 2026-10-17 (#540).
+Original report date: 2026-10-16. Current measurement date: 2026-10-17 (#679); unsigned source inventory on exact base `7f14a080f45bc9b1c28e282c3d1163f889bc5627`.
 Historical source: #624 single-analysis candidate on exact base `b7de3b30dfa37fd66c027720d530d1cc18c11bbe`; AST counts do not establish test execution or live acceptance.
 Mode: regression-blocking test taxonomy inventory; `make quality-test-taxonomy-gate` enforces
 minimum API/runtime and contract/governance breadth plus the current uncategorized-test ceiling.
@@ -26,8 +26,8 @@ Source inventory does not establish executed-test or live acceptance.
 
 | Metric | Value |
 | --- | ---: |
-| Test modules inventoried | 480 |
-| Test functions inventoried | 5688 |
+| Test modules inventoried | 481 |
+| Test functions inventoried | 5702 |
 | Integration/API/runtime test functions | 1123 |
 | Contract/governance test functions | 291 |
 
@@ -38,7 +38,7 @@ Source inventory does not establish executed-test or live acceptance.
 | benchmarks | 22 | 208 |
 | e2e | 1 | 21 |
 | integration | 58 | 653 |
-| unit | 399 | 4806 |
+| unit | 400 | 4820 |
 
 ## Test Functions By Family
 
@@ -52,7 +52,7 @@ above does sum to it, because a module belongs to exactly one suite.
 | api_or_runtime | 1123 |
 | contract_or_governance | 291 |
 | observability_or_readiness | 787 |
-| quality_or_security | 487 |
+| quality_or_security | 501 |
 | uncategorized | 558 |
 
 ## Largest Test Modules
@@ -90,7 +90,7 @@ above does sum to it, because a module belongs to exactly one suite.
 | 29 | `tests/benchmarks/test_postgres_composite_materialization.py` | benchmarks | 36 | analytics_domain |
 | 30 | `tests/unit/models/test_workspace_summary_models.py` | unit | 36 | analytics_domain |
 
-## Current Single-Analysis Measurement
+## Historical Single-Analysis Measurement
 
 The #624 candidate on exact base `b7de3b30` measures 475 modules and 5,627 source test
 functions with `python scripts/python_test_taxonomy_inventory.py --limit 30`: 1,121 API/runtime,

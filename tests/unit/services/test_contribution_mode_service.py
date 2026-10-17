@@ -25,6 +25,7 @@ def _settings():
         CORE_CONTROL_PLANE_BASE_URL="http://core-control",
         CORE_QUERY_BASE_URL="http://core",
         resolved_core_control_plane_base_url="http://core-control",
+        core_request_context_authority=lambda: None,
         CORE_TIMEOUT_SECONDS=5.0,
         CORE_MAX_RETRIES=2,
         CORE_RETRY_BACKOFF_SECONDS=0.1,

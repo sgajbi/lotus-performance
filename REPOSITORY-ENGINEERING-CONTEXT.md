@@ -1580,6 +1580,24 @@ Example authoring must isolate and restore tracing ContextVars; prior unit tests
 request must not change deterministic example values. Run both OpenAPI quality and completeness
 checks when adding a response status: the completeness inventory also requires error examples.
 
+## Repository practice for Core service execution context
+
+`CORE_REQUEST_CONTEXT_ENABLED` opts the existing source factory into Core's native
+enterprise HMAC v1 protocol. API and compute executor share explicit operator
+service/key/actor/role plus exact tenant/capability allowlists. Worker source reads
+retain the already durable tenant and sign fresh service execution context; never
+impersonate the original user, derive capabilities from routes/logging metadata,
+default a tenant, or persist signatures, timestamps or secrets. Enabled incomplete
+configuration fails closed; disabled mode deliberately preserves tenant/trace
+compatibility and may be refused by enforcing Core. Per-call header maps remain
+private under pooled clients. The signed logical call has a 290-second total
+deadline across retries, assuming Core's aligned 300-second max age and synchronized
+clocks. Deadline expiration returns a safe 503; caller cancellation still propagates.
+Native refusal remains authoritative under skew; there is no unsigned fallback.
+See `docs/operations/core-request-context.md` for deployment parity, synthetic checks
+and separate installed-runtime acceptance. Authentication does not qualify
+financial/source/institutional authority.
+
 ## Repository practice for controlled annual source custody
 
 Controlled year basis v1, definition/authority v4 and first finalization/receipt v5

@@ -17,6 +17,18 @@ x-provenance-build: &provenance-build
     APP_IMAGE_DIGEST: ${APP_IMAGE_DIGEST:-unavailable-before-push}
     APP_CI_PIPELINE_RUN_ID: ${APP_CI_PIPELINE_RUN_ID:-local}
 
+# Operator-owned service execution authority is identical for API and compute.
+# Empty authority is valid only while this opt-in mode is disabled.
+x-core-request-context: &core-request-context
+  CORE_REQUEST_CONTEXT_ENABLED: "${CORE_REQUEST_CONTEXT_ENABLED:-false}"
+  CORE_REQUEST_CONTEXT_SERVICE_IDENTITY: "${CORE_REQUEST_CONTEXT_SERVICE_IDENTITY:-}"
+  CORE_REQUEST_CONTEXT_KEY_ID: "${CORE_REQUEST_CONTEXT_KEY_ID:-}"
+  CORE_REQUEST_CONTEXT_SECRET: "${CORE_REQUEST_CONTEXT_SECRET:-}"
+  CORE_REQUEST_CONTEXT_ACTOR_ID: "${CORE_REQUEST_CONTEXT_ACTOR_ID:-}"
+  CORE_REQUEST_CONTEXT_ROLE: "${CORE_REQUEST_CONTEXT_ROLE:-}"
+  CORE_REQUEST_CONTEXT_TENANTS: "${CORE_REQUEST_CONTEXT_TENANTS:-[]}"
+  CORE_REQUEST_CONTEXT_CAPABILITIES: "${CORE_REQUEST_CONTEXT_CAPABILITIES:-[]}"
+
 services:
   performance-lineage-db:
     image: public.ecr.aws/docker/library/postgres@sha256:2d2b8998d31037bf721cfdf764d76ba74171b4fab3431b7f72c27c56ddbdf9e3
@@ -90,6 +102,7 @@ services:
     security_opt:
       - no-new-privileges:true
     environment:
+      <<: *core-request-context
       CORE_CONTROL_PLANE_BASE_URL: "${CORE_CONTROL_PLANE_BASE_URL:-http://host.docker.internal:8202}"
       HTTP_ALLOWED_HOSTS: "${HTTP_ALLOWED_HOSTS:-testserver,localhost,127.0.0.1,host.docker.internal,*.dev.lotus}"
       LINEAGE_METADATA_DATABASE_URL: "${LINEAGE_METADATA_DATABASE_URL:-postgresql+psycopg://lotus:lotus@performance-lineage-db:5432/lotus_performance}"
@@ -158,6 +171,7 @@ services:
       - no-new-privileges:true
     command: ["python", "-m", "app.workers.compute_executor_worker"]
     environment:
+      <<: *core-request-context
       CORE_CONTROL_PLANE_BASE_URL: "${CORE_CONTROL_PLANE_BASE_URL:-http://host.docker.internal:8202}"
       HTTP_ALLOWED_HOSTS: "${HTTP_ALLOWED_HOSTS:-testserver,localhost,127.0.0.1,host.docker.internal,*.dev.lotus}"
       LINEAGE_METADATA_DATABASE_URL: "${LINEAGE_METADATA_DATABASE_URL:-postgresql+psycopg://lotus:lotus@performance-lineage-db:5432/lotus_performance}"
