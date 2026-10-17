@@ -21,6 +21,12 @@ this repository and published after merge; unpublished drift is expected on feat
 
 ## Core source context
 
+Stateful source requests require exactly one `X-Tenant-Id`. Missing/blank authority returns
+`401 TENANT_AUTHORITY_REQUIRED`; duplicate headers or a trimmed tenant longer than 128 characters
+return non-retryable `400 TENANT_AUTHORITY_MALFORMED` before Core reads or durable admission.
+Padded valid tenants are normalized; stateless requests without Core reads keep their existing
+tenant-optional contract. See the [TWR guide](https://github.com/sgajbi/lotus-performance/blob/main/docs/guides/twr.md).
+
 Core source reads can use opt-in operator-configured service execution context.
 The [Core context runbook](https://github.com/sgajbi/lotus-performance/blob/main/docs/operations/core-request-context.md)
 defines explicit identity/key/actor/role, exact tenant and capability allowlists,

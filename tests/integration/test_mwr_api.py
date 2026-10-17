@@ -678,7 +678,7 @@ def test_calculate_mwr_endpoint_supports_stateful_mode(client, monkeypatch):
         },
     }
 
-    response = client.post("/performance/mwr", json=payload)
+    response = client.post("/performance/mwr", json=payload, headers=_LINEAGE_CALLER_HEADERS)
 
     assert response.status_code == 200
     body = response.json()
@@ -821,6 +821,7 @@ def test_calculate_mwr_endpoint_marks_stateful_single_currency_fx_not_required(c
 
     response = client.post(
         "/performance/mwr",
+        headers=_LINEAGE_CALLER_HEADERS,
         json={
             "portfolio_id": "MWR_STATEFUL_SINGLE_CCY",
             "as_of": "2025-01-03",
@@ -1231,7 +1232,7 @@ def test_mwr_stateful_hashes_follow_resolved_inputs(client, monkeypatch):
         },
     }
 
-    response = client.post("/performance/mwr", json=payload)
+    response = client.post("/performance/mwr", json=payload, headers=_LINEAGE_CALLER_HEADERS)
 
     assert response.status_code == 200
     body = response.json()

@@ -8,7 +8,7 @@
       "openApiVersion": "3.1.0"
     }
   ],
-  "generatedAt": "2026-10-16T00:39:05.098415+00:00",
+  "generatedAt": "2026-10-17T19:34:01.512323+00:00",
   "attributeCatalog": [
     {
       "semanticId": "lotus.access_classification",
@@ -13500,8 +13500,8 @@
       "location": "header",
       "required": false,
       "type": "string",
-      "description": "Required when input_mode selects a stateful path. The admitted tenant is canonicalised by trimming surrounding whitespace and is carried to lotus-core; it is never minted or defaulted by lotus-performance.",
-      "example": "ENTITY_001",
+      "description": "Required when input_mode selects a stateful path. The admitted tenant is canonicalised by trimming surrounding whitespace and is carried to lotus-core; it is never minted or defaulted by lotus-performance. Supply exactly one header; duplicate values or a normalized value exceeding 128 characters return 400 TENANT_AUTHORITY_MALFORMED before source reads or durable admission. Missing or blank stateful authority returns 401 TENANT_AUTHORITY_REQUIRED.",
+      "example": "tenant-sg-synthetic",
       "allowedValues": [],
       "semanticId": "lotus.x_tenant_id",
       "attributeRef": "#/attributeCatalog/lotus.x_tenant_id"
@@ -13524,8 +13524,8 @@
       "location": "header",
       "required": false,
       "type": "string",
-      "description": "Required when input_mode selects a stateful path. The admitted tenant is canonicalised by trimming surrounding whitespace and is carried to lotus-core; it is never minted or defaulted by lotus-performance.",
-      "example": "ENTITY_001",
+      "description": "Required when input_mode selects a stateful path. The admitted tenant is canonicalised by trimming surrounding whitespace and is carried to lotus-core; it is never minted or defaulted by lotus-performance. Supply exactly one header; duplicate values or a normalized value exceeding 128 characters return 400 TENANT_AUTHORITY_MALFORMED before source reads or durable admission. Missing or blank stateful authority returns 401 TENANT_AUTHORITY_REQUIRED.",
+      "example": "tenant-sg-synthetic",
       "allowedValues": [],
       "semanticId": "lotus.x_tenant_id",
       "attributeRef": "#/attributeCatalog/lotus.x_tenant_id"
@@ -13548,8 +13548,8 @@
       "location": "header",
       "required": false,
       "type": "string",
-      "description": "Required when input_mode selects a stateful path. The admitted tenant is canonicalised by trimming surrounding whitespace and is carried to lotus-core; it is never minted or defaulted by lotus-performance.",
-      "example": "ENTITY_001",
+      "description": "Required when input_mode selects a stateful path. The admitted tenant is canonicalised by trimming surrounding whitespace and is carried to lotus-core; it is never minted or defaulted by lotus-performance. Supply exactly one header; duplicate values or a normalized value exceeding 128 characters return 400 TENANT_AUTHORITY_MALFORMED before source reads or durable admission. Missing or blank stateful authority returns 401 TENANT_AUTHORITY_REQUIRED.",
+      "example": "tenant-sg-synthetic",
       "allowedValues": [],
       "semanticId": "lotus.x_tenant_id",
       "attributeRef": "#/attributeCatalog/lotus.x_tenant_id"
@@ -13572,8 +13572,8 @@
       "location": "header",
       "required": false,
       "type": "string",
-      "description": "Required when input_mode selects a stateful path. The admitted tenant is canonicalised by trimming surrounding whitespace and is carried to lotus-core; it is never minted or defaulted by lotus-performance.",
-      "example": "ENTITY_001",
+      "description": "Required when input_mode selects a stateful path. The admitted tenant is canonicalised by trimming surrounding whitespace and is carried to lotus-core; it is never minted or defaulted by lotus-performance. Supply exactly one header; duplicate values or a normalized value exceeding 128 characters return 400 TENANT_AUTHORITY_MALFORMED before source reads or durable admission. Missing or blank stateful authority returns 401 TENANT_AUTHORITY_REQUIRED.",
+      "example": "tenant-sg-synthetic",
       "allowedValues": [],
       "semanticId": "lotus.x_tenant_id",
       "attributeRef": "#/attributeCatalog/lotus.x_tenant_id"
@@ -13596,8 +13596,8 @@
       "location": "header",
       "required": false,
       "type": "string",
-      "description": "Required when input_mode selects a stateful path. The admitted tenant is canonicalised by trimming surrounding whitespace and is carried to lotus-core; it is never minted or defaulted by lotus-performance.",
-      "example": "ENTITY_001",
+      "description": "Required when input_mode selects a stateful path. The admitted tenant is canonicalised by trimming surrounding whitespace and is carried to lotus-core; it is never minted or defaulted by lotus-performance. Supply exactly one header; duplicate values or a normalized value exceeding 128 characters return 400 TENANT_AUTHORITY_MALFORMED before source reads or durable admission. Missing or blank stateful authority returns 401 TENANT_AUTHORITY_REQUIRED.",
+      "example": "tenant-sg-synthetic",
       "allowedValues": [],
       "semanticId": "lotus.x_tenant_id",
       "attributeRef": "#/attributeCatalog/lotus.x_tenant_id"
@@ -13985,8 +13985,8 @@
       "location": "header",
       "required": false,
       "type": "string",
-      "description": "Required when input_mode selects a stateful path. The admitted tenant is canonicalised by trimming surrounding whitespace and is carried to lotus-core; it is never minted or defaulted by lotus-performance.",
-      "example": "ENTITY_001",
+      "description": "Required when input_mode selects a stateful path. The admitted tenant is canonicalised by trimming surrounding whitespace and is carried to lotus-core; it is never minted or defaulted by lotus-performance. Supply exactly one header; duplicate values or a normalized value exceeding 128 characters return 400 TENANT_AUTHORITY_MALFORMED before source reads or durable admission. Missing or blank stateful authority returns 401 TENANT_AUTHORITY_REQUIRED.",
+      "example": "tenant-sg-synthetic",
       "allowedValues": [],
       "semanticId": "lotus.x_tenant_id",
       "attributeRef": "#/attributeCatalog/lotus.x_tenant_id"
@@ -14058,7 +14058,7 @@
       "required": false,
       "type": "string",
       "description": "Required when the embedded TWR request selects stateful input, or when a referenced calculation subject cannot be resolved without tenant authority. The admitted tenant is canonicalised by trimming surrounding whitespace and is carried to lotus-core; it is never minted or defaulted by lotus-performance.",
-      "example": "ENTITY_001",
+      "example": "tenant-sg-synthetic",
       "allowedValues": [],
       "semanticId": "lotus.x_tenant_id",
       "attributeRef": "#/attributeCatalog/lotus.x_tenant_id"
@@ -14200,8 +14200,8 @@
       "location": "header",
       "required": false,
       "type": "string",
-      "description": "Required when input_mode selects a stateful path. The admitted tenant is canonicalised by trimming surrounding whitespace and is carried to lotus-core; it is never minted or defaulted by lotus-performance.",
-      "example": "ENTITY_001",
+      "description": "Required when input_mode selects a stateful path. The admitted tenant is canonicalised by trimming surrounding whitespace and is carried to lotus-core; it is never minted or defaulted by lotus-performance. Supply exactly one header; duplicate values or a normalized value exceeding 128 characters return 400 TENANT_AUTHORITY_MALFORMED before source reads or durable admission. Missing or blank stateful authority returns 401 TENANT_AUTHORITY_REQUIRED.",
+      "example": "tenant-sg-synthetic",
       "allowedValues": [],
       "semanticId": "lotus.x_tenant_id",
       "attributeRef": "#/attributeCatalog/lotus.x_tenant_id"

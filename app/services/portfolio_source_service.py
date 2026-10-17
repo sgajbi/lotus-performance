@@ -6,9 +6,8 @@ from typing import Any
 from uuid import UUID
 
 from app.core.config import Settings
-from app.observability import tenant_id_var
+from app.observability import current_tenant_authority
 from app.services.core_integration_service import CoreIntegrationService
-from app.services.core_tenant_authority import admitted_tenant_authority
 from app.services.stateful_input_service import StatefulInputService
 
 _DEFAULT_STATEFUL_INPUT_MAX_PAGES_PER_CHUNK = 25
@@ -28,7 +27,7 @@ def build_stateful_input_service(*, settings: Settings) -> StatefulInputService:
     # refused can be named. Nothing is defaulted.
     # Admission trims surrounding whitespace under Core's canonical contract.
     # Legitimate stateless absence is not defaulted into tenant authority.
-    admitted_authority = admitted_tenant_authority(tenant_id_var.get())
+    admitted_authority = current_tenant_authority()
     core_service = CoreIntegrationService(
         base_url=settings.resolved_core_control_plane_base_url,
         timeout_seconds=settings.CORE_TIMEOUT_SECONDS,

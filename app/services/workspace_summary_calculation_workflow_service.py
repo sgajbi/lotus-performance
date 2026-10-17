@@ -26,6 +26,7 @@ from app.services.execution_stage_names import EXECUTION_STAGE_EXECUTION
 from app.services.performance_history_coverage_service import validate_performance_history_window
 from app.services.reproducibility_service import generate_request_fingerprint
 from app.services.submission_fencing_service import (
+    _require_submission_tenant_if_needed,
     register_async_submission_or_raise,
     register_sync_execution_or_raise,
 )
@@ -248,6 +249,13 @@ async def _raise_workspace_summary_workflow_error_async(*, calculation_id: UUID,
     raise AssertionError("Workspace summary failure mapping returned unexpectedly")
 
 
+def _workspace_request_requires_tenant_authority(request: WorkspaceSummaryRequest) -> bool:
+    return request.input_mode == TWRInputMode.STATEFUL or (
+        request.include_benchmark
+        and (request.benchmark is None or request.benchmark.input_mode == BenchmarkInputMode.STATEFUL)
+    )
+
+
 def _prepare_workspace_summary_execution(
     command: WorkspaceSummaryWorkflowCommand,
 ) -> tuple[
@@ -258,6 +266,9 @@ def _prepare_workspace_summary_execution(
     str,
 ]:
     request = workflow_request(command, WorkspaceSummaryRequest)
+    _require_submission_tenant_if_needed(
+        requires_tenant_authority=_workspace_request_requires_tenant_authority(request)
+    )
     if request.performance_start_date is not None:
         requested_periods = resolve_workspace_periods(
             [item.period for item in request.periods],
@@ -290,7 +301,7 @@ def _prepare_workspace_summary_execution(
             request_payload=async_observability_request_payload(request.model_dump(mode="json")),
             offload_reason=workspace_offload_reason(request),
             accepted_response_factory=accepted_workspace_summary_response,
-            requires_tenant_authority=request.input_mode == TWRInputMode.STATEFUL,
+            requires_tenant_authority=_workspace_request_requires_tenant_authority(request),
         )
         return request, settings, accepted, input_fingerprint, calculation_hash
 

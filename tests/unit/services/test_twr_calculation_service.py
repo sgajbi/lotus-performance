@@ -8,10 +8,20 @@ from app.models.benchmark_analytics_requests import BenchmarkInputMode, Benchmar
 from app.models.benchmark_requests import BenchmarkPerformanceRequest
 from app.models.requests import PerformanceRequest
 from app.models.twr_requests import TWRAnalyticsRequest, TWRInputMode
+from app.observability import tenant_id_var
 from app.services import twr_calculation_service
 from app.services.analytics_workflow_types import ANALYTICS_WORKFLOW_TWR
 from app.services.twr_mode_service import ResolvedTWRRequest
 from core.errors import APIError
+
+
+@pytest.fixture
+def admitted_twr_tenant():
+    token = tenant_id_var.set("tenant-twr-unit")
+    try:
+        yield
+    finally:
+        tenant_id_var.reset(token)
 
 
 def _stateful_twr_payload() -> dict[str, object]:
@@ -201,7 +211,7 @@ def test_build_twr_workflow_submission_context_projects_hashes_and_window():
     }
 
 
-def test_register_twr_sync_submission_registers_enriched_stateful_window(mocker):
+def test_register_twr_sync_submission_registers_enriched_stateful_window(mocker, admitted_twr_tenant):
     request = TWRAnalyticsRequest.model_validate(_stateful_twr_payload())
     submission_context = twr_calculation_service._TWRWorkflowSubmissionContext(
         input_fingerprint="input-fingerprint",
@@ -397,7 +407,7 @@ def test_raise_twr_workflow_http_error_records_unexpected_error(mocker):
 
 
 @pytest.mark.asyncio
-async def test_calculate_twr_workflow_replays_promoted_stateful_async_execution(mocker):
+async def test_calculate_twr_workflow_replays_promoted_stateful_async_execution(mocker, admitted_twr_tenant):
     request = TWRAnalyticsRequest.model_validate(_stateful_twr_payload())
     replay_response = twr_calculation_service.accepted_twr_response(request.calculation_id)
     mocker.patch(

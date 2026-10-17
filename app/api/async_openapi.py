@@ -15,10 +15,14 @@ STATEFUL_TENANT_OPENAPI_EXTRA: dict[str, Any] = {
             "in": "header",
             "required": False,
             "schema": {"type": "string", "maxLength": 128},
+            "example": "tenant-sg-synthetic",
             "description": (
                 "Required when input_mode selects a stateful path. The admitted tenant is "
                 "canonicalised by trimming surrounding whitespace and is carried to lotus-core; "
-                "it is never minted or defaulted by lotus-performance."
+                "it is never minted or defaulted by lotus-performance. Supply exactly one header; "
+                "duplicate values or a normalized value exceeding 128 characters return "
+                "400 TENANT_AUTHORITY_MALFORMED before source reads or durable admission. "
+                "Missing or blank stateful authority returns 401 TENANT_AUTHORITY_REQUIRED."
             ),
         }
     ]
@@ -54,7 +58,10 @@ def stateful_tenant_authority_responses() -> dict[int, dict[str, Any]]:
     return {
         400: {
             "model": ErrorDetailResponse,
-            "description": "The normalized X-Tenant-Id exceeds the supported 128-character authority bound.",
+            "description": (
+                "X-Tenant-Id was supplied more than once or its normalized value exceeds the supported "
+                "128-character authority bound. Refused before source reads or durable admission."
+            ),
             "content": {
                 "application/json": {
                     "example": _error_detail_example(

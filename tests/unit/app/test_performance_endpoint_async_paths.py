@@ -15,13 +15,22 @@ from app.models.attribution_requests import AttributionRequest
 from app.models.mwr_analytics_requests import MoneyWeightedReturnAnalyticsRequest
 from app.models.twr_requests import TWRAnalyticsRequest
 from app.models.workspace_summary_requests import WorkspaceSummaryRequest
-from app.observability import correlation_id_var, request_id_var, trace_id_var
+from app.observability import correlation_id_var, request_id_var, tenant_id_var, trace_id_var
 from app.services import attribution_calculation_workflow_service
 from app.services import workspace_summary_calculation_workflow_service as workspace_summary_workflow_service
 from app.services.analytics_workflow_types import ANALYTICS_WORKFLOW_WORKSPACE_SUMMARY
 from app.services.attribution_mode_service import ResolvedAttributionRequest
 from app.services.twr_calculation_service import twr_requested_benchmark_work_units
 from core.errors import APIError
+
+
+@pytest.fixture
+def admitted_workspace_tenant():
+    token = tenant_id_var.set("tenant-workspace-unit")
+    try:
+        yield
+    finally:
+        tenant_id_var.reset(token)
 
 
 def _stateful_twr_payload() -> dict[str, object]:
@@ -210,7 +219,7 @@ def test_workspace_submission_helpers_project_window_and_offload_reason():
     )
 
 
-def test_workspace_summary_async_submission_captures_observability_context(mocker):
+def test_workspace_summary_async_submission_captures_observability_context(mocker, admitted_workspace_tenant):
     request = WorkspaceSummaryRequest.model_validate(
         {
             "calculation_id": str(uuid4()),

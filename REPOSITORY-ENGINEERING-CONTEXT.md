@@ -1582,6 +1582,14 @@ checks when adding a response status: the completeness inventory also requires e
 
 ## Repository practice for Core service execution context
 
+Request tenant admission preserves the typed malformed refusal alongside the safe observability
+tenant ID. Core-source factories and authority-required submission fencing use
+`current_tenant_authority()` rather than interpreting an empty audit ID as absence. Missing/blank
+authority remains 401; oversized/duplicate presentation remains 400 before source I/O or durable
+admission. Stateless routes that do not require Core authority remain tenant-optional. Installed
+HTTP proof lives in `tests/unit/api/test_tenant_admission_request_path.py`; its positive control
+uses synthetic source responses and an isolated temporary SQLite store, not live Core evidence.
+
 `CORE_REQUEST_CONTEXT_ENABLED` opts the existing source factory into Core's native
 enterprise HMAC v1 protocol. API and compute executor share explicit operator
 service/key/actor/role plus exact tenant/capability allowlists. Worker source reads
@@ -1757,6 +1765,15 @@ from this repository root in PowerShell or Bash. The command emits only; the rev
 manifest is packaged source. Preserve exact original response custody and the explicit
 audit-only comparison exclusions. Apply the additive schema owner before deployment;
 runtime validation does not upgrade old schemas. See `docs/guides/composite_arithmetic_capture.md`.
+
+## Repository Practice: Runtime Store Test Dependencies
+
+Runtime stores use a shared lazy `RuntimeStoreProxy`. Before using `monkeypatch.setattr` on
+resolved store methods, replace the consuming module's store dependency with the resolved
+concrete store or a scoped test double. Patching an absent proxy member directly makes pytest
+teardown assign the old bound method onto the proxy, retaining a previous store across tests.
+Keep method callbacks and financial assertions scoped to the concrete dependency; do not change
+the production proxy or add a global reset fixture to compensate for leaked test state.
 
 ## Cross-Links
 

@@ -27,6 +27,7 @@ from app.services.stateful_execution_policy_service import (
     replay_promoted_stateful_async_execution,
 )
 from app.services.submission_fencing_service import (
+    _require_submission_tenant_if_needed,
     register_async_submission_or_raise,
     register_sync_execution_or_raise,
 )
@@ -374,6 +375,13 @@ def _build_twr_workflow_submission_context(
     )
 
 
+def _twr_request_requires_tenant_authority(request: TWRAnalyticsRequest) -> bool:
+    return (
+        request.input_mode == TWRInputMode.STATEFUL
+        or twr_requested_benchmark_input_mode(request) == BenchmarkInputMode.STATEFUL.value
+    )
+
+
 def _register_pre_resolution_twr_submission(
     *,
     request: TWRAnalyticsRequest,
@@ -391,10 +399,7 @@ def _register_pre_resolution_twr_submission(
         request_payload=async_observability_request_payload(request.model_dump(mode="json")),
         offload_reason=_twr_pre_resolution_offload_reason(request),
         accepted_response_factory=accepted_twr_response,
-        requires_tenant_authority=(
-            request.input_mode == TWRInputMode.STATEFUL
-            or twr_requested_benchmark_input_mode(request) == BenchmarkInputMode.STATEFUL.value
-        ),
+        requires_tenant_authority=_twr_request_requires_tenant_authority(request),
     )
 
 
@@ -403,6 +408,7 @@ def _register_twr_sync_submission(
     request: TWRAnalyticsRequest,
     submission_context: _TWRWorkflowSubmissionContext,
 ) -> ApplicationHttpResponse | None:
+    _require_submission_tenant_if_needed(requires_tenant_authority=_twr_request_requires_tenant_authority(request))
     sync_start = _prepare_twr_sync_execution_start(
         request=request,
         requested_window=submission_context.requested_window,

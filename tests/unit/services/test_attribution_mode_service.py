@@ -12,6 +12,7 @@ from app.models.attribution_analytics_requests import AttributionAnalyticsReques
 from app.models.attribution_requests import AttributionPortfolioData, BenchmarkGroup, InstrumentData
 from app.models.benchmark_requests import BenchmarkComponentObservation
 from app.models.requests import DailyInputData
+from app.services import attribution_mode_service
 from app.services.attribution_mode_service import (
     _attribution_normalization_stage_details,
     _attribution_retrieval_stage_details,
@@ -96,6 +97,9 @@ def test_resolve_stateless_attribution_request_projects_input_count():
 
 @pytest.mark.asyncio
 async def test_resolve_attribution_request_fails_retrieval_stage(monkeypatch):
+    monkeypatch.setattr(
+        attribution_mode_service, "execution_registry", attribution_mode_service.execution_registry._resolver()
+    )
     failed: list[tuple] = []
 
     async def _boom(**kwargs):  # noqa: ARG001
@@ -138,6 +142,9 @@ async def test_resolve_attribution_request_fails_retrieval_stage(monkeypatch):
 
 @pytest.mark.asyncio
 async def test_resolve_attribution_request_fails_normalization_stage(monkeypatch):
+    monkeypatch.setattr(
+        attribution_mode_service, "execution_registry", attribution_mode_service.execution_registry._resolver()
+    )
     source_input = StatefulAttributionSourceInput(
         portfolio_input=StatefulPortfolioInput(
             performance_start_date=date(2025, 1, 1),

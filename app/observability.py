@@ -21,6 +21,8 @@ from app.observability_contracts import (
 )
 from app.services.core_tenant_authority import (
     MalformedTenantAuthorityError,
+    TenantAuthority,
+    admitted_tenant_authority,
     admitted_tenant_authority_from_header_values,
 )
 from app.services.queue_metrics_service import DurableQueueCollector
@@ -28,9 +30,23 @@ from app.services.queue_metrics_service import DurableQueueCollector
 correlation_id_var: ContextVar[str] = ContextVar("correlation_id", default="")
 request_id_var: ContextVar[str] = ContextVar("request_id", default="")
 trace_id_var: ContextVar[str] = ContextVar("trace_id", default="")
-#: The caller-admitted tenant for this request. Empty means ABSENT, which is a
-#: refusal at the Core boundary rather than a value to be defaulted.
+#: Safe admitted tenant ID for logging and persistence. Empty does not distinguish
+#: absent from malformed presentation; required boundaries use current_tenant_authority.
 tenant_id_var: ContextVar[str] = ContextVar("tenant_id", default="")
+# Retain only the bounded refusal, never the malformed header, for boundaries
+# that require authority. Logging and stateless routes still use the safe ID.
+tenant_authority_error_var: ContextVar[MalformedTenantAuthorityError | None] = ContextVar(
+    "tenant_authority_error", default=None
+)
+
+
+def current_tenant_authority() -> TenantAuthority | None:
+    """Read request authority without turning malformed presentation into absence."""
+    error = tenant_authority_error_var.get()
+    if error is not None:
+        raise error
+    return admitted_tenant_authority(tenant_id_var.get())
+
 
 PERFORMANCE_CALCULATION_SUPPORTABILITY_TOTAL = Counter(
     "lotus_performance_calculation_supportability_total",
@@ -228,7 +244,7 @@ def resolve_request_id(request: Request) -> str:
     return incoming if incoming else f"req_{uuid4().hex[:12]}"
 
 
-def resolve_tenant_id(request: Request) -> str:
+def _resolve_tenant_id(request: Request) -> str:
     """The caller's canonical tenant, or empty when it was not presented.
 
     Deliberately without a generated fallback: resolve_correlation_id and
@@ -255,11 +271,16 @@ def resolve_tenant_id(request: Request) -> str:
         if request.headers.get("X-Tenant-Id") is not None
         else []
     )
+    authority = admitted_tenant_authority_from_header_values(presented_values)
+    return authority.tenant_id if authority is not None else ""
+
+
+def resolve_tenant_id(request: Request) -> str:
+    """Resolve safe audit metadata without admitting malformed authority."""
     try:
-        authority = admitted_tenant_authority_from_header_values(presented_values)
+        return _resolve_tenant_id(request)
     except MalformedTenantAuthorityError:
         return ""
-    return authority.tenant_id if authority is not None else ""
 
 
 def resolve_trace_id(request: Request) -> str:
@@ -379,12 +400,18 @@ def setup_observability(app: FastAPI, *, log_level: str = "INFO") -> None:
         correlation_id = resolve_correlation_id(request)
         request_id = resolve_request_id(request)
         trace_id = resolve_trace_id(request)
-        tenant_id = resolve_tenant_id(request)
+        tenant_error = None
+        try:
+            tenant_id = _resolve_tenant_id(request)
+        except MalformedTenantAuthorityError as error:
+            tenant_id = ""
+            tenant_error = error
 
         correlation_token = correlation_id_var.set(correlation_id)
         request_token = request_id_var.set(request_id)
         trace_token = trace_id_var.set(trace_id)
         tenant_token = tenant_id_var.set(tenant_id)
+        tenant_error_token = tenant_authority_error_var.set(tenant_error)
         try:
             response = await call_next(request)
         finally:
@@ -399,10 +426,10 @@ def setup_observability(app: FastAPI, *, log_level: str = "INFO") -> None:
             correlation_id_var.reset(correlation_token)
             request_id_var.reset(request_token)
             trace_id_var.reset(trace_token)
-            # Resetting the tenant matters more than the ids above it: a leaked
-            # correlation id mislabels a log line, a leaked tenant lets the next
-            # request read under the previous caller's authority.
+            # Restore caller context symmetrically; Starlette also isolates
+            # sibling requests through per-task context copying.
             tenant_id_var.reset(tenant_token)
+            tenant_authority_error_var.reset(tenant_error_token)
 
         response.headers["X-Correlation-Id"] = correlation_id
         response.headers["X-Request-Id"] = request_id
