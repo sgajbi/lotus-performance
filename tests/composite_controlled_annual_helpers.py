@@ -47,7 +47,7 @@ def command(packet=None, **changes):
     )
 
 
-def install_independent_test_trust(monkeypatch, *, denied_purpose=None, denied_year=False):
+def install_independent_test_trust(monkeypatch, *, denied_purpose=None, denied_year=False, install_year=True):
     finalization = decode_eligibility_receipt(json.dumps(graph())).finalization
     proposal = finalization.evaluation_approval.proposal
     receipts = [
@@ -118,7 +118,8 @@ def install_independent_test_trust(monkeypatch, *, denied_purpose=None, denied_y
                 )
             return authority_policy.ProviderTrustResolution("UNAVAILABLE", "COMPOSITE_PROVIDER_TRUST_UNAVAILABLE")
 
-    monkeypatch.setattr(year_ports, "controlled_year_verifier", FixedYearVerifier)
+    if install_year:
+        monkeypatch.setattr(year_ports, "controlled_year_verifier", FixedYearVerifier)
     monkeypatch.setattr(ports, "composite_receipt_verifier", FixedReceiptVerifier)
     monkeypatch.setattr(controlled_annual_authority, "provider_trust_resolver", FixedRegistration)
     return calls

@@ -60,7 +60,18 @@ monthly financial receipts retain their own actual cuts, calculation IDs and val
 Source signatures cover exact retained bytes, and new full-envelope hashes retain
 nested hashes. All old wire/hash families remain unchanged.
 
-Independent annual verification defaults unavailable. Even a structurally valid
+Independent annual verification defaults unavailable. API and executor startup may
+install an immutable, operator-provisioned synthetic retained public-key package via
+`LOTUS_COMPOSITE_CONTROLLED_ANNUAL_DEPLOYMENT` (absolute path). The
+[annual deployment contract](../contracts/composite-controlled-annual/README.md)
+defines exact registrations, original signature times and current expiry/revocation.
+Docker activation explicitly selects `docker-compose.composite-controlled-annual.yml`
+alongside the base file, with an admitted absolute
+`LOTUS_COMPOSITE_CONTROLLED_ANNUAL_DEPLOYMENT_FILE`. Only API/compute receive the
+fixed read-only container package. The contract includes runnable PowerShell/POSIX
+selection and once-only non-sensitive installation log guidance. Actual image/Compose
+and startup qualification remains the runtime owner's responsibility.
+Even a structurally valid
 signed graph requires separately anchored source/verifier trust, source-key validity,
 revocation and enrollment records. A valid competing basis cannot substitute for the
 retained basis. Pending preparation is not evaluated eligibility; prepared membership

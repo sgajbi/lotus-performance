@@ -1,0 +1,17 @@
+# Explicit opt-in only; the base stack keeps annual verification unavailable.
+x-composite-controlled-annual-delivery: &composite-controlled-annual-delivery
+  environment:
+    LOTUS_COMPOSITE_CONTROLLED_ANNUAL_DEPLOYMENT: /run/lotus/composite-controlled-annual.json
+  volumes:
+    - type: bind
+      source: ${LOTUS_COMPOSITE_CONTROLLED_ANNUAL_DEPLOYMENT_FILE:?An absolute admitted public operator package file is required}
+      target: /run/lotus/composite-controlled-annual.json
+      read_only: true
+      bind:
+        create_host_path: false
+
+services:
+  performance-analytics:
+    <<: *composite-controlled-annual-delivery
+  performance-compute-executor:
+    <<: *composite-controlled-annual-delivery

@@ -1589,6 +1589,25 @@ envelopes omit only root `content_hash`. Independent original source signatures 
 checked over exact bytes using separately anchored public keys and validity intervals.
 The independent annual verifier port defaults unavailable; body-supplied keys or
 an ordinary policy proof cannot qualify it.
+API lifespan and executor startup share `bootstrap_composite_controlled_annual`.
+`LOTUS_COMPOSITE_CONTROLLED_ANNUAL_DEPLOYMENT` selects an absolute, bounded,
+closed synthetic-only retained trust package. Independent public anchors and exact
+request/proof fingerprints admit only registered original evidence. Current package
+expiry/revocation gates each use; original source/verifier key validity and admission
+times retain their historical semantics. Installation cannot change/remove in process.
+Reuse the annual configuration and existing model/port admission rather than adding
+custom cryptographic logic or deriving expectations from incoming proofs. No private
+keys, live registry transport, financial DTO changes or runtime service split belongs
+to this adapter. See the annual contract for package custody and startup checks.
+Docker delivery explicitly composes `docker-compose.composite-controlled-annual.yml`
+with the unchanged base. Required host setting
+`LOTUS_COMPOSITE_CONTROLLED_ANNUAL_DEPLOYMENT_FILE` selects an admitted absolute
+public package; only API/compute receive its fixed read-only mount, with host-path
+creation disabled. Base/default remains unavailable. Successful bootstrap logs its
+digest/revision/profile/synthetic qualification once through existing structured
+logging, excluding proof/key/credential/principal/path content. Preserve two-role
+scope, base settings and leakage controls; actual Compose/image/live proof belongs
+to the runtime owner. The annual contract provides working-directory-specific OS commands.
 
 January subject approval remains v3. Year verification request revision binds that
 subject revision, while basis revision stays in its source reference. Method receipt
