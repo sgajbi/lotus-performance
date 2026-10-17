@@ -28,8 +28,8 @@ Source inventory does not establish executed-test or live acceptance.
 | Metric | Value |
 | --- | ---: |
 | Test modules inventoried | 481 |
-| Test functions inventoried | 5713 |
-| Integration/API/runtime test functions | 1129 |
+| Test functions inventoried | 5715 |
+| Integration/API/runtime test functions | 1131 |
 | Contract/governance test functions | 291 |
 
 ## Test Functions By Suite
@@ -39,7 +39,7 @@ Source inventory does not establish executed-test or live acceptance.
 | benchmarks | 22 | 208 |
 | e2e | 1 | 21 |
 | integration | 58 | 653 |
-| unit | 400 | 4831 |
+| unit | 400 | 4833 |
 
 ## Test Functions By Family
 
@@ -50,7 +50,7 @@ above does sum to it, because a module belongs to exactly one suite.
 | Family | Test functions |
 | --- | ---: |
 | analytics_domain | 3320 |
-| api_or_runtime | 1129 |
+| api_or_runtime | 1131 |
 | contract_or_governance | 291 |
 | observability_or_readiness | 788 |
 | quality_or_security | 505 |

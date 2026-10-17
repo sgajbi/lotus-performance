@@ -8,6 +8,7 @@ from fastapi import HTTPException
 
 from app.models.mwr_analytics_requests import MoneyWeightedReturnAnalyticsRequest, MWRInputMode
 from app.models.mwr_requests import CashFlow, MoneyWeightedReturnRequest
+from app.observability import tenant_id_var
 from app.services.analytics_workflow_types import ANALYTICS_WORKFLOW_MWR
 from app.services.mwr_calculation_service import (
     _calculate_resolved_mwr_response,
@@ -29,6 +30,15 @@ from app.services.mwr_mode_service import ResolvedMWRRequest
 from app.services.stateful_mwr_input_service import MWRCurrencyEvidence, MWRSourceCashFlowQuality
 from core.errors import APIError
 from engine.mwr import calculate_money_weighted_return
+
+
+@pytest.fixture
+def admitted_mwr_tenant():
+    token = tenant_id_var.set("tenant-mwr-unit")
+    try:
+        yield
+    finally:
+        tenant_id_var.reset(token)
 
 
 def test_calculate_mwr_result_matches_engine_result():
@@ -640,7 +650,7 @@ async def test_calculate_mwr_response_executes_stateless_request_and_records_lin
 
 
 @pytest.mark.asyncio
-async def test_calculate_mwr_response_updates_identity_for_stateful_resolved_request(mocker):
+async def test_calculate_mwr_response_updates_identity_for_stateful_resolved_request(mocker, admitted_mwr_tenant):
     request = MoneyWeightedReturnAnalyticsRequest.model_validate(
         {
             "calculation_id": str(uuid4()),

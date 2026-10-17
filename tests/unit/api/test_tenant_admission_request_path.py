@@ -348,6 +348,255 @@ def test_mixed_mode_twr_refuses_authority_before_source_or_registration(
     assert execution is None
 
 
+@pytest.mark.parametrize(
+    "headers, status, code",
+    [
+        ([], 401, "TENANT_AUTHORITY_REQUIRED"),
+        ([(TENANT_HEADER, "   ")], 401, "TENANT_AUTHORITY_REQUIRED"),
+        ([(TENANT_HEADER, "x" * 129)], 400, "TENANT_AUTHORITY_MALFORMED"),
+        ([(TENANT_HEADER, "tenant-a"), (TENANT_HEADER, "tenant-b")], 400, "TENANT_AUTHORITY_MALFORMED"),
+    ],
+    ids=["missing", "blank", "oversized", "duplicate"],
+)
+@pytest.mark.parametrize("workflow", ["mwr", "workspace-summary", "workspace-mixed-inline", "workspace-mixed-async"])
+def test_stateful_sync_workflows_refuse_authority_before_durable_admission(
+    recorded_core, mocker, tmp_path, headers, status, code, workflow
+):
+    """Run the actual source guard after model-valid, nonoffloaded ingress."""
+    from app.core.config import get_settings
+    from app.models.mwr_analytics_requests import MoneyWeightedReturnAnalyticsRequest
+    from app.models.workspace_summary_requests import WorkspaceSummaryRequest
+    from app.services.compute_job_store import compute_job_store
+    from app.services.durable_metadata_bootstrap import bootstrap_durable_metadata_stores
+    from app.services.execution_registry import execution_registry
+    from app.services.workspace_summary_calculation_workflow_service import (
+        should_offload_workspace_summary,
+        workspace_longest_requested_window_days,
+        workspace_requested_input_count,
+    )
+
+    settings = get_settings()
+    mocker.patch.object(settings, "LINEAGE_METADATA_DATABASE_URL", f"sqlite:///{tmp_path / 'sync-ingress.db'}")
+    mocker.patch.object(settings, "LINEAGE_STORAGE_PATH", tmp_path / "lineage")
+    mocker.patch.object(settings, "WORKSPACE_SUMMARY_EXECUTOR_WINDOW_DAYS", 180)
+    mocker.patch.object(settings, "WORKSPACE_SUMMARY_EXECUTOR_INPUT_COUNT", 250)
+    bootstrap_durable_metadata_stores()
+    executions = execution_registry._resolver()
+    jobs = compute_job_store._resolver()
+    registration = mocker.spy(executions, "register_execution")
+    job_registration = mocker.spy(jobs, "register_job")
+    calculation_id = uuid4()
+    payload = {
+        "calculation_id": str(calculation_id),
+        "portfolio_id": "TENANT_INGRESS_SYNC_CONTROL",
+        "input_mode": "stateful",
+        "report_ccy": "USD",
+    }
+    if workflow == "mwr":
+        payload.update(
+            mwr_method="XIRR",
+            as_of="2025-01-02",
+            start_date="2025-01-01",
+            currency="USD",
+            stateful_input={"window_start_date": "2025-01-01"},
+        )
+        admitted_request = MoneyWeightedReturnAnalyticsRequest.model_validate(payload)
+    else:
+        payload.update(
+            performance_start_date="2024-12-31",
+            report_start_date="2025-01-01",
+            report_end_date="2025-01-02",
+            periods=[{"period": "EXPLICIT", "frequencies": ["daily"]}],
+            stateful_input={},
+            include_benchmark=False,
+        )
+        admitted_request = WorkspaceSummaryRequest.model_validate(payload)
+        if workflow.startswith("workspace-mixed"):
+            payload.pop("stateful_input")
+            payload.update(
+                input_mode="stateless",
+                stateless_input={"valuation_points": [{"perf_date": "2025-01-01", "begin_mv": 1000, "end_mv": 1010}]},
+                benchmark={"input_mode": "stateful", "stateful_input": {}},
+            )
+            admitted_request = WorkspaceSummaryRequest.model_validate(payload)
+            assert admitted_request.benchmark.input_mode.value == "stateful"
+            assert admitted_request.include_benchmark
+            mocker.patch.object(
+                settings, "WORKSPACE_SUMMARY_EXECUTOR_INPUT_COUNT", 1 if workflow.endswith("async") else 250
+            )
+        else:
+            assert admitted_request.benchmark is None
+            assert not admitted_request.include_benchmark
+        assert (
+            workspace_longest_requested_window_days(admitted_request) < settings.WORKSPACE_SUMMARY_EXECUTOR_WINDOW_DAYS
+        )
+        assert should_offload_workspace_summary(admitted_request) == workflow.endswith("async")
+        if not workflow.endswith("async"):
+            assert workspace_requested_input_count(admitted_request) < settings.WORKSPACE_SUMMARY_EXECUTOR_INPUT_COUNT
+    assert admitted_request.input_mode.value == ("stateless" if workflow.startswith("workspace-mixed") else "stateful")
+
+    async def request():
+        async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url="http://testserver") as client:
+            endpoint = "workspace-summary" if workflow.startswith("workspace-mixed") else workflow
+            return await client.post(f"/performance/{endpoint}", json=payload, headers=headers)
+
+    response = asyncio.run(request())
+    execution = executions.get_execution(calculation_id)
+    job = jobs.get_job(calculation_id)
+    body = response.json()
+    observation = {
+        "workflow": workflow,
+        "calculation_id": str(calculation_id),
+        "model_validated": True,
+        "status": response.status_code,
+        "error_code": body.get("error_code"),
+        "retryable": body.get("retryable"),
+        "execution_registration_calls": registration.call_count,
+        "compute_job_registration_calls": job_registration.call_count,
+        "core_calls": len(recorded_core.calls),
+        "persisted_execution_status": execution.status.value if execution is not None else None,
+        "persisted_execution_tenant": execution.tenant_id if execution is not None else None,
+        "persisted_job": job is not None,
+    }
+    print("SYNC_WORKFLOW_ADMISSION_EVIDENCE " + json.dumps(observation, sort_keys=True))
+    assert response.status_code == status, response.text
+    assert body["error_code"] == code
+    assert body["retryable"] is False
+    assert "poll_path" not in body
+    assert recorded_core.calls == []
+    registration.assert_not_called()
+    job_registration.assert_not_called()
+    assert execution is None
+    assert job is None
+
+
+@pytest.mark.parametrize(
+    "workflow, stateful, offload",
+    [
+        ("mwr", True, False),
+        ("workspace-summary", True, False),
+        ("workspace-mixed", False, False),
+        ("workspace-mixed", False, True),
+        ("mwr", False, False),
+        ("workspace-summary", False, False),
+    ],
+    ids=["stateful-mwr", "stateful-workspace", "mixed-inline", "mixed-async", "stateless-mwr", "stateless-workspace"],
+)
+@pytest.mark.parametrize("variant", [0, 1], ids=["canonical-or-duplicate", "padded-or-oversized"])
+def test_sync_workflow_admission_keeps_valid_and_stateless_controls(
+    mocker, tmp_path, workflow, stateful, offload, variant
+):
+    from app.core.config import get_settings
+    from app.services.compute_job_store import compute_job_store
+    from app.services.durable_metadata_bootstrap import bootstrap_durable_metadata_stores
+    from app.services.execution_registry import execution_registry
+
+    settings = get_settings()
+    mocker.patch.object(settings, "LINEAGE_METADATA_DATABASE_URL", f"sqlite:///{tmp_path / 'sync-positive.db'}")
+    mocker.patch.object(settings, "LINEAGE_STORAGE_PATH", tmp_path / "lineage")
+    mocker.patch.object(settings, "WORKSPACE_SUMMARY_EXECUTOR_WINDOW_DAYS", 180)
+    mocker.patch.object(settings, "WORKSPACE_SUMMARY_EXECUTOR_INPUT_COUNT", 1 if offload else 250)
+    bootstrap_durable_metadata_stores()
+    executions = execution_registry._resolver()
+    jobs = compute_job_store._resolver()
+    registration = mocker.spy(executions, "register_execution")
+    job_registration = mocker.spy(jobs, "register_job")
+    calls = []
+
+    async def source(**kwargs):
+        calls.append(kwargs)
+        if kwargs["url"].endswith("/definition"):
+            return 200, {"benchmark_currency": "USD"}
+        if kwargs["url"].endswith("/return-series"):
+            return 200, {
+                "points": [{"series_date": day, "benchmark_return": "0"} for day in ("2025-01-01", "2025-01-02")]
+            }
+        return 200, {
+            "portfolio_open_date": "2024-12-31",
+            "portfolio_currency": "USD",
+            "reporting_currency": "USD",
+            "observations": [
+                {"valuation_date": day, "beginning_market_value": "1000", "ending_market_value": "1000"}
+                for day in ("2025-01-01", "2025-01-02")
+            ],
+        }
+
+    mocker.patch("app.services.core_integration_service.post_with_retry", source)
+    requires_authority = stateful or workflow == "workspace-mixed"
+    if requires_authority:
+        headers = [(TENANT_HEADER, "tenant-sync" if variant == 0 else "  tenant-sync  ")]
+    else:
+        headers = (
+            [(TENANT_HEADER, "tenant-a"), (TENANT_HEADER, "tenant-b")] if variant == 0 else [(TENANT_HEADER, "x" * 129)]
+        )
+    calculation_id = uuid4()
+    payload = {
+        "calculation_id": str(calculation_id),
+        "portfolio_id": "TENANT_INGRESS_SYNC_POSITIVE",
+        "input_mode": "stateful" if stateful else "stateless",
+        "report_ccy": "USD",
+        "mwr_method": "DIETZ",
+    }
+    if workflow == "mwr":
+        payload.update(as_of="2025-01-02", start_date="2025-01-01", currency="USD")
+        if stateful:
+            payload["stateful_input"] = {"window_start_date": "2025-01-01"}
+        else:
+            payload.update(begin_mv=1000, end_mv=1000, cash_flows=[])
+    else:
+        payload.update(
+            performance_start_date="2024-12-31",
+            report_start_date="2025-01-01",
+            report_end_date="2025-01-02",
+            periods=[{"period": "EXPLICIT", "frequencies": ["daily"]}],
+        )
+        if stateful:
+            payload["stateful_input"] = {}
+        else:
+            payload["stateless_input"] = {
+                "valuation_points": [
+                    {"perf_date": day, "begin_mv": 1000, "end_mv": 1000} for day in ("2025-01-01", "2025-01-02")
+                ]
+            }
+        if workflow == "workspace-mixed":
+            payload["benchmark"] = {
+                "benchmark_id": "BENCHMARK_INGRESS_SYNTHETIC",
+                "input_mode": "stateful",
+                "return_source": "vendor_series",
+                "stateful_input": {},
+            }
+
+    async def request():
+        endpoint = "workspace-summary" if workflow == "workspace-mixed" else workflow
+        async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url="http://testserver") as client:
+            return await client.post(f"/performance/{endpoint}", json=payload, headers=headers)
+
+    response = asyncio.run(request())
+    assert response.status_code == (202 if offload else 200), response.text
+    assert registration.call_count == 1
+    assert job_registration.call_count == int(offload)
+    execution = executions.get_execution(calculation_id)
+    assert execution is not None
+    assert execution.tenant_id == ("tenant-sync" if requires_authority else "")
+    if offload:
+        assert jobs.get_job(calculation_id) is not None
+        assert calls == []
+    else:
+        # Financial execution completed; queued lineage keeps the execution running.
+        assert execution.status.value == "running"
+        if workflow == "mwr":
+            assert response.json()["money_weighted_return"] == pytest.approx(0.0)
+        else:
+            result = response.json()["results_by_period"]["EXPLICIT"]
+            assert result["money_weighted_return"]["cumulative_return"] == pytest.approx(0.0)
+            assert result["portfolio_twr"]["net"]["summary"]["period_return"]["base"] == pytest.approx(0.0)
+        if requires_authority:
+            assert calls
+            assert {call["headers"][TENANT_HEADER] for call in calls} == {"tenant-sync"}
+        else:
+            assert calls == []
+
+
 @pytest.mark.parametrize("tenant", ["tenant-mixed", "  tenant-mixed  "], ids=["canonical", "padded"])
 @pytest.mark.parametrize("offload", [False, True], ids=["inline", "async"])
 def test_mixed_mode_twr_keeps_admitted_benchmark_authority(mocker, tmp_path, tenant, offload):

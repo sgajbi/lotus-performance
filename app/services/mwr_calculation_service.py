@@ -24,7 +24,10 @@ from app.services.execution_stage_names import EXECUTION_STAGE_EXECUTION
 from app.services.fail_fast_policy import enforce_core_analytics_fail_fast
 from app.services.mwr_mode_service import ResolvedMWRRequest, resolve_mwr_request
 from app.services.reproducibility_service import generate_request_fingerprint
-from app.services.submission_fencing_service import register_sync_execution_or_raise
+from app.services.submission_fencing_service import (
+    _require_submission_tenant_if_needed,
+    register_sync_execution_or_raise,
+)
 from core.business_calendar import business_day_evidence
 from core.envelope import Audit, CalendarEvidence, Diagnostics, Meta
 from core.errors import APIError, APIInternalServerError
@@ -358,6 +361,7 @@ def _raise_mwr_workflow_http_error(
 
 
 def _register_mwr_execution(request: MoneyWeightedReturnAnalyticsRequest) -> _RegisteredMWRExecution:
+    _require_submission_tenant_if_needed(requires_tenant_authority=request.input_mode == MWRInputMode.STATEFUL)
     active_settings = get_settings()
     input_fingerprint, calculation_hash = generate_request_fingerprint(
         request,
