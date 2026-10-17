@@ -12,6 +12,7 @@ from uuid import UUID, uuid4
 from pydantic import ValidationError
 
 from app.adapters.composite_attribution_bootstrap import bootstrap_composite_attribution
+from app.adapters.composite_controlled_annual_bootstrap import bootstrap_composite_controlled_annual
 from app.core.config import get_settings
 from app.models.attribution_analytics_requests import AttributionAnalyticsRequest, AttributionInputMode
 from app.models.attribution_requests import AttributionRequest
@@ -1437,6 +1438,7 @@ def run_forever(*, stop_event: Event | None = None, settings=None) -> None:
     active_settings = settings or get_settings()
     setup_worker_logging(active_settings.LOG_LEVEL)
     installation = bootstrap_composite_attribution()
+    bootstrap_composite_controlled_annual()
     if installation is not None:
         logger.info(
             "Composite attribution deployment installed",

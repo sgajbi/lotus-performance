@@ -600,8 +600,20 @@ it does not supply financial values or replace native member result fingerprints
 Native financial publication requests ending assets and requires a declared ending
 rule. A two-rule source fixture does not earn native financial COMPLETE.
 
-Year verification defaults unavailable until a separate source/key/enrollment adapter
-is admitted. Source and population remain UNQUALIFIED/UNVERIFIED; official activation
+Year verification defaults unavailable. API and executor startup can install an
+operator-provisioned, immutable synthetic retained package through
+`LOTUS_COMPOSITE_CONTROLLED_ANNUAL_DEPLOYMENT` (absolute path). Independent public
+anchors and exact original request/proof registrations retain all candidate/enrollment
+evidence; current deployment expiry/revocation gates each use. Package custody needs
+separate source/deployment owner admission and establishes no institutional authority.
+Docker operators explicitly select the tracked
+`docker-compose.composite-controlled-annual.yml` overlay with the base file and an
+admitted absolute `LOTUS_COMPOSITE_CONTROLLED_ANNUAL_DEPLOYMENT_FILE`. It delivers a
+fixed read-only package only to API/compute; base/default stays unavailable. Successful
+installation logs only digest/revision/profile/qualification once per process. The
+annual contract links runnable OS-specific activation commands; actual Docker proof
+remains separate from host tests.
+Source and population remain UNQUALIFIED/UNVERIFIED; official activation
 is unavailable. Pending inputs are not evaluated eligibility. Prepared membership v2
 and recurring monthly v5 need later consumer delivery. The annual calculator still
 requires twelve distinct COMPLETE months with one unchanged actual definition hash

@@ -4,6 +4,7 @@ import base64
 import hashlib
 from dataclasses import dataclass
 from datetime import datetime
+from threading import Lock
 from typing import Protocol
 
 from cryptography.exceptions import InvalidSignature
@@ -50,9 +51,20 @@ class UnavailableControlledYearVerification:
         return None
 
 
+_installation_lock = Lock()
+_installed_verifier: ControlledYearVerificationPort | None = None
+
+
+def install_controlled_year_verifier(verifier: ControlledYearVerificationPort) -> None:
+    global _installed_verifier
+    with _installation_lock:
+        if _installed_verifier is not None:
+            raise RuntimeError("Controlled annual verifier is already installed.")
+        _installed_verifier = verifier
+
+
 def controlled_year_verifier() -> ControlledYearVerificationPort:
-    """Source/key/enrollment trust needs a separately admitted release adapter."""
-    return UnavailableControlledYearVerification()
+    return _installed_verifier or UnavailableControlledYearVerification()
 
 
 def admit_controlled_year_verification(proof, result) -> ControlledYearBasisVerification:
