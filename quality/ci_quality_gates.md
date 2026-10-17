@@ -195,9 +195,10 @@ checked by `test_current_inventory_prose_carries_no_stale_totals`, which normali
 compares every total the present-tense paragraph states. Historical baselines elsewhere in this
 document are intentionally outside that check.
 
-Current governed inventory: `quality/test_taxonomy_inventory.md` records 481 test modules, 5,707 source test functions, 1123 API/runtime test functions, 291 contract/governance test functions, and 558 uncategorized test functions.
-The full family summary is 481 modules, 5,707 source test functions, 1123 integration/API/runtime test functions, 291 contract/governance test functions, 788 observability/readiness test functions, 505 quality/security test functions, 3,320 analytics-domain test functions, and 558 uncategorized test functions.
-Current measured source: #679 Core URL identity refusal unsigned patch on signed base `349d2db5b229fcdcb01e83529dba13efd60a5d95`.
+Current governed inventory: `quality/test_taxonomy_inventory.md` records 481 test modules, 5,711 source test functions, 1127 API/runtime test functions, 291 contract/governance test functions, and 558 uncategorized test functions.
+The full family summary is 481 modules, 5,711 source test functions, 1127 integration/API/runtime test functions, 291 contract/governance test functions, 788 observability/readiness test functions, 505 quality/security test functions, 3,320 analytics-domain test functions, and 558 uncategorized test functions.
+Current measured source: #682 malformed tenant ingress candidate on base `4da4ba9eadb45f7c97f6d90f96ec37ab8fde2c70`; AST counts are source inventory, not test execution or live acceptance.
+Previous measured source: #679 Core URL identity refusal unsigned patch on signed base `349d2db5b229fcdcb01e83529dba13efd60a5d95`.
 Previous measured source: #540 controlled annual retained verifier unsigned Docker activation completion on base `8972b1f58a08076733cded329c59550cd0b8057b`.
 Earlier measured source: #624 single-analysis candidate on exact base
 `b7de3b30dfa37fd66c027720d530d1cc18c11bbe`. The native

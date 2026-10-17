@@ -9,7 +9,7 @@ from uuid import UUID
 from pydantic import BaseModel
 
 from app.core.application_responses import ApplicationHttpResponse, accepted_application_response
-from app.observability import record_idempotent_submission, tenant_id_var
+from app.observability import current_tenant_authority, record_idempotent_submission, tenant_id_var
 from app.services.compute_job_store import (
     ComputeJobRegistrationResult,
     ComputeJobRegistrationStatus,
@@ -367,7 +367,11 @@ def _require_submission_tenant_if_needed(
     requires_tenant_authority: bool,
     requires_idempotency_authority: bool = False,
 ) -> None:
-    admitted_authority = admitted_tenant_authority(tenant_id_var.get())
+    admitted_authority = (
+        current_tenant_authority()
+        if requires_tenant_authority or requires_idempotency_authority
+        else admitted_tenant_authority(tenant_id_var.get())
+    )
     if requires_idempotency_authority and admitted_authority is None:
         raise MissingIdempotentSubmissionTenantAuthorityError()
     if requires_tenant_authority and admitted_authority is None:

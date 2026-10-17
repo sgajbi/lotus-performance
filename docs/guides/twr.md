@@ -43,6 +43,13 @@ Stateful mode uses:
 - `stateful_input`
 
 In stateful mode, lotus-performance retrieves portfolio timeseries from lotus-core query-control-plane
+under exactly one explicit `X-Tenant-Id`. Surrounding whitespace is trimmed before admission.
+Missing or blank authority returns `401 TENANT_AUTHORITY_REQUIRED`; duplicate headers or a
+normalized tenant longer than 128 characters return `400 TENANT_AUTHORITY_MALFORMED` before
+Core reads or durable admission. These refusals are non-retryable and contain no financial result.
+Stateless requests without Core reads retain their existing tenant-optional contract.
+
+Stateful source retrieval connects
 through `CORE_CONTROL_PLANE_BASE_URL`,
 normalizes them into canonical valuation points, then runs the same owned TWR engine
 used by stateless requests.

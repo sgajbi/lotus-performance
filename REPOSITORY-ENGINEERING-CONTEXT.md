@@ -1582,6 +1582,14 @@ checks when adding a response status: the completeness inventory also requires e
 
 ## Repository practice for Core service execution context
 
+Request tenant admission preserves the typed malformed refusal alongside the safe observability
+tenant ID. Core-source factories and authority-required submission fencing use
+`current_tenant_authority()` rather than interpreting an empty audit ID as absence. Missing/blank
+authority remains 401; oversized/duplicate presentation remains 400 before source I/O or durable
+admission. Stateless routes that do not require Core authority remain tenant-optional. Installed
+HTTP proof lives in `tests/unit/api/test_tenant_admission_request_path.py`; its positive control
+uses synthetic source responses and an isolated temporary SQLite store, not live Core evidence.
+
 `CORE_REQUEST_CONTEXT_ENABLED` opts the existing source factory into Core's native
 enterprise HMAC v1 protocol. API and compute executor share explicit operator
 service/key/actor/role plus exact tenant/capability allowlists. Worker source reads

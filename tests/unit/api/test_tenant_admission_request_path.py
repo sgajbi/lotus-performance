@@ -33,6 +33,7 @@ from __future__ import annotations
 
 import asyncio
 from typing import Any
+from uuid import UUID
 
 import httpx
 import pytest
@@ -197,8 +198,151 @@ def test_a_padded_tenant_is_canonicalised_like_core(recorded_core, presented: st
     assert recorded_core.tenants == ["tenant-sg"]
 
 
-def test_the_canonical_presented_tenant_reaches_core(recorded_core) -> None:
-    response = asyncio.run(_request("Tenant-SG_01"))
+@pytest.mark.parametrize("tenant", ["Tenant-SG_01", "x" * 128], ids=["canonical", "maximum-length"])
+def test_the_canonical_presented_tenant_reaches_core(recorded_core, tenant) -> None:
+    response = asyncio.run(_request(tenant))
 
     assert response.status_code == 200
-    assert recorded_core.tenants == ["Tenant-SG_01"]
+    assert recorded_core.tenants == [tenant]
+
+
+@pytest.mark.parametrize(
+    "headers",
+    [[(TENANT_HEADER, "x" * 129)], [(TENANT_HEADER, "tenant-a"), (TENANT_HEADER, "tenant-b")]],
+    ids=["oversized", "duplicate"],
+)
+def test_malformed_authority_survives_installed_context_to_core_boundary(recorded_core, headers) -> None:
+    async def request():
+        async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url="http://testserver") as client:
+            return await client.get(_PROBE_PATH, headers=headers)
+
+    response = asyncio.run(request())
+    assert response.status_code == 400, response.text
+    assert response.json()["error_code"] == "TENANT_AUTHORITY_MALFORMED"
+    assert response.json()["retryable"] is False
+    assert recorded_core.calls == []
+
+
+@pytest.mark.parametrize(
+    "headers, status, code",
+    [
+        ([], 401, "TENANT_AUTHORITY_REQUIRED"),
+        ([(TENANT_HEADER, "   ")], 401, "TENANT_AUTHORITY_REQUIRED"),
+        ([(TENANT_HEADER, "x" * 129)], 400, "TENANT_AUTHORITY_MALFORMED"),
+        ([(TENANT_HEADER, "tenant-a"), (TENANT_HEADER, "tenant-b")], 400, "TENANT_AUTHORITY_MALFORMED"),
+    ],
+    ids=["missing", "blank", "oversized", "duplicate"],
+)
+@pytest.mark.parametrize("offload", [False, True], ids=["inline", "async"])
+def test_stateful_twr_refuses_authority_before_source_or_registration(
+    recorded_core, mocker, caplog, headers, status, code, offload
+):
+    from app.core.config import get_settings
+
+    mocker.patch.object(get_settings(), "TWR_EXECUTOR_WINDOW_DAYS", 1 if offload else 365)
+    execution = mocker.patch("app.services.submission_fencing_service.execution_registry.register_execution")
+    job = mocker.patch("app.services.submission_fencing_service.compute_job_store.register_job")
+    lookup = mocker.patch("app.services.stateful_execution_policy_service.execution_registry.get_execution_for_tenant")
+    payload = {
+        "portfolio_id": "TENANT_INGRESS_CONTROL",
+        "input_mode": "stateful",
+        "performance_start_date": "2025-01-01",
+        "report_end_date": "2025-01-02",
+        "metric_basis": "GROSS",
+        "analyses": [{"period": "YTD", "frequencies": ["daily"]}],
+        "stateful_input": {},
+    }
+
+    async def request():
+        async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url="http://testserver") as client:
+            return await client.post("/performance/twr", json=payload, headers=headers)
+
+    response = asyncio.run(request())
+    assert response.status_code == status, response.text
+    body = response.json()
+    assert body["error_code"] == code
+    assert body["retryable"] is False
+    assert "results_by_period" not in body
+    assert "poll_path" not in body
+    execution.assert_not_called()
+    job.assert_not_called()
+    lookup.assert_not_called()
+    assert recorded_core.calls == []
+    assert "x" * 129 not in response.text
+    assert "x" * 129 not in caplog.text
+
+
+@pytest.mark.parametrize(
+    "stateful, headers",
+    [
+        (True, [(TENANT_HEADER, "  tenant-ingress  ")]),
+        (False, [(TENANT_HEADER, "tenant-a"), (TENANT_HEADER, "tenant-b")]),
+        (False, [(TENANT_HEADER, "x" * 129)]),
+    ],
+    ids=["padded-stateful", "stateless-duplicate-ignored", "stateless-oversized-ignored"],
+)
+def test_twr_keeps_valid_stateful_and_stateless_calculations(mocker, tmp_path, stateful, headers):
+    from app.core.config import get_settings
+    from app.services.durable_metadata_bootstrap import bootstrap_durable_metadata_stores
+    from app.services.execution_registry import execution_registry
+
+    settings = get_settings()
+    mocker.patch.object(settings, "LINEAGE_METADATA_DATABASE_URL", f"sqlite:///{tmp_path / 'ingress.db'}")
+    mocker.patch.object(settings, "LINEAGE_STORAGE_PATH", tmp_path / "lineage")
+    bootstrap_durable_metadata_stores()
+    calls = []
+
+    async def source(**kwargs):
+        calls.append(kwargs)
+        return 200, {
+            "portfolio_open_date": "2024-12-31",
+            "observations": [
+                {"valuation_date": "2025-01-01", "beginning_market_value": "1000", "ending_market_value": "1010"},
+                {"valuation_date": "2025-01-02", "beginning_market_value": "1010", "ending_market_value": "1020.1"},
+            ],
+        }
+
+    mocker.patch("app.services.core_integration_service.post_with_retry", source)
+    payload = {
+        "portfolio_id": "TENANT_INGRESS_POSITIVE",
+        "performance_start_date": "2024-12-31",
+        "report_end_date": "2025-01-02",
+        "metric_basis": "GROSS",
+        "analyses": [{"period": "YTD", "frequencies": ["daily"]}],
+    }
+    if stateful:
+        payload.update(input_mode="stateful", stateful_input={})
+    else:
+        payload["valuation_points"] = [
+            {"perf_date": "2025-01-01", "begin_mv": 1000, "end_mv": 1010},
+            {"perf_date": "2025-01-02", "begin_mv": 1010, "end_mv": 1020.1},
+        ]
+
+    async def request():
+        async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url="http://testserver") as client:
+            return await client.post("/performance/twr", json=payload, headers=headers)
+
+    response = asyncio.run(request())
+    assert response.status_code == 200, response.text
+    body = response.json()
+    assert body["results_by_period"]["YTD"]["portfolio"]["summary"]["period_return"]["base"] == pytest.approx(2.01)
+    execution = execution_registry.get_execution(UUID(body["calculation_id"]))
+    assert execution.tenant_id == ("tenant-ingress" if stateful else "")
+    if stateful:
+        assert calls
+        assert {call["headers"][TENANT_HEADER] for call in calls} == {"tenant-ingress"}
+    else:
+        assert calls == []
+
+
+def test_malformed_request_does_not_poison_later_authority(recorded_core):
+    async def requests():
+        async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url="http://testserver") as client:
+            malformed = await client.get(_PROBE_PATH, headers={TENANT_HEADER: "x" * 129})
+            valid = await client.get(_PROBE_PATH, headers={TENANT_HEADER: "tenant-after-refusal"})
+            missing = await client.get(_PROBE_PATH)
+        return malformed, valid, missing
+
+    responses = asyncio.run(requests())
+    assert [response.status_code for response in responses] == [400, 200, 401]
+    assert recorded_core.tenants == ["tenant-after-refusal"]
