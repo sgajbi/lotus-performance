@@ -4,10 +4,12 @@ import pytest
 
 from app.models.inspection_requests import TWRInspectionRequest, TWRInspectionSubjectType
 from app.services.analytics_workflow_types import ANALYTICS_WORKFLOW_TWR
+from app.services.inspection import subject_resolution
 from app.services.inspection.subject_resolution import resolve_twr_inspection_subject
 
 
 def test_resolve_twr_inspection_subject_accepts_twr_execution(monkeypatch):
+    monkeypatch.setattr(subject_resolution, "execution_registry", subject_resolution.execution_registry._resolver())
     calculation_id = uuid4()
     monkeypatch.setattr(
         "app.services.inspection.subject_resolution.execution_registry.get_execution_for_tenant",
@@ -32,6 +34,7 @@ def test_resolve_twr_inspection_subject_accepts_twr_execution(monkeypatch):
 
 
 def test_resolve_twr_inspection_subject_rejects_non_twr_execution(monkeypatch):
+    monkeypatch.setattr(subject_resolution, "execution_registry", subject_resolution.execution_registry._resolver())
     calculation_id = uuid4()
     monkeypatch.setattr(
         "app.services.inspection.subject_resolution.execution_registry.get_execution_for_tenant",
@@ -65,6 +68,7 @@ def test_resolve_twr_inspection_subject_requires_request_payload_for_twr_request
 
 
 def test_resolve_twr_inspection_subject_preserves_tenantless_stateless_authority(monkeypatch):
+    monkeypatch.setattr(subject_resolution, "execution_registry", subject_resolution.execution_registry._resolver())
     calculation_id = uuid4()
     tenantless_execution = type(
         "Execution",
@@ -92,6 +96,7 @@ def test_resolve_twr_inspection_subject_preserves_tenantless_stateless_authority
 
 
 def test_resolve_twr_inspection_subject_does_not_fallback_to_another_tenant(monkeypatch):
+    monkeypatch.setattr(subject_resolution, "execution_registry", subject_resolution.execution_registry._resolver())
     calculation_id = uuid4()
     other_tenant_execution = type(
         "Execution",

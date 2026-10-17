@@ -195,6 +195,9 @@ def test_stateful_benchmark_request_helpers_project_normalized_inputs_and_counts
 
 @pytest.mark.asyncio
 async def test_resolve_benchmark_request_fails_retrieval_stage_for_stateful_errors(monkeypatch):
+    monkeypatch.setattr(
+        benchmark_mode_service, "execution_registry", benchmark_mode_service.execution_registry._resolver()
+    )
     request = BenchmarkAnalyticsRequest.model_validate(
         {
             "calculation_id": str(uuid4()),
@@ -240,6 +243,9 @@ async def test_resolve_benchmark_request_fails_retrieval_stage_for_stateful_erro
 
 @pytest.mark.asyncio
 async def test_resolve_benchmark_request_fails_normalization_stage_when_request_building_breaks(monkeypatch):
+    monkeypatch.setattr(
+        benchmark_mode_service, "execution_registry", benchmark_mode_service.execution_registry._resolver()
+    )
     request = BenchmarkAnalyticsRequest.model_validate(
         {
             "calculation_id": str(uuid4()),
@@ -302,6 +308,9 @@ async def test_resolve_benchmark_request_fails_normalization_stage_when_request_
 
 @pytest.mark.asyncio
 async def test_resolve_benchmark_request_uses_vendor_series_point_count_for_stateful_mode(monkeypatch):
+    monkeypatch.setattr(
+        benchmark_mode_service, "execution_registry", benchmark_mode_service.execution_registry._resolver()
+    )
     request = BenchmarkAnalyticsRequest.model_validate(
         {
             "calculation_id": str(uuid4()),

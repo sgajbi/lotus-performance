@@ -627,6 +627,10 @@ def test_present_component_pnl_fields_aggregates_canonical_fields_across_positio
 
 
 def test_contribution_snapshot_lookup_logs_durable_store_failures(monkeypatch, caplog):
+    monkeypatch.setattr(
+        contribution_evidence, "execution_registry", contribution_evidence.execution_registry._resolver()
+    )
+
     def _raise_sqlalchemy_error(calculation_id: str):
         raise SQLAlchemyError("durable store unavailable")
 

@@ -38,7 +38,7 @@ def test_persisted_twr_worker_executes_retained_basis(monkeypatch, retained_basi
     artifact = TWRResolvedExecutionRequest.model_validate(payload)
     expected_identity = generate_value_fingerprint(artifact, CALCULATION_ENGINE_VERSION)
     observed = []
-    monkeypatch.setattr(twr_service.execution_registry, "start_stage", lambda *args: None)
+    monkeypatch.setattr(twr_service, "execution_registry", SimpleNamespace(start_stage=lambda *args: None))
     monkeypatch.setattr(twr_service, "_assemble_completed_twr_response", lambda **kwargs: kwargs)
     context = SimpleNamespace(
         settings=SimpleNamespace(CALCULATION_ENGINE_VERSION=CALCULATION_ENGINE_VERSION),

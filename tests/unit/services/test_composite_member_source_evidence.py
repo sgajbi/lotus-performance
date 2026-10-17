@@ -19,6 +19,8 @@ from tests.composite_materialization_helpers import MemberSource, command_for
 def test_member_source_api_refusal_preserves_disposition_without_financial_evidence(monkeypatch, retryable, state):
     from app.adapters import composite_member_result_source as adapter
 
+    monkeypatch.setattr(adapter, "execution_registry", adapter.execution_registry._resolver())
+
     command = command_for()
     reference = command.member_calculations[0]
     execution = SimpleNamespace(response_payload={})
