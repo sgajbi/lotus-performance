@@ -1,6 +1,6 @@
 # Lotus Performance Test Taxonomy Inventory
 
-Original report date: 2026-10-16. Current measurement date: 2026-10-18 (#682 malformed tenant ingress candidate on base `4da4ba9eadb45f7c97f6d90f96ec37ab8fde2c70`). Four additional source test functions cover installed ingress refusals, successful calculation and request isolation; AST inventory is not execution or live acceptance evidence.
+Original report date: 2026-10-16. Current measurement date: 2026-10-18 (#682 malformed tenant ingress candidate on base `4da4ba9eadb45f7c97f6d90f96ec37ab8fde2c70`). Six additional source test functions cover installed ingress refusals, mixed-mode admission, successful calculation and request isolation; AST inventory is not execution or live acceptance evidence.
 Previous measurement: #679 URL identity refusal, unsigned source inventory on signed base `349d2db5b229fcdcb01e83529dba13efd60a5d95`.
 Historical source: #624 single-analysis candidate on exact base `b7de3b30dfa37fd66c027720d530d1cc18c11bbe`; AST counts do not establish test execution or live acceptance.
 Mode: regression-blocking test taxonomy inventory; `make quality-test-taxonomy-gate` enforces
@@ -19,7 +19,7 @@ python scripts/python_test_taxonomy_inventory.py --limit 30
 python scripts/python_test_taxonomy_inventory.py --limit 30 --min-api-runtime-tests 656 --min-contract-governance-tests 136 --max-uncategorized-tests 558
 ```
 
-Current generated inventory: bounded #679 signed Core URL identity refusal on signed base `349d2db5b229fcdcb01e83529dba13efd60a5d95`.
+Current generated inventory: #682 malformed tenant ingress and mixed-mode admission on base `4da4ba9eadb45f7c97f6d90f96ec37ab8fde2c70`.
 The tables below are native AST measurements; dated narrative sections retain their historical source identities.
 Source inventory does not establish executed-test or live acceptance.
 
@@ -28,8 +28,8 @@ Source inventory does not establish executed-test or live acceptance.
 | Metric | Value |
 | --- | ---: |
 | Test modules inventoried | 481 |
-| Test functions inventoried | 5711 |
-| Integration/API/runtime test functions | 1127 |
+| Test functions inventoried | 5713 |
+| Integration/API/runtime test functions | 1129 |
 | Contract/governance test functions | 291 |
 
 ## Test Functions By Suite
@@ -39,7 +39,7 @@ Source inventory does not establish executed-test or live acceptance.
 | benchmarks | 22 | 208 |
 | e2e | 1 | 21 |
 | integration | 58 | 653 |
-| unit | 400 | 4829 |
+| unit | 400 | 4831 |
 
 ## Test Functions By Family
 
@@ -50,7 +50,7 @@ above does sum to it, because a module belongs to exactly one suite.
 | Family | Test functions |
 | --- | ---: |
 | analytics_domain | 3320 |
-| api_or_runtime | 1127 |
+| api_or_runtime | 1129 |
 | contract_or_governance | 291 |
 | observability_or_readiness | 788 |
 | quality_or_security | 505 |

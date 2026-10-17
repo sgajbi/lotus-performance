@@ -32,8 +32,9 @@ context; it is not what isolates these requests.
 from __future__ import annotations
 
 import asyncio
+import json
 from typing import Any
-from uuid import UUID
+from uuid import UUID, uuid4
 
 import httpx
 import pytest
@@ -270,6 +271,146 @@ def test_stateful_twr_refuses_authority_before_source_or_registration(
     assert recorded_core.calls == []
     assert "x" * 129 not in response.text
     assert "x" * 129 not in caplog.text
+
+
+@pytest.mark.parametrize(
+    "headers, status, code",
+    [
+        ([], 401, "TENANT_AUTHORITY_REQUIRED"),
+        ([(TENANT_HEADER, "   ")], 401, "TENANT_AUTHORITY_REQUIRED"),
+        ([(TENANT_HEADER, "x" * 129)], 400, "TENANT_AUTHORITY_MALFORMED"),
+        ([(TENANT_HEADER, "tenant-a"), (TENANT_HEADER, "tenant-b")], 400, "TENANT_AUTHORITY_MALFORMED"),
+    ],
+    ids=["missing", "blank", "oversized", "duplicate"],
+)
+@pytest.mark.parametrize("offload", [False, True], ids=["inline", "async"])
+def test_mixed_mode_twr_refuses_authority_before_source_or_registration(
+    recorded_core, mocker, tmp_path, headers, status, code, offload
+):
+    """A stateful benchmark requires authority even with a stateless portfolio."""
+    from app.core.config import get_settings
+    from app.models.twr_requests import TWRAnalyticsRequest, TWRInputMode
+    from app.services.compute_job_store import compute_job_store
+    from app.services.durable_metadata_bootstrap import bootstrap_durable_metadata_stores
+    from app.services.execution_registry import execution_registry
+
+    settings = get_settings()
+    mocker.patch.object(settings, "LINEAGE_METADATA_DATABASE_URL", f"sqlite:///{tmp_path / 'mixed-ingress.db'}")
+    mocker.patch.object(settings, "LINEAGE_STORAGE_PATH", tmp_path / "lineage")
+    mocker.patch.object(settings, "TWR_EXECUTOR_INPUT_COUNT", 1 if offload else 250)
+    bootstrap_durable_metadata_stores()
+    executions = execution_registry._resolver()
+    jobs = compute_job_store._resolver()
+    registration = mocker.spy(executions, "register_execution")
+    job = mocker.spy(jobs, "register_job")
+    calculation_id = uuid4()
+    payload = {
+        "calculation_id": str(calculation_id),
+        "portfolio_id": "TENANT_INGRESS_MIXED_CONTROL",
+        "input_mode": "stateless",
+        "performance_start_date": "2024-12-31",
+        "report_end_date": "2025-01-02",
+        "metric_basis": "GROSS",
+        "analyses": [{"period": "YTD", "frequencies": ["daily"]}],
+        "stateless_input": {"valuation_points": [{"perf_date": "2025-01-01", "begin_mv": 1000, "end_mv": 1010}]},
+        "benchmark": {"input_mode": "stateful", "stateful_input": {}},
+    }
+    admitted_request = TWRAnalyticsRequest.model_validate(payload)
+    assert admitted_request.input_mode == TWRInputMode.STATELESS
+    assert admitted_request.include_benchmark is True
+    assert admitted_request.benchmark is not None
+    assert admitted_request.benchmark.input_mode.value == "stateful"
+
+    async def request():
+        async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url="http://testserver") as client:
+            return await client.post("/performance/twr", json=payload, headers=headers)
+
+    response = asyncio.run(request())
+    execution = executions.get_execution(calculation_id)
+    observation = {
+        "status": response.status_code,
+        "error_code": response.json().get("error_code"),
+        "execution_registration_calls": registration.call_count,
+        "compute_job_registration_calls": job.call_count,
+        "core_calls": len(recorded_core.calls),
+        "persisted_execution_status": execution.status.value if execution is not None else None,
+        "persisted_execution_tenant": execution.tenant_id if execution is not None else None,
+    }
+    print("MIXED_MODE_ADMISSION_EVIDENCE " + json.dumps(observation, sort_keys=True))
+    assert response.status_code == status, response.text
+    assert response.json()["error_code"] == code
+    assert response.json()["retryable"] is False
+    assert "results_by_period" not in response.json()
+    assert "poll_path" not in response.json()
+    assert recorded_core.calls == []
+    registration.assert_not_called()
+    job.assert_not_called()
+    assert execution is None
+
+
+@pytest.mark.parametrize("tenant", ["tenant-mixed", "  tenant-mixed  "], ids=["canonical", "padded"])
+@pytest.mark.parametrize("offload", [False, True], ids=["inline", "async"])
+def test_mixed_mode_twr_keeps_admitted_benchmark_authority(mocker, tmp_path, tenant, offload):
+    from app.core.config import get_settings
+    from app.services.compute_job_store import compute_job_store
+    from app.services.durable_metadata_bootstrap import bootstrap_durable_metadata_stores
+    from app.services.execution_registry import execution_registry
+
+    settings = get_settings()
+    mocker.patch.object(settings, "LINEAGE_METADATA_DATABASE_URL", f"sqlite:///{tmp_path / 'mixed-positive.db'}")
+    mocker.patch.object(settings, "LINEAGE_STORAGE_PATH", tmp_path / "lineage")
+    mocker.patch.object(settings, "TWR_EXECUTOR_INPUT_COUNT", 1 if offload else 250)
+    bootstrap_durable_metadata_stores()
+    executions = execution_registry._resolver()
+    registration = mocker.spy(executions, "register_execution")
+    job = mocker.spy(compute_job_store._resolver(), "register_job")
+    calls = []
+
+    async def source(**kwargs):
+        calls.append(kwargs)
+        if kwargs["url"].endswith("/definition"):
+            return 200, {"benchmark_currency": "USD"}
+        assert kwargs["url"].endswith("/return-series")
+        return 200, {"points": [{"series_date": "2025-01-01", "benchmark_return": "0.01"}]}
+
+    mocker.patch("app.services.core_integration_service.post_with_retry", source)
+    calculation_id = uuid4()
+    payload = {
+        "calculation_id": str(calculation_id),
+        "portfolio_id": "TENANT_INGRESS_MIXED_POSITIVE",
+        "input_mode": "stateless",
+        "performance_start_date": "2024-12-31",
+        "report_end_date": "2025-01-01",
+        "metric_basis": "GROSS",
+        "analyses": [{"period": "YTD", "frequencies": ["daily"]}],
+        "stateless_input": {"valuation_points": [{"perf_date": "2025-01-01", "begin_mv": 1000, "end_mv": 1010}]},
+        "benchmark": {
+            "benchmark_id": "BENCHMARK_INGRESS_SYNTHETIC",
+            "input_mode": "stateful",
+            "return_source": "vendor_series",
+            "stateful_input": {},
+        },
+    }
+
+    async def request():
+        async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url="http://testserver") as client:
+            return await client.post("/performance/twr", json=payload, headers={TENANT_HEADER: tenant})
+
+    response = asyncio.run(request())
+    assert response.status_code == (202 if offload else 200), response.text
+    assert registration.call_count == 1
+    assert job.call_count == (1 if offload else 0)
+    execution = executions.get_execution(calculation_id)
+    assert execution is not None
+    assert execution.tenant_id == "tenant-mixed"
+    if offload:
+        assert response.json()["poll_path"] == f"/performance/executions/{calculation_id}"
+        assert calls == []
+    else:
+        assert len(calls) == 2
+        assert {call["headers"][TENANT_HEADER] for call in calls} == {"tenant-mixed"}
+        period = response.json()["results_by_period"]["YTD"]
+        assert period["portfolio"]["summary"]["period_return"]["base"] == pytest.approx(1.0)
 
 
 @pytest.mark.parametrize(
