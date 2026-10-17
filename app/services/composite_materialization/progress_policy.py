@@ -4,7 +4,9 @@ from __future__ import annotations
 
 from typing import NoReturn
 
-from app.models.composite_authority import GovernedCompositeDefinition
+from app.models.composite_controlled_annual_authority import (
+    SupportedGovernedCompositeDefinition as GovernedCompositeDefinition,
+)
 from app.models.composite_materialization import (
     CompositeMaterializationCommand,
     CompositeMaterializationState,

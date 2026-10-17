@@ -15,6 +15,7 @@ from app.adapters.composite_provider_member_source import AuthorityCompositeMemb
 from app.core.application_responses import ApplicationHttpResponse
 from app.enterprise_authorization import authorize_privileged_read_request, authorize_write_request
 from app.models.composite_authority import GovernedCompositeDefinition
+from app.models.composite_controlled_annual_authority import ControlledAnnualDefinitionV4
 from app.models.composite_materialization import (
     CompositeMaterializationAcceptedResponse,
     CompositeMaterializationCommand,
@@ -259,6 +260,8 @@ def _default_member_source(source, command):
     # the native gross/FX receipt beneath the fee wrapper; ledger admission
     # independently rechecks every v2 internal selection against that receipt.
     if command.model_fee_binding is not None:
+        return RetainedCompositeMemberResultSource(currency_normalization_wire=source.currency_normalization_wire)
+    if source is not None and isinstance(source.definition, ControlledAnnualDefinitionV4):
         return RetainedCompositeMemberResultSource(currency_normalization_wire=source.currency_normalization_wire)
     if source is not None and isinstance(source.definition, GovernedCompositeDefinition):
         return AuthorityCompositeMemberResultSource(

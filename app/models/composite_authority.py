@@ -8,9 +8,12 @@ from __future__ import annotations
 import hashlib
 import json
 from datetime import date, datetime
-from typing import Annotated, Any, Literal
+from typing import TYPE_CHECKING, Annotated, Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
+
+if TYPE_CHECKING:
+    from app.models.composite_controlled_annual_authority import ControlledAnnualDefinitionV4
 
 Identifier = Annotated[str, Field(strict=True, min_length=1, max_length=128, pattern=r"^[A-Za-z0-9_.:-]+$")]
 Digest = Annotated[str, Field(strict=True, pattern=r"^sha256:[0-9a-f]{64}$")]
@@ -338,7 +341,11 @@ class ControlledScenarioDefinitionV3(AuthorityWire):
 GovernedCompositeDefinition = ManageCompositeDefinitionV2 | ControlledScenarioDefinitionV3
 
 
-def decode_governed_definition(payload: dict[str, Any]) -> GovernedCompositeDefinition:
+def decode_governed_definition(payload: dict[str, Any]) -> GovernedCompositeDefinition | ControlledAnnualDefinitionV4:
+    if (payload.get("product_name"), payload.get("product_version")) == ("CompositeDefinition", "v4"):
+        from app.models.composite_controlled_annual_authority import ControlledAnnualDefinitionV4
+
+        return ControlledAnnualDefinitionV4.model_validate(payload)
     if (payload.get("product_name"), payload.get("product_version")) == ("CompositeDefinition", "v3"):
         return ControlledScenarioDefinitionV3.model_validate(payload)
     return ManageCompositeDefinitionV2.model_validate(payload)

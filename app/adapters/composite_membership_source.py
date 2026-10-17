@@ -33,7 +33,9 @@ def composite_response_payload(response):
         json.loads(response.text, object_pairs_hook=observe_versions)
     except ValueError:
         return payload
-    if payload.get("product_name") == "CompositeDefinition" and any(version in {"v2", "v3"} for version in versions):
+    if payload.get("product_name") == "CompositeDefinition" and any(
+        version in {"v2", "v3", "v4"} for version in versions
+    ):
         try:
             return decode_authority_json(response.text)
         except ValueError as exc:
@@ -101,7 +103,7 @@ class ManageCompositeMembershipSource:
             return payload
 
         definition = await read(prefix)
-        strict_wire = definition.get("product_version") in {"v2", "v3"}
+        strict_wire = definition.get("product_version") in {"v2", "v3", "v4"}
         membership = await read(
             prefix + "/membership/" + quote(command.membership_revision, safe=""), strict_wire=strict_wire
         )
@@ -115,7 +117,7 @@ class ManageCompositeMembershipSource:
         )
         try:
             published_eligibility = None
-            if definition.get("product_version") in {"v2", "v3"}:
+            if definition.get("product_version") in {"v2", "v3", "v4"}:
                 typed = decode_governed_definition(definition)
                 if (
                     typed.source_authority.payload.eligibility_evaluation_binding.product_name

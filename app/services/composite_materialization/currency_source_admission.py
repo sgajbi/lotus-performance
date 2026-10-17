@@ -6,7 +6,10 @@ from typing import Any, NoReturn
 
 from pydantic import ValidationError
 
-from app.models.composite_authority import GovernedCompositeDefinition, authority_digest
+from app.models.composite_authority import authority_digest
+from app.models.composite_controlled_annual_authority import (
+    SupportedGovernedCompositeDefinition as GovernedCompositeDefinition,
+)
 from app.models.composite_currency_normalization import CompositeFXNormalizationSource, CompositeFXVerificationReceipt
 from app.ports import composite_currency_normalization as ports
 from core.errors import APIUnprocessableEntityError

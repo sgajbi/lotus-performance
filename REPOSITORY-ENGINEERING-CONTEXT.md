@@ -1580,6 +1580,34 @@ Example authoring must isolate and restore tracing ContextVars; prior unit tests
 request must not change deterministic example values. Run both OpenAPI quality and completeness
 checks when adding a response status: the completeness inventory also requires error examples.
 
+## Repository practice for controlled annual source custody
+
+Controlled year basis v1, definition/authority v4 and first finalization/receipt v5
+have dedicated closed consumer types. Preserve old exported types and all v1–v4
+hashes. The declaration never contains a definition or output digest; full new
+envelopes omit only root `content_hash`. Independent original source signatures are
+checked over exact bytes using separately anchored public keys and validity intervals.
+The independent annual verifier port defaults unavailable; body-supplied keys or
+an ordinary policy proof cannot qualify it.
+
+January subject approval remains v3. Year verification request revision binds that
+subject revision, while basis revision stays in its source reference. Method receipt
+is first/year-wide; provider receipts follow canonical authority-rule order with each
+rule's own interval and duplicates preserved. Required return/beginning-asset coverage
+follows active monthly candidates; ending-asset authority applies only where declared.
+Native receipts retain real per-result custody, without fabricated legacy selections.
+If native fact publication requests ending assets, require a declared ending rule;
+do not infer that authority from a retained value. The two-rule software source
+fixture remains valid source evidence and does not prove native financial COMPLETE.
+
+The normal reader retains and joins every producer body. Same-scope basis substitution
+and pending membership cannot become evaluated eligibility. Use the existing native
+member reader, progress and financial fact checks. Prepared membership v2 and recurring
+monthly v5 remain later slices; annual analysis still requires twelve distinct COMPLETE
+months with identical actual definition hash/policy and profile-review posture.
+Read `docs/contracts/composite-controlled-annual/README.md` for the targeted command
+and software/live evidence boundary. No new calculator, ledger or runtime service is added.
+
 ## Pooled Composite MWR Practice
 
 `POOLED_MONEY_WEIGHTED_RETURN` / `XIRR:v1` uses the existing composite analytics

@@ -5,3 +5,4 @@
 Makefile text eol=lf
 tests/fixtures/composite_historical_subject/*.json text eol=lf
 tests/fixtures/composite_controlled_scenario/*.json text eol=lf
+tests/fixtures/composite_controlled_annual/*.json text eol=lf
