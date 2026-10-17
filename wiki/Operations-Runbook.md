@@ -19,7 +19,20 @@ claims are backed by repo-native checks including `make check`, API/docs contrac
 status tests, resilience tests, and wiki source synchronization checks. Wiki source is authored in
 this repository and published after merge; unpublished drift is expected on feature branches.
 
+## Core source context
+
+Core source reads can use opt-in operator-configured service execution context.
+The [Core context runbook](https://github.com/sgajbi/lotus-performance/blob/main/docs/operations/core-request-context.md)
+defines explicit identity/key/actor/role, exact tenant and capability allowlists,
+API/compute deployment parity and the 290-second signed logical-call deadline.
+The worker retains its durable tenant and signs fresh execution context; it does
+not impersonate the original user. Enabled incomplete configuration fails closed;
+disabled base compatibility can still be refused by enforcing Core. Independent
+native protocol tests use synthetic authority. Installed runtime and credential
+acceptance remain separate; authentication does not qualify financial sources.
+
 ## Worker shutdown
+
 
 Compute and lineage module entrypoints handle `SIGTERM`/`SIGINT` through their existing stop
 event: wake an idle poll, finish the admitted leased batch, then exit before claiming another

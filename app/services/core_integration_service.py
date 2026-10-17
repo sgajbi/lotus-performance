@@ -1,12 +1,18 @@
+import asyncio
+from collections.abc import Awaitable, Callable
 from datetime import date
 from typing import Any
 
 from app.observability import propagation_headers
+from app.services.core_request_context import CoreRequestContextAuthority
 from app.services.core_tenant_authority import TenantAuthority, require_tenant_authority
 from app.services.http_resilience import get_with_retry, post_with_retry
 from app.services.returns_series_source.capture import active_source_capture
 
 PERFORMANCE_COMPONENT_ECONOMICS_PAGE_SIZE = 1000
+# Native v1 accepts context for 300 seconds. Bound the whole retry operation,
+# including sleeps and streaming reads, with margin for integer clock rounding.
+CORE_SIGNED_REQUEST_DEADLINE_SECONDS = 290
 
 
 class CoreIntegrationService:
@@ -18,6 +24,7 @@ class CoreIntegrationService:
         retry_backoff_seconds: float = 0.2,
         *,
         tenant_authority: TenantAuthority | None = None,
+        request_context_authority: CoreRequestContextAuthority | None = None,
     ):
         self._base_url = base_url.rstrip("/")
         self._timeout = timeout_seconds
@@ -27,6 +34,7 @@ class CoreIntegrationService:
         # authority is not broken -- it simply cannot perform a Core read, and
         # says so at the point of the read rather than inventing one here.
         self._tenant_authority = tenant_authority
+        self._request_context_authority = request_context_authority
 
     def _url(self, path: str) -> str:
         return f"{self._base_url}{path}"
@@ -38,28 +46,53 @@ class CoreIntegrationService:
         where a read without tenant authority is stopped."""
 
         authority = require_tenant_authority(self._tenant_authority, operation=operation)
+        if self._request_context_authority is not None:
+            return self._request_context_authority.signed_headers(tenant=authority, propagation=propagation_headers())
         return {**propagation_headers(), **authority.headers()}
+
+    async def _within_context_deadline(
+        self, *, operation: str, request: Callable[[dict[str, str]], Awaitable[tuple[int, dict[str, Any]]]]
+    ) -> tuple[int, dict[str, Any]]:
+        timeout_seconds = CORE_SIGNED_REQUEST_DEADLINE_SECONDS if self._request_context_authority is not None else None
+        deadline = asyncio.timeout(timeout_seconds)
+        try:
+            async with deadline:
+                return await request(self._core_headers(operation=operation))
+        except TimeoutError:
+            if not deadline.expired():
+                raise
+            return 503, {"detail": "upstream communication failure: CoreRequestContextDeadlineExceeded"}
 
     async def _post_json(self, *, path: str, payload: dict[str, Any]) -> tuple[int, dict[str, Any]]:
         capture = active_source_capture.get() if path.endswith("/analytics/portfolio-timeseries") else None
-        return await post_with_retry(
-            url=self._url(path),
-            timeout_seconds=self._timeout,
-            json_body=payload,
-            headers=self._core_headers(operation=f"POST {path}"),
-            max_retries=self._max_retries,
-            backoff_seconds=self._retry_backoff_seconds,
-            **({"response_decoder": lambda response: capture.decode(payload, response)} if capture is not None else {}),
+        return await self._within_context_deadline(
+            operation=f"POST {path}",
+            request=lambda headers: post_with_retry(
+                url=self._url(path),
+                timeout_seconds=self._timeout,
+                json_body=payload,
+                headers=headers,
+                max_retries=self._max_retries,
+                backoff_seconds=self._retry_backoff_seconds,
+                **(
+                    {"response_decoder": lambda response: capture.decode(payload, response)}
+                    if capture is not None
+                    else {}
+                ),
+            ),
         )
 
     async def _get_json(self, *, path: str, query_params: dict[str, Any]) -> tuple[int, dict[str, Any]]:
-        return await get_with_retry(
-            url=self._url(path),
-            timeout_seconds=self._timeout,
-            query_params=query_params,
-            headers=self._core_headers(operation=f"GET {path}"),
-            max_retries=self._max_retries,
-            backoff_seconds=self._retry_backoff_seconds,
+        return await self._within_context_deadline(
+            operation=f"GET {path}",
+            request=lambda headers: get_with_retry(
+                url=self._url(path),
+                timeout_seconds=self._timeout,
+                query_params=query_params,
+                headers=headers,
+                max_retries=self._max_retries,
+                backoff_seconds=self._retry_backoff_seconds,
+            ),
         )
 
     async def get_portfolio_analytics_timeseries(
