@@ -142,9 +142,9 @@ native baseline measures 314,056 Python lines and 10,091 collected cases; AST ta
 480 modules, 5,688 source test functions and 291 contract/governance functions. The annual candidate tables carried these measurements; dated historical baselines and all policy thresholds are preserved.
 These counts do not establish executed-test or live financial acceptance.
 
-Current #679 Core service execution context measurement (2026-10-17, unsigned patch on exact base `7f14a080f45bc9b1c28e282c3d1163f889bc5627`):
-native baseline measures 1,081 Python files, 314,682 Python lines and 10,125 collected cases;
-AST taxonomy measures 481 modules and 5,702 source functions, including 501 quality/security functions.
+Current #679 Core URL identity refusal measurement (2026-10-17, unsigned patch on signed base `349d2db5b229fcdcb01e83529dba13efd60a5d95`):
+native baseline measures 1,081 Python files, 315,011 Python lines and 10,178 collected cases;
+AST taxonomy measures 481 modules and 5,707 source functions, including 505 quality/security functions.
 Current tables use this measurement; all dated annual measurements, financial qualifications and thresholds remain unchanged.
 Collection and synthetic authentication tests do not establish installed-runtime, source or institutional acceptance.
 
@@ -168,7 +168,7 @@ link the commit, command, or CI artifact that proves the change.
 | --- | ---: | ---: | --- | --- |
 | Python files | 480 | 1081 | measured | `quality/baseline_report.md` |
 | Python package markers | 18 | 36 | measured | recursive `__init__.py` count |
-| Python LOC | 104,454 | 314,682 | measured | `quality/baseline_report.md` |
+| Python LOC | 104,454 | 315,011 | measured | `quality/baseline_report.md` |
 | Largest Python file LOC | 2,399 | 4,447 | measured | largest-file inventory on this branch |
 | Largest production file LOC | 1,156 | 3,271 | measured | `app/services/composite_metadata_store.py` |
 | Duplicate code hotspots | 0 | 0 | enforced | `quality/duplicate_code_inventory.md`; `make quality-duplicate-code-gate` with `--min-lines 12 --max-groups 0`; duplicated LOC reduced from `24` to `0` in LP-CR-1407 |
@@ -182,7 +182,7 @@ link the commit, command, or CI artifact that proves the change.
 | --- | ---: | ---: | --- | --- |
 | Max cyclomatic complexity | unknown | 8 | enforced | `quality/complexity_inventory.md` via `scripts/python_complexity_inventory.py`; `make quality-complexity-gate` |
 | High-complexity functions | unknown | 0 | enforced | rank D-F functions in `quality/complexity_inventory.md`; `make quality-complexity-gate` |
-| Average maintainability index | unknown | 54.75 | measured | `python scripts/python_complexity_inventory.py --limit 25`; #679 unsigned native complexity gate |
+| Average maintainability index | unknown | 54.74 | measured | `python scripts/python_complexity_inventory.py --limit 25`; #679 unsigned native complexity gate |
 | Largest functions by LOC | unknown | 169 | measured | `quality/function_size_inventory.md` via `scripts/python_function_size_inventory.py`; `_create_sqlite_composite_fact_validation_guards(...)` remains the largest production function at `169` lines |
 
 ## Architecture
@@ -214,7 +214,7 @@ link the commit, command, or CI artifact that proves the change.
 | Metric | Baseline | Current | Status | Evidence |
 | --- | ---: | ---: | --- | --- |
 | Test modules | 228 | 481 | measured | `quality/test_taxonomy_inventory.md`; native AST inventory for #540 |
-| Collected tests | 2,035 | 10,125 | measured | `quality/baseline_report.md`; `python -m pytest --collect-only -q` |
+| Collected tests | 2,035 | 10,178 | measured | `quality/baseline_report.md`; `python -m pytest --collect-only -q` |
 | Line coverage | unknown | 99.58% | measured | `quality/coverage_inventory.md` via `make branch-coverage-baseline` (`3,013` unit, `308` integration, and `21` e2e tests under branch coverage; `21,154` covered lines of `21,244` statements) |
 | Branch coverage | unknown | 98.00% | measured | `quality/coverage_inventory.md` via `make branch-coverage-baseline` (`3,013` unit, `308` integration, and `21` e2e tests under branch coverage; `4,318` covered branches of `4,406`, `88` missing branches, `88` partial branches) |
 | Integration/API/runtime test functions | unknown | 1123 | enforced | `quality/test_taxonomy_inventory.md`; `make quality-test-taxonomy-gate` |

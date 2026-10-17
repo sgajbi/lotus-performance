@@ -125,9 +125,9 @@ native baseline measures 314,056 Python lines and 10,091 collected cases; AST ta
 480 modules, 5,688 source test functions and 291 contract/governance functions. The annual candidate tables carried these measurements; dated historical baselines and all policy thresholds are preserved.
 These counts do not establish executed-test or live financial acceptance.
 
-Current #679 Core service execution context measurement (2026-10-17, unsigned patch on exact base `7f14a080f45bc9b1c28e282c3d1163f889bc5627`):
-native baseline measures 1,081 Python files, 314,682 Python lines and 10,125 collected cases;
-AST taxonomy measures 481 modules and 5,702 source functions, including 501 quality/security functions.
+Current #679 Core URL identity refusal measurement (2026-10-17, unsigned patch on signed base `349d2db5b229fcdcb01e83529dba13efd60a5d95`):
+native baseline measures 1,081 Python files, 315,011 Python lines and 10,178 collected cases;
+AST taxonomy measures 481 modules and 5,707 source functions, including 505 quality/security functions.
 Current tables use this measurement; all dated annual measurements, financial qualifications and thresholds remain unchanged.
 Collection and synthetic authentication tests do not establish installed-runtime, source or institutional acceptance.
 
@@ -143,11 +143,11 @@ metrics in each section are updated with each meaningful slice.
 | --- | ---: | ---: | ---: | --- | --- |
 | Python files | 480 | 1081 | 601 | measured | `quality/baseline_report.md`; `quality/refactor_health_report.md` |
 | Python package markers | 18 | 36 | 18 | measured | `quality/baseline_report.md`; `quality/refactor_health_report.md` |
-| Python LOC | 104,454 | 314,682 | 210,228 | measured | `quality/baseline_report.md`; `quality/refactor_health_report.md` |
+| Python LOC | 104,454 | 315,011 | 210,557 | measured | `quality/baseline_report.md`; `quality/refactor_health_report.md` |
 | Largest Python file LOC | 2,399 | 4,447 | 2,048 | measured | `quality/baseline_report.md`; `quality/refactor_health_report.md` |
 | Largest production file LOC | 1,156 | 3,271 | 2,115 | measured | `quality/refactor_health_report.md`; `quality/architecture_boundary_inventory.md` |
 | Python test modules | 228 | 481 | 253 | measured | `quality/test_taxonomy_inventory.md`; `quality/refactor_health_report.md` |
-| Collected tests | 2,035 | 10,125 | 8,090 | measured | `quality/baseline_report.md`; `quality/refactor_health_report.md` |
+| Collected tests | 2,035 | 10,178 | 8,143 | measured | `quality/baseline_report.md`; `quality/refactor_health_report.md` |
 | Duplicate code hotspots | 0 | 0 | 0 | enforced | `quality/duplicate_code_inventory.md`; `quality/refactor_health_report.md`; `make quality-duplicate-code-gate` |
 | Tracked local byproduct findings | unknown | 0 | n/a | enforced | `scripts/repository_hygiene_gate.py`; `make repository-hygiene-gate`; `quality/refactor_health_report.md` |
 
@@ -157,7 +157,7 @@ metrics in each section are updated with each meaningful slice.
 | --- | ---: | ---: | ---: | --- | --- |
 | Max cyclomatic complexity | unknown | 8 | n/a | enforced | `quality/complexity_inventory.md`; `quality/refactor_health_report.md`; `make quality-complexity-gate` |
 | High-complexity functions (D-F) | unknown | 0 | n/a | enforced | `quality/complexity_inventory.md`; `quality/refactor_health_report.md`; `make quality-complexity-gate` |
-| Average maintainability index | unknown | 54.75 | n/a | measured | `python scripts/python_complexity_inventory.py --limit 25`; `quality/refactor_health_report.md`; #679 unsigned native complexity gate |
+| Average maintainability index | unknown | 54.74 | n/a | measured | `python scripts/python_complexity_inventory.py --limit 25`; `quality/refactor_health_report.md`; #679 unsigned native complexity gate |
 | Largest functions by LOC | unknown | 169 | n/a | measured | `quality/function_size_inventory.md`; `quality/refactor_health_report.md`; `_create_sqlite_composite_fact_validation_guards(...)` remains the largest production function at `169` lines |
 
 ### Architecture

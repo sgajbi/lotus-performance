@@ -3,6 +3,8 @@ from collections.abc import Awaitable, Callable
 from datetime import date
 from typing import Any
 
+import httpx
+
 from app.observability import propagation_headers
 from app.services.core_request_context import CoreRequestContextAuthority
 from app.services.core_tenant_authority import TenantAuthority, require_tenant_authority
@@ -37,7 +39,17 @@ class CoreIntegrationService:
         self._request_context_authority = request_context_authority
 
     def _url(self, path: str) -> str:
-        return f"{self._base_url}{path}"
+        url = f"{self._base_url}{path}"
+        if self._request_context_authority is not None:
+            try:
+                unsafe_url = bool(httpx.URL(url).userinfo)
+            except httpx.InvalidURL:
+                unsafe_url = True
+            if unsafe_url:
+                # HTTPX can derive Basic auth from URL userinfo after request policy.
+                # Never include configured URL values or parser diagnostics in refusal.
+                raise ValueError("Signed Core request URL must be valid and contain no userinfo.")
+        return url
 
     def _core_headers(self, *, operation: str) -> dict[str, str]:
         """Trace propagation plus the admitted tenant, or a refusal.
@@ -74,11 +86,8 @@ class CoreIntegrationService:
                 headers=headers,
                 max_retries=self._max_retries,
                 backoff_seconds=self._retry_backoff_seconds,
-                **(
-                    {"response_decoder": lambda response: capture.decode(payload, response)}
-                    if capture is not None
-                    else {}
-                ),
+                **self._request_policy_options(headers),
+                response_decoder=(lambda response: capture.decode(payload, response)) if capture is not None else None,
             ),
         )
 
@@ -92,8 +101,18 @@ class CoreIntegrationService:
                 headers=headers,
                 max_retries=self._max_retries,
                 backoff_seconds=self._retry_backoff_seconds,
+                **self._request_policy_options(headers),
             ),
         )
+
+    def _request_policy_options(self, headers: dict[str, str]) -> dict[str, Any]:
+        if self._request_context_authority is None:
+            return {}
+        return {
+            "request_policy": lambda request: CoreRequestContextAuthority.isolate_request(
+                request, signed_headers=headers
+            )
+        }
 
     async def get_portfolio_analytics_timeseries(
         self,

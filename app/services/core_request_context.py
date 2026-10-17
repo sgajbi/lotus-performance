@@ -10,6 +10,7 @@ import hashlib
 import hmac
 import time
 
+import httpx
 from pydantic import BaseModel, ConfigDict, Field, SecretStr, field_validator
 
 from app.services.core_tenant_authority import TenantAuthority, TenantAuthorityError
@@ -103,8 +104,11 @@ class CoreRequestContextAuthority(BaseModel):
         if tenant.tenant_id not in self.tenants:
             raise CoreExecutionScopeDenied()
         # Build a private final map, replacing any untrusted authority fields.
-        headers = {key.lower(): value.strip() for key, value in propagation.items()}
-        headers.pop("authorization", None)
+        headers = {
+            key.lower(): value.strip()
+            for key, value in propagation.items()
+            if key.lower() in {"x-correlation-id", "x-request-id", "x-trace-id", "traceparent"}
+        }
         headers.update(
             {
                 "x-enterprise-auth-key-id": self.key_id,
@@ -139,3 +143,12 @@ class CoreRequestContextAuthority(BaseModel):
             self.secret.get_secret_value().encode("utf-8"), canonical.encode("utf-8"), hashlib.sha256
         ).hexdigest()
         return headers
+
+    @staticmethod
+    def isolate_request(request: httpx.Request, *, signed_headers: dict[str, str]) -> None:
+        """Admit only framing and this logical call's context after pool merges."""
+        framing = {"host", "content-length", "content-type", "transfer-encoding", "accept-encoding"}
+        for name in list(request.headers):
+            if name not in framing:
+                del request.headers[name]
+        request.headers.update(signed_headers)
