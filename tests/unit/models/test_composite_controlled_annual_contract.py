@@ -1,11 +1,13 @@
 """Actual producer Slice A graph, full nested custody and old-family isolation."""
 
+import base64
 import hashlib
 import json
 from copy import deepcopy
 from datetime import datetime, timedelta
 
 import pytest
+from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
 
 from app.models.composite_authority import ManageCompositeDefinitionV2, authority_digest, decode_governed_definition
 from app.models.composite_controlled_annual_authority import ControlledAnnualDefinitionV4
@@ -105,6 +107,34 @@ def test_complete_producer_graph_roundtrips_with_year_basis_and_actual_january_p
         receipt.finalization.year_authority_verification.request.revision
         == receipt.finalization.subject.subject_revision
     )
+    proof = receipt.finalization.year_authority_verification
+    assert proof.request.profile_configuration_digest == proof.configuration_digest
+
+
+def test_resigned_year_proof_cannot_bind_request_to_another_configuration():
+    wire = graph()
+    finalization = wire["finalization"]
+    definition = finalization["definition"]
+    proof = definition["authority_approval"]["verification"]
+    original_configuration = proof["configuration_digest"]
+    other_configuration = authority_digest({"configuration": "another-synthetic-profile"})
+    assert other_configuration != original_configuration
+    proof["request"]["profile_configuration_digest"] = other_configuration
+    # Public fixture key: preserve every other proof field and re-sign the changed request.
+    verifier_key = Ed25519PrivateKey.from_private_bytes(bytes(range(96, 128)))
+    assert (
+        base64.b64encode(verifier_key.public_key().public_bytes_raw()).decode() == proof["verifier_public_key_base64"]
+    )
+    unsigned = {key: value for key, value in proof.items() if key not in {"content_hash", "verifier_credential"}}
+    proof["verifier_credential"] = base64.b64encode(verifier_key.sign(authority_digest(unsigned).encode())).decode()
+    hash_envelope(proof)
+    hash_envelope(definition)
+    finalization["year_authority_verification"] = deepcopy(proof)
+    hash_envelope(finalization)
+    hash_envelope(wire)
+    assert proof["configuration_digest"] == original_configuration
+    with pytest.raises(ValueError, match="COMPOSITE_YEAR_REQUEST_MISMATCH"):
+        decode_eligibility_receipt(json.dumps(wire))
 
 
 def test_same_scope_competing_basis_is_structurally_valid_but_has_a_distinct_immutable_definition():

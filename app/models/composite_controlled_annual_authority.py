@@ -104,13 +104,21 @@ class ControlledYearBasisVerification(HashedEligibilityWire):
             request, basis.scope, ("tenant_id", "composite_id", "definition_version"), "COMPOSITE_YEAR_SCOPE_MISMATCH"
         )
         _require(
-            (request.basis_reference, request.year, request.intent_digest, request.actor_id, request.requested_at)
+            (
+                request.basis_reference,
+                request.year,
+                request.intent_digest,
+                request.actor_id,
+                request.requested_at,
+                request.profile_configuration_digest,
+            )
             == (
                 self.basis_mapping.reference,
                 basis.year,
                 authority_digest(self.claims.model_dump()),
                 self.claims.approving_identity,
                 self.claims.approved_at,
+                self.configuration_digest,
             ),
             "COMPOSITE_YEAR_REQUEST_MISMATCH",
         )
